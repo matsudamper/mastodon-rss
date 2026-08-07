@@ -1,0 +1,59 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  jvm:
+    name: JVM ビルド・テスト
+    runs-on: ubuntu-latest
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: JDK のセットアップ
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Gradle のセットアップ
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: ビルド・テスト
+        run: ./gradlew build
+
+  native-image:
+    name: native-image ビルド
+    runs-on: ubuntu-latest
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: GraalVM のセットアップ
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: "21"
+          distribution: "graalvm"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Gradle のセットアップ
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: native-image ビルド
+        run: ./gradlew nativeCompile
+
+      - name: 起動確認（Hello World）
+        run: |
+          ./build/native/nativeCompile/mastodon-rss &
+          SERVER_PID=$!
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/ > /tmp/response.txt; then
+              break
+            fi
+            sleep 1
+          done
+          grep -q "Hello, World!" /tmp/response.txt
+          kill "$SERVER_PID"
