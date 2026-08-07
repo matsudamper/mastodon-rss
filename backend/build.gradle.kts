@@ -7,10 +7,17 @@ plugins {
 
 dependencies {
     implementation(project(":repository"))
+    implementation(project(":crypto"))
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
     implementation(libs.kotlinx.serialization.json)
+
+    // SLF4J の実装が無いと Ktor もこちらのログも NOP になって何も出ない。
+    // 起動時の DOMAIN と鍵の取得元は運用で必ず見たいので実装を入れる。
+    // logback は native-image で設定ファイルの読み込みに追加対応が要るため、
+    // 標準エラーに出すだけの slf4j-simple にする
+    runtimeOnly(libs.slf4j.simple)
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test)

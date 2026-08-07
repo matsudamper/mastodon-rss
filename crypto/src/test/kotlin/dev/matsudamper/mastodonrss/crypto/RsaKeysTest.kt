@@ -98,6 +98,24 @@ class RsaKeysTest {
     }
 
     @Test
+    fun `秘密鍵から公開鍵を導ける`() {
+        val keyPair = RsaKeys.generateKeyPair()
+
+        val derived = RsaKeys.derivePublicKey(keyPair.private)
+
+        assertEquals(keyPair.public, derived)
+        assertEquals(RsaKeys.encodeToPem(keyPair.public), RsaKeys.encodeToPem(derived))
+    }
+
+    @Test
+    fun `PEM から読み戻した秘密鍵からも公開鍵を導ける`() {
+        val keyPair = RsaKeys.generateKeyPair()
+        val restored = RsaKeys.decodePrivateKeyPem(RsaKeys.encodeToPem(keyPair.private))
+
+        assertEquals(keyPair.public, RsaKeys.derivePublicKey(restored))
+    }
+
+    @Test
     fun `ラベルが合わない PEM は例外になる`() {
         val privateKeyPem = RsaKeys.encodeToPem(RsaKeys.generateKeyPair().private)
 

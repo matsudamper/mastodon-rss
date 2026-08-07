@@ -121,6 +121,8 @@ jobs:
 
           # 一時ディレクトリを DB_PATH に渡して、SQLite への書き込みも確認する
           export DB_PATH="$RUNNER_TEMP/native-check/mastodon-rss.db"
+          # 鍵の生成と書き出しも native バイナリで動く必要がある
+          export ACTOR_PRIVATE_KEY_PATH="$RUNNER_TEMP/native-check/actor-private-key.pem"
 
           ./backend/build/native/nativeCompile/mastodon-rss > /tmp/server.log 2>&1 &
           SERVER_PID=$!
@@ -158,3 +160,11 @@ jobs:
           echo "--- DB ファイル ---"
           ls -la "$(dirname "$DB_PATH")"
           test -f "$DB_PATH"
+
+          # 鍵は JCA での生成とファイルへの書き出しの両方を通る。成功時の
+          # サーバーログは出さないので、結果をここで確かめる
+          echo "--- アクターの秘密鍵 ---"
+          test -f "$ACTOR_PRIVATE_KEY_PATH"
+          grep -q "BEGIN PRIVATE KEY" "$ACTOR_PRIVATE_KEY_PATH"
+          # 所有者以外に読めていたら権限の指定が効いていない
+          test "$(stat -c '%a' "$ACTOR_PRIVATE_KEY_PATH")" = "600"

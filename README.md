@@ -20,6 +20,7 @@ flowchart TB
         route["routing<br/>GET /healthz"]
         json["json<br/>AppJson<br/>respondJson"]
         ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
+        actor["actor<br/>ActorKeyConfig<br/>ActorKeyLoader<br/>ActorKey"]
     end
 
     subgraph crypto[":crypto"]
@@ -44,20 +45,23 @@ flowchart TB
     module --> route
     json --> ap
     main -->|createRepositories| api
+    main -->|load| actor
     module -->|verifyWritable| api
     api -.->|backend からは見えない| impl
     impl --> res
     impl --> db
-    ap -.->|Phase 1 で接続| keys
+    actor --> keys
     ap -.->|Phase 2 で接続| sign
+    key[("秘密鍵の PEM<br/>ACTOR_PRIVATE_KEY_PATH")]
+    actor --> key
 ```
 
 `:backend` から見えるのは `:repository` の公開 API だけ。実装は `internal` で、
 sqlite-jdbc も `implementation` で入れているため、JDBC の型は `:backend` の
 compile classpath にも現れない。
 
-`:crypto` はまだどこからも参照されていない。Actor の公開鍵を配る Phase 1 と、
-HTTP Signatures を実装する Phase 2 で `:backend` から使う。先に切り出してあるのは、
+`:crypto` は `:backend` がアクターの鍵を読むために使っている。HTTP Signatures の
+署名と検証で使うのは Phase 2 から。別モジュールに切り出してあるのは、
 テストを native バイナリとして実行するため。`:backend` のテストは
 `ktor-server-test-host` 経由で ByteBuddy と JNA を引き込み、これらは実行時の
 バイトコード書き換えに依存するので native-image では動かない。JCA の確認を
@@ -71,10 +75,13 @@ HTTP Signatures を実装する Phase 2 で `:backend` から使う。先に切�
 ```mermaid
 sequenceDiagram
     participant M as main
+    participant A as ActorKeyLoader
     participant R as Repositories
     participant DB as SQLite
     participant K as Ktor CIO
 
+    M->>A: load
+    A->>A: PEM を読む（ファイルが無ければ生成して書き出す）
     M->>R: createRepositories
     R->>DB: 接続して PRAGMA を適用
     R->>DB: 未適用のマイグレーションをバージョン昇順で適用
@@ -89,6 +96,13 @@ DB を開けなかった場合もマイグレーションに失敗した場合�
 起動が止まる。native バイナリでは SQLite のネイティブライブラリの展開に失敗しても
 起動自体は通ってしまうことがあるため、書き込みの往復まで確かめている。
 
+鍵は DB より先に読む。鍵を用意できないならサーバーを立てても意味が無いので、
+先に落とすため。
+
+ログは slf4j-simple で標準エラーに出る。SLF4J の実装を入れていないと Ktor 自身の
+ログも含めて何も出ないため、実装を 1 つだけ入れている。logback にしないのは、
+設定ファイルの読み込みに native-image 側の追加対応が要るため。
+
 ## 環境変数
 
 | 変数 | 既定値 | 内容 |
@@ -97,10 +111,35 @@ DB を開けなかった場合もマイグレーションに失敗した場合�
 | `PORT` | `8080` | 待ち受けポート |
 | `DB_PATH` | `./data/mastodon-rss.db` | SQLite の DB ファイル。親ディレクトリは起動時に作られる |
 | `DOMAIN` | なし | 外部に公開するドメイン。WebFinger の `acct:` とアクターの `id` に使う |
+| `ACTOR_PRIVATE_KEY_PATH` | `./data/actor-private-key.pem` | アクターの秘密鍵 (PEM)。無ければ起動時に生成して書き出す |
+| `ACTOR_PRIVATE_KEY_PEM` | なし | 秘密鍵の PEM を直接渡す場合に使う。`ACTOR_PRIVATE_KEY_PATH` とは併用できない |
 
 `DOMAIN` は `https://` などの scheme と末尾の `/` を書いても落として扱う。
 いまは起動ログに出るだけで、実際に使うのは Phase 1 から。アクター ID に焼き込まれ、
 Mastodon 側にキャッシュされると後から変えられないので、本番では慎重に決めること。
+
+## アクターの鍵
+
+Mastodon はアクターの公開鍵を持っておき、こちらから送る署名をそれで検証する。
+鍵が入れ替わると検証が通らなくなり、Mastodon 側はアクターをキャッシュするので
+気付いてから直しても戻りが遅い。つまり鍵は消さずに持ち続ける必要がある。
+
+保存するのは秘密鍵だけで、公開鍵は起動のたびに秘密鍵から導く。2 つ持って
+片方だけ差し替わる事故を避けるため。形式は PKCS#8 の `BEGIN PRIVATE KEY`。
+
+読み込み元は 2 つあり、同時には指定できない。取り違えたまま起動しないよう、
+両方が設定されていると起動時に落とす。
+
+| 指定 | 動き |
+| --- | --- |
+| `ACTOR_PRIVATE_KEY_PATH`（既定） | ファイルがあれば読む。無ければ生成して書き出す（所有者のみ読み書き可） |
+| `ACTOR_PRIVATE_KEY_PEM` | PEM をそのまま使う。ファイルには書き出さない |
+
+どちらから読んだかは起動ログに出る。生成した場合だけ警告になるので、
+運用中に出ていたら以前の鍵を失っていることになる。
+
+docker compose ではボリュームの中（`/data/actor-private-key.pem`）に置いている。
+コンテナを作り直しても同じ鍵のままだが、ボリュームごと消すとアクターは別人になる。
 
 ## 必要なもの
 
