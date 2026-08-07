@@ -47,10 +47,11 @@ Mastodon --POST(署名)--> /users/{name}/inbox    (Follow / Undo / Delete)
 GraalVM native-image は「あとで対応する」と致命傷になりやすいので、**最初にすべての要素技術が
 native-image で動くことだけを確認する**。ここが一番の技術リスク。
 
-- [ ] Gradle + Kotlin JVM プロジェクトを作成
+- [x] Gradle + Kotlin JVM プロジェクトを作成
 - [ ] HTTP サーバーを選定して `GET /healthz` が 200 を返す
       - 候補: Ktor (CIO engine) / http4k / 素の `com.sun.net.httpserver`
       - native-image 実績と依存の軽さで選ぶ
+      - Ktor (CIO) を選定。`GET /` で Hello World を返すところまで実装済み。`/healthz` 自体は未実装
 - [ ] JSON シリアライザを導入（kotlinx.serialization 推奨。リフレクション不使用で native-image と相性が良い）
 - [ ] SQLite 接続（xerial sqlite-jdbc）でテーブル作成 → INSERT → SELECT
 - [ ] jOOQ のコード生成を Gradle タスク化（SQLite スキーマ → 生成クラス）
@@ -61,7 +62,8 @@ native-image で動くことだけを確認する**。ここが一番の技術�
       - [ ] JCA（RSA / SHA-256）が native-image 上で動くことを確認（`java.security` 系の設定が要る場合あり）
       - [ ] jOOQ のリフレクション設定（`reflect-config.json`）を用意
       - [ ] 必要なら GraalVM tracing agent (`-agentlib:native-image-agent`) で設定を自動収集
-- [ ] CI（GitHub Actions）で JVM テスト + native-image ビルドを回す
+      - Gradle プラグイン（`org.graalvm.buildtools.native`）導入済み。CI 上で `nativeCompile` が通り、Hello World の起動確認も成功済み
+- [x] CI（GitHub Actions）で JVM テスト + native-image ビルドを回す
 
 ### ✅ チェックポイント 0
 ネイティブバイナリ 1 個を起動して `curl localhost:8080/healthz` が通り、SQLite に書き込める。
