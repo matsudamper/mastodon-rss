@@ -46,8 +46,10 @@ RUN apt-get update \
 
 COPY --from=build /src/backend/build/native/nativeCompile/mastodon-rss /usr/local/bin/mastodon-rss
 
-# DB はボリュームに置く。コンテナを作り直してもフォロワーが消えないように
+# DB とアクターの秘密鍵はボリュームに置く。コンテナを作り直しても
+# フォロワーが消えず、アクターも同一人物のままになるように
 ENV DB_PATH=/data/mastodon-rss.db \
+    ACTOR_PRIVATE_KEY_PATH=/data/actor-private-key.pem \
     HOST=0.0.0.0 \
     PORT=8080
 

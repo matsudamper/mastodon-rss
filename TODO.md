@@ -15,8 +15,9 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
 CI で ktlint / JVM ビルド・テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
 
-次の一手: Phase 1 に入る。ただし本番ドメインと鍵の保存先が決まっていないと
-WebFinger も Actor JSON も書けないので、そこから決める。
+次の一手: Phase 1 に入っている。鍵の保存先は決まって実装済み（環境変数で指定し、
+既定はファイル。無ければ生成する）。残るブロッカーは本番ドメインで、
+これが決まらないと WebFinger の `subject` も Actor の `id` も書けない。
 
 Phase 0 でやったことと順序の理由:
 
@@ -373,11 +374,19 @@ Phase 0 は完了。Phase 1 に入る前に「事前に決めておくこと」�
 
 ActivityPub のアカウント発見は WebFinger → Actor の 2 ホップで行われる。
 
-- [ ] RSA 2048bit の鍵ペアを 1 組生成し、PEM でファイル or 環境変数に保存（固定。ローテーションは考えない）
+- [x] RSA 2048bit の鍵ペアを 1 組生成し、PEM でファイル or 環境変数に保存（固定。ローテーションは考えない）
       - 秘密鍵: PKCS#8 (`BEGIN PRIVATE KEY`)
       - 公開鍵: X.509 SubjectPublicKeyInfo (`BEGIN PUBLIC KEY`) ← Actor JSON にはこちらを入れる
       - 生成と PEM の相互変換は 0-6 で `:crypto` の `RsaKeys` に用意済み。
         ここで決めるのは保存先と、起動時にどう読むか（無ければ生成するのか、必ず与えるのか）
+      - 保存するのは秘密鍵だけにした。公開鍵は起動のたびに `RsaKeys.derivePublicKey` で導く。
+        2 つ保存して片方だけ差し替わる事故を避けるため
+      - 入口は環境変数。`ACTOR_PRIVATE_KEY_PATH`（既定 `./data/actor-private-key.pem`）か
+        `ACTOR_PRIVATE_KEY_PEM` のどちらか。両方指定されたら起動時に落とす
+      - パス指定でファイルが無ければ生成して書き出す。所有者だけが読める権限で作る。
+        既にあるファイルは書き換えない
+      - 取得元は起動ログに出す。生成したときだけ警告にして、鍵を失ったことに気付けるようにした
+      - docker compose ではボリュームの中（`/data/actor-private-key.pem`）に置く
 - [ ] `GET /.well-known/webfinger?resource=acct:feed@example.com`
       - Content-Type: `application/jrd+json`
       - `subject` はリクエストされた `acct:` をそのまま返す
@@ -631,6 +640,7 @@ Phase 1 で固定していた部分を動的にする。
 | native-image で落ちる | リフレクション設定不足（`@Serializable` 型の登録漏れなど）・SQLite ネイティブライブラリ・jOOQ を入れた場合はその設定 |
 | JVM のテストは通るのに native だけ落ちる | テストが native で実行されていない。`nativeTest` の対象に入れられないか検討する |
 | native バイナリでマイグレーションが動かない | SQL がリソースとして同梱されていない（`resource-config.json` 未登録）/ jar 内ディレクトリ走査に頼っている |
+| ログが 1 行も出ない | SLF4J の実装が classpath に無い。`No SLF4J providers were found` が出て以降すべて NOP になる |
 | 外部キー制約が効かない | SQLite は `PRAGMA foreign_keys` が既定で OFF。接続ごとに ON にする必要がある |
 | `SQLITE_BUSY` が出る | ライターを複数持っている / `busy_timeout` 未設定 |
 

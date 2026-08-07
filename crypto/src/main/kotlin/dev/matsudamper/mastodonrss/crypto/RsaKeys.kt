@@ -5,7 +5,9 @@ import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.PrivateKey
 import java.security.PublicKey
+import java.security.interfaces.RSAPrivateCrtKey
 import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.RSAPublicKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 
@@ -35,6 +37,22 @@ object RsaKeys {
         val generator = KeyPairGenerator.getInstance(ALGORITHM)
         generator.initialize(KEY_SIZE_BITS)
         return generator.generateKeyPair()
+    }
+
+    /**
+     * 秘密鍵から公開鍵を組み立てる。
+     *
+     * PKCS#8 の RSA 秘密鍵は modulus と publicExponent を持っている（[RSAPrivateCrtKey]）ので、
+     * 公開鍵は秘密鍵だけから導ける。2 つのファイルを保存して片方だけ差し替わる事故を
+     * 避けるため、保存するのは秘密鍵だけにして公開鍵は起動のたびにここで作る。
+     */
+    fun derivePublicKey(privateKey: PrivateKey): PublicKey {
+        // PKCS#8 で読めば通常こちらになる。CRT の情報を持たない鍵だと modulus しか取れず導けない
+        require(privateKey is RSAPrivateCrtKey) {
+            "公開鍵を導けない秘密鍵: ${privateKey.javaClass.name}"
+        }
+        val spec = RSAPublicKeySpec(privateKey.modulus, privateKey.publicExponent)
+        return KeyFactory.getInstance(ALGORITHM).generatePublic(spec)
     }
 
     fun encodeToPem(privateKey: PrivateKey): String {
