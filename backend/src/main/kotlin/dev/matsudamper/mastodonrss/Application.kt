@@ -1,5 +1,6 @@
 package dev.matsudamper.mastodonrss
 
+import io.ktor.http.ContentType
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.cio.CIO
@@ -9,13 +10,15 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 
 fun main() {
-    embeddedServer(CIO, port = 8080, host = "0.0.0.0", module = Application::module).start(wait = true)
+    val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
+    val host = System.getenv("HOST") ?: "0.0.0.0"
+    embeddedServer(CIO, port = port, host = host, module = Application::module).start(wait = true)
 }
 
 fun Application.module() {
     routing {
-        get("/") {
-            call.respondText("Hello, World!")
+        get("/healthz") {
+            call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
         }
     }
 }

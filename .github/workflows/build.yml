@@ -80,14 +80,14 @@ jobs:
           trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
 
           for _ in $(seq 1 30); do
-            if curl -sf http://localhost:8080/ -o /tmp/response.txt; then
+            if curl -sf http://localhost:8080/healthz -o /tmp/response.txt; then
               break
             fi
             sleep 1
           done
 
           # 立ち上がらなかった場合に原因が分かるようログを出してから落とす
-          if ! grep -q "Hello, World!" /tmp/response.txt 2>/dev/null; then
+          if ! grep -q '"status":"ok"' /tmp/response.txt 2>/dev/null; then
             echo "::error::サーバーの起動確認に失敗しました"
             cat /tmp/server.log
             exit 1
