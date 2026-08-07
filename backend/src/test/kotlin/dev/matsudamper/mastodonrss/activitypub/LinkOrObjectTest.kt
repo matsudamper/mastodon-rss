@@ -1,8 +1,8 @@
 package dev.matsudamper.mastodonrss.activitypub
 
 import dev.matsudamper.mastodonrss.json.AppJson
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlin.test.Test
@@ -27,14 +27,16 @@ class LinkOrObjectTest {
 
     @Test
     fun `オブジェクトはEmbeddedとして読み込まれる`() {
-        val decoded = AppJson.decodeFromString<Sample>(
-            """{"object":{"id":"https://example.com/follow/1","type":"Follow"}}""",
-        )
+        val decoded =
+            AppJson.decodeFromString<Sample>(
+                """{"object":{"id":"https://example.com/follow/1","type":"Follow"}}""",
+            )
 
-        val expected = buildJsonObject {
-            put("id", JsonPrimitive("https://example.com/follow/1"))
-            put("type", JsonPrimitive("Follow"))
-        }
+        val expected =
+            buildJsonObject {
+                put("id", JsonPrimitive("https://example.com/follow/1"))
+                put("type", JsonPrimitive("Follow"))
+            }
         assertEquals(LinkOrObject.Embedded(expected), decoded.`object`)
     }
 
@@ -47,10 +49,11 @@ class LinkOrObjectTest {
 
     @Test
     fun `Embeddedはオブジェクトのまま出力される`() {
-        val json = buildJsonObject {
-            put("id", JsonPrimitive("https://example.com/follow/1"))
-            put("type", JsonPrimitive("Follow"))
-        }
+        val json =
+            buildJsonObject {
+                put("id", JsonPrimitive("https://example.com/follow/1"))
+                put("type", JsonPrimitive("Follow"))
+            }
 
         val encoded = AppJson.encodeToString(Sample(LinkOrObject.Embedded(json)))
 

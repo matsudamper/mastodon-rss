@@ -29,8 +29,8 @@ object RsaSignature {
      * 受信した inbox のリクエストは中身を信用できないので、ここで吸収して
      * 例外がルーティングまで上がらないようにする。
      */
-    fun verify(publicKey: PublicKey, data: ByteArray, signature: ByteArray): Boolean {
-        return try {
+    fun verify(publicKey: PublicKey, data: ByteArray, signature: ByteArray): Boolean =
+        try {
             val verifier = Signature.getInstance(ALGORITHM)
             verifier.initVerify(publicKey)
             verifier.update(data)
@@ -38,5 +38,4 @@ object RsaSignature {
         } catch (e: SignatureException) {
             false
         }
-    }
 }

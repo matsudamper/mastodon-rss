@@ -25,10 +25,10 @@ internal data class Migration(
     val checksum: String = sha256Hex(sql)
 
     private companion object {
-        fun sha256Hex(value: String): String {
-            return MessageDigest.getInstance("SHA-256")
+        fun sha256Hex(value: String): String =
+            MessageDigest
+                .getInstance("SHA-256")
                 .digest(value.toByteArray(Charsets.UTF_8))
                 .joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xFF) }
-        }
     }
 }

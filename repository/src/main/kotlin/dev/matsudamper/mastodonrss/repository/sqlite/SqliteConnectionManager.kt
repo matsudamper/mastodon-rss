@@ -15,7 +15,9 @@ import kotlin.concurrent.withLock
  * 読み取り用の接続を複数持つ形に広げる。HikariCP は依存と native-image 設定を
  * 増やしたくないので入れない。
  */
-internal class SqliteConnectionManager(config: DatabaseConfig) : AutoCloseable {
+internal class SqliteConnectionManager(
+    config: DatabaseConfig,
+) : AutoCloseable {
     private val lock = ReentrantLock()
     private val connection: Connection
 
@@ -26,9 +28,10 @@ internal class SqliteConnectionManager(config: DatabaseConfig) : AutoCloseable {
 
         // DriverManager 経由だと ServiceLoader でドライバを探すことになる。
         // native-image では解決に追加設定が要ることがあるため、直接 DataSource を使う
-        val dataSource = SQLiteDataSource().apply {
-            url = "jdbc:sqlite:$path"
-        }
+        val dataSource =
+            SQLiteDataSource().apply {
+                url = "jdbc:sqlite:$path"
+            }
         connection = dataSource.connection
         try {
             applyPragmas(connection)
@@ -42,19 +45,20 @@ internal class SqliteConnectionManager(config: DatabaseConfig) : AutoCloseable {
     fun <T> withConnection(block: (Connection) -> T): T = lock.withLock { block(connection) }
 
     /** 接続を借りて 1 トランザクションで処理する。例外が出たらロールバックする */
-    fun <T> transaction(block: (Connection) -> T): T = lock.withLock {
-        connection.autoCommit = false
-        try {
-            val result = block(connection)
-            connection.commit()
-            result
-        } catch (e: Throwable) {
-            connection.rollback()
-            throw e
-        } finally {
-            connection.autoCommit = true
+    fun <T> transaction(block: (Connection) -> T): T =
+        lock.withLock {
+            connection.autoCommit = false
+            try {
+                val result = block(connection)
+                connection.commit()
+                result
+            } catch (e: Throwable) {
+                connection.rollback()
+                throw e
+            } finally {
+                connection.autoCommit = true
+            }
         }
-    }
 
     override fun close() {
         lock.withLock { connection.close() }

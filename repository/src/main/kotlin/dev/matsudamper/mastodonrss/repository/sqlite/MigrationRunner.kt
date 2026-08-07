@@ -9,8 +9,9 @@ import java.time.Instant
  * 1 ファイル = 1 トランザクション。途中で失敗したファイルは丸ごとロールバックされるので、
  * 「半分だけ適用された」状態にはならない。
  */
-internal class MigrationRunner(private val connectionManager: SqliteConnectionManager) {
-
+internal class MigrationRunner(
+    private val connectionManager: SqliteConnectionManager,
+) {
     fun migrate(migrations: List<Migration>) {
         connectionManager.withConnection { connection ->
             connection.createStatement().use { statement ->
@@ -36,11 +37,12 @@ internal class MigrationRunner(private val connectionManager: SqliteConnectionMa
         val byVersion = migrations.associateBy { it.version }
 
         applied.forEach { (version, appliedMigration) ->
-            val migration = byVersion[version]
-                ?: error(
-                    "DB には V$version (${appliedMigration.name}) が適用済みだが、対応するファイルが無い。" +
-                        "DB より古いバイナリで起動している可能性がある",
-                )
+            val migration =
+                byVersion[version]
+                    ?: error(
+                        "DB には V$version (${appliedMigration.name}) が適用済みだが、対応するファイルが無い。" +
+                            "DB より古いバイナリで起動している可能性がある",
+                    )
 
             check(migration.checksum == appliedMigration.checksum) {
                 "適用済みのマイグレーション ${migration.fileName} の内容が変わっている。" +
@@ -67,8 +69,8 @@ internal class MigrationRunner(private val connectionManager: SqliteConnectionMa
         }
     }
 
-    private fun readApplied(connection: Connection): Map<Int, AppliedMigration> {
-        return connection.createStatement().use { statement ->
+    private fun readApplied(connection: Connection): Map<Int, AppliedMigration> =
+        connection.createStatement().use { statement ->
             statement.executeQuery(SELECT_SCHEMA_VERSION).use { resultSet ->
                 buildMap {
                     while (resultSet.next()) {
@@ -85,7 +87,6 @@ internal class MigrationRunner(private val connectionManager: SqliteConnectionMa
                 }
             }
         }
-    }
 
     private data class AppliedMigration(
         val version: Int,

@@ -25,11 +25,13 @@ val generateMigrationIndex by tasks.registering {
     outputs.dir(outputDir).withPropertyName("index")
 
     doLast {
-        val fileNames = migrationDir.listFiles()
-            .orEmpty()
-            .filter { it.isFile && it.name.endsWith(".sql") }
-            .map { it.name }
-            .sorted()
+        val fileNames =
+            migrationDir
+                .listFiles()
+                .orEmpty()
+                .filter { it.isFile && it.name.endsWith(".sql") }
+                .map { it.name }
+                .sorted()
 
         val indexFile = outputDir.get().asFile.resolve("db/migration/index")
         indexFile.parentFile.mkdirs()
