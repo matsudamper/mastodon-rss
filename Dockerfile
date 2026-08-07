@@ -33,7 +33,7 @@ RUN ./gradlew --no-daemon :backend:nativeCompile
 # native バイナリは動的リンクなので、ビルド時より古い glibc のイメージに置くと起動しない。
 # ビルドステージは Oracle Linux 9 (glibc 2.34)、こちらは Debian 12 (glibc 2.36) で、
 # 新しい側に置いているため動く
-FROM debian:12-slim
+FROM debian:13-slim
 
 # curl は HEALTHCHECK で /healthz を叩くためだけに入れている
 RUN apt-get update \
