@@ -5,6 +5,11 @@
 # ステージを分けて、最終イメージに JDK を持ち込まないようにする
 FROM ghcr.io/graalvm/native-image-community:21 AS build
 
+# このイメージは最小構成で xargs が入っておらず、gradlew が
+# 「xargs is not available」で起動できない
+RUN microdnf install -y findutils \
+    && microdnf clean all
+
 WORKDIR /src
 
 # 先にビルド定義だけを入れて依存を解決しておく。
@@ -16,8 +21,9 @@ COPY crypto/build.gradle.kts ./crypto/
 COPY repository/build.gradle.kts ./repository/
 COPY frontend/build.gradle.kts ./frontend/
 
-# ここは依存を温めるだけなので失敗しても進む。成否はこの後の本ビルドで決まる
-RUN ./gradlew --no-daemon :backend:dependencies > /dev/null 2>&1 || true
+# 出力は捨てるが失敗は握り潰さない。ここで転ぶならビルド環境の問題で、
+# 先に進んでも本ビルドで同じ理由で落ちるだけ
+RUN ./gradlew --no-daemon :backend:dependencies > /dev/null
 
 COPY . .
 
