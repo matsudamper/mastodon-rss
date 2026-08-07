@@ -1,0 +1,107 @@
+package dev.matsudamper.mastodonrss.actor
+
+import dev.matsudamper.mastodonrss.FakeRepositories
+import dev.matsudamper.mastodonrss.TestActorKey
+import dev.matsudamper.mastodonrss.TestServerConfig
+import dev.matsudamper.mastodonrss.activitypub.Actor
+import dev.matsudamper.mastodonrss.json.AppJson
+import dev.matsudamper.mastodonrss.module
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.server.testing.ApplicationTestBuilder
+import io.ktor.server.testing.testApplication
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+// アカウント発見の 2 ホップ目。Mastodon はここの JSON からプロフィールと公開鍵を作る。
+class ActorRoutesTest {
+    private fun ApplicationTestBuilder.installModule() {
+        application {
+            module(FakeRepositories(), TestActorKey.value, TestServerConfig.value)
+        }
+    }
+
+    @Test
+    fun `Actor の JSON が返る`() =
+        testApplication {
+            installModule()
+
+            val response = client.get("/users/admin")
+
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
+
+            val actor = AppJson.decodeFromString(Actor.serializer(), response.bodyAsText())
+            assertEquals("https://example.com/users/admin", actor.id)
+            assertEquals("Service", actor.type)
+            assertEquals("admin", actor.preferredUsername)
+            assertEquals("https://example.com/users/admin/inbox", actor.inbox)
+            assertEquals("https://example.com/users/admin/outbox", actor.outbox)
+            assertEquals("https://example.com/users/admin/followers", actor.followers)
+            assertEquals("https://example.com/users/admin/following", actor.following)
+        }
+
+    @Test
+    fun `context に activitystreams と security が入る`() =
+        testApplication {
+            installModule()
+
+            val body = client.get("/users/admin").bodyAsText()
+
+            // @context は @SerialName で出す必要がある。素の Kotlin 識別子では書けない
+            val expected =
+                """"@context":["https://www.w3.org/ns/activitystreams",""" +
+                    """"https://w3id.org/security/v1"]"""
+            assertTrue(body.contains(expected))
+        }
+
+    @Test
+    fun `公開鍵は秘密鍵から導いたものが入る`() =
+        testApplication {
+            installModule()
+
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
+
+            assertEquals("https://example.com/users/admin#main-key", actor.publicKey.id)
+            assertEquals("https://example.com/users/admin", actor.publicKey.owner)
+            assertEquals(TestActorKey.value.publicKeyPem, actor.publicKey.publicKeyPem)
+            // PKCS#1 の BEGIN RSA PUBLIC KEY だと Mastodon が読めない
+            assertTrue(actor.publicKey.publicKeyPem.startsWith("-----BEGIN PUBLIC KEY-----"))
+        }
+
+    @Test
+    fun `Accept が ld+json ならその Content-Type で返す`() =
+        testApplication {
+            installModule()
+
+            // Mastodon は profile パラメータ付きで送ってくる
+            val accept = """application/ld+json; profile="https://www.w3.org/ns/activitystreams""""
+            val response = client.get("/users/admin") { header(HttpHeaders.Accept, accept) }
+
+            assertEquals("application/ld+json", response.contentType()?.withoutParameters()?.toString())
+        }
+
+    @Test
+    fun `Accept が無くても activity+json で返す`() =
+        testApplication {
+            installModule()
+
+            // Accept を送らない相手に application/json を返すとアクターとして認識されない
+            val response = client.get("/users/admin") { header(HttpHeaders.Accept, "*/*") }
+
+            assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
+        }
+
+    @Test
+    fun `知らないユーザー名は404`() =
+        testApplication {
+            installModule()
+
+            assertEquals(HttpStatusCode.NotFound, client.get("/users/other").status)
+        }
+}

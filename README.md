@@ -80,6 +80,7 @@ sequenceDiagram
     participant DB as SQLite
     participant K as Ktor CIO
 
+    Note over M: 環境変数を読む（DOMAIN が無ければここで落ちる）
     M->>A: load
     A->>A: PEM を読む（ファイルが無ければ生成して書き出す）
     M->>R: createRepositories
@@ -97,7 +98,7 @@ DB を開けなかった場合もマイグレーションに失敗した場合�
 起動自体は通ってしまうことがあるため、書き込みの往復まで確かめている。
 
 鍵は DB より先に読む。鍵を用意できないならサーバーを立てても意味が無いので、
-先に落とすため。
+先に落とすため。`DOMAIN` が無い場合も同じ理由でそれより前に落ちる。
 
 ログは slf4j-simple で標準エラーに出る。SLF4J の実装を入れていないと Ktor 自身の
 ログも含めて何も出ないため、実装を 1 つだけ入れている。logback にしないのは、
@@ -110,13 +111,42 @@ DB を開けなかった場合もマイグレーションに失敗した場合�
 | `HOST` | `0.0.0.0` | バインドするアドレス |
 | `PORT` | `8080` | 待ち受けポート |
 | `DB_PATH` | `./data/mastodon-rss.db` | SQLite の DB ファイル。親ディレクトリは起動時に作られる |
-| `DOMAIN` | なし | 外部に公開するドメイン。WebFinger の `acct:` とアクターの `id` に使う |
+| `DOMAIN` | **必須** | 外部に公開するドメイン。WebFinger の `acct:` とアクターの `id` に使う |
+| `ACTOR_USERNAME` | `admin` | アクターのユーザー名。`acct:<name>@<DOMAIN>` と `/users/<name>` に入る |
 | `ACTOR_PRIVATE_KEY_PATH` | `./data/actor-private-key.pem` | アクターの秘密鍵 (PEM)。無ければ起動時に生成して書き出す |
 | `ACTOR_PRIVATE_KEY_PEM` | なし | 秘密鍵の PEM を直接渡す場合に使う。`ACTOR_PRIVATE_KEY_PATH` とは併用できない |
 
 `DOMAIN` は `https://` などの scheme と末尾の `/` を書いても落として扱う。
-いまは起動ログに出るだけで、実際に使うのは Phase 1 から。アクター ID に焼き込まれ、
-Mastodon 側にキャッシュされると後から変えられないので、本番では慎重に決めること。
+未設定だと起動しない。既定値を用意して起動できてしまうと `localhost` のような
+ドメインが焼き込まれたアクター ID を配ることになり、Mastodon はリモートアクターを
+永続キャッシュするので、一度取得されると相手側からは直せないため。
+
+`ACTOR_USERNAME` に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`。
+URL のパスと `acct:` の両方に入るので、区切り文字が混ざると別のものを指してしまう。
+ドメインと同じく、変えると相手からは別人のアカウントに見える。
+
+## エンドポイント
+
+| パス | 内容 |
+| --- | --- |
+| `GET /healthz` | 生存確認。`{"status":"ok"}` |
+| `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
+| `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
+
+Mastodon は `@admin@example.com` の検索でまず WebFinger を引き、`links` の
+`rel: "self"` から Actor の URL を得て、そこを取得してプロフィールカードを作る。
+
+`Content-Type` は `application/json` ではなく WebFinger が `application/jrd+json`、
+Actor が `application/activity+json`（`Accept` に `application/ld+json` が来たらそちら）。
+ここを間違えるとアクターとして認識されず、検索しても何も出ない。
+
+```sh
+curl "http://localhost:8080/.well-known/webfinger?resource=acct:admin@example.com"
+curl -H 'Accept: application/activity+json' http://localhost:8080/users/admin
+```
+
+外から見えるようにするには HTTPS が要る。開発中は Cloudflare Tunnel や ngrok で
+`DOMAIN` に指定したホスト名に向ける。
 
 ## アクターの鍵
 
@@ -169,7 +199,9 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 ./gradlew :repository:build
 
 # JVM で起動する（http://localhost:8080）
-./gradlew :backend:run
+# DOMAIN は必須。手元で試すだけなら適当な値でよいが、
+# Mastodon から実際に引かせるときは公開しているホスト名にすること
+DOMAIN=example.com ./gradlew :backend:run
 ```
 
 ### crypto
@@ -195,7 +227,7 @@ GraalVM 25 が必要。
 ./gradlew :backend:nativeCompile
 
 # 生成されたバイナリを起動する
-./backend/build/native/nativeCompile/mastodon-rss
+DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
 ```
 
 ### frontend
