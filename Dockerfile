@@ -3,7 +3,7 @@
 # ---- ビルド ----
 # native-image のビルドには GraalVM が要るが、実行時には要らない。
 # ステージを分けて、最終イメージに JDK を持ち込まないようにする
-FROM ghcr.io/graalvm/native-image-community:21 AS build
+FROM ghcr.io/graalvm/native-image-community:25 AS build
 
 # このイメージは最小構成で xargs が入っておらず、gradlew が
 # 「xargs is not available」で起動できない
