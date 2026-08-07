@@ -1,0 +1,14 @@
+{
+  "_comment": [
+    "リソースは明示しないと native バイナリに入らない。",
+    "マイグレーションの SQL と、その一覧を持つ index を登録している。",
+    "index は Gradle の generateMigrationIndex タスクが生成する。",
+    "pattern は正規表現。\\Q...\\E はその範囲をリテラルとして扱う。"
+  ],
+  "resources": {
+    "includes": [
+      { "pattern": "\\Qdb/migration/index\\E" },
+      { "pattern": "\\Qdb/migration/\\EV\\d+__.*\\.sql" }
+    ]
+  }
+}

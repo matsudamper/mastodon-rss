@@ -7,16 +7,21 @@ import java.time.Instant
 internal class SqliteRepositories(config: DatabaseConfig) : Repositories {
     private val connectionManager = SqliteConnectionManager(config)
 
+    init {
+        // 未適用のマイグレーションがある状態でリクエストを受けても失敗するだけなので、
+        // 接続を開いた直後に適用しきる
+        try {
+            MigrationRunner(connectionManager).migrate(MigrationLoader.load())
+        } catch (e: Throwable) {
+            connectionManager.close()
+            throw e
+        }
+    }
+
     override fun verifyWritable() {
         val writtenAt = Instant.now().toString()
 
         val readBack = connectionManager.transaction { connection ->
-            // マイグレーションはまだ無いので、ここで自前でテーブルを用意する。
-            // 0-5 でマイグレーションを入れたら V001 に移す
-            connection.createStatement().use { statement ->
-                statement.execute(CREATE_HEALTH_CHECK)
-            }
-
             connection.prepareStatement(UPSERT_HEALTH_CHECK).use { statement ->
                 statement.setString(1, writtenAt)
                 statement.executeUpdate()
@@ -39,14 +44,6 @@ internal class SqliteRepositories(config: DatabaseConfig) : Repositories {
     }
 
     private companion object {
-        // 行は常に 1 件だけ。CHECK で id を固定しておくと UPSERT の対象が一意になる
-        const val CREATE_HEALTH_CHECK = """
-            CREATE TABLE IF NOT EXISTS health_check (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                checked_at TEXT NOT NULL
-            )
-        """
-
         const val UPSERT_HEALTH_CHECK = """
             INSERT INTO health_check (id, checked_at) VALUES (1, ?)
             ON CONFLICT (id) DO UPDATE SET checked_at = excluded.checked_at

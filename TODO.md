@@ -9,7 +9,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 
 現在地: Phase 0 の途中。`:backend` / `:repository` / `:frontend` の 3 モジュール構成。
 `:backend` は Ktor (CIO) + kotlinx.serialization で `/healthz` を返し、JVM でも native-image でも動く。
-`:repository` は SQLite に接続し、書き込んだ値を読み戻せるところまで。
+`:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
 CI で backend+repository / frontend / native-image の 3 ジョブが回っている。
 
@@ -21,7 +21,7 @@ CI で backend+repository / frontend / native-image の 3 ジョブが回って�
 | 0-2 | `GET /healthz`（完了） | 生存確認の口がないと以降の CI 検証が書けない |
 | 0-3 | kotlinx.serialization（完了） | DB の前に JSON を通しておくと healthz から検証できる |
 | 0-4 | SQLite 接続（完了） | native-image で最も割れやすい要素その1 |
-| 0-5 | マイグレーション（自前連番 SQL） | jOOQ codegen の入力になるので codegen より先 |
+| 0-5 | マイグレーション（自前連番 SQL）（完了） | jOOQ codegen の入力になるので codegen より先 |
 | 0-6 | jOOQ codegen の Gradle タスク化 | native-image で最も割れやすい要素その2 |
 | 0-7 | native-image 再検証 + CI 強化 | 0-4〜0-6 を積んだ状態で通ることが Phase 0 のゴール |
 
@@ -183,17 +183,36 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
 
 ### 0-5. マイグレーション（自前の連番 SQL）
 
-- [ ] `backend/src/main/resources/db/migration/V001__init.sql` の形式で SQL を置く
-- [ ] `schema_version` テーブルで適用済みバージョンを管理する（`version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL`）
-- [ ] 起動時に未適用のものをバージョン昇順で適用する。1 ファイル = 1 トランザクション
-- [ ] 適用済みファイルの内容が変わっていないかチェックサムで検証する（任意。事故を早く見つけられる）
-- [ ] マイグレーションファイルの列挙方法を native-image で動くやり方にする
+- [x] `repository/src/main/resources/db/migration/V001__init.sql` の形式で SQL を置く
+      - 置き場所は `:backend` ではなく `:repository`。SQL とそれを読むコードを同じモジュールに置く
+      - V001 の中身は `health_check` テーブルだけ。フォロワーなどのスキーマ設計は Phase 3 でやる
+- [x] `schema_version` テーブルで適用済みバージョンを管理する
+      - `version INTEGER PRIMARY KEY, name TEXT NOT NULL, checksum TEXT NOT NULL, applied_at TEXT NOT NULL`
+      - チェックサム検証のために `name` と `checksum` を足した
+- [x] 起動時に未適用のものをバージョン昇順で適用する。1 ファイル = 1 トランザクション
+      - `createRepositories()` の中で適用しきる
+- [x] 適用済みファイルの内容が変わっていないかチェックサムで検証する（任意。事故を早く見つけられる）
+      - SHA-256。DB にあるバージョンのファイルが手元に無い場合も、古いバイナリの疑いとして弾く
+- [x] マイグレーションファイルの列挙方法を native-image で動くやり方にする
       - jar 内リソースのディレクトリ走査は native-image では動かないことがある
-      - → ファイル名の一覧を持つ `index` リソースを置くか、ビルド時にリストを生成するのが安全
-- [ ] `resource-config.json`（または `nativeImageResources` 設定）にマイグレーション SQL を登録する
+      - → Gradle の `generateMigrationIndex` タスクで `db/migration/index` を生成する。
+        手で書くと SQL を足したときに更新を忘れて「JVM では動くが native では動かない」状態になる
+- [x] `resource-config.json`（または `nativeImageResources` 設定）にマイグレーション SQL を登録する
       - リソースは明示しないと native バイナリに入らない。ここは踏みやすい
-- [ ] テスト: 一時ファイル DB に対して 2 回続けて適用しても壊れない（冪等である）ことを確認する
-- [ ] テスト: 空の DB から最新まで適用できることを確認する
+      - `repository/src/main/resources/META-INF/native-image/dev.matsudamper/mastodon-rss-repository/` に置いた。
+        リソースを持つモジュール自身が設定も持つ形にしている
+- [x] テスト: 一時ファイル DB に対して 2 回続けて適用しても壊れない（冪等である）ことを確認する
+- [x] テスト: 空の DB から最新まで適用できることを確認する
+
+追加でやったこと:
+
+- `splitSqlStatements()` で SQL を文単位に分割する。JDBC は 1 文しか受け取れないため。
+  文字列リテラルとコメントの中の `;` では切らない。
+  トリガーの `BEGIN ... END;` には未対応（使う段になったら拡張する）
+- インストール版（jar 経由）を実際に起動して、ディレクトリ作成・マイグレーション適用・
+  WAL の有効化・書き込みの往復を確認した
+- native バイナリでの確認は手元に GraalVM が無いため CI の native-image ジョブに任せている。
+  0-7 でリソース設定が効いていることを改めて確認する
 
 ### 0-6. jOOQ のコード生成を Gradle タスク化
 
@@ -201,7 +220,7 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
       1. 一時 SQLite ファイルを作る（`build/jooq/schema.db`）
       2. `db/migration` の SQL を順に適用する
       3. その DB を入力に jOOQ codegen を実行する
-      4. 出力を `build/generated/jooq` に置き、`:repository`の sourceSet に加える
+      4. 出力を `build/generated/jooq` に置き、`:repository` の sourceSet に加える
 - [ ] `compileKotlin` が codegen タスクに依存するようにする（初回ビルドで生成物が無くて落ちないように）
 - [ ] マイグレーション SQL が変わったら codegen が再実行されるよう入力を宣言する（up-to-date チェックを効かせる）
 - [ ] 生成コードは git 管理しない（`build/` 配下なので `.gitignore` 済み）
