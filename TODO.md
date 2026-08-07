@@ -116,11 +116,11 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
 
 ### 0-2. `GET /healthz`
 
-- [ ] `GET /healthz` が 200 と `{"status":"ok"}` を返す（JSON 化は 0-3 の後でよい）
-- [ ] `GET /` の Hello World を削除する（役目は終わり）
-- [ ] テストを追加する
-- [ ] CI の native 起動確認を `/` から `/healthz` に切り替える
-- [ ] ポートとバインドアドレスを環境変数で上書きできるようにする（`PORT` / `HOST`。デフォルトは `8080` / `0.0.0.0`）
+- [x] `GET /healthz` が 200 と `{"status":"ok"}` を返す（JSON 化は 0-3 の後でよい）
+- [x] `GET /` の Hello World を削除する（役目は終わり）
+- [x] テストを追加する
+- [x] CI の native 起動確認を `/` から `/healthz` に切り替える
+- [x] ポートとバインドアドレスを環境変数で上書きできるようにする（`PORT` / `HOST`。デフォルトは `8080` / `0.0.0.0`）
       - native-image は起動時に環境変数を読む方が設定ファイルより素直
 
 ### 0-3. JSON シリアライザ（kotlinx.serialization）
