@@ -20,7 +20,7 @@ jobs:
           java-version: "21"
 
       - name: Gradle のセットアップ
-        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # :backend:build だけだと依存先の :repository は jar が作られるだけでテストが走らない
       - name: ビルド・テスト
@@ -40,7 +40,7 @@ jobs:
           java-version: "21"
 
       - name: Gradle のセットアップ
-        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Wasm バンドルのビルド
         run: ./gradlew :frontend:wasmJsBrowserDistribution
@@ -68,7 +68,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Gradle のセットアップ
-        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: native-image ビルド
         run: ./gradlew :backend:nativeCompile
