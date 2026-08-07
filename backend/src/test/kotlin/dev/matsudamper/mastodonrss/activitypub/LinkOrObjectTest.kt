@@ -9,6 +9,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
+// Undo や Accept の object のように、
+// URL 文字列と埋め込みオブジェクトの両方を取るフィールドを確認する。
+// どちらの形で来ても読めて、元の形のまま書き戻せること。
 class LinkOrObjectTest {
     @Serializable
     private data class Sample(

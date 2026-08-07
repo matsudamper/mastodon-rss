@@ -11,6 +11,9 @@ import io.ktor.server.testing.testApplication
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+// ルーティングとレスポンスの形を確認する。
+// DB そのものの挙動は :repository 側でテストするので、
+// ここでは FakeRepositories を渡して実ファイルを触らない。
 class ApplicationTest {
     @Test
     fun `healthzにアクセスすると200とstatus okのJSONが返る`() = testApplication {

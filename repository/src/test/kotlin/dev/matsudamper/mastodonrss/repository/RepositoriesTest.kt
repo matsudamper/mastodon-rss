@@ -9,6 +9,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+// 公開 API から見た振る舞いを確認する。
+// 接続できること、DB ファイルと親ディレクトリが作られること、
+// 開き直しても内容が残っていること。
 class RepositoriesTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-repository-test")
 

@@ -7,6 +7,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlinx.serialization.SerializationException
 
+// ActivityPub の @context / to / cc / type のように、
+// 単一文字列と配列のどちらでも来るフィールドの正規化を確認する。
+// 読み込みは常にリストへ、書き出しは 1 要素なら文字列に戻す。
 class StringListSerializerTest {
     @Serializable
     private data class Sample(

@@ -11,6 +11,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 
+// 接続まわりの土台を確認する。
+// PRAGMA が実際に効いていること、SQL が通ること、
+// トランザクションが失敗時にロールバックされること。
 class SqliteConnectionManagerTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-connection-test")
 

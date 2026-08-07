@@ -10,6 +10,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
+// マイグレーションの適用を確認する。
+// 空の DB から最新まで適用できること、二重に適用しても壊れないこと、
+// 適用済みのファイルが書き換えられていたら検出できること、
+// 途中で失敗したファイルが丸ごとロールバックされること。
 class MigrationRunnerTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-migration-test")
     private val dbPath: Path = tempDir.resolve("test.db")

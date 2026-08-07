@@ -4,6 +4,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
+// SQL を文単位に分割する処理を確認する。
+// 文字列リテラルやコメントの中の ; で誤って切らないことが要点。
 class SqlStatementSplitterTest {
     @Test
     fun `セミコロンで文に分割される`() {

@@ -11,6 +11,69 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | `:repository` | SQLite への DB アクセス。公開するのは interface だけで、JDBC や SQL は外に出さない |
 | `:frontend` | Compose Multiplatform for Web (Kotlin/Wasm) の管理画面 |
 
+```mermaid
+flowchart TB
+    subgraph backend[":backend"]
+        main["main"]
+        module["Application.module"]
+        route["routing<br/>GET /healthz"]
+        json["AppJson<br/>ContentNegotiation"]
+        ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
+    end
+
+    subgraph repository[":repository"]
+        api["公開 API<br/>Repositories<br/>DatabaseConfig"]
+        impl["internal 実装<br/>SqliteRepositories<br/>SqliteConnectionManager<br/>MigrationLoader<br/>MigrationRunner"]
+        res["リソース<br/>db/migration/V001__init.sql<br/>db/migration/index<br/>resource-config.json"]
+    end
+
+    subgraph frontend[":frontend"]
+        compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>Hello World まで"]
+    end
+
+    db[("SQLite<br/>DB_PATH")]
+
+    main --> module
+    module --> json
+    module --> route
+    json --> ap
+    main -->|createRepositories| api
+    module -->|verifyWritable| api
+    api -.->|backend からは見えない| impl
+    impl --> res
+    impl --> db
+```
+
+`:backend` から見えるのは `:repository` の公開 API だけ。実装は `internal` で、
+sqlite-jdbc も `implementation` で入れているため、JDBC の型は `:backend` の
+compile classpath にも現れない。
+
+`:frontend` はまだ独立している。`:backend` が静的配信として取り込むのは Phase 8 で、
+いまは 8081 番の dev サーバーで単独起動するだけ。
+
+## 起動時の流れ
+
+```mermaid
+sequenceDiagram
+    participant M as main
+    participant R as Repositories
+    participant DB as SQLite
+    participant K as Ktor CIO
+
+    M->>R: createRepositories
+    R->>DB: 接続して PRAGMA を適用
+    R->>DB: 未適用のマイグレーションをバージョン昇順で適用
+    M->>K: embeddedServer で起動
+    K->>M: module を実行
+    M->>R: verifyWritable
+    R->>DB: health_check に書いて読み戻す
+    Note over K: リクエスト受付開始
+```
+
+DB を開けなかった場合もマイグレーションに失敗した場合も、この時点で例外になって
+起動が止まる。native バイナリでは SQLite のネイティブライブラリの展開に失敗しても
+起動自体は通ってしまうことがあるため、書き込みの往復まで確かめている。
+
 ## 環境変数
 
 | 変数 | 既定値 | 内容 |
@@ -89,12 +152,9 @@ GraalVM 21 が必要。
 適用済みのファイルは書き換えないこと。チェックサムを記録しているので、
 変更すると次の起動時にエラーになる。修正は新しい連番のファイルで行う。
 
-## その他
+現在のテーブル:
 
-```sh
-# 生成物を消す
-./gradlew clean
-
-# Gradle デーモンを止める
-./gradlew --stop
-```
+| テーブル | 内容 |
+| --- | --- |
+| `schema_version` | 適用済みマイグレーションの記録。バージョン・名前・チェックサム・適用日時 |
+| `health_check` | 起動時の書き込み確認用。行は常に 1 件 |

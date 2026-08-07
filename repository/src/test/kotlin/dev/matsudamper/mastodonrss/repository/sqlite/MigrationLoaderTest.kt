@@ -4,6 +4,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+// ビルド時に生成した index からマイグレーションを読めることを確認する。
+// ここが壊れると native バイナリで SQL を読めなくなるが、
+// 起動するまで気付けないので、テストで先に落とす。
 class MigrationLoaderTest {
     @Test
     fun `indexからマイグレーションを読み込める`() {
