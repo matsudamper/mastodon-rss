@@ -31,6 +31,20 @@ tasks.test {
 }
 
 graalvmNative {
+    // GraalVM reachability metadata リポジトリは使わない。
+    //
+    // これは third-party ライブラリ向けの設定を配る仕組みだが、このプロジェクトが
+    // 必要とする設定は自分で持っている（reflect-config.json / resource-config.json、
+    // sqlite-jdbc は jar に Feature を同梱している）。
+    //
+    // 一方でリポジトリのスキーマは GraalVM の版に追従しており、少し古い GraalVM だと
+    //   provides a reachability-metadata schema, but your GraalVM installation does not
+    // でビルドが落ちる。実際 Docker のビルドステージがこれで止まった。
+    // 使っていない仕組みのために GraalVM のパッチ版に縛られる理由が無いので切る
+    metadataRepository {
+        enabled.set(false)
+    }
+
     binaries {
         named("main") {
             imageName.set("mastodon-rss")
