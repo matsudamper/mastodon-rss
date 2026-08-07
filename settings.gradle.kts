@@ -16,5 +16,6 @@ dependencyResolutionManagement {
 }
 
 include(":backend")
+include(":crypto")
 include(":repository")
 include(":frontend")
