@@ -6,6 +6,26 @@ on:
   pull_request:
 
 jobs:
+  ktlint:
+    name: コード整形の確認
+    runs-on: ubuntu-latest
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: JDK のセットアップ
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Gradle のセットアップ
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      # 違反があればここで落とす。直し方は ./gradlew ktlintFormat
+      - name: ktlintCheck
+        run: ./gradlew ktlintCheck
+
   backend:
     name: backend / crypto / repository ビルド・テスト
     runs-on: ubuntu-latest

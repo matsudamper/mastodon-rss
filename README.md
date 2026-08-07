@@ -174,6 +174,21 @@ GraalVM 21 が必要。
 初回ビルドでは Kotlin/Wasm のツールチェイン（Node.js、yarn、webpack など）が
 ダウンロードされるため時間がかかる。
 
+## コード整形
+
+ktlint を全モジュールに入れている。スタイルは `ktlint_official`、設定は
+`.editorconfig` にある。
+
+```sh
+# 違反を確認する
+./gradlew ktlintCheck
+
+# 自動修正できるものを直す
+./gradlew ktlintFormat
+```
+
+CI では `ktlintCheck` が通らないとビルドが落ちる。
+
 ## JSON の返し方
 
 Ktor の `ContentNegotiation` は入れていない。`call.respond(value)` は値の型から

@@ -7,15 +7,18 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 
 ## 現在地と次の一手
 
-現在地: Phase 0 の終盤。`:backend` / `:crypto` / `:repository` / `:frontend` の 4 モジュール構成。
+現在地: Phase 0 は完了。`:backend` / `:crypto` / `:repository` / `:frontend` の 4 モジュール構成。
 `:backend` は Ktor (CIO) + kotlinx.serialization で `/healthz` を返し、JVM でも native-image でも動く。
 `:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
 `nativeTest` で native バイナリ上でも動くことを確認済み。
 `:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
-CI で JVM ビルド・テスト / frontend / crypto の native テスト / native-image の 4 ジョブが回っている。
+CI で ktlint / JVM ビルド・テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
 
-次の一手: 0-8 を片付けて Phase 0 を閉じる。
+次の一手: Phase 1 に入る。ただし本番ドメインと鍵の保存先が決まっていないと
+WebFinger も Actor JSON も書けないので、そこから決める。
+
+Phase 0 でやったことと順序の理由:
 
 | 順 | やること | なぜこの順か |
 | --- | --- | --- |
@@ -26,7 +29,7 @@ CI で JVM ビルド・テスト / frontend / crypto の native テスト / nati
 | 0-5 | マイグレーション（自前連番 SQL）（完了） | jOOQ codegen の入力になるので codegen より先 |
 | 0-6 | JCA の native 確認（完了） | Phase 1 の鍵生成と Phase 2 の署名の前提。最も安く済み、詰まると後続が全部止まる |
 | 0-7 | reflect-config を無くす（完了） | Phase 1 で `@Serializable` 型が増える前にやる。手で足す運用は先に破綻する |
-| 0-8 | ktlint を入れるか決める | いつでもよいが Phase 1 に入る前が切りが良い |
+| 0-8 | ktlint を入れるか決める（完了 → 入れた） | いつでもよいが Phase 1 に入る前が切りが良い |
 
 jOOQ の codegen は Phase 0 から外した。現在のスキーマは `health_check` と `schema_version` だけで、
 生成しても使う場所が無く、native-image のリフレクション設定だけが先に増える。
@@ -41,7 +44,7 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 
 | 領域 | 技術 |
 | --- | --- |
-| 言語 | Kotlin |
+| 言語 | Kotlin（整形は ktlint / `ktlint_official`） |
 | ランタイム | GraalVM (native-image) |
 | HTTP サーバー | Ktor (CIO) |
 | DB | SQLite |
@@ -324,7 +327,14 @@ JVM のテストは全部通るのに native バイナリだけ 500 を返す状
 - [x] `nativeTest` のジョブを足す（0-6）
       - `:crypto` のテストを native バイナリとして実行する。JCA のように
         「JVM では通るが native では落ちる」たぐいの問題を CI で継続的に拾える
-- [ ] Kotlin のフォーマッタ（ktlint など）を入れるか決める。入れるならこのタイミング
+- [x] Kotlin のフォーマッタ（ktlint など）を入れるか決める → 入れた
+      - `org.jlleitschuh.gradle.ktlint` をルートから全モジュールに配る。
+        ktlint 本体のバージョンは version catalog で固定して Renovate に追従させる
+      - スタイルは `ktlint_official`。設定は `.editorconfig` に置く
+      - CI に `ktlintCheck` のジョブを足し、違反があれば落とす
+      - `ktlint_official` から 3 点だけ外した。いずれも `.editorconfig` に理由を書いてある
+        - 関数とクラスの宣言を、行長に収まっていても引数 2 個以上で必ず複数行に展開する挙動
+        - `@Composable` の大文字始まりを関数名の違反として扱う挙動
 
 ### ✅ チェックポイント 0
 ネイティブバイナリ 1 個を起動して `curl localhost:8080/healthz` が通り、SQLite に書き込める。
@@ -333,8 +343,7 @@ JVM のテストは全部通るのに native バイナリだけ 500 を返す状
 達成済み。`/healthz` と SQLite への書き込みは native-image ジョブの起動確認で、
 鍵と署名は `:crypto:nativeTest` で確認している。
 
-残る 0-8 のフォーマッタ判断は、このチェックポイントの成立自体は妨げない。
-Phase 1 に入る前に片付ける。
+Phase 0 は完了。Phase 1 に入る前に「事前に決めておくこと」の本番ドメインを確定させること。
 
 > ### Compose の位置づけ（決定済み: 案2）
 > Compose Desktop（Skiko / JVM）は GraalVM native-image では現実的に動かない。
