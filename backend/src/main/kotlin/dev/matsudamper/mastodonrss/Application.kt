@@ -1,11 +1,16 @@
 package dev.matsudamper.mastodonrss
 
-import io.ktor.http.ContentType
+import dev.matsudamper.mastodonrss.activitypub.ActivityPubContentTypes
+import dev.matsudamper.mastodonrss.json.AppJson
+import io.ktor.serialization.kotlinx.KotlinxSerializationConverter
+import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
+import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.response.respondText
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 
@@ -16,9 +21,19 @@ fun main() {
 }
 
 fun Application.module() {
+    install(ContentNegotiation) {
+        json(AppJson)
+
+        // Mastodon はアクターを取りに来るときに Accept: application/activity+json を送る。
+        // ここで登録しておかないと 406 になり、リモートからアクターを解決できない。
+        register(ActivityPubContentTypes.ActivityJson, KotlinxSerializationConverter(AppJson))
+        register(ActivityPubContentTypes.LdJson, KotlinxSerializationConverter(AppJson))
+        register(ActivityPubContentTypes.JrdJson, KotlinxSerializationConverter(AppJson))
+    }
+
     routing {
         get("/healthz") {
-            call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
+            call.respond(HealthResponse(status = "ok"))
         }
     }
 }

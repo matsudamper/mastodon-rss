@@ -127,20 +127,28 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
 
 リフレクション不使用（コンパイル時にシリアライザを生成する）ので native-image と相性が良い。
 
-- [ ] `kotlin("plugin.serialization")` と `ktor-serialization-kotlinx-json` を入れ、`ContentNegotiation` を設定する
-- [ ] `Json` の設定を決めて 1 箇所に集約する
+- [x] `kotlin("plugin.serialization")` と `ktor-serialization-kotlinx-json` を入れ、`ContentNegotiation` を設定する
+- [x] `Json` の設定を決めて 1 箇所に集約する
       - `encodeDefaults = true`（ActivityPub は既定値の省略で相手側が転ぶことがある）
       - `explicitNulls = false`（`null` フィールドを出力しない）
       - `ignoreUnknownKeys = true`（受信側。相手の拡張プロパティで落ちないように）
-- [ ] `/healthz` を JSON レスポンスに変える
+      - 実体は `backend/src/main/kotlin/dev/matsudamper/mastodonrss/json/AppJson.kt`
+- [x] `/healthz` を JSON レスポンスに変える
 - [ ] ActivityPub 向けの下ごしらえ（Phase 1 で効いてくるので、ここで型だけ用意しておく）
       - [ ] `@context` のような記号入りのキーは `@SerialName("@context")` で対応する
-      - [ ] ActivityPub は「文字列 1 個」と「配列」のどちらも来るフィールドが多い（`@context`, `to`, `cc`, `type`）
+            - Actor / Activity のデータクラスは Phase 1 で書くため未着手。
+              実物のフィールドが無い状態で `@SerialName` だけ用意しても検証できないため後回しにした
+      - [x] ActivityPub は「文字列 1 個」と「配列」のどちらも来るフィールドが多い（`@context`, `to`, `cc`, `type`）
             → 常に `List<String>` として扱い、単一文字列も配列に正規化するカスタム serializer を書く
-      - [ ] `object` が「URL 文字列」と「埋め込みオブジェクト」の両方を取る箇所がある（`Undo`, `Accept`）
+            - `activitypub/StringListSerializer.kt`。出力は 1 要素なら文字列、それ以外は配列に戻す
+              （常に配列にすると `"type": ["Note"]` になり、単一文字列前提の実装が解釈できない）
+      - [x] `object` が「URL 文字列」と「埋め込みオブジェクト」の両方を取る箇所がある（`Undo`, `Accept`）
             → `JsonElement` で受けて分岐する型を用意する
-      - [ ] Content-Type は Ktor 既定の `application/json` ではなく `application/activity+json` を返す必要がある
+            - `activitypub/LinkOrObject.kt`。`Link` / `Embedded` の sealed interface として持つ
+      - [x] Content-Type は Ktor 既定の `application/json` ではなく `application/activity+json` を返す必要がある
             → カスタム `ContentType` を定義して `respondText` / `respond` で明示する
+            - `activitypub/ActivityPubContentTypes.kt` に `activity+json` / `ld+json` / `jrd+json` を定義し、
+              `ContentNegotiation` にも登録した（`Accept` に応じた Content-Type で返る）
 
 ### 0-4. SQLite 接続
 

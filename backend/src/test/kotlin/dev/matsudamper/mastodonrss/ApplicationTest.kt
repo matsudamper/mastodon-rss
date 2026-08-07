@@ -1,5 +1,7 @@
 package dev.matsudamper.mastodonrss
 
+import dev.matsudamper.mastodonrss.activitypub.ActivityPubContentTypes
+import io.ktor.client.request.accept
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -11,7 +13,7 @@ import kotlin.test.assertEquals
 
 class ApplicationTest {
     @Test
-    fun `healthzにアクセスすると200とstatus okが返る`() = testApplication {
+    fun `healthzにアクセスすると200とstatus okのJSONが返る`() = testApplication {
         application {
             module()
         }
@@ -21,5 +23,19 @@ class ApplicationTest {
         assertEquals(HttpStatusCode.OK, response.status)
         assertEquals("""{"status":"ok"}""", response.bodyAsText())
         assertEquals(ContentType.Application.Json, response.contentType()?.withoutParameters())
+    }
+
+    @Test
+    fun `activity+jsonをAcceptすると同じContent-Typeで返る`() = testApplication {
+        application {
+            module()
+        }
+
+        val response = client.get("/healthz") {
+            accept(ActivityPubContentTypes.ActivityJson)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(ActivityPubContentTypes.ActivityJson, response.contentType()?.withoutParameters())
     }
 }

@@ -1,0 +1,63 @@
+package dev.matsudamper.mastodonrss.activitypub
+
+import dev.matsudamper.mastodonrss.json.AppJson
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+
+class LinkOrObjectTest {
+    @Serializable
+    private data class Sample(
+        val `object`: LinkOrObject,
+    )
+
+    @Test
+    fun `文字列はLinkとして読み込まれる`() {
+        val decoded = AppJson.decodeFromString<Sample>("""{"object":"https://example.com/follow/1"}""")
+
+        assertEquals(LinkOrObject.Link("https://example.com/follow/1"), decoded.`object`)
+    }
+
+    @Test
+    fun `オブジェクトはEmbeddedとして読み込まれる`() {
+        val decoded = AppJson.decodeFromString<Sample>(
+            """{"object":{"id":"https://example.com/follow/1","type":"Follow"}}""",
+        )
+
+        val expected = buildJsonObject {
+            put("id", JsonPrimitive("https://example.com/follow/1"))
+            put("type", JsonPrimitive("Follow"))
+        }
+        assertEquals(LinkOrObject.Embedded(expected), decoded.`object`)
+    }
+
+    @Test
+    fun `Linkは文字列として出力される`() {
+        val encoded = AppJson.encodeToString(Sample(LinkOrObject.Link("https://example.com/follow/1")))
+
+        assertEquals("""{"object":"https://example.com/follow/1"}""", encoded)
+    }
+
+    @Test
+    fun `Embeddedはオブジェクトのまま出力される`() {
+        val json = buildJsonObject {
+            put("id", JsonPrimitive("https://example.com/follow/1"))
+            put("type", JsonPrimitive("Follow"))
+        }
+
+        val encoded = AppJson.encodeToString(Sample(LinkOrObject.Embedded(json)))
+
+        assertEquals("""{"object":{"id":"https://example.com/follow/1","type":"Follow"}}""", encoded)
+    }
+
+    @Test
+    fun `文字列でもオブジェクトでもない場合は例外になる`() {
+        assertFailsWith<SerializationException> {
+            AppJson.decodeFromString<Sample>("""{"object":42}""")
+        }
+    }
+}
