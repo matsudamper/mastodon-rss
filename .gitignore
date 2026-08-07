@@ -8,3 +8,6 @@ out/
 
 # 既定の DB_PATH の置き場所
 data/
+
+# docker compose の設定
+.env

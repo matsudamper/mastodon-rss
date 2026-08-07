@@ -7,11 +7,13 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 
 ## 現在地と次の一手
 
-現在地: Phase 0 の途中。`:backend` / `:repository` / `:frontend` の 3 モジュール構成。
+現在地: Phase 0 の途中。`:backend` / `:crypto` / `:repository` / `:frontend` の 4 モジュール構成。
 `:backend` は Ktor (CIO) + kotlinx.serialization で `/healthz` を返し、JVM でも native-image でも動く。
+`:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
+`nativeTest` で native バイナリ上でも動くことを確認済み。
 `:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
-CI で backend+repository / frontend / native-image の 3 ジョブが回っている。
+CI で JVM ビルド・テスト / frontend / crypto の native テスト / native-image の 4 ジョブが回っている。
 
 次の一手: 以下の順で Phase 0 を閉じる。
 
@@ -22,12 +24,18 @@ CI で backend+repository / frontend / native-image の 3 ジョブが回って�
 | 0-3 | kotlinx.serialization（完了） | DB の前に JSON を通しておくと healthz から検証できる |
 | 0-4 | SQLite 接続（完了） | native-image で最も割れやすい要素その1 |
 | 0-5 | マイグレーション（自前連番 SQL）（完了） | jOOQ codegen の入力になるので codegen より先 |
-| 0-6 | jOOQ codegen の Gradle タスク化 | native-image で最も割れやすい要素その2 |
-| 0-7 | native-image 再検証 + CI 強化 | 0-4〜0-6 を積んだ状態で通ることが Phase 0 のゴール |
+| 0-6 | JCA の native 確認（完了） | Phase 1 の鍵生成と Phase 2 の署名の前提。最も安く済み、詰まると後続が全部止まる |
+| 0-7 | reflect-config の自動化 | Phase 1 で `@Serializable` 型が増える前にやる。手で足す運用は先に破綻する |
+| 0-8 | ktlint を入れるか決める | いつでもよいが Phase 1 に入る前が切りが良い |
 
-DB を ActivityPub (Phase 1) より先に入れるのは、native-image で壊れるとしたら
-SQLite のネイティブライブラリと jOOQ のリフレクションが原因になる可能性が高く、
-フェデレーションの実装が乗る前に潰しておきたいため。
+jOOQ の codegen は Phase 0 から外した。現在のスキーマは `health_check` と `schema_version` だけで、
+生成しても使う場所が無く、native-image のリフレクション設定だけが先に増える。
+スキーマが実際に必要になる Phase 3 の直前に、採用するかどうかごと判断する。
+詳細は Phase 2 と Phase 3 の間に置いた「jOOQ を採用するかの判断」を参照。
+
+DB を ActivityPub (Phase 1) より先に入れたのは、native-image で壊れるとしたら
+SQLite のネイティブライブラリが原因になる可能性が高く、
+フェデレーションの実装が乗る前に潰しておきたかったため。
 
 ## 使用技術
 
@@ -37,11 +45,12 @@ SQLite のネイティブライブラリと jOOQ のリフレクションが原�
 | ランタイム | GraalVM (native-image) |
 | HTTP サーバー | Ktor (CIO) |
 | DB | SQLite |
-| DB アクセス | jOOQ |
+| DB アクセス | 素の JDBC（jOOQ を入れるかは Phase 3 の直前に判断する） |
+| 署名 | JCA（RSA / SHA256withRSA）。ライブラリは足さない |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
 
-モジュールは `:backend`（サーバー）、`:repository`（DB アクセス）、`:frontend`（管理 UI）の 3 つ。
-ビルド方法は [README.md](README.md) を参照。
+モジュールは `:backend`（サーバー）、`:crypto`（鍵と署名）、`:repository`（DB アクセス）、
+`:frontend`（管理 UI）の 4 つ。ビルド方法は [README.md](README.md) を参照。
 
 ---
 
@@ -105,6 +114,13 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
       - 当初は `:core`（ドメインモデル / DB アクセス / ActivityPub の JSON モデル / RSS パーサ）
         という括りを想定していたが、責務が広すぎるので DB アクセスに絞った
       - Kotlin JVM。Ktor に依存させない。公開するのは interface だけ
+- [x] `:crypto` — 鍵と署名。0-6 で追加した
+      - Kotlin JVM。依存は Kotlin 標準ライブラリと JCA だけで、Ktor も JDBC も入らない
+      - 分けた理由は `nativeTest` を回せるようにするため。`:backend` のテストは
+        `ktor-server-test-host` 経由で `kotlinx-coroutines-debug` を引き込み、
+        その先の ByteBuddy と JNA が実行時のバイトコード書き換えに依存するので
+        native-image では動かない。JCA の確認をそこに同居させると検証できなくなる
+      - Phase 2 の署名文字列の組み立てと Digest の計算もここに置く予定
 - [ ] `:shared` — `:backend` と `:frontend` で共有する管理 API の DTO。KMP (`jvm` + `wasmJs`)
       - Phase 8 で管理 API を作るときに必要になる
 
@@ -214,20 +230,34 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
 - native バイナリでの確認は手元に GraalVM が無いため CI の native-image ジョブに任せている。
   0-7 でリソース設定が効いていることを改めて確認する
 
-### 0-6. jOOQ のコード生成を Gradle タスク化
+### 0-6. JCA が native-image 上で動くことを確認する（完了）
 
-- [ ] codegen のパイプラインを組む
-      1. 一時 SQLite ファイルを作る（`build/jooq/schema.db`）
-      2. `db/migration` の SQL を順に適用する
-      3. その DB を入力に jOOQ codegen を実行する
-      4. 出力を `build/generated/jooq` に置き、`:repository` の sourceSet に加える
-- [ ] `compileKotlin` が codegen タスクに依存するようにする（初回ビルドで生成物が無くて落ちないように）
-- [ ] マイグレーション SQL が変わったら codegen が再実行されるよう入力を宣言する（up-to-date チェックを効かせる）
-- [ ] 生成コードは git 管理しない（`build/` 配下なので `.gitignore` 済み）
-- [ ] jOOQ の SQLite dialect を使う（OSS 版で対応している）
-- [ ] `nu.studer.jooq` プラグインを使うか、素の `JavaExec` で回すかを決める
-      - プラグインは楽だが Gradle との相性問題を踏むことがある。素の `JavaExec` + `configuration` の方が読める場合もある
-- [ ] jOOQ のログ設定を入れる（何もしないと起動時にバナーと警告が出る）
+Phase 1 のアクター公開鍵と Phase 2 の HTTP Signatures は、どちらも JCA の RSA に乗る。
+native バイナリで RSA が使えないと両方が同時に止まるので、実装より先に確かめた。
+
+- [x] `:crypto` モジュールを作り、Phase 1 でそのまま使う形で実装する
+      - `RsaKeys` — 2048bit の鍵ペア生成、PKCS#8 / X.509 の PEM 入出力
+      - `RsaSignature` — SHA256withRSA の署名と検証
+      - 秘密鍵は `BEGIN PRIVATE KEY`、公開鍵は `BEGIN PUBLIC KEY`。
+        Mastodon が読むのは X.509 SubjectPublicKeyInfo なので、
+        OpenSSL が古い形式で出す `BEGIN RSA PUBLIC KEY`（PKCS#1）ではない
+- [x] `nativeTest` で JVM と同じテストを native バイナリとして実行する仕組みを入れる
+      - `:crypto` に `org.graalvm.buildtools.native` を入れ、CI に
+        「crypto の native テスト」ジョブを足した
+- [x] 不正な署名で例外を投げないことをテストで固定する
+      - inbox は誰でも POST できるので、壊れた署名は検証失敗として扱う必要がある
+- [x] `KeyPairGenerator.getInstance("RSA")` / `Signature.getInstance("SHA256withRSA")` が
+      native バイナリ上で通ることを確認する
+      - CI の native テストジョブで JVM と同じ 17 件が native バイナリでも通った
+      - JCA 向けの追加設定は不要だった。素で動く。
+        `--enable-all-security-services` は現行の GraalVM では削除されているが、
+        代替を探す必要も無かった
+      - `MessageDigest.getInstance("SHA-256")` は 0-5 のチェックサム計算で確認済み
+
+これで Phase 1 の鍵生成と Phase 2 の署名は、native-image 側の心配なく書ける。
+
+ここで止めた線: 鍵をどこに保存するか（ファイルか環境変数か）と、起動時にどう読むかは
+Phase 1 の話なので触っていない。この段階では JCA が native で動くことだけを確かめた。
 
 ### 0-7. native-image ビルドを通す — ここが Phase 0 の本体
 
@@ -239,17 +269,18 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
         `--features=org.sqlite.nativeimage.SqliteJdbcFeature` を同梱していて、素で動いた
       - JNI 設定も `org.sqlite.tmpdir` の指定も不要だった
       - native バイナリを起動してマイグレーション適用と読み書きの往復を確認済み
-- [ ] JCA（RSA / SHA-256）が native-image 上で動くことを確認する
-      - SHA-256 は確認済み。マイグレーションのチェックサム計算で
-        `MessageDigest.getInstance("SHA-256")` を native バイナリ上で通している
-      - RSA の鍵生成と SHA256withRSA 署名は未確認。Phase 1 に入る前にやる
-      - Phase 1 の鍵生成と Phase 2 の署名で必須。ここで確認しておかないと Phase 2 で詰まる
-      - 確認内容: `KeyPairGenerator.getInstance("RSA")` / `Signature.getInstance("SHA256withRSA")` / `MessageDigest.getInstance("SHA-256")`
-      - `--enable-all-security-services` は現行の GraalVM では非推奨・削除されている。代替の設定方法を確認する
-- [ ] jOOQ のリフレクション設定（`reflect-config.json`）を用意する
+- [x] JCA（RSA / SHA-256）が native-image 上で動くことを確認する → 0-6 で完了
 - [ ] GraalVM tracing agent (`-agentlib:native-image-agent`) を回す Gradle タスクを用意する
       - 設定を手で書くより、一度エージェントで収集してから削るほうが早い
-      - 出力先は `server/src/main/resources/META-INF/native-image/`
+      - 出力先は `backend/src/main/resources/META-INF/native-image/dev.matsudamper/mastodon-rss-backend/`
+      - GraalVM buildtools の `-Pagent` と `metadataCopy` タスクに乗るはず。
+        収集した設定をそのままコミットするか、手で削ってから入れるかを決める
+      - 代替案: `ContentNegotiation` 任せをやめ、`AppJson.encodeToString(Foo.serializer(), value)` で
+        明示的に書けばリフレクション自体が消えて reflect-config が要らなくなる。
+        Ktor の `Accept` に応じた自動選択は失うので、どちらを取るかは Phase 1 の型を書く前に決める
+- [ ] `:repository` にも `nativeTest` を広げるか決める
+      - いまは native バイナリの起動確認でマイグレーション適用と読み書きを間接的に見ている
+      - テストごと native にすると直接確認できるが、native ビルドが 1 つ増えて CI が延びる
 - [x] リフレクション/リソース設定はどこから来たものか分かるようコメントか README を添える
       - `backend/src/main/resources/META-INF/native-image/dev.matsudamper/mastodon-rss-backend/README.md`
       - `:repository` 側の `resource-config.json` は JSON 内の `_comment` に書いた
@@ -280,11 +311,20 @@ JVM のテストは全部通るのに native バイナリだけ 500 を返す状
         実際 0-3 の不具合はサーバーが起動したうえで 500 を返す形だったので、
         ログだけ見ても分からず、レスポンス本体が決め手になった
 - [x] `kill` を `trap` で確実に行い、ジョブが残留プロセスで詰まらないようにする
+- [x] `nativeTest` のジョブを足す（0-6）
+      - `:crypto` のテストを native バイナリとして実行する。JCA のように
+        「JVM では通るが native では落ちる」たぐいの問題を CI で継続的に拾える
 - [ ] Kotlin のフォーマッタ（ktlint など）を入れるか決める。入れるならこのタイミング
 
 ### ✅ チェックポイント 0
 ネイティブバイナリ 1 個を起動して `curl localhost:8080/healthz` が通り、SQLite に書き込める。
 加えて、native バイナリ上で RSA 鍵ペア生成と SHA256withRSA 署名ができる。
+
+達成済み。`/healthz` と SQLite への書き込みは native-image ジョブの起動確認で、
+鍵と署名は `:crypto:nativeTest` で確認している。
+
+残る 0-7 の reflect-config 自動化と 0-8 のフォーマッタ判断は、
+このチェックポイントの成立自体は妨げない。Phase 1 に入る前に片付ける。
 
 > ### Compose の位置づけ（決定済み: 案2）
 > Compose Desktop（Skiko / JVM）は GraalVM native-image では現実的に動かない。
@@ -317,6 +357,8 @@ ActivityPub のアカウント発見は WebFinger → Actor の 2 ホップで�
 - [ ] RSA 2048bit の鍵ペアを 1 組生成し、PEM でファイル or 環境変数に保存（固定。ローテーションは考えない）
       - 秘密鍵: PKCS#8 (`BEGIN PRIVATE KEY`)
       - 公開鍵: X.509 SubjectPublicKeyInfo (`BEGIN PUBLIC KEY`) ← Actor JSON にはこちらを入れる
+      - 生成と PEM の相互変換は 0-6 で `:crypto` の `RsaKeys` に用意済み。
+        ここで決めるのは保存先と、起動時にどう読むか（無ければ生成するのか、必ず与えるのか）
 - [ ] `GET /.well-known/webfinger?resource=acct:feed@example.com`
       - Content-Type: `application/jrd+json`
       - `subject` はリクエストされた `acct:` をそのまま返す
@@ -376,6 +418,46 @@ Mastodon からフォローボタンを押す → 数秒後に「フォロー中
 
 ---
 
+## jOOQ を採用するかの判断（Phase 3 に入る前に決める）
+
+当初は Phase 0 の 0-6 で codegen を組む予定だったが、Phase 0 から外した。
+理由は、この時点のスキーマが `health_check` と `schema_version` だけで生成しても使う場所が無く、
+native-image のリフレクション設定という負債だけが先に増えるため。
+スキーマが実際に必要になる Phase 3 の直前なら、テーブルの数と SQL の複雑さを見てから決められる。
+
+判断の材料:
+
+- Phase 3 で増えるのは `actors` / `remote_actors` / `followers` / `deliveries` の 4 テーブル。
+  この規模なら素の JDBC で書ききれる可能性がある
+- `:repository` はすでに素の JDBC で完結していて、native バイナリでも動いている。
+  jOOQ を入れると native-image の未知のリスクが 1 つ戻ってくる
+- 一方で配信キューの状態遷移や、フォロワーのページングは SQL が込み入るので、
+  型のある DSL の恩恵が効く場面ではある
+
+採用する場合にやること:
+
+- [ ] codegen のパイプラインを組む
+      1. 一時 SQLite ファイルを作る（`build/jooq/schema.db`）
+      2. `db/migration` の SQL を順に適用する
+      3. その DB を入力に jOOQ codegen を実行する
+      4. 出力を `build/generated/jooq` に置き、`:repository` の sourceSet に加える
+- [ ] `compileKotlin` が codegen タスクに依存するようにする（初回ビルドで生成物が無くて落ちないように）
+- [ ] マイグレーション SQL が変わったら codegen が再実行されるよう入力を宣言する（up-to-date チェックを効かせる）
+- [ ] 生成コードは git 管理しない（`build/` 配下なので `.gitignore` 済み）
+- [ ] jOOQ の SQLite dialect を使う（OSS 版で対応している）
+- [ ] `nu.studer.jooq` プラグインを使うか、素の `JavaExec` で回すかを決める
+      - プラグインは楽だが Gradle との相性問題を踏むことがある。素の `JavaExec` + `configuration` の方が読める場合もある
+- [ ] jOOQ のログ設定を入れる（何もしないと起動時にバナーと警告が出る）
+- [ ] jOOQ のリフレクション設定（`reflect-config.json`）を用意する
+- [ ] native バイナリで jOOQ 経由のクエリが動くことを確認する
+
+採用しない場合にやること:
+
+- [ ] 「使用技術」の表と README から jOOQ を落とす
+- [ ] SQL を書く場所の決まりを `:repository` の中で決める（文字列定数か、専用のファイルか）
+
+---
+
 ## Phase 3: フォロワーを永続化する
 
 Phase 2 まではオンメモリでよい。ここで初めて DB が要る。
@@ -385,7 +467,7 @@ Phase 2 まではオンメモリでよい。ここで初めて DB が要る。
       - `remote_actors`（inbox, shared_inbox, public_key, fetched_at）
       - `followers`（actor_id, remote_actor_id, follow_activity_id, state, created_at）
       - `deliveries`（配信キュー: target_inbox, payload, attempts, next_retry_at, state）
-- [ ] jOOQ 経由で follow を INSERT / UPDATE
+- [ ] follow を INSERT / UPDATE（jOOQ を採用したならその DSL で）
 - [ ] `Undo{Follow}` を処理してフォロー解除
 - [ ] `Delete{Actor}`（アカウント削除・引っ越し）を処理してフォロワーを掃除
       - 削除済みアクターは鍵を取得できないので、署名検証に失敗しても握り潰す例外パスが要る
@@ -491,8 +573,17 @@ Phase 1 で固定していた部分を動的にする。
 ## Phase 9: リリース
 
 - [ ] native-image のビルドを本番向けに最適化（PGO、`--gc=G1` など）
-- [ ] 設定ファイルの外出し（ドメイン、DB パス、ポート、ポーリング間隔）
-- [ ] systemd unit / Dockerfile
+- [x] 設定の外出し（ドメイン、DB パス、ポート）
+      - 環境変数に寄せた。`ServerConfig` と `DatabaseConfig` が入口
+      - ポーリング間隔は Phase 5 でフィードごとに持つので、ここには入れない
+- [x] Dockerfile と docker-compose.yml
+      - multi-stage build。GraalVM のステージで native バイナリを作り、
+        実行用のステージ（debian:12-slim）には JDK を持ち込まない
+      - DB は名前付きボリューム。`HEALTHCHECK` で `/healthz` を叩く
+- [x] `main` へのマージで GitHub Packages（ghcr.io）にイメージを publish する
+      - タグは `latest` と commit SHA。戻せるよう latest だけにはしない
+      - コンテナまわりを触った PR ではビルドと起動確認だけ走らせる
+- [ ] systemd unit（コンテナを使わない場合の起動方法）
 - [ ] セットアップ手順の README
 - [ ] リバースプロキシ設定例（nginx / Caddy）
 
@@ -518,7 +609,8 @@ Phase 1 で固定していた部分を動的にする。
 | 相手から 401 が返る | `Digest` ヘッダ未送信 / `Date` のずれ / secure mode で GET に署名がない |
 | 投稿が届かない | `to` に Public が入っていない / `cc` に followers がない |
 | アクターを直しても反映されない | Mastodon 側のキャッシュ（ユーザー名を変えて試す） |
-| native-image で落ちる | JCA・SQLite ネイティブライブラリ・jOOQ のリフレクション設定不足 |
+| native-image で落ちる | リフレクション設定不足（`@Serializable` 型の登録漏れなど）・SQLite ネイティブライブラリ・jOOQ を入れた場合はその設定 |
+| JVM のテストは通るのに native だけ落ちる | テストが native で実行されていない。`nativeTest` の対象に入れられないか検討する |
 | native バイナリでマイグレーションが動かない | SQL がリソースとして同梱されていない（`resource-config.json` 未登録）/ jar 内ディレクトリ走査に頼っている |
 | 外部キー制約が効かない | SQLite は `PRAGMA foreign_keys` が既定で OFF。接続ごとに ON にする必要がある |
 | `SQLITE_BUSY` が出る | ライターを複数持っている / `busy_timeout` 未設定 |
