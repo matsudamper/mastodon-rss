@@ -9,8 +9,8 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 
 現在地: Phase 0 の途中。`:backend` / `:crypto` / `:repository` / `:frontend` の 4 モジュール構成。
 `:backend` は Ktor (CIO) + kotlinx.serialization で `/healthz` を返し、JVM でも native-image でも動く。
-`:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。native バイナリ上でも動くことを
-`nativeTest` で確認している。
+`:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
+native バイナリ上での動作を `nativeTest` で確かめる用意はあるが、まだ実行していない。
 `:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
 CI で JVM ビルド・テスト / frontend / crypto の native テスト / native-image の 4 ジョブが回っている。
@@ -24,7 +24,7 @@ CI で JVM ビルド・テスト / frontend / crypto の native テスト / nati
 | 0-3 | kotlinx.serialization（完了） | DB の前に JSON を通しておくと healthz から検証できる |
 | 0-4 | SQLite 接続（完了） | native-image で最も割れやすい要素その1 |
 | 0-5 | マイグレーション（自前連番 SQL）（完了） | jOOQ codegen の入力になるので codegen より先 |
-| 0-6 | JCA の native 確認（完了） | Phase 1 の鍵生成と Phase 2 の署名の前提。最も安く済み、詰まると後続が全部止まる |
+| 0-6 | JCA の native 確認（実装済み・CI 待ち） | Phase 1 の鍵生成と Phase 2 の署名の前提。最も安く済み、詰まると後続が全部止まる |
 | 0-7 | reflect-config の自動化 | Phase 1 で `@Serializable` 型が増える前にやる。手で足す運用は先に破綻する |
 | 0-8 | ktlint を入れるか決める | いつでもよいが Phase 1 に入る前が切りが良い |
 
@@ -230,7 +230,7 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
 - native バイナリでの確認は手元に GraalVM が無いため CI の native-image ジョブに任せている。
   0-7 でリソース設定が効いていることを改めて確認する
 
-### 0-6. JCA が native-image 上で動くことを確認する（完了）
+### 0-6. JCA が native-image 上で動くことを確認する（確認待ち）
 
 Phase 1 のアクター公開鍵と Phase 2 の HTTP Signatures は、どちらも JCA の RSA に乗る。
 native バイナリで RSA が使えないと両方が同時に止まるので、実装より先に確かめた。
@@ -241,18 +241,21 @@ native バイナリで RSA が使えないと両方が同時に止まるので�
       - 秘密鍵は `BEGIN PRIVATE KEY`、公開鍵は `BEGIN PUBLIC KEY`。
         Mastodon が読むのは X.509 SubjectPublicKeyInfo なので、
         OpenSSL が古い形式で出す `BEGIN RSA PUBLIC KEY`（PKCS#1）ではない
-- [x] `KeyPairGenerator.getInstance("RSA")` / `Signature.getInstance("SHA256withRSA")` を
-      native バイナリ上で通す
-      - `MessageDigest.getInstance("SHA-256")` は 0-5 のチェックサム計算で確認済み
-- [x] `nativeTest` で JVM と同じテストを native バイナリとして実行する
-      - CI に「crypto の native テスト」ジョブを足した
-      - `--enable-all-security-services` は現行の GraalVM では削除されているが、
-        今回の範囲では代替の設定は要らなかった。JCA の設定を足さずに素で通っている
+- [x] `nativeTest` で JVM と同じテストを native バイナリとして実行する仕組みを入れる
+      - `:crypto` に `org.graalvm.buildtools.native` を入れ、CI に
+        「crypto の native テスト」ジョブを足した
 - [x] 不正な署名で例外を投げないことをテストで固定する
       - inbox は誰でも POST できるので、壊れた署名は検証失敗として扱う必要がある
+- [ ] `KeyPairGenerator.getInstance("RSA")` / `Signature.getInstance("SHA256withRSA")` が
+      native バイナリ上で通ることを確認する
+      - JVM のテストは 17 件とも通っているが、native での実行はまだ一度もしていない。
+        手元に GraalVM が無く、CI の native テストジョブも走らせていないため
+      - 追加の設定が要るかどうかもここで分かる。`--enable-all-security-services` は
+        現行の GraalVM では削除されているので、必要なら代替を探す
+      - `MessageDigest.getInstance("SHA-256")` は 0-5 のチェックサム計算で確認済み
 
 ここで止めた線: 鍵をどこに保存するか（ファイルか環境変数か）と、起動時にどう読むかは
-Phase 1 の話なので触っていない。この段階では JCA が native で動くことだけを確かめている。
+Phase 1 の話なので触っていない。この段階では JCA が native で動くことだけを確かめる。
 
 ### 0-7. native-image ビルドを通す — ここが Phase 0 の本体
 
@@ -315,9 +318,9 @@ JVM のテストは全部通るのに native バイナリだけ 500 を返す状
 ネイティブバイナリ 1 個を起動して `curl localhost:8080/healthz` が通り、SQLite に書き込める。
 加えて、native バイナリ上で RSA 鍵ペア生成と SHA256withRSA 署名ができる。
 
-鍵と署名の側は 0-6 で達成済み（`:crypto:nativeTest`）。残っているのは 0-7 の
-reflect-config 自動化と 0-8 のフォーマッタ判断だけで、どちらもこのチェックポイントの
-成立自体は妨げない。
+鍵と署名の側は `:crypto:nativeTest` で確かめる。ジョブは用意したがまだ実行していないので、
+ここが緑になって初めてチェックポイント 0 が閉じる。残る 0-7 の reflect-config 自動化と
+0-8 のフォーマッタ判断は、このチェックポイントの成立自体は妨げない。
 
 > ### Compose の位置づけ（決定済み: 案2）
 > Compose Desktop（Skiko / JVM）は GraalVM native-image では現実的に動かない。
