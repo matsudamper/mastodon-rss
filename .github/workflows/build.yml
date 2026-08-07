@@ -7,7 +7,7 @@ on:
 
 jobs:
   backend:
-    name: backend ビルド・テスト
+    name: backend / repository ビルド・テスト
     runs-on: ubuntu-latest
     steps:
       - name: チェックアウト
@@ -22,8 +22,9 @@ jobs:
       - name: Gradle のセットアップ
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
 
+      # :backend:build だけだと依存先の :repository は jar が作られるだけでテストが走らない
       - name: ビルド・テスト
-        run: ./gradlew :backend:build
+        run: ./gradlew :repository:build :backend:build
 
   frontend:
     name: frontend ビルド

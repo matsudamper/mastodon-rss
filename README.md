@@ -8,7 +8,16 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | モジュール | 内容 |
 | --- | --- |
 | `:backend` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
+| `:repository` | SQLite への DB アクセス。公開するのは interface だけで、JDBC や SQL は外に出さない |
 | `:frontend` | Compose Multiplatform for Web (Kotlin/Wasm) の管理画面 |
+
+## 環境変数
+
+| 変数 | 既定値 | 内容 |
+| --- | --- | --- |
+| `HOST` | `0.0.0.0` | バインドするアドレス |
+| `PORT` | `8080` | 待ち受けポート |
+| `DB_PATH` | `./data/mastodon-rss.db` | SQLite の DB ファイル。親ディレクトリは起動時に作られる |
 
 ## 必要なもの
 
@@ -33,6 +42,9 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 
 # テストのみ
 ./gradlew :backend:test
+
+# repository のビルドとテスト
+./gradlew :repository:build
 
 # JVM で起動する（http://localhost:8080）
 ./gradlew :backend:run

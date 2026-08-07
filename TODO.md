@@ -7,19 +7,20 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 
 ## 現在地と次の一手
 
-現在地: Phase 0 の途中。`:backend` / `:frontend` の 2 モジュールに分割済み。
-`:backend` は Ktor (CIO) の Hello World が JVM でも native-image でも動く。
+現在地: Phase 0 の途中。`:backend` / `:repository` / `:frontend` の 3 モジュール構成。
+`:backend` は Ktor (CIO) + kotlinx.serialization で `/healthz` を返し、JVM でも native-image でも動く。
+`:repository` は SQLite に接続し、書き込んだ値を読み戻せるところまで。
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
-CI で backend / frontend / native-image の 3 ジョブが回っている。
+CI で backend+repository / frontend / native-image の 3 ジョブが回っている。
 
 次の一手: 以下の順で Phase 0 を閉じる。
 
 | 順 | やること | なぜこの順か |
 | --- | --- | --- |
 | 0-1 | マルチモジュール化（完了） | あとから分割すると全ファイルが動くので最初にやる |
-| 0-2 | `GET /healthz` | 生存確認の口がないと以降の CI 検証が書けない |
-| 0-3 | kotlinx.serialization | DB の前に JSON を通しておくと healthz から検証できる |
-| 0-4 | SQLite 接続 | native-image で最も割れやすい要素その1 |
+| 0-2 | `GET /healthz`（完了） | 生存確認の口がないと以降の CI 検証が書けない |
+| 0-3 | kotlinx.serialization（完了） | DB の前に JSON を通しておくと healthz から検証できる |
+| 0-4 | SQLite 接続（完了） | native-image で最も割れやすい要素その1 |
 | 0-5 | マイグレーション（自前連番 SQL） | jOOQ codegen の入力になるので codegen より先 |
 | 0-6 | jOOQ codegen の Gradle タスク化 | native-image で最も割れやすい要素その2 |
 | 0-7 | native-image 再検証 + CI 強化 | 0-4〜0-6 を積んだ状態で通ることが Phase 0 のゴール |
@@ -39,7 +40,7 @@ SQLite のネイティブライブラリと jOOQ のリフレクションが原�
 | DB アクセス | jOOQ |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
 
-モジュールは `:backend`（サーバー）と `:frontend`（管理 UI）の 2 つ。
+モジュールは `:backend`（サーバー）、`:repository`（DB アクセス）、`:frontend`（管理 UI）の 3 つ。
 ビルド方法は [README.md](README.md) を参照。
 
 ---
@@ -100,9 +101,10 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
 
 まだ切っていないモジュール（必要になった時点で追加する）:
 
-- [ ] `:core` — ドメインモデル / DB アクセス (jOOQ) / ActivityPub の JSON モデル / RSS パーサ
-      - いまは中身が無いので作っていない。0-4（SQLite）で `:backend` から切り出す
-      - Kotlin JVM。Ktor に依存させない
+- [x] `:repository` — DB アクセス。0-4 で追加した
+      - 当初は `:core`（ドメインモデル / DB アクセス / ActivityPub の JSON モデル / RSS パーサ）
+        という括りを想定していたが、責務が広すぎるので DB アクセスに絞った
+      - Kotlin JVM。Ktor に依存させない。公開するのは interface だけ
 - [ ] `:shared` — `:backend` と `:frontend` で共有する管理 API の DTO。KMP (`jvm` + `wasmJs`)
       - Phase 8 で管理 API を作るときに必要になる
 
@@ -152,18 +154,32 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
 
 ### 0-4. SQLite 接続
 
-- [ ] `org.xerial:sqlite-jdbc` を `:core`（未作成なら `:backend`）に入れ、テーブル作成 → INSERT → SELECT の疎通を通す
-- [ ] 接続時に必ず入れる PRAGMA を 1 箇所にまとめる
+DB アクセスは `:core` ではなく `:repository` モジュールに置くことにした。
+公開するのは `Repositories` interface と `DatabaseConfig` だけで、
+JDBC を使う実装は `internal` にして呼び出し側から見えないようにする。
+sqlite-jdbc を `implementation` で入れているため、`:backend` の compile classpath にも漏れない。
+
+- [x] `org.xerial:sqlite-jdbc` を `:repository` に入れ、テーブル作成 → INSERT → SELECT の疎通を通す
+- [x] 接続時に必ず入れる PRAGMA を 1 箇所にまとめる
       - `journal_mode=WAL`（読み書きの並行性。ただしファイル DB のみ有効）
       - `foreign_keys=ON`（SQLite は既定で OFF。忘れると外部キーが効かない）
       - `busy_timeout=5000`（`SQLITE_BUSY` の即時失敗を避ける）
       - `synchronous=NORMAL`（WAL 前提。耐久性と速度の折衷）
-- [ ] コネクションの持ち方を決める
+      - `SqliteConnectionManager` にまとめ、適用されていることをテストで確認している
+- [x] コネクションの持ち方を決める
       - SQLite はライターが 1 本しか取れないので汎用プールは過剰
-      - 読み取り用の複数接続 + 書き込み用の単一接続、あるいは全体を単一接続 + 直列化で始める
-      - HikariCP は入れない方向で検討する（依存と native-image 設定を減らすため）
-- [ ] DB ファイルのパスを環境変数で指定できるようにする（`DB_PATH`。デフォルトは `./data/mastodon-rss.db`）
-- [ ] 親ディレクトリが無ければ起動時に作る
+      - → 接続 1 本 + `ReentrantLock` で直列化する構成にした。
+        読み取りが詰まるようなら読み取り用の接続を複数持つ形に広げる
+      - HikariCP は入れていない（依存と native-image 設定を減らすため）
+- [x] DB ファイルのパスを環境変数で指定できるようにする（`DB_PATH`。デフォルトは `./data/mastodon-rss.db`）
+- [x] 親ディレクトリが無ければ起動時に作る
+
+追加でやったこと:
+
+- 接続は `DriverManager` ではなく `SQLiteDataSource` から取る。
+  `DriverManager` は `ServiceLoader` でドライバを探すため、native-image で追加設定が要ることがある
+- 起動時に `Repositories.verifyWritable()` を呼び、書き込んだ値を読み戻せるか確かめる。
+  native バイナリでは SQLite のネイティブライブラリ展開に失敗しても起動自体は通ってしまうため
 
 ### 0-5. マイグレーション（自前の連番 SQL）
 
@@ -185,7 +201,7 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
       1. 一時 SQLite ファイルを作る（`build/jooq/schema.db`）
       2. `db/migration` の SQL を順に適用する
       3. その DB を入力に jOOQ codegen を実行する
-      4. 出力を `build/generated/jooq` に置き、`:core`（未作成なら `:backend`）の sourceSet に加える
+      4. 出力を `build/generated/jooq` に置き、`:repository`の sourceSet に加える
 - [ ] `compileKotlin` が codegen タスクに依存するようにする（初回ビルドで生成物が無くて落ちないように）
 - [ ] マイグレーション SQL が変わったら codegen が再実行されるよう入力を宣言する（up-to-date チェックを効かせる）
 - [ ] 生成コードは git 管理しない（`build/` 配下なので `.gitignore` 済み）

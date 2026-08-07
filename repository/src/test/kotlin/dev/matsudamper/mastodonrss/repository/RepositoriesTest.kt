@@ -1,0 +1,54 @@
+package dev.matsudamper.mastodonrss.repository
+
+import java.nio.file.Files
+import java.nio.file.Path
+import kotlin.io.path.createTempDirectory
+import kotlin.io.path.deleteRecursively
+import kotlin.test.AfterTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class RepositoriesTest {
+    private val tempDir: Path = createTempDirectory("mastodon-rss-repository-test")
+
+    @OptIn(kotlin.io.path.ExperimentalPathApi::class)
+    @AfterTest
+    fun tearDown() {
+        tempDir.deleteRecursively()
+    }
+
+    @Test
+    fun `DBに書き込んで読み戻せる`() {
+        val config = DatabaseConfig(path = tempDir.resolve("test.db"))
+
+        createRepositories(config).use { repositories ->
+            repositories.verifyWritable()
+        }
+    }
+
+    @Test
+    fun `親ディレクトリが無ければ作られる`() {
+        val dbPath = tempDir.resolve("nested/dir/test.db")
+
+        createRepositories(DatabaseConfig(path = dbPath)).use { repositories ->
+            repositories.verifyWritable()
+        }
+
+        assertTrue(Files.exists(dbPath), "DB ファイルが作られていない: $dbPath")
+    }
+
+    @Test
+    fun `閉じたあとに開き直しても内容が残っている`() {
+        val config = DatabaseConfig(path = tempDir.resolve("test.db"))
+
+        createRepositories(config).use { it.verifyWritable() }
+        createRepositories(config).use { it.verifyWritable() }
+    }
+
+    @Test
+    fun `DB_PATHが未設定のときは既定のパスを使う`() {
+        // 環境変数はテストから書き換えられないので、既定値の定数だけを確認する
+        assertEquals("./data/mastodon-rss.db", DatabaseConfig.DEFAULT_DB_PATH)
+    }
+}

@@ -15,7 +15,7 @@ class ApplicationTest {
     @Test
     fun `healthzにアクセスすると200とstatus okのJSONが返る`() = testApplication {
         application {
-            module()
+            module(FakeRepositories())
         }
 
         val response = client.get("/healthz")
@@ -28,7 +28,7 @@ class ApplicationTest {
     @Test
     fun `activity+jsonをAcceptすると同じContent-Typeで返る`() = testApplication {
         application {
-            module()
+            module(FakeRepositories())
         }
 
         val response = client.get("/healthz") {
@@ -37,5 +37,18 @@ class ApplicationTest {
 
         assertEquals(HttpStatusCode.OK, response.status)
         assertEquals(ActivityPubContentTypes.ActivityJson, response.contentType()?.withoutParameters())
+    }
+
+    @Test
+    fun `起動時にDBの書き込み確認が走る`() = testApplication {
+        val repositories = FakeRepositories()
+        application {
+            module(repositories)
+        }
+
+        // testApplication は最初のリクエストまでアプリケーションを起動しない
+        client.get("/healthz")
+
+        assertEquals(1, repositories.verifyWritableCallCount)
     }
 }

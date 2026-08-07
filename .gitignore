@@ -5,3 +5,6 @@ build/
 *.iml
 .idea/
 out/
+
+# 既定の DB_PATH の置き場所
+data/
