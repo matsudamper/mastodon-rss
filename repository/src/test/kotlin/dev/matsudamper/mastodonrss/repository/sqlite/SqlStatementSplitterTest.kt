@@ -44,10 +44,11 @@ class SqlStatementSplitterTest {
 
     @Test
     fun `行コメント内のセミコロンでは分割しない`() {
-        val sql = """
+        val sql =
+            """
             -- コメント; ここでは切らない
             CREATE TABLE a (id INTEGER);
-        """.trimIndent()
+            """.trimIndent()
 
         assertEquals(listOf("CREATE TABLE a (id INTEGER)"), splitSqlStatements(sql))
     }

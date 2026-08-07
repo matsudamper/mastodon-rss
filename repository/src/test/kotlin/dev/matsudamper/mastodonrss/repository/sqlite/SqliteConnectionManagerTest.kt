@@ -47,14 +47,15 @@ class SqliteConnectionManagerTest {
                 }
             }
 
-            val name = manager.withConnection { connection ->
-                connection.createStatement().use { statement ->
-                    statement.executeQuery("SELECT name FROM sample WHERE id = 1").use { resultSet ->
-                        resultSet.next()
-                        resultSet.getString(1)
+            val name =
+                manager.withConnection { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.executeQuery("SELECT name FROM sample WHERE id = 1").use { resultSet ->
+                            resultSet.next()
+                            resultSet.getString(1)
+                        }
                     }
                 }
-            }
 
             assertEquals("テスト", name)
         }
@@ -101,14 +102,15 @@ class SqliteConnectionManagerTest {
                 }
             }
 
-            val exists = manager.withConnection { connection ->
-                connection.createStatement().use { statement ->
-                    statement.executeQuery("SELECT COUNT(*) FROM sample").use { resultSet ->
-                        resultSet.next()
-                        resultSet.getInt(1) > 0
+            val exists =
+                manager.withConnection { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.executeQuery("SELECT COUNT(*) FROM sample").use { resultSet ->
+                            resultSet.next()
+                            resultSet.getInt(1) > 0
+                        }
                     }
                 }
-            }
 
             assertFalse(exists, "ロールバックされていない")
         }
@@ -125,12 +127,13 @@ class SqliteConnectionManagerTest {
         }
     }
 
-    private fun SqliteConnectionManager.queryString(sql: String): String = withConnection { connection ->
-        connection.createStatement().use { statement ->
-            statement.executeQuery(sql).use { resultSet ->
-                resultSet.next()
-                resultSet.getString(1)
+    private fun SqliteConnectionManager.queryString(sql: String): String =
+        withConnection { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery(sql).use { resultSet ->
+                    resultSet.next()
+                    resultSet.getString(1)
+                }
             }
         }
-    }
 }

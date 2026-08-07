@@ -1,0 +1,35 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+ktlint_code_style = ktlint_official
+
+# ktlint_official の既定は 140。日本語は全角で幅を取るため、
+# 文字数が同じでも見た目はかなり長くなる。少し狭めに取る
+max_line_length = 120
+
+# ktlint_official は引数が 2 個以上の関数を、行長に収まっていても必ず複数行に展開する。
+# 1 行で読める宣言まで縦に伸びるので切る。max_line_length を超えれば従来どおり折り返される。
+#
+# クラス側の同じ設定 (ktlint_class_signature_rule_...) は既定のままにしている。
+# 切ると 1 引数のデータクラスが 1 行に畳まれ、フィールドを足すたびに
+# 行ごと書き換わって差分が読みにくくなるため。ActivityPub の DTO は今後増える
+ktlint_function_signature_rule_force_multiline_when_parameter_count_greater_or_equal_than = unset
+
+# Composable は大文字始まりが Compose の慣習なので function-naming の対象から外す。
+# テスト名はバッククォート付きの日本語で書く決まり（AGENTS.md）で、
+# テストのソースセットでは既定で無効になるが、判定に失敗した場合に備えて明示しておく
+ktlint_function_naming_ignore_when_annotated_with = Composable, Test
+
+[*.{yml,yaml,json,md}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false

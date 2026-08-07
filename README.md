@@ -18,7 +18,7 @@ flowchart TB
         main["main"]
         module["Application.module"]
         route["routing<br/>GET /healthz"]
-        json["AppJson<br/>ContentNegotiation"]
+        json["json<br/>AppJson<br/>respondJson"]
         ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
     end
 
@@ -173,6 +173,41 @@ GraalVM 21 が必要。
 
 初回ビルドでは Kotlin/Wasm のツールチェイン（Node.js、yarn、webpack など）が
 ダウンロードされるため時間がかかる。
+
+## コード整形
+
+ktlint を全モジュールに入れている。スタイルは `ktlint_official`、設定は
+`.editorconfig` にある。
+
+```sh
+# 違反を確認する
+./gradlew ktlintCheck
+
+# 自動修正できるものを直す
+./gradlew ktlintFormat
+```
+
+CI では `ktlintCheck` が通らないとビルドが落ちる。
+
+## JSON の返し方
+
+Ktor の `ContentNegotiation` は入れていない。`call.respond(value)` は値の型から
+serializer をリフレクションで引くため、native-image では解決できず実行時に 500 になる。
+JVM のテストは通るので native バイナリを起動するまで気付けない、という形の不具合になる。
+
+代わりに serializer を明示する。
+
+```kotlin
+call.respondJson(HealthResponse.serializer(), HealthResponse(status = "ok"))
+```
+
+ActivityPub のエンドポイントでは Content-Type も明示する。`Accept` に応じて
+`application/activity+json` と `application/ld+json` を選ぶのは
+`ActivityPubContentTypes.negotiate()`。
+
+受信も同様に `call.receive<T>()` を使わず、`receiveText()` してから
+`AppJson.decodeFromString(Foo.serializer(), body)` で読む。inbox は HTTP Signature の
+Digest 検証に生のボディが必要なので、どのみち自動デコードには乗せられない。
 
 ## Docker で動かす
 

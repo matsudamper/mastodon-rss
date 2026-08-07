@@ -24,11 +24,12 @@ class ServerConfigTest {
 
     @Test
     fun `環境変数で上書きできる`() {
-        val config = config(
-            "HOST" to "127.0.0.1",
-            "PORT" to "9000",
-            "DOMAIN" to "example.com",
-        )
+        val config =
+            config(
+                "HOST" to "127.0.0.1",
+                "PORT" to "9000",
+                "DOMAIN" to "example.com",
+            )
 
         assertEquals("127.0.0.1", config.host)
         assertEquals(9000, config.port)

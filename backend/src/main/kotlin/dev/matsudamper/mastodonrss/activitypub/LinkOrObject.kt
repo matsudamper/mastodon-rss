@@ -23,13 +23,17 @@ import kotlinx.serialization.json.JsonPrimitive
 @Serializable(with = LinkOrObjectSerializer::class)
 sealed interface LinkOrObject {
     /** id (URL) だけが入っていた場合 */
-    data class Link(val href: String) : LinkOrObject
+    data class Link(
+        val href: String,
+    ) : LinkOrObject
 
     /**
      * オブジェクトが丸ごと埋め込まれていた場合。
      * 中身の型はアクティビティごとに違うので、ここでは解釈せず [JsonObject] のまま持つ。
      */
-    data class Embedded(val json: JsonObject) : LinkOrObject
+    data class Embedded(
+        val json: JsonObject,
+    ) : LinkOrObject
 }
 
 /** [LinkOrObject] の JSON 表現を、文字列かオブジェクトかで振り分ける serializer */
@@ -38,11 +42,15 @@ object LinkOrObjectSerializer : KSerializer<LinkOrObject> {
         PrimitiveSerialDescriptor("dev.matsudamper.mastodonrss.activitypub.LinkOrObject", PrimitiveKind.STRING)
 
     override fun deserialize(decoder: Decoder): LinkOrObject {
-        val jsonDecoder = decoder as? JsonDecoder
-            ?: throw SerializationException("LinkOrObjectSerializer は JSON でのみ使える")
+        val jsonDecoder =
+            decoder as? JsonDecoder
+                ?: throw SerializationException("LinkOrObjectSerializer は JSON でのみ使える")
 
         return when (val element = jsonDecoder.decodeJsonElement()) {
-            is JsonObject -> LinkOrObject.Embedded(element)
+            is JsonObject -> {
+                LinkOrObject.Embedded(element)
+            }
+
             is JsonPrimitive -> {
                 if (!element.isString) {
                     throw SerializationException("URL 文字列かオブジェクトである必要がある: $element")
@@ -50,13 +58,16 @@ object LinkOrObjectSerializer : KSerializer<LinkOrObject> {
                 LinkOrObject.Link(element.content)
             }
 
-            else -> throw SerializationException("URL 文字列かオブジェクトである必要がある: $element")
+            else -> {
+                throw SerializationException("URL 文字列かオブジェクトである必要がある: $element")
+            }
         }
     }
 
     override fun serialize(encoder: Encoder, value: LinkOrObject) {
-        val jsonEncoder = encoder as? JsonEncoder
-            ?: throw SerializationException("LinkOrObjectSerializer は JSON でのみ使える")
+        val jsonEncoder =
+            encoder as? JsonEncoder
+                ?: throw SerializationException("LinkOrObjectSerializer は JSON でのみ使える")
 
         when (value) {
             is LinkOrObject.Link -> jsonEncoder.encodeJsonElement(JsonPrimitive(value.href))

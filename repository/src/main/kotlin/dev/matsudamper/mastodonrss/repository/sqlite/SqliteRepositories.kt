@@ -4,7 +4,9 @@ import dev.matsudamper.mastodonrss.repository.DatabaseConfig
 import dev.matsudamper.mastodonrss.repository.Repositories
 import java.time.Instant
 
-internal class SqliteRepositories(config: DatabaseConfig) : Repositories {
+internal class SqliteRepositories(
+    config: DatabaseConfig,
+) : Repositories {
     private val connectionManager = SqliteConnectionManager(config)
 
     init {
@@ -21,18 +23,19 @@ internal class SqliteRepositories(config: DatabaseConfig) : Repositories {
     override fun verifyWritable() {
         val writtenAt = Instant.now().toString()
 
-        val readBack = connectionManager.transaction { connection ->
-            connection.prepareStatement(UPSERT_HEALTH_CHECK).use { statement ->
-                statement.setString(1, writtenAt)
-                statement.executeUpdate()
-            }
+        val readBack =
+            connectionManager.transaction { connection ->
+                connection.prepareStatement(UPSERT_HEALTH_CHECK).use { statement ->
+                    statement.setString(1, writtenAt)
+                    statement.executeUpdate()
+                }
 
-            connection.prepareStatement(SELECT_HEALTH_CHECK).use { statement ->
-                statement.executeQuery().use { resultSet ->
-                    if (resultSet.next()) resultSet.getString(1) else null
+                connection.prepareStatement(SELECT_HEALTH_CHECK).use { statement ->
+                    statement.executeQuery().use { resultSet ->
+                        if (resultSet.next()) resultSet.getString(1) else null
+                    }
                 }
             }
-        }
 
         check(readBack == writtenAt) {
             "DB に書き込んだ値を読み戻せなかった: 書き込み=$writtenAt 読み戻し=$readBack"

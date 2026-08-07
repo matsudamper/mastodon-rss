@@ -1,12 +1,28 @@
+import org.jlleitschuh.gradle.ktlint.KtlintExtension
+
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.multiplatform) apply false
     alias(libs.plugins.kotlin.compose.compiler) apply false
     alias(libs.plugins.compose) apply false
     alias(libs.plugins.graalvm.native) apply false
+    alias(libs.plugins.ktlint) apply false
 }
+
+// version catalog のアクセサは allprojects の中からは引けないので、ここで取り出しておく
+val ktlintVersion = libs.versions.ktlint.get()
 
 allprojects {
     group = "dev.matsudamper"
     version = "0.1.0"
+
+    // フォーマットはモジュールごとに設定せず、全体で 1 つに揃える。
+    // ルートの build.gradle.kts / settings.gradle.kts も対象に含める
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+
+    configure<KtlintExtension> {
+        // プラグイン既定のバージョンに引きずられないよう version catalog で固定する。
+        // Renovate に追従させるためでもある
+        version.set(ktlintVersion)
+    }
 }

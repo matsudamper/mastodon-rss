@@ -29,22 +29,21 @@ data class ServerConfig(
         /**
          * 環境変数の読み取り元を差し替えられる形。テストから使う。
          */
-        internal fun from(getenv: (String) -> String?): ServerConfig {
-            return ServerConfig(
+        internal fun from(getenv: (String) -> String?): ServerConfig =
+            ServerConfig(
                 host = getenv(ENV_HOST)?.takeIf { it.isNotBlank() } ?: DEFAULT_HOST,
                 port = getenv(ENV_PORT)?.trim()?.toIntOrNull() ?: DEFAULT_PORT,
                 // アクター ID に焼き込まれる値なので、前後の空白や末尾の / は落としておく。
                 // https://example.com/ のような URL ごと渡されることも考えて scheme も落とす
                 domain = getenv(ENV_DOMAIN)?.let(::normalizeDomain),
             )
-        }
 
-        private fun normalizeDomain(raw: String): String? {
-            return raw.trim()
+        private fun normalizeDomain(raw: String): String? =
+            raw
+                .trim()
                 .removePrefix("https://")
                 .removePrefix("http://")
                 .trimEnd('/')
                 .takeIf { it.isNotEmpty() }
-        }
     }
 }

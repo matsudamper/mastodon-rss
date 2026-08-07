@@ -31,21 +31,27 @@ object StringListSerializer : KSerializer<List<String>> {
         SerialDescriptor("dev.matsudamper.mastodonrss.activitypub.StringList", delegate.descriptor)
 
     override fun deserialize(decoder: Decoder): List<String> {
-        val jsonDecoder = decoder as? JsonDecoder
-            ?: throw SerializationException("StringListSerializer は JSON でのみ使える")
+        val jsonDecoder =
+            decoder as? JsonDecoder
+                ?: throw SerializationException("StringListSerializer は JSON でのみ使える")
 
         return when (val element = jsonDecoder.decodeJsonElement()) {
-            is JsonArray -> element.map { item ->
-                val primitive = item as? JsonPrimitive
-                    ?: throw SerializationException("配列の要素は文字列である必要がある: $item")
-                if (!primitive.isString) {
-                    throw SerializationException("配列の要素は文字列である必要がある: $item")
+            is JsonArray -> {
+                element.map { item ->
+                    val primitive =
+                        item as? JsonPrimitive
+                            ?: throw SerializationException("配列の要素は文字列である必要がある: $item")
+                    if (!primitive.isString) {
+                        throw SerializationException("配列の要素は文字列である必要がある: $item")
+                    }
+                    primitive.content
                 }
-                primitive.content
             }
 
             // JsonNull も JsonPrimitive なので、文字列判定より先に弾く
-            JsonNull -> emptyList()
+            JsonNull -> {
+                emptyList()
+            }
 
             is JsonPrimitive -> {
                 if (!element.isString) {
@@ -54,13 +60,16 @@ object StringListSerializer : KSerializer<List<String>> {
                 listOf(element.content)
             }
 
-            else -> throw SerializationException("文字列か文字列の配列である必要がある: $element")
+            else -> {
+                throw SerializationException("文字列か文字列の配列である必要がある: $element")
+            }
         }
     }
 
     override fun serialize(encoder: Encoder, value: List<String>) {
-        val jsonEncoder = encoder as? JsonEncoder
-            ?: throw SerializationException("StringListSerializer は JSON でのみ使える")
+        val jsonEncoder =
+            encoder as? JsonEncoder
+                ?: throw SerializationException("StringListSerializer は JSON でのみ使える")
 
         if (value.size == 1) {
             jsonEncoder.encodeJsonElement(JsonPrimitive(value.single()))

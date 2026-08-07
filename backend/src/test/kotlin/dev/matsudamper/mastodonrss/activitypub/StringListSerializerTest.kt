@@ -2,10 +2,10 @@ package dev.matsudamper.mastodonrss.activitypub
 
 import dev.matsudamper.mastodonrss.json.AppJson
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlinx.serialization.SerializationException
 
 // ActivityPub の @context / to / cc / type のように、
 // 単一文字列と配列のどちらでも来るフィールドの正規化を確認する。
@@ -26,9 +26,10 @@ class StringListSerializerTest {
 
     @Test
     fun `配列はそのままリストになる`() {
-        val decoded = AppJson.decodeFromString<Sample>(
-            """{"to":["https://example.com/a","https://example.com/b"]}""",
-        )
+        val decoded =
+            AppJson.decodeFromString<Sample>(
+                """{"to":["https://example.com/a","https://example.com/b"]}""",
+            )
 
         assertEquals(listOf("https://example.com/a", "https://example.com/b"), decoded.to)
     }
@@ -56,9 +57,10 @@ class StringListSerializerTest {
 
     @Test
     fun `2要素以上のリストは配列として出力する`() {
-        val encoded = AppJson.encodeToString(
-            Sample(to = listOf("https://example.com/a", "https://example.com/b")),
-        )
+        val encoded =
+            AppJson.encodeToString(
+                Sample(to = listOf("https://example.com/a", "https://example.com/b")),
+            )
 
         assertEquals("""{"to":["https://example.com/a","https://example.com/b"]}""", encoded)
     }
