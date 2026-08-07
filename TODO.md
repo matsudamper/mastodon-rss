@@ -7,7 +7,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 
 ## 現在地と次の一手
 
-現在地: Phase 0 の途中。`:backend` / `:crypto` / `:repository` / `:frontend` の 4 モジュール構成。
+現在地: Phase 0 の終盤。`:backend` / `:crypto` / `:repository` / `:frontend` の 4 モジュール構成。
 `:backend` は Ktor (CIO) + kotlinx.serialization で `/healthz` を返し、JVM でも native-image でも動く。
 `:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
 `nativeTest` で native バイナリ上でも動くことを確認済み。
@@ -15,7 +15,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
 CI で JVM ビルド・テスト / frontend / crypto の native テスト / native-image の 4 ジョブが回っている。
 
-次の一手: 以下の順で Phase 0 を閉じる。
+次の一手: 0-8 を片付けて Phase 0 を閉じる。
 
 | 順 | やること | なぜこの順か |
 | --- | --- | --- |
@@ -25,7 +25,7 @@ CI で JVM ビルド・テスト / frontend / crypto の native テスト / nati
 | 0-4 | SQLite 接続（完了） | native-image で最も割れやすい要素その1 |
 | 0-5 | マイグレーション（自前連番 SQL）（完了） | jOOQ codegen の入力になるので codegen より先 |
 | 0-6 | JCA の native 確認（完了） | Phase 1 の鍵生成と Phase 2 の署名の前提。最も安く済み、詰まると後続が全部止まる |
-| 0-7 | reflect-config の自動化 | Phase 1 で `@Serializable` 型が増える前にやる。手で足す運用は先に破綻する |
+| 0-7 | reflect-config を無くす（完了） | Phase 1 で `@Serializable` 型が増える前にやる。手で足す運用は先に破綻する |
 | 0-8 | ktlint を入れるか決める | いつでもよいが Phase 1 に入る前が切りが良い |
 
 jOOQ の codegen は Phase 0 から外した。現在のスキーマは `health_check` と `schema_version` だけで、
@@ -145,7 +145,9 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
 
 リフレクション不使用（コンパイル時にシリアライザを生成する）ので native-image と相性が良い。
 
-- [x] `kotlin("plugin.serialization")` と `ktor-serialization-kotlinx-json` を入れ、`ContentNegotiation` を設定する
+- [x] `kotlin("plugin.serialization")` を入れる
+      - 当初は `ktor-serialization-kotlinx-json` と `ContentNegotiation` も入れたが、
+        0-7 でリフレクションを避けるため両方外した
 - [x] `Json` の設定を決めて 1 箇所に集約する
       - `encodeDefaults = true`（ActivityPub は既定値の省略で相手側が転ぶことがある）
       - `explicitNulls = false`（`null` フィールドを出力しない）
@@ -165,8 +167,8 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
             - `activitypub/LinkOrObject.kt`。`Link` / `Embedded` の sealed interface として持つ
       - [x] Content-Type は Ktor 既定の `application/json` ではなく `application/activity+json` を返す必要がある
             → カスタム `ContentType` を定義して `respondText` / `respond` で明示する
-            - `activitypub/ActivityPubContentTypes.kt` に `activity+json` / `ld+json` / `jrd+json` を定義し、
-              `ContentNegotiation` にも登録した（`Accept` に応じた Content-Type で返る）
+            - `activitypub/ActivityPubContentTypes.kt` に `activity+json` / `ld+json` / `jrd+json` を定義した。
+              `Accept` に応じた選択は 0-7 で `ActivityPubContentTypes.negotiate()` に移した
 
 ### 0-4. SQLite 接続
 
@@ -270,17 +272,20 @@ Phase 1 の話なので触っていない。この段階では JCA が native �
       - JNI 設定も `org.sqlite.tmpdir` の指定も不要だった
       - native バイナリを起動してマイグレーション適用と読み書きの往復を確認済み
 - [x] JCA（RSA / SHA-256）が native-image 上で動くことを確認する → 0-6 で完了
-- [ ] GraalVM tracing agent (`-agentlib:native-image-agent`) を回す Gradle タスクを用意する
-      - 設定を手で書くより、一度エージェントで収集してから削るほうが早い
-      - 出力先は `backend/src/main/resources/META-INF/native-image/dev.matsudamper/mastodon-rss-backend/`
-      - GraalVM buildtools の `-Pagent` と `metadataCopy` タスクに乗るはず。
-        収集した設定をそのままコミットするか、手で削ってから入れるかを決める
-      - 代替案: `ContentNegotiation` 任せをやめ、`AppJson.encodeToString(Foo.serializer(), value)` で
-        明示的に書けばリフレクション自体が消えて reflect-config が要らなくなる。
-        Ktor の `Accept` に応じた自動選択は失うので、どちらを取るかは Phase 1 の型を書く前に決める
-- [ ] `:repository` にも `nativeTest` を広げるか決める
-      - いまは native バイナリの起動確認でマイグレーション適用と読み書きを間接的に見ている
-      - テストごと native にすると直接確認できるが、native ビルドが 1 つ増えて CI が延びる
+- [x] リフレクション設定の増え方を止める → `ContentNegotiation` をやめて serializer を明示する
+      - `call.respondJson(Foo.serializer(), value)` の形にした。実体は `json/JsonResponse.kt`
+      - コンパイル時に serializer が決まるのでリフレクションが発生せず、`reflect-config.json` を削除できた。
+        `@Serializable` 型が増えても設定は増えない
+      - 失った `Accept` に応じた Content-Type の自動選択は `ActivityPubContentTypes.negotiate()` で代替した。
+        `application/activity+json` と profile 付き `application/ld+json` を品質値順に見て選ぶ
+      - 受信側も同じ方針。Phase 2 の inbox は HTTP Signature の Digest 検証に生のボディが要るので、
+        どのみち `receive<T>()` は使えず `receiveText()` からの明示デコードになる
+      - tracing agent のタスク化は採用しなかった。常用しないものをビルドに残す意味が薄いため、
+        native で詰まったときの調査手順として native-image の README に手順だけ残した
+- [x] `:repository` にも `nativeTest` を広げるか決める → 広げない
+      - native バイナリの起動確認でマイグレーション適用と読み書きは間接的に見えている
+      - テストごと native にすると直接確認できるが、native ビルドが 1 つ増えて CI が延びる。
+        SQLite が native で壊れるなら起動確認が先に落ちるので、二重に持つ価値が薄い
 - [x] リフレクション/リソース設定はどこから来たものか分かるようコメントか README を添える
       - `backend/src/main/resources/META-INF/native-image/dev.matsudamper/mastodon-rss-backend/README.md`
       - `:repository` 側の `resource-config.json` は JSON 内の `_comment` に書いた
@@ -291,13 +296,18 @@ JVM のテストは全部通るのに native バイナリだけ 500 を返す状
 - Ktor の `ContentNegotiation` は `call.respond(value)` の際に `KType` から
   serializer をリフレクションで引く。native-image では解決できず
   `Serializer for class 'HealthResponse' is not found.` で 500 になる
-- `@Serializable` な型ごとに `Foo` / `Foo$Companion` / `Foo$$serializer` を
-  reflect-config.json に登録して解決した
-- 登録すると今度は native-image がアノテーションを解析し、
-  `kotlin.DeprecationLevel` がビルド時初期化されてビルドが落ちる。
-  `--initialize-at-build-time=kotlin.DeprecationLevel` で許可した
-- [ ] `@Serializable` 型が増えるたびに reflect-config を手で足すのは破綻するので、
-      tracing agent のタスク化を優先する
+- 最初は `@Serializable` な型ごとに `Foo` / `Foo$Companion` / `Foo$$serializer` を
+  reflect-config.json に登録して回避した。0-7 で `ContentNegotiation` ごとやめ、
+  リフレクションが発生しない形にしたので、この登録は全て消した
+
+`--initialize-at-build-time=kotlin.DeprecationLevel` は残っている:
+
+- reflect-config への登録が原因だと考えていたが、登録を全て消しても再現した。
+  native-image は解析中に自分で `isAnnotationPresent` を呼び（`PodFeature.isPodClass`）、
+  そこで Kotlin の `@Deprecated` のデフォルト値が読まれて
+  `DeprecationLevel` enum がビルド時初期化される
+- Kotlin のクラスが解析対象にあれば起きるので、リフレクションを使わなくなっても要る。
+  `--trace-class-initialization` で確認した
 
 ### 0-8. CI の強化
 
@@ -323,8 +333,8 @@ JVM のテストは全部通るのに native バイナリだけ 500 を返す状
 達成済み。`/healthz` と SQLite への書き込みは native-image ジョブの起動確認で、
 鍵と署名は `:crypto:nativeTest` で確認している。
 
-残る 0-7 の reflect-config 自動化と 0-8 のフォーマッタ判断は、
-このチェックポイントの成立自体は妨げない。Phase 1 に入る前に片付ける。
+残る 0-8 のフォーマッタ判断は、このチェックポイントの成立自体は妨げない。
+Phase 1 に入る前に片付ける。
 
 > ### Compose の位置づけ（決定済み: 案2）
 > Compose Desktop（Skiko / JVM）は GraalVM native-image では現実的に動かない。

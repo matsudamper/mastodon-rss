@@ -1,20 +1,14 @@
 package dev.matsudamper.mastodonrss
 
-import dev.matsudamper.mastodonrss.activitypub.ActivityPubContentTypes
-import dev.matsudamper.mastodonrss.json.AppJson
+import dev.matsudamper.mastodonrss.json.respondJson
 import dev.matsudamper.mastodonrss.repository.DatabaseConfig
 import dev.matsudamper.mastodonrss.repository.Repositories
 import dev.matsudamper.mastodonrss.repository.createRepositories
-import io.ktor.serialization.kotlinx.KotlinxSerializationConverter
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
-import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 
@@ -42,19 +36,11 @@ fun Application.module(repositories: Repositories, config: ServerConfig = Server
         log.info("DOMAIN: ${config.domain}")
     }
 
-    install(ContentNegotiation) {
-        json(AppJson)
-
-        // Mastodon はアクターを取りに来るときに Accept: application/activity+json を送る。
-        // ここで登録しておかないと 406 になり、リモートからアクターを解決できない。
-        register(ActivityPubContentTypes.ActivityJson, KotlinxSerializationConverter(AppJson))
-        register(ActivityPubContentTypes.LdJson, KotlinxSerializationConverter(AppJson))
-        register(ActivityPubContentTypes.JrdJson, KotlinxSerializationConverter(AppJson))
-    }
-
+    // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
+    // native-image で解決できず 500 になる。詳細は json/JsonResponse.kt を参照
     routing {
         get("/healthz") {
-            call.respond(HealthResponse(status = "ok"))
+            call.respondJson(HealthResponse.serializer(), HealthResponse(status = "ok"))
         }
     }
 }

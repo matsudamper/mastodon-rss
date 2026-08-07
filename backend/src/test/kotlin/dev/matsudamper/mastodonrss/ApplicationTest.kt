@@ -1,7 +1,5 @@
 package dev.matsudamper.mastodonrss
 
-import dev.matsudamper.mastodonrss.activitypub.ActivityPubContentTypes
-import io.ktor.client.request.accept
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -16,42 +14,30 @@ import kotlin.test.assertEquals
 // ここでは FakeRepositories を渡して実ファイルを触らない。
 class ApplicationTest {
     @Test
-    fun `healthzにアクセスすると200とstatus okのJSONが返る`() = testApplication {
-        application {
-            module(FakeRepositories())
+    fun `healthzにアクセスすると200とstatus okのJSONが返る`() =
+        testApplication {
+            application {
+                module(FakeRepositories())
+            }
+
+            val response = client.get("/healthz")
+
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertEquals("""{"status":"ok"}""", response.bodyAsText())
+            assertEquals(ContentType.Application.Json, response.contentType()?.withoutParameters())
         }
-
-        val response = client.get("/healthz")
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        assertEquals("""{"status":"ok"}""", response.bodyAsText())
-        assertEquals(ContentType.Application.Json, response.contentType()?.withoutParameters())
-    }
 
     @Test
-    fun `activity+jsonをAcceptすると同じContent-Typeで返る`() = testApplication {
-        application {
-            module(FakeRepositories())
+    fun `起動時にDBの書き込み確認が走る`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            application {
+                module(repositories)
+            }
+
+            // testApplication は最初のリクエストまでアプリケーションを起動しない
+            client.get("/healthz")
+
+            assertEquals(1, repositories.verifyWritableCallCount)
         }
-
-        val response = client.get("/healthz") {
-            accept(ActivityPubContentTypes.ActivityJson)
-        }
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        assertEquals(ActivityPubContentTypes.ActivityJson, response.contentType()?.withoutParameters())
-    }
-
-    @Test
-    fun `起動時にDBの書き込み確認が走る`() = testApplication {
-        val repositories = FakeRepositories()
-        application {
-            module(repositories)
-        }
-
-        // testApplication は最初のリクエストまでアプリケーションを起動しない
-        client.get("/healthz")
-
-        assertEquals(1, repositories.verifyWritableCallCount)
-    }
 }
