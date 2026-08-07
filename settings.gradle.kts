@@ -16,4 +16,5 @@ dependencyResolutionManagement {
 }
 
 include(":backend")
+include(":repository")
 include(":frontend")
