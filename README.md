@@ -104,8 +104,8 @@ Mastodon 側にキャッシュされると後から変えられないので、�
 
 ## 必要なもの
 
-- JDK 21
-- native-image をビルドする場合は GraalVM 21
+- JDK 25
+- native-image をビルドする場合は GraalVM 25
 
 Gradle は wrapper が入っているので個別のインストールは不要。
 
@@ -139,7 +139,7 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 # ビルドとテスト
 ./gradlew :crypto:build
 
-# テストを native バイナリにして実行する（GraalVM 21 が必要）
+# テストを native バイナリにして実行する（GraalVM 25 が必要）
 ./gradlew :crypto:nativeTest
 ```
 
@@ -149,7 +149,7 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 
 ### backend の native-image
 
-GraalVM 21 が必要。
+GraalVM 25 が必要。
 
 ```sh
 # ネイティブバイナリを生成する

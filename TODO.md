@@ -597,7 +597,7 @@ Phase 1 で固定していた部分を動的にする。
       - ポーリング間隔は Phase 5 でフィードごとに持つので、ここには入れない
 - [x] Dockerfile と docker-compose.yml
       - multi-stage build。GraalVM のステージで native バイナリを作り、
-        実行用のステージ（debian:12-slim）には JDK を持ち込まない
+        実行用のステージ（debian:13-slim）には JDK を持ち込まない
       - DB は名前付きボリューム。`HEALTHCHECK` で `/healthz` を叩く
 - [x] `main` へのマージで GitHub Packages（ghcr.io）にイメージを publish する
       - タグは `latest` と commit SHA。戻せるよう latest だけにはしない
