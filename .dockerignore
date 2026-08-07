@@ -1,0 +1,9 @@
+.git
+.github
+.claude
+.gradle
+**/.gradle
+**/build
+kotlin-js-store
+data
+*.log

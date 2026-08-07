@@ -96,6 +96,11 @@ DB を開けなかった場合もマイグレーションに失敗した場合�
 | `HOST` | `0.0.0.0` | バインドするアドレス |
 | `PORT` | `8080` | 待ち受けポート |
 | `DB_PATH` | `./data/mastodon-rss.db` | SQLite の DB ファイル。親ディレクトリは起動時に作られる |
+| `DOMAIN` | なし | 外部に公開するドメイン。WebFinger の `acct:` とアクターの `id` に使う |
+
+`DOMAIN` は `https://` などの scheme と末尾の `/` を書いても落として扱う。
+いまは起動ログに出るだけで、実際に使うのは Phase 1 から。アクター ID に焼き込まれ、
+Mastodon 側にキャッシュされると後から変えられないので、本番では慎重に決めること。
 
 ## 必要なもの
 
@@ -168,6 +173,38 @@ GraalVM 21 が必要。
 
 初回ビルドでは Kotlin/Wasm のツールチェイン（Node.js、yarn、webpack など）が
 ダウンロードされるため時間がかかる。
+
+## Docker で動かす
+
+```sh
+cp .env.example .env
+# .env の DOMAIN を書き換えてから
+docker compose up -d
+```
+
+`DOMAIN` は必須で、未設定だと compose が起動前に失敗する。
+
+イメージは multi-stage build で、GraalVM のステージで native バイナリを作り、
+実行用のステージには JDK を持ち込まない。初回は Gradle の依存取得と native-image の
+ビルドが走るため時間がかかる。
+
+DB は `data` という名前付きボリュームに置く。コンテナを作り直してもフォロワーは残る。
+
+`HEALTHCHECK` で `/healthz` を叩いている。起動時にマイグレーションと書き込み確認が
+走るので、healthy になった時点で DB まで通っている。
+
+### GitHub Packages のイメージを使う
+
+`main` にマージすると ghcr.io にイメージが publish される。タグは `latest` と commit SHA。
+
+```sh
+docker pull ghcr.io/matsudamper/mastodon-rss:latest
+```
+
+自分でビルドせずこれを使う場合は `docker-compose.yml` の `build:` を消す。
+
+なお 8080 を直接インターネットに晒さないこと。ActivityPub は HTTPS 前提なので、
+前段にリバースプロキシを置く。
 
 ## マイグレーション
 

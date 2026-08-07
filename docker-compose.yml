@@ -1,0 +1,24 @@
+services:
+  mastodon-rss:
+    # ローカルでビルドする場合はこのまま。GitHub Packages の
+    # イメージを使う場合は build: を消して docker compose pull する
+    build:
+      context: .
+    image: ghcr.io/matsudamper/mastodon-rss:latest
+    restart: unless-stopped
+    environment:
+      # 公開するドメイン。アクター ID に焼き込まれ、Mastodon 側にキャッシュされると
+      # 後から変えられないので、必ず指定させる
+      DOMAIN: ${DOMAIN:?DOMAIN を .env か環境変数で指定すること}
+      DB_PATH: /data/mastodon-rss.db
+      HOST: 0.0.0.0
+      PORT: 8080
+    ports:
+      # 外に出すのは HTTPS を終端するリバースプロキシの後ろを想定している。
+      # 直接インターネットに晒さないこと
+      - "${PUBLISH_PORT:-8080}:8080"
+    volumes:
+      - data:/data
+
+volumes:
+  data:

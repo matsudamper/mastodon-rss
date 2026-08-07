@@ -569,8 +569,17 @@ Phase 1 で固定していた部分を動的にする。
 ## Phase 9: リリース
 
 - [ ] native-image のビルドを本番向けに最適化（PGO、`--gc=G1` など）
-- [ ] 設定ファイルの外出し（ドメイン、DB パス、ポート、ポーリング間隔）
-- [ ] systemd unit / Dockerfile
+- [x] 設定の外出し（ドメイン、DB パス、ポート）
+      - 環境変数に寄せた。`ServerConfig` と `DatabaseConfig` が入口
+      - ポーリング間隔は Phase 5 でフィードごとに持つので、ここには入れない
+- [x] Dockerfile と docker-compose.yml
+      - multi-stage build。GraalVM のステージで native バイナリを作り、
+        実行用のステージ（debian:12-slim）には JDK を持ち込まない
+      - DB は名前付きボリューム。`HEALTHCHECK` で `/healthz` を叩く
+- [x] `main` へのマージで GitHub Packages（ghcr.io）にイメージを publish する
+      - タグは `latest` と commit SHA。戻せるよう latest だけにはしない
+      - コンテナまわりを触った PR ではビルドと起動確認だけ走らせる
+- [ ] systemd unit（コンテナを使わない場合の起動方法）
 - [ ] セットアップ手順の README
 - [ ] リバースプロキシ設定例（nginx / Caddy）
 

@@ -1,0 +1,85 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+  # コンテナまわりを触った PR ではビルドだけ確かめる。
+  # main にマージしてから Dockerfile の間違いに気付くのを避ける。
+  # Kotlin 側の変更で壊れるとしたら nativeCompile の時点で分かるので、
+  # ここでは対象を絞って native ビルドが二重に走らないようにする
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yml
+      - .github/workflows/publish.yml
+
+jobs:
+  publish:
+    name: コンテナイメージのビルド（main なら publish）
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # docker と buildx は ubuntu-latest に入っているので、
+      # SHA ピン留めの対象を増やさないよう docker コマンドを直接使う
+      - name: ghcr.io にログイン
+        if: github.event_name == 'push'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: イメージ名を決める
+        run: |
+          set -euo pipefail
+          # ghcr.io のリポジトリ名は小文字しか受け付けない
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: ビルド
+        run: |
+          set -euo pipefail
+          # latest と commit SHA の 2 つを打つ。
+          # 動いていたバージョンに戻せるよう latest だけにはしない
+          docker build \
+            --tag "$IMAGE:latest" \
+            --tag "$IMAGE:$GITHUB_SHA" \
+            .
+
+      - name: 起動確認
+        run: |
+          set -euo pipefail
+
+          docker run --rm --detach --name mastodon-rss-check \
+            --publish 8080:8080 \
+            --env DOMAIN=example.com \
+            "$IMAGE:$GITHUB_SHA"
+          trap 'docker rm -f mastodon-rss-check > /dev/null 2>&1 || true' EXIT
+
+          for _ in $(seq 1 30); do
+            if curl -sf http://localhost:8080/healthz -o /tmp/response.txt; then
+              break
+            fi
+            sleep 1
+          done
+
+          # イメージの中で起動しないことがあるのは、native バイナリの
+          # 動的リンク先がランタイムイメージに無い場合。ログまで出さないと分からない
+          if ! grep -q '"status":"ok"' /tmp/response.txt 2>/dev/null; then
+            echo "::error::コンテナの起動確認に失敗しました"
+            echo "--- HTTP レスポンス ---"
+            curl -si --max-time 5 http://localhost:8080/healthz || echo "接続できなかった"
+            echo "--- コンテナログ ---"
+            docker logs mastodon-rss-check || true
+            exit 1
+          fi
+
+      - name: push
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:$GITHUB_SHA"
