@@ -3,7 +3,7 @@
 # ---- ビルド ----
 # native-image のビルドには GraalVM が要るが、実行時には要らない。
 # ステージを分けて、最終イメージに JDK を持ち込まないようにする
-FROM ghcr.io/graalvm/native-image-community:21 AS build
+FROM ghcr.io/graalvm/native-image-community:25 AS build
 
 # このイメージは最小構成で xargs が入っておらず、gradlew が
 # 「xargs is not available」で起動できない
@@ -31,9 +31,9 @@ RUN ./gradlew --no-daemon :backend:nativeCompile
 
 # ---- 実行 ----
 # native バイナリは動的リンクなので、ビルド時より古い glibc のイメージに置くと起動しない。
-# ビルドステージは Oracle Linux 9 (glibc 2.34)、こちらは Debian 12 (glibc 2.36) で、
+# ビルドステージは Oracle Linux 9 (glibc 2.34)、こちらは Debian 13 (glibc 2.41) で、
 # 新しい側に置いているため動く
-FROM debian:12-slim
+FROM debian:13-slim
 
 # curl は HEALTHCHECK で /healthz を叩くためだけに入れている
 RUN apt-get update \

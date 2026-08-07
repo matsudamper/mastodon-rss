@@ -21,7 +21,7 @@ application {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
 }
 
 tasks.test {
@@ -40,12 +40,10 @@ graalvmNative {
     // 中身が {} （設定不要と検証済みの印）で、実データがあるのは ktor-server-core の
     // 一部だけ。sqlite-jdbc は jar が SqliteJdbcFeature を同梱していて素で動く。
     //
-    // 一方でメタデータは統合形式の reachability-metadata.json に全面移行済みで、
-    // これは GraalVM for JDK 24 以降でないと読めない。JDK 21 の GraalVM では
-    //   provides a reachability-metadata schema, but your GraalVM installation does not
-    // でビルドが落ちる。実際 Docker のビルドステージがこれで止まった。
-    // 得られるものが無いのに GraalVM の版に縛られる理由が無いので切る。
-    // GraalVM を上げるときに改めて判断する
+    // 当初は GraalVM for JDK 21 を使っていて、統合形式の reachability-metadata.json を
+    // 読めずビルドが落ちるという理由もあった（provides a reachability-metadata schema,
+    // but your GraalVM installation does not）。JDK 25 に上げてこの制約は無くなったが、
+    // 上に書いた「収録範囲がアプリ側に届かない」という理由はそのままなので切ったままにする
     metadataRepository {
         enabled.set(false)
     }
@@ -58,7 +56,7 @@ graalvmNative {
 
             // native-image は解析中に自分で isAnnotationPresent を呼ぶ（PodFeature.isPodClass）。
             // そこで Kotlin の @Deprecated のデフォルト値が読まれ、level の型である
-            // DeprecationLevel enum がビルド時に初期化される。GraalVM 21 の既定は
+            // DeprecationLevel enum がビルド時に初期化される。native-image の既定は
             // 実行時初期化なので衝突してビルドが落ちる。
             //
             //   Error: Classes that should be initialized at run time got initialized during image building:
