@@ -6,8 +6,8 @@ on:
   pull_request:
 
 jobs:
-  jvm:
-    name: JVM ビルド・テスト
+  backend:
+    name: backend ビルド・テスト
     runs-on: ubuntu-latest
     steps:
       - name: チェックアウト
@@ -23,7 +23,34 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: ビルド・テスト
-        run: ./gradlew build
+        run: ./gradlew :backend:build
+
+  frontend:
+    name: frontend ビルド
+    runs-on: ubuntu-latest
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: JDK のセットアップ
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Gradle のセットアップ
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Wasm バンドルのビルド
+        run: ./gradlew :frontend:wasmJsBrowserDistribution
+
+      - name: 成果物の確認
+        run: |
+          DIST=frontend/build/dist/wasmJs/productionExecutable
+          ls -la "$DIST"
+          test -f "$DIST/index.html"
+          test -f "$DIST/frontend.js"
+          ls "$DIST"/*.wasm > /dev/null
 
   native-image:
     name: native-image ビルド
@@ -43,17 +70,25 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: native-image ビルド
-        run: ./gradlew nativeCompile
+        run: ./gradlew :backend:nativeCompile
 
-      - name: 起動確認（Hello World）
+      - name: 起動確認
         run: |
-          ./build/native/nativeCompile/mastodon-rss &
+          set -euo pipefail
+          ./backend/build/native/nativeCompile/mastodon-rss > /tmp/server.log 2>&1 &
           SERVER_PID=$!
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080/ > /tmp/response.txt; then
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 30); do
+            if curl -sf http://localhost:8080/ -o /tmp/response.txt; then
               break
             fi
             sleep 1
           done
-          grep -q "Hello, World!" /tmp/response.txt
-          kill "$SERVER_PID"
+
+          # 立ち上がらなかった場合に原因が分かるようログを出してから落とす
+          if ! grep -q "Hello, World!" /tmp/response.txt 2>/dev/null; then
+            echo "::error::サーバーの起動確認に失敗しました"
+            cat /tmp/server.log
+            exit 1
+          fi
