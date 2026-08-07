@@ -7,11 +7,12 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 
 ## 現在地と次の一手
 
-現在地: Phase 0 は完了。`:backend` / `:crypto` / `:repository` / `:frontend` の 4 モジュール構成。
+現在地: Phase 0 は完了。`:backend` / `:backend:crypto` / `:backend:repository` / `:frontend` の
+4 モジュール構成。サーバー専用の crypto と repository は `backend/` の下に置いている。
 `:backend` は Ktor (CIO) + kotlinx.serialization で `/healthz` を返し、JVM でも native-image でも動く。
-`:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
+`:backend:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
 `nativeTest` で native バイナリ上でも動くことを確認済み。
-`:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
+`:backend:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
 CI で ktlint / JVM ビルド・テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
 
@@ -53,8 +54,10 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 | 署名 | JCA（RSA / SHA256withRSA）。ライブラリは足さない |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
 
-モジュールは `:backend`（サーバー）、`:crypto`（鍵と署名）、`:repository`（DB アクセス）、
-`:frontend`（管理 UI）の 4 つ。ビルド方法は [README.md](README.md) を参照。
+モジュールは `:backend`（サーバー）、`:backend:crypto`（鍵と署名）、
+`:backend:repository`（DB アクセス）、`:frontend`（管理 UI）の 4 つ。
+crypto と repository は JVM のライブラリに依存していて `:frontend` からは使えないため、
+`backend/` の下にネストしている。ビルド方法は [README.md](README.md) を参照。
 
 ---
 
@@ -114,11 +117,11 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
 
 まだ切っていないモジュール（必要になった時点で追加する）:
 
-- [x] `:repository` — DB アクセス。0-4 で追加した
+- [x] `:backend:repository` — DB アクセス。0-4 で追加した
       - 当初は `:core`（ドメインモデル / DB アクセス / ActivityPub の JSON モデル / RSS パーサ）
         という括りを想定していたが、責務が広すぎるので DB アクセスに絞った
       - Kotlin JVM。Ktor に依存させない。公開するのは interface だけ
-- [x] `:crypto` — 鍵と署名。0-6 で追加した
+- [x] `:backend:crypto` — 鍵と署名。0-6 で追加した
       - Kotlin JVM。依存は Kotlin 標準ライブラリと JCA だけで、Ktor も JDBC も入らない
       - 分けた理由は `nativeTest` を回せるようにするため。`:backend` のテストは
         `ktor-server-test-host` 経由で `kotlinx-coroutines-debug` を引き込み、
@@ -176,12 +179,12 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
 
 ### 0-4. SQLite 接続
 
-DB アクセスは `:core` ではなく `:repository` モジュールに置くことにした。
+DB アクセスは `:core` ではなく `:backend:repository` モジュールに置くことにした。
 公開するのは `Repositories` interface と `DatabaseConfig` だけで、
 JDBC を使う実装は `internal` にして呼び出し側から見えないようにする。
 sqlite-jdbc を `implementation` で入れているため、`:backend` の compile classpath にも漏れない。
 
-- [x] `org.xerial:sqlite-jdbc` を `:repository` に入れ、テーブル作成 → INSERT → SELECT の疎通を通す
+- [x] `org.xerial:sqlite-jdbc` を `:backend:repository` に入れ、テーブル作成 → INSERT → SELECT の疎通を通す
 - [x] 接続時に必ず入れる PRAGMA を 1 箇所にまとめる
       - `journal_mode=WAL`（読み書きの並行性。ただしファイル DB のみ有効）
       - `foreign_keys=ON`（SQLite は既定で OFF。忘れると外部キーが効かない）
@@ -205,8 +208,8 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
 
 ### 0-5. マイグレーション（自前の連番 SQL）
 
-- [x] `repository/src/main/resources/db/migration/V001__init.sql` の形式で SQL を置く
-      - 置き場所は `:backend` ではなく `:repository`。SQL とそれを読むコードを同じモジュールに置く
+- [x] `backend/repository/src/main/resources/db/migration/V001__init.sql` の形式で SQL を置く
+      - 置き場所は `:backend` ではなく `:backend:repository`。SQL とそれを読むコードを同じモジュールに置く
       - V001 の中身は `health_check` テーブルだけ。フォロワーなどのスキーマ設計は Phase 3 でやる
 - [x] `schema_version` テーブルで適用済みバージョンを管理する
       - `version INTEGER PRIMARY KEY, name TEXT NOT NULL, checksum TEXT NOT NULL, applied_at TEXT NOT NULL`
@@ -221,7 +224,7 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
         手で書くと SQL を足したときに更新を忘れて「JVM では動くが native では動かない」状態になる
 - [x] `resource-config.json`（または `nativeImageResources` 設定）にマイグレーション SQL を登録する
       - リソースは明示しないと native バイナリに入らない。ここは踏みやすい
-      - `repository/src/main/resources/META-INF/native-image/dev.matsudamper/mastodon-rss-repository/` に置いた。
+      - `backend/repository/src/main/resources/META-INF/native-image/dev.matsudamper/mastodon-rss-repository/` に置いた。
         リソースを持つモジュール自身が設定も持つ形にしている
 - [x] テスト: 一時ファイル DB に対して 2 回続けて適用しても壊れない（冪等である）ことを確認する
 - [x] テスト: 空の DB から最新まで適用できることを確認する
@@ -241,14 +244,14 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
 Phase 1 のアクター公開鍵と Phase 2 の HTTP Signatures は、どちらも JCA の RSA に乗る。
 native バイナリで RSA が使えないと両方が同時に止まるので、実装より先に確かめた。
 
-- [x] `:crypto` モジュールを作り、Phase 1 でそのまま使う形で実装する
+- [x] `:backend:crypto` モジュールを作り、Phase 1 でそのまま使う形で実装する
       - `RsaKeys` — 2048bit の鍵ペア生成、PKCS#8 / X.509 の PEM 入出力
       - `RsaSignature` — SHA256withRSA の署名と検証
       - 秘密鍵は `BEGIN PRIVATE KEY`、公開鍵は `BEGIN PUBLIC KEY`。
         Mastodon が読むのは X.509 SubjectPublicKeyInfo なので、
         OpenSSL が古い形式で出す `BEGIN RSA PUBLIC KEY`（PKCS#1）ではない
 - [x] `nativeTest` で JVM と同じテストを native バイナリとして実行する仕組みを入れる
-      - `:crypto` に `org.graalvm.buildtools.native` を入れ、CI に
+      - `:backend:crypto` に `org.graalvm.buildtools.native` を入れ、CI に
         「crypto の native テスト」ジョブを足した
 - [x] 不正な署名で例外を投げないことをテストで固定する
       - inbox は誰でも POST できるので、壊れた署名は検証失敗として扱う必要がある
@@ -286,13 +289,13 @@ Phase 1 の話なので触っていない。この段階では JCA が native �
         どのみち `receive<T>()` は使えず `receiveText()` からの明示デコードになる
       - tracing agent のタスク化は採用しなかった。常用しないものをビルドに残す意味が薄いため、
         native で詰まったときの調査手順として native-image の README に手順だけ残した
-- [x] `:repository` にも `nativeTest` を広げるか決める → 広げない
+- [x] `:backend:repository` にも `nativeTest` を広げるか決める → 広げない
       - native バイナリの起動確認でマイグレーション適用と読み書きは間接的に見えている
       - テストごと native にすると直接確認できるが、native ビルドが 1 つ増えて CI が延びる。
         SQLite が native で壊れるなら起動確認が先に落ちるので、二重に持つ価値が薄い
 - [x] リフレクション/リソース設定はどこから来たものか分かるようコメントか README を添える
       - `backend/src/main/resources/META-INF/native-image/dev.matsudamper/mastodon-rss-backend/README.md`
-      - `:repository` 側の `resource-config.json` は JSON 内の `_comment` に書いた
+      - `:backend:repository` 側の `resource-config.json` は JSON 内の `_comment` に書いた
 
 kotlinx.serialization について native-image で踏んだこと（0-3 の実装が原因で、
 JVM のテストは全部通るのに native バイナリだけ 500 を返す状態になっていた）:
@@ -326,7 +329,7 @@ JVM のテストは全部通るのに native バイナリだけ 500 を返す状
         ログだけ見ても分からず、レスポンス本体が決め手になった
 - [x] `kill` を `trap` で確実に行い、ジョブが残留プロセスで詰まらないようにする
 - [x] `nativeTest` のジョブを足す（0-6）
-      - `:crypto` のテストを native バイナリとして実行する。JCA のように
+      - `:backend:crypto` のテストを native バイナリとして実行する。JCA のように
         「JVM では通るが native では落ちる」たぐいの問題を CI で継続的に拾える
 - [x] Kotlin のフォーマッタ（ktlint など）を入れるか決める → 入れた
       - `org.jlleitschuh.gradle.ktlint` をルートから全モジュールに配る。
@@ -342,7 +345,7 @@ JVM のテストは全部通るのに native バイナリだけ 500 を返す状
 加えて、native バイナリ上で RSA 鍵ペア生成と SHA256withRSA 署名ができる。
 
 達成済み。`/healthz` と SQLite への書き込みは native-image ジョブの起動確認で、
-鍵と署名は `:crypto:nativeTest` で確認している。
+鍵と署名は `:backend:crypto:nativeTest` で確認している。
 
 Phase 0 は完了。Phase 1 に入る前に「事前に決めておくこと」の本番ドメインを確定させること。
 
@@ -377,7 +380,7 @@ ActivityPub のアカウント発見は WebFinger → Actor の 2 ホップで�
 - [x] RSA 2048bit の鍵ペアを 1 組生成し、PEM でファイル or 環境変数に保存（固定。ローテーションは考えない）
       - 秘密鍵: PKCS#8 (`BEGIN PRIVATE KEY`)
       - 公開鍵: X.509 SubjectPublicKeyInfo (`BEGIN PUBLIC KEY`) ← Actor JSON にはこちらを入れる
-      - 生成と PEM の相互変換は 0-6 で `:crypto` の `RsaKeys` に用意済み。
+      - 生成と PEM の相互変換は 0-6 で `:backend:crypto` の `RsaKeys` に用意済み。
         ここで決めるのは保存先と、起動時にどう読むか（無ければ生成するのか、必ず与えるのか）
       - 保存するのは秘密鍵だけにした。公開鍵は起動のたびに `RsaKeys.derivePublicKey` で導く。
         2 つ保存して片方だけ差し替わる事故を避けるため
@@ -457,7 +460,7 @@ native-image のリフレクション設定という負債だけが先に増え�
 
 - Phase 3 で増えるのは `actors` / `remote_actors` / `followers` / `deliveries` の 4 テーブル。
   この規模なら素の JDBC で書ききれる可能性がある
-- `:repository` はすでに素の JDBC で完結していて、native バイナリでも動いている。
+- `:backend:repository` はすでに素の JDBC で完結していて、native バイナリでも動いている。
   jOOQ を入れると native-image の未知のリスクが 1 つ戻ってくる
 - 一方で配信キューの状態遷移や、フォロワーのページングは SQL が込み入るので、
   型のある DSL の恩恵が効く場面ではある
@@ -468,7 +471,7 @@ native-image のリフレクション設定という負債だけが先に増え�
       1. 一時 SQLite ファイルを作る（`build/jooq/schema.db`）
       2. `db/migration` の SQL を順に適用する
       3. その DB を入力に jOOQ codegen を実行する
-      4. 出力を `build/generated/jooq` に置き、`:repository` の sourceSet に加える
+      4. 出力を `build/generated/jooq` に置き、`:backend:repository` の sourceSet に加える
 - [ ] `compileKotlin` が codegen タスクに依存するようにする（初回ビルドで生成物が無くて落ちないように）
 - [ ] マイグレーション SQL が変わったら codegen が再実行されるよう入力を宣言する（up-to-date チェックを効かせる）
 - [ ] 生成コードは git 管理しない（`build/` 配下なので `.gitignore` 済み）
@@ -482,7 +485,7 @@ native-image のリフレクション設定という負債だけが先に増え�
 採用しない場合にやること:
 
 - [ ] 「使用技術」の表と README から jOOQ を落とす
-- [ ] SQL を書く場所の決まりを `:repository` の中で決める（文字列定数か、専用のファイルか）
+- [ ] SQL を書く場所の決まりを `:backend:repository` の中で決める（文字列定数か、専用のファイルか）
 
 ---
 
