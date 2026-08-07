@@ -1,0 +1,15 @@
+[
+  {
+    "name": "dev.matsudamper.mastodonrss.HealthResponse",
+    "fields": [{ "name": "Companion" }]
+  },
+  {
+    "name": "dev.matsudamper.mastodonrss.HealthResponse$Companion",
+    "methods": [{ "name": "serializer", "parameterTypes": [] }]
+  },
+  {
+    "name": "dev.matsudamper.mastodonrss.HealthResponse$$serializer",
+    "fields": [{ "name": "INSTANCE" }],
+    "methods": [{ "name": "serializer", "parameterTypes": [] }]
+  }
+]

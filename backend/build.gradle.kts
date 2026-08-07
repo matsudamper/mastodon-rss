@@ -36,6 +36,12 @@ graalvmNative {
             imageName.set("mastodon-rss")
             mainClass.set("dev.matsudamper.mastodonrss.ApplicationKt")
             buildArgs.add("--no-fallback")
+
+            // reflect-config.json に登録したクラスは、native-image がアノテーションを
+            // 解析する。その際に Kotlin の @Deprecated のデフォルト値経由で
+            // DeprecationLevel enum がビルド時に初期化され、既定の実行時初期化と
+            // 衝突してビルドが落ちる。値を持たない enum なのでビルド時初期化を許可する
+            buildArgs.add("--initialize-at-build-time=kotlin.DeprecationLevel")
         }
     }
 }

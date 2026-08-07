@@ -234,11 +234,15 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
 0-4〜0-6 を積んだ状態で native バイナリが動くことが Phase 0 のゴール。
 
 - [x] Gradle プラグイン（`org.graalvm.buildtools.native`）を導入し、Hello World の `nativeCompile` と起動を確認
-- [ ] sqlite-jdbc のネイティブライブラリ同梱を確認する
-      - sqlite-jdbc は jar 内の `.so` を実行時にテンポラリへ展開して `System.load` する作りなので、native-image でそのまま動くとは限らない
-      - 新しめのバージョンは `META-INF/native-image` に設定を同梱していることがある。まず素で試して、駄目なら JNI 設定を書く
-      - 展開先が読めない環境向けに `org.sqlite.tmpdir` の指定が要るか確認する
+- [x] sqlite-jdbc のネイティブライブラリ同梱を確認する
+      - sqlite-jdbc 3.53.2.1 は `META-INF/native-image` に
+        `--features=org.sqlite.nativeimage.SqliteJdbcFeature` を同梱していて、素で動いた
+      - JNI 設定も `org.sqlite.tmpdir` の指定も不要だった
+      - native バイナリを起動してマイグレーション適用と読み書きの往復を確認済み
 - [ ] JCA（RSA / SHA-256）が native-image 上で動くことを確認する
+      - SHA-256 は確認済み。マイグレーションのチェックサム計算で
+        `MessageDigest.getInstance("SHA-256")` を native バイナリ上で通している
+      - RSA の鍵生成と SHA256withRSA 署名は未確認。Phase 1 に入る前にやる
       - Phase 1 の鍵生成と Phase 2 の署名で必須。ここで確認しておかないと Phase 2 で詰まる
       - 確認内容: `KeyPairGenerator.getInstance("RSA")` / `Signature.getInstance("SHA256withRSA")` / `MessageDigest.getInstance("SHA-256")`
       - `--enable-all-security-services` は現行の GraalVM では非推奨・削除されている。代替の設定方法を確認する
@@ -246,14 +250,36 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
 - [ ] GraalVM tracing agent (`-agentlib:native-image-agent`) を回す Gradle タスクを用意する
       - 設定を手で書くより、一度エージェントで収集してから削るほうが早い
       - 出力先は `server/src/main/resources/META-INF/native-image/`
-- [ ] リフレクション/リソース設定はどこから来たものか分かるようコメントか README を添える
+- [x] リフレクション/リソース設定はどこから来たものか分かるようコメントか README を添える
+      - `backend/src/main/resources/META-INF/native-image/dev.matsudamper/mastodon-rss-backend/README.md`
+      - `:repository` 側の `resource-config.json` は JSON 内の `_comment` に書いた
+
+kotlinx.serialization について native-image で踏んだこと（0-3 の実装が原因で、
+JVM のテストは全部通るのに native バイナリだけ 500 を返す状態になっていた）:
+
+- Ktor の `ContentNegotiation` は `call.respond(value)` の際に `KType` から
+  serializer をリフレクションで引く。native-image では解決できず
+  `Serializer for class 'HealthResponse' is not found.` で 500 になる
+- `@Serializable` な型ごとに `Foo` / `Foo$Companion` / `Foo$$serializer` を
+  reflect-config.json に登録して解決した
+- 登録すると今度は native-image がアノテーションを解析し、
+  `kotlin.DeprecationLevel` がビルド時初期化されてビルドが落ちる。
+  `--initialize-at-build-time=kotlin.DeprecationLevel` で許可した
+- [ ] `@Serializable` 型が増えるたびに reflect-config を手で足すのは破綻するので、
+      tracing agent のタスク化を優先する
 
 ### 0-8. CI の強化
 
-- [ ] native ジョブの起動確認を「`/healthz` が 200」＋「SQLite に書き込めて読み戻せる」まで広げる
-      - 一時ディレクトリを `DB_PATH` に渡して起動 → 書き込みを叩く口を用意するか、起動時のマイグレーション成功をログで確認する
-- [ ] 起動確認スクリプトで、サーバーが立たなかった場合にログを出して失敗させる（いまはループを抜けて `grep` で落ちるだけで原因が見えない）
-- [ ] `kill` を `trap` で確実に行い、ジョブが残留プロセスで詰まらないようにする
+- [x] native ジョブの起動確認を「`/healthz` が 200」＋「SQLite に書き込めて読み戻せる」まで広げる
+      - 一時ディレクトリを `DB_PATH` に渡して起動し、DB ファイルができていることを確認する。
+        起動時に必ずマイグレーションと `verifyWritable()` が走るので、
+        `/healthz` が 200 を返した時点で書き込みまで通っていることになる
+- [x] 起動確認スクリプトで、サーバーが立たなかった場合にログを出して失敗させる
+      - プロセスの生死・HTTP レスポンス本体・サーバーログを出すようにした
+      - `curl -sf` は 500 でも失敗するため、応答があったかどうかを分けて表示する。
+        実際 0-3 の不具合はサーバーが起動したうえで 500 を返す形だったので、
+        ログだけ見ても分からず、レスポンス本体が決め手になった
+- [x] `kill` を `trap` で確実に行い、ジョブが残留プロセスで詰まらないようにする
 - [ ] Kotlin のフォーマッタ（ktlint など）を入れるか決める。入れるならこのタイミング
 
 ### ✅ チェックポイント 0
