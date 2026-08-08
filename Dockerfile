@@ -6,8 +6,13 @@
 FROM ghcr.io/graalvm/native-image-community:25 AS build
 
 # このイメージは最小構成で xargs が入っておらず、gradlew が
-# 「xargs is not available」で起動できない
-RUN microdnf install -y findutils \
+# 「xargs is not available」で起動できない。
+#
+# libatomic は Kotlin/Wasm のビルドが落としてくる Node.js が要求する。
+# 無いと node が libatomic.so.1 を開けずに終了し、:backend:nativeCompile が
+# :frontend の成果物を取り込む都合でサーバーのビルドごと止まる。
+# この依存は TODO.md の Phase 8 で外す予定で、そのときここも消せる
+RUN microdnf install -y findutils libatomic \
     && microdnf clean all
 
 WORKDIR /src
