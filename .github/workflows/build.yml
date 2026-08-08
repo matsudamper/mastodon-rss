@@ -206,6 +206,33 @@ jobs:
             -o /tmp/test-actor.json
           grep -q '"id":"https://example.com/users/test-ci"' /tmp/test-actor.json
 
+          # 管理画面は :frontend の成果物を resources から返す。
+          # resource-config.json に登録漏れがあると native バイナリだけ 404 になり、
+          # JVM のテストでは分からない
+          echo "--- 管理画面 ---"
+          curl -sf http://localhost:8080/admin/ -o /tmp/admin.html
+          grep -q "frontend.js" /tmp/admin.html
+          curl -sf http://localhost:8080/admin/frontend.js -o /dev/null
+
+          # .wasm が application/wasm で返らないとブラウザが実行を拒否する
+          WASM_NAME="$(basename "$(ls frontend/build/dist/wasmJs/productionExecutable/*.wasm | head -1)")"
+          echo "wasm: $WASM_NAME"
+          test "$(curl -s -o /dev/null -w '%{content_type}' "http://localhost:8080/admin/$WASM_NAME")" = "application/wasm"
+
+          # ADMIN_PASSWORD_HASH を設定せずに起動しているので、
+          # ログインできない状態で立ち上がっているはず
+          echo "--- 管理 API ---"
+          curl -sf http://localhost:8080/admin/api/session -o /tmp/session.json
+          cat /tmp/session.json
+          grep -q '"loginConfigured":false' /tmp/session.json
+
+          # ハッシュ生成は PBKDF2 を通る。JCA が欠けるとここで 500 になる
+          curl -sf -X POST http://localhost:8080/admin/api/password-hash \
+            -H 'Content-Type: application/json' \
+            -d '{"password":"native-image-check-password"}' \
+            -o /tmp/password-hash.json
+          grep -q "pbkdf2-sha256" /tmp/password-hash.json
+
       - name: DOMAIN が無ければ起動しないことの確認
         run: |
           set -euo pipefail

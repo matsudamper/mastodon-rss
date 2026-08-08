@@ -7,13 +7,17 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 
 ## 現在地と次の一手
 
-現在地: Phase 0 は完了。`:backend` / `:crypto` / `:repository` / `:frontend` の 4 モジュール構成。
+現在地: Phase 0 は完了。`:backend` / `:crypto` / `:repository` / `:shared` / `:frontend` の 5 モジュール構成。
 `:backend` は Ktor (CIO) + kotlinx.serialization で `/healthz` を返し、JVM でも native-image でも動く。
-`:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
+`:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証、管理画面のパスワードハッシュ。
 `nativeTest` で native バイナリ上でも動くことを確認済み。
 `:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
-`:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
+`:shared` は管理 API の DTO とパス。`:backend` と `:frontend` の両方から使う。
+`:frontend` は Compose Multiplatform for Web (Kotlin/Wasm)。`:backend` が `/admin` で配信する。
 CI で ktlint / JVM ビルド・テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
+
+管理画面のログインは Phase 8 から前倒しで作った（Phase 8 の該当項目を参照）。
+フィードの管理はサーバー側が出来てからなので、いまはログインとハッシュ生成だけ。
 
 Phase 1 はコードの側は書けた。アクターは `admin` 固定（`ACTOR_USERNAME` で変更可）で、
 `DOMAIN` は必須。WebFinger と Actor が返るところまで実装し、native バイナリでも
@@ -142,8 +146,8 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
         その先の ByteBuddy と JNA が実行時のバイトコード書き換えに依存するので
         native-image では動かない。JCA の確認をそこに同居させると検証できなくなる
       - Phase 2 の署名文字列の組み立てと Digest の計算もここに置く予定
-- [ ] `:shared` — `:backend` と `:frontend` で共有する管理 API の DTO。KMP (`jvm` + `wasmJs`)
-      - Phase 8 で管理 API を作るときに必要になる
+- [x] `:shared` — `:backend` と `:frontend` で共有する管理 API の DTO。KMP (`jvm` + `wasmJs`)
+      - Phase 8 の管理画面のログインを作るときに追加した
 
 依存とバージョンの現状:
 
@@ -685,15 +689,31 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 サーバーが完成してから作る。UI が先だとフェデレーションのデバッグができない。
 `:frontend` モジュールと Hello World は 0-1 で作成済み。
 
+画面の枠とログインは先に作った。フィードの管理はサーバー側が出来てから足す。
+
 - [x] `:frontend` モジュール（Kotlin/Wasm + Compose）を作り、Hello World を表示する
-- [ ] `:shared` モジュール（KMP: `jvm` + `wasmJs`）を作り、管理 API の DTO を置く
-- [ ] `:frontend` のビルド成果物を `:backend` の resources に取り込むタスクを組む
+- [x] `:shared` モジュール（KMP: `jvm` + `wasmJs`）を作り、管理 API の DTO を置く
+      - `AdminApiPaths` も置いて、パスの文字列を両側で共有している
+- [x] `:frontend` のビルド成果物を `:backend` の resources に取り込むタスクを組む
       - `:backend:processResources` が `:frontend:wasmJsBrowserDistribution` に依存するようにする
       - `.wasm` を含むリソースが native バイナリに入ることを確認する（`resource-config.json`）
       - `.wasm` の Content-Type が `application/wasm` で返ることを確認する（Ktor の既定に無い可能性がある）
+      - 配信は Ktor の `staticResources` ではなく `AdminStaticContent` で自前に読む。
+        Content-Type を取りこぼさないためと、リソースの見え方が native バイナリと
+        JVM で違うため
+      - native バイナリでの確認は CI に入れた。起動確認で `/admin/` と `.wasm` の
+        Content-Type、`/admin/api` まで叩いている
 - [ ] サーバー側に管理 API（フィード CRUD、アクター一覧、配信状況、手動再取得）
-- [ ] 管理 API に認証をかける（Basic 認証かトークン。inbox と違って外に開けてはいけない）
-- [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
+      - ログイン・ログアウト・パスワードハッシュ生成までは実装済み。フィード側は Phase 5 の後
+- [x] 管理 API に認証をかける（Basic 認証かトークン。inbox と違って外に開けてはいけない）
+      - パスワード 1 つ + セッション Cookie にした。ハッシュは `ADMIN_PASSWORD_HASH`
+      - ハッシュ未設定でも起動でき、そのときだけ `/admin/password-hash` が誰でも開く。
+        最初のハッシュを作る手段が他に無いため。設定後はログインした人だけが使える
+      - セッションはサーバーのメモリ上のトークン。再起動でログアウトになる
+      - 総当たり対策（試行回数の制限）はまだ無い。Phase 7 で入れる
+- [x] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
+      - webpack の devServer proxy で `/admin/api` を 8080 に転送した。
+        オリジンが同じままなので CORS も Cookie の SameSite も緩めずに済む
 - [ ] Compose でフィード一覧 / 追加 / 削除
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
 - [ ] フィードのプレビュー（投稿前にどう見えるか）

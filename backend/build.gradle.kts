@@ -8,6 +8,8 @@ plugins {
 dependencies {
     implementation(project(":repository"))
     implementation(project(":crypto"))
+    // 管理 API の DTO。:frontend と同じ型を使う
+    implementation(project(":shared"))
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
@@ -25,6 +27,26 @@ dependencies {
 
 application {
     mainClass.set("dev.matsudamper.mastodonrss.ApplicationKt")
+}
+
+/**
+ * 管理画面（`:frontend`）のビルド成果物を `resources/static/` に取り込む。
+ *
+ * サーバーと管理画面を 1 つのバイナリにまとめるため、配信するファイルは
+ * jar / native バイナリの中に入れる。native バイナリに含めるには
+ * `resource-config.json` への登録も要る（`src/main/resources/META-INF/native-image/`）。
+ *
+ * この依存があるので `:backend` のビルドには Kotlin/Wasm のツールチェイン
+ * （Node.js と yarn のダウンロード）が要る。管理画面を含まないバイナリは
+ * 動かしても `/admin` が 404 になるだけなので、条件分岐は入れない。
+ */
+val frontendDistributionDir = project(":frontend").layout.buildDirectory.dir("dist/wasmJs/productionExecutable")
+
+tasks.named<ProcessResources>("processResources") {
+    dependsOn(":frontend:wasmJsBrowserDistribution")
+    from(frontendDistributionDir) {
+        into("static")
+    }
 }
 
 kotlin {

@@ -7,6 +7,10 @@ import dev.matsudamper.mastodonrss.actor.ActorKeyLoader
 import dev.matsudamper.mastodonrss.actor.ActorUrls
 import dev.matsudamper.mastodonrss.actor.ActorUsername
 import dev.matsudamper.mastodonrss.actor.actorRoutes
+import dev.matsudamper.mastodonrss.admin.AdminConfig
+import dev.matsudamper.mastodonrss.admin.AdminSessions
+import dev.matsudamper.mastodonrss.admin.adminRoutes
+import dev.matsudamper.mastodonrss.admin.api.AdminApiPaths
 import dev.matsudamper.mastodonrss.json.respondJson
 import dev.matsudamper.mastodonrss.repository.DatabaseConfig
 import dev.matsudamper.mastodonrss.repository.Repositories
@@ -26,10 +30,14 @@ fun main() {
     // 鍵が用意できないなら起動しても意味が無いので、サーバーを立てる前に読む
     val actorKey = ActorKeyLoader.load(ActorKeyConfig.fromEnvironment())
 
+    // ハッシュが壊れていたらここで落ちる。管理画面のハッシュは未設定でもよく、
+    // その場合はログインできない状態で起動する（ハッシュを作るための起動）
+    val adminConfig = AdminConfig.fromEnvironment()
+
     // サーバーが止まったら接続も閉じる。start(wait = true) は停止まで返ってこない
     createRepositories(DatabaseConfig.fromEnvironment()).use { repositories ->
         embeddedServer(CIO, port = config.port, host = config.host) {
-            module(repositories, actorKey, config)
+            module(repositories, actorKey, config, adminConfig)
         }.start(wait = true)
     }
 }
@@ -38,6 +46,7 @@ fun Application.module(
     repositories: Repositories,
     actorKey: ActorKey,
     config: ServerConfig = ServerConfig.fromEnvironment(),
+    adminConfig: AdminConfig = AdminConfig.fromEnvironment(),
 ) {
     // 書けない DB を抱えたまま起動すると、最初のリクエストまで問題に気付けない。
     // native バイナリでは SQLite のネイティブライブラリ周りで起きやすいので起動時に確かめる
@@ -73,6 +82,19 @@ fun Application.module(
         }
     }
 
+    // ログインできない状態で起動しているのか、設定を書き忘れているのかが
+    // 後から分からなくなるので、どちらなのかを起動時に出す
+    if (adminConfig.loginConfigured) {
+        log.info("管理画面: ${AdminApiPaths.BASE} （ログインあり）")
+    } else {
+        log.warn(
+            "管理画面: ${AdminApiPaths.BASE} は ${AdminConfig.ENV_PASSWORD_HASH} が未設定のためログインできない。" +
+                "${AdminApiPaths.PASSWORD_HASH_PAGE} でハッシュを作り、環境変数に入れて起動し直すこと",
+        )
+    }
+
+    val adminSessions = AdminSessions(adminConfig.sessionTtl)
+
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
     // native-image で解決できず 500 になる。詳細は json/JsonResponse.kt を参照
     routing {
@@ -83,5 +105,8 @@ fun Application.module(
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
         webFingerRoutes(directory)
         actorRoutes(directory, actorKey)
+
+        // 運用者だけが使う画面。外から叩かれてよいものではない
+        adminRoutes(adminConfig, adminSessions)
     }
 }

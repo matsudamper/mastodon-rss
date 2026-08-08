@@ -15,7 +15,19 @@ kotlin {
             commonWebpackConfig {
                 outputFileName = "frontend.js"
                 // 既定は 8080 で backend と衝突するのでずらす
-                devServer = (devServer ?: KotlinWebpackConfig.DevServer()).copy(port = 8081)
+                devServer =
+                    (devServer ?: KotlinWebpackConfig.DevServer()).copy(
+                        port = 8081,
+                        // 開発サーバーには管理 API が無いので backend に転送する。
+                        // 転送しないと同一オリジンでなくなり、セッションの Cookie も送られない
+                        proxy =
+                            mutableListOf(
+                                KotlinWebpackConfig.DevServer.Proxy(
+                                    context = mutableListOf("/admin/api"),
+                                    target = "http://localhost:8080",
+                                ),
+                            ),
+                    )
             }
         }
         // ブラウザで動かすだけなので実行可能バイナリを生成する
@@ -35,6 +47,12 @@ kotlin {
                 implementation(compose.ui)
                 // document 等のブラウザ API。Kotlin/Wasm では stdlib から分離されている
                 implementation(libs.kotlinx.browser)
+                implementation(libs.kotlinx.coroutines.core)
+                // 管理 API の呼び出し。ブラウザの fetch を使う実装
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.client.js)
+                // 管理 API の DTO。backend と同じ型を使う
+                implementation(project(":shared"))
             }
         }
     }

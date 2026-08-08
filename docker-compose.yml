@@ -21,6 +21,11 @@ services:
       # 鍵を外から渡す場合はファイルではなく PEM を直接入れる。
       # ACTOR_PRIVATE_KEY_PATH との併用はできないので、上を消してから使うこと
       # ACTOR_PRIVATE_KEY_PEM: ${ACTOR_PRIVATE_KEY_PEM}
+      # 管理画面 (/admin) のログインパスワードのハッシュ。
+      # 未設定でも起動でき、その場合はログインできない代わりに
+      # /admin/password-hash が誰でも開く。そこで作った値を .env に入れて
+      # docker compose up -d し直すと、ログインできるようになる
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
       HOST: 0.0.0.0
       PORT: 8080
     ports:

@@ -1,8 +1,17 @@
 # native-image の設定
 
-このディレクトリに設定ファイルは置いていない。`:backend` はリフレクションに依存しない
-作りにしてあり、`reflect-config.json` を必要としないため。
+このディレクトリにあるのは `resource-config.json` だけで、`reflect-config.json` は
+置いていない。`:backend` はリフレクションに依存しない作りにしてあるため。
 その状態を保つための経緯をここに残す。
+
+## `resource-config.json`
+
+管理画面（`:frontend` の Kotlin/Wasm 成果物）を `static/` 以下に取り込んでいる。
+リソースは登録しないと native バイナリに入らず、`/admin` が 404 になる。
+JVM では resources から読めてしまうので、native バイナリを起動するまで気付けない。
+
+ファイル名は Compose や Skiko のバージョンで変わるため、拡張子を並べず
+`static/` 配下を全部含める形にしている。
 
 ## かつて必要だった理由
 

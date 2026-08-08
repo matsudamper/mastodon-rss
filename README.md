@@ -10,6 +10,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | `:backend` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
 | `:crypto` | RSA 鍵と署名。JCA だけに依存し、Ktor も JDBC も入らない |
 | `:repository` | SQLite への DB アクセス。公開するのは interface だけで、JDBC や SQL は外に出さない |
+| `:shared` | `:backend` と `:frontend` で共有する管理 API の DTO。KMP (`jvm` + `wasmJs`) |
 | `:frontend` | Compose Multiplatform for Web (Kotlin/Wasm) の管理画面 |
 
 ```mermaid
@@ -21,11 +22,13 @@ flowchart TB
         json["json<br/>AppJson<br/>respondJson"]
         ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
         actor["actor<br/>ActorKeyConfig<br/>ActorKeyLoader<br/>ActorKey"]
+        admin["admin<br/>AdminConfig<br/>AdminSessions<br/>AdminRoutes<br/>AdminStaticContent"]
     end
 
     subgraph crypto[":crypto"]
         keys["RsaKeys<br/>鍵ペア生成 / PEM 入出力"]
         sign["RsaSignature<br/>SHA256withRSA"]
+        pw["PasswordHash<br/>PBKDF2-HMAC-SHA256"]
     end
 
     subgraph repository[":repository"]
@@ -34,8 +37,12 @@ flowchart TB
         res["リソース<br/>db/migration/V001__init.sql<br/>db/migration/index<br/>resource-config.json"]
     end
 
+    subgraph shared[":shared"]
+        dto["管理 API の DTO<br/>AdminApiPaths<br/>AdminSessionResponse ほか"]
+    end
+
     subgraph frontend[":frontend"]
-        compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>Hello World まで"]
+        compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>ログイン / ハッシュ生成"]
     end
 
     db[("SQLite<br/>DB_PATH")]
@@ -46,11 +53,16 @@ flowchart TB
     json --> ap
     main -->|createRepositories| api
     main -->|load| actor
+    main -->|fromEnvironment| admin
     module -->|verifyWritable| api
     api -.->|backend からは見えない| impl
     impl --> res
     impl --> db
     actor --> keys
+    admin --> pw
+    admin --> dto
+    compose --> dto
+    admin -->|静的配信| compose
     ap -.->|Phase 2 で接続| sign
     key[("秘密鍵の PEM<br/>ACTOR_PRIVATE_KEY_PATH")]
     actor --> key
@@ -67,8 +79,14 @@ compile classpath にも現れない。
 バイトコード書き換えに依存するので native-image では動かない。JCA の確認を
 そこに同居させると確認できなくなる。
 
-`:frontend` はまだ独立している。`:backend` が静的配信として取り込むのは Phase 8 で、
-いまは 8081 番の dev サーバーで単独起動するだけ。
+`:frontend` のビルド成果物は `:backend` の `processResources` で `resources/static/` に
+取り込み、`/admin` 以下で配信している。サーバーと管理画面が 1 つのバイナリに収まるので、
+配るものは変わらない。代わりに `:backend` のビルドには Kotlin/Wasm のツールチェイン
+（Node.js と yarn のダウンロード）が要る。
+
+画面を触るときは 8081 番の dev サーバーの方が速い。管理 API は dev サーバーに無いので、
+`/admin/api` へのリクエストは webpack の proxy 設定で 8080 番に転送している。
+オリジンが同じままになるので、セッションの Cookie もそのまま乗る。
 
 ## 起動時の流れ
 
@@ -83,6 +101,7 @@ sequenceDiagram
     Note over M: 環境変数を読む（DOMAIN が無ければここで落ちる）
     M->>A: load
     A->>A: PEM を読む（ファイルが無ければ生成して書き出す）
+    M->>M: AdminConfig を読む（ハッシュが壊れていたら落ちる。未設定は可）
     M->>R: createRepositories
     R->>DB: 接続して PRAGMA を適用
     R->>DB: 未適用のマイグレーションをバージョン昇順で適用
@@ -115,6 +134,9 @@ DB を開けなかった場合もマイグレーションに失敗した場合�
 | `ACTOR_USERNAME` | `admin` | アクターのユーザー名。`acct:<name>@<DOMAIN>` と `/users/<name>` に入る |
 | `ACTOR_PRIVATE_KEY_PATH` | `./data/actor-private-key.pem` | アクターの秘密鍵 (PEM)。無ければ起動時に生成して書き出す |
 | `ACTOR_PRIVATE_KEY_PEM` | なし | 秘密鍵の PEM を直接渡す場合に使う。`ACTOR_PRIVATE_KEY_PATH` とは併用できない |
+| `ADMIN_PASSWORD_HASH` | なし | 管理画面のログインパスワードのハッシュ。未設定でも起動でき、その場合はログインできない |
+| `ADMIN_SESSION_TTL_MINUTES` | `720` | ログイン状態を保つ長さ（分） |
+| `ADMIN_COOKIE_SECURE` | `true` | セッション Cookie に `Secure` を付けるか。http で試すときだけ `false` にする |
 
 `DOMAIN` は `https://` などの scheme と末尾の `/` を書いても落として扱う。
 未設定だと起動しない。既定値を用意して起動できてしまうと `localhost` のような
@@ -132,6 +154,14 @@ URL のパスと `acct:` の両方に入るので、区切り文字が混ざる�
 | `GET /healthz` | 生存確認。`{"status":"ok"}` |
 | `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
 | `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
+| `GET /admin/...` | 管理画面。`:frontend` のビルド成果物を配信する |
+| `GET /admin/api/session` | ログイン状態と、ログインが設定されているか |
+| `POST /admin/api/login` | ログイン。成功するとセッションの Cookie を返す |
+| `POST /admin/api/logout` | ログアウト |
+| `POST /admin/api/password-hash` | パスワードハッシュの生成 |
+
+`/admin` 以下は運用者だけが使う。ActivityPub のエンドポイントと違って外に開ける
+必要が無いので、リバースプロキシで塞げるようパスをまとめてある。
 
 `{name}` として応答するのは `ACTOR_USERNAME`（既定 `admin`）と、`test-` で始まる
 任意の名前の 2 通り。後者は動作確認用で、下の「動作確認用のアカウント」を参照。
@@ -192,6 +222,58 @@ Mastodon はアクターの公開鍵を持っておき、こちらから送る�
 
 docker compose ではボリュームの中（`/data/actor-private-key.pem`）に置いている。
 コンテナを作り直しても同じ鍵のままだが、ボリュームごと消すとアクターは別人になる。
+
+## 管理画面
+
+`/admin` が管理画面。Compose Multiplatform for Web (Kotlin/Wasm) で書いたものを
+`:backend` が静的配信しているので、別のプロセスを立てる必要は無い。
+
+ログインのパスワードは `ADMIN_PASSWORD_HASH` に入れる。入れるのはパスワードそのもの
+ではなくハッシュで、その作り方が画面の中にある。
+
+### 最初の 1 回
+
+1. `ADMIN_PASSWORD_HASH` を設定せずに起動する。この状態では誰もログインできない
+2. `http://localhost:8080/admin/password-hash` を開き、パスワードを入れて生成する
+3. 出てきた `ADMIN_PASSWORD_HASH=...` の 1 行を環境変数（docker compose なら `.env`）に入れる
+4. 起動し直すと `/admin` からログインできる
+
+```sh
+DOMAIN=example.com ADMIN_COOKIE_SECURE=false ./gradlew :backend:run
+```
+
+http で試すときは `ADMIN_COOKIE_SECURE=false` にする。既定では Cookie に `Secure` が
+付き、ブラウザが保存しないのでログインしたそばから切れる。
+
+ハッシュ生成の口が誰にでも開いているのは `ADMIN_PASSWORD_HASH` が未設定のときだけ。
+設定するとログインした人しか使えなくなる。未設定のうちに開いていても、返るのは
+送ったパスワードのハッシュだけで、サーバーの状態は何も変わらない。それでも
+設定前のサーバーは誰でも触れる状態なので、外に出すのは設定を済ませてからにする。
+
+パスワードを忘れた場合は `ADMIN_PASSWORD_HASH` を外して起動し直すと、
+最初の 1 回と同じ手順でやり直せる。
+
+### 仕組み
+
+| 項目 | 中身 |
+| --- | --- |
+| ハッシュ | PBKDF2-HMAC-SHA256、210,000 回、salt 16 バイト |
+| 保存形式 | `pbkdf2-sha256:<反復回数>:<salt>:<ハッシュ>`。salt とハッシュは URL-safe Base64 |
+| セッション | サーバーのメモリ上のトークン。Cookie は `HttpOnly` / `SameSite=Strict` |
+
+ハッシュを 1 行に畳んでいるのは、環境変数を 1 つ増やすだけで済ませるため。salt と
+反復回数を別の変数に分けると、片方だけ入れ替わって検証が通らなくなる。
+
+区切りが `:` なのは、この種のハッシュでよくある `$` 区切り（PHC 形式）を `.env` に
+貼ると docker compose が変数展開しようとして壊れるため。Base64 も URL-safe にして
+あるので、クォートもエスケープも要らずにそのまま貼れる。
+
+セッションはメモリだけに持つので、再起動するとログアウトになる。署名鍵をどこに
+置くかという問題を増やしたくないため。使うのは運用者一人なので実害が無い。
+
+bcrypt や Argon2 ではなく PBKDF2 なのは、JCA にあって依存を足さずに済むから。
+native-image に持ち込む依存は少ないほど安全で、`:crypto` の他の処理と同じく
+`nativeTest` で native バイナリ上でも動くことを確かめている。
 
 ## 必要なもの
 
@@ -263,9 +345,19 @@ DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
 ```
 
 配布物は `frontend/build/dist/wasmJs/productionExecutable/` に出力される。
+`:backend` はこれを `resources/static/` に取り込むので、`./gradlew :backend:build` からも
+このタスクが走る。
 
 初回ビルドでは Kotlin/Wasm のツールチェイン（Node.js、yarn、webpack など）が
 ダウンロードされるため時間がかかる。
+
+開発サーバー (8081) から管理 API を叩くと 8080 に転送される。画面を触るときは
+backend も起動しておくこと。
+
+```sh
+# 別の端末で backend を起動しておく
+DOMAIN=example.com ADMIN_COOKIE_SECURE=false ./gradlew :backend:run
+```
 
 ## コード整形
 

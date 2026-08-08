@@ -19,6 +19,7 @@ COPY gradle ./gradle
 COPY backend/build.gradle.kts ./backend/
 COPY crypto/build.gradle.kts ./crypto/
 COPY repository/build.gradle.kts ./repository/
+COPY shared/build.gradle.kts ./shared/
 COPY frontend/build.gradle.kts ./frontend/
 
 # 出力は捨てるが失敗は握り潰さない。ここで転ぶならビルド環境の問題で、

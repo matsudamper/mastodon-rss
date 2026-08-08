@@ -1,0 +1,13 @@
+{
+  "_comment": [
+    "リソースは明示しないと native バイナリに入らない。",
+    "static/ には :frontend（Kotlin/Wasm）のビルド成果物が入る。",
+    "ファイル名はビルドのたびに変わりうるので、拡張子を列挙せず配下を全部含める。",
+    "pattern は正規表現。\\Q...\\E はその範囲をリテラルとして扱う。"
+  ],
+  "resources": {
+    "includes": [
+      { "pattern": "\\Qstatic/\\E.*" }
+    ]
+  }
+}
