@@ -64,7 +64,10 @@ object LinkOrObjectSerializer : KSerializer<LinkOrObject> {
         }
     }
 
-    override fun serialize(encoder: Encoder, value: LinkOrObject) {
+    override fun serialize(
+        encoder: Encoder,
+        value: LinkOrObject,
+    ) {
         val jsonEncoder =
             encoder as? JsonEncoder
                 ?: throw SerializationException("LinkOrObjectSerializer は JSON でのみ使える")

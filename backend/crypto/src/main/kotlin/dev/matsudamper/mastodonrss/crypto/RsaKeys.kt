@@ -80,7 +80,10 @@ object RsaKeys {
         return KeyFactory.getInstance(ALGORITHM).generatePublic(X509EncodedKeySpec(der))
     }
 
-    private fun toPem(label: String, der: ByteArray): String {
+    private fun toPem(
+        label: String,
+        der: ByteArray,
+    ): String {
         val body = Base64.getMimeEncoder(PEM_LINE_LENGTH, "\n".toByteArray()).encodeToString(der)
         return "-----BEGIN $label-----\n$body\n-----END $label-----\n"
     }
@@ -91,7 +94,10 @@ object RsaKeys {
      * 改行コードや前後の余分な行に左右されないよう、位置で切り出してから
      * 空白を落とす。相手から受け取った PEM は CRLF のことも末尾改行が無いこともある。
      */
-    private fun fromPem(label: String, pem: String): ByteArray {
+    private fun fromPem(
+        label: String,
+        pem: String,
+    ): ByteArray {
         val header = "-----BEGIN $label-----"
         val footer = "-----END $label-----"
 

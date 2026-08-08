@@ -50,13 +50,16 @@ class MigrationRunnerTest {
                 }
         }
 
-    private fun migration(version: Int, name: String, sql: String) =
-        Migration(
-            version = version,
-            name = name,
-            fileName = "V%03d__%s.sql".format(version, name),
-            sql = sql,
-        )
+    private fun migration(
+        version: Int,
+        name: String,
+        sql: String,
+    ) = Migration(
+        version = version,
+        name = name,
+        fileName = "V%03d__%s.sql".format(version, name),
+        sql = sql,
+    )
 
     @Test
     fun `空のDBに最新まで適用できる`() {

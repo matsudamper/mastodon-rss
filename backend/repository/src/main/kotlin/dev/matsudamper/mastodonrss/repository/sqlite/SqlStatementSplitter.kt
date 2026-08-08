@@ -69,7 +69,11 @@ internal fun splitSqlStatements(sql: String): List<String> {
  * [start] にある引用符に対応する閉じ引用符の次の位置を返す。
  * SQL では引用符を 2 つ重ねるとエスケープになる（`'it''s'`）。
  */
-private fun findQuoteEnd(sql: String, start: Int, quote: Char): Int {
+private fun findQuoteEnd(
+    sql: String,
+    start: Int,
+    quote: Char,
+): Int {
     var index = start + 1
     while (index < sql.length) {
         if (sql[index] != quote) {

@@ -46,12 +46,14 @@ object ActorKeyLoader {
      * 読めない PEM をそのまま JCA の例外で落とすと、どの設定が悪いのか分からない。
      * 鍵の中身は出さずに、どこから読んだかだけを添えて包み直す。
      */
-    private fun decode(pem: String, message: () -> String) =
-        try {
-            RsaKeys.decodePrivateKeyPem(pem)
-        } catch (e: Exception) {
-            throw IllegalArgumentException(message(), e)
-        }
+    private fun decode(
+        pem: String,
+        message: () -> String,
+    ) = try {
+        RsaKeys.decodePrivateKeyPem(pem)
+    } catch (e: Exception) {
+        throw IllegalArgumentException(message(), e)
+    }
 
     /**
      * 秘密鍵を書き出す。
@@ -59,7 +61,10 @@ object ActorKeyLoader {
      * 中身を入れる前に所有者だけが読める空ファイルを作る。先に書いてから権限を変えると、
      * その隙に他のユーザーから読めてしまう。
      */
-    private fun write(path: Path, pem: String) {
+    private fun write(
+        path: Path,
+        pem: String,
+    ) {
         Files.createDirectories(path.parent)
 
         if (path.fileSystem.supportedFileAttributeViews().contains("posix")) {
