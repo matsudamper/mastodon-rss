@@ -21,8 +21,13 @@ CI で ktlint / JVM ビルド・テスト / frontend / crypto の native テス�
 
 `:frontend` と `:backend` は別々にビルドする。`:frontend` の成果物の配置は、
 ビルドの後にインフラに合わせたデプロイスクリプトで行う（このリポジトリの外）。
-ただし現状のコードは `:backend` が成果物を取り込んで配信する形のままで、
-方針に追いついていない。外す作業は Phase 8 の未着手項目にある。
+
+決めただけでコードが追いついていないものが 3 つある。いずれも Phase 8 に
+未着手項目として置いてある。
+
+- `:backend` が `:frontend` の成果物を取り込んで配信する形のまま
+- 管理 API は REST のまま（GraphQL にする）
+- 画面遷移は `when` のまま（Navigation Compose 3 にする）
 
 Phase 1 はコードの側は書けた。アクターは `admin` 固定（`ACTOR_USERNAME` で変更可）で、
 `DOMAIN` は必須。WebFinger と Actor が返るところまで実装し、native バイナリでも
@@ -67,8 +72,12 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 | DB アクセス | 素の JDBC（jOOQ を入れるかは Phase 3 の直前に判断する） |
 | 署名 | JCA（RSA / SHA256withRSA）。ライブラリは足さない |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
-| 管理 API | GraphQL。サーバーは graphql-java、クライアントは Apollo Kotlin |
-| 画面遷移 | Navigation Compose 3（JetBrains 版 `org.jetbrains.androidx.navigation3`） |
+| 管理 API | GraphQL。サーバーは graphql-java、クライアントは Apollo Kotlin（未実装） |
+| 画面遷移 | Navigation Compose 3（JetBrains 版 `org.jetbrains.androidx.navigation3`）（未実装） |
+
+「未実装」と付けたものは決めただけで、コードはまだそうなっていない。
+管理 API はいま REST で、画面遷移は `when` で切り替えている。
+差し替えの手順は Phase 8 にある。
 
 モジュールは `:backend`（サーバー）、`:crypto`（鍵と署名）、`:repository`（DB アクセス）、
 `:shared`（共有する型）、`:frontend`（管理 UI）の 5 つ。
@@ -720,6 +729,9 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 - [x] `:frontend` モジュール（Kotlin/Wasm + Compose）を作り、Hello World を表示する
 - [x] `:shared` モジュール（KMP: `jvm` + `wasmJs`）を作り、管理 API の DTO を置く
       - `AdminApiPaths` も置いて、パスの文字列を両側で共有している
+      - DTO は GraphQL 化で消える。Apollo がスキーマから生成するため。
+        `:shared` に残すのはスキーマに書けないもの（パスワードの長さ制限、
+        環境変数名、エンドポイントのパス）と、スキーマそのもの
 - [ ] `:frontend` と `:backend` を別々にビルドできる状態に戻す
       - 現状は `:backend:processResources` が `:frontend:wasmJsBrowserDistribution` を
         取り込んでいる。これを外す。理由は Phase 0 の「ビルドと配布の分け方」を参照
@@ -807,10 +819,16 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - ハッシュ未設定でも起動でき、そのときだけ `/admin/password-hash` が誰でも開く。
         最初のハッシュを作る手段が他に無いため。設定後はログインした人だけが使える
       - セッションはサーバーのメモリ上のトークン。再起動でログアウトになる
+      - 環境変数は 3 つ。`ADMIN_PASSWORD_HASH` の他に、ログイン保持時間の
+        `ADMIN_SESSION_TTL_MINUTES`（既定 720 分）と、Cookie に `Secure` を付けるかの
+        `ADMIN_COOKIE_SECURE`（既定 true）がある。後者を false にするのは
+        http の localhost で試すときだけ
       - 総当たり対策（試行回数の制限）はまだ無い。Phase 7 で入れる
 - [x] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/admin/api` を 8080 に転送した。
         オリジンが同じままなので CORS も Cookie の SameSite も緩めずに済む
+      - 転送するパスは GraphQL 化で `/graphql` に変わる。エンドポイントを
+        `/admin` の下から出すため。proxy の設定も一緒に直すこと
 - [ ] 画面遷移を Navigation Compose 3 にする
 
       いまは `AdminRouter` が `pushState` を直接叩き、`AdminApp` が `when` で画面を
