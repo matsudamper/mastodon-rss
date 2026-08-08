@@ -9,13 +9,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | モジュール | ディレクトリ | 内容 |
 | --- | --- | --- |
 | `:backend` | `backend/` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
-| `:backend:crypto` | `backend/crypto/` | RSA 鍵と署名。JCA だけに依存し、Ktor も JDBC も入らない |
-| `:backend:repository` | `backend/repository/` | SQLite への DB アクセス。公開するのは interface だけで、JDBC や SQL は外に出さない |
 | `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の管理画面 |
-
-`crypto` と `repository` はサーバー専用のモジュールなので `backend/` の下に置いている。
-どちらも JVM のライブラリ（JCA・JDBC）に依存していて、Kotlin/Wasm でビルドする
-`:frontend` からは参照できない。置き場所を見れば使う側が分かる状態にしておく。
 
 ```mermaid
 flowchart TB
