@@ -78,8 +78,21 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 ### 全体
 
 ```sh
+# ビルドとテスト
 ./gradlew build
+
+# テストのみ
+./gradlew test
 ```
+
+`test` のようにプロジェクトのパスを付けない指定は、全プロジェクトの同名タスクに
+展開される。対象は `:backend`、`:backend:crypto`、`:backend:repository` の 3 つで、
+`:frontend` は wasmJs ターゲットだけなので `test` を持たず対象にならない。
+CI の backend ジョブもこれを使っている。
+
+逆に `:backend:test` のようにパスで絞ると、そのモジュールのテストしか走らない。
+依存先のモジュールは jar が作られるだけでテストは走らないので、モジュールを
+またいで確かめたいときはパスを付けない方を使う。
 
 ### backend
 
@@ -90,21 +103,15 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 # テストのみ
 ./gradlew :backend:test
 
-# repository のビルドとテスト
-./gradlew :backend:repository:build
-
 # JVM で起動する（http://localhost:8080）
 # DOMAIN は必須。手元で試すだけなら適当な値でよいが、
 # Mastodon から実際に引かせるときは公開しているホスト名にすること
 DOMAIN=example.com ./gradlew :backend:run
 ```
 
-### crypto
+### crypto の native テスト
 
 ```sh
-# ビルドとテスト
-./gradlew :backend:crypto:build
-
 # テストを native バイナリにして実行する（GraalVM 25 が必要）
 ./gradlew :backend:crypto:nativeTest
 ```
@@ -112,6 +119,9 @@ DOMAIN=example.com ./gradlew :backend:run
 `nativeTest` は JCA（RSA 鍵生成・SHA256withRSA 署名）が native-image 上で動くことを
 確かめるために入れている。この種の問題は JVM のテストでは分からず、native バイナリを
 動かして初めて出るため、テストごと native にして CI で継続的に見る。
+
+`nativeTest` は `check` にぶら下がっていないので、`./gradlew build` でも
+`./gradlew test` でも走らない。名前を挙げて実行する必要がある。
 
 ### backend の native-image
 
