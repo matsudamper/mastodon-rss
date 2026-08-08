@@ -58,7 +58,7 @@ object AdminPasswordPolicy {
      * 最長の長さ。ハッシュ化は PBKDF2 を数十万回まわすので、
      * 長い入力を投げ続けられると CPU を占有される。上限で頭打ちにする。
      */
-    const val MAX_LENGTH: Int = 256
+    const val MAX_LENGTH: Int = 512
 }
 
 /**
