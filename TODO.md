@@ -13,11 +13,16 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 `nativeTest` で native バイナリ上でも動くことを確認済み。
 `:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
 `:shared` は管理 API の DTO とパス。`:backend` と `:frontend` の両方から使う。
-`:frontend` は Compose Multiplatform for Web (Kotlin/Wasm)。`:backend` が `/admin` で配信する。
+`:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) の管理画面。
 CI で ktlint / JVM ビルド・テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
 
 管理画面のログインは Phase 8 から前倒しで作った（Phase 8 の該当項目を参照）。
 フィードの管理はサーバー側が出来てからなので、いまはログインとハッシュ生成だけ。
+
+`:frontend` と `:backend` は別々にビルドする。`:frontend` の成果物の配置は、
+ビルドの後にインフラに合わせたデプロイスクリプトで行う（このリポジトリの外）。
+ただし現状のコードは `:backend` が成果物を取り込んで配信する形のままで、
+方針に追いついていない。外す作業は Phase 8 の未着手項目にある。
 
 Phase 1 はコードの側は書けた。アクターは `admin` 固定（`ACTOR_USERNAME` で変更可）で、
 `DOMAIN` は必須。WebFinger と Actor が返るところまで実装し、native バイナリでも
@@ -369,9 +374,9 @@ Phase 0 は完了。Phase 1 に入る前に「事前に決めておくこと」�
 
 > ### Compose の位置づけ（決定済み: 案2）
 > Compose Desktop（Skiko / JVM）は GraalVM native-image では現実的に動かない。
-> サーバーとUIを同一バイナリにする前提を維持するため、案2 を採用する。
+> 管理 UI はブラウザで動かす形にするため、案2 を採用する。
 > - 案1: サーバー = native-image バイナリ、管理UI = Compose Desktop の別アプリ（通常のJVM）。両者は HTTP API で通信。
-> - 案2（採用）: 管理UI を Kotlin/Wasm の Compose で書き、サーバーが静的配信。単一バイナリを維持できる。
+> - 案2（採用）: 管理UI を Kotlin/Wasm の Compose で書き、ブラウザで動かす。
 > - 案3: サーバーも JVM で動かし、native-image をやめる。
 >
 > 実装は Compose Multiplatform for Web（canvas 描画）を使う。
@@ -380,12 +385,25 @@ Phase 0 は完了。Phase 1 に入る前に「事前に決めておくこと」�
 >
 > 同一 Gradle プロジェクト内でモジュールを分ければ、UI とバックエンドは分離できる:
 > - `:frontend`（Kotlin/Wasm, Compose）をビルドすると `.wasm` + JS + HTML が出る
-> - それを `:backend` の `processResources` で `resources/static/` に取り込む
-> - `:backend` は `staticResources("/admin", "static")` で配信する
 > - 型の共有が必要になったら `:shared`（KMP: `jvm` + `wasmJs`）に管理 API の DTO を置く
 >
-> いまは `:frontend` を独立してビルド・起動できるところまで。
-> `:backend` への静的配信の取り込みは Phase 8 でやる。
+> ### ビルドと配布の分け方（決定済み）
+> `:frontend` と `:backend` は別々にビルドする。Gradle 上で互いに依存させない。
+> 成果物を 1 つにまとめるのはビルドの仕事ではなく、デプロイの仕事にする。
+>
+> - `:frontend` をビルドすると `frontend/build/dist/wasmJs/productionExecutable/` に出る
+> - それをどこに置いて誰が配信するかはインフラ側の話。ビルドの後に、
+>   インフラに合わせたデプロイスクリプトで配置する（このリポジトリの外で用意する）
+> - `:backend` は `:frontend` を知らない。ビルドにもテストにも Kotlin/Wasm の
+>   ツールチェインは要らない
+>
+> 当初は「`:backend` の `processResources` で `resources/static/` に取り込み、
+> サーバーが配信して単一バイナリを維持する」と書いていたが、これはやめる。
+>
+> - サーバーの実装とテストが UI のツールチェイン（Node.js と yarn）に引きずられる。
+>   wasm 側が壊れているとサーバーのテストも回せなくなる
+> - 単一バイナリの利点が薄い。DB ファイルも秘密鍵も既に外のファイルで、
+>   配布は ghcr.io の Docker イメージ。バイナリ 1 つで完結してはいない
 
 ---
 
@@ -694,15 +712,15 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 - [x] `:frontend` モジュール（Kotlin/Wasm + Compose）を作り、Hello World を表示する
 - [x] `:shared` モジュール（KMP: `jvm` + `wasmJs`）を作り、管理 API の DTO を置く
       - `AdminApiPaths` も置いて、パスの文字列を両側で共有している
-- [x] `:frontend` のビルド成果物を `:backend` の resources に取り込むタスクを組む
-      - `:backend:processResources` が `:frontend:wasmJsBrowserDistribution` に依存するようにする
-      - `.wasm` を含むリソースが native バイナリに入ることを確認する（`resource-config.json`）
-      - `.wasm` の Content-Type が `application/wasm` で返ることを確認する（Ktor の既定に無い可能性がある）
-      - 配信は Ktor の `staticResources` ではなく `AdminStaticContent` で自前に読む。
-        Content-Type を取りこぼさないためと、リソースの見え方が native バイナリと
-        JVM で違うため
-      - native バイナリでの確認は CI に入れた。起動確認で `/admin/` と `.wasm` の
-        Content-Type、`/admin/api` まで叩いている
+- [ ] `:frontend` と `:backend` を別々にビルドできる状態に戻す
+      - 現状は `:backend:processResources` が `:frontend:wasmJsBrowserDistribution` を
+        取り込んでいる。これを外す。理由は Phase 0 の「ビルドと配布の分け方」を参照
+      - `resource-config.json` の `static/` の登録も外す
+      - `:backend` の静的配信（`AdminStaticContent` と `/admin/{path...}`）を残すかは、
+        デプロイスクリプトが成果物をどこに置くかで決まる。置き場所が決まってから判断する
+      - CI の native-image ジョブの起動確認に `/admin/` と `.wasm` の Content-Type を
+        叩く手順が入っている。配信をやめるならここも外す
+- [ ] `:frontend` の成果物を配置するデプロイスクリプトを用意する（インフラ側で用意する。このリポジトリの範囲外）
 - [ ] サーバー側に管理 API（フィード CRUD、アクター一覧、配信状況、手動再取得）
       - ログイン・ログアウト・パスワードハッシュ生成までは実装済み。フィード側は Phase 5 の後
 - [x] 管理 API に認証をかける（Basic 認証かトークン。inbox と違って外に開けてはいけない）

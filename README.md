@@ -62,7 +62,7 @@ flowchart TB
     admin --> pw
     admin --> dto
     compose --> dto
-    admin -->|静的配信| compose
+    admin -.->|暫定: 静的配信。デプロイスクリプトに移す| compose
     ap -.->|Phase 2 で接続| sign
     key[("秘密鍵の PEM<br/>ACTOR_PRIVATE_KEY_PATH")]
     actor --> key
@@ -79,10 +79,18 @@ compile classpath にも現れない。
 バイトコード書き換えに依存するので native-image では動かない。JCA の確認を
 そこに同居させると確認できなくなる。
 
-`:frontend` のビルド成果物は `:backend` の `processResources` で `resources/static/` に
-取り込み、`/admin` 以下で配信している。サーバーと管理画面が 1 つのバイナリに収まるので、
-配るものは変わらない。代わりに `:backend` のビルドには Kotlin/Wasm のツールチェイン
-（Node.js と yarn のダウンロード）が要る。
+`:frontend` と `:backend` は別々にビルドする。`:frontend` の成果物は
+`frontend/build/dist/wasmJs/productionExecutable/` に出るので、それをどこに置いて
+誰が配信するかはインフラ側の話になる。ビルドの後に、インフラに合わせたデプロイ
+スクリプトで配置する。スクリプトはこのリポジトリでは持たない。
+
+サーバーのビルドと UI のビルドを繋がないのは、繋ぐとサーバーのテストが Kotlin/Wasm の
+ツールチェイン（Node.js と yarn）に引きずられるため。wasm 側が壊れていると
+サーバーのテストも回せなくなる。
+
+現状のコードはまだこの形になっておらず、`:backend` の `processResources` が
+`:frontend` の成果物を `resources/static/` に取り込んで `/admin` 以下で配信している。
+外す作業は TODO.md の Phase 8 に残してある。
 
 画面を触るときは 8081 番の dev サーバーの方が速い。管理 API は dev サーバーに無いので、
 `/admin/api` へのリクエストは webpack の proxy 設定で 8080 番に転送している。
@@ -225,8 +233,10 @@ docker compose ではボリュームの中（`/data/actor-private-key.pem`）に
 
 ## 管理画面
 
-`/admin` が管理画面。Compose Multiplatform for Web (Kotlin/Wasm) で書いたものを
-`:backend` が静的配信しているので、別のプロセスを立てる必要は無い。
+`/admin` が管理画面。Compose Multiplatform for Web (Kotlin/Wasm) で書いてある。
+成果物の配置はデプロイスクリプトの担当で、いまのコードは暫定的に `:backend` が
+配信している（上の「モジュール構成」を参照）。管理 API は `/admin/api` 以下で、
+これは配置の話に関係なく `:backend` が持つ。
 
 ログインのパスワードは `ADMIN_PASSWORD_HASH` に入れる。入れるのはパスワードそのもの
 ではなくハッシュで、その作り方が画面の中にある。
@@ -345,8 +355,10 @@ DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
 ```
 
 配布物は `frontend/build/dist/wasmJs/productionExecutable/` に出力される。
-`:backend` はこれを `resources/static/` に取り込むので、`./gradlew :backend:build` からも
-このタスクが走る。
+ここまでがこのリポジトリの担当で、配置はインフラに合わせたデプロイスクリプトで行う。
+
+現状は `:backend` の `processResources` がこの出力を取り込むため、
+`./gradlew :backend:build` からもこのタスクが走る。これは外す予定（TODO.md の Phase 8）。
 
 初回ビルドでは Kotlin/Wasm のツールチェイン（Node.js、yarn、webpack など）が
 ダウンロードされるため時間がかかる。
