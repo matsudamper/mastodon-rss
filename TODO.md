@@ -744,6 +744,13 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       どちらも同じ `.graphqls` から作る。既存の REST（`/admin/api/session` ほか 4 つ）は
       置き換えて消す。API の作り方を 2 つ並べる理由が無いため。
 
+      GraphQL は管理画面専用にしない。エンドポイントは `/graphql` の 1 つで、
+      管理用とそれ以外はフィールドで分ける（`Query.admin` / `Mutation.admin` の下に
+      管理用を置く）。認可はエンドポイントではなくフィールドごとに見る。
+
+      ActivityPub のエンドポイント（WebFinger / Actor / inbox）はここに入れない。
+      あちらは相手の実装が決まっている REST で、こちらの都合で形を変えられない。
+
       native-image への影響に注意する。kake-bo は JVM で動くので graphql-java-tools
       (kickstart) と kobylynskyi の codegen を使い、リゾルバをリフレクションで
       結線しているが、この構成は native-image では動かない。こちらは
@@ -752,13 +759,21 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       データクラスを返すと、JVM では動いて native バイナリでだけ全フィールドが
       null になる、という形の不具合になる。
 
-      - [ ] スキーマを `:shared` に置く（`src/commonMain/resources/graphql/admin.graphqls`）
+      - [ ] スキーマを `:shared` に置く（`src/commonMain/resources/graphql/schema.graphqls`）
             - 両モジュールから等距離にするため。`:backend` に置くと `:frontend` の
               ビルドが `:backend` のディレクトリを見ることになる
             - `:backend` は実行時にリソースとして読む。`:frontend` は Apollo の
               `schemaFiles` にこのファイルを渡す
+            - 管理用は `AdminQuery` / `AdminMutation` にまとめ、`Query.admin` /
+              `Mutation.admin` からぶら下げる。管理用でないフィールドは後から
+              `Query` の直下に足す
       - [ ] version catalog に graphql-java / Apollo / Navigation3 を足す
-      - [ ] `:backend` に `POST /admin/api/graphql` を 1 つ作る
+      - [ ] `:backend` に `POST /graphql` を 1 つ作る
+            - `/admin` の下には置かない。管理用でないフィールドもここを通るため
+            - セッション Cookie の `path` を `/admin` から `/` に変える。
+              エンドポイントが `/admin` の外に出るので、`/admin` のままだと
+              ログイン後の Cookie が送られない。`HttpOnly` と `SameSite=Strict` は
+              そのまま
             - 本文は `receiveText()` してから `{query, operationName, variables}` を読む。
               `receive<T>()` を使わないのは他のエンドポイントと同じ理由
             - `variables` は型が決まらないので `JsonObject` で受け、実行の直前に素の値へ開く
@@ -767,8 +782,9 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
             - 実行時エラーは HTTP のステータスではなく本文の `errors` に入れる。本文が
               読めない場合だけ 400
       - [ ] `RuntimeWiring` に `DataFetcher` を明示して結線する
-            - `Query.adminSession` / `Mutation.adminLogin` / `Mutation.adminLogout` /
-              `Mutation.adminCreatePasswordHash`
+            - `Query.admin` / `Mutation.admin` は入れ物なので空の `Map` を返し、
+              その下の `AdminQuery.session` / `AdminMutation.login` /
+              `AdminMutation.logout` / `AdminMutation.createPasswordHash` に処理を書く
             - Cookie の読み書きに `ApplicationCall` が要るので、GraphQL の context に
               載せて DataFetcher から触れるようにする
       - [ ] `resource-config.json` にスキーマを登録する（マイグレーション SQL と同じ扱い）
