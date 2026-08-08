@@ -1,4 +1,4 @@
-package dev.matsudamper.mastodonrss.crypto
+package net.matsudamper.mastodon.rss.crypto
 
 import java.security.MessageDigest
 import java.security.SecureRandom
