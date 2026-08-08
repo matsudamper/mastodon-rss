@@ -59,6 +59,11 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 | DB アクセス | 素の JDBC（jOOQ を入れるかは Phase 3 の直前に判断する） |
 | 署名 | JCA（RSA / SHA256withRSA）。ライブラリは足さない |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
+| 管理 API | GraphQL。サーバーは graphql-java、クライアントは Apollo Kotlin（Phase 8 で作る） |
+| 画面遷移 | Navigation Compose 3（JetBrains 版）（Phase 8 で作る） |
+
+管理 API を GraphQL にするのは [kake-bo](https://github.com/matsudamper/kake-bo) と
+揃えるため。ActivityPub 側は相手の実装が決まっているので REST のまま。
 
 モジュールは `:backend`（サーバー）、`:backend:crypto`（鍵と署名）、
 `:backend:repository`（DB アクセス）、`:frontend`（管理 UI）の 4 つ。
@@ -145,8 +150,8 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
         その先の ByteBuddy と JNA が実行時のバイトコード書き換えに依存するので
         native-image では動かない。JCA の確認をそこに同居させると検証できなくなる
       - Phase 2 の署名文字列の組み立てと Digest の計算もここに置く予定
-- [ ] `:shared` — `:backend` と `:frontend` で共有する管理 API の DTO。KMP (`jvm` + `wasmJs`)
-      - Phase 8 で管理 API を作るときに必要になる
+- [ ] `:shared` — `:backend` と `:frontend` で共有するもの。KMP (`jvm` + `wasmJs`)
+      - 中身は GraphQL のスキーマと、スキーマに書けない定数だけ。Phase 8 で追加する
 
 依存とバージョンの現状:
 
@@ -368,23 +373,39 @@ Phase 0 は完了。Phase 1 に入る前に「事前に決めておくこと」�
 
 > ### Compose の位置づけ（決定済み: 案2）
 > Compose Desktop（Skiko / JVM）は GraalVM native-image では現実的に動かない。
-> サーバーとUIを同一バイナリにする前提を維持するため、案2 を採用する。
+> 管理 UI はブラウザで動かす形にするため、案2 を採用する。
 > - 案1: サーバー = native-image バイナリ、管理UI = Compose Desktop の別アプリ（通常のJVM）。両者は HTTP API で通信。
-> - 案2（採用）: 管理UI を Kotlin/Wasm の Compose で書き、サーバーが静的配信。単一バイナリを維持できる。
+> - 案2（採用）: 管理UI を Kotlin/Wasm の Compose で書き、ブラウザで動かす。
 > - 案3: サーバーも JVM で動かし、native-image をやめる。
 >
 > 実装は Compose Multiplatform for Web（canvas 描画）を使う。
 > DOM ベースの Compose HTML ではなく、Compose Desktop と同じ `androidx.compose.*` の
 > API がそのまま使える方。`ComposeViewport` に描画する。
 >
-> 同一 Gradle プロジェクト内でモジュールを分ければ、UI とバックエンドは分離できる:
-> - `:frontend`（Kotlin/Wasm, Compose）をビルドすると `.wasm` + JS + HTML が出る
-> - それを `:backend` の `processResources` で `resources/static/` に取り込む
-> - `:backend` は `staticResources("/admin", "static")` で配信する
-> - 型の共有が必要になったら `:shared`（KMP: `jvm` + `wasmJs`）に管理 API の DTO を置く
+> 型の共有が必要になったら `:shared`（KMP: `jvm` + `wasmJs`）を作る。
+> 中身は GraphQL のスキーマと、スキーマに書けない定数だけにする。
+
+> ### ビルドと配布の分け方（決定済み）
+> `:frontend` と `:backend` は別々にビルドする。Gradle 上で互いに依存させない。
+> 成果物を 1 つにまとめるのはビルドの仕事ではなく、デプロイの仕事にする。
 >
-> いまは `:frontend` を独立してビルド・起動できるところまで。
-> `:backend` への静的配信の取り込みは Phase 8 でやる。
+> - `:frontend` をビルドすると `frontend/build/dist/wasmJs/productionExecutable/` に出る
+> - それをどこに置くかはインフラ側の話。ビルドの後に、インフラに合わせた
+>   デプロイスクリプトで配置する（このリポジトリの外で用意する）
+> - 配信するのは `:backend`。置き場所は環境変数（`STATIC_SRC_DIR`）で渡し、
+>   サーバーはそのディレクトリを読む。バイナリには埋め込まない。
+>   管理画面の成果物に限らず、フォントなど配信するファイルはここに置く
+> - `:backend` は `:frontend` を知らない。ビルドにもテストにも Kotlin/Wasm の
+>   ツールチェインは要らない。読むのは実行時のディレクトリだけ
+>
+> 当初は「`:backend` の `processResources` で `resources/static/` に取り込み、
+> サーバーが配信して単一バイナリを維持する」と書いていたが、これはやめた。
+>
+> - サーバーの実装とテストが UI のツールチェイン（Node.js と yarn）に引きずられる。
+>   wasm 側が壊れているとサーバーのテストも回せなくなる。実際に繋いでみたところ、
+>   npm の lock がずれただけで backend と native-image のジョブまで落ちた
+> - 単一バイナリの利点が薄い。DB ファイルも秘密鍵も既に外のファイルで、
+>   配布は ghcr.io の Docker イメージ。バイナリ 1 つで完結してはいない
 
 ---
 
@@ -689,14 +710,66 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 `:frontend` モジュールと Hello World は 0-1 で作成済み。
 
 - [x] `:frontend` モジュール（Kotlin/Wasm + Compose）を作り、Hello World を表示する
-- [ ] `:shared` モジュール（KMP: `jvm` + `wasmJs`）を作り、管理 API の DTO を置く
-- [ ] `:frontend` のビルド成果物を `:backend` の resources に取り込むタスクを組む
-      - `:backend:processResources` が `:frontend:wasmJsBrowserDistribution` に依存するようにする
-      - `.wasm` を含むリソースが native バイナリに入ることを確認する（`resource-config.json`）
-      - `.wasm` の Content-Type が `application/wasm` で返ることを確認する（Ktor の既定に無い可能性がある）
+- [ ] `:shared` モジュール（KMP: `jvm` + `wasmJs`）を作る
+      - 中身は GraphQL のスキーマ（`src/commonMain/resources/graphql/schema.graphqls`）と、
+        スキーマに書けない定数（パスワードの長さ制限、環境変数名、画面のパス）だけ
+      - 両モジュールから等距離にするため root に置く。`:backend` に置くと
+        `:frontend` のビルドが `:backend` のディレクトリを見ることになる
+- [ ] `:frontend` の成果物を配置するデプロイスクリプトを用意する
+      （インフラ側で用意する。このリポジトリの範囲外。Phase 0 の「ビルドと配布の分け方」を参照）
+- [ ] `:backend` が静的ファイルを配信する
+      - 置き場所は環境変数 `STATIC_SRC_DIR` で渡す。バイナリには埋め込まない
+      - 管理画面だけの口にしない。フォントなど配信するファイルはここにまとめて置く。
+        名前も `ADMIN_` を付けず、置き場所を指す名前にする
+      - 未設定またはディレクトリが無いときは 404 にして、起動ログに出す。
+        黙って動くと「画面が出ない」原因が分からなくなる
+      - `.wasm` は `application/wasm` で返す。`application/octet-stream` だと
+        ブラウザが `WebAssembly.instantiateStreaming` に渡せず画面が真っ白になる
+      - 画面の中のパス（`/admin/password-hash` など）はファイルとして存在しないので、
+        不明なパスには `index.html` を返す。SPA の常の設定
+      - パスの正規化に注意する。リクエストのパスをそのまま連結すると、
+        `..` でディレクトリの外を読み出せてしまう
+- [ ] 画面をどのパスに置かれても動くようにする
+      - `index.html` の参照と webpack の `publicPath` を root 絶対（`/frontend.js`）にする。
+        相対のままだと末尾スラッシュの有無で参照先が変わり、`/admin` へのリダイレクトが要る
 - [ ] サーバー側に管理 API（フィード CRUD、アクター一覧、配信状況、手動再取得）
-- [ ] 管理 API に認証をかける（Basic 認証かトークン。inbox と違って外に開けてはいけない）
+- [ ] 管理 API を GraphQL にする（[kake-bo](https://github.com/matsudamper/kake-bo) と揃える）
+
+      スキーマ優先。サーバーは graphql-java、クライアントは Apollo Kotlin で、
+      どちらも `:shared` の同じ `.graphqls` から作る。REST は作らない。
+
+      エンドポイントは `/graphql` の 1 つで、管理用とそれ以外はフィールドで分ける
+      （管理用は `Query.admin` / `Mutation.admin` の下）。認可はエンドポイントではなく
+      フィールドごとに見る。ActivityPub 側は相手の実装が決まっている REST なので触らない。
+
+      native-image への影響に注意する。kake-bo は JVM で動くので graphql-java-tools
+      (kickstart) と kobylynskyi の codegen を使い、リゾルバをリフレクションで
+      結線しているが、この構成は native-image では動かない。`RuntimeWiring` に
+      `DataFetcher` を明示して結線し、フィールドの取り出しも値を `Map` で返して
+      `PropertyDataFetcher` のリフレクション経路に入れない。データクラスを返すと、
+      JVM では動いて native バイナリでだけ全フィールドが null になる形の不具合になる。
+
+      - [ ] スキーマを `:shared` に置き、version catalog に graphql-java と Apollo を足す
+      - [ ] `POST /graphql` を 1 つ作る。本文は `receiveText()` してから読み、
+            変数は `JsonObject` で受けて実行の直前に素の値へ開く
+      - [ ] 実行結果の `Map` を `JsonElement` に変換して返す。知らない型が来たら落とす
+      - [ ] スキーマを `resource-config.json` に登録する（マイグレーション SQL と同じ扱い）
+      - [ ] CI の native-image ジョブの起動確認で実際に叩く。
+            graphql-java が native-image で動くかは JVM のテストでは分からない
+- [ ] 管理 API に認証をかける（inbox と違って外に開けてはいけない）
+      - パスワード 1 つ + セッション。ハッシュは `ADMIN_PASSWORD_HASH` に入れる
+      - ハッシュは `:backend:crypto` の `PasswordHash`（PBKDF2-HMAC-SHA256）で作る。部品は用意済み
+      - ハッシュ未設定でも起動できるようにする。最初の 1 つを作る手段が他に無いので、
+        未設定の間だけハッシュ生成を認証なしで開ける。設定後はログインした人だけ
+      - セッションの持ち方（メモリ上のトークン / 署名付き Cookie）は実装時に決める
+      - 総当たり対策（試行回数の制限）は Phase 7 で入れる
+- [ ] 画面遷移を Navigation Compose 3 にする
+      - `org.jetbrains.androidx.navigation3:navigation3-ui`（JetBrains 版。wasmJs 向けの成果物がある）
+      - 画面のキーを sealed interface で定義し、`NavDisplay` + バックスタックで切り替える
+      - URL との同期は自前で持つ。Navigation3 はバックスタックを扱うだけで URL は見ない
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
+      - webpack の devServer proxy で `/graphql` を 8080 に転送する。
+        オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
 - [ ] Compose でフィード一覧 / 追加 / 削除
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
 - [ ] フィードのプレビュー（投稿前にどう見えるか）
