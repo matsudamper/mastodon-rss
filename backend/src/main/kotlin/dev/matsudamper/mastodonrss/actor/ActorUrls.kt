@@ -28,23 +28,4 @@ data class ActorUrls(
 
     /** Actor JSON の `publicKey.id`。署名の `keyId` としても飛んでくる */
     val publicKeyId: String = "$actorId#main-key"
-
-    /**
-     * WebFinger の `resource` がこのアクターを指しているか。
-     *
-     * Mastodon は `acct:` で引いてくるが、実装によっては Actor の URL を
-     * そのまま渡してくるものもあるので両方を受ける。ドメインとユーザー名は
-     * 大文字小文字を区別しない（Mastodon 側の扱いに合わせる）。
-     */
-    fun matches(resource: String): Boolean {
-        val normalized = resource.trim()
-        return normalized.equals(acct, ignoreCase = true) ||
-            normalized.equals(actorId, ignoreCase = true) ||
-            // acct: を省いた `admin@example.com` も受ける
-            normalized.equals(acct.removePrefix(ACCT_SCHEME), ignoreCase = true)
-    }
-
-    companion object {
-        private const val ACCT_SCHEME = "acct:"
-    }
 }

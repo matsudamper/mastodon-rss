@@ -15,16 +15,15 @@ import io.ktor.server.routing.get
 /**
  * Actor エンドポイント。WebFinger から辿り着く 2 ホップ目。
  *
- * Phase 6 で複数アクターにするまではユーザー名が 1 つしか無いので、
- * パスの変数と [urls] のユーザー名を突き合わせて一致しなければ 404 を返す。
+ * 引き当ては [ActorDirectory] に任せる。固定アクターと `test-` の使い捨て
+ * アクターのどちらでもなければ 404。
  */
-fun Route.actorRoutes(urls: ActorUrls, actorKey: ActorKey) {
+fun Route.actorRoutes(directory: ActorDirectory, actorKey: ActorKey) {
     get("/users/{username}") {
         val requested = call.parameters["username"]
+        val urls = directory.resolve(requested)
 
-        // WebFinger 側も大文字小文字を区別しないので合わせる。
-        // 返す id は要求された綴りではなく常に正規の形にする
-        if (!requested.equals(urls.username, ignoreCase = true)) {
+        if (urls == null) {
             call.respondText("アクターが見つからない: $requested", status = HttpStatusCode.NotFound)
             return@get
         }
@@ -39,17 +38,19 @@ fun Route.actorRoutes(urls: ActorUrls, actorKey: ActorKey) {
 }
 
 /**
- * 固定アクターの Actor JSON を組み立てる。
+ * Actor JSON を組み立てる。
  *
  * 表示名と説明文は Phase 6 でアクターごとに DB から引くようになる。
- * それまでは 1 つしか無いので定数で持つ。
+ * それまでは名前から決まる。
  */
 internal fun actorDocument(urls: ActorUrls, actorKey: ActorKey): Actor =
     Actor(
         id = urls.actorId,
         preferredUsername = urls.username,
         name = urls.username,
-        summary = SUMMARY,
+        // 使い捨てアクターは Mastodon 側の表示でもそれと分かるようにしておく。
+        // 検証で作ったものが残っていても、見れば消していいものだと判断できる
+        summary = if (ActorUsername.isTest(urls.username)) TEST_SUMMARY else SUMMARY,
         inbox = urls.inbox,
         outbox = urls.outbox,
         followers = urls.followers,
@@ -64,3 +65,4 @@ internal fun actorDocument(urls: ActorUrls, actorKey: ActorKey): Actor =
     )
 
 private const val SUMMARY = "RSS/Atom フィードを ActivityPub で配信するアカウント"
+private const val TEST_SUMMARY = "動作確認用のアカウント。フォローしても何も流れない"

@@ -2,16 +2,14 @@ package dev.matsudamper.mastodonrss.actor
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 // URL の綴りは一度 Mastodon 側にキャッシュされると直せないので、
 // 組み立ての結果を文字列として固定しておく。
 class ActorUrlsTest {
-    private val urls = ActorUrls(domain = "example.com", username = "admin")
-
     @Test
     fun `ドメインとユーザー名から URL を組み立てる`() {
+        val urls = ActorUrls(domain = "example.com", username = "admin")
+
         assertEquals("acct:admin@example.com", urls.acct)
         assertEquals("https://example.com/users/admin", urls.actorId)
         assertEquals("https://example.com/users/admin/inbox", urls.inbox)
@@ -22,23 +20,11 @@ class ActorUrlsTest {
     }
 
     @Test
-    fun `acct でも Actor の URL でも一致する`() {
-        assertTrue(urls.matches("acct:admin@example.com"))
-        assertTrue(urls.matches("admin@example.com"))
-        assertTrue(urls.matches("https://example.com/users/admin"))
-    }
+    fun `使い捨てアクターでも同じ形になる`() {
+        val urls = ActorUrls(domain = "example.com", username = "test-1")
 
-    @Test
-    fun `大文字小文字と前後の空白は無視する`() {
-        assertTrue(urls.matches("acct:Admin@Example.com"))
-        assertTrue(urls.matches(" acct:admin@example.com "))
-    }
-
-    @Test
-    fun `別のユーザーや別のドメインには一致しない`() {
-        assertFalse(urls.matches("acct:other@example.com"))
-        assertFalse(urls.matches("acct:admin@example.org"))
-        assertFalse(urls.matches("acct:admin"))
-        assertFalse(urls.matches(""))
+        assertEquals("acct:test-1@example.com", urls.acct)
+        assertEquals("https://example.com/users/test-1", urls.actorId)
+        assertEquals("https://example.com/users/test-1#main-key", urls.publicKeyId)
     }
 }

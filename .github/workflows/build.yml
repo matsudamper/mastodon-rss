@@ -195,6 +195,17 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' \
             "http://localhost:8080/.well-known/webfinger?resource=acct:other@example.com")" = "404"
 
+          # 検証用の使い捨てアクター。名前がリクエスト由来になるので、
+          # 固定アクターとは別の経路を通る
+          echo "--- test- の使い捨てアクター ---"
+          curl -sf "http://localhost:8080/.well-known/webfinger?resource=acct:test-ci@example.com" \
+            -o /tmp/test-webfinger.json
+          grep -q '"subject":"acct:test-ci@example.com"' /tmp/test-webfinger.json
+
+          curl -sf -H 'Accept: application/activity+json' http://localhost:8080/users/test-ci \
+            -o /tmp/test-actor.json
+          grep -q '"id":"https://example.com/users/test-ci"' /tmp/test-actor.json
+
       - name: DOMAIN が無ければ起動しないことの確認
         run: |
           set -euo pipefail

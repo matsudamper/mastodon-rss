@@ -133,6 +133,9 @@ URL のパスと `acct:` の両方に入るので、区切り文字が混ざる�
 | `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
 | `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
 
+`{name}` として応答するのは `ACTOR_USERNAME`（既定 `admin`）と、`test-` で始まる
+任意の名前の 2 通り。後者は動作確認用で、下の「動作確認用のアカウント」を参照。
+
 Mastodon は `@admin@example.com` の検索でまず WebFinger を引き、`links` の
 `rel: "self"` から Actor の URL を得て、そこを取得してプロフィールカードを作る。
 
@@ -147,6 +150,25 @@ curl -H 'Accept: application/activity+json' http://localhost:8080/users/admin
 
 外から見えるようにするには HTTPS が要る。開発中は Cloudflare Tunnel や ngrok で
 `DOMAIN` に指定したホスト名に向ける。
+
+## 動作確認用のアカウント
+
+`test-` で始まる名前は、設定に関係なくすべてアクターとして応答する。
+`@test-1@example.com` でも `@test-20260808@example.com` でも引ける。
+
+```sh
+curl "http://localhost:8080/.well-known/webfinger?resource=acct:test-1@example.com"
+curl -H 'Accept: application/activity+json' http://localhost:8080/users/test-1
+```
+
+Mastodon はリモートアクターを永続キャッシュするので、内容や鍵を間違えたまま
+一度取得されると相手側からは直せない。`admin` で試して失敗すると `admin` が
+使えなくなるため、検証はこちらを使い、名前を変えながらやり直す。
+
+- 中身は固定アクターと同じで、鍵も共有する。使い捨てのたびに鍵を作る意味が無いため
+- `summary` が「動作確認用のアカウント」になるので、Mastodon 側の表示でも見分けられる
+- 接頭辞は小文字ちょうど。`Test-1` は 404 になる（受けると `test-1` と別のアクターが生えるため）
+- Phase 6 でアクターを DB から作れるようになったら消す
 
 ## アクターの鍵
 

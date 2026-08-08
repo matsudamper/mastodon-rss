@@ -1,5 +1,7 @@
 package dev.matsudamper.mastodonrss
 
+import dev.matsudamper.mastodonrss.actor.ActorUsername
+
 /**
  * サーバーの設定。
  *
@@ -19,7 +21,7 @@ data class ServerConfig(
     val actorUsername: String,
 ) {
     init {
-        require(USERNAME_PATTERN.matches(actorUsername)) {
+        require(ActorUsername.isValid(actorUsername)) {
             "$ENV_ACTOR_USERNAME が使えない形式: $actorUsername。" +
                 "英数字と _ . - のみ、先頭と末尾は英数字か _ にすること"
         }
@@ -34,12 +36,6 @@ data class ServerConfig(
         const val DEFAULT_HOST: String = "0.0.0.0"
         const val DEFAULT_PORT: Int = 8080
         const val DEFAULT_ACTOR_USERNAME: String = "admin"
-
-        /**
-         * ユーザー名に許す文字。URL のパスと `acct:` の両方に入るので、
-         * Mastodon が受け付ける範囲に合わせて狭く取る。
-         */
-        private val USERNAME_PATTERN = Regex("^[A-Za-z0-9_]([A-Za-z0-9_.-]*[A-Za-z0-9_])?$")
 
         fun fromEnvironment(): ServerConfig = from(System::getenv)
 

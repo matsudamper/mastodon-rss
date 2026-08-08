@@ -1,9 +1,11 @@
 package dev.matsudamper.mastodonrss
 
+import dev.matsudamper.mastodonrss.actor.ActorDirectory
 import dev.matsudamper.mastodonrss.actor.ActorKey
 import dev.matsudamper.mastodonrss.actor.ActorKeyConfig
 import dev.matsudamper.mastodonrss.actor.ActorKeyLoader
 import dev.matsudamper.mastodonrss.actor.ActorUrls
+import dev.matsudamper.mastodonrss.actor.ActorUsername
 import dev.matsudamper.mastodonrss.actor.actorRoutes
 import dev.matsudamper.mastodonrss.json.respondJson
 import dev.matsudamper.mastodonrss.repository.DatabaseConfig
@@ -46,6 +48,12 @@ fun Application.module(
     val actorUrls = ActorUrls(domain = config.domain, username = config.actorUsername)
     log.info("アクター: ${actorUrls.acct} → ${actorUrls.actorId}")
 
+    // 検証用の使い捨てアクター。Mastodon はリモートアクターを永続キャッシュするので、
+    // 名前を変えながら試せる口が無いと、一度間違えたときに直す手段が無くなる
+    log.info("動作確認用に acct:${ActorUsername.TEST_PREFIX}<任意>@${config.domain} も応答する")
+
+    val directory = ActorDirectory(actorUrls)
+
     // 鍵が入れ替わると相手側は署名検証に失敗し続ける。
     // どこから読んだ鍵なのかが後から追えるよう、取得元を必ず出す
     when (val origin = actorKey.origin) {
@@ -73,7 +81,7 @@ fun Application.module(
         }
 
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
-        webFingerRoutes(actorUrls)
-        actorRoutes(actorUrls, actorKey)
+        webFingerRoutes(directory)
+        actorRoutes(directory, actorKey)
     }
 }

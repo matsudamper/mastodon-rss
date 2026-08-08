@@ -1,7 +1,7 @@
 package dev.matsudamper.mastodonrss.webfinger
 
 import dev.matsudamper.mastodonrss.activitypub.ActivityPubContentTypes
-import dev.matsudamper.mastodonrss.actor.ActorUrls
+import dev.matsudamper.mastodonrss.actor.ActorDirectory
 import dev.matsudamper.mastodonrss.json.respondJson
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -16,19 +16,20 @@ import io.ktor.server.routing.get
  * 知らない相手なら 404 で、ここで 200 を返してしまうと Mastodon 側に
  * 空のアカウントがあるように見える。
  */
-fun Route.webFingerRoutes(urls: ActorUrls) {
+fun Route.webFingerRoutes(directory: ActorDirectory) {
     get("/.well-known/webfinger") {
         val resource = call.request.queryParameters["resource"]
 
         if (resource.isNullOrBlank()) {
             call.respondText(
-                "resource クエリパラメータが必要（例: ?resource=${urls.acct}）",
+                "resource クエリパラメータが必要（例: ?resource=acct:admin@example.com）",
                 status = HttpStatusCode.BadRequest,
             )
             return@get
         }
 
-        if (!urls.matches(resource)) {
+        val urls = directory.resolveResource(resource)
+        if (urls == null) {
             call.respondText("該当する resource が無い: $resource", status = HttpStatusCode.NotFound)
             return@get
         }

@@ -57,6 +57,23 @@ class WebFingerRoutesTest {
         }
 
     @Test
+    fun `test で始まる acct も引ける`() =
+        testApplication {
+            installModule()
+
+            val response = client.get("/.well-known/webfinger?resource=acct:test-1@example.com")
+
+            assertEquals(HttpStatusCode.OK, response.status)
+
+            val body = AppJson.decodeFromString(WebFingerResponse.serializer(), response.bodyAsText())
+            assertEquals("acct:test-1@example.com", body.subject)
+            assertEquals(
+                "https://example.com/users/test-1",
+                body.links.single { it.rel == "self" }.href,
+            )
+        }
+
+    @Test
     fun `知らない resource は404`() =
         testApplication {
             installModule()
