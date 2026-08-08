@@ -15,6 +15,8 @@
     </style>
 </head>
 <body>
-<script src="frontend.js"></script>
+<!-- root 絶対で参照する。相対のままだと /admin/password-hash のような深いパスから
+     /admin/frontend.js を引きに行ってしまう。index.html はどのパスでも同じものが返る -->
+<script src="/frontend.js"></script>
 </body>
 </html>

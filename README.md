@@ -20,6 +20,7 @@ flowchart TB
         json["json<br/>AppJson<br/>respondJson"]
         ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
         actor["actor<br/>ActorKeyConfig<br/>ActorKeyLoader<br/>ActorKey"]
+        static["staticfiles<br/>StaticFilesConfig<br/>StaticFiles"]
     end
 
     subgraph crypto[":backend:crypto"]
@@ -53,11 +54,15 @@ flowchart TB
     ap -.->|Phase 2 で接続| sign
     key[("秘密鍵の PEM<br/>ACTOR_PRIVATE_KEY_PATH")]
     actor --> key
+    dist[("静的ファイル<br/>STATIC_SRC_DIR")]
+    module --> static
+    static --> dist
+    compose -.->|デプロイ時に配置| dist
 ```
 
 `:frontend` と `:backend` は別々にビルドする。互いに依存させない。
 `:frontend` の成果物は配信するファイルを置くディレクトリに配置し、`:backend` が
-その場所を環境変数で受け取って配信する（Phase 8 で作る）。
+その場所を `STATIC_SRC_DIR` で受け取って root から配信する。
 分けた理由は [docs/architecture.md](docs/architecture.md) を参照。
 
 ## 必要なもの
@@ -139,6 +144,21 @@ DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
 
 初回ビルドでは Kotlin/Wasm のツールチェイン（Node.js、yarn、webpack など）が
 ダウンロードされるため時間がかかる。
+
+### backend から画面を出す
+
+```sh
+./gradlew :frontend:wasmJsBrowserDistribution
+
+# DOMAIN は画面の配信には関係しないが、必須なので入れる
+DOMAIN=example.com \
+STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
+  ./gradlew :backend:run
+```
+
+配信の挙動と環境変数は
+[StaticFilesConfig.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/staticfiles/StaticFilesConfig.kt) と
+[StaticFiles.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/staticfiles/StaticFiles.kt) を参照。
 
 ## 環境変数
 

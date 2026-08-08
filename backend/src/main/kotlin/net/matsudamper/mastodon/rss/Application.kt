@@ -18,6 +18,9 @@ import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
+import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
+import net.matsudamper.mastodon.rss.staticfiles.StaticFilesConfig
+import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
 
 fun main() {
@@ -38,6 +41,7 @@ fun Application.module(
     repositories: Repositories,
     actorKey: ActorKey,
     config: ServerConfig = ServerConfig.fromEnvironment(),
+    staticFilesConfig: StaticFilesConfig = StaticFilesConfig.fromEnvironment(),
 ) {
     // 書けない DB を抱えたまま起動すると、最初のリクエストまで問題に気付けない。
     // native バイナリでは SQLite のネイティブライブラリ周りで起きやすいので起動時に確かめる
@@ -73,6 +77,10 @@ fun Application.module(
         }
     }
 
+    // 画面が出ないときに理由を追えるよう、配信元を起動時に必ず出す。
+    // 黙って 404 になると、設定し忘れなのか置き忘れなのかが分からない
+    val staticFiles = resolveStaticFiles(staticFilesConfig)
+
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
     // native-image で解決できず 500 になる。詳細は json/JsonResponse.kt を参照
     routing {
@@ -83,5 +91,33 @@ fun Application.module(
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
         webFingerRoutes(directory)
         actorRoutes(directory, actorKey)
+
+        // 残り全部を受けるので最後に置く
+        staticRoutes(staticFiles)
     }
+}
+
+/**
+ * 静的ファイルの配信元を決めて、その結果を起動ログに出す。
+ *
+ * 配信できないときは null を返す。この場合 root は 404 になる。
+ */
+private fun Application.resolveStaticFiles(config: StaticFilesConfig): StaticFiles? {
+    val srcDir = config.srcDir
+    if (srcDir == null) {
+        log.info(
+            "${StaticFilesConfig.ENV_STATIC_SRC_DIR} が未設定なので静的ファイルを配信しない。" +
+                "管理画面を出すには :frontend の成果物を置いたディレクトリを指定する",
+        )
+        return null
+    }
+
+    val staticFiles = StaticFiles(srcDir)
+    if (!staticFiles.isAvailable()) {
+        log.warn("${staticFiles.root} が無いので静的ファイルを配信しない")
+        return null
+    }
+
+    log.info("静的ファイルを ${staticFiles.root} から配信する")
+    return staticFiles
 }

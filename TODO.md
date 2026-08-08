@@ -14,6 +14,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 `nativeTest` で native バイナリ上でも動くことを確認済み。
 `:backend:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
+`:backend` は `STATIC_SRC_DIR` に置かれたものを root から配信するので、成果物を指せば画面が出る。
 CI で ktlint / JVM テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
 
 Phase 1 はコードの側は書けた。アクターは `admin` 固定（`ACTOR_USERNAME` で変更可）で、
@@ -719,7 +720,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
         `:frontend` のビルドが `:backend` のディレクトリを見ることになる
 - [ ] `:frontend` の成果物を配置するデプロイスクリプトを用意する
       （インフラ側で用意する。このリポジトリの範囲外。Phase 0 の「ビルドと配布の分け方」を参照）
-- [ ] `:backend` が静的ファイルを配信する
+- [x] `:backend` が静的ファイルを配信する
       - 置き場所は環境変数 `STATIC_SRC_DIR` で渡す。バイナリには埋め込まない
       - 配信するのは root。`/admin` の下だけを配信するのではない。SPA なので
         画面のパスは全部 1 つの `index.html` から始まり、`/admin` かどうかは
@@ -737,7 +738,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
         ブラウザが `WebAssembly.instantiateStreaming` に渡せず画面が真っ白になる
       - パスの正規化に注意する。リクエストのパスをそのまま連結すると、
         `..` でディレクトリの外を読み出せてしまう
-- [ ] `index.html` の参照と webpack の `publicPath` を root 絶対（`/frontend.js`）にする
+- [x] `index.html` の参照と webpack の `publicPath` を root 絶対（`/frontend.js`）にする
       - 相対のままだと画面の URL の深さで参照先が変わる。root 絶対なら
         `/admin` でも `/admin/password-hash` でも同じファイルを引く
 - [ ] サーバー側に管理 API（フィード CRUD、アクター一覧、配信状況、手動再取得）
