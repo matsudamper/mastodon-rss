@@ -153,7 +153,8 @@ DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
 ```sh
 ./gradlew :frontend:wasmJsBrowserDistribution
 
-DOMAIN=localhost:8080 \
+# DOMAIN は画面の配信には関係しないが、必須なので入れる
+DOMAIN=example.com \
 STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
   ./gradlew :backend:run
 ```
@@ -174,6 +175,8 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | `ACTOR_PRIVATE_KEY_PEM` | なし | 秘密鍵の PEM を直接渡す場合に使う。`ACTOR_PRIVATE_KEY_PATH` とは併用できない |
 | `STATIC_SRC_DIR` | なし | 配信する静的ファイルのディレクトリ。未設定なら配信しない |
 
+`DOMAIN` は待ち受け先ではない。前段に HTTPS を終端するリバースプロキシを置く前提で、
+外から見える名前が `DOMAIN`、サーバー自身が待つのは `HOST` と `PORT` になる。
 `DOMAIN` は scheme と末尾の `/` を書いても落として扱う。未設定だと起動しない。
 `ACTOR_USERNAME` に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`。
 
