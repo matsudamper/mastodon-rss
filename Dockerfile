@@ -17,8 +17,8 @@ WORKDIR /src
 COPY gradlew gradle.properties settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
 COPY backend/build.gradle.kts ./backend/
-COPY crypto/build.gradle.kts ./crypto/
-COPY repository/build.gradle.kts ./repository/
+COPY backend/crypto/build.gradle.kts ./backend/crypto/
+COPY backend/repository/build.gradle.kts ./backend/repository/
 COPY frontend/build.gradle.kts ./frontend/
 
 # 出力は捨てるが失敗は握り潰さない。ここで転ぶならビルド環境の問題で、

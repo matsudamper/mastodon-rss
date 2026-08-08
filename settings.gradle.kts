@@ -15,7 +15,9 @@ dependencyResolutionManagement {
     }
 }
 
+// :crypto と :repository は :backend からしか使われない（JCA も JDBC も JVM 専用で、
+// Kotlin/Wasm の :frontend からは参照できない）ので、backend の下にネストする
 include(":backend")
-include(":crypto")
-include(":repository")
+include(":backend:crypto")
+include(":backend:repository")
 include(":frontend")

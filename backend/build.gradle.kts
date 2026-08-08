@@ -6,8 +6,8 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":repository"))
-    implementation(project(":crypto"))
+    implementation(project(":backend:repository"))
+    implementation(project(":backend:crypto"))
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)

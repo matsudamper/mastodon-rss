@@ -27,7 +27,7 @@ jobs:
         run: ./gradlew ktlintCheck
 
   backend:
-    name: backend / crypto / repository ビルド・テスト
+    name: backend ビルド・テスト
     runs-on: ubuntu-latest
     steps:
       - name: チェックアウト
@@ -42,9 +42,9 @@ jobs:
       - name: Gradle のセットアップ
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
-      # :backend:build だけだと依存先の :repository は jar が作られるだけでテストが走らない
+      # :backend:build だけだと依存先の :backend:repository は jar が作られるだけでテストが走らない
       - name: ビルド・テスト
-        run: ./gradlew :crypto:build :repository:build :backend:build
+        run: ./gradlew :backend:crypto:build :backend:repository:build :backend:build
 
   frontend:
     name: frontend ビルド
@@ -74,7 +74,7 @@ jobs:
           ls "$DIST"/*.wasm > /dev/null
 
   native-test:
-    name: crypto の native テスト
+    name: backend/crypto の native テスト
     runs-on: ubuntu-latest
     steps:
       - name: チェックアウト
@@ -93,7 +93,7 @@ jobs:
       # JCA が native-image 上で動くかは JVM のテストでは分からないので、
       # テストごと native バイナリにして実行する
       - name: native テスト
-        run: ./gradlew :crypto:nativeTest
+        run: ./gradlew :backend:crypto:nativeTest
 
   native-image:
     name: native-image ビルド
