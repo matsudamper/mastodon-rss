@@ -14,7 +14,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 `nativeTest` で native バイナリ上でも動くことを確認済み。
 `:backend:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
-CI で ktlint / JVM ビルド・テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
+CI で ktlint / JVM テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
 
 Phase 1 はコードの側は書けた。アクターは `admin` 固定（`ACTOR_USERNAME` で変更可）で、
 `DOMAIN` は必須。WebFinger と Actor が返るところまで実装し、native バイナリでも
