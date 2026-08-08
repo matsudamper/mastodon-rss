@@ -35,16 +35,19 @@ RUN ./gradlew --no-daemon :backend:nativeCompile
 # 新しい側に置いているため動く
 FROM debian:13-slim
 
-# curl は HEALTHCHECK で /healthz を叩くためだけに入れている
+# curl は HEALTHCHECK で /healthz を叩くためだけに入れている。
+# util-linux は entrypoint が権限を落とすのに使う setpriv のために明示している
+# （基本パッケージなので実際には既に入っているが、消えたらビルドで気付けるようにする）
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl util-linux \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd --system app \
-    && useradd --system --gid app --home-dir /app --create-home app \
+    && groupadd --system --gid 10001 app \
+    && useradd --system --uid 10001 --gid app --home-dir /app --create-home app \
     && mkdir -p /data \
     && chown app:app /data
 
 COPY --from=build /src/backend/build/native/nativeCompile/mastodon-rss /usr/local/bin/mastodon-rss
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # DB とアクターの秘密鍵はボリュームに置く。コンテナを作り直しても
 # フォロワーが消えず、アクターも同一人物のままになるように
@@ -56,7 +59,6 @@ ENV DB_PATH=/data/mastodon-rss.db \
 VOLUME ["/data"]
 EXPOSE 8080
 
-USER app
 WORKDIR /app
 
 # 起動時にマイグレーションと書き込み確認が走るので、
@@ -64,4 +66,7 @@ WORKDIR /app
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -fsS "http://127.0.0.1:${PORT}/healthz" > /dev/null || exit 1
 
-ENTRYPOINT ["/usr/local/bin/mastodon-rss"]
+# root で入るのは /data の所有者を合わせるためだけで、サーバー本体は entrypoint が
+# setpriv で app に落として実行する。USER app にすると、ボリュームが root 所有で
+# 作られたときに書き込めず、コンテナの中からは直せなくなる
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
