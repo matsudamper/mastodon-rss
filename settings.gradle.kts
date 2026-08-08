@@ -20,7 +20,5 @@ dependencyResolutionManagement {
 include(":backend")
 include(":backend:crypto")
 include(":backend:repository")
-
-// :shared は :backend と :frontend の両方から使うので、どちらの下にも置かずに root に残す
 include(":shared")
 include(":frontend")
