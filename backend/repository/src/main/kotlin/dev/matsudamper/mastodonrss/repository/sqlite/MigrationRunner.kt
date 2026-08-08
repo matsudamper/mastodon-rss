@@ -33,7 +33,10 @@ internal class MigrationRunner(
      *
      * ここで弾かないと、スキーマが期待と違う DB のまま動き続けることになる。
      */
-    private fun verifyApplied(applied: Map<Int, AppliedMigration>, migrations: List<Migration>) {
+    private fun verifyApplied(
+        applied: Map<Int, AppliedMigration>,
+        migrations: List<Migration>,
+    ) {
         val byVersion = migrations.associateBy { it.version }
 
         applied.forEach { (version, appliedMigration) ->

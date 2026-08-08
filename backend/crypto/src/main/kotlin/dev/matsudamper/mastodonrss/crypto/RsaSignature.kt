@@ -14,7 +14,10 @@ import java.security.SignatureException
 object RsaSignature {
     private const val ALGORITHM = "SHA256withRSA"
 
-    fun sign(privateKey: PrivateKey, data: ByteArray): ByteArray {
+    fun sign(
+        privateKey: PrivateKey,
+        data: ByteArray,
+    ): ByteArray {
         val signature = Signature.getInstance(ALGORITHM)
         signature.initSign(privateKey)
         signature.update(data)
@@ -29,7 +32,11 @@ object RsaSignature {
      * 受信した inbox のリクエストは中身を信用できないので、ここで吸収して
      * 例外がルーティングまで上がらないようにする。
      */
-    fun verify(publicKey: PublicKey, data: ByteArray, signature: ByteArray): Boolean =
+    fun verify(
+        publicKey: PublicKey,
+        data: ByteArray,
+        signature: ByteArray,
+    ): Boolean =
         try {
             val verifier = Signature.getInstance(ALGORITHM)
             verifier.initVerify(publicKey)

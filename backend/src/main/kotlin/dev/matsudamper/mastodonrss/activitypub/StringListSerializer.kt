@@ -66,7 +66,10 @@ object StringListSerializer : KSerializer<List<String>> {
         }
     }
 
-    override fun serialize(encoder: Encoder, value: List<String>) {
+    override fun serialize(
+        encoder: Encoder,
+        value: List<String>,
+    ) {
         val jsonEncoder =
             encoder as? JsonEncoder
                 ?: throw SerializationException("StringListSerializer は JSON でのみ使える")

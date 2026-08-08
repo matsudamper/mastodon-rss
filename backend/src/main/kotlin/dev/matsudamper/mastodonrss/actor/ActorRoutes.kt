@@ -18,7 +18,10 @@ import io.ktor.server.routing.get
  * 引き当ては [ActorDirectory] に任せる。固定アクターと `test-` の使い捨て
  * アクターのどちらでもなければ 404。
  */
-fun Route.actorRoutes(directory: ActorDirectory, actorKey: ActorKey) {
+fun Route.actorRoutes(
+    directory: ActorDirectory,
+    actorKey: ActorKey,
+) {
     get("/users/{username}") {
         val requested = call.parameters["username"]
         val urls = directory.resolve(requested)
@@ -43,7 +46,10 @@ fun Route.actorRoutes(directory: ActorDirectory, actorKey: ActorKey) {
  * 表示名と説明文は Phase 6 でアクターごとに DB から引くようになる。
  * それまでは名前から決まる。
  */
-internal fun actorDocument(urls: ActorUrls, actorKey: ActorKey): Actor =
+internal fun actorDocument(
+    urls: ActorUrls,
+    actorKey: ActorKey,
+): Actor =
     Actor(
         id = urls.actorId,
         preferredUsername = urls.username,
