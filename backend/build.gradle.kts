@@ -6,8 +6,8 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":repository"))
-    implementation(project(":crypto"))
+    implementation(project(":backend:repository"))
+    implementation(project(":backend:crypto"))
     // 管理 API の DTO。:frontend と同じ型を使う
     implementation(project(":shared"))
 

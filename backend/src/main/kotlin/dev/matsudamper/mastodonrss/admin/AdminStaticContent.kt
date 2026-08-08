@@ -13,7 +13,7 @@ import io.ktor.http.ContentType
  *
  * もう 1 つは native-image。`staticResources` はリソースの URL を見てファイル系か
  * jar 系かを判断するが、native バイナリでのリソースの見え方は JVM と異なる。
- * `getResourceAsStream` はどちらでも同じように使えるので、`:repository` が
+ * `getResourceAsStream` はどちらでも同じように使えるので、`:backend:repository` が
  * マイグレーション SQL を読むときと同じやり方に揃える。
  *
  * リソースを native バイナリに含めるには `resource-config.json` への登録が要る。

@@ -10,7 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 // ルーティングとレスポンスの形を確認する。
-// DB そのものの挙動は :repository 側でテストするので、
+// DB そのものの挙動は :backend:repository 側でテストするので、
 // ここでは FakeRepositories を渡して実ファイルを触らない。
 class ApplicationTest {
     @Test

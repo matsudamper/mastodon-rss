@@ -6,7 +6,7 @@ import dev.matsudamper.mastodonrss.actor.ActorUsername
  * サーバーの設定。
  *
  * native-image では起動時に環境変数を読む方が設定ファイルより素直なので、
- * `:repository` の `DatabaseConfig` と同じく入口は環境変数に寄せる。
+ * `:backend:repository` の `DatabaseConfig` と同じく入口は環境変数に寄せる。
  *
  * @param host バインドするアドレス
  * @param port 待ち受けポート

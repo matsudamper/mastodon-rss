@@ -5,13 +5,19 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 
 ## モジュール構成
 
-| モジュール | 内容 |
-| --- | --- |
-| `:backend` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
-| `:crypto` | RSA 鍵と署名。JCA だけに依存し、Ktor も JDBC も入らない |
-| `:repository` | SQLite への DB アクセス。公開するのは interface だけで、JDBC や SQL は外に出さない |
-| `:shared` | `:backend` と `:frontend` で共有する管理 API の DTO。KMP (`jvm` + `wasmJs`) |
-| `:frontend` | Compose Multiplatform for Web (Kotlin/Wasm) の管理画面 |
+| モジュール | ディレクトリ | 内容 |
+| --- | --- | --- |
+| `:backend` | `backend/` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
+| `:backend:crypto` | `backend/crypto/` | RSA 鍵と署名、管理画面のパスワードハッシュ。JCA だけに依存し、Ktor も JDBC も入らない |
+| `:backend:repository` | `backend/repository/` | SQLite への DB アクセス。公開するのは interface だけで、JDBC や SQL は外に出さない |
+| `:shared` | `shared/` | `:backend` と `:frontend` で共有する管理 API の DTO。KMP (`jvm` + `wasmJs`) |
+| `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の管理画面 |
+
+`crypto` と `repository` はサーバー専用のモジュールなので `backend/` の下に置いている。
+どちらも JVM のライブラリ（JCA・JDBC）に依存していて、Kotlin/Wasm でビルドする
+`:frontend` からは参照できない。置き場所を見れば使う側が分かる状態にしておく。
+
+`shared` は両方から使うので、どちらの下にも置かず root に残している。
 
 ```mermaid
 flowchart TB
@@ -25,13 +31,13 @@ flowchart TB
         admin["admin<br/>AdminConfig<br/>AdminSessions<br/>AdminRoutes<br/>AdminStaticContent"]
     end
 
-    subgraph crypto[":crypto"]
+    subgraph crypto[":backend:crypto"]
         keys["RsaKeys<br/>鍵ペア生成 / PEM 入出力"]
         sign["RsaSignature<br/>SHA256withRSA"]
         pw["PasswordHash<br/>PBKDF2-HMAC-SHA256"]
     end
 
-    subgraph repository[":repository"]
+    subgraph repository[":backend:repository"]
         api["公開 API<br/>Repositories<br/>DatabaseConfig"]
         impl["internal 実装<br/>SqliteRepositories<br/>SqliteConnectionManager<br/>MigrationLoader<br/>MigrationRunner"]
         res["リソース<br/>db/migration/V001__init.sql<br/>db/migration/index<br/>resource-config.json"]
@@ -68,11 +74,11 @@ flowchart TB
     actor --> key
 ```
 
-`:backend` から見えるのは `:repository` の公開 API だけ。実装は `internal` で、
+`:backend` から見えるのは `:backend:repository` の公開 API だけ。実装は `internal` で、
 sqlite-jdbc も `implementation` で入れているため、JDBC の型は `:backend` の
 compile classpath にも現れない。
 
-`:crypto` は `:backend` がアクターの鍵を読むために使っている。HTTP Signatures の
+`:backend:crypto` は `:backend` がアクターの鍵を読むために使っている。HTTP Signatures の
 署名と検証で使うのは Phase 2 から。別モジュールに切り出してあるのは、
 テストを native バイナリとして実行するため。`:backend` のテストは
 `ktor-server-test-host` 経由で ByteBuddy と JNA を引き込み、これらは実行時の
@@ -282,7 +288,7 @@ http で試すときは `ADMIN_COOKIE_SECURE=false` にする。既定では Coo
 置くかという問題を増やしたくないため。使うのは運用者一人なので実害が無い。
 
 bcrypt や Argon2 ではなく PBKDF2 なのは、JCA にあって依存を足さずに済むから。
-native-image に持ち込む依存は少ないほど安全で、`:crypto` の他の処理と同じく
+native-image に持ち込む依存は少ないほど安全で、`:backend:crypto` の他の処理と同じく
 `nativeTest` で native バイナリ上でも動くことを確かめている。
 
 ## 必要なもの
@@ -310,7 +316,7 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 ./gradlew :backend:test
 
 # repository のビルドとテスト
-./gradlew :repository:build
+./gradlew :backend:repository:build
 
 # JVM で起動する（http://localhost:8080）
 # DOMAIN は必須。手元で試すだけなら適当な値でよいが、
@@ -322,10 +328,10 @@ DOMAIN=example.com ./gradlew :backend:run
 
 ```sh
 # ビルドとテスト
-./gradlew :crypto:build
+./gradlew :backend:crypto:build
 
 # テストを native バイナリにして実行する（GraalVM 25 が必要）
-./gradlew :crypto:nativeTest
+./gradlew :backend:crypto:nativeTest
 ```
 
 `nativeTest` は JCA（RSA 鍵生成・SHA256withRSA 署名）が native-image 上で動くことを
@@ -440,7 +446,7 @@ docker pull ghcr.io/matsudamper/mastodon-rss:latest
 
 ## マイグレーション
 
-スキーマ変更は `repository/src/main/resources/db/migration/` に
+スキーマ変更は `backend/repository/src/main/resources/db/migration/` に
 `V002__説明.sql` のような連番のファイルを足す。起動時に未適用のものが
 バージョン昇順で適用され、適用済みのバージョンは `schema_version` テーブルに記録される。
 
