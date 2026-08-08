@@ -66,7 +66,4 @@ WORKDIR /app
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -fsS "http://127.0.0.1:${PORT}/healthz" > /dev/null || exit 1
 
-# root で入るのは /data の所有者を合わせるためだけで、サーバー本体は entrypoint が
-# setpriv で app に落として実行する。USER app にすると、ボリュームが root 所有で
-# 作られたときに書き込めず、コンテナの中からは直せなくなる
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
