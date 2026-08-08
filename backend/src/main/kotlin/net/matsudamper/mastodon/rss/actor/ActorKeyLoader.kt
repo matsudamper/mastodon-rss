@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.actor
 
+import net.matsudamper.mastodon.rss.AppConfig
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import java.nio.file.Files
 import java.nio.file.Path
@@ -16,7 +17,7 @@ object ActorKeyLoader {
         when (config) {
             is ActorKeyConfig.Pem -> {
                 ActorKey(
-                    privateKey = decode(config.pem) { "${ActorKeyConfig.ENV_PRIVATE_KEY_PEM} の PEM を読めなかった" },
+                    privateKey = decode(config.pem) { "${AppConfig.ENV_ACTOR_PRIVATE_KEY_PEM} の PEM を読めなかった" },
                     origin = ActorKey.Origin.Environment,
                 )
             }

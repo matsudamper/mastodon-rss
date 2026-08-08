@@ -15,6 +15,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 flowchart TB
     subgraph backend[":backend"]
         main["main"]
+        config["AppConfig<br/>環境変数を読むのはここだけ"]
         module["Application.module"]
         route["routing<br/>GET /healthz"]
         json["json<br/>AppJson<br/>respondJson"]
@@ -40,6 +41,7 @@ flowchart TB
 
     db[("SQLite<br/>DB_PATH")]
 
+    main --> config
     main --> module
     module --> json
     module --> route
@@ -156,9 +158,9 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
   ./gradlew :backend:run
 ```
 
-配信の挙動と環境変数は
-[StaticFilesConfig.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/staticfiles/StaticFilesConfig.kt) と
-[StaticFiles.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/staticfiles/StaticFiles.kt) を参照。
+配信の挙動は
+[StaticFiles.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/staticfiles/StaticFiles.kt)、
+環境変数は [AppConfig.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/AppConfig.kt) を参照。
 
 ## 環境変数
 

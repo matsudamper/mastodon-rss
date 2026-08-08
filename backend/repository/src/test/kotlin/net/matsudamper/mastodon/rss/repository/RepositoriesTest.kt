@@ -6,7 +6,6 @@ import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
 import kotlin.test.AfterTest
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 // 公開 API から見た振る舞いを確認する。
@@ -47,11 +46,5 @@ class RepositoriesTest {
 
         createRepositories(config).use { it.verifyWritable() }
         createRepositories(config).use { it.verifyWritable() }
-    }
-
-    @Test
-    fun `DB_PATHが未設定のときは既定のパスを使う`() {
-        // 環境変数はテストから書き換えられないので、既定値の定数だけを確認する
-        assertEquals("./data/mastodon-rss.db", DatabaseConfig.DEFAULT_DB_PATH)
     }
 }
