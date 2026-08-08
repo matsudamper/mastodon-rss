@@ -19,7 +19,7 @@ import kotlin.time.Duration
  * @param ttl 発行したトークンが有効な長さ
  * @param now 現在時刻（エポックミリ秒）。テストから差し替える
  */
-class AdminSessions(
+internal class AdminSessions(
     private val ttl: Duration,
     private val now: () -> Long = System::currentTimeMillis,
 ) {

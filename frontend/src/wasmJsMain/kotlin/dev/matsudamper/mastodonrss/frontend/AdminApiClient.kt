@@ -22,7 +22,7 @@ import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.json.Json
 
 /** API 呼び出しの結果。失敗はすべて画面に出せるメッセージに畳む */
-sealed interface AdminResult<out T> {
+internal sealed interface AdminResult<out T> {
     data class Success<T>(
         val value: T,
     ) : AdminResult<T>
@@ -41,7 +41,7 @@ sealed interface AdminResult<out T> {
  * セッションは Cookie で持つので、この型は認証情報を持たない。
  * 同一オリジンへのリクエストにはブラウザが Cookie を付ける。
  */
-class AdminApiClient(
+internal class AdminApiClient(
     private val client: HttpClient = HttpClient(Js),
 ) {
     suspend fun session(): AdminResult<AdminSessionResponse> =
@@ -95,7 +95,10 @@ class AdminApiClient(
         }
     }
 
-    private fun errorMessage(response: HttpResponse, body: String): String =
+    private fun errorMessage(
+        response: HttpResponse,
+        body: String,
+    ): String =
         try {
             json.decodeFromString(AdminErrorResponse.serializer(), body).message
         } catch (e: SerializationException) {
@@ -103,8 +106,10 @@ class AdminApiClient(
             "エラー (${response.status.value}): ${e.message}"
         }
 
-    private fun <T> encode(serializer: SerializationStrategy<T>, value: T): String =
-        json.encodeToString(serializer, value)
+    private fun <T> encode(
+        serializer: SerializationStrategy<T>,
+        value: T,
+    ): String = json.encodeToString(serializer, value)
 
     private companion object {
         val json = Json { ignoreUnknownKeys = true }

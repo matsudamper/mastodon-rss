@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
  * 状態をそのまま出す。
  */
 @Composable
-fun LoginScreen(
+internal fun LoginScreen(
     api: AdminApiClient,
     session: AdminSessionResponse,
     onSessionChanged: (AdminSessionResponse) -> Unit,
@@ -82,8 +82,9 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        errorMessage?.let { message ->
-            Text(text = message, color = MaterialTheme.colorScheme.error)
+        val currentError = errorMessage
+        if (currentError != null) {
+            Text(text = currentError, color = MaterialTheme.colorScheme.error)
         }
 
         Button(onClick = submit, enabled = !busy && password.isNotEmpty()) {

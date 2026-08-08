@@ -9,7 +9,7 @@ import kotlin.js.ExperimentalWasmJsInterop
  *
  * @param path URL の末尾。空文字はトップ
  */
-enum class AdminRoute(
+internal enum class AdminRoute(
     val path: String,
 ) {
     Home(""),
@@ -31,7 +31,7 @@ enum class AdminRoute(
  * `:backend` は `/admin/` 以下でファイルとして存在しないパスに index.html を返すので、
  * ハッシュ生成の画面を直接開いてもリロードしても同じ画面になる。
  */
-object AdminRouter {
+internal object AdminRouter {
     /**
      * URL の基準。
      *

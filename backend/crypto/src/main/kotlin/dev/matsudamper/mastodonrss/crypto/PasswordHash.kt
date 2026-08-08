@@ -81,7 +81,10 @@ class PasswordHash private constructor(
          * パスワードから新しいハッシュを作る。salt は毎回引き直すので、
          * 同じパスワードでも呼ぶたびに違う文字列になる。
          */
-        fun create(password: String, iterations: Int = DEFAULT_ITERATIONS): PasswordHash {
+        fun create(
+            password: String,
+            iterations: Int = DEFAULT_ITERATIONS,
+        ): PasswordHash {
             require(password.isNotEmpty()) { "パスワードが空" }
             require(iterations > 0) { "反復回数は 1 以上にすること: $iterations" }
 
@@ -125,14 +128,22 @@ class PasswordHash private constructor(
 
         private const val PART_COUNT = 4
 
-        private fun decodeBase64(value: String, name: String): ByteArray =
+        private fun decodeBase64(
+            value: String,
+            name: String,
+        ): ByteArray =
             try {
                 BASE64_DECODER.decode(value)
             } catch (e: IllegalArgumentException) {
                 throw IllegalArgumentException("$name が URL-safe Base64 として読めない: $value", e)
             }
 
-        private fun derive(password: String, salt: ByteArray, iterations: Int, keyLengthBits: Int): ByteArray {
+        private fun derive(
+            password: String,
+            salt: ByteArray,
+            iterations: Int,
+            keyLengthBits: Int,
+        ): ByteArray {
             val spec = PBEKeySpec(password.toCharArray(), salt, iterations, keyLengthBits)
             try {
                 return SecretKeyFactory.getInstance(SECRET_KEY_ALGORITHM).generateSecret(spec).encoded

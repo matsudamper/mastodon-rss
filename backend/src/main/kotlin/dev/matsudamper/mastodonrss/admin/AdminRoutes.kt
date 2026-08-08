@@ -42,7 +42,7 @@ import kotlinx.serialization.SerializationException
  * 生成 API も自分が送ったパスワードのハッシュを返すだけで、
  * サーバーの状態は何も変わらない。
  */
-fun Route.adminRoutes(
+internal fun Route.adminRoutes(
     config: AdminConfig,
     sessions: AdminSessions,
     staticContent: AdminStaticContent = AdminStaticContent(),
@@ -146,7 +146,7 @@ fun Route.adminRoutes(
 }
 
 /** セッション Cookie の名前 */
-const val ADMIN_SESSION_COOKIE: String = "admin_session"
+internal const val ADMIN_SESSION_COOKIE: String = "admin_session"
 
 /** 静的ファイルのパスを受ける tailcard の名前 */
 private const val STATIC_PATH_PARAMETER = "path"
@@ -165,7 +165,10 @@ private val COOKIE_ENCODING = CookieEncoding.RAW
 
 private fun ApplicationCall.sessionToken(): String? = request.cookies[ADMIN_SESSION_COOKIE, COOKIE_ENCODING]
 
-private fun sessionCookie(token: String, config: AdminConfig): Cookie =
+private fun sessionCookie(
+    token: String,
+    config: AdminConfig,
+): Cookie =
     Cookie(
         name = ADMIN_SESSION_COOKIE,
         value = token,
@@ -183,7 +186,10 @@ private fun sessionCookie(token: String, config: AdminConfig): Cookie =
 private fun expiredSessionCookie(config: AdminConfig): Cookie =
     sessionCookie(token = "", config = config).copy(maxAge = 0)
 
-private suspend fun ApplicationCall.respondSession(config: AdminConfig, sessions: AdminSessions) {
+private suspend fun ApplicationCall.respondSession(
+    config: AdminConfig,
+    sessions: AdminSessions,
+) {
     respondJson(
         AdminSessionResponse.serializer(),
         AdminSessionResponse(
@@ -193,7 +199,10 @@ private suspend fun ApplicationCall.respondSession(config: AdminConfig, sessions
     )
 }
 
-private suspend fun ApplicationCall.respondError(status: HttpStatusCode, message: String) {
+private suspend fun ApplicationCall.respondError(
+    status: HttpStatusCode,
+    message: String,
+) {
     respondJson(
         serializer = AdminErrorResponse.serializer(),
         value = AdminErrorResponse(message),

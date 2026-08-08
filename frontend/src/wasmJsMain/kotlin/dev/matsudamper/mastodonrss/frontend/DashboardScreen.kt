@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
  * パスワードの作り直しの導線だけ。
  */
 @Composable
-fun DashboardScreen(
+internal fun DashboardScreen(
     api: AdminApiClient,
     onSessionChanged: (AdminSessionResponse) -> Unit,
     onOpenPasswordHash: () -> Unit,
@@ -36,8 +36,9 @@ fun DashboardScreen(
             style = MaterialTheme.typography.bodyMedium,
         )
 
-        errorMessage?.let { message ->
-            Text(text = message, color = MaterialTheme.colorScheme.error)
+        val currentError = errorMessage
+        if (currentError != null) {
+            Text(text = currentError, color = MaterialTheme.colorScheme.error)
         }
 
         TextButton(onClick = onOpenPasswordHash) {

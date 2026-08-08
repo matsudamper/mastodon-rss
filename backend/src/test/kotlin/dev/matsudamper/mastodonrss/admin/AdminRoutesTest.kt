@@ -334,7 +334,10 @@ class AdminRoutesTest {
             setBody("""{"password":"$password"}""")
         }
 
-    private suspend fun ApplicationTestBuilder.requestPasswordHash(raw: String, token: String? = null): HttpResponse =
+    private suspend fun ApplicationTestBuilder.requestPasswordHash(
+        raw: String,
+        token: String? = null,
+    ): HttpResponse =
         client.post(AdminApiPaths.PASSWORD_HASH) {
             contentType(ContentType.Application.Json)
             if (token != null) {

@@ -31,7 +31,7 @@ import dev.matsudamper.mastodonrss.admin.api.AdminSessionResponse
  * 起動時に 1 回だけ行い、ログイン・ログアウトのたびに更新する。
  */
 @Composable
-fun AdminApp() {
+internal fun AdminApp() {
     val api = remember { AdminApiClient() }
 
     var route by remember { mutableStateOf(AdminRouter.currentRoute()) }
@@ -114,7 +114,10 @@ private fun StartupScreen(errorMessage: String?) {
  * 管理画面は入力欄が数個の画面しか無いので、横幅を決めて中央に置くだけにしている。
  */
 @Composable
-fun AdminPage(title: String, content: @Composable () -> Unit) {
+internal fun AdminPage(
+    title: String,
+    content: @Composable () -> Unit,
+) {
     Column(
         modifier =
             Modifier

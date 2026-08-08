@@ -21,7 +21,7 @@ import io.ktor.http.ContentType
  *
  * @param basePackage リソース上の置き場所。テストから差し替える
  */
-class AdminStaticContent(
+internal class AdminStaticContent(
     private val basePackage: String = DEFAULT_BASE_PACKAGE,
 ) {
     /**
@@ -98,7 +98,7 @@ class AdminStaticContent(
  * 全部メモリに読んでから返す。管理画面を開くのは運用者だけで同時アクセスが無く、
  * ストリームのまま返すより取り回しが単純なため。
  */
-class AdminStaticFile(
+internal class AdminStaticFile(
     val bytes: ByteArray,
     val contentType: ContentType,
 )
