@@ -739,19 +739,53 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 - [ ] サーバー側に管理 API（フィード CRUD、アクター一覧、配信状況、手動再取得）
       - ログイン・ログアウト・パスワードハッシュ生成までは実装済み。フィード側は Phase 5 の後
 - [ ] 管理 API を GraphQL にする（[kake-bo](https://github.com/matsudamper/kake-bo) と揃える）
-      - スキーマ優先。`.graphqls` を置き、サーバーとクライアントはそこから作る
-      - サーバーは graphql-java。エンドポイントは `POST` 1 つ
-      - クライアントは Apollo Kotlin。`.graphql` の operation から生成する
-      - native-image への影響に注意する。kake-bo は JVM で動くので graphql-java-tools
-        (kickstart) と kobylynskyi の codegen を使い、リゾルバをリフレクションで結線して
-        いるが、この構成はリフレクション前提なので native-image では動かない。
-        こちらは `RuntimeWiring` に `DataFetcher` を明示して結線する。
-        フィールドの取り出しも、値を `Map` で返して `PropertyDataFetcher` の
-        リフレクション経路に入れない
-      - スキーマは jar の中のリソースになるので `resource-config.json` に登録する。
-        マイグレーション SQL と同じ扱い
-      - native バイナリで実際に叩くところまで CI で確認する。
-        graphql-java が native-image で動くかは JVM のテストでは分からない
+
+      スキーマ優先。サーバーは graphql-java、クライアントは Apollo Kotlin で、
+      どちらも同じ `.graphqls` から作る。既存の REST（`/admin/api/session` ほか 4 つ）は
+      置き換えて消す。API の作り方を 2 つ並べる理由が無いため。
+
+      native-image への影響に注意する。kake-bo は JVM で動くので graphql-java-tools
+      (kickstart) と kobylynskyi の codegen を使い、リゾルバをリフレクションで
+      結線しているが、この構成は native-image では動かない。こちらは
+      `RuntimeWiring` に `DataFetcher` を明示して結線し、フィールドの取り出しも
+      値を `Map` で返して `PropertyDataFetcher` のリフレクション経路に入れない。
+      データクラスを返すと、JVM では動いて native バイナリでだけ全フィールドが
+      null になる、という形の不具合になる。
+
+      - [ ] スキーマを `:shared` に置く（`src/commonMain/resources/graphql/admin.graphqls`）
+            - 両モジュールから等距離にするため。`:backend` に置くと `:frontend` の
+              ビルドが `:backend` のディレクトリを見ることになる
+            - `:backend` は実行時にリソースとして読む。`:frontend` は Apollo の
+              `schemaFiles` にこのファイルを渡す
+      - [ ] version catalog に graphql-java / Apollo / Navigation3 を足す
+      - [ ] `:backend` に `POST /admin/api/graphql` を 1 つ作る
+            - 本文は `receiveText()` してから `{query, operationName, variables}` を読む。
+              `receive<T>()` を使わないのは他のエンドポイントと同じ理由
+            - `variables` は型が決まらないので `JsonObject` で受け、実行の直前に素の値へ開く
+            - 実行結果は `Map` で返るので `JsonElement` に変換して返す。
+              知らない型が来たら落とす（`toString()` で誤魔化さない）
+            - 実行時エラーは HTTP のステータスではなく本文の `errors` に入れる。本文が
+              読めない場合だけ 400
+      - [ ] `RuntimeWiring` に `DataFetcher` を明示して結線する
+            - `Query.adminSession` / `Mutation.adminLogin` / `Mutation.adminLogout` /
+              `Mutation.adminCreatePasswordHash`
+            - Cookie の読み書きに `ApplicationCall` が要るので、GraphQL の context に
+              載せて DataFetcher から触れるようにする
+      - [ ] `resource-config.json` にスキーマを登録する（マイグレーション SQL と同じ扱い）
+      - [ ] `:shared` から DTO を消す
+            - Apollo がスキーマから生成するので要らなくなる。残すのはスキーマに
+              書けないもの（パスワードの長さ制限、環境変数名、エンドポイントのパス）だけ
+      - [ ] `:frontend` の `AdminApiClient` を Apollo に置き換える
+            - Apollo プラグインを入れ、operation は `src/wasmJsMain/graphql/*.graphql` に置く
+            - Ktor client は使わなくなるので依存から外す
+            - エンドポイントの URL は同一オリジンで組み立てる。別オリジンになると
+              セッションの Cookie が乗らない
+      - [ ] テストを GraphQL に合わせて書き直す
+            - operation ごとに、ログイン成功 / パスワード違い / ハッシュ未設定 /
+              ハッシュ生成の可否 / Cookie の属性
+      - [ ] CI の native-image ジョブの起動確認を GraphQL に差し替える
+            - graphql-java が native-image で動くかは JVM のテストでは分からない。
+              ここで実際に叩いて確かめる
 - [x] 管理 API に認証をかける（Basic 認証かトークン。inbox と違って外に開けてはいけない）
       - パスワード 1 つ + セッション Cookie にした。ハッシュは `ADMIN_PASSWORD_HASH`
       - ハッシュ未設定でも起動でき、そのときだけ `/admin/password-hash` が誰でも開く。
@@ -762,11 +796,17 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - webpack の devServer proxy で `/admin/api` を 8080 に転送した。
         オリジンが同じままなので CORS も Cookie の SameSite も緩めずに済む
 - [ ] 画面遷移を Navigation Compose 3 にする
-      - `org.jetbrains.androidx.navigation3:navigation3-ui`（JetBrains 版。wasmJs 対応あり）
-      - いまは `AdminRouter` が `pushState` を直接叩き、`AdminApp` が `when` で画面を選んでいる。
-        画面が増えると破綻するので、バックスタックを持つ形に置き換える
-      - ブラウザの戻る・進むと URL の同期は自前で持つ必要がある。
-        Navigation3 はバックスタックを扱うだけで、URL は見ない
+
+      いまは `AdminRouter` が `pushState` を直接叩き、`AdminApp` が `when` で画面を
+      選んでいる。画面が増えると破綻するので、バックスタックを持つ形に置き換える。
+
+      - [ ] `org.jetbrains.androidx.navigation3:navigation3-ui` を入れる
+            （JetBrains 版。wasmJs 向けの成果物がある。androidx 側の runtime も付いてくる）
+      - [ ] `AdminApp` の `when` を `NavDisplay` + バックスタックに置き換える
+      - [ ] 画面のキーを sealed interface で定義する（`Home` / `PasswordHash`）
+      - [ ] URL との同期は自前で持つ。Navigation3 はバックスタックを扱うだけで URL は見ない
+            - 画面遷移で `pushState`、`popstate` でバックスタックを戻す
+            - 直接開かれたときは `pathname` から初期のバックスタックを組む
 - [ ] Compose でフィード一覧 / 追加 / 削除
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
 - [ ] フィードのプレビュー（投稿前にどう見えるか）
