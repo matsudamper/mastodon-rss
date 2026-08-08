@@ -24,7 +24,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("dev.matsudamper.mastodonrss.ApplicationKt")
+    mainClass.set("net.matsudamper.mastodon.rss.ApplicationKt")
 }
 
 kotlin {
@@ -58,7 +58,7 @@ graalvmNative {
     binaries {
         named("main") {
             imageName.set("mastodon-rss")
-            mainClass.set("dev.matsudamper.mastodonrss.ApplicationKt")
+            mainClass.set("net.matsudamper.mastodon.rss.ApplicationKt")
             buildArgs.add("--no-fallback")
 
             // native-image は解析中に自分で isAnnotationPresent を呼ぶ（PodFeature.isPodClass）。

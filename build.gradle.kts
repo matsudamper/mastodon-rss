@@ -13,7 +13,7 @@ plugins {
 val ktlintVersion = libs.versions.ktlint.get()
 
 allprojects {
-    group = "dev.matsudamper"
+    group = "net.matsudamper"
     version = "0.1.0"
 
     // フォーマットはモジュールごとに設定せず、全体で 1 つに揃える。

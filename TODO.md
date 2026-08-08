@@ -176,7 +176,7 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
       - `encodeDefaults = true`（ActivityPub は既定値の省略で相手側が転ぶことがある）
       - `explicitNulls = false`（`null` フィールドを出力しない）
       - `ignoreUnknownKeys = true`（受信側。相手の拡張プロパティで落ちないように）
-      - 実体は `backend/src/main/kotlin/dev/matsudamper/mastodonrss/json/AppJson.kt`
+      - 実体は `backend/src/main/kotlin/net/matsudamper/mastodon/rss/json/AppJson.kt`
 - [x] `/healthz` を JSON レスポンスに変える
 - [x] ActivityPub 向けの下ごしらえ（Phase 1 で効いてくるので、ここで型だけ用意しておく）
       - [x] `@context` のような記号入りのキーは `@SerialName("@context")` で対応する
@@ -241,7 +241,7 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
         手で書くと SQL を足したときに更新を忘れて「JVM では動くが native では動かない」状態になる
 - [x] `resource-config.json`（または `nativeImageResources` 設定）にマイグレーション SQL を登録する
       - リソースは明示しないと native バイナリに入らない。ここは踏みやすい
-      - `backend/repository/src/main/resources/META-INF/native-image/dev.matsudamper/mastodon-rss-repository/` に置いた。
+      - `backend/repository/src/main/resources/META-INF/native-image/net.matsudamper/mastodon-rss-repository/` に置いた。
         リソースを持つモジュール自身が設定も持つ形にしている
 - [x] テスト: 一時ファイル DB に対して 2 回続けて適用しても壊れない（冪等である）ことを確認する
 - [x] テスト: 空の DB から最新まで適用できることを確認する
@@ -311,7 +311,7 @@ Phase 1 の話なので触っていない。この段階では JCA が native �
       - テストごと native にすると直接確認できるが、native ビルドが 1 つ増えて CI が延びる。
         SQLite が native で壊れるなら起動確認が先に落ちるので、二重に持つ価値が薄い
 - [x] リフレクション/リソース設定はどこから来たものか分かるようコメントか README を添える
-      - `backend/src/main/resources/META-INF/native-image/dev.matsudamper/mastodon-rss-backend/README.md`
+      - `backend/src/main/resources/META-INF/native-image/net.matsudamper/mastodon-rss-backend/README.md`
       - `:backend:repository` 側の `resource-config.json` は JSON 内の `_comment` に書いた
 
 kotlinx.serialization について native-image で踏んだこと（0-3 の実装が原因で、
