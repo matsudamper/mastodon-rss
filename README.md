@@ -109,10 +109,6 @@ DOMAIN=example.com ./gradlew :backend:run
 ./gradlew :backend:crypto:nativeTest
 ```
 
-`nativeTest` は JCA（RSA 鍵生成・SHA256withRSA 署名）が native-image 上で動くことを
-確かめるために入れている。この種の問題は JVM のテストでは分からず、native バイナリを
-動かして初めて出るため、テストごと native にして CI で継続的に見る。
-
 ### backend の native-image
 
 GraalVM 25 が必要。
@@ -156,8 +152,7 @@ DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
 `ACTOR_USERNAME` に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`。
 
 どちらもアクターの ID に焼き込まれ、変えると相手からは別人のアカウントに見える。
-Mastodon はリモートアクターを永続キャッシュするので、一度取得されると相手側からは
-直せない。理由は `ServerConfig.kt` と `ActorUsername.kt` の KDoc にある。
+理由は `ServerConfig.kt` と `ActorUsername.kt` の KDoc にある。
 
 ## エンドポイント
 
@@ -188,22 +183,17 @@ curl "http://localhost:8080/.well-known/webfinger?resource=acct:test-1@example.c
 curl -H 'Accept: application/activity+json' http://localhost:8080/users/test-1
 ```
 
-Mastodon はリモートアクターを永続キャッシュするので、内容や鍵を間違えたまま
-一度取得されると相手側からは直せない。`admin` で試して失敗すると `admin` が
-使えなくなるため、検証はこちらを使い、名前を変えながらやり直す。
+`admin` で試して失敗すると `admin` が使えなくなるので、検証はこちらを使い、
+名前を変えながらやり直す。理由は `ActorUsername.kt` の KDoc にある。
 
-- 中身は固定アクターと同じで、鍵も共有する。使い捨てのたびに鍵を作る意味が無いため
+- 中身は固定アクターと同じで、鍵も共有する
 - `summary` が「動作確認用のアカウント」になるので、Mastodon 側の表示でも見分けられる
-- 接頭辞は小文字ちょうど。`Test-1` は 404 になる（受けると `test-1` と別のアクターが生えるため）
-- Phase 6 でアクターを DB から作れるようになったら消す
+- 接頭辞は小文字ちょうど。`Test-1` は 404 になる
 
 ## アクターの鍵
 
-Mastodon はアクターの公開鍵を持っておき、こちらから送る署名をそれで検証する。
-鍵が入れ替わると検証が通らなくなるうえ、Mastodon 側はアクターをキャッシュするので
-気付いてから直しても戻りが遅い。つまり鍵は消さずに持ち続ける必要がある。
-
-読み込み元は 2 つあり、同時には指定できない。両方が設定されていると起動時に落とす。
+鍵は消さずに持ち続ける必要がある。読み込み元は 2 つあり、同時には指定できない。
+両方が設定されていると起動時に落とす。
 
 | 指定 | 動き |
 | --- | --- |
@@ -216,8 +206,8 @@ Mastodon はアクターの公開鍵を持っておき、こちらから送る�
 docker compose ではボリュームの中（`/data/actor-private-key.pem`）に置いている。
 コンテナを作り直しても同じ鍵のままだが、ボリュームごと消すとアクターは別人になる。
 
-保存するのは秘密鍵だけで、公開鍵は起動のたびに秘密鍵から導く。この判断の理由は
-`ActorKeyConfig.kt` の KDoc にある。
+保存するのは秘密鍵だけで、公開鍵は起動のたびに秘密鍵から導く。
+鍵を持ち続ける理由とこの判断の理由は `ActorKeyConfig.kt` の KDoc にある。
 
 ## Docker で動かす
 
@@ -229,9 +219,7 @@ docker compose up -d
 
 `DOMAIN` は必須で、未設定だと compose が起動前に失敗する。
 
-イメージは multi-stage build で、GraalVM のステージで native バイナリを作り、
-実行用のステージには JDK を持ち込まない。初回は Gradle の依存取得と native-image の
-ビルドが走るため時間がかかる。
+初回は Gradle の依存取得と native-image のビルドが走るため時間がかかる。
 
 DB は `data` という名前付きボリュームに置く。コンテナを作り直してもフォロワーは残る。
 
@@ -239,8 +227,7 @@ DB は `data` という名前付きボリュームに置く。コンテナを作
 合わせるので、名前付きボリュームなら何もしなくてよい。バインドマウントに変える場合は
 ホスト側のディレクトリを uid 10001 にしておく。
 
-`HEALTHCHECK` で `/healthz` を叩いている。起動時にマイグレーションと書き込み確認が
-走るので、healthy になった時点で DB まで通っている。
+`HEALTHCHECK` で `/healthz` を叩いているので、healthy になれば DB まで通っている。
 
 ### GitHub Packages のイメージを使う
 
