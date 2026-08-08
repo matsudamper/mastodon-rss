@@ -67,9 +67,17 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 | DB アクセス | 素の JDBC（jOOQ を入れるかは Phase 3 の直前に判断する） |
 | 署名 | JCA（RSA / SHA256withRSA）。ライブラリは足さない |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
+| 管理 API | GraphQL。サーバーは graphql-java、クライアントは Apollo Kotlin |
+| 画面遷移 | Navigation Compose 3（JetBrains 版 `org.jetbrains.androidx.navigation3`） |
 
 モジュールは `:backend`（サーバー）、`:crypto`（鍵と署名）、`:repository`（DB アクセス）、
-`:frontend`（管理 UI）の 4 つ。ビルド方法は [README.md](README.md) を参照。
+`:shared`（共有する型）、`:frontend`（管理 UI）の 5 つ。
+ビルド方法は [README.md](README.md) を参照。
+
+管理 API を GraphQL にするのは
+[kake-bo](https://github.com/matsudamper/kake-bo) と揃えるため。あちらは
+スキーマ優先で `.graphqls` を置き、サーバーは graphql-java、クライアントは Apollo。
+ActivityPub 側は相手の実装が決まっているので今までどおり REST のまま。
 
 ---
 
@@ -721,8 +729,29 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - CI の native-image ジョブの起動確認に `/admin/` と `.wasm` の Content-Type を
         叩く手順が入っている。配信をやめるならここも外す
 - [ ] `:frontend` の成果物を配置するデプロイスクリプトを用意する（インフラ側で用意する。このリポジトリの範囲外）
+- [ ] 画面をどのパスに置かれても動くようにする
+      - `index.html` の参照と webpack の `publicPath` を root 絶対（`/frontend.js`）にする。
+        相対のままだと末尾スラッシュの有無で参照先が変わる
+      - `/admin` から `/admin/` への 302 を消す。上の対応で不要になる
+      - `AdminRouter` からマウント先の決め打ち（`/admin` で始まるかの判定）を消す。
+        起動時の `pathname` から現在地を出せば、どのパスに置いても動く
+      - 配信側に残る要求は、ファイルとして存在しないパスに `index.html` を返すことだけ
 - [ ] サーバー側に管理 API（フィード CRUD、アクター一覧、配信状況、手動再取得）
       - ログイン・ログアウト・パスワードハッシュ生成までは実装済み。フィード側は Phase 5 の後
+- [ ] 管理 API を GraphQL にする（[kake-bo](https://github.com/matsudamper/kake-bo) と揃える）
+      - スキーマ優先。`.graphqls` を置き、サーバーとクライアントはそこから作る
+      - サーバーは graphql-java。エンドポイントは `POST` 1 つ
+      - クライアントは Apollo Kotlin。`.graphql` の operation から生成する
+      - native-image への影響に注意する。kake-bo は JVM で動くので graphql-java-tools
+        (kickstart) と kobylynskyi の codegen を使い、リゾルバをリフレクションで結線して
+        いるが、この構成はリフレクション前提なので native-image では動かない。
+        こちらは `RuntimeWiring` に `DataFetcher` を明示して結線する。
+        フィールドの取り出しも、値を `Map` で返して `PropertyDataFetcher` の
+        リフレクション経路に入れない
+      - スキーマは jar の中のリソースになるので `resource-config.json` に登録する。
+        マイグレーション SQL と同じ扱い
+      - native バイナリで実際に叩くところまで CI で確認する。
+        graphql-java が native-image で動くかは JVM のテストでは分からない
 - [x] 管理 API に認証をかける（Basic 認証かトークン。inbox と違って外に開けてはいけない）
       - パスワード 1 つ + セッション Cookie にした。ハッシュは `ADMIN_PASSWORD_HASH`
       - ハッシュ未設定でも起動でき、そのときだけ `/admin/password-hash` が誰でも開く。
@@ -732,6 +761,12 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 - [x] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/admin/api` を 8080 に転送した。
         オリジンが同じままなので CORS も Cookie の SameSite も緩めずに済む
+- [ ] 画面遷移を Navigation Compose 3 にする
+      - `org.jetbrains.androidx.navigation3:navigation3-ui`（JetBrains 版。wasmJs 対応あり）
+      - いまは `AdminRouter` が `pushState` を直接叩き、`AdminApp` が `when` で画面を選んでいる。
+        画面が増えると破綻するので、バックスタックを持つ形に置き換える
+      - ブラウザの戻る・進むと URL の同期は自前で持つ必要がある。
+        Navigation3 はバックスタックを扱うだけで、URL は見ない
 - [ ] Compose でフィード一覧 / 追加 / 削除
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
 - [ ] フィードのプレビュー（投稿前にどう見えるか）
