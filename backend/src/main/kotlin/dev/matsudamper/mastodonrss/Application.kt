@@ -1,12 +1,17 @@
 package dev.matsudamper.mastodonrss
 
+import dev.matsudamper.mastodonrss.actor.ActorDirectory
 import dev.matsudamper.mastodonrss.actor.ActorKey
 import dev.matsudamper.mastodonrss.actor.ActorKeyConfig
 import dev.matsudamper.mastodonrss.actor.ActorKeyLoader
+import dev.matsudamper.mastodonrss.actor.ActorUrls
+import dev.matsudamper.mastodonrss.actor.ActorUsername
+import dev.matsudamper.mastodonrss.actor.actorRoutes
 import dev.matsudamper.mastodonrss.json.respondJson
 import dev.matsudamper.mastodonrss.repository.DatabaseConfig
 import dev.matsudamper.mastodonrss.repository.Repositories
 import dev.matsudamper.mastodonrss.repository.createRepositories
+import dev.matsudamper.mastodonrss.webfinger.webFingerRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.application.log
@@ -40,11 +45,14 @@ fun Application.module(
 
     // ドメインはアクター ID に焼き込まれ、Mastodon 側にキャッシュされると後から変えられない。
     // 取り違えたまま気付かないのが一番まずいので、起動時に必ず見えるところに出す
-    if (config.domain == null) {
-        log.warn("DOMAIN が未設定。Phase 1 の WebFinger と Actor はこの値から URL を組み立てる")
-    } else {
-        log.info("DOMAIN: ${config.domain}")
-    }
+    val actorUrls = ActorUrls(domain = config.domain, username = config.actorUsername)
+    log.info("アクター: ${actorUrls.acct} → ${actorUrls.actorId}")
+
+    // 検証用の使い捨てアクター。Mastodon はリモートアクターを永続キャッシュするので、
+    // 名前を変えながら試せる口が無いと、一度間違えたときに直す手段が無くなる
+    log.info("動作確認用に acct:${ActorUsername.TEST_PREFIX}<任意>@${config.domain} も応答する")
+
+    val directory = ActorDirectory(actorUrls)
 
     // 鍵が入れ替わると相手側は署名検証に失敗し続ける。
     // どこから読んだ鍵なのかが後から追えるよう、取得元を必ず出す
@@ -71,5 +79,9 @@ fun Application.module(
         get("/healthz") {
             call.respondJson(HealthResponse.serializer(), HealthResponse(status = "ok"))
         }
+
+        // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
+        webFingerRoutes(directory)
+        actorRoutes(directory, actorKey)
     }
 }

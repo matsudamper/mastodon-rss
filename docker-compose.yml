@@ -10,6 +10,9 @@ services:
       # 公開するドメイン。アクター ID に焼き込まれ、Mastodon 側にキャッシュされると
       # 後から変えられないので、必ず指定させる
       DOMAIN: ${DOMAIN:?DOMAIN を .env か環境変数で指定すること}
+      # アクターのユーザー名。acct:<name>@<DOMAIN> と /users/<name> に入る。
+      # ドメインと同じく、変えると別人のアカウントになる
+      ACTOR_USERNAME: ${ACTOR_USERNAME:-admin}
       DB_PATH: /data/mastodon-rss.db
       # アクターの秘密鍵。無ければ初回起動時に生成してここに書き出す。
       # ボリュームの中に置くので、コンテナを作り直しても同じ鍵のまま。

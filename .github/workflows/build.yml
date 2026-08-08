@@ -123,6 +123,9 @@ jobs:
           export DB_PATH="$RUNNER_TEMP/native-check/mastodon-rss.db"
           # 鍵の生成と書き出しも native バイナリで動く必要がある
           export ACTOR_PRIVATE_KEY_PATH="$RUNNER_TEMP/native-check/actor-private-key.pem"
+          # DOMAIN は必須。未設定だと起動せず、WebFinger と Actor も確認できない
+          export DOMAIN=example.com
+          export ACTOR_USERNAME=admin
 
           ./backend/build/native/nativeCompile/mastodon-rss > /tmp/server.log 2>&1 &
           SERVER_PID=$!
@@ -168,3 +171,63 @@ jobs:
           grep -q "BEGIN PRIVATE KEY" "$ACTOR_PRIVATE_KEY_PATH"
           # 所有者以外に読めていたら権限の指定が効いていない
           test "$(stat -c '%a' "$ACTOR_PRIVATE_KEY_PATH")" = "600"
+
+          # WebFinger と Actor は @SerialName とカスタム serializer を通る。
+          # native-image でシリアライザの解決に失敗すると 500 になり、
+          # JVM のテストでは分からないのでここで実際に叩く
+          echo "--- WebFinger ---"
+          curl -sf "http://localhost:8080/.well-known/webfinger?resource=acct:admin@example.com" \
+            -o /tmp/webfinger.json
+          cat /tmp/webfinger.json
+          grep -q '"subject":"acct:admin@example.com"' /tmp/webfinger.json
+          grep -q '"href":"https://example.com/users/admin"' /tmp/webfinger.json
+
+          echo "--- Actor ---"
+          curl -sf -H 'Accept: application/activity+json' http://localhost:8080/users/admin \
+            -o /tmp/actor.json
+          cat /tmp/actor.json
+          grep -q '"id":"https://example.com/users/admin"' /tmp/actor.json
+          # 公開鍵は起動時に秘密鍵から導く。native-image で JCA が欠けるとここが落ちる
+          grep -q 'BEGIN PUBLIC KEY' /tmp/actor.json
+
+          # 知らない相手に 200 を返すと、Mastodon から空のアカウントが見えてしまう
+          echo "--- 知らない resource は 404 ---"
+          test "$(curl -s -o /dev/null -w '%{http_code}' \
+            "http://localhost:8080/.well-known/webfinger?resource=acct:other@example.com")" = "404"
+
+          # 検証用の使い捨てアクター。名前がリクエスト由来になるので、
+          # 固定アクターとは別の経路を通る
+          echo "--- test- の使い捨てアクター ---"
+          curl -sf "http://localhost:8080/.well-known/webfinger?resource=acct:test-ci@example.com" \
+            -o /tmp/test-webfinger.json
+          grep -q '"subject":"acct:test-ci@example.com"' /tmp/test-webfinger.json
+
+          curl -sf -H 'Accept: application/activity+json' http://localhost:8080/users/test-ci \
+            -o /tmp/test-actor.json
+          grep -q '"id":"https://example.com/users/test-ci"' /tmp/test-actor.json
+
+      - name: DOMAIN が無ければ起動しないことの確認
+        run: |
+          set -euo pipefail
+
+          # 既定値で起動できてしまうと、間違ったドメインのアクター ID が
+          # Mastodon 側にキャッシュされて後から直せない
+          export DB_PATH="$RUNNER_TEMP/no-domain/mastodon-rss.db"
+          export ACTOR_PRIVATE_KEY_PATH="$RUNNER_TEMP/no-domain/actor-private-key.pem"
+
+          # 起動を止められていないと待ち受けたまま返ってこないので、
+          # timeout で打ち切って「終了しなかった」ことも失敗として扱う
+          set +e
+          timeout 30 ./backend/build/native/nativeCompile/mastodon-rss > /tmp/no-domain.log 2>&1
+          STATUS=$?
+          set -e
+
+          cat /tmp/no-domain.log
+
+          if [ "$STATUS" -eq 0 ] || [ "$STATUS" -eq 124 ]; then
+            echo "::error::DOMAIN が無いのに起動してしまった (exit: $STATUS)"
+            exit 1
+          fi
+
+          # 何が足りないのか分からないまま落ちるのでは調べようがない
+          grep -q "DOMAIN" /tmp/no-domain.log

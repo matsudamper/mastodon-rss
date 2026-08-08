@@ -15,9 +15,15 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
 CI で ktlint / JVM ビルド・テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
 
-次の一手: Phase 1 に入っている。鍵の保存先は決まって実装済み（環境変数で指定し、
-既定はファイル。無ければ生成する）。残るブロッカーは本番ドメインで、
-これが決まらないと WebFinger の `subject` も Actor の `id` も書けない。
+Phase 1 はコードの側は書けた。アクターは `admin` 固定（`ACTOR_USERNAME` で変更可）で、
+`DOMAIN` は必須。WebFinger と Actor が返るところまで実装し、native バイナリでも
+実際に叩いて確認している。
+
+次の一手: HTTPS で外に出して、Mastodon から実際に検索する（チェックポイント 1）。
+ここだけは手元では検証できず、本番ドメインと公開経路が要る。
+検索するのは `@admin@<ドメイン>` ではなく `@test-1@<ドメイン>` から。Mastodon は
+リモートアクターを永続キャッシュするので、`admin` で失敗すると `admin` が使えなくなる。
+`nodeinfo` は任意なので、詰まったときの調査用に後から足せばよい。
 
 Phase 0 でやったことと順序の理由:
 
@@ -82,6 +88,17 @@ Mastodon --POST(署名)--> /users/{name}/inbox    (Follow / Undo / Delete)
 
 → 案A を採用する。 ただし Phase 1〜5 では「固定の 1 アクター」だけを作り、Phase 6 で複数化する。
 最初から複数アクター対応にすると WebFinger・鍵管理・配信先解決が同時に複雑化して切り分けができなくなるため。
+
+アクターは 2 種類になる。
+
+| 種類 | 例 | 役割 |
+| --- | --- | --- |
+| 運用者用 | `@admin@example.com` | 運用者のアカウント。フィードとは紐付けず、記事は流さない |
+| フィード用 | `@gihyo@example.com` | フィード 1 本ぶんの記事を流す。`feeds` と 1:1 |
+
+`admin` のいまの用途は告知だが、フィードを流さないアカウントという点が本質で、
+用途はそれに限らない。フィード用アクターのプロフィールには `admin` へのリンクを置き、
+問い合わせ先が分かるようにする。
 
 ---
 
@@ -158,10 +175,10 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
       - `ignoreUnknownKeys = true`（受信側。相手の拡張プロパティで落ちないように）
       - 実体は `backend/src/main/kotlin/dev/matsudamper/mastodonrss/json/AppJson.kt`
 - [x] `/healthz` を JSON レスポンスに変える
-- [ ] ActivityPub 向けの下ごしらえ（Phase 1 で効いてくるので、ここで型だけ用意しておく）
-      - [ ] `@context` のような記号入りのキーは `@SerialName("@context")` で対応する
-            - Actor / Activity のデータクラスは Phase 1 で書くため未着手。
-              実物のフィールドが無い状態で `@SerialName` だけ用意しても検証できないため後回しにした
+- [x] ActivityPub 向けの下ごしらえ（Phase 1 で効いてくるので、ここで型だけ用意しておく）
+      - [x] `@context` のような記号入りのキーは `@SerialName("@context")` で対応する
+            - Phase 1 の `activitypub/Actor.kt` で実際に使った。
+              実物のフィールドが無い状態で用意しても検証できないので、そこまで待った
       - [x] ActivityPub は「文字列 1 個」と「配列」のどちらも来るフィールドが多い（`@context`, `to`, `cc`, `type`）
             → 常に `List<String>` として扱い、単一文字列も配列に正規化するカスタム serializer を書く
             - `activitypub/StringListSerializer.kt`。出力は 1 要素なら文字列、それ以外は配列に戻す
@@ -387,30 +404,57 @@ ActivityPub のアカウント発見は WebFinger → Actor の 2 ホップで�
         既にあるファイルは書き換えない
       - 取得元は起動ログに出す。生成したときだけ警告にして、鍵を失ったことに気付けるようにした
       - docker compose ではボリュームの中（`/data/actor-private-key.pem`）に置く
-- [ ] `GET /.well-known/webfinger?resource=acct:feed@example.com`
+- [x] 1-2: ドメインとユーザー名を決めて起動時に確定させる
+      - ユーザー名は `admin`。`ACTOR_USERNAME` で変えられる（既定 `admin`）。
+        Phase 6 でフィードごとのアカウントを作るようになっても、
+        このアカウントは運用者のアカウントとして残す。記事は流さない
+      - `DOMAIN` は必須にして、未設定なら起動を止める。既定値を用意すると
+        `localhost` が焼き込まれたアクター ID を配ることになり、
+        Mastodon が永続キャッシュするので相手側からは直せない
+      - URL の組み立ては `actor/ActorUrls.kt` に集約する。`acct:` / `id` /
+        `#main-key` / inbox のどれか 1 つだけ綴りが違う、という壊れ方を防ぐ
+- [x] `GET /.well-known/webfinger?resource=acct:admin@example.com`
       - Content-Type: `application/jrd+json`
-      - `subject` はリクエストされた `acct:` をそのまま返す
+      - `subject` は正規化した `acct:` を返す。要求された綴りをそのまま返すと
+        大文字小文字が混ざったまま相手側の突き合わせで揺れる
       - `links` に `rel: "self"`, `type: "application/activity+json"`, `href: <Actor の URL>`
-      - 未知の resource は 404
-- [ ] `GET /users/feed`（Actor エンドポイント）
+      - 未知の resource は 404。`resource` 自体が無ければ 400
+      - `acct:` 無しの `admin@example.com` と Actor の URL でも引けるようにした
+- [x] `GET /users/admin`（Actor エンドポイント）
       - Content-Type: `application/activity+json`
       - `@context`: `["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"]`
       - `id` / `type: "Service"` / `preferredUsername` / `name` / `summary`
       - `inbox` / `outbox` / `followers` / `following`
       - `publicKey`: `{ id: "<actor>#main-key", owner: "<actor>", publicKeyPem: "..." }`
       - `preferredUsername` は WebFinger の acct 名と一致させること
-- [ ] `Accept` ヘッダで content negotiation（`application/activity+json` と `application/ld+json` を受ける）
+      - 公開鍵は起動時に秘密鍵から導いたものをそのまま入れる
+- [x] `Accept` ヘッダで content negotiation（`application/activity+json` と `application/ld+json` を受ける）
+      - 0-3 で用意した `ActivityPubContentTypes.negotiate()` を繋いだ
+- [x] 動作確認用に `test-` で始まる名前を全部アクターとして応答させる
+      - Mastodon は内容を間違えたまま一度取得すると相手側からは直せない。
+        `admin` で試して失敗すると `admin` が使えなくなるので、
+        名前を変えながらやり直せる口を用意した
+      - 設定での切り替えにはしていない。検証したいときに限って無効なまま
+        404 を見て悩むことになるため。中身は固定アクターと同じで鍵も共有する
+      - 接頭辞は小文字ちょうど。`Test-1` を受けると `test-1` と別のアクターが生える
+      - 引き当ては `actor/ActorDirectory.kt`。WebFinger とパスで判定がずれると
+        「検索には出るが開けない」という分かりにくい壊れ方をするので 1 箇所に通す
+      - **Phase 6 で消す**（下記）
+- [x] CI の native 起動確認に WebFinger と Actor を足す
+      - `@SerialName` とカスタム serializer は native-image で解決に失敗すると 500 になる。
+        JVM のテストでは分からないので、native バイナリを実際に叩いて中身を見る
+      - `DOMAIN` を渡さないと起動しないことも確認する
 - [ ] HTTPS で外部公開する経路を用意（開発中は Cloudflare Tunnel / ngrok など）
       - ドメインは早めに固定する。 アクター ID にドメインが焼き込まれ、Mastodon 側にキャッシュされるため
 - [ ] `GET /.well-known/nodeinfo` + `/nodeinfo/2.1`（任意だが実装しておくと調査が楽）
 
 ### ✅ チェックポイント 1
-Mastodon の検索窓に `@feed@example.com` と入力して、プロフィールカードが表示される。
+Mastodon の検索窓に `@admin@example.com` と入力して、プロフィールカードが表示される。
 （この時点ではフォローボタンを押しても成立しない。それが Phase 2）
 
 > テスト時の注意
 > Mastodon はリモートアクターを永続キャッシュする。開発中にアクターの内容や鍵を変えても即座には反映されない。
-> 試行錯誤のたびに `feed1`, `feed2`, ... とユーザー名を変えるのが最も手戻りが少ない。
+> 試行錯誤のたびに `ACTOR_USERNAME` を `feed1`, `feed2`, ... と変えるのが最も手戻りが少ない。
 > 検証相手は自分で立てた Mastodon（docker compose）か、テスト用途を許容する小規模インスタンスを使うこと。
 
 ---
@@ -420,13 +464,13 @@ Mastodon の検索窓に `@feed@example.com` と入力して、プロフィー�
 ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signatures) で認証する。
 「受信の検証」と「送信の署名」の両方が必要。ここが実装の山場。
 
-- [ ] `POST /users/feed/inbox` を受ける（まずは中身をログに落とすだけ）
+- [ ] `POST /users/admin/inbox` を受ける（まずは中身をログに落とすだけ）
 - [ ] 署名の検証（受信）
       - [ ] `Digest: SHA-256=<base64>` ヘッダとボディの SHA-256 を突き合わせる
       - [ ] `Signature` ヘッダをパース（`keyId`, `algorithm`, `headers`, `signature`）
       - [ ] `keyId`（例: `https://mastodon.social/users/foo#main-key`）のアクターを GET して公開鍵を取得
       - [ ] `headers` の並び順どおりに署名文字列を再構築
-            - `(request-target): post /users/feed/inbox`
+            - `(request-target): post /users/admin/inbox`
             - `host: example.com`
             - `date: ...`
             - `digest: ...`
@@ -499,7 +543,7 @@ Phase 2 まではオンメモリでよい。ここで初めて DB が要る。
 - [ ] `Undo{Follow}` を処理してフォロー解除
 - [ ] `Delete{Actor}`（アカウント削除・引っ越し）を処理してフォロワーを掃除
       - 削除済みアクターは鍵を取得できないので、署名検証に失敗しても握り潰す例外パスが要る
-- [ ] `GET /users/feed/followers`（OrderedCollection、ページング）
+- [ ] `GET /users/admin/followers`（OrderedCollection、ページング）
 - [ ] 冪等性: 同じ `Follow` を二重に受けても重複行を作らない（activity id で一意制約）
 - [ ] フォロワーがいるなら鍵の自動生成を拒否して起動を止める
       - 1-1 の鍵の生成条件は「ファイルが無い」だけなので、鍵を失った状態でも
@@ -532,7 +576,7 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 - [ ] `Create` アクティビティで包んで全フォロワーの inbox に POST
 - [ ] `sharedInbox` があればそちらにまとめて送る（同一インスタンス宛の重複配信を避ける）
 - [ ] 配信キュー: 失敗時に指数バックオフでリトライ、上限到達で諦める
-- [ ] `GET /users/feed/outbox`（OrderedCollection）
+- [ ] `GET /users/admin/outbox`（OrderedCollection）
 - [ ] `GET /notes/{id}` で単体の Note を返す（Mastodon がパーマリンクを引きに来る）
 - [ ] 投稿を発火させる管理用エンドポイント（開発用。あとで UI から叩く）
 
@@ -548,6 +592,14 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 - [ ] RSS 2.0 / Atom 1.0 のパーサを自作（`javax.xml` の StAX か DOM）
       - 両フォーマットの差分吸収（`item`/`entry`, `pubDate`/`updated`, `description`/`summary`/`content`）
 - [ ] `feeds` / `feed_items` テーブル
+      - この時点ではアクターが 1 つしか無いので、検証はフィード 1 本で行う。
+        `ACTOR_USERNAME` にそのフィード用の名前を入れて動かす
+      - `admin` から記事を流さないこと。`admin` は運用者のアカウントで、
+        ここで記事を流すとフォロワーが付き、Phase 6 で分割したときに
+        その人たちには何も届かなくなる（1 アカウントから複数への分割は
+        `Move` では表現できず、引っ越しを通知する手段が無い）
+      - 複数フィードを同時に動かせるようになるのは Phase 6。
+        `feeds.actor_id` を足してフィードごとのアクターに振り分ける
 - [ ] 差分検出: `guid` / `id` / `link` を主キーに、なければ URL + タイトルのハッシュ
 - [ ] 条件付き GET（`ETag` / `If-Modified-Since`）でフィード配信元に優しくする
 - [ ] スケジューラ（定期ポーリング）。フィードごとに間隔を設定可能に
@@ -563,14 +615,52 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 
 ## Phase 6: 複数アクター（フィードごとのアカウント）
 
-Phase 1 で固定していた部分を動的にする。
+「全体像」の案A をここで実現する。 **RSS フィード 1 本につきアカウントを 1 つ**作り、
+利用者は読みたいフィードのアカウントだけをフォローする。Phase 1 で固定していた部分を動的にする。
 
+Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者のアカウント**として残す。
+記事は流さない。いまの用途はサービスの状況やメンテナンスの告知。
+フィード用アカウントは `feeds` に紐付いた別のアクターとして作る。
+
+> 用途例（実装の予定は無い）
+> 運用者のアカウントなのでメンションを受け取れる。`@admin@example.com` に
+> RSS の URL を送ると購読が追加される、といった入口にもできる。やるとしたら
+> inbox で `Create{Note}` を処理することになるが、いまは考えないでおく。
+
+- [ ] `feeds` とアクターの対応を決める
+      - `feeds.actor_id` で 1:1 に紐付ける。フィードを登録したらアクターを 1 つ作り、
+        フィードを消したらそのアクターも消す
+      - ユーザー名の決め方: フィードの URL やタイトルから作ると衝突するし、
+        後から変えられない（相手側にキャッシュされる）。登録時に明示的に指定させる
+      - `admin` のような予約名と、既存アクターとの重複を登録時に弾く
 - [ ] アクターを DB 駆動に変更（起動時ハードコードをやめる）
+      - `ActorUrls` はドメインとユーザー名から組み立てているので、
+        ユーザー名の出どころを設定から DB に差し替える形になる
 - [ ] WebFinger を動的解決（任意の `acct:` を DB 引きして応答）
 - [ ] アクターごとに鍵ペアを生成して保存
+      - Phase 1 の鍵はファイル 1 本。ここで `actors.private_key` に移すかを決める
+        （Phase 3 の「フォロワーがいるなら鍵の自動生成を拒否する」と合わせて判断する）
 - [ ] アクター作成 / 削除の API
+      - 削除時は `Delete{Actor}` を配信してから消す。黙って消すと相手側に残り続ける
 - [ ] アクター情報更新時に `Update{Actor}` を配信（アイコン・説明文の変更を伝播させる）
 - [ ] アイコン / ヘッダー画像（`icon` / `image`）の配信
+- [ ] フィードアクターのプロフィールに `admin` へのリンクを置く
+      - Mastodon がプロフィールに出す「リンク集」は Actor JSON の `attachment`。
+        `{ "type": "PropertyValue", "name": "管理", "value": "<a href=\"...\">@admin@example.com</a>" }`
+        の配列で、`value` は HTML を入れる
+      - フィードのアカウントだけを見た人が、どこに問い合わせればいいか分かるようにする
+      - フィードの配信元 URL も同じ `attachment` に並べると分かりやすい
+      - `attachment` を変えたら `Update{Actor}` を配信しないと相手側の表示が古いまま
+- [ ] 配信はアクター単位になる。フォロワーも投稿もアクターごとに分かれるので、
+      Phase 4 の配信キューが「どのアクターとして署名するか」を持つ必要がある
+- [ ] Phase 1 で入れた `test-` の使い捨てアクターを消す
+      - `ActorUsername.isTest` と `ActorDirectory` の該当分岐、README の
+        「動作確認用のアカウント」、CI の起動確認、テストを一緒に落とす
+      - アクターを DB から作れるようになれば、検証用のアカウントも
+        普通に作って消せるので役目が終わる
+      - 消し忘れると、誰でも `test-<任意>` を引けるアカウントが本番に残る。
+        Phase 3 でフォロワーを永続化した後だと、使い捨てのつもりの
+        アクターにフォロワーが付く
 
 ### ✅ チェックポイント 6
 新しいフィードを登録すると、そのフィード専用のアカウントが Mastodon から検索・フォローできる。
