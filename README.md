@@ -20,7 +20,6 @@ flowchart TB
         json["json<br/>AppJson<br/>respondJson"]
         ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
         actor["actor<br/>ActorKeyConfig<br/>ActorKeyLoader<br/>ActorKey"]
-        static["staticfiles<br/>StaticFilesConfig<br/>StaticFiles"]
     end
 
     subgraph crypto[":backend:crypto"]
@@ -54,15 +53,11 @@ flowchart TB
     ap -.->|Phase 2 で接続| sign
     key[("秘密鍵の PEM<br/>ACTOR_PRIVATE_KEY_PATH")]
     actor --> key
-    dist[("静的ファイル<br/>STATIC_SRC_DIR")]
-    module --> static
-    static --> dist
-    compose -.->|デプロイ時に配置| dist
 ```
 
 `:frontend` と `:backend` は別々にビルドする。互いに依存させない。
 `:frontend` の成果物は配信するファイルを置くディレクトリに配置し、`:backend` が
-その場所を `STATIC_SRC_DIR` で受け取って root から配信する。
+その場所を環境変数で受け取って配信する（Phase 8 で作る）。
 分けた理由は [docs/architecture.md](docs/architecture.md) を参照。
 
 ## 必要なもの
@@ -147,9 +142,6 @@ DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
 
 ### backend から画面を出す
 
-`:backend` は `STATIC_SRC_DIR` に指定されたディレクトリを root から配信する。
-`:frontend` の配布物をそのまま指せば、`http://localhost:8080/` で画面が出る。
-
 ```sh
 ./gradlew :frontend:wasmJsBrowserDistribution
 
@@ -159,8 +151,9 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
   ./gradlew :backend:run
 ```
 
-`:frontend` の開発サーバー (8081) は自分でファイルを配るので、UI だけを
-書き換えるときはそちらの方が速い。両方を通した形で見たいときにこちらを使う。
+配信の挙動と環境変数は
+[StaticFilesConfig.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/staticfiles/StaticFilesConfig.kt) と
+[StaticFiles.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/staticfiles/StaticFiles.kt) を参照。
 
 ## 環境変数
 
@@ -173,10 +166,7 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | `ACTOR_USERNAME` | `admin` | アクターのユーザー名。`acct:<name>@<DOMAIN>` と `/users/<name>` に入る |
 | `ACTOR_PRIVATE_KEY_PATH` | `./data/actor-private-key.pem` | アクターの秘密鍵 (PEM)。無ければ起動時に生成して書き出す |
 | `ACTOR_PRIVATE_KEY_PEM` | なし | 秘密鍵の PEM を直接渡す場合に使う。`ACTOR_PRIVATE_KEY_PATH` とは併用できない |
-| `STATIC_SRC_DIR` | なし | 配信する静的ファイルのディレクトリ。未設定なら配信しない |
 
-`DOMAIN` は待ち受け先ではない。前段に HTTPS を終端するリバースプロキシを置く前提で、
-外から見える名前が `DOMAIN`、サーバー自身が待つのは `HOST` と `PORT` になる。
 `DOMAIN` は scheme と末尾の `/` を書いても落として扱う。未設定だと起動しない。
 `ACTOR_USERNAME` に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`。
 
@@ -190,7 +180,6 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | `GET /healthz` | 生存確認。`{"status":"ok"}` |
 | `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
 | `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
-| それ以外 | `STATIC_SRC_DIR` の静的ファイル。下の「静的ファイルの配信」を参照 |
 
 `{name}` として応答するのは `ACTOR_USERNAME`（既定 `admin`）と、`test-` で始まる
 任意の名前の 2 通り。後者は動作確認用で、下の「動作確認用のアカウント」を参照。
@@ -239,29 +228,6 @@ docker compose ではボリュームの中（`/data/actor-private-key.pem`）に
 保存するのは秘密鍵だけで、公開鍵は起動のたびに秘密鍵から導く。
 鍵を持ち続ける理由とこの判断の理由は `ActorKeyConfig.kt` の KDoc にある。
 
-## 静的ファイルの配信
-
-`STATIC_SRC_DIR` に指定したディレクトリを root から配信する。管理画面は SPA で、
-画面のパスは全部 1 つの `index.html` から始まるため、`/admin` の下だけを
-配信する形にはしない。管理画面専用の口でもないので、フォントのように配信したい
-ファイルは同じディレクトリに置く。
-
-| リクエスト | 返すもの |
-| --- | --- |
-| `/` | `index.html` |
-| ファイルがあるパス | そのファイル |
-| ファイルが無く、拡張子も無いパス | `index.html`。画面のパスとして frontend に解釈させる |
-| ファイルが無く、拡張子があるパス | 404 |
-
-拡張子のあるパスを `index.html` に落とさないのは、`.js` や `.wasm` の読み込み失敗が
-200 になると、画面が真っ白になった理由を追えなくなるため。
-
-`STATIC_SRC_DIR` が未設定のときとディレクトリが無いときは、どちらも 404 になる。
-どちらなのかは起動ログに出る。
-
-バイナリには埋め込まない。埋め込むとサーバーのビルドとテストが Kotlin/Wasm の
-ツールチェインに引きずられるため。成果物をどこに配置するかはデプロイ側の話になる。
-
 ## Docker で動かす
 
 ```sh
@@ -281,10 +247,6 @@ DB は `data` という名前付きボリュームに置く。コンテナを作
 ホスト側のディレクトリを uid 10001 にしておく。
 
 `HEALTHCHECK` で `/healthz` を叩いているので、healthy になれば DB まで通っている。
-
-イメージに管理画面は入っていない。画面を出すには `:frontend` の成果物をホスト側に
-用意し、`docker-compose.yml` の `STATIC_SRC_DIR` と対応する `volumes` の
-コメントを外してマウントする。
 
 ### GitHub Packages のイメージを使う
 
