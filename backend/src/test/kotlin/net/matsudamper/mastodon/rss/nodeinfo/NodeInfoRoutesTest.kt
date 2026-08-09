@@ -49,6 +49,7 @@ class NodeInfoRoutesTest {
             val body = AppJson.decodeFromString(NodeInfo.serializer(), response.bodyAsText())
             assertEquals("2.1", body.version)
             assertEquals("mastodon-rss", body.software.name)
+            assertEquals("https://github.com/matsudamper/mastodon-rss", body.software.repository)
             assertEquals(listOf("activitypub"), body.protocols)
             assertEquals(false, body.openRegistrations)
             assertEquals(1, body.usage.users.total)

@@ -45,10 +45,14 @@ data class NodeInfo(
     val metadata: Map<String, String> = emptyMap(),
 )
 
+/**
+ * @param repository ソース公開先。NodeInfo 2.1 で software に追加された任意フィールド
+ */
 @Serializable
 data class NodeInfoSoftware(
     val name: String,
     val version: String,
+    val repository: String? = null,
 )
 
 @Serializable

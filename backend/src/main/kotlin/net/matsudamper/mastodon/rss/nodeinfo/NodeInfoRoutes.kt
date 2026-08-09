@@ -38,8 +38,13 @@ fun Route.nodeInfoRoutes(domain: String) {
             serializer = NodeInfo.serializer(),
             value =
                 NodeInfo(
-                    // build.gradle.kts の allprojects.version と合わせる。自動で追従はしない
-                    software = NodeInfoSoftware(name = "mastodon-rss", version = "0.1.0"),
+                    // version は build.gradle.kts の allprojects.version と合わせる。自動で追従はしない
+                    software =
+                        NodeInfoSoftware(
+                            name = "mastodon-rss",
+                            version = "0.1.0",
+                            repository = "https://github.com/matsudamper/mastodon-rss",
+                        ),
                     // 固定アクター1つだけなので常にこの値
                     usage = NodeInfoUsage(users = NodeInfoUsers(total = 1)),
                 ),

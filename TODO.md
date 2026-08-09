@@ -485,6 +485,7 @@ ActivityPub のアカウント発見は WebFinger → Actor の 2 ホップで�
       - discovery document の `rel` は `http://nodeinfo.diaspora.software/ns/schema/2.1` 固定
       - 固定アクター1つだけの構成なので `usage.users.total` は常に 1、記事配信はまだ無いので
         `usage.localPosts` は常に 0
+      - `software.repository` に GitHub リポジトリの URL を入れた
 
 ### ✅ チェックポイント 1（達成）
 Mastodon の検索窓に `@admin@example.com` と入力して、プロフィールカードが表示される。
