@@ -9,7 +9,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | モジュール | ディレクトリ | 内容 |
 | --- | --- | --- |
 | `:backend` | `backend/` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
-| `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の管理画面 |
+| `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の画面。管理画面とアカウント画面 |
 
 ```mermaid
 flowchart TB
@@ -40,7 +40,7 @@ flowchart TB
     end
 
     subgraph frontend[":frontend"]
-        compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>Hello World まで"]
+        compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>Navigation 3 で画面を出し分け"]
     end
 
     db[("SQLite<br/>DB_PATH")]
@@ -207,6 +207,26 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 
 `{name}` として応答するのは `ACTOR_USERNAME`（既定 `admin`）と、`test-` で始まる
 任意の名前の 2 通り。後者は動作確認用で、下の「動作確認用のアカウント」を参照。
+
+上の表以外のパスは静的ファイルの配信に落ちる。ファイルがあればそれを返し、無ければ
+`index.html` を返して画面側に解釈させる。どの画面を出すかはブラウザ側の判断になる。
+
+| パス | 画面 |
+| --- | --- |
+| `/` | トップ |
+| `/@{name}` | アカウント画面。フィードの取得状況と配信した記事 |
+| `/admin` | 管理画面。中身は Phase 8 で作る |
+| それ以外 | 見つからない（HTTP は 200 のまま） |
+
+画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
+Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。
+実体は `frontend/src/wasmJsMain/resources/fonts/`（SIL Open Font License 1.1。同じ場所に
+`OFL.txt` を置いてある）で、読み込みは `:frontend` の `ui/Font.kt`。
+
+アカウント画面の `/@{name}` と Actor JSON の `/users/{name}` は別のパス。
+1 つのパスで `Accept` を見て HTML と JSON を出し分けると、相手の綴りの揺れで
+アカウントごと見つからなくなる。表示している数値と記事はまだ仮の値で、
+画面の上にその旨を出している。
 
 inbox は署名が通れば 202、通らなければ 401 を返す。検証の内容は
 [HttpSignatureVerifier.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
