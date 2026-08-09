@@ -17,8 +17,9 @@ import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.repository.ExpiringCache
+import net.matsudamper.mastodon.rss.repository.createExpiringCache
 import java.io.Closeable
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * `keyId` の指す先を実際に GET して公開鍵を取る。
@@ -37,23 +38,18 @@ import java.util.concurrent.ConcurrentHashMap
  *   他所のホストのアクターの鍵だと言い張るものを信じない
  * - 大きすぎる応答は読まない
  *
- * 取得結果は `keyId` ごとにメモリ上でキャッシュし、TTL の間は GET しない。
+ * 取得結果は `keyId` ごとに [ExpiringCache] を通してキャッシュし、TTL の間は GET しない。
  * フォローや投稿のたびに毎回相手のサーバーへ取りに行くのは相手に対しても
  * 自分の inbox 処理に対しても無駄が大きいため。取得に失敗した場合はキャッシュしない
  * （相手のサーバーが一時的に落ちているだけなら、次の呼び出しで取り直せるようにする）。
  */
 class RemoteActorKeys(
     private val client: HttpClient = defaultClient(),
+    private val cache: ExpiringCache<String, SignatureKey> = createExpiringCache(),
 ) : PublicKeys,
     Closeable {
-    private val cache = ConcurrentHashMap<String, CacheEntry>()
-
     override suspend fun find(keyId: String): SignatureKey? {
-        cache[keyId]?.let { entry ->
-            if (entry.expiresAtMillis > System.currentTimeMillis()) return entry.signatureKey
-            // 期限切れなので取り直す。remove(key, value) で他スレッドが先に更新済みなら消さない
-            cache.remove(keyId, entry)
-        }
+        cache.get(keyId)?.let { return it }
 
         val url = runCatching { Url(keyId) }.getOrNull() ?: return null
         if (url.protocol != URLProtocol.HTTPS) return null
@@ -90,19 +86,13 @@ class RemoteActorKeys(
                 .getOrNull() ?: return null
 
         val signatureKey = SignatureKey(keyId = keyId, owner = owner, publicKey = parsed)
-        cache[keyId] =
-            CacheEntry(signatureKey = signatureKey, expiresAtMillis = System.currentTimeMillis() + CACHE_TTL_MILLIS)
+        cache.put(key = keyId, value = signatureKey, ttlMillis = CACHE_TTL_MILLIS)
         return signatureKey
     }
 
     override fun close() {
         client.close()
     }
-
-    private class CacheEntry(
-        val signatureKey: SignatureKey,
-        val expiresAtMillis: Long,
-    )
 
     private companion object {
         /**

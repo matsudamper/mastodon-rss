@@ -528,7 +528,9 @@ ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signa
       - `Accept` の `object` には受信した Follow アクティビティを丸ごと入れる（id だけだと通らない実装がある）
       - `Accept` 自身にもユニークな `id` を振る
 - [x] リモートアクターの取得結果をキャッシュ（毎回 GET しない）
-      - `actor/RemoteActorKeys.kt` に `keyId` ごとのメモリキャッシュを持たせた。TTL は 1 時間
+      - キャッシュの入れ物は `ExpiringCache`（`:backend:repository`。`repository/ExpiringCache.kt`）として
+        interface 化し、実装は非公開にした。差し替え（テスト用フェイクや将来の永続キャッシュ）はここだけ見れば済む
+      - `actor/RemoteActorKeys.kt` はこれを `keyId` → 公開鍵 のキャッシュとして使う。TTL は 1 時間
       - 取得に失敗した場合はキャッシュしない。相手のサーバーが一時的に落ちているだけなら、
         次の呼び出しで取り直せるようにするため
 - [ ] 送信 GET にも署名を付ける
