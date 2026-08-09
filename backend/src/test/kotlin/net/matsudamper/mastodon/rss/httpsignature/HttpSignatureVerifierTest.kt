@@ -2,8 +2,8 @@ package net.matsudamper.mastodon.rss.httpsignature
 
 import io.ktor.http.Headers
 import kotlinx.coroutines.runBlocking
-import net.matsudamper.mastodon.rss.TestPublicKeys
 import net.matsudamper.mastodon.rss.TestRemoteActor
+import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import java.time.Clock
 import java.time.Duration
@@ -23,7 +23,7 @@ class HttpSignatureVerifierTest {
     private val body = """{"type":"Follow","actor":"${TestRemoteActor.ACTOR_ID}"}""".toByteArray()
 
     private fun verifier(
-        publicKeys: PublicKeys = TestRemoteActor.publicKeys(),
+        publicKeys: PublicKeys = TestRemoteActor.remoteActors(),
         at: Instant = now,
     ) = HttpSignatureVerifier(publicKeys, Clock.fixed(at, ZoneOffset.UTC))
 
@@ -137,7 +137,7 @@ class HttpSignatureVerifierTest {
     @Test
     fun `知らない keyId なら通らない`() =
         runBlocking {
-            val result = verifier(TestPublicKeys()).verify(request(signedHeaders()))
+            val result = verifier(TestRemoteActors()).verify(request(signedHeaders()))
 
             val rejected = assertIs<HttpSignatureResult.Rejected>(result)
             assertTrue(rejected.reason.contains("公開鍵"))
@@ -180,7 +180,7 @@ class HttpSignatureVerifierTest {
     fun `鍵を引きに行く前に明らかな不備で落とす`() =
         runBlocking {
             // 形が壊れたリクエストのたびに相手のサーバーを引きに行かない
-            val publicKeys = TestRemoteActor.publicKeys()
+            val publicKeys = TestRemoteActor.remoteActors()
             val headers = signedHeaders(date = now.minus(Duration.ofHours(1)))
 
             verifier(publicKeys).verify(request(headers))

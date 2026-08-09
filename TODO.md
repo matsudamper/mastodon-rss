@@ -21,14 +21,16 @@ Phase 1 は完了。`social-rss.matsudamper.net` で公開し、WebFinger と Ac
 外から引けることを確認した。アクターは `admin` 固定（`ACTOR_USERNAME` で変更可）で、
 `DOMAIN` は必須。
 
-Phase 2 は受信側まで。inbox がアクティビティを受け取り、HTTP Signatures を
-検証して 202 か 401 を返すところまで実装した。中身はログに出すだけで、
-`Follow` に `Accept` を返していないので、フォローボタンは保留のまま戻らない。
+Phase 2 は送信側まで実装した。inbox が受け取ったアクティビティの署名を検証し、
+`Follow` なら相手の inbox に署名付きで `Accept` を返す。フォロワーの記録はまだしない。
 
 受信側は実機で確認済み。Mastodon からフォローすると `Follow` が、
 解除すると `Undo` が届き、どちらも署名の検証を通っている。
+送信側はまだ実機で確認していない。
 
-次の一手: 送信側の署名と `Follow` への `Accept` 返し（チェックポイント 2）。
+次の一手: `test-` のアカウントでフォローして「フォロー中」に変わるかを見る
+（チェックポイント 2）。残りは取得結果のキャッシュと、`AUTHORIZED_FETCH` の
+インスタンス向けに送信 GET へ署名を付けること。
 
 Phase 0 でやったことと順序の理由:
 
@@ -523,16 +525,34 @@ ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signa
             - 署名対象に入っていないヘッダは、署名が通っても中身を信用できない
       - [x] アクティビティの `actor` が署名した鍵の持ち主と違えば拒否
             - 自分の鍵で正しく署名しつつ、`actor` だけ他人を名乗る形を防ぐ
-- [ ] 署名の生成（送信） — 上記の逆。POST 時は `Digest` を必ず含める
-- [ ] `Follow` アクティビティを受けたら `Accept` を相手の `inbox` に POST し返す
+- [x] 署名の生成（送信） — 上記の逆。POST 時は `Digest` を必ず含める
+      - `httpsignature/HttpSignatureSigner.kt`。署名文字列の組み立ては検証と同じ
+        `SigningString` を通す。送る側と受ける側で組み立てが分かれると、
+        どちらが間違っているのか切り分けられなくなる
+      - `Date` の綴りも `httpsignature/HttpDate.kt` に読み書きを並べた
+      - 署名したヘッダは engine 任せにせず自分で載せる。`Host` が二重に付くような
+        壊れ方は相手側から「署名が一致しない」としか見えない。実際に HTTP を張って
+        往復させる確認を `delivery/HttpActivityDeliveryTest.kt` に置いた
+- [x] `Follow` アクティビティを受けたら `Accept` を相手の `inbox` に POST し返す
+      - `inbox/FollowHandler.kt` が組み立て、`delivery/HttpActivityDelivery.kt` が送る
       - `Accept` の `object` には受信した Follow アクティビティを丸ごと入れる（id だけだと通らない実装がある）
-      - `Accept` 自身にもユニークな `id` を振る
+      - `Accept` 自身にもユニークな `id` を振る。アクター id にフラグメントを付けた形にした。
+        独立したパスにすると GET できる文書があるように読めるが、実際には返せない
+      - 送るのは inbox の応答を返す前。配信キューが無いのでここで送らないと機会が無い。
+        送れなくても 202 で返す。5xx にすると相手は同じ Follow を送り直し続ける
+      - `Follow` の `object` がその宛先のアクターでなければ `Accept` を返さない。
+        中身を見ずに返すと、フォローしていないアクターのフォローが成立したように見える
+      - フォロワーの記録はまだしない。再起動するとこちら側には何も残らない（Phase 3）
 - [ ] リモートアクターの取得結果をキャッシュ（毎回 GET しない）
 - [ ] 送信 GET にも署名を付ける
       - Mastodon の `AUTHORIZED_FETCH`（secure mode）が有効なインスタンスは無署名 GET を拒否する
 
 ### ✅ チェックポイント 2
 Mastodon からフォローボタンを押す → 数秒後に「フォロー中」で確定する（保留のまま戻らない）。
+
+実装は揃ったが、実機での確認はまだ。`test-` のアカウントで一度フォローして、
+「フォロー中」で確定することを見る必要がある。手元のテストで見ているのは
+自分で署名して自分で検証するところまでで、Mastodon が受け取るかどうかは別。
 
 ---
 

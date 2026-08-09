@@ -1,0 +1,33 @@
+package net.matsudamper.mastodon.rss
+
+import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.delivery.DeliveryResult
+
+/**
+ * 送信の差し替え。送ったつもりのものを溜めておく。
+ *
+ * ネットワークに出る唯一の口なので、テストからは必ずこちらを通す。
+ * 実際に POST するところまで含めた確認は
+ * [net.matsudamper.mastodon.rss.delivery.HttpActivityDeliveryTest] で行う。
+ */
+class TestDelivery(
+    private val result: DeliveryResult = DeliveryResult.Delivered,
+) : ActivityDelivery {
+    val delivered: MutableList<Delivered> = mutableListOf()
+
+    override suspend fun deliver(
+        inbox: String,
+        sender: ActorUrls,
+        body: ByteArray,
+    ): DeliveryResult {
+        delivered += Delivered(inbox = inbox, sender = sender, body = body.decodeToString())
+        return result
+    }
+
+    data class Delivered(
+        val inbox: String,
+        val sender: ActorUrls,
+        val body: String,
+    )
+}

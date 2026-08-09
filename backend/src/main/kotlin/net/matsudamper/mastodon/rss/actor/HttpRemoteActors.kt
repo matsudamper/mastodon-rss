@@ -14,65 +14,42 @@ import io.ktor.http.isSuccess
 import kotlinx.serialization.Serializable
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
-import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 import net.matsudamper.mastodon.rss.json.AppJson
 import java.io.Closeable
 
 /**
- * `keyId` の指す先を実際に GET して公開鍵を取る。
+ * 相手のアクター文書を実際に GET して、公開鍵と inbox を取る。
  *
- * ActivityPub では鍵の配布方法が「アクター文書の中に入っている」しかないので、
- * 知らない相手から署名付きのリクエストが来たら、その場で相手のサーバーに
- * 取りに行くことになる。
+ * ActivityPub では鍵も配信先も「アクター文書の中に入っている」しか配布方法が無いので、
+ * 知らない相手から署名付きのリクエストが来たら、その場で相手のサーバーに取りに行くことになる。
  *
- * 取得先は相手が `keyId` として指定してきた URL で、こちらが選べない。
+ * 取得先は相手が `keyId` や `actor` として指定してきた URL で、こちらが選べない。
  * つまり任意の URL に GET させられる口でもあるため、次を守る。
  *
  * - https のみ。平文で取った鍵は途中で差し替えられる
  * - リダイレクトで別ホストに移ったら捨てる。移った先のサーバーが
  *   他人のアクターの鍵を名乗れてしまう
- * - 鍵の持ち主（`owner`）は `keyId` と同じホストであること。
- *   他所のホストのアクターの鍵だと言い張るものを信じない
+ * - 文書に書かれた `owner` と `inbox` は、取得先と同じホストであること。
+ *   他所のホストのものだと言い張るものを信じない
  * - 大きすぎる応答は読まない
  *
- * 取得結果のキャッシュはまだ持たない。フォローのたびに 1 回引きに行く。
+ * 取得結果のキャッシュはまだ持たない。フォローのたびに引きに行く。
  * 毎回引かない仕組みは TODO.md の Phase 2 に項目がある。
  */
-class RemoteActorKeys(
+class HttpRemoteActors(
     private val client: HttpClient = defaultClient(),
-) : PublicKeys,
+) : RemoteActors,
     Closeable {
     override suspend fun find(keyId: String): SignatureKey? {
-        val url = runCatching { Url(keyId) }.getOrNull() ?: return null
-        if (url.protocol != URLProtocol.HTTPS) return null
-
-        val response =
-            runCatching {
-                client.get(keyId) {
-                    header(HttpHeaders.Accept, ActivityPubContentTypes.ActivityJson.toString())
-                }
-            }.getOrNull() ?: return null
-
-        if (!response.status.isSuccess()) return null
-
-        // リダイレクトを追った結果、別のホストに移っていたら信用しない
-        val fetchedFrom = response.request.url.host
-        if (!fetchedFrom.equals(url.host, ignoreCase = true)) return null
-
-        val body = runCatching { response.bodyAsText() }.getOrNull() ?: return null
-        if (body.length > MAX_BODY_CHARS) return null
-
-        val document =
-            runCatching { AppJson.decodeFromString(RemoteActorDocument.serializer(), body) }
-                .getOrNull() ?: return null
+        val url = parseHttpsUrl(keyId) ?: return null
+        val document = fetch(keyId, url) ?: return null
 
         val publicKey = document.publicKey ?: return null
 
         // owner が無い文書もあるので、その場合はアクター自身の id を持ち主とみなす
         val owner = publicKey.owner ?: document.id ?: return null
-        val ownerHost = runCatching { Url(owner) }.getOrNull()?.host ?: return null
-        if (!ownerHost.equals(url.host, ignoreCase = true)) return null
+        if (!isSameHost(owner, url)) return null
 
         val parsed =
             runCatching { RsaKeys.decodePublicKeyPem(publicKey.publicKeyPem) }
@@ -81,8 +58,63 @@ class RemoteActorKeys(
         return SignatureKey(keyId = keyId, owner = owner, publicKey = parsed)
     }
 
+    override suspend fun findInbox(actorId: String): String? {
+        val url = parseHttpsUrl(actorId) ?: return null
+        val document = fetch(actorId, url) ?: return null
+
+        val inbox = document.inbox ?: return null
+
+        // 宛先はこちらが POST しに行く先になる。アクターと同じホストに限ることで、
+        // 相手が自分の文書に書いた URL でこちらから他所へ POST させる形を塞ぐ
+        if (parseHttpsUrl(inbox) == null) return null
+        if (!isSameHost(inbox, url)) return null
+
+        return inbox
+    }
+
     override fun close() {
         client.close()
+    }
+
+    /**
+     * アクター文書を取る。取得先の URL を [requestUrl] として渡すのは、
+     * 取れた文書の中身を突き合わせる基準がその URL のホストだから。
+     */
+    private suspend fun fetch(
+        rawUrl: String,
+        requestUrl: Url,
+    ): RemoteActorDocument? {
+        val response =
+            runCatching {
+                client.get(rawUrl) {
+                    header(HttpHeaders.Accept, ActivityPubContentTypes.ActivityJson.toString())
+                }
+            }.getOrNull() ?: return null
+
+        if (!response.status.isSuccess()) return null
+
+        // リダイレクトを追った結果、別のホストに移っていたら信用しない
+        val fetchedFrom = response.request.url.host
+        if (!fetchedFrom.equals(requestUrl.host, ignoreCase = true)) return null
+
+        val body = runCatching { response.bodyAsText() }.getOrNull() ?: return null
+        if (body.length > MAX_BODY_CHARS) return null
+
+        return runCatching { AppJson.decodeFromString(RemoteActorDocument.serializer(), body) }
+            .getOrNull()
+    }
+
+    private fun parseHttpsUrl(raw: String): Url? =
+        runCatching { Url(raw) }
+            .getOrNull()
+            ?.takeIf { it.protocol == URLProtocol.HTTPS }
+
+    private fun isSameHost(
+        raw: String,
+        expected: Url,
+    ): Boolean {
+        val host = runCatching { Url(raw) }.getOrNull()?.host ?: return false
+        return host.equals(expected.host, ignoreCase = true)
     }
 
     private companion object {
@@ -108,7 +140,7 @@ class RemoteActorKeys(
 }
 
 /**
- * 相手のアクター文書のうち、鍵の取得に必要な部分だけ。
+ * 相手のアクター文書のうち、こちらが見る部分だけ。
  *
  * こちらが返す [net.matsudamper.mastodon.rss.activitypub.Actor] を使い回さないのは、
  * あちらが「返すときに必ず入れるもの」を必須にしているため。相手の実装が
@@ -117,6 +149,7 @@ class RemoteActorKeys(
 @Serializable
 private data class RemoteActorDocument(
     val id: String? = null,
+    val inbox: String? = null,
     val publicKey: RemoteActorPublicKey? = null,
 )
 

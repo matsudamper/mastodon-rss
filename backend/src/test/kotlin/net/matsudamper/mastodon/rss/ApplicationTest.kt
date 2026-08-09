@@ -17,7 +17,7 @@ class ApplicationTest {
     fun `healthzにアクセスすると200とstatus okのJSONが返る`() =
         testApplication {
             application {
-                module(FakeRepositories(), TestActorKey.value, TestServerEnv.value, TestPublicKeys())
+                module(FakeRepositories(), TestActorKey.value, TestServerEnv.value, TestRemoteActors(), TestDelivery())
             }
 
             val response = client.get("/healthz")
@@ -32,7 +32,7 @@ class ApplicationTest {
         testApplication {
             val repositories = FakeRepositories()
             application {
-                module(repositories, TestActorKey.value, TestServerEnv.value, TestPublicKeys())
+                module(repositories, TestActorKey.value, TestServerEnv.value, TestRemoteActors(), TestDelivery())
             }
 
             // testApplication は最初のリクエストまでアプリケーションを起動しない

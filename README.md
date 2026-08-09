@@ -20,9 +20,10 @@ flowchart TB
         route["routing<br/>GET /healthz"]
         json["json<br/>AppJson<br/>respondJson"]
         ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
-        actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls<br/>RemoteActorKeys"]
-        inbox["inbox<br/>POST /users/{name}/inbox"]
-        sig["httpsignature<br/>HttpSignatureVerifier<br/>SigningString<br/>BodyDigest"]
+        actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls<br/>HttpRemoteActors"]
+        inbox["inbox<br/>POST /users/{name}/inbox<br/>FollowHandler"]
+        sig["httpsignature<br/>HttpSignatureVerifier<br/>HttpSignatureSigner<br/>SigningString<br/>BodyDigest"]
+        delivery["delivery<br/>HttpActivityDelivery"]
         static["staticfiles<br/>StaticFiles<br/>staticRoutes"]
     end
 
@@ -57,10 +58,14 @@ flowchart TB
     actor --> keys
     module --> inbox
     inbox --> sig
-    sig -->|署名の検証| sign
+    inbox -->|Follow に Accept| delivery
+    delivery -->|送信の署名| sig
+    sig -->|署名の検証と生成| sign
     sig -->|keyId から公開鍵| actor
-    remote[("相手のサーバー<br/>keyId を GET")]
+    inbox -->|相手の inbox| actor
+    remote[("相手のサーバー<br/>アクター文書を GET<br/>inbox に POST")]
     actor --> remote
+    delivery --> remote
     key[("秘密鍵の PEM<br/>ACTOR_PRIVATE_KEY_PATH")]
     actor --> key
     dist[("静的ファイル<br/>STATIC_SRC_DIR")]
@@ -199,10 +204,14 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 `{name}` として応答するのは `ACTOR_USERNAME`（既定 `admin`）と、`test-` で始まる
 任意の名前の 2 通り。後者は動作確認用で、下の「動作確認用のアカウント」を参照。
 
-inbox は署名が通れば 202、通らなければ 401 を返す。届いたアクティビティは
-種類と送り主をログに出すだけで、まだ処理していない。検証の内容は
+inbox は署名が通れば 202、通らなければ 401 を返す。検証の内容は
 [HttpSignatureVerifier.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
 の KDoc にある。
+
+届いたアクティビティのうち処理するのは `Follow` だけで、相手の inbox に `Accept` を
+返してフォローを成立させる。フォロワーはまだ保存しないので、再起動すると
+こちらには何も残らない（相手側にはフォローが残る）。それ以外の種類は
+種類と送り主をログに出すだけ。
 
 ```sh
 curl "http://localhost:8080/.well-known/webfinger?resource=acct:admin@example.com"
