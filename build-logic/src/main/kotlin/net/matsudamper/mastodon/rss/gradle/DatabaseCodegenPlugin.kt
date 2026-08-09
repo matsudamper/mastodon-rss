@@ -11,18 +11,11 @@ import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 
 /**
- * マイグレーション SQL を入力に、実行時とビルド時の両方で要るものを作る。
+ * マイグレーション SQL を入力に、実行時に読む一覧と jOOQ の生成コードを作る。
  *
- * - `db/migration/index`: 実行時にマイグレーションを読むための一覧
- * - jOOQ の生成コード: テーブルの型
- * - `reflect-config.json`: 生成コードの native-image 向けリフレクション設定
- *
- * 手で codegen を叩く操作は無い。SQL を足して普通にビルドすれば型が増える。
- * どういう順で走るかは、SQL と同じ場所に置いた README を参照。
- *
- * 使う側は codegen 用の依存を `jooqCodegen` に入れる。バージョンを
- * このプラグインに持たせないのは、version catalog の外にバージョンが
- * 散ると Renovate の追従から外れるため。
+ * codegen 用の依存は使う側が `jooqCodegen` に入れる。バージョンをこのプラグインに
+ * 持たせないのは、version catalog の外にバージョンが散ると Renovate の追従から
+ * 外れるため。
  */
 class DatabaseCodegenPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -35,7 +28,6 @@ class DatabaseCodegenPlugin : Plugin<Project> {
             target.provider { "${target.group}/${target.name}-jooq" },
         )
 
-        // codegen は実行時には要らないので、どの sourceSet の classpath にも入れない
         val codegenConfiguration =
             target.configurations.create(CODEGEN_CONFIGURATION) {
                 isCanBeConsumed = false
@@ -89,9 +81,6 @@ class DatabaseCodegenPlugin : Plugin<Project> {
                     outputDirectory.set(target.layout.buildDirectory.dir("generated/jooqNativeImage"))
                 }
 
-            // 出力を sourceSet に足すと、compileJava / compileKotlin と
-            // processResources が生成タスクに依存する。初回ビルドで
-            // 生成物が無くて落ちることは無い
             target.extensions.getByType<SourceSetContainer>().named("main") {
                 resources.srcDir(generateMigrationIndex.flatMap { it.outputDirectory })
                 resources.srcDir(generateJooqReflectConfig.flatMap { it.outputDirectory })

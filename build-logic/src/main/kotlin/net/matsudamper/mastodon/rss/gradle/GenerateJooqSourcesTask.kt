@@ -39,12 +39,6 @@ abstract class GenerateJooqSourcesTask : DefaultTask() {
     @get:Input
     abstract val packageName: Property<String>
 
-    /**
-     * 生成の対象から外すものの正規表現。
-     *
-     * 管理表のように、生成すると触れてはいけないものを DSL から触れるように
-     * してしまうテーブルを外す。
-     */
     @get:Input
     abstract val excludes: Property<String>
 

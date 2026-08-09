@@ -3,11 +3,7 @@ package net.matsudamper.mastodon.rss.gradle
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
 
-/**
- * [DatabaseCodegenPlugin] の設定。
- *
- * 既定値で足りる場合は何も書かなくてよい。
- */
+/** [DatabaseCodegenPlugin] の設定 */
 interface DatabaseCodegenExtension {
     /** マイグレーション SQL の置き場所。既定は `src/main/resources/db/migration` */
     val migrationDirectory: DirectoryProperty
