@@ -47,7 +47,11 @@ RUN apt-get update \
     && chown app:app /data
 
 COPY --from=build /src/backend/build/native/nativeCompile/mastodon-rss /usr/local/bin/mastodon-rss
-COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# entrypoint をバイナリと同じ /usr/local/bin に置かないのは、ローカルでビルドした
+# バイナリを差し替えるときに /usr/local/bin ごとマウントするため。同じ場所に置くと
+# entrypoint がマウントに隠されて、コンテナが起動すらできなくなる
+COPY --chmod=0755 docker-entrypoint.sh /docker-entrypoint.sh
 
 # DB とアクターの秘密鍵はボリュームに置く。コンテナを作り直しても
 # フォロワーが消えず、アクターも同一人物のままになるように
@@ -66,4 +70,4 @@ WORKDIR /app
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -fsS "http://127.0.0.1:${PORT}/healthz" > /dev/null || exit 1
 
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
