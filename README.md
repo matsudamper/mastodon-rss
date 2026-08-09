@@ -194,9 +194,15 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | `GET /healthz` | 生存確認。`{"status":"ok"}` |
 | `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
 | `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
+| `POST /users/{name}/inbox` | アクティビティの受け口。HTTP Signatures を検証する |
 
 `{name}` として応答するのは `ACTOR_USERNAME`（既定 `admin`）と、`test-` で始まる
 任意の名前の 2 通り。後者は動作確認用で、下の「動作確認用のアカウント」を参照。
+
+inbox は署名が通れば 202、通らなければ 401 を返す。届いたアクティビティは
+種類と送り主をログに出すだけで、まだ処理していない。検証の内容は
+[HttpSignatureVerifier.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
+の KDoc にある。
 
 ```sh
 curl "http://localhost:8080/.well-known/webfinger?resource=acct:admin@example.com"

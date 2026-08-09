@@ -25,9 +25,10 @@ Phase 2 は受信側まで。inbox がアクティビティを受け取り、HTT
 検証して 202 か 401 を返すところまで実装した。中身はログに出すだけで、
 `Follow` に `Accept` を返していないので、フォローボタンは保留のまま戻らない。
 
+受信側は実機で確認済み。Mastodon からフォローすると `Follow` が、
+解除すると `Undo` が届き、どちらも署名の検証を通っている。
+
 次の一手: 送信側の署名と `Follow` への `Accept` 返し（チェックポイント 2）。
-受信側が動いていることは、フォローを試したときの `inbox で受信: type=Follow` の
-ログで確かめられる。
 
 Phase 0 でやったことと順序の理由:
 
@@ -506,9 +507,8 @@ ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signa
       - [x] `keyId`（例: `https://mastodon.social/users/foo#main-key`）のアクターを GET して公開鍵を取得
             - `actor/RemoteActorKeys.kt`。相手が指定した URL を GET することになるので、
               https のみ・別ホストへのリダイレクトは捨てる・`owner` は `keyId` と同じホスト、で縛る
-            - Ktor の HTTP クライアント（CIO）を入れた。native バイナリで外向きの HTTPS を
-              張れるかは CI では確かめられていない（起動確認は localhost しか叩かないため）。
-              チェックポイント 2 を native で試すときに最初に疑うのはここ
+            - Ktor の HTTP クライアント（CIO）を入れた。native バイナリから外向きの HTTPS を
+              張れることは実機で確認済み（CI の起動確認は localhost しか叩かないので分からない）
       - [x] `headers` の並び順どおりに署名文字列を再構築
             - `(request-target): post /users/admin/inbox`
             - `host: example.com`
