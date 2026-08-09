@@ -43,67 +43,93 @@ data class AppConfig(
         /**
          * 環境変数の読み取り元を差し替えられる形。テストから使う。
          *
-         * [ENV_DOMAIN] だけは既定値を用意せず、無ければ落とす。適当な値で起動できると
-         * `localhost` のようなドメインが焼き込まれたアクター ID を配ることになり、
-         * Mastodon はリモートアクターを永続キャッシュするので相手側からは直せない。
+         * 空文字と空白だけの指定はどれも未設定と同じに扱う。docker compose の
+         * `${VAR}` が空で展開されたときに、既定値へ落ちる方が扱いやすい。
          */
         internal fun from(getenv: (String) -> String?): AppConfig {
-            // 空文字と空白だけの指定は未設定と同じに扱う。docker compose の
-            // ${VAR} が空で展開されたときに、既定値へ落ちる方が扱いやすい
-            fun read(name: String): String? = getenv(name)?.trim()?.takeIf { it.isNotEmpty() }
+            val host: String =
+                run {
+                    val raw = getenv(ENV_HOST)?.trim()
+                    if (raw.isNullOrEmpty()) DEFAULT_HOST else raw
+                }
 
-            val domain =
-                read(ENV_DOMAIN)?.let(::normalizeDomain)
-                    ?: throw IllegalArgumentException(
-                        "$ENV_DOMAIN が未設定。WebFinger の acct とアクターの id に使うので必ず指定すること",
-                    )
+            val port: Int =
+                run {
+                    // 数値でなければ既定値に落とす
+                    getenv(ENV_PORT)?.trim()?.toIntOrNull() ?: DEFAULT_PORT
+                }
+
+            val domain: String =
+                run {
+                    // アクター ID に焼き込まれる値なので、末尾の / は落としておく。
+                    // https://example.com/ のような URL ごと渡されることも考えて scheme も落とす
+                    val normalized =
+                        getenv(ENV_DOMAIN)
+                            ?.trim()
+                            ?.removePrefix("https://")
+                            ?.removePrefix("http://")
+                            ?.trimEnd('/')
+
+                    // 既定値を用意して起動できてしまうと、localhost のようなドメインが
+                    // 焼き込まれたアクター ID を配ることになる。Mastodon はリモートアクターを
+                    // 永続キャッシュするので、相手側からは直せない。落とす方が安い
+                    require(!normalized.isNullOrEmpty()) {
+                        "$ENV_DOMAIN が未設定。WebFinger の acct とアクターの id に使うので必ず指定すること"
+                    }
+                    normalized
+                }
+
+            val actorUsername: String =
+                run {
+                    val raw = getenv(ENV_ACTOR_USERNAME)?.trim()
+                    if (raw.isNullOrEmpty()) DEFAULT_ACTOR_USERNAME else raw
+                }
+
+            val dbPath: Path =
+                run {
+                    val raw = getenv(ENV_DB_PATH)?.trim()
+                    Path.of(if (raw.isNullOrEmpty()) DEFAULT_DB_PATH else raw)
+                }
+
+            // PEM は中身をそのまま鍵として読むので、前後の空白も落とさずに渡す
+            val actorPrivateKeyPem: String? = getenv(ENV_ACTOR_PRIVATE_KEY_PEM)?.takeIf { it.isNotBlank() }
+
+            val actorPrivateKeyPath: String? = getenv(ENV_ACTOR_PRIVATE_KEY_PATH)?.trim()?.takeIf { it.isNotEmpty() }
+
+            val actorKey: ActorKeyConfig =
+                run {
+                    // 両方が設定されていたら落とす。片方を黙って無視すると、意図していない鍵で
+                    // 起動したことに気付けない。鍵が変わると相手側は署名検証に失敗し続けるうえ、
+                    // Mastodon はアクターをキャッシュするので後から直しても戻りが遅い
+                    require(actorPrivateKeyPem == null || actorPrivateKeyPath == null) {
+                        "$ENV_ACTOR_PRIVATE_KEY_PEM と $ENV_ACTOR_PRIVATE_KEY_PATH は同時に指定できない。どちらか一方にすること"
+                    }
+
+                    if (actorPrivateKeyPem != null) {
+                        ActorKeyConfig.Pem(actorPrivateKeyPem)
+                    } else {
+                        ActorKeyConfig.File(Path.of(actorPrivateKeyPath ?: DEFAULT_ACTOR_PRIVATE_KEY_PATH))
+                    }
+                }
+
+            val staticSrcDir: Path? =
+                run {
+                    val raw = getenv(ENV_STATIC_SRC_DIR)?.trim()
+                    if (raw.isNullOrEmpty()) null else Path.of(raw)
+                }
 
             return AppConfig(
                 server =
                     ServerConfig(
-                        host = read(ENV_HOST) ?: DEFAULT_HOST,
-                        port = read(ENV_PORT)?.toIntOrNull() ?: DEFAULT_PORT,
+                        host = host,
+                        port = port,
                         domain = domain,
-                        actorUsername = read(ENV_ACTOR_USERNAME) ?: DEFAULT_ACTOR_USERNAME,
+                        actorUsername = actorUsername,
                     ),
-                actorKey = actorKeyConfig(getenv = getenv, path = read(ENV_ACTOR_PRIVATE_KEY_PATH)),
-                database = DatabaseConfig(path = Path.of(read(ENV_DB_PATH) ?: DEFAULT_DB_PATH)),
-                staticFiles = StaticFilesConfig(srcDir = read(ENV_STATIC_SRC_DIR)?.let(Path::of)),
+                actorKey = actorKey,
+                database = DatabaseConfig(path = dbPath),
+                staticFiles = StaticFilesConfig(srcDir = staticSrcDir),
             )
         }
-
-        /**
-         * 鍵の取得元を決める。
-         *
-         * 両方が設定されていたら落とす。片方を黙って無視すると、意図していない鍵で
-         * 起動したことに気付けない。鍵が変わると相手側は署名検証に失敗し続けるうえ、
-         * Mastodon はアクターをキャッシュするので後から直しても戻りが遅い。
-         */
-        private fun actorKeyConfig(
-            getenv: (String) -> String?,
-            path: String?,
-        ): ActorKeyConfig {
-            // PEM は中身をそのまま鍵として読むので、前後の空白も落とさずに渡す
-            val pem = getenv(ENV_ACTOR_PRIVATE_KEY_PEM)?.takeIf { it.isNotBlank() }
-
-            require(pem == null || path == null) {
-                "$ENV_ACTOR_PRIVATE_KEY_PEM と $ENV_ACTOR_PRIVATE_KEY_PATH は同時に指定できない。どちらか一方にすること"
-            }
-
-            return if (pem != null) {
-                ActorKeyConfig.Pem(pem)
-            } else {
-                ActorKeyConfig.File(Path.of(path ?: DEFAULT_ACTOR_PRIVATE_KEY_PATH))
-            }
-        }
-
-        // アクター ID に焼き込まれる値なので、末尾の / は落としておく。
-        // https://example.com/ のような URL ごと渡されることも考えて scheme も落とす
-        private fun normalizeDomain(raw: String): String? =
-            raw
-                .removePrefix("https://")
-                .removePrefix("http://")
-                .trimEnd('/')
-                .takeIf { it.isNotEmpty() }
     }
 }
