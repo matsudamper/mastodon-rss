@@ -36,6 +36,9 @@ jOOQ の生成コードは、ここの SQL から自動で作られる。codegen
 2. `generateJooq` がその DB を読んで `build/generated/jooq` に Java を生成する
 3. `compileKotlin` / `compileJava` が生成物を含めてコンパイルする
 
+これらのタスクは `build-logic` の `DatabaseCodegenPlugin` が登録する。
+`db/migration/index` と native-image 向けのリフレクション設定も同じプラグインが作る。
+
 `compileKotlin` は生成タスクに依存しているので、SQL を足して普通にビルドすれば
 テーブルの型は増えている。実行時の DB も、開発用のローカル DB も要らない。
 

@@ -635,7 +635,7 @@ native-image のリフレクション設定という負債だけが先に増え�
   どういう SQL が要るかはここから見えるので、判断の材料に使える
   （`findExistingKeys` の IN 句のような、書き方に差が出るものが含まれている）
 
-決めたこと: **採用する**。想定していた native-image のリスクは実際に踏んだが、
+決めたことは採用。想定していた native-image のリスクは実際に踏んだが、
 原因が特定できて 2 行の設定に収まったので、これから増える SQL の量に対して割に合う。
 
 やったこと:
@@ -649,7 +649,8 @@ native-image のリフレクション設定という負債だけが先に増え�
         直接読む `DDLDatabase` もあるが、そちらは jOOQ 自身のパーサで DDL を解釈するので、
         SQLite の型親和性まで一致する保証が無い
 - [x] `compileKotlin` が codegen タスクに依存するようにする（初回ビルドで生成物が無くて落ちないように）
-      - `sourceSets.main.java.srcDir(generateJooq)` に TaskProvider を渡すことで依存が付く
+      - 生成物を sourceSet に足すことで依存が付く。タスクの定義は
+        `build-logic` の `DatabaseCodegenPlugin` にある
 - [x] マイグレーション SQL が変わったら codegen が再実行されるよう入力を宣言する（up-to-date チェックを効かせる）
 - [x] 生成コードは git 管理しない（`build/` 配下なので `.gitignore` 済み）
 - [x] jOOQ の SQLite dialect を使う（OSS 版で対応している）

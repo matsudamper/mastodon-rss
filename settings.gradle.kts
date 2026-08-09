@@ -1,6 +1,10 @@
 rootProject.name = "mastodon-rss"
 
 pluginManagement {
+    // ビルドスクリプトのタスク定義は build-logic のプラグインに寄せている。
+    // 複合ビルドとして取り込むので、build.gradle.kts からは id で参照できる
+    includeBuild("build-logic")
+
     repositories {
         gradlePluginPortal()
         mavenCentral()

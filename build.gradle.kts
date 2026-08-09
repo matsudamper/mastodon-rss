@@ -26,3 +26,12 @@ allprojects {
         version.set(ktlintVersion)
     }
 }
+
+// build-logic は別のビルドなので、ここから辿っただけでは検査されない。
+// CI が叩くのは root の ktlintCheck だけなので、繋いでおかないと
+// ビルドスクリプトのプラグインだけ整形が効かなくなる
+listOf("ktlintCheck", "ktlintFormat").forEach { taskName ->
+    tasks.named(taskName) {
+        dependsOn(gradle.includedBuild("build-logic").task(":$taskName"))
+    }
+}
