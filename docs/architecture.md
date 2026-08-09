@@ -8,8 +8,9 @@
 ## モジュールの分け方
 
 `:backend` から見えるのは `:backend:repository` の公開 API だけ。実装は `internal` で、
-sqlite-jdbc も `implementation` で入れているため、JDBC の型は `:backend` の
-compile classpath にも現れない。
+sqlite-jdbc と jOOQ も `implementation` で入れているため、JDBC と jOOQ の型は
+`:backend` の compile classpath にも現れない。jOOQ の生成コードも
+`:backend:repository` の中で閉じていて、外には出さない。
 
 `:backend:crypto` は `:backend` がアクターの鍵を読むために使っている。HTTP Signatures の
 署名と検証で使うのは Phase 2 から。別モジュールに切り出してあるのは、

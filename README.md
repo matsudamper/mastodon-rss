@@ -36,6 +36,7 @@ flowchart TB
     subgraph repository[":backend:repository"]
         api["公開 API<br/>Repositories<br/>DatabaseConfig"]
         impl["internal 実装<br/>SqliteRepositories<br/>SqliteConnectionManager<br/>MigrationLoader<br/>MigrationRunner"]
+        gen["jOOQ 生成コード<br/>ビルド時に SQL から生成<br/>git には入らない"]
         res["リソース<br/>db/migration/V001__init.sql<br/>db/migration/index<br/>resource-config.json"]
     end
 
@@ -60,7 +61,9 @@ flowchart TB
     main -->|load| actor
     module -->|verifyWritable| api
     api -.->|backend からは見えない| impl
+    impl -->|テーブルの型| gen
     impl --> res
+    res -.->|codegen の入力| gen
     impl --> db
     actor --> keys
     module --> inbox

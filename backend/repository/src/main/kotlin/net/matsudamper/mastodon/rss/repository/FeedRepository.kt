@@ -5,10 +5,10 @@ import java.time.Instant
 /**
  * 購読しているフィードの読み書き。
  *
- * 実装はまだ無い。DB アクセスの方法（素の JDBC か jOOQ か）が決まっていないため、
+ * 実装はまだ無い。テーブルを作るマイグレーションが無く、jOOQ の生成物も無いため、
  * 先に「取り込み処理から何ができれば足りるのか」だけを固めてある。
  * 実装を入れるときは [Repositories] からこの interface を取れるようにして、
- * SQL は `:backend:repository` の中に閉じる。
+ * クエリは `:backend:repository` の中に閉じる。
  *
  * ここに置く型は保存する形であって、XML を読んだ結果ではない。
  * パーサ側の型（`:backend:rss` の `ParsedFeed`）とは別に定義してある。
