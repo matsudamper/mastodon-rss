@@ -9,7 +9,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestActorKey
-import net.matsudamper.mastodon.rss.TestServerConfig
+import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.module
 import java.nio.file.Files
 import java.nio.file.Path
@@ -35,7 +35,7 @@ class StaticRoutesTest {
     fun `rootにアクセスするとindex_htmlが返る`() =
         testApplication {
             putFile("index.html", "<html><body>Hello World</body></html>")
-            applicationWith(StaticFilesConfig(root))
+            applicationWith(root)
 
             val response = client.get("/")
 
@@ -49,7 +49,7 @@ class StaticRoutesTest {
         testApplication {
             putFile("index.html", "<html></html>")
             putFile("frontend.wasm", "wasm")
-            applicationWith(StaticFilesConfig(root))
+            applicationWith(root)
 
             val response = client.get("/frontend.wasm")
 
@@ -61,7 +61,7 @@ class StaticRoutesTest {
     fun `画面のパスはindex_htmlが返る`() =
         testApplication {
             putFile("index.html", "<html></html>")
-            applicationWith(StaticFilesConfig(root))
+            applicationWith(root)
 
             val response = client.get("/admin/password-hash")
 
@@ -73,7 +73,7 @@ class StaticRoutesTest {
     fun `無いファイルは404が返る`() =
         testApplication {
             putFile("index.html", "<html></html>")
-            applicationWith(StaticFilesConfig(root))
+            applicationWith(root)
 
             assertEquals(HttpStatusCode.NotFound, client.get("/missing.js").status)
         }
@@ -82,7 +82,7 @@ class StaticRoutesTest {
     fun `エンコードした親ディレクトリでも外のファイルは読めない`() =
         testApplication {
             putFile("index.html", "<html></html>")
-            applicationWith(StaticFilesConfig(root))
+            applicationWith(root)
 
             assertEquals(HttpStatusCode.NotFound, client.get("/%2e%2e/secret.txt").status)
         }
@@ -90,7 +90,7 @@ class StaticRoutesTest {
     @Test
     fun `配信先が未設定ならrootは404が返る`() =
         testApplication {
-            applicationWith(StaticFilesConfig(srcDir = null))
+            applicationWith(srcDir = null)
 
             assertEquals(HttpStatusCode.NotFound, client.get("/").status)
         }
@@ -98,7 +98,7 @@ class StaticRoutesTest {
     @Test
     fun `配信先のディレクトリが無ければrootは404が返る`() =
         testApplication {
-            applicationWith(StaticFilesConfig(root.resolve("not-exists")))
+            applicationWith(root.resolve("not-exists"))
 
             assertEquals(HttpStatusCode.NotFound, client.get("/").status)
         }
@@ -109,7 +109,7 @@ class StaticRoutesTest {
             // healthz という名前のファイルを置いても、こちらが勝ってはいけない
             putFile("healthz", "static")
             putFile("index.html", "<html></html>")
-            applicationWith(StaticFilesConfig(root))
+            applicationWith(root)
 
             val response = client.get("/healthz")
 
@@ -117,9 +117,16 @@ class StaticRoutesTest {
             assertEquals("""{"status":"ok"}""", response.bodyAsText())
         }
 
-    private fun ApplicationTestBuilder.applicationWith(staticFilesConfig: StaticFilesConfig) {
+    private fun ApplicationTestBuilder.applicationWith(srcDir: Path?) {
+        val env =
+            if (srcDir == null) {
+                TestServerEnv.value
+            } else {
+                TestServerEnv.of("STATIC_SRC_DIR" to srcDir.toString())
+            }
+
         application {
-            module(FakeRepositories(), TestActorKey.value, TestServerConfig.value, staticFilesConfig)
+            module(FakeRepositories(), TestActorKey.value, env)
         }
     }
 
