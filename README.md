@@ -20,7 +20,9 @@ flowchart TB
         route["routing<br/>GET /healthz"]
         json["json<br/>AppJson<br/>respondJson"]
         ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
-        actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls"]
+        actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls<br/>RemoteActorKeys"]
+        inbox["inbox<br/>POST /users/{name}/inbox"]
+        sig["httpsignature<br/>HttpSignatureVerifier<br/>SigningString<br/>BodyDigest"]
         static["staticfiles<br/>StaticFiles<br/>staticRoutes"]
     end
 
@@ -53,7 +55,12 @@ flowchart TB
     impl --> res
     impl --> db
     actor --> keys
-    ap -.->|Phase 2 で接続| sign
+    module --> inbox
+    inbox --> sig
+    sig -->|署名の検証| sign
+    sig -->|keyId から公開鍵| actor
+    remote[("相手のサーバー<br/>keyId を GET")]
+    actor --> remote
     key[("秘密鍵の PEM<br/>ACTOR_PRIVATE_KEY_PATH")]
     actor --> key
     dist[("静的ファイル<br/>STATIC_SRC_DIR")]
