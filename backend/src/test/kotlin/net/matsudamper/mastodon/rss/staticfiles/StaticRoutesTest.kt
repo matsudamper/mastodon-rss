@@ -118,8 +118,15 @@ class StaticRoutesTest {
         }
 
     private fun ApplicationTestBuilder.applicationWith(srcDir: Path?) {
+        val env =
+            if (srcDir == null) {
+                TestServerEnv.value
+            } else {
+                TestServerEnv.of("STATIC_SRC_DIR" to srcDir.toString())
+            }
+
         application {
-            module(FakeRepositories(), TestActorKey.value, TestServerEnv.value.copy(staticSrcDir = srcDir))
+            module(FakeRepositories(), TestActorKey.value, env)
         }
     }
 

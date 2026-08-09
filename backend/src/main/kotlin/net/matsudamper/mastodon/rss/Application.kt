@@ -24,7 +24,7 @@ import java.nio.file.Path
 
 fun main() {
     // 環境変数を読むのはここだけ。以降は引数で配る
-    val env = ServerEnv.fromEnvironment()
+    val env = ServerEnv()
 
     // 鍵が用意できないなら起動しても意味が無いので、サーバーを立てる前に読む
     val actorKey = ActorKeyLoader.load(env.actorPrivateKey)

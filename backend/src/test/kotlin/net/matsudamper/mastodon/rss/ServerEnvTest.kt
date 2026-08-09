@@ -10,8 +10,8 @@ import kotlin.test.assertNull
 // 変数と既定値の一覧としてもこのテストを見れば分かるようにしておく。
 class ServerEnvTest {
     private fun env(vararg values: Pair<String, String>): ServerEnv {
-        val map = values.toMap() + ("DOMAIN" to "example.com")
-        return ServerEnv.from { map[it] }
+        val env = values.toMap() + ("DOMAIN" to "example.com")
+        return ServerEnv { env[it] }
     }
 
     @Test
@@ -71,7 +71,7 @@ class ServerEnvTest {
 
     @Test
     fun `DOMAIN の scheme と末尾のスラッシュを落とす`() {
-        fun domain(raw: String): String = ServerEnv.from { if (it == "DOMAIN") raw else null }.domain
+        fun domain(raw: String): String = ServerEnv { if (it == "DOMAIN") raw else null }.domain
 
         assertEquals("example.com", domain("https://example.com"))
         assertEquals("example.com", domain("http://example.com/"))
@@ -82,9 +82,9 @@ class ServerEnvTest {
     // Mastodon 側にキャッシュされて後から直せない
     @Test
     fun `DOMAIN が未設定なら落ちる`() {
-        assertFailsWith<IllegalArgumentException> { ServerEnv.from { null } }
-        assertFailsWith<IllegalArgumentException> { ServerEnv.from { "   " } }
-        assertFailsWith<IllegalArgumentException> { ServerEnv.from { "https://" } }
+        assertFailsWith<IllegalArgumentException> { ServerEnv { null } }
+        assertFailsWith<IllegalArgumentException> { ServerEnv { "   " } }
+        assertFailsWith<IllegalArgumentException> { ServerEnv { "https://" } }
     }
 
     // URL のパスと acct の両方に入るので、区切り文字が混ざると別のものを指してしまう
