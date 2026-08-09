@@ -45,8 +45,8 @@ Phase 0 でやったことと順序の理由:
 
 jOOQ の codegen は Phase 0 から外した。現在のスキーマは `health_check` と `schema_version` だけで、
 生成しても使う場所が無く、native-image のリフレクション設定だけが先に増える。
-スキーマが実際に必要になる Phase 3 の直前に、採用するかどうかごと判断する。
-詳細は Phase 2 と Phase 3 の間に置いた「jOOQ を採用するかの判断」を参照。
+Phase 3 に入る前に採用するかを判断し、見送ることにした。
+詳細は Phase 2 と Phase 3 の間に置いた「jOOQ を採用しない（判断済み）」を参照。
 
 DB を ActivityPub (Phase 1) より先に入れたのは、native-image で壊れるとしたら
 SQLite のネイティブライブラリが原因になる可能性が高く、
@@ -60,7 +60,7 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 | ランタイム | GraalVM (native-image) |
 | HTTP サーバー | Ktor (CIO) |
 | DB | SQLite |
-| DB アクセス | 素の JDBC（jOOQ を入れるかは Phase 3 の直前に判断する） |
+| DB アクセス | 素の JDBC（jOOQ は見送った。理由は Phase 2 と Phase 3 の間の節を参照） |
 | 署名 | JCA（RSA / SHA256withRSA）。ライブラリは足さない |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
 | 管理 API | GraphQL。サーバーは graphql-java、クライアントは Apollo Kotlin（Phase 8 で作る） |
@@ -536,43 +536,42 @@ Mastodon からフォローボタンを押す → 数秒後に「フォロー中
 
 ---
 
-## jOOQ を採用するかの判断（Phase 3 に入る前に決める）
+## jOOQ を採用しない（判断済み）
 
 当初は Phase 0 の 0-6 で codegen を組む予定だったが、Phase 0 から外した。
-理由は、この時点のスキーマが `health_check` と `schema_version` だけで生成しても使う場所が無く、
+理由は、その時点のスキーマが `health_check` と `schema_version` だけで生成しても使う場所が無く、
 native-image のリフレクション設定という負債だけが先に増えるため。
-スキーマが実際に必要になる Phase 3 の直前なら、テーブルの数と SQL の複雑さを見てから決められる。
+「スキーマが実際に必要になる Phase 3 の直前に、テーブルの数と SQL の複雑さを見てから決める」
+としていたので、Phase 3 に入る前にここで判断する。
 
-判断の材料:
+判断: **見送る。`:backend:repository` は素の JDBC を継続する。**
 
-- Phase 3 で増えるのは `actors` / `remote_actors` / `followers` / `deliveries` の 4 テーブル。
-  この規模なら素の JDBC で書ききれる可能性がある
-- `:backend:repository` はすでに素の JDBC で完結していて、native バイナリでも動いている。
-  jOOQ を入れると native-image の未知のリスクが 1 つ戻ってくる
-- 一方で配信キューの状態遷移や、フォロワーのページングは SQL が込み入るので、
-  型のある DSL の恩恵が効く場面ではある
+判断材料:
 
-採用する場合にやること:
+- Phase 3 で増えるのは `actors` / `remote_actors` / `followers` / `deliveries` の 4 テーブルのみ。
+  この規模なら、既に `SqliteRepositories` でやっているような素の JDBC（SQL 定数 + 手書きの行マッピング）で
+  無理なく書ききれる。生成コードの恩恵がコストを上回るほどの規模ではない
+- `:backend:repository` はすでに素の JDBC で完結していて、native バイナリでの動作を CI で継続的に確認できている。
+  jOOQ を入れると、この項目のためだけにリフレクション設定（`reflect-config.json`）を新たに用意し、
+  native 経由でのクエリ動作確認をゼロから積み直す必要がある。
+  これは 0-7 で払ったコスト（`ContentNegotiation` のリフレクション排除など）の方向性に逆行する
+- Flyway を見送った理由（依存が重く native-image で追加対応が要る）が、jOOQ にもそのまま当てはまる。
+  依存を 1 つ増やすたびに、Phase 0 で潰してきた native-image のリスク要素が 1 つ戻ってくる
+- codegen パイプライン（一時 DB 作成 → マイグレーション適用 → codegen 実行 → sourceSet への追加）は、
+  4 テーブル程度のスキーマに対して明らかに不釣り合いに複雑
+- 配信キューの状態遷移やフォロワーのページングは SQL が込み入るとはいえ、
+  パラメータ化 SQL + 手書きの行マッピングで書ける規模。型のある DSL の恩恵は、
+  テーブル数がもっと増える・動的に WHERE/JOIN を組み立てる必要が出る、といった場面で効いてくるもので、
+  いまの規模ではまだ不足を感じていない
 
-- [ ] codegen のパイプラインを組む
-      1. 一時 SQLite ファイルを作る（`build/jooq/schema.db`）
-      2. `db/migration` の SQL を順に適用する
-      3. その DB を入力に jOOQ codegen を実行する
-      4. 出力を `build/generated/jooq` に置き、`:backend:repository` の sourceSet に加える
-- [ ] `compileKotlin` が codegen タスクに依存するようにする（初回ビルドで生成物が無くて落ちないように）
-- [ ] マイグレーション SQL が変わったら codegen が再実行されるよう入力を宣言する（up-to-date チェックを効かせる）
-- [ ] 生成コードは git 管理しない（`build/` 配下なので `.gitignore` 済み）
-- [ ] jOOQ の SQLite dialect を使う（OSS 版で対応している）
-- [ ] `nu.studer.jooq` プラグインを使うか、素の `JavaExec` で回すかを決める
-      - プラグインは楽だが Gradle との相性問題を踏むことがある。素の `JavaExec` + `configuration` の方が読める場合もある
-- [ ] jOOQ のログ設定を入れる（何もしないと起動時にバナーと警告が出る）
-- [ ] jOOQ のリフレクション設定（`reflect-config.json`）を用意する
-- [ ] native バイナリで jOOQ 経由のクエリが動くことを確認する
+再検討する条件: テーブル数が大きく増える、動的にクエリを組み立てる必要が出るなど、
+素の JDBC で書くのが明らかに辛くなったタイミング。それまでは持ち出さない。
 
-採用しない場合にやること:
+見送ったことに伴ってやること:
 
-- [ ] 「使用技術」の表と README から jOOQ を落とす
+- [x] 「使用技術」の表から jOOQ を落とす（README は元々 jOOQ に触れていないので変更不要）
 - [ ] SQL を書く場所の決まりを `:backend:repository` の中で決める（文字列定数か、専用のファイルか）
+      — Phase 3 でテーブルが増えたときに決める
 
 ---
 
@@ -844,7 +843,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 | 相手から 401 が返る | `Digest` ヘッダ未送信 / `Date` のずれ / secure mode で GET に署名がない |
 | 投稿が届かない | `to` に Public が入っていない / `cc` に followers がない |
 | アクターを直しても反映されない | Mastodon 側のキャッシュ（ユーザー名を変えて試す） |
-| native-image で落ちる | リフレクション設定不足（`@Serializable` 型の登録漏れなど）・SQLite ネイティブライブラリ・jOOQ を入れた場合はその設定 |
+| native-image で落ちる | リフレクション設定不足（`@Serializable` 型の登録漏れなど）・SQLite ネイティブライブラリ |
 | JVM のテストは通るのに native だけ落ちる | テストが native で実行されていない。`nativeTest` の対象に入れられないか検討する |
 | native バイナリでマイグレーションが動かない | SQL がリソースとして同梱されていない（`resource-config.json` 未登録）/ jar 内ディレクトリ走査に頼っている |
 | ログが 1 行も出ない | SLF4J の実装が classpath に無い。`No SLF4J providers were found` が出て以降すべて NOP になる |
