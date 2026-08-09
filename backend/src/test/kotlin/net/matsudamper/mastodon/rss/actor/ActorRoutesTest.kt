@@ -11,6 +11,7 @@ import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestServerConfig
+import net.matsudamper.mastodon.rss.TestStaticFilesConfig
 import net.matsudamper.mastodon.rss.activitypub.Actor
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
@@ -23,7 +24,7 @@ import kotlin.test.assertTrue
 class ActorRoutesTest {
     private fun ApplicationTestBuilder.installModule() {
         application {
-            module(FakeRepositories(), TestActorKey.value, TestServerConfig.value)
+            module(FakeRepositories(), TestActorKey.value, TestServerConfig.value, TestStaticFilesConfig.value)
         }
     }
 

@@ -18,6 +18,9 @@ compile classpath にも現れない。
 バイトコード書き換えに依存するので native-image では動かない。JCA の確認を
 そこに同居させると確認できなくなる。
 
+環境変数を読むのは `:backend` の入口（`AppConfig`）だけにする。`:backend:repository` の
+ような下位のモジュールは、値を引数で受け取る。
+
 `:frontend` と `:backend` のビルドを繋がないのは、繋ぐとサーバーのテストが
 Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられるため。wasm 側が
 壊れているとサーバーのテストも回せなくなる。配信は実行時のディレクトリを読む形にして、

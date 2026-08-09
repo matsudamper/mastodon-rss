@@ -3,8 +3,7 @@ package net.matsudamper.mastodon.rss
 /**
  * テストで使う `ServerConfig`。
  *
- * `ServerConfig.fromEnvironment()` は `DOMAIN` が無いと落ちるので、
- * `module` を呼ぶテストは環境変数に頼らずこれを渡す。
+ * `module` は設定を引数で受け取るので、テストからはこれを渡す。
  */
 object TestServerConfig {
     const val DOMAIN: String = "example.com"
@@ -12,8 +11,8 @@ object TestServerConfig {
 
     val value: ServerConfig =
         ServerConfig(
-            host = ServerConfig.DEFAULT_HOST,
-            port = ServerConfig.DEFAULT_PORT,
+            host = AppConfig.DEFAULT_HOST,
+            port = AppConfig.DEFAULT_PORT,
             domain = DOMAIN,
             actorUsername = USERNAME,
         )

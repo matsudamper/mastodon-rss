@@ -9,13 +9,11 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorKey
-import net.matsudamper.mastodon.rss.actor.ActorKeyConfig
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsername
 import net.matsudamper.mastodon.rss.actor.actorRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
-import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
@@ -24,15 +22,16 @@ import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
 
 fun main() {
-    val config = ServerConfig.fromEnvironment()
+    // 環境変数を読むのはここだけ。以降は引数で配る
+    val config = AppConfig.fromEnvironment()
 
     // 鍵が用意できないなら起動しても意味が無いので、サーバーを立てる前に読む
-    val actorKey = ActorKeyLoader.load(ActorKeyConfig.fromEnvironment())
+    val actorKey = ActorKeyLoader.load(config.actorKey)
 
     // サーバーが止まったら接続も閉じる。start(wait = true) は停止まで返ってこない
-    createRepositories(DatabaseConfig.fromEnvironment()).use { repositories ->
-        embeddedServer(CIO, port = config.port, host = config.host) {
-            module(repositories, actorKey, config)
+    createRepositories(config.database).use { repositories ->
+        embeddedServer(CIO, port = config.server.port, host = config.server.host) {
+            module(repositories, actorKey, config.server, config.staticFiles)
         }.start(wait = true)
     }
 }
@@ -40,8 +39,8 @@ fun main() {
 fun Application.module(
     repositories: Repositories,
     actorKey: ActorKey,
-    config: ServerConfig = ServerConfig.fromEnvironment(),
-    staticFilesConfig: StaticFilesConfig = StaticFilesConfig.fromEnvironment(),
+    config: ServerConfig,
+    staticFilesConfig: StaticFilesConfig,
 ) {
     // 書けない DB を抱えたまま起動すると、最初のリクエストまで問題に気付けない。
     // native バイナリでは SQLite のネイティブライブラリ周りで起きやすいので起動時に確かめる
@@ -62,7 +61,7 @@ fun Application.module(
     // どこから読んだ鍵なのかが後から追えるよう、取得元を必ず出す
     when (val origin = actorKey.origin) {
         is ActorKey.Origin.Environment -> {
-            log.info("アクターの秘密鍵: ${ActorKeyConfig.ENV_PRIVATE_KEY_PEM} から読んだ")
+            log.info("アクターの秘密鍵: ${AppConfig.ENV_ACTOR_PRIVATE_KEY_PEM} から読んだ")
         }
 
         is ActorKey.Origin.LoadedFile -> {
@@ -106,7 +105,7 @@ private fun Application.resolveStaticFiles(config: StaticFilesConfig): StaticFil
     val srcDir = config.srcDir
     if (srcDir == null) {
         log.info(
-            "${StaticFilesConfig.ENV_STATIC_SRC_DIR} が未設定なので静的ファイルを配信しない。" +
+            "${AppConfig.ENV_STATIC_SRC_DIR} が未設定なので静的ファイルを配信しない。" +
                 "管理画面を出すには :frontend の成果物を置いたディレクトリを指定する",
         )
         return null
