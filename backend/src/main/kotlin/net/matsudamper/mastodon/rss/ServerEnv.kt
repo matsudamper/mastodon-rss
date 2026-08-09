@@ -1,0 +1,160 @@
+package net.matsudamper.mastodon.rss
+
+import net.matsudamper.mastodon.rss.actor.ActorUsername
+import java.nio.file.Path
+
+/**
+ * 環境変数を読む唯一の場所。起動時にここで全部読み、以降は引数で配る。
+ *
+ * 各所で `System.getenv` を呼ぶと、どの変数が効くのかがコード全体を追わないと
+ * 分からなくなる。テストからも差し替えられず、既定値の確認しかできない。
+ * `:backend:repository` のようなライブラリ側のモジュールが環境を読むのも同じ理由でやめる。
+ * 何をどこから読むかを決めるのはアプリの入口の仕事にする。
+ *
+ * native-image では起動時に環境変数を読む方が設定ファイルより素直なので、
+ * 設定の入口そのものは環境変数に寄せている。
+ *
+ * @param host バインドするアドレス
+ * @param port 待ち受けポート
+ * @param domain 外部に公開するドメイン。WebFinger の `acct:` と Actor の `id` に使う。
+ *   Mastodon はリモートアクターを永続キャッシュするので、間違えると相手側からは直せない
+ * @param actorUsername 固定アクターのユーザー名。`acct:<name>@<domain>` と
+ *   `/users/<name>` の両方に入る。Phase 6 で複数アクターにするまでは 1 つだけ
+ * @param dbPath SQLite の DB ファイル。親ディレクトリは接続時に作られる
+ * @param actorPrivateKey アクターの秘密鍵をどこから読むか
+ * @param staticSrcDir 配信する静的ファイルのディレクトリ。未設定なら null で、何も配信しない
+ */
+data class ServerEnv(
+    val host: String,
+    val port: Int,
+    val domain: String,
+    val actorUsername: String,
+    val dbPath: Path,
+    val actorPrivateKey: ActorPrivateKey,
+    val staticSrcDir: Path?,
+) {
+    init {
+        // URL のパスと acct の両方に入るので、区切り文字が混ざると別のものを指してしまう
+        require(ActorUsername.isValid(actorUsername)) {
+            "ACTOR_USERNAME が使えない形式: $actorUsername。" +
+                "英数字と _ . - のみ、先頭と末尾は英数字か _ にすること"
+        }
+    }
+
+    /**
+     * アクターの秘密鍵の取得元。
+     *
+     * 鍵はアクターの同一性そのもので、変わると相手側の署名検証が通らなくなるため、
+     * どちらから読んだのかが起動ログから分かるように型で分けている。
+     */
+    sealed interface ActorPrivateKey {
+        /**
+         * PEM を直接渡す。Kubernetes の Secret や systemd の
+         * `EnvironmentFile` から入れる場合はこちら。
+         */
+        data class Pem(
+            val pem: String,
+        ) : ActorPrivateKey
+
+        /**
+         * PEM をファイルから読む。ファイルが無ければ生成して書き出す。
+         * docker compose のようにボリュームを持てる場合はこちら。
+         */
+        data class File(
+            val path: Path,
+        ) : ActorPrivateKey
+    }
+
+    companion object {
+        fun fromEnvironment(): ServerEnv = from(System::getenv)
+
+        /**
+         * 環境変数の読み取り元を差し替えられる形。テストから使う。
+         *
+         * 空文字と空白だけの指定はどれも未設定と同じに扱う。docker compose の
+         * `${VAR}` が空で展開されたときに、既定値へ落ちる方が扱いやすい。
+         */
+        internal fun from(getenv: (String) -> String?): ServerEnv {
+            val host: String =
+                run {
+                    val raw = getenv("HOST")?.trim()
+                    if (raw.isNullOrEmpty()) "0.0.0.0" else raw
+                }
+
+            val port: Int =
+                run {
+                    // 数値でなければ既定値に落とす
+                    getenv("PORT")?.trim()?.toIntOrNull() ?: 8080
+                }
+
+            val domain: String =
+                run {
+                    // アクター ID に焼き込まれる値なので、末尾の / は落としておく。
+                    // https://example.com/ のような URL ごと渡されることも考えて scheme も落とす
+                    val normalized =
+                        getenv("DOMAIN")
+                            ?.trim()
+                            ?.removePrefix("https://")
+                            ?.removePrefix("http://")
+                            ?.trimEnd('/')
+
+                    // 既定値を用意して起動できてしまうと、localhost のようなドメインが
+                    // 焼き込まれたアクター ID を配ることになる。Mastodon はリモートアクターを
+                    // 永続キャッシュするので、相手側からは直せない。落とす方が安い
+                    require(!normalized.isNullOrEmpty()) {
+                        "DOMAIN が未設定。WebFinger の acct とアクターの id に使うので必ず指定すること"
+                    }
+                    normalized
+                }
+
+            val actorUsername: String =
+                run {
+                    val raw = getenv("ACTOR_USERNAME")?.trim()
+                    if (raw.isNullOrEmpty()) "admin" else raw
+                }
+
+            val dbPath: Path =
+                run {
+                    val raw = getenv("DB_PATH")?.trim()
+                    Path.of(if (raw.isNullOrEmpty()) "./data/mastodon-rss.db" else raw)
+                }
+
+            // PEM は中身をそのまま鍵として読むので、前後の空白も落とさずに渡す
+            val actorPrivateKeyPem: String? = getenv("ACTOR_PRIVATE_KEY_PEM")?.takeIf { it.isNotBlank() }
+
+            val actorPrivateKeyPath: String? = getenv("ACTOR_PRIVATE_KEY_PATH")?.trim()?.takeIf { it.isNotEmpty() }
+
+            val actorPrivateKey: ActorPrivateKey =
+                run {
+                    // 両方が設定されていたら落とす。片方を黙って無視すると、意図していない鍵で
+                    // 起動したことに気付けない。鍵が変わると相手側は署名検証に失敗し続けるうえ、
+                    // Mastodon はアクターをキャッシュするので後から直しても戻りが遅い
+                    require(actorPrivateKeyPem == null || actorPrivateKeyPath == null) {
+                        "ACTOR_PRIVATE_KEY_PEM と ACTOR_PRIVATE_KEY_PATH は同時に指定できない。どちらか一方にすること"
+                    }
+
+                    if (actorPrivateKeyPem != null) {
+                        ActorPrivateKey.Pem(actorPrivateKeyPem)
+                    } else {
+                        ActorPrivateKey.File(Path.of(actorPrivateKeyPath ?: "./data/actor-private-key.pem"))
+                    }
+                }
+
+            val staticSrcDir: Path? =
+                run {
+                    val raw = getenv("STATIC_SRC_DIR")?.trim()
+                    if (raw.isNullOrEmpty()) null else Path.of(raw)
+                }
+
+            return ServerEnv(
+                host = host,
+                port = port,
+                domain = domain,
+                actorUsername = actorUsername,
+                dbPath = dbPath,
+                actorPrivateKey = actorPrivateKey,
+                staticSrcDir = staticSrcDir,
+            )
+        }
+    }
+}

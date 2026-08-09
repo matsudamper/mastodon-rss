@@ -7,7 +7,6 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import net.matsudamper.mastodon.rss.AppConfig
 
 /**
  * 静的ファイルの配信。管理画面はここから始まる。
@@ -26,7 +25,7 @@ fun Route.staticRoutes(staticFiles: StaticFiles?) {
     get("/{path...}") {
         if (staticFiles == null) {
             call.respondText(
-                "静的ファイルの配信先が無い。${AppConfig.ENV_STATIC_SRC_DIR} を確認すること",
+                "静的ファイルの配信先が無い。STATIC_SRC_DIR を確認すること",
                 status = HttpStatusCode.NotFound,
             )
             return@get

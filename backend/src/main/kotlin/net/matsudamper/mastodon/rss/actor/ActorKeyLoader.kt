@@ -1,6 +1,6 @@
 package net.matsudamper.mastodon.rss.actor
 
-import net.matsudamper.mastodon.rss.AppConfig
+import net.matsudamper.mastodon.rss.ServerEnv
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import java.nio.file.Files
 import java.nio.file.Path
@@ -8,21 +8,21 @@ import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
 
 /**
- * [ActorKeyConfig] に従ってアクターの秘密鍵を用意する。
+ * [ServerEnv.ActorPrivateKey] に従ってアクターの秘密鍵を用意する。
  *
  * ファイル指定で中身が無い場合だけ新しく生成する。既にあるファイルを書き換えることはしない。
  */
 object ActorKeyLoader {
-    fun load(config: ActorKeyConfig): ActorKey =
+    fun load(config: ServerEnv.ActorPrivateKey): ActorKey =
         when (config) {
-            is ActorKeyConfig.Pem -> {
+            is ServerEnv.ActorPrivateKey.Pem -> {
                 ActorKey(
-                    privateKey = decode(config.pem) { "${AppConfig.ENV_ACTOR_PRIVATE_KEY_PEM} の PEM を読めなかった" },
+                    privateKey = decode(config.pem) { "ACTOR_PRIVATE_KEY_PEM の PEM を読めなかった" },
                     origin = ActorKey.Origin.Environment,
                 )
             }
 
-            is ActorKeyConfig.File -> {
+            is ServerEnv.ActorPrivateKey.File -> {
                 loadFromFile(config.path.toAbsolutePath().normalize())
             }
         }

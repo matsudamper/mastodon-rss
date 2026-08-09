@@ -15,13 +15,13 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 flowchart TB
     subgraph backend[":backend"]
         main["main"]
-        config["AppConfig<br/>環境変数を読むのはここだけ"]
+        env["ServerEnv<br/>環境変数を読むのはここだけ"]
         module["Application.module"]
         route["routing<br/>GET /healthz"]
         json["json<br/>AppJson<br/>respondJson"]
         ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
-        actor["actor<br/>ActorKeyConfig<br/>ActorKeyLoader<br/>ActorKey"]
-        static["staticfiles<br/>StaticFilesConfig<br/>StaticFiles"]
+        actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls"]
+        static["staticfiles<br/>StaticFiles<br/>staticRoutes"]
     end
 
     subgraph crypto[":backend:crypto"]
@@ -41,7 +41,7 @@ flowchart TB
 
     db[("SQLite<br/>DB_PATH")]
 
-    main --> config
+    main --> env
     main --> module
     module --> json
     module --> route
@@ -160,7 +160,7 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 
 配信の挙動は
 [StaticFiles.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/staticfiles/StaticFiles.kt)、
-環境変数は [AppConfig.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/AppConfig.kt) を参照。
+環境変数は [ServerEnv.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/ServerEnv.kt) を参照。
 
 ## 環境変数
 
@@ -178,7 +178,7 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 `ACTOR_USERNAME` に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`。
 
 どちらもアクターの ID に焼き込まれ、変えると相手からは別人のアカウントに見える。
-理由は `ServerConfig.kt` と `ActorUsername.kt` の KDoc にある。
+理由は `ServerEnv.kt` と `ActorUsername.kt` の KDoc にある。
 
 ## エンドポイント
 
@@ -233,7 +233,7 @@ docker compose ではボリュームの中（`/data/actor-private-key.pem`）に
 コンテナを作り直しても同じ鍵のままだが、ボリュームごと消すとアクターは別人になる。
 
 保存するのは秘密鍵だけで、公開鍵は起動のたびに秘密鍵から導く。
-鍵を持ち続ける理由とこの判断の理由は `ActorKeyConfig.kt` の KDoc にある。
+鍵を持ち続ける理由とこの判断の理由は `ServerEnv.kt` の KDoc にある。
 
 ## Docker で動かす
 

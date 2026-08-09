@@ -14,24 +14,25 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsername
 import net.matsudamper.mastodon.rss.actor.actorRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
-import net.matsudamper.mastodon.rss.staticfiles.StaticFilesConfig
 import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
+import java.nio.file.Path
 
 fun main() {
     // 環境変数を読むのはここだけ。以降は引数で配る
-    val config = AppConfig.fromEnvironment()
+    val env = ServerEnv.fromEnvironment()
 
     // 鍵が用意できないなら起動しても意味が無いので、サーバーを立てる前に読む
-    val actorKey = ActorKeyLoader.load(config.actorKey)
+    val actorKey = ActorKeyLoader.load(env.actorPrivateKey)
 
     // サーバーが止まったら接続も閉じる。start(wait = true) は停止まで返ってこない
-    createRepositories(config.database).use { repositories ->
-        embeddedServer(CIO, port = config.server.port, host = config.server.host) {
-            module(repositories, actorKey, config.server, config.staticFiles)
+    createRepositories(DatabaseConfig(path = env.dbPath)).use { repositories ->
+        embeddedServer(CIO, port = env.port, host = env.host) {
+            module(repositories, actorKey, env)
         }.start(wait = true)
     }
 }
@@ -39,8 +40,7 @@ fun main() {
 fun Application.module(
     repositories: Repositories,
     actorKey: ActorKey,
-    config: ServerConfig,
-    staticFilesConfig: StaticFilesConfig,
+    env: ServerEnv,
 ) {
     // 書けない DB を抱えたまま起動すると、最初のリクエストまで問題に気付けない。
     // native バイナリでは SQLite のネイティブライブラリ周りで起きやすいので起動時に確かめる
@@ -48,12 +48,12 @@ fun Application.module(
 
     // ドメインはアクター ID に焼き込まれ、Mastodon 側にキャッシュされると後から変えられない。
     // 取り違えたまま気付かないのが一番まずいので、起動時に必ず見えるところに出す
-    val actorUrls = ActorUrls(domain = config.domain, username = config.actorUsername)
+    val actorUrls = ActorUrls(domain = env.domain, username = env.actorUsername)
     log.info("アクター: ${actorUrls.acct} → ${actorUrls.actorId}")
 
     // 検証用の使い捨てアクター。Mastodon はリモートアクターを永続キャッシュするので、
     // 名前を変えながら試せる口が無いと、一度間違えたときに直す手段が無くなる
-    log.info("動作確認用に acct:${ActorUsername.TEST_PREFIX}<任意>@${config.domain} も応答する")
+    log.info("動作確認用に acct:${ActorUsername.TEST_PREFIX}<任意>@${env.domain} も応答する")
 
     val directory = ActorDirectory(actorUrls)
 
@@ -61,7 +61,7 @@ fun Application.module(
     // どこから読んだ鍵なのかが後から追えるよう、取得元を必ず出す
     when (val origin = actorKey.origin) {
         is ActorKey.Origin.Environment -> {
-            log.info("アクターの秘密鍵: ${AppConfig.ENV_ACTOR_PRIVATE_KEY_PEM} から読んだ")
+            log.info("アクターの秘密鍵: ACTOR_PRIVATE_KEY_PEM から読んだ")
         }
 
         is ActorKey.Origin.LoadedFile -> {
@@ -78,7 +78,7 @@ fun Application.module(
 
     // 画面が出ないときに理由を追えるよう、配信元を起動時に必ず出す。
     // 黙って 404 になると、設定し忘れなのか置き忘れなのかが分からない
-    val staticFiles = resolveStaticFiles(staticFilesConfig)
+    val staticFiles = resolveStaticFiles(env.staticSrcDir)
 
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
     // native-image で解決できず 500 になる。詳細は json/JsonResponse.kt を参照
@@ -101,11 +101,10 @@ fun Application.module(
  *
  * 配信できないときは null を返す。この場合 root は 404 になる。
  */
-private fun Application.resolveStaticFiles(config: StaticFilesConfig): StaticFiles? {
-    val srcDir = config.srcDir
+private fun Application.resolveStaticFiles(srcDir: Path?): StaticFiles? {
     if (srcDir == null) {
         log.info(
-            "${AppConfig.ENV_STATIC_SRC_DIR} が未設定なので静的ファイルを配信しない。" +
+            "STATIC_SRC_DIR が未設定なので静的ファイルを配信しない。" +
                 "管理画面を出すには :frontend の成果物を置いたディレクトリを指定する",
         )
         return null
