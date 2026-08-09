@@ -8,17 +8,23 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestActorKey
-import net.matsudamper.mastodon.rss.TestPublicKeys
+import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestRemoteActor
+import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.TestServerEnv
-import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
+import net.matsudamper.mastodon.rss.actor.RemoteActors
+import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.httpsignature.TestSigning
+import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 // 相手のサーバーからアクティビティが POST されてくる口。
 // 署名が通ったかどうかが、送り主を確かめる唯一の根拠になる。
@@ -28,15 +34,23 @@ class InboxRoutesTest {
      */
     private val host = "localhost"
 
-    private fun follow(actor: String = TestRemoteActor.ACTOR_ID): ByteArray =
+    private val fixedActor = "https://${TestServerEnv.DOMAIN}/users/${TestServerEnv.USERNAME}"
+
+    private fun follow(
+        actor: String = TestRemoteActor.ACTOR_ID,
+        target: String = fixedActor,
+    ): ByteArray =
         """
         {"id":"https://remote.example/activities/1","type":"Follow",
-         "actor":"$actor","object":"https://example.com/users/admin"}
+         "actor":"$actor","object":"$target"}
         """.trimIndent().toByteArray()
 
-    private fun ApplicationTestBuilder.installModule(publicKeys: PublicKeys = TestRemoteActor.publicKeys()) {
+    private fun ApplicationTestBuilder.installModule(
+        remoteActors: RemoteActors = TestRemoteActor.remoteActors(),
+        delivery: ActivityDelivery = TestDelivery(),
+    ) {
         application {
-            module(FakeRepositories(), TestActorKey.value, TestServerEnv.value, publicKeys)
+            module(FakeRepositories(), TestActorKey.value, TestServerEnv.value, remoteActors, delivery)
         }
     }
 
@@ -72,7 +86,8 @@ class InboxRoutesTest {
             installModule()
 
             val path = "/users/test-1/inbox"
-            val response = postInbox(path = path, body = follow())
+            val testActor = "https://${TestServerEnv.DOMAIN}/users/test-1"
+            val response = postInbox(path = path, body = follow(target = testActor))
 
             assertEquals(HttpStatusCode.Accepted, response.status)
         }
@@ -112,7 +127,7 @@ class InboxRoutesTest {
     @Test
     fun `公開鍵を引けなければ401`() =
         testApplication {
-            installModule(TestPublicKeys())
+            installModule(TestRemoteActors())
 
             val response = postInbox(body = follow())
 
@@ -168,5 +183,91 @@ class InboxRoutesTest {
 
             // inbox は POST だけ。GET は静的配信のフォールバックに落ちて 404 になる
             assertEquals(HttpStatusCode.NotFound, client.get("/users/admin/inbox").status)
+        }
+
+    @Test
+    fun `Follow を受けたら相手の inbox に Accept を返す`() =
+        testApplication {
+            val delivery = TestDelivery()
+            installModule(delivery = delivery)
+
+            postInbox(body = follow())
+
+            val sent = delivery.delivered.single()
+            assertEquals(TestRemoteActor.INBOX, sent.inbox)
+            assertEquals(fixedActor, sent.sender.actorId)
+
+            val accept = AppJson.parseToJsonElement(sent.body) as JsonObject
+            assertEquals("Accept", accept["type"]?.jsonPrimitive?.content)
+            assertEquals(fixedActor, accept["actor"]?.jsonPrimitive?.content)
+
+            // 受け取った Follow を丸ごと入れる。id だけだと突き合わせられない実装がある
+            val embedded = accept["object"] as JsonObject
+            assertEquals("Follow", embedded["type"]?.jsonPrimitive?.content)
+            assertEquals("https://remote.example/activities/1", embedded["id"]?.jsonPrimitive?.content)
+        }
+
+    @Test
+    fun `Accept の id はアクターごとに一意になる`() =
+        testApplication {
+            val delivery = TestDelivery()
+            installModule(delivery = delivery)
+
+            postInbox(body = follow())
+            postInbox(body = follow())
+
+            val ids =
+                delivery.delivered.map {
+                    (AppJson.parseToJsonElement(it.body) as JsonObject)["id"]?.jsonPrimitive?.content
+                }
+
+            assertEquals(2, ids.size)
+            assertEquals(2, ids.toSet().size)
+            assertTrue(ids.all { it != null && it.startsWith("$fixedActor#accepts/follows/") }, "$ids")
+        }
+
+    @Test
+    fun `宛先の違う Follow には Accept を返さない`() =
+        testApplication {
+            val delivery = TestDelivery()
+            installModule(delivery = delivery)
+
+            // 署名も actor も正しいが、フォローしようとしている相手が別のアクター
+            val response = postInbox(body = follow(target = "https://${TestServerEnv.DOMAIN}/users/test-9"))
+
+            assertEquals(HttpStatusCode.Accepted, response.status)
+            assertTrue(delivery.delivered.isEmpty(), "${delivery.delivered}")
+        }
+
+    @Test
+    fun `Follow 以外には Accept を返さない`() =
+        testApplication {
+            val delivery = TestDelivery()
+            installModule(delivery = delivery)
+
+            val undo =
+                """
+                {"id":"https://remote.example/activities/2","type":"Undo",
+                 "actor":"${TestRemoteActor.ACTOR_ID}","object":"https://remote.example/activities/1"}
+                """.trimIndent().toByteArray()
+
+            val response = postInbox(body = undo)
+
+            assertEquals(HttpStatusCode.Accepted, response.status)
+            assertTrue(delivery.delivered.isEmpty(), "${delivery.delivered}")
+        }
+
+    @Test
+    fun `相手の inbox を引けなくても202で返す`() =
+        testApplication {
+            val delivery = TestDelivery()
+            // 鍵は引けるが inbox が分からない相手
+            installModule(remoteActors = TestRemoteActor.remoteActors(inbox = null), delivery = delivery)
+
+            val response = postInbox(body = follow())
+
+            // 送れなかったことを 5xx で伝えると、相手は同じ Follow を送り直し続ける
+            assertEquals(HttpStatusCode.Accepted, response.status)
+            assertTrue(delivery.delivered.isEmpty(), "${delivery.delivered}")
         }
 }

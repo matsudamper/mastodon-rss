@@ -4,8 +4,6 @@ import io.ktor.http.HttpHeaders
 import net.matsudamper.mastodon.rss.crypto.RsaSignature
 import java.time.Clock
 import java.time.Duration
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
 /**
  * 受信したリクエストの HTTP Signatures を検証する。
@@ -55,7 +53,7 @@ class HttpSignatureVerifier(
 
         val date =
             request.headers[HttpHeaders.Date]
-                ?.let { parseHttpDate(it) }
+                ?.let { HttpDate.parse(it) }
                 ?: return HttpSignatureResult.Rejected("Date ヘッダを読めない: ${request.headers[HttpHeaders.Date]}")
 
         // 署名ごと記録して後から投げ直されるのを防ぐ。時計のずれもここで弾く
@@ -93,16 +91,6 @@ class HttpSignatureVerifier(
 
         return HttpSignatureResult.Verified(keyId = key.keyId, owner = key.owner)
     }
-
-    /**
-     * HTTP の日付を読む。
-     *
-     * `Tue, 20 Apr 2021 02:07:55 GMT` の形（RFC 9110 の IMF-fixdate）だけを受ける。
-     * 旧形式を送ってくる実装は現存しないうえ、緩く読むと時刻のずれの判定が甘くなる。
-     */
-    private fun parseHttpDate(value: String) =
-        runCatching { ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant() }
-            .getOrNull()
 
     private companion object {
         const val SIGNATURE_HEADER = "Signature"

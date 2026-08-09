@@ -12,10 +12,13 @@ import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsername
-import net.matsudamper.mastodon.rss.actor.RemoteActorKeys
+import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
+import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.actor.actorRoutes
+import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
-import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
+import net.matsudamper.mastodon.rss.inbox.FollowHandler
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
@@ -36,24 +39,30 @@ fun main() {
 
     // サーバーが止まったら接続も閉じる。start(wait = true) は停止まで返ってこない
     createRepositories(DatabaseConfig(path = env.dbPath)).use { repositories ->
-        // inbox の署名検証で相手のアクターを引きに行くので、HTTP クライアントもここで持つ
-        RemoteActorKeys().use { remoteActorKeys ->
-            embeddedServer(CIO, port = env.port, host = env.host) {
-                module(repositories, actorKey, env, remoteActorKeys)
-            }.start(wait = true)
+        // 相手のアクターを引くのと、こちらから送るのとで外向きの HTTP を張る。
+        // どちらも接続を抱えるので、サーバーの外側で開いて確実に閉じる
+        HttpRemoteActors().use { remoteActors ->
+            HttpActivityDelivery(actorKey).use { delivery ->
+                embeddedServer(CIO, port = env.port, host = env.host) {
+                    module(repositories, actorKey, env, remoteActors, delivery)
+                }.start(wait = true)
+            }
         }
     }
 }
 
 /**
- * @param publicKeys inbox の署名検証で使う公開鍵の引き先。
- *   本番は [RemoteActorKeys] が相手のサーバーから取ってくる
+ * @param remoteActors 相手のアクターの引き先。署名検証に使う公開鍵と、
+ *   `Accept` の宛先になる inbox をここから取る。本番は [HttpRemoteActors] が
+ *   相手のサーバーに GET しに行く
+ * @param delivery こちらから相手の inbox に POST する口
  */
 fun Application.module(
     repositories: Repositories,
     actorKey: ActorKey,
     env: ServerEnv,
-    publicKeys: PublicKeys,
+    remoteActors: RemoteActors,
+    delivery: ActivityDelivery,
 ) {
     // 書けない DB を抱えたまま起動すると、最初のリクエストまで問題に気付けない。
     // native バイナリでは SQLite のネイティブライブラリ周りで起きやすいので起動時に確かめる
@@ -105,7 +114,11 @@ fun Application.module(
         actorRoutes(directory, actorKey)
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
-        inboxRoutes(directory, HttpSignatureVerifier(publicKeys))
+        inboxRoutes(
+            directory = directory,
+            verifier = HttpSignatureVerifier(remoteActors),
+            followHandler = FollowHandler(remoteActors, delivery),
+        )
 
         nodeInfoRoutes(env.domain)
 

@@ -11,14 +11,16 @@ import java.security.KeyPair
 object TestRemoteActor {
     const val ACTOR_ID: String = "https://remote.example/users/alice"
     const val KEY_ID: String = "$ACTOR_ID#main-key"
+    const val INBOX: String = "$ACTOR_ID/inbox"
 
     val keyPair: KeyPair by lazy { RsaKeys.generateKeyPair() }
 
-    /** この相手の鍵だけを引ける [PublicKeys][net.matsudamper.mastodon.rss.httpsignature.PublicKeys] */
-    fun publicKeys(): TestPublicKeys =
-        TestPublicKeys.of(
+    /** この相手だけを引ける [RemoteActors][net.matsudamper.mastodon.rss.actor.RemoteActors] */
+    fun remoteActors(inbox: String? = INBOX): TestRemoteActors =
+        TestRemoteActors.of(
             keyId = KEY_ID,
             owner = ACTOR_ID,
             publicKey = keyPair.public,
+            inbox = inbox,
         )
 }
