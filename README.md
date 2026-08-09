@@ -335,4 +335,6 @@ CI では `ktlintCheck` が通らないとビルドが落ちる。
 
 ## スキーマを変えるとき
 
-[docs/migration.md](docs/migration.md) を参照。
+SQL と同じ場所に置いた
+[backend/repository/src/main/resources/db/migration/README.md](backend/repository/src/main/resources/db/migration/README.md)
+を参照。追加のしかた、起動時の適用、そこから jOOQ の型が作られるまでを書いてある。

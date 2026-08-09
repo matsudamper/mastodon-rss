@@ -56,6 +56,14 @@ fun migrationFiles(directory: File): List<File> =
         .sortedBy { it.name }
 
 /**
+ * 下のタスクの入力。ディレクトリごとではなく SQL だけを見る。
+ *
+ * 同じ場所に説明の README.md を置いてあり、ディレクトリを入力にすると
+ * それを直しただけでスキーマの作り直しと codegen が走る。
+ */
+val migrationSql = fileTree(migrationDirectory) { include("*.sql") }
+
+/**
  * マイグレーション SQL のファイル名一覧を書いた `db/migration/index` を生成する。
  *
  * jar 内のディレクトリ走査は native-image では動かないことがあるため、
@@ -66,7 +74,7 @@ val generateMigrationIndex by tasks.registering {
     val migrationDir = migrationDirectory.asFile
     val outputDir = layout.buildDirectory.dir("generated/migrationIndex")
 
-    inputs.dir(migrationDir).withPropertyName("migrations")
+    inputs.files(migrationSql).withPropertyName("migrations")
     outputs.dir(outputDir).withPropertyName("index")
 
     doLast {
@@ -91,7 +99,7 @@ val buildJooqSchema by tasks.registering {
     val output = jooqSchemaDatabase
     val driverClasspath = jooqCodegen
 
-    inputs.dir(migrationDir).withPropertyName("migrations")
+    inputs.files(migrationSql).withPropertyName("migrations")
     inputs.files(driverClasspath).withPropertyName("driver")
     outputs.file(output).withPropertyName("schema")
 
