@@ -43,6 +43,7 @@ flowchart TB
         parser["FeedParser<br/>RSS 2.0 / RSS 1.0 / Atom 1.0"]
         feedmodel["ParsedFeed<br/>ParsedFeedItem<br/>FeedContent"]
         feedutil["FeedItemKey 差分検出の鍵<br/>HtmlSanitizer 配信前に削る<br/>FeedDates / FeedText"]
+        youtube["YouTubeFeedUrl<br/>貼られた URL をフィードの URL に直す"]
     end
 
     subgraph frontend[":frontend"]

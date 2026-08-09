@@ -33,7 +33,8 @@ Mastodon 4.5.6 のインスタンスから実際にフォローして確認し�
 相手のアクター文書はキャッシュするので、フォロー 1 件につき GET は 1 回で済む。
 
 Phase 5 のうち、フィードを読む部分だけ先に `:backend:rss` として実装した。
-RSS 2.0 / RSS 1.0 (RDF) / Atom 1.0 の解析、差分検出の鍵、配信前の HTML サニタイズまで。
+RSS 2.0 / RSS 1.0 (RDF) / Atom 1.0 の解析、差分検出の鍵、配信前の HTML サニタイズと、
+貼られた URL を YouTube のフィード URL に直す `YouTubeFeedUrl` まで。
 取得（HTTP）と保存（DB）は繋いでいない。保存は interface だけ置いてある
 （詳細は Phase 5 の各項目に書いた）。フェーズの順番どおりではないが、
 ActivityPub 側とは独立していて、先に書いても後戻りが出ないため。
@@ -725,6 +726,27 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
         （`:backend:repository`）。DB アクセスの方法（素の JDBC か jOOQ か）が
         決まっていないので実装は無く、`Repositories` からも取れない。
         マイグレーション SQL もまだ書いていない
+- [ ] 貼られた URL をフィードの URL に直す
+      - フィードの URL をそのまま入れさせると、YouTube のように人が目にする URL と
+        フィードの URL が別物の配信元で登録できない。登録の入口で変換する
+      - `YouTubeFeedUrl` を `:backend:rss` に置いた。`/@handle` `/channel/<id>`
+        `/playlist?list=` `/watch?v=` `youtu.be` `/shorts/` と、既にフィードの URL の形を読む。
+        スキームの欠けた `youtube.com/@name` や `m.` `music.` のホストも受ける
+      - `/@handle` `/c/<名前>` `/user/<名前>` と動画の URL はチャンネル ID が
+        ページの中にしか無いので、`NeedsPageLookup` として取得する URL だけ返す。
+        HTML から ID を抜くのは `channelIdFromPageHtml`
+      - `?user=<名前>` のフィードには読み替えない。旧ユーザー名の入口で、
+        同じ綴りの別チャンネルを 200 で返すことがある（`?user=MrBeast` で確認した）
+      - `RD` で始まるミックスと `WL` `LL` は入口で落とす。フィードは 404 になる
+      - [ ] `NeedsPageLookup` のページを取得して繋ぐ。HTTP クライアントを持つのは
+            `:backend` 側なので、取得を書くときに一緒に入れる
+      - [ ] YouTube 以外の配信元も、ページの `rel="alternate"` からフィードを見つける。
+            同じ `channelIdFromPageHtml` の形で一般化できる
+- [ ] YouTube の `media:group` を読む
+      - YouTube の Atom は entry 直下に `summary` も `content` も持たず、説明文は
+        `media:group/media:description` に入っている。いまは未知の要素として読み飛ばすので
+        `bodyOrSummary()` が null になり、投稿が題名とリンクだけになる
+      - 同じ場所にある `media:thumbnail` も、画像を付けるなら要る
 - [x] 差分検出: `guid` / `id` / `link` を主キーに、なければ URL + タイトルのハッシュ
       - `FeedItemKey`。優先順は `id`（`guid` / Atom の `id` / `rdf:about`）→ `link` → ハッシュ
       - どちらも無いときは、フィードの URL と題名の SHA-256。題名も無いときだけ本文を混ぜる
