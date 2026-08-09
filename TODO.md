@@ -13,7 +13,9 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 `:backend:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
 `nativeTest` で native バイナリ上でも動くことを確認済み。
 `:backend:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
-`:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
+`:frontend` は Compose Multiplatform for Web (Kotlin/Wasm)。Navigation 3 で URL から画面を決め、
+トップ・アカウント画面（`/@ユーザー名`）・管理画面（`/admin`）・見つからない、の 4 つを出す。
+中身の値はまだ繋ぐ先が無いので仮のもの。
 `:backend` は `STATIC_SRC_DIR` に置かれたものを root から配信するので、成果物を指せば画面が出る。
 CI で ktlint / JVM テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
 
@@ -64,7 +66,7 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 | 署名 | JCA（RSA / SHA256withRSA）。ライブラリは足さない |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
 | 管理 API | GraphQL。サーバーは graphql-java、クライアントは Apollo Kotlin（Phase 8 で作る） |
-| 画面遷移 | Navigation Compose 3（JetBrains 版）（Phase 8 で作る） |
+| 画面遷移 | Navigation Compose 3（JetBrains 版） |
 
 管理 API を GraphQL にするのは [kake-bo](https://github.com/matsudamper/kake-bo) と
 揃えるため。ActivityPub 側は相手の実装が決まっているので REST のまま。
@@ -731,7 +733,25 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 サーバーが完成してから作る。UI が先だとフェデレーションのデバッグができない。
 `:frontend` モジュールと Hello World は 0-1 で作成済み。
 
+画面の枠（ルーティングとアカウント画面の見た目）は先に作った。管理 API に依存しない部分で、
+値を差し替えれば済む形にしてある。データを引く実装は API ができてから。
+
 - [x] `:frontend` モジュール（Kotlin/Wasm + Compose）を作り、Hello World を表示する
+- [x] URL から画面を決める（それまでは全パスで管理画面が出ていた）
+      - `/` トップ / `/@ユーザー名` アカウント画面 / `/admin` 管理画面 / それ以外は見つからない
+      - 判定は `:frontend` の `navigation/Screen.kt` 1 箇所。リンクを張る側と画面を出す側で
+        パスの綴りがずれると「リンクは踏めるが真っ白になる」壊れ方をする
+      - `index.html` の `<title>` も「管理画面」固定をやめ、画面ごとに `document.title` を書き換える
+- [x] アカウント画面（`/@ユーザー名`）を作る
+      - Mastodon のプロフィールに当たる画面。出すものは RSS に寄せていて、
+        配信元のフィード・取得状況・配信した記事・フォローの仕方を並べる
+      - レスポンシブ。広い画面（900dp 以上）では記事一覧を主、フィードと配信状況を副の 2 カラム、
+        狭い画面では 1 カラムでフィードの情報を先に出す
+      - [ ] 中身を実データにする。いまはユーザー名とドメイン以外が仮の値で、画面にその旨を出している。
+            フィードと記事は Phase 5、数値は管理 API（Phase 8）を繋いでから
+      - [ ] 日本語のフォントを配信する。canvas に描いているので、ブラウザの既定フォントは使われない。
+            グリフを持たない環境で豆腐になっていないか実機で確認し、必要なら
+            `STATIC_SRC_DIR` に woff2 を置いて読み込む
 - [ ] `:shared` モジュール（KMP: `jvm` + `wasmJs`）を作る
       - 中身は GraphQL のスキーマ（`src/commonMain/resources/graphql/schema.graphqls`）と、
         スキーマに書けない定数（パスワードの長さ制限、環境変数名、画面のパス）だけ
@@ -791,10 +811,16 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
         未設定の間だけハッシュ生成を認証なしで開ける。設定後はログインした人だけ
       - セッションの持ち方（メモリ上のトークン / 署名付き Cookie）は実装時に決める
       - 総当たり対策（試行回数の制限）は Phase 7 で入れる
-- [ ] 画面遷移を Navigation Compose 3 にする
+- [x] 画面遷移を Navigation Compose 3 にする
       - `org.jetbrains.androidx.navigation3:navigation3-ui`（JetBrains 版。wasmJs 向けの成果物がある）
       - 画面のキーを sealed interface で定義し、`NavDisplay` + バックスタックで切り替える
       - URL との同期は自前で持つ。Navigation3 はバックスタックを扱うだけで URL は見ない
+      - 履歴の持ち主はブラウザ側に一本化した。遷移は `pushState`、戻るは `history.back()` に投げ、
+        `popstate` を受けて URL からバックスタックを作り直す。両方で履歴を持つとずれる
+      - バックスタックは URL から決まる形（トップ以外は「トップ + その画面」）。
+        画面が深くなったら、パスの階層からバックスタックを組み立てる形に広げる
+      - `rememberNavBackStack` は使っていない。保存に kotlinx.serialization が要るが、
+        状態は URL に全部入っていて復元するものが無い
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
