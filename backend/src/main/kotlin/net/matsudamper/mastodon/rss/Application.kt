@@ -21,6 +21,7 @@ import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.inbox.FollowHandler
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
@@ -118,6 +119,8 @@ fun Application.module(
             verifier = HttpSignatureVerifier(remoteActors),
             followHandler = FollowHandler(remoteActors, delivery),
         )
+
+        nodeInfoRoutes(env.domain)
 
         // 残り全部を受けるので最後に置く
         staticRoutes(staticFiles)

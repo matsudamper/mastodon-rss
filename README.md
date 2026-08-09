@@ -22,6 +22,7 @@ flowchart TB
         ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
         actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls<br/>HttpRemoteActors"]
         inbox["inbox<br/>POST /users/{name}/inbox<br/>FollowHandler"]
+        nodeinfo["nodeinfo<br/>GET /.well-known/nodeinfo<br/>GET /nodeinfo/2.1"]
         sig["httpsignature<br/>HttpSignatureVerifier<br/>HttpSignatureSigner<br/>SigningString<br/>BodyDigest"]
         delivery["delivery<br/>HttpActivityDelivery"]
         static["staticfiles<br/>StaticFiles<br/>staticRoutes"]
@@ -57,6 +58,7 @@ flowchart TB
     impl --> db
     actor --> keys
     module --> inbox
+    module --> nodeinfo
     inbox --> sig
     inbox -->|Follow に Accept| delivery
     delivery -->|送信の署名| sig
@@ -200,6 +202,8 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
 | `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
 | `POST /users/{name}/inbox` | アクティビティの受け口。HTTP Signatures を検証する |
+| `GET /.well-known/nodeinfo` | NodeInfo の discovery document |
+| `GET /nodeinfo/2.1` | サーバーの実装と規模。調査用 |
 
 `{name}` として応答するのは `ACTOR_USERNAME`（既定 `admin`）と、`test-` で始まる
 任意の名前の 2 通り。後者は動作確認用で、下の「動作確認用のアカウント」を参照。

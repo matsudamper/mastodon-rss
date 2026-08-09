@@ -16,6 +16,8 @@ import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.repository.ExpiringCache
+import net.matsudamper.mastodon.rss.repository.createExpiringCache
 import java.io.Closeable
 
 /**
@@ -34,13 +36,21 @@ import java.io.Closeable
  *   他所のホストのものだと言い張るものを信じない
  * - 大きすぎる応答は読まない
  *
- * 取得結果のキャッシュはまだ持たない。フォローのたびに引きに行く。
- * 毎回引かない仕組みは TODO.md の Phase 2 に項目がある。
+ * 取得結果は [ExpiringCache] を通してキャッシュし、TTL の間は GET しない。
+ * フォローや投稿のたびに毎回相手のサーバーへ取りに行くのは、相手に対しても
+ * 自分の inbox 処理に対しても無駄が大きいため。取得に失敗した場合はキャッシュしない。
+ * 相手のサーバーが一時的に落ちているだけなら、次の呼び出しで取り直せるようにする。
  */
 class HttpRemoteActors(
     private val client: HttpClient = defaultClient(),
 ) : RemoteActors,
     Closeable {
+    /**
+     * アクター文書のキャッシュ。鍵と inbox を別々に持たないのは、
+     * どちらも同じ 1 つの文書から読むものだから。
+     */
+    private val documents: ExpiringCache<String, RemoteActorDocument> = createExpiringCache()
+
     override suspend fun find(keyId: String): SignatureKey? {
         val url = parseHttpsUrl(keyId) ?: return null
         val document = fetch(keyId, url) ?: return null
@@ -84,6 +94,12 @@ class HttpRemoteActors(
         rawUrl: String,
         requestUrl: Url,
     ): RemoteActorDocument? {
+        // `keyId` はアクター id にフラグメントを付けたもので、フラグメントはサーバーに
+        // 送られない。落としてから引くと、署名の検証で取った文書を
+        // `Accept` の宛先を決めるときにも使える
+        val cacheKey = rawUrl.substringBefore('#')
+        documents.get(cacheKey)?.let { return it }
+
         val response =
             runCatching {
                 client.get(rawUrl) {
@@ -100,8 +116,12 @@ class HttpRemoteActors(
         val body = runCatching { response.bodyAsText() }.getOrNull() ?: return null
         if (body.length > MAX_BODY_CHARS) return null
 
-        return runCatching { AppJson.decodeFromString(RemoteActorDocument.serializer(), body) }
-            .getOrNull()
+        val document =
+            runCatching { AppJson.decodeFromString(RemoteActorDocument.serializer(), body) }
+                .getOrNull() ?: return null
+
+        documents.put(key = cacheKey, value = document, ttlMillis = CACHE_TTL_MILLIS)
+        return document
     }
 
     private fun parseHttpsUrl(raw: String): Url? =
@@ -123,6 +143,13 @@ class HttpRemoteActors(
          * 相手のサーバーが延々と送り続けてくる場合は、これと下のタイムアウトで止める。
          */
         const val MAX_BODY_CHARS = 64 * 1024
+
+        /**
+         * キャッシュの有効期間。長すぎると相手が鍵をローテーションしたときに
+         * 検証が通らない期間が延びる。短すぎるとキャッシュの意味が薄くなる。
+         * 1 時間なら、鍵のローテーションは頻度の高い運用ではないので実害は小さい
+         */
+        const val CACHE_TTL_MILLIS = 60 * 60 * 1000L
 
         fun defaultClient(): HttpClient =
             HttpClient(CIO) {

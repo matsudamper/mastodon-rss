@@ -28,9 +28,11 @@ Phase 2 は送信側まで実装した。inbox が受け取ったアクティビ
 解除すると `Undo` が届き、どちらも署名の検証を通っている。
 送信側はまだ実機で確認していない。
 
+相手のアクター文書はキャッシュするので、フォロー 1 件につき GET は 1 回で済む。
+
 次の一手: `test-` のアカウントでフォローして「フォロー中」に変わるかを見る
-（チェックポイント 2）。残りは取得結果のキャッシュと、`AUTHORIZED_FETCH` の
-インスタンス向けに送信 GET へ署名を付けること。
+（チェックポイント 2）。Phase 2 の残りは、`AUTHORIZED_FETCH` のインスタンス向けに
+送信 GET へ署名を付けることだけ。
 
 Phase 0 でやったことと順序の理由:
 
@@ -481,7 +483,13 @@ ActivityPub のアカウント発見は WebFinger → Actor の 2 ホップで�
       - `social-rss.matsudamper.net` で公開した。Cloudflare を挟んでいる
       - 公開しているホスト名と `DOMAIN` は一致させる。WebFinger は `resource` の
         ホスト部が `DOMAIN` と違えば 404 を返す
-- [ ] `GET /.well-known/nodeinfo` + `/nodeinfo/2.1`（任意だが実装しておくと調査が楽）
+- [x] `GET /.well-known/nodeinfo` + `/nodeinfo/2.1`（任意だが実装しておくと調査が楽）
+      - `nodeinfo/` パッケージに切り出した。`Application.kt` の routing への追加は
+        `nodeInfoRoutes(env.domain)` の 1 行だけ
+      - discovery document の `rel` は `http://nodeinfo.diaspora.software/ns/schema/2.1` 固定
+      - 固定アクター1つだけの構成なので `usage.users.total` は常に 1、記事配信はまだ無いので
+        `usage.localPosts` は常に 0
+      - `software.repository` に GitHub リポジトリの URL を入れた
 
 ### ✅ チェックポイント 1（達成）
 Mastodon の検索窓に `@admin@example.com` と入力して、プロフィールカードが表示される。
@@ -543,7 +551,16 @@ ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signa
       - `Follow` の `object` がその宛先のアクターでなければ `Accept` を返さない。
         中身を見ずに返すと、フォローしていないアクターのフォローが成立したように見える
       - フォロワーの記録はまだしない。再起動するとこちら側には何も残らない（Phase 3）
-- [ ] リモートアクターの取得結果をキャッシュ（毎回 GET しない）
+- [x] リモートアクターの取得結果をキャッシュ（毎回 GET しない）
+      - キャッシュの入れ物は `ExpiringCache`（`:backend:repository`。`repository/ExpiringCache.kt`）として
+        interface 化し、実装は非公開にした。差し替え（テスト用フェイクや将来の永続キャッシュ）はここだけ見れば済む
+      - `actor/HttpRemoteActors.kt` はこれをアクター文書のキャッシュとして使う。TTL は 1 時間。
+        鍵と inbox を別々に持たないのは、どちらも同じ 1 つの文書から読むものだから
+      - キャッシュのキーはフラグメントを落とした URL。`keyId` はアクター id に
+        `#main-key` を付けたもので、フラグメントはサーバーに送られない。落として引くと、
+        署名の検証で取った文書を `Accept` の宛先を決めるときにも使える
+      - 取得に失敗した場合はキャッシュしない。相手のサーバーが一時的に落ちているだけなら、
+        次の呼び出しで取り直せるようにするため
 - [ ] 送信 GET にも署名を付ける
       - Mastodon の `AUTHORIZED_FETCH`（secure mode）が有効なインスタンスは無署名 GET を拒否する
 
