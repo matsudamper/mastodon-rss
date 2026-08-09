@@ -1,11 +1,17 @@
 package net.matsudamper.mastodon.rss.frontend.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 
 private val LightColors =
     lightColorScheme(
@@ -46,15 +52,55 @@ private val DarkColors =
     )
 
 /**
- * 画面全体の配色。
+ * 画面全体の配色と文字。
  *
- * OS の設定に追従する。canvas に描いているので `prefers-color-scheme` の
+ * 配色は OS の設定に追従する。canvas に描いているので `prefers-color-scheme` の
  * CSS は効かず、色の切り替えは Compose 側でやる必要がある。
+ *
+ * フォントも同じ理由でブラウザ任せにできない。読み込みは [rememberAppFontFamily] で、
+ * 揃うまでは既定のフォントのまま描く。
  */
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
+    val fontFamily = rememberAppFontFamily()
+    val typography = remember(fontFamily) { Typography().withFontFamily(fontFamily) }
+
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
-        content = content,
-    )
+        typography = typography,
+    ) {
+        CompositionLocalProvider(
+            // typography を通らない Text（style を指定していないもの）にも同じフォントを効かせる
+            LocalTextStyle provides
+                LocalTextStyle.current
+                    .merge(TextStyle(fontFamily = fontFamily))
+                    .merge(MaterialTheme.typography.bodyMedium),
+            content = content,
+        )
+    }
 }
+
+/**
+ * すべての文字の種類に同じフォントを当てる。
+ *
+ * Material3 の [Typography] は種類ごとに [TextStyle] を持っていて、
+ * 1 つでも入れ忘れるとそこだけ既定のフォントになり、日本語が豆腐になる。
+ */
+private fun Typography.withFontFamily(fontFamily: FontFamily): Typography =
+    Typography(
+        displayLarge = displayLarge.copy(fontFamily = fontFamily),
+        displayMedium = displayMedium.copy(fontFamily = fontFamily),
+        displaySmall = displaySmall.copy(fontFamily = fontFamily),
+        headlineLarge = headlineLarge.copy(fontFamily = fontFamily),
+        headlineMedium = headlineMedium.copy(fontFamily = fontFamily),
+        headlineSmall = headlineSmall.copy(fontFamily = fontFamily),
+        titleLarge = titleLarge.copy(fontFamily = fontFamily),
+        titleMedium = titleMedium.copy(fontFamily = fontFamily),
+        titleSmall = titleSmall.copy(fontFamily = fontFamily),
+        bodyLarge = bodyLarge.copy(fontFamily = fontFamily),
+        bodyMedium = bodyMedium.copy(fontFamily = fontFamily),
+        bodySmall = bodySmall.copy(fontFamily = fontFamily),
+        labelLarge = labelLarge.copy(fontFamily = fontFamily),
+        labelMedium = labelMedium.copy(fontFamily = fontFamily),
+        labelSmall = labelSmall.copy(fontFamily = fontFamily),
+    )

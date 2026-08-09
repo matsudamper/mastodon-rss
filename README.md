@@ -209,6 +209,11 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | `/admin` | 管理画面。中身は Phase 8 で作る |
 | それ以外 | 見つからない（HTTP は 200 のまま） |
 
+画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
+Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。
+実体は `frontend/src/wasmJsMain/resources/fonts/`（SIL Open Font License 1.1。同じ場所に
+`OFL.txt` を置いてある）で、読み込みは `:frontend` の `ui/Font.kt`。
+
 アカウント画面の `/@{name}` と Actor JSON の `/users/{name}` は別のパス。
 1 つのパスで `Accept` を見て HTML と JSON を出し分けると、相手の綴りの揺れで
 アカウントごと見つからなくなる。表示している数値と記事はまだ仮の値で、

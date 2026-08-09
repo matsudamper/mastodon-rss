@@ -749,9 +749,20 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
         狭い画面では 1 カラムでフィードの情報を先に出す
       - [ ] 中身を実データにする。いまはユーザー名とドメイン以外が仮の値で、画面にその旨を出している。
             フィードと記事は Phase 5、数値は管理 API（Phase 8）を繋いでから
-      - [ ] 日本語のフォントを配信する。canvas に描いているので、ブラウザの既定フォントは使われない。
-            グリフを持たない環境で豆腐になっていないか実機で確認し、必要なら
-            `STATIC_SRC_DIR` に woff2 を置いて読み込む
+- [x] 日本語のフォントを配信して読み込む
+      - canvas に描いているのでブラウザの持っているフォントは使われず、何もしないと日本語が豆腐になる。
+        `index.html` の `@font-face` も canvas には効かない
+      - やり方は [kake-bo](https://github.com/matsudamper/kake-bo) と同じ。
+        フォントのファイルを静的ファイルと一緒に配信し、起動後に取ってきて `FontFamily` を組み立てる。
+        実装は `:frontend` の `ui/Font.kt`、当てているのは `ui/AppTheme.kt`
+      - 置き場所は `frontend/src/wasmJsMain/resources/fonts/`。成果物に入るので
+        `STATIC_SRC_DIR` 配下に出て、`:backend` が `/fonts/...` で返す
+      - 入れたのは Noto Sans JP の W400 / W500 / W700 の 3 つ。1 ファイル 5MB 台で、
+        kake-bo のように 9 つ全部入れると 50MB になる。無い太さは Compose が近いものに寄せる
+      - 1 つ読めるたびに `FontFamily` を差し替える。全部揃うまで待つと最初の数秒が豆腐のままになる
+      - [ ] 実機で表示を確認する。読み込みの経路は通したが、実際の見た目はまだ見ていない
+      - [ ] ttf のままなので 1 ファイル 5MB 台ある。日本語の常用範囲にサブセットすると
+            桁で小さくなる。woff2 は Skia が読めないので ttf のまま subset する
 - [ ] `:shared` モジュール（KMP: `jvm` + `wasmJs`）を作る
       - 中身は GraphQL のスキーマ（`src/commonMain/resources/graphql/schema.graphqls`）と、
         スキーマに書けない定数（パスワードの長さ制限、環境変数名、画面のパス）だけ
