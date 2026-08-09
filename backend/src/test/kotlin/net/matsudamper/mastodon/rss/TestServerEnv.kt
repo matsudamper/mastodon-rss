@@ -12,8 +12,5 @@ object TestServerEnv {
 
     val value: ServerEnv = of()
 
-    fun of(vararg values: Pair<String, String>): ServerEnv {
-        val env = values.toMap() + ("DOMAIN" to DOMAIN)
-        return ServerEnv { env[it] }
-    }
+    fun of(vararg values: Pair<String, String>): ServerEnv = ServerEnv(values.toMap() + ("DOMAIN" to DOMAIN))
 }

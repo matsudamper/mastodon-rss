@@ -17,20 +17,21 @@ import java.nio.file.Path
  * 空文字と空白だけの指定はどれも未設定と同じに扱う。docker compose の
  * `${VAR}` が空で展開されたときに、既定値へ落ちる方が扱いやすい。
  *
- * @param getenv 環境変数の読み取り元。テストから差し替える
+ * @param env 環境変数。テストから差し替えるためだけに引数にしている。
+ *   JVM から自プロセスの環境変数は設定できないので、差し替えられないと読み取りのテストが書けない
  */
 class ServerEnv(
-    getenv: (String) -> String? = System::getenv,
+    env: Map<String, String> = System.getenv(),
 ) {
     /** バインドするアドレス */
     val host: String =
         run {
-            val raw = getenv("HOST")?.trim()
+            val raw = env["HOST"]?.trim()
             if (raw.isNullOrEmpty()) "0.0.0.0" else raw
         }
 
     /** 待ち受けポート。数値でなければ既定値に落とす */
-    val port: Int = getenv("PORT")?.trim()?.toIntOrNull() ?: 8080
+    val port: Int = env["PORT"]?.trim()?.toIntOrNull() ?: 8080
 
     /**
      * 外部に公開するドメイン。WebFinger の `acct:` と Actor の `id` に使う。
@@ -41,7 +42,7 @@ class ServerEnv(
             // アクター ID に焼き込まれる値なので、末尾の / は落としておく。
             // https://example.com/ のような URL ごと渡されることも考えて scheme も落とす
             val normalized =
-                getenv("DOMAIN")
+                env["DOMAIN"]
                     ?.trim()
                     ?.removePrefix("https://")
                     ?.removePrefix("http://")
@@ -62,7 +63,7 @@ class ServerEnv(
      */
     val actorUsername: String =
         run {
-            val raw = getenv("ACTOR_USERNAME")?.trim()
+            val raw = env["ACTOR_USERNAME"]?.trim()
             val username = if (raw.isNullOrEmpty()) "admin" else raw
 
             // URL のパスと acct の両方に入るので、区切り文字が混ざると別のものを指してしまう
@@ -76,7 +77,7 @@ class ServerEnv(
     /** SQLite の DB ファイル。親ディレクトリは接続時に作られる */
     val dbPath: Path =
         run {
-            val raw = getenv("DB_PATH")?.trim()
+            val raw = env["DB_PATH"]?.trim()
             Path.of(if (raw.isNullOrEmpty()) "./data/mastodon-rss.db" else raw)
         }
 
@@ -84,8 +85,8 @@ class ServerEnv(
     val actorPrivateKey: ActorPrivateKey =
         run {
             // PEM は中身をそのまま鍵として読むので、前後の空白も落とさずに渡す
-            val pem = getenv("ACTOR_PRIVATE_KEY_PEM")?.takeIf { it.isNotBlank() }
-            val path = getenv("ACTOR_PRIVATE_KEY_PATH")?.trim()?.takeIf { it.isNotEmpty() }
+            val pem = env["ACTOR_PRIVATE_KEY_PEM"]?.takeIf { it.isNotBlank() }
+            val path = env["ACTOR_PRIVATE_KEY_PATH"]?.trim()?.takeIf { it.isNotEmpty() }
 
             // 両方が設定されていたら落とす。片方を黙って無視すると、意図していない鍵で
             // 起動したことに気付けない。鍵が変わると相手側は署名検証に失敗し続けるうえ、
@@ -104,7 +105,7 @@ class ServerEnv(
     /** 配信する静的ファイルのディレクトリ。未設定なら null で、何も配信しない */
     val staticSrcDir: Path? =
         run {
-            val raw = getenv("STATIC_SRC_DIR")?.trim()
+            val raw = env["STATIC_SRC_DIR"]?.trim()
             if (raw.isNullOrEmpty()) null else Path.of(raw)
         }
 
