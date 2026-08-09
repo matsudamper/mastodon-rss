@@ -53,6 +53,19 @@ Kotlin のクラスが解析対象にあれば起きるため、リフレクシ�
 値を持たない enum なのでビルド時初期化にして問題ない。
 原因の特定には `--trace-class-initialization=kotlin.DeprecationLevel` を使った。
 
+## フィードの取り込みを繋ぐときに要る指定
+
+`:backend:rss` を `:backend` から使うようになったら、`backend/build.gradle.kts` の
+native-image の引数に `-H:+AddAllCharsets` を足すこと。
+
+native バイナリには既定で一部の文字コードしか入らない。RSS の配信元には
+Shift_JIS や EUC-JP がまだあり、XML 宣言のとおりに読もうとした時点で
+`UnsupportedCharsetException: Shift_JIS` になる。JVM のテストでは通るので、
+繋いだ後に本番のフィードで初めて分かることになる。
+
+`:backend:rss` の `nativeTest` には同じ指定を入れてあり、これが無いと
+Shift_JIS のテストが native でだけ落ちる（実際にそうやって見つけた）。
+
 ## それでもリフレクションで詰まったら
 
 native バイナリだけが落ちる／500 を返す場合は、まず何がリフレクションを

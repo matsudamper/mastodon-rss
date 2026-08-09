@@ -10,6 +10,9 @@ import net.matsudamper.mastodon.rss.repository.sqlite.SqliteRepositories
  * JDBC や SQL がモジュールの外に漏れないようにする。
  *
  * フィードやフォロワーの repository は、スキーマが決まる Phase 3 でここに生やす。
+ * [FeedRepository] と [FeedItemRepository] は interface だけ先に置いてある。
+ * DB アクセスの方法（素の JDBC か jOOQ か）が決まっていないので実装はまだ無く、
+ * ここからも取れない。実装を入れるときに、取得するためのプロパティをここに足す。
  */
 interface Repositories : AutoCloseable {
     /**

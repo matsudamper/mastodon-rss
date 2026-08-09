@@ -7,8 +7,9 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 
 ## 現在地と次の一手
 
-現在地: Phase 0 は完了。`:backend` / `:backend:crypto` / `:backend:repository` / `:frontend` の
-4 モジュール構成。サーバー専用の crypto と repository は `backend/` の下に置いている。
+現在地: Phase 0 は完了。`:backend` / `:backend:crypto` / `:backend:repository` /
+`:backend:rss` / `:frontend` の 5 モジュール構成。サーバー専用の crypto と repository と
+rss は `backend/` の下に置いている。
 `:backend` は Ktor (CIO) + kotlinx.serialization で `/healthz` を返し、JVM でも native-image でも動く。
 `:backend:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
 `nativeTest` で native バイナリ上でも動くことを確認済み。
@@ -27,6 +28,12 @@ Phase 2 は受信側まで。inbox がアクティビティを受け取り、HTT
 
 受信側は実機で確認済み。Mastodon からフォローすると `Follow` が、
 解除すると `Undo` が届き、どちらも署名の検証を通っている。
+
+Phase 5 のうち、フィードを読む部分だけ先に `:backend:rss` として実装した。
+RSS 2.0 / RSS 1.0 (RDF) / Atom 1.0 の解析、差分検出の鍵、配信前の HTML サニタイズまで。
+取得（HTTP）と保存（DB）は繋いでいない。保存は interface だけ置いてある
+（詳細は Phase 5 の各項目に書いた）。フェーズの順番どおりではないが、
+ActivityPub 側とは独立していて、先に書いても後戻りが出ないため。
 
 次の一手: 送信側の署名と `Follow` への `Accept` 返し（チェックポイント 2）。
 
@@ -70,8 +77,9 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 揃えるため。ActivityPub 側は相手の実装が決まっているので REST のまま。
 
 モジュールは `:backend`（サーバー）、`:backend:crypto`（鍵と署名）、
-`:backend:repository`（DB アクセス）、`:frontend`（管理 UI）の 4 つ。
-crypto と repository は JVM のライブラリに依存していて `:frontend` からは使えないため、
+`:backend:repository`（DB アクセス）、`:backend:rss`（RSS/Atom の解析）、
+`:frontend`（管理 UI）の 5 つ。
+crypto と repository と rss は JVM のライブラリに依存していて `:frontend` からは使えないため、
 `backend/` の下にネストしている。ビルド方法は [README.md](README.md) を参照。
 
 ---
@@ -154,6 +162,11 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
         その先の ByteBuddy と JNA が実行時のバイトコード書き換えに依存するので
         native-image では動かない。JCA の確認をそこに同居させると検証できなくなる
       - Phase 2 の署名文字列の組み立てと Digest の計算もここに置く予定
+- [x] `:backend:rss` — RSS/Atom の解析。Phase 5 の前倒しで追加した
+      - Kotlin JVM。依存は Kotlin 標準ライブラリと `javax.xml` だけで、Ktor も JDBC も入らない
+      - 分けた理由は crypto と同じで `nativeTest` を回すため。StAX はパーサの実装を
+        実行時に探すので、native-image で解決に失敗すると JVM のテストだけ通る状態になる
+      - 取得（HTTP）と保存（DB）は入れない。解析のテストにサーバーと DB を要らなくするため
 - [ ] `:shared` — `:backend` と `:frontend` で共有するもの。KMP (`jvm` + `wasmJs`)
       - 中身は GraphQL のスキーマと、スキーマに書けない定数だけ。Phase 8 で追加する
 
@@ -562,6 +575,9 @@ native-image のリフレクション設定という負債だけが先に増え�
   jOOQ を入れると native-image の未知のリスクが 1 つ戻ってくる
 - 一方で配信キューの状態遷移や、フォロワーのページングは SQL が込み入るので、
   型のある DSL の恩恵が効く場面ではある
+- Phase 5 の `FeedRepository` と `FeedItemRepository` は interface だけ先に書いてある。
+  どういう SQL が要るかはここから見えるので、判断の材料に使える
+  （`findExistingKeys` の IN 句のような、書き方に差が出るものが含まれている）
 
 採用する場合にやること:
 
@@ -646,8 +662,26 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 
 ここでようやく本来の機能。ActivityPub 側はもう触らない。
 
-- [ ] RSS 2.0 / Atom 1.0 のパーサを自作（`javax.xml` の StAX か DOM）
+フィードを読む部分（`:backend:rss`）だけ先に実装した。取得と保存は繋いでいないので、
+まだ何も流れない。どこまでやったかは各項目の下に書いた。
+
+- [x] RSS 2.0 / Atom 1.0 のパーサを自作（`javax.xml` の StAX か DOM）
       - 両フォーマットの差分吸収（`item`/`entry`, `pubDate`/`updated`, `description`/`summary`/`content`）
+      - StAX で実装した。`backend/rss/src/main/kotlin/.../feed/FeedParser.kt`
+      - RSS 1.0 (RDF) も読む。日本語圏の配信元でまだ使われていて、要素名は RSS 2.0 と
+        ほぼ同じなので分岐が増えなかった
+      - 外部エンティティと DTD は切ってある。フィードの中身は相手のサーバーが返すもので、
+        XXE と展開攻撃の入口になるため。副作用として、DTD で実体参照を宣言している
+        壊れたフィードは読めない
+      - 入口はバイト列。文字コードは XML 宣言と BOM から判定させる。先に String に
+        すると Shift_JIS の配信元で文字が壊れる
+      - 日時は RFC 822 と RFC 3339 の両方に加えて、タイムゾーンの略称や
+        欠けている形も読む（`FeedDates`）。読めなければ null にして記事は捨てない
+      - [ ] 繋ぐときに `:backend` の native-image へ `-H:+AddAllCharsets` を足す
+            - native バイナリには既定で一部の文字コードしか入らず、Shift_JIS の
+              フィードを読んだ時点で `UnsupportedCharsetException` になる
+            - `:backend:rss` の `nativeTest` には指定済み。これが無いと Shift_JIS の
+              テストが native でだけ落ちることを確認している（そうやって見つけた）
 - [ ] `feeds` / `feed_items` テーブル
       - この時点ではアクターが 1 つしか無いので、検証はフィード 1 本で行う。
         `ACTOR_USERNAME` にそのフィード用の名前を入れて動かす
@@ -657,13 +691,35 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
         `Move` では表現できず、引っ越しを通知する手段が無い）
       - 複数フィードを同時に動かせるようになるのは Phase 6。
         `feeds.actor_id` を足してフィードごとのアクターに振り分ける
-- [ ] 差分検出: `guid` / `id` / `link` を主キーに、なければ URL + タイトルのハッシュ
+      - `FeedRepository` と `FeedItemRepository` を interface だけ先に置いた
+        （`:backend:repository`）。DB アクセスの方法（素の JDBC か jOOQ か）が
+        決まっていないので実装は無く、`Repositories` からも取れない。
+        マイグレーション SQL もまだ書いていない
+- [x] 差分検出: `guid` / `id` / `link` を主キーに、なければ URL + タイトルのハッシュ
+      - `FeedItemKey`。優先順は `id`（`guid` / Atom の `id` / `rdf:about`）→ `link` → ハッシュ
+      - どちらも無いときは、フィードの URL と題名の SHA-256。題名も無いときだけ本文を混ぜる
+      - 保存側の突き合わせは `FeedItemRepository.findExistingKeys` に置いた（実装は未定）
 - [ ] 条件付き GET（`ETag` / `If-Modified-Since`）でフィード配信元に優しくする
+      - 保存する値の形（`FeedFetchValidators`）と、記録する口だけ interface に置いた。
+        送るのは HTTP クライアントを持つ `:backend` 側の仕事なので未実装
 - [ ] スケジューラ（定期ポーリング）。フィードごとに間隔を設定可能に
+      - 間隔を持つ場所（`Feed.pollIntervalSeconds`）と、対象を引く口
+        （`FeedRepository.findDue`）は interface に置いた。回す部分は未実装
 - [ ] 初回登録時の暴発防止 — 既存記事を全部投稿しない。初回は「取り込み済み」としてマークするだけ
-- [ ] HTML サニタイズ（Mastodon が許可するタグに絞る。`<p> <br> <a> <span>` 程度）
+      - 記録する場所（`Feed.initialImportDone` と `FeedItemState.SKIPPED`）だけ用意した。
+        判断する処理は取り込みを書くときに入れる
+- [x] HTML サニタイズ（Mastodon が許可するタグに絞る。`<p> <br> <a> <span>` 程度）
+      - `HtmlSanitizer`。許可したタグと属性以外を落とす。`<script>` と `<style>` は中身ごと落とし、
+        `href` はスキームも見る（`javascript:` を残さない）
+      - 閉じられていないタグは末尾で閉じ、対応しない閉じタグは落とす。
+        壊れた入れ子をそのまま流すと受信側の表示が本文の外まで崩れるため
 - [ ] 本文の長さ調整（インスタンスによっては 500 文字制限。タイトル + リンクを基本形に）
+      - 切り詰め（`FeedText.truncate`。コードポイント単位で切り、単語の途中なら空白まで戻す）
+        は用意した。投稿の本文をどう組み立てるかは Phase 4 の `Note` を書くときに決める
 - [ ] 取得失敗・パース失敗時のエラーハンドリングとログ
+      - パースの失敗は `FeedParseException` にした。読めない日時や欠けたフィールドは
+        null にして記事ごと捨てない、という切り分けまで。取得の失敗と、失敗をどう記録して
+        どこに出すかは未実装（記録する口は `FeedRepository.recordFetchFailure`）
 
 ### ✅ チェックポイント 5
 実在の RSS を登録して放置し、新着記事が自動でタイムラインに流れる。
@@ -858,6 +914,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 | native-image で落ちる | リフレクション設定不足（`@Serializable` 型の登録漏れなど）・SQLite ネイティブライブラリ・jOOQ を入れた場合はその設定 |
 | JVM のテストは通るのに native だけ落ちる | テストが native で実行されていない。`nativeTest` の対象に入れられないか検討する |
 | native バイナリでマイグレーションが動かない | SQL がリソースとして同梱されていない（`resource-config.json` 未登録）/ jar 内ディレクトリ走査に頼っている |
+| native バイナリで Shift_JIS のフィードだけ読めない | 文字コードが同梱されていない（`-H:+AddAllCharsets` 未指定） |
 | ログが 1 行も出ない | SLF4J の実装が classpath に無い。`No SLF4J providers were found` が出て以降すべて NOP になる |
 | 外部キー制約が効かない | SQLite は `PRAGMA foreign_keys` が既定で OFF。接続ごとに ON にする必要がある |
 | `SQLITE_BUSY` が出る | ライターを複数持っている / `busy_timeout` 未設定 |

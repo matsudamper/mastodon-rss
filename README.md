@@ -9,6 +9,9 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | モジュール | ディレクトリ | 内容 |
 | --- | --- | --- |
 | `:backend` | `backend/` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
+| `:backend:crypto` | `backend/crypto/` | RSA の鍵とパスワードハッシュ。JCA だけに依存する |
+| `:backend:repository` | `backend/repository/` | DB アクセス。公開するのは interface だけ |
+| `:backend:rss` | `backend/rss/` | RSS/Atom の解析。取得も保存もせず、XML から値を取り出すところまで |
 | `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の管理画面 |
 
 ```mermaid
@@ -35,6 +38,12 @@ flowchart TB
         api["公開 API<br/>Repositories<br/>DatabaseConfig"]
         impl["internal 実装<br/>SqliteRepositories<br/>SqliteConnectionManager<br/>MigrationLoader<br/>MigrationRunner"]
         res["リソース<br/>db/migration/V001__init.sql<br/>db/migration/index<br/>resource-config.json"]
+    end
+
+    subgraph rss[":backend:rss"]
+        parser["FeedParser<br/>RSS 2.0 / RSS 1.0 / Atom 1.0"]
+        feedmodel["ParsedFeed<br/>ParsedFeedItem<br/>FeedContent"]
+        feedutil["FeedItemKey 差分検出の鍵<br/>HtmlSanitizer 配信前に削る<br/>FeedDates / FeedText"]
     end
 
     subgraph frontend[":frontend"]
@@ -67,6 +76,9 @@ flowchart TB
     module --> static
     static --> dist
     compose -.->|デプロイ時に配置| dist
+    parser --> feedmodel
+    parser --> feedutil
+    main -.->|Phase 5 で繋ぐ。いまは :backend から参照していない| parser
 ```
 
 `:frontend` と `:backend` は別々にビルドする。互いに依存させない。
@@ -94,7 +106,8 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 ```
 
 `test` のようにプロジェクトのパスを付けない指定は、全プロジェクトの同名タスクに
-展開される。対象は `:backend`、`:backend:crypto`、`:backend:repository` の 3 つで、
+展開される。対象は `:backend`、`:backend:crypto`、`:backend:repository`、
+`:backend:rss` の 4 つで、
 `:frontend` は wasmJs ターゲットだけなので `test` を持たず対象にならない。
 CI の backend ジョブもこれを使っている。
 
@@ -117,15 +130,20 @@ CI の backend ジョブもこれを使っている。
 DOMAIN=example.com ./gradlew :backend:run
 ```
 
-### crypto の native テスト
+### crypto と rss の native テスト
 
 ```sh
 # テストを native バイナリにして実行する（GraalVM 25 が必要）
 ./gradlew :backend:crypto:nativeTest
+./gradlew :backend:rss:nativeTest
 ```
 
 `nativeTest` は `check` にぶら下がっていないので、`./gradlew build` でも
 `./gradlew test` でも走らない。名前を挙げて実行する必要がある。
+
+この 2 つを native でも回すのは、JVM のテストでは分からない壊れ方があるため。
+`:backend:crypto` は JCA、`:backend:rss` は StAX (`javax.xml`) が、どちらも
+実装を実行時に探す作りになっていて、native-image では解決できないことがある。
 
 ### backend の native-image
 
