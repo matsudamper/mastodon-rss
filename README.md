@@ -262,6 +262,23 @@ DB は `data` という名前付きボリュームに置く。コンテナを作
 
 `HEALTHCHECK` で `/healthz` を叩いているので、healthy になれば DB まで通っている。
 
+### ローカルビルドのバイナリで動かす
+
+コードを直すたびにイメージを作り直すと native-image のビルドが毎回走って遅い。
+`docker-compose.yml` の `/usr/local/bin` のマウントをコメントアウトから戻すと、
+手元でビルドしたバイナリをイメージの中のものと差し替えられる。
+
+```sh
+./gradlew :backend:nativeCompile
+docker compose up -d --force-recreate
+```
+
+以降はビルドし直して `docker compose restart mastodon-rss` すれば反映される。
+
+entrypoint は `/usr/local/bin` ではなく `/docker-entrypoint.sh` に置いてある。
+同じディレクトリに置くとこのマウントに隠され、コンテナが
+`"/usr/local/bin/docker-entrypoint.sh": permission denied` で起動しなくなるため。
+
 ### GitHub Packages のイメージを使う
 
 `main` にマージすると ghcr.io にイメージが publish される。タグは `latest` と commit SHA。
