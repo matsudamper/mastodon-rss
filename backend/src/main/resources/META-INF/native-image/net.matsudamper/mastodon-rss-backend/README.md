@@ -24,9 +24,14 @@ serializer を明示する。コンパイル時に serializer が決まるので
 `reflect-config.json` も `--initialize-at-build-time` も要らない。
 実体は `backend/src/main/kotlin/net/matsudamper/mastodon/rss/json/JsonResponse.kt`。
 
-受信側も同じ理由で `call.receive<T>()` を使わない。加えて Phase 2 の inbox は
-HTTP Signature の Digest 検証のために生のボディが必要なので、
-`receiveText()` してから `AppJson.decodeFromString(Foo.serializer(), body)` で読む。
+受信側も同じ理由で `call.receive<Foo>()` のように `@Serializable` な型を直接は受けない。
+inbox は `call.receive<ByteArray>()` で生のバイト列を受け、
+`AppJson.decodeFromString(Foo.serializer(), body.decodeToString())` で読む。
+
+ボディを文字列ではなくバイト列で受けるのは、HTTP Signature の `Digest` が
+バイト列に対して計算されているため。`receiveText()` を経由すると文字コードの
+解釈が挟まり、送信側が署名した内容と一致しなくなる余地が残る。
+`ByteArray` は Ktor が組み込みで変換する型なので、serializer のリフレクションは発生しない。
 
 `Accept` に応じた Content-Type の選択は `ContentNegotiation` の代わりに
 `ActivityPubContentTypes.negotiate()` で行う。

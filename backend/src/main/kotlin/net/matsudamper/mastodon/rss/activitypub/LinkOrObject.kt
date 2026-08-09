@@ -36,6 +36,19 @@ sealed interface LinkOrObject {
     ) : LinkOrObject
 }
 
+/**
+ * 指している対象の id。
+ *
+ * 埋め込まれたオブジェクトの場合は中の `id` を読む。id を持たないオブジェクトも
+ * 書けてしまうので、取れなければ null。
+ */
+val LinkOrObject.id: String?
+    get() =
+        when (this) {
+            is LinkOrObject.Link -> href
+            is LinkOrObject.Embedded -> (json["id"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+        }
+
 /** [LinkOrObject] の JSON 表現を、文字列かオブジェクトかで振り分ける serializer */
 object LinkOrObjectSerializer : KSerializer<LinkOrObject> {
     override val descriptor: SerialDescriptor =

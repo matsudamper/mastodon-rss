@@ -12,8 +12,13 @@ import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsername
+import net.matsudamper.mastodon.rss.actor.RemoteActorKeys
 import net.matsudamper.mastodon.rss.actor.actorRoutes
+import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
+import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
+import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
@@ -31,16 +36,24 @@ fun main() {
 
     // サーバーが止まったら接続も閉じる。start(wait = true) は停止まで返ってこない
     createRepositories(DatabaseConfig(path = env.dbPath)).use { repositories ->
-        embeddedServer(CIO, port = env.port, host = env.host) {
-            module(repositories, actorKey, env)
-        }.start(wait = true)
+        // inbox の署名検証で相手のアクターを引きに行くので、HTTP クライアントもここで持つ
+        RemoteActorKeys().use { remoteActorKeys ->
+            embeddedServer(CIO, port = env.port, host = env.host) {
+                module(repositories, actorKey, env, remoteActorKeys)
+            }.start(wait = true)
+        }
     }
 }
 
+/**
+ * @param publicKeys inbox の署名検証で使う公開鍵の引き先。
+ *   本番は [RemoteActorKeys] が相手のサーバーから取ってくる
+ */
 fun Application.module(
     repositories: Repositories,
     actorKey: ActorKey,
     env: ServerEnv,
+    publicKeys: PublicKeys,
 ) {
     // 書けない DB を抱えたまま起動すると、最初のリクエストまで問題に気付けない。
     // native バイナリでは SQLite のネイティブライブラリ周りで起きやすいので起動時に確かめる
@@ -90,6 +103,11 @@ fun Application.module(
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
         webFingerRoutes(directory)
         actorRoutes(directory, actorKey)
+
+        // 見つけた後、フォローなどのアクティビティはここに POST されてくる
+        inboxRoutes(directory, HttpSignatureVerifier(publicKeys))
+
+        nodeInfoRoutes(env.domain)
 
         // 残り全部を受けるので最後に置く
         staticRoutes(staticFiles)

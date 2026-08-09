@@ -9,7 +9,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | モジュール | ディレクトリ | 内容 |
 | --- | --- | --- |
 | `:backend` | `backend/` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
-| `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の管理画面 |
+| `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の画面。管理画面とアカウント画面 |
 
 ```mermaid
 flowchart TB
@@ -20,7 +20,9 @@ flowchart TB
         route["routing<br/>GET /healthz"]
         json["json<br/>AppJson<br/>respondJson"]
         ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
-        actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls"]
+        actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls<br/>RemoteActorKeys"]
+        inbox["inbox<br/>POST /users/{name}/inbox"]
+        sig["httpsignature<br/>HttpSignatureVerifier<br/>SigningString<br/>BodyDigest"]
         static["staticfiles<br/>StaticFiles<br/>staticRoutes"]
     end
 
@@ -36,7 +38,7 @@ flowchart TB
     end
 
     subgraph frontend[":frontend"]
-        compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>Hello World まで"]
+        compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>Navigation 3 で画面を出し分け"]
     end
 
     db[("SQLite<br/>DB_PATH")]
@@ -53,7 +55,12 @@ flowchart TB
     impl --> res
     impl --> db
     actor --> keys
-    ap -.->|Phase 2 で接続| sign
+    module --> inbox
+    inbox --> sig
+    sig -->|署名の検証| sign
+    sig -->|keyId から公開鍵| actor
+    remote[("相手のサーバー<br/>keyId を GET")]
+    actor --> remote
     key[("秘密鍵の PEM<br/>ACTOR_PRIVATE_KEY_PATH")]
     actor --> key
     dist[("静的ファイル<br/>STATIC_SRC_DIR")]
@@ -177,9 +184,35 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | `GET /healthz` | 生存確認。`{"status":"ok"}` |
 | `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
 | `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
+| `POST /users/{name}/inbox` | アクティビティの受け口。HTTP Signatures を検証する |
 
 `{name}` として応答するのは `ACTOR_USERNAME`（既定 `admin`）と、`test-` で始まる
 任意の名前の 2 通り。後者は動作確認用で、下の「動作確認用のアカウント」を参照。
+
+上の表以外のパスは静的ファイルの配信に落ちる。ファイルがあればそれを返し、無ければ
+`index.html` を返して画面側に解釈させる。どの画面を出すかはブラウザ側の判断になる。
+
+| パス | 画面 |
+| --- | --- |
+| `/` | トップ |
+| `/@{name}` | アカウント画面。フィードの取得状況と配信した記事 |
+| `/admin` | 管理画面。中身は Phase 8 で作る |
+| それ以外 | 見つからない（HTTP は 200 のまま） |
+
+画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
+Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。
+実体は `frontend/src/wasmJsMain/resources/fonts/`（SIL Open Font License 1.1。同じ場所に
+`OFL.txt` を置いてある）で、読み込みは `:frontend` の `ui/Font.kt`。
+
+アカウント画面の `/@{name}` と Actor JSON の `/users/{name}` は別のパス。
+1 つのパスで `Accept` を見て HTML と JSON を出し分けると、相手の綴りの揺れで
+アカウントごと見つからなくなる。表示している数値と記事はまだ仮の値で、
+画面の上にその旨を出している。
+
+inbox は署名が通れば 202、通らなければ 401 を返す。届いたアクティビティは
+種類と送り主をログに出すだけで、まだ処理していない。検証の内容は
+[HttpSignatureVerifier.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
+の KDoc にある。
 
 ```sh
 curl "http://localhost:8080/.well-known/webfinger?resource=acct:admin@example.com"
@@ -244,6 +277,23 @@ DB は `data` という名前付きボリュームに置く。コンテナを作
 ホスト側のディレクトリを uid 10001 にしておく。
 
 `HEALTHCHECK` で `/healthz` を叩いているので、healthy になれば DB まで通っている。
+
+### ローカルビルドのバイナリで動かす
+
+コードを直すたびにイメージを作り直すと native-image のビルドが毎回走って遅い。
+`docker-compose.yml` の `/usr/local/bin` のマウントをコメントアウトから戻すと、
+手元でビルドしたバイナリをイメージの中のものと差し替えられる。
+
+```sh
+./gradlew :backend:nativeCompile
+docker compose up -d --force-recreate
+```
+
+以降はビルドし直して `docker compose restart mastodon-rss` すれば反映される。
+
+entrypoint は `/usr/local/bin` ではなく `/docker-entrypoint.sh` に置いてある。
+同じディレクトリに置くとこのマウントに隠され、コンテナが
+`"/usr/local/bin/docker-entrypoint.sh": permission denied` で起動しなくなるため。
 
 ### GitHub Packages のイメージを使う
 

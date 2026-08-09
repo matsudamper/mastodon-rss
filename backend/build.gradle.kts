@@ -11,6 +11,12 @@ dependencies {
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
+
+    // inbox の署名検証で、相手の keyId を GET して公開鍵を取りに行く。
+    // engine はサーバーと揃えて CIO にする
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+
     implementation(libs.kotlinx.serialization.json)
 
     // SLF4J の実装が無いと Ktor もこちらのログも NOP になって何も出ない。

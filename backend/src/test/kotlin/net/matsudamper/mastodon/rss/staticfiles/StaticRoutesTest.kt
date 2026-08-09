@@ -9,6 +9,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestActorKey
+import net.matsudamper.mastodon.rss.TestPublicKeys
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.module
 import java.nio.file.Files
@@ -126,7 +127,7 @@ class StaticRoutesTest {
             }
 
         application {
-            module(FakeRepositories(), TestActorKey.value, env)
+            module(FakeRepositories(), TestActorKey.value, env, TestPublicKeys())
         }
     }
 

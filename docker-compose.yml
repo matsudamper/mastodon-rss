@@ -36,6 +36,10 @@ services:
       # 画面を出すならここでマウントする。上の STATIC_SRC_DIR と一緒にコメントを外すこと。
       # サーバーは読むだけなので ro で渡す
       # - ${STATIC_SRC_DIR}:/srv/static:ro
+      # ./gradlew :backend:nativeCompile の出力でイメージの中のバイナリを差し替える。
+      # イメージを作り直さずに手元のビルドを試したいときだけコメントを外す。
+      # entrypoint は /docker-entrypoint.sh に置いてあるので、ここを被せても隠れない
+      # - ./backend/build/native/nativeCompile:/usr/local/bin:ro
 
 volumes:
   data:
