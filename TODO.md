@@ -527,7 +527,10 @@ ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signa
 - [ ] `Follow` アクティビティを受けたら `Accept` を相手の `inbox` に POST し返す
       - `Accept` の `object` には受信した Follow アクティビティを丸ごと入れる（id だけだと通らない実装がある）
       - `Accept` 自身にもユニークな `id` を振る
-- [ ] リモートアクターの取得結果をキャッシュ（毎回 GET しない）
+- [x] リモートアクターの取得結果をキャッシュ（毎回 GET しない）
+      - `actor/RemoteActorKeys.kt` に `keyId` ごとのメモリキャッシュを持たせた。TTL は 1 時間
+      - 取得に失敗した場合はキャッシュしない。相手のサーバーが一時的に落ちているだけなら、
+        次の呼び出しで取り直せるようにするため
 - [ ] 送信 GET にも署名を付ける
       - Mastodon の `AUTHORIZED_FETCH`（secure mode）が有効なインスタンスは無署名 GET を拒否する
 
