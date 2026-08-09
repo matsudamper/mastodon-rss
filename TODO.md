@@ -479,7 +479,13 @@ ActivityPub のアカウント発見は WebFinger → Actor の 2 ホップで�
       - `social-rss.matsudamper.net` で公開した。Cloudflare を挟んでいる
       - 公開しているホスト名と `DOMAIN` は一致させる。WebFinger は `resource` の
         ホスト部が `DOMAIN` と違えば 404 を返す
-- [ ] `GET /.well-known/nodeinfo` + `/nodeinfo/2.1`（任意だが実装しておくと調査が楽）
+- [x] `GET /.well-known/nodeinfo` + `/nodeinfo/2.1`（任意だが実装しておくと調査が楽）
+      - `nodeinfo/` パッケージに切り出した。`Application.kt` の routing への追加は
+        `nodeInfoRoutes(env.domain)` の 1 行だけ
+      - discovery document の `rel` は `http://nodeinfo.diaspora.software/ns/schema/2.1` 固定
+      - 固定アクター1つだけの構成なので `usage.users.total` は常に 1、記事配信はまだ無いので
+        `usage.localPosts` は常に 0
+      - `software.repository` に GitHub リポジトリの URL を入れた
 
 ### ✅ チェックポイント 1（達成）
 Mastodon の検索窓に `@admin@example.com` と入力して、プロフィールカードが表示される。
