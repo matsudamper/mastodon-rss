@@ -481,7 +481,13 @@ ActivityPub のアカウント発見は WebFinger → Actor の 2 ホップで�
       - `social-rss.matsudamper.net` で公開した。Cloudflare を挟んでいる
       - 公開しているホスト名と `DOMAIN` は一致させる。WebFinger は `resource` の
         ホスト部が `DOMAIN` と違えば 404 を返す
-- [ ] `GET /.well-known/nodeinfo` + `/nodeinfo/2.1`（任意だが実装しておくと調査が楽）
+- [x] `GET /.well-known/nodeinfo` + `/nodeinfo/2.1`（任意だが実装しておくと調査が楽）
+      - `nodeinfo/` パッケージに切り出した。`Application.kt` の routing への追加は
+        `nodeInfoRoutes(env.domain)` の 1 行だけ
+      - discovery document の `rel` は `http://nodeinfo.diaspora.software/ns/schema/2.1` 固定
+      - 固定アクター1つだけの構成なので `usage.users.total` は常に 1、記事配信はまだ無いので
+        `usage.localPosts` は常に 0
+      - `software.repository` に GitHub リポジトリの URL を入れた
 
 ### ✅ チェックポイント 1（達成）
 Mastodon の検索窓に `@admin@example.com` と入力して、プロフィールカードが表示される。
@@ -529,7 +535,12 @@ ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signa
 - [ ] `Follow` アクティビティを受けたら `Accept` を相手の `inbox` に POST し返す
       - `Accept` の `object` には受信した Follow アクティビティを丸ごと入れる（id だけだと通らない実装がある）
       - `Accept` 自身にもユニークな `id` を振る
-- [ ] リモートアクターの取得結果をキャッシュ（毎回 GET しない）
+- [x] リモートアクターの取得結果をキャッシュ（毎回 GET しない）
+      - キャッシュの入れ物は `ExpiringCache`（`:backend:repository`。`repository/ExpiringCache.kt`）として
+        interface 化し、実装は非公開にした。差し替え（テスト用フェイクや将来の永続キャッシュ）はここだけ見れば済む
+      - `actor/RemoteActorKeys.kt` はこれを `keyId` → 公開鍵 のキャッシュとして使う。TTL は 1 時間
+      - 取得に失敗した場合はキャッシュしない。相手のサーバーが一時的に落ちているだけなら、
+        次の呼び出しで取り直せるようにするため
 - [ ] 送信 GET にも署名を付ける
       - Mastodon の `AUTHORIZED_FETCH`（secure mode）が有効なインスタンスは無署名 GET を拒否する
 
