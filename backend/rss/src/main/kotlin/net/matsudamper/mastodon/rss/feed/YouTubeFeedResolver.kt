@@ -25,7 +25,7 @@ import java.nio.charset.StandardCharsets
  * 実際 `?user=MrBeast` は 404 ではなく別人のフィードを 200 で返す。
  * 間違ったチャンネルを黙って購読するくらいなら、ページを引いて確かめる方がよい。
  */
-object YouTubeFeedUrl {
+object YouTubeFeedResolver {
     private const val FEED_ENDPOINT = "https://www.youtube.com/feeds/videos.xml"
     private const val WATCH_ENDPOINT = "https://www.youtube.com/watch"
     private const val SITE = "https://www.youtube.com"
@@ -138,13 +138,13 @@ object YouTubeFeedUrl {
     }
 
     /** チャンネル ID からフィードの URL を作る。ID の形が違えば null */
-    fun forChannel(channelId: String): String? {
+    fun feedUrlForChannel(channelId: String): String? {
         if (!channelIdPattern.matches(channelId)) return null
         return "$FEED_ENDPOINT?channel_id=$channelId"
     }
 
     /** 再生リスト ID からフィードの URL を作る。ID の形が違えば null */
-    fun forPlaylist(playlistId: String): String? {
+    fun feedUrlForPlaylist(playlistId: String): String? {
         if (!isSubscribablePlaylist(playlistId)) return null
         return "$FEED_ENDPOINT?playlist_id=$playlistId"
     }
@@ -183,7 +183,7 @@ object YouTubeFeedUrl {
     }
 
     private fun channelFeed(channelId: String): YouTubeFeedSource? {
-        val url = forChannel(channelId) ?: return null
+        val url = feedUrlForChannel(channelId) ?: return null
         return YouTubeFeedSource.Feed(
             url = url,
             kind = YouTubeFeedSource.Kind.CHANNEL,
@@ -192,7 +192,7 @@ object YouTubeFeedUrl {
     }
 
     private fun playlistFeed(playlistId: String): YouTubeFeedSource? {
-        val url = forPlaylist(playlistId) ?: return null
+        val url = feedUrlForPlaylist(playlistId) ?: return null
         return YouTubeFeedSource.Feed(
             url = url,
             kind = YouTubeFeedSource.Kind.PLAYLIST,
@@ -298,8 +298,8 @@ sealed interface YouTubeFeedSource {
     /**
      * チャンネル ID がページの中にしか無い状態。
      *
-     * [pageUrl] を取得して [YouTubeFeedUrl.channelIdFromPageHtml] に渡し、
-     * 得られた ID を [YouTubeFeedUrl.forChannel] に入れるとフィードの URL になる。
+     * [pageUrl] を取得して [YouTubeFeedResolver.channelIdFromPageHtml] に渡し、
+     * 得られた ID を [YouTubeFeedResolver.feedUrlForChannel] に入れるとフィードの URL になる。
      */
     data class NeedsPageLookup(
         val pageUrl: String,

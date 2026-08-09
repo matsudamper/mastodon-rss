@@ -34,7 +34,7 @@ Mastodon 4.5.6 のインスタンスから実際にフォローして確認し�
 
 Phase 5 のうち、フィードを読む部分だけ先に `:backend:rss` として実装した。
 RSS 2.0 / RSS 1.0 (RDF) / Atom 1.0 の解析、差分検出の鍵、配信前の HTML サニタイズと、
-貼られた URL を YouTube のフィード URL に直す `YouTubeFeedUrl` まで。
+貼られた URL を YouTube のフィード URL に直す `YouTubeFeedResolver` まで。
 取得（HTTP）と保存（DB）は繋いでいない。保存は interface だけ置いてある
 （詳細は Phase 5 の各項目に書いた）。フェーズの順番どおりではないが、
 ActivityPub 側とは独立していて、先に書いても後戻りが出ないため。
@@ -729,7 +729,7 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 - [ ] 貼られた URL をフィードの URL に直す
       - フィードの URL をそのまま入れさせると、YouTube のように人が目にする URL と
         フィードの URL が別物の配信元で登録できない。登録の入口で変換する
-      - `YouTubeFeedUrl` を `:backend:rss` に置いた。`/@handle` `/channel/<id>`
+      - `YouTubeFeedResolver` を `:backend:rss` に置いた。`/@handle` `/channel/<id>`
         `/playlist?list=` `/watch?v=` `youtu.be` `/shorts/` と、既にフィードの URL の形を読む。
         スキームの欠けた `youtube.com/@name` や `m.` `music.` のホストも受ける
       - `/@handle` `/c/<名前>` `/user/<名前>` と動画の URL はチャンネル ID が
