@@ -124,16 +124,6 @@ CI の backend ジョブもこれを使っている。
 DOMAIN=example.com ./gradlew :backend:run
 ```
 
-### crypto の native テスト
-
-```sh
-# テストを native バイナリにして実行する（GraalVM 25 が必要）
-./gradlew :backend:crypto:nativeTest
-```
-
-`nativeTest` は `check` にぶら下がっていないので、`./gradlew build` でも
-`./gradlew test` でも走らない。名前を挙げて実行する必要がある。
-
 ### backend の native-image
 
 GraalVM 25 が必要。
