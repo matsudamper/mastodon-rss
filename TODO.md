@@ -14,20 +14,23 @@ rss は `backend/` の下に置いている。
 `:backend:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
 `nativeTest` で native バイナリ上でも動くことを確認済み。
 `:backend:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
-`:frontend` は Compose Multiplatform for Web (Kotlin/Wasm) で Hello World を表示するところまで。
+`:frontend` は Compose Multiplatform for Web (Kotlin/Wasm)。Navigation 3 で URL から画面を決め、
+トップ・アカウント画面（`/@ユーザー名`）・管理画面（`/admin`）・見つからない、の 4 つを出す。
+中身の値はまだ繋ぐ先が無いので仮のもの。
 `:backend` は `STATIC_SRC_DIR` に置かれたものを root から配信するので、成果物を指せば画面が出る。
-CI で ktlint / JVM テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
+CI で ktlint / JVM テスト / frontend / crypto と rss の native テスト / native-image の 5 ジョブが回っている。
 
 Phase 1 は完了。`social-rss.matsudamper.net` で公開し、WebFinger と Actor が
 外から引けることを確認した。アクターは `admin` 固定（`ACTOR_USERNAME` で変更可）で、
 `DOMAIN` は必須。
 
-Phase 2 は受信側まで。inbox がアクティビティを受け取り、HTTP Signatures を
-検証して 202 か 401 を返すところまで実装した。中身はログに出すだけで、
-`Follow` に `Accept` を返していないので、フォローボタンは保留のまま戻らない。
+Phase 2 はチェックポイント 2 まで達成。inbox が受け取ったアクティビティの署名を検証し、
+`Follow` なら相手の inbox に署名付きで `Accept` を返してフォローが成立する。
+Mastodon 4.5.6 のインスタンスから実際にフォローして確認した。フォロワーの記録はまだしない。
 
-受信側は実機で確認済み。Mastodon からフォローすると `Follow` が、
-解除すると `Undo` が届き、どちらも署名の検証を通っている。
+解除の `Undo` も届いて署名の検証は通っているが、記録が無いので何もしていない。
+
+相手のアクター文書はキャッシュするので、フォロー 1 件につき GET は 1 回で済む。
 
 Phase 5 のうち、フィードを読む部分だけ先に `:backend:rss` として実装した。
 RSS 2.0 / RSS 1.0 (RDF) / Atom 1.0 の解析、差分検出の鍵、配信前の HTML サニタイズまで。
@@ -35,7 +38,8 @@ RSS 2.0 / RSS 1.0 (RDF) / Atom 1.0 の解析、差分検出の鍵、配信前の
 （詳細は Phase 5 の各項目に書いた）。フェーズの順番どおりではないが、
 ActivityPub 側とは独立していて、先に書いても後戻りが出ないため。
 
-次の一手: 送信側の署名と `Follow` への `Accept` 返し（チェックポイント 2）。
+次の一手: `AUTHORIZED_FETCH` のインスタンス向けに送信 GET へ署名を付ける。
+これが Phase 2 の最後の項目で、済めば Phase 3 のフォロワー永続化に移れる。
 
 Phase 0 でやったことと順序の理由:
 
@@ -71,7 +75,7 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 | 署名 | JCA（RSA / SHA256withRSA）。ライブラリは足さない |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
 | 管理 API | GraphQL。サーバーは graphql-java、クライアントは Apollo Kotlin（Phase 8 で作る） |
-| 画面遷移 | Navigation Compose 3（JetBrains 版）（Phase 8 で作る） |
+| 画面遷移 | Navigation Compose 3（JetBrains 版） |
 
 管理 API を GraphQL にするのは [kake-bo](https://github.com/matsudamper/kake-bo) と
 揃えるため。ActivityPub 側は相手の実装が決まっているので REST のまま。
@@ -542,21 +546,47 @@ ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signa
             - 署名対象に入っていないヘッダは、署名が通っても中身を信用できない
       - [x] アクティビティの `actor` が署名した鍵の持ち主と違えば拒否
             - 自分の鍵で正しく署名しつつ、`actor` だけ他人を名乗る形を防ぐ
-- [ ] 署名の生成（送信） — 上記の逆。POST 時は `Digest` を必ず含める
-- [ ] `Follow` アクティビティを受けたら `Accept` を相手の `inbox` に POST し返す
+- [x] 署名の生成（送信） — 上記の逆。POST 時は `Digest` を必ず含める
+      - `httpsignature/HttpSignatureSigner.kt`。署名文字列の組み立ては検証と同じ
+        `SigningString` を通す。送る側と受ける側で組み立てが分かれると、
+        どちらが間違っているのか切り分けられなくなる
+      - `Date` の綴りも `httpsignature/HttpDate.kt` に読み書きを並べた
+      - 署名したヘッダは engine 任せにせず自分で載せる。`Host` が二重に付くような
+        壊れ方は相手側から「署名が一致しない」としか見えない。実際に HTTP を張って
+        往復させる確認を `delivery/HttpActivityDeliveryTest.kt` に置いた
+- [x] `Follow` アクティビティを受けたら `Accept` を相手の `inbox` に POST し返す
+      - `inbox/FollowHandler.kt` が組み立て、`delivery/HttpActivityDelivery.kt` が送る
       - `Accept` の `object` には受信した Follow アクティビティを丸ごと入れる（id だけだと通らない実装がある）
-      - `Accept` 自身にもユニークな `id` を振る
+      - `Accept` 自身にもユニークな `id` を振る。アクター id にフラグメントを付けた形にした。
+        独立したパスにすると GET できる文書があるように読めるが、実際には返せない
+      - 送るのは inbox の応答を返す前。配信キューが無いのでここで送らないと機会が無い。
+        送れなくても 202 で返す。5xx にすると相手は同じ Follow を送り直し続ける
+      - `Follow` の `object` がその宛先のアクターでなければ `Accept` を返さない。
+        中身を見ずに返すと、フォローしていないアクターのフォローが成立したように見える
+      - フォロワーの記録はまだしない。再起動するとこちら側には何も残らない（Phase 3）
 - [x] リモートアクターの取得結果をキャッシュ（毎回 GET しない）
       - キャッシュの入れ物は `ExpiringCache`（`:backend:repository`。`repository/ExpiringCache.kt`）として
         interface 化し、実装は非公開にした。差し替え（テスト用フェイクや将来の永続キャッシュ）はここだけ見れば済む
-      - `actor/RemoteActorKeys.kt` はこれを `keyId` → 公開鍵 のキャッシュとして使う。TTL は 1 時間
+      - `actor/HttpRemoteActors.kt` はこれをアクター文書のキャッシュとして使う。TTL は 1 時間。
+        鍵と inbox を別々に持たないのは、どちらも同じ 1 つの文書から読むものだから
+      - キャッシュのキーはフラグメントを落とした URL。`keyId` はアクター id に
+        `#main-key` を付けたもので、フラグメントはサーバーに送られない。落として引くと、
+        署名の検証で取った文書を `Accept` の宛先を決めるときにも使える
       - 取得に失敗した場合はキャッシュしない。相手のサーバーが一時的に落ちているだけなら、
         次の呼び出しで取り直せるようにするため
 - [ ] 送信 GET にも署名を付ける
       - Mastodon の `AUTHORIZED_FETCH`（secure mode）が有効なインスタンスは無署名 GET を拒否する
 
-### ✅ チェックポイント 2
+### ✅ チェックポイント 2（達成）
 Mastodon からフォローボタンを押す → 数秒後に「フォロー中」で確定する（保留のまま戻らない）。
+
+`test-1` を Mastodon 4.5.6 のインスタンス（`m6n.onsen.tech`）からフォローして確認した。
+`Follow` を受けてから `Accept` を返すまでが同じリクエストの中で終わり、
+相手の following コレクションに `https://social-rss.matsudamper.net/users/test-1` が入る。
+
+確認に使ったインスタンスは `AUTHORIZED_FETCH` が無効だった。有効なインスタンスからは
+まだフォローできない。無署名の GET が拒否されて相手の鍵も inbox も取れないため。
+この節の最後の項目がそれにあたる。
 
 ---
 
@@ -798,7 +828,36 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 サーバーが完成してから作る。UI が先だとフェデレーションのデバッグができない。
 `:frontend` モジュールと Hello World は 0-1 で作成済み。
 
+画面の枠（ルーティングとアカウント画面の見た目）は先に作った。管理 API に依存しない部分で、
+値を差し替えれば済む形にしてある。データを引く実装は API ができてから。
+
 - [x] `:frontend` モジュール（Kotlin/Wasm + Compose）を作り、Hello World を表示する
+- [x] URL から画面を決める（それまでは全パスで管理画面が出ていた）
+      - `/` トップ / `/@ユーザー名` アカウント画面 / `/admin` 管理画面 / それ以外は見つからない
+      - 判定は `:frontend` の `navigation/Screen.kt` 1 箇所。リンクを張る側と画面を出す側で
+        パスの綴りがずれると「リンクは踏めるが真っ白になる」壊れ方をする
+      - `index.html` の `<title>` も「管理画面」固定をやめ、画面ごとに `document.title` を書き換える
+- [x] アカウント画面（`/@ユーザー名`）を作る
+      - Mastodon のプロフィールに当たる画面。出すものは RSS に寄せていて、
+        配信元のフィード・取得状況・配信した記事・フォローの仕方を並べる
+      - レスポンシブ。広い画面（900dp 以上）では記事一覧を主、フィードと配信状況を副の 2 カラム、
+        狭い画面では 1 カラムでフィードの情報を先に出す
+      - [ ] 中身を実データにする。いまはユーザー名とドメイン以外が仮の値で、画面にその旨を出している。
+            フィードと記事は Phase 5、数値は管理 API（Phase 8）を繋いでから
+- [x] 日本語のフォントを配信して読み込む
+      - canvas に描いているのでブラウザの持っているフォントは使われず、何もしないと日本語が豆腐になる。
+        `index.html` の `@font-face` も canvas には効かない
+      - やり方は [kake-bo](https://github.com/matsudamper/kake-bo) と同じ。
+        フォントのファイルを静的ファイルと一緒に配信し、起動後に取ってきて `FontFamily` を組み立てる。
+        実装は `:frontend` の `ui/Font.kt`、当てているのは `ui/AppTheme.kt`
+      - 置き場所は `frontend/src/wasmJsMain/resources/fonts/`。成果物に入るので
+        `STATIC_SRC_DIR` 配下に出て、`:backend` が `/fonts/...` で返す
+      - 入れたのは Noto Sans JP の W400 / W500 / W700 の 3 つ。1 ファイル 5MB 台で、
+        kake-bo のように 9 つ全部入れると 50MB になる。無い太さは Compose が近いものに寄せる
+      - 1 つ読めるたびに `FontFamily` を差し替える。全部揃うまで待つと最初の数秒が豆腐のままになる
+      - [ ] 実機で表示を確認する。読み込みの経路は通したが、実際の見た目はまだ見ていない
+      - [ ] ttf のままなので 1 ファイル 5MB 台ある。日本語の常用範囲にサブセットすると
+            桁で小さくなる。woff2 は Skia が読めないので ttf のまま subset する
 - [ ] `:shared` モジュール（KMP: `jvm` + `wasmJs`）を作る
       - 中身は GraphQL のスキーマ（`src/commonMain/resources/graphql/schema.graphqls`）と、
         スキーマに書けない定数（パスワードの長さ制限、環境変数名、画面のパス）だけ
@@ -858,10 +917,16 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
         未設定の間だけハッシュ生成を認証なしで開ける。設定後はログインした人だけ
       - セッションの持ち方（メモリ上のトークン / 署名付き Cookie）は実装時に決める
       - 総当たり対策（試行回数の制限）は Phase 7 で入れる
-- [ ] 画面遷移を Navigation Compose 3 にする
+- [x] 画面遷移を Navigation Compose 3 にする
       - `org.jetbrains.androidx.navigation3:navigation3-ui`（JetBrains 版。wasmJs 向けの成果物がある）
       - 画面のキーを sealed interface で定義し、`NavDisplay` + バックスタックで切り替える
       - URL との同期は自前で持つ。Navigation3 はバックスタックを扱うだけで URL は見ない
+      - 履歴の持ち主はブラウザ側に一本化した。遷移は `pushState`、戻るは `history.back()` に投げ、
+        `popstate` を受けて URL からバックスタックを作り直す。両方で履歴を持つとずれる
+      - バックスタックは URL から決まる形（トップ以外は「トップ + その画面」）。
+        画面が深くなったら、パスの階層からバックスタックを組み立てる形に広げる
+      - `rememberNavBackStack` は使っていない。保存に kotlinx.serialization が要るが、
+        状態は URL に全部入っていて復元するものが無い
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む

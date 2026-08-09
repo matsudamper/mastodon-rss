@@ -9,10 +9,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | モジュール | ディレクトリ | 内容 |
 | --- | --- | --- |
 | `:backend` | `backend/` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
-| `:backend:crypto` | `backend/crypto/` | RSA の鍵とパスワードハッシュ。JCA だけに依存する |
-| `:backend:repository` | `backend/repository/` | DB アクセス。公開するのは interface だけ |
-| `:backend:rss` | `backend/rss/` | RSS/Atom の解析。取得も保存もせず、XML から値を取り出すところまで |
-| `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の管理画面 |
+| `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の画面。管理画面とアカウント画面 |
 
 ```mermaid
 flowchart TB
@@ -23,9 +20,11 @@ flowchart TB
         route["routing<br/>GET /healthz"]
         json["json<br/>AppJson<br/>respondJson"]
         ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
-        actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls<br/>RemoteActorKeys"]
-        inbox["inbox<br/>POST /users/{name}/inbox"]
-        sig["httpsignature<br/>HttpSignatureVerifier<br/>SigningString<br/>BodyDigest"]
+        actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls<br/>HttpRemoteActors"]
+        inbox["inbox<br/>POST /users/{name}/inbox<br/>FollowHandler"]
+        nodeinfo["nodeinfo<br/>GET /.well-known/nodeinfo<br/>GET /nodeinfo/2.1"]
+        sig["httpsignature<br/>HttpSignatureVerifier<br/>HttpSignatureSigner<br/>SigningString<br/>BodyDigest"]
+        delivery["delivery<br/>HttpActivityDelivery"]
         static["staticfiles<br/>StaticFiles<br/>staticRoutes"]
     end
 
@@ -47,7 +46,7 @@ flowchart TB
     end
 
     subgraph frontend[":frontend"]
-        compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>Hello World まで"]
+        compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>Navigation 3 で画面を出し分け"]
     end
 
     db[("SQLite<br/>DB_PATH")]
@@ -65,11 +64,16 @@ flowchart TB
     impl --> db
     actor --> keys
     module --> inbox
+    module --> nodeinfo
     inbox --> sig
-    sig -->|署名の検証| sign
+    inbox -->|Follow に Accept| delivery
+    delivery -->|送信の署名| sig
+    sig -->|署名の検証と生成| sign
     sig -->|keyId から公開鍵| actor
-    remote[("相手のサーバー<br/>keyId を GET")]
+    inbox -->|相手の inbox| actor
+    remote[("相手のサーバー<br/>アクター文書を GET<br/>inbox に POST")]
     actor --> remote
+    delivery --> remote
     key[("秘密鍵の PEM<br/>ACTOR_PRIVATE_KEY_PATH")]
     actor --> key
     dist[("静的ファイル<br/>STATIC_SRC_DIR")]
@@ -113,21 +117,6 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 # Mastodon から実際に引かせるときは公開しているホスト名にすること
 DOMAIN=example.com ./gradlew :backend:run
 ```
-
-### crypto と rss の native テスト
-
-```sh
-# テストを native バイナリにして実行する（GraalVM 25 が必要）
-./gradlew :backend:crypto:nativeTest
-./gradlew :backend:rss:nativeTest
-```
-
-`nativeTest` は `check` にぶら下がっていないので、`./gradlew build` でも
-`./gradlew test` でも走らない。名前を挙げて実行する必要がある。
-
-この 2 つを native でも回すのは、JVM のテストでは分からない壊れ方があるため。
-`:backend:crypto` は JCA、`:backend:rss` は StAX (`javax.xml`) が、どちらも
-実装を実行時に探す作りになっていて、native-image では解決できないことがある。
 
 ### backend の native-image
 
@@ -197,14 +186,40 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
 | `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
 | `POST /users/{name}/inbox` | アクティビティの受け口。HTTP Signatures を検証する |
+| `GET /.well-known/nodeinfo` | NodeInfo の discovery document |
+| `GET /nodeinfo/2.1` | サーバーの実装と規模。調査用 |
 
 `{name}` として応答するのは `ACTOR_USERNAME`（既定 `admin`）と、`test-` で始まる
 任意の名前の 2 通り。後者は動作確認用で、下の「動作確認用のアカウント」を参照。
 
-inbox は署名が通れば 202、通らなければ 401 を返す。届いたアクティビティは
-種類と送り主をログに出すだけで、まだ処理していない。検証の内容は
+上の表以外のパスは静的ファイルの配信に落ちる。ファイルがあればそれを返し、無ければ
+`index.html` を返して画面側に解釈させる。どの画面を出すかはブラウザ側の判断になる。
+
+| パス | 画面 |
+| --- | --- |
+| `/` | トップ |
+| `/@{name}` | アカウント画面。フィードの取得状況と配信した記事 |
+| `/admin` | 管理画面。中身は Phase 8 で作る |
+| それ以外 | 見つからない（HTTP は 200 のまま） |
+
+画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
+Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。
+実体は `frontend/src/wasmJsMain/resources/fonts/`（SIL Open Font License 1.1。同じ場所に
+`OFL.txt` を置いてある）で、読み込みは `:frontend` の `ui/Font.kt`。
+
+アカウント画面の `/@{name}` と Actor JSON の `/users/{name}` は別のパス。
+1 つのパスで `Accept` を見て HTML と JSON を出し分けると、相手の綴りの揺れで
+アカウントごと見つからなくなる。表示している数値と記事はまだ仮の値で、
+画面の上にその旨を出している。
+
+inbox は署名が通れば 202、通らなければ 401 を返す。検証の内容は
 [HttpSignatureVerifier.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
 の KDoc にある。
+
+届いたアクティビティのうち処理するのは `Follow` だけで、相手の inbox に `Accept` を
+返してフォローを成立させる。フォロワーはまだ保存しないので、再起動すると
+こちらには何も残らない（相手側にはフォローが残る）。それ以外の種類は
+種類と送り主をログに出すだけ。
 
 ```sh
 curl "http://localhost:8080/.well-known/webfinger?resource=acct:admin@example.com"

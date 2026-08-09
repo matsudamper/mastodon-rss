@@ -59,6 +59,20 @@ class StaticFilesTest {
     }
 
     @Test
+    fun `アカウントのパスはindex_htmlを返す`() {
+        val index = putFile("index.html", "<html></html>")
+
+        assertEquals(index, staticFiles().resolve(listOf("@test-1")))
+    }
+
+    @Test
+    fun `ユーザー名にドットが入っていても拡張子として扱わない`() {
+        val index = putFile("index.html", "<html></html>")
+
+        assertEquals(index, staticFiles().resolve(listOf("@test-1.2")))
+    }
+
+    @Test
     fun `index_htmlが無ければ画面のパスも見つからないとする`() {
         putFile("frontend.js", "console.log()")
 

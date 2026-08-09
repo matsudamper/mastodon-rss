@@ -33,6 +33,12 @@ kotlin {
                 implementation(compose.foundation)
                 implementation(compose.material3)
                 implementation(compose.ui)
+                // 画面遷移。JetBrains 版の Navigation 3（wasmJs 向けの成果物がある）。
+                // runtime は推移的に androidx.navigation3 から入る
+                implementation(libs.navigation3.ui)
+                // 日本語フォントを配信元から取ってくるのに使う。詳細は ui/Font.kt を参照
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.client.js)
                 // document 等のブラウザ API。Kotlin/Wasm では stdlib から分離されている
                 implementation(libs.kotlinx.browser)
             }
