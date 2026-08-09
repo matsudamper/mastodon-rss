@@ -43,7 +43,7 @@ jobs:
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # パスを付けない test は全プロジェクトの同名タスクに展開されるので、
-      # :backend と依存先の :backend:crypto / :backend:repository が一度に回る。
+      # backend 側のモジュールが一度に回る。
       # :frontend は wasmJs ターゲットだけで test を持たないため対象にならない。
       #
       # build ではなく test にしているのは、build に付いてくる ktlintCheck が

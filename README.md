@@ -105,25 +105,12 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 ./gradlew test
 ```
 
-`test` のようにプロジェクトのパスを付けない指定は、全プロジェクトの同名タスクに
-展開される。対象は `:backend`、`:backend:crypto`、`:backend:repository`、
-`:backend:rss` の 4 つで、
-`:frontend` は wasmJs ターゲットだけなので `test` を持たず対象にならない。
-CI の backend ジョブもこれを使っている。
-
-逆に `:backend:test` のようにパスで絞ると、そのモジュールのテストしか走らない。
-依存先のモジュールは jar が作られるだけでテストは走らないので、モジュールを
-またいで確かめたいときはパスを付けない方を使う。
+パスを付けない指定は全プロジェクトの同名タスクに展開されるので、テストはこれで
+全モジュールぶんが回る。CI の backend ジョブもこれを使っている。
 
 ### backend
 
 ```sh
-# ビルドとテスト
-./gradlew :backend:build
-
-# テストのみ
-./gradlew :backend:test
-
 # JVM で起動する（http://localhost:8080）
 # DOMAIN は必須。手元で試すだけなら適当な値でよいが、
 # Mastodon から実際に引かせるときは公開しているホスト名にすること
