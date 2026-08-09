@@ -212,6 +212,21 @@ jobs:
             -o /tmp/test-actor.json
           grep -q '"id":"https://example.com/users/test-ci"' /tmp/test-actor.json
 
+          # 署名の検証は JCA を通る。native-image で欠けると素通りするか 500 になる。
+          # 正しい署名を bash で作るのは割に合わないので、署名が無いときに
+          # 401 で落ちること（＝検証まで到達していること）だけを確かめる
+          echo "--- inbox は署名が無ければ 401 ---"
+          test "$(curl -s -o /dev/null -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/activity+json' \
+            -d '{"type":"Follow"}' \
+            "http://localhost:8080/users/admin/inbox")" = "401"
+
+          echo "--- 知らないアクターの inbox は 404 ---"
+          test "$(curl -s -o /dev/null -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/activity+json' \
+            -d '{"type":"Follow"}' \
+            "http://localhost:8080/users/other/inbox")" = "404"
+
       - name: DOMAIN が無ければ起動しないことの確認
         run: |
           set -euo pipefail

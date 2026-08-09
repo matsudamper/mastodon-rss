@@ -17,15 +17,18 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 `:backend` は `STATIC_SRC_DIR` に置かれたものを root から配信するので、成果物を指せば画面が出る。
 CI で ktlint / JVM テスト / frontend / crypto の native テスト / native-image の 5 ジョブが回っている。
 
-Phase 1 はコードの側は書けた。アクターは `admin` 固定（`ACTOR_USERNAME` で変更可）で、
-`DOMAIN` は必須。WebFinger と Actor が返るところまで実装し、native バイナリでも
-実際に叩いて確認している。
+Phase 1 は完了。`social-rss.matsudamper.net` で公開し、WebFinger と Actor が
+外から引けることを確認した。アクターは `admin` 固定（`ACTOR_USERNAME` で変更可）で、
+`DOMAIN` は必須。
 
-次の一手: HTTPS で外に出して、Mastodon から実際に検索する（チェックポイント 1）。
-ここだけは手元では検証できず、本番ドメインと公開経路が要る。
-検索するのは `@admin@<ドメイン>` ではなく `@test-1@<ドメイン>` から。Mastodon は
-リモートアクターを永続キャッシュするので、`admin` で失敗すると `admin` が使えなくなる。
-`nodeinfo` は任意なので、詰まったときの調査用に後から足せばよい。
+Phase 2 は受信側まで。inbox がアクティビティを受け取り、HTTP Signatures を
+検証して 202 か 401 を返すところまで実装した。中身はログに出すだけで、
+`Follow` に `Accept` を返していないので、フォローボタンは保留のまま戻らない。
+
+受信側は実機で確認済み。Mastodon からフォローすると `Follow` が、
+解除すると `Undo` が届き、どちらも署名の検証を通っている。
+
+次の一手: 送信側の署名と `Follow` への `Accept` 返し（チェックポイント 2）。
 
 Phase 0 でやったことと順序の理由:
 
@@ -471,11 +474,14 @@ ActivityPub のアカウント発見は WebFinger → Actor の 2 ホップで�
       - `@SerialName` とカスタム serializer は native-image で解決に失敗すると 500 になる。
         JVM のテストでは分からないので、native バイナリを実際に叩いて中身を見る
       - `DOMAIN` を渡さないと起動しないことも確認する
-- [ ] HTTPS で外部公開する経路を用意（開発中は Cloudflare Tunnel / ngrok など）
+- [x] HTTPS で外部公開する経路を用意（開発中は Cloudflare Tunnel / ngrok など）
       - ドメインは早めに固定する。 アクター ID にドメインが焼き込まれ、Mastodon 側にキャッシュされるため
+      - `social-rss.matsudamper.net` で公開した。Cloudflare を挟んでいる
+      - 公開しているホスト名と `DOMAIN` は一致させる。WebFinger は `resource` の
+        ホスト部が `DOMAIN` と違えば 404 を返す
 - [ ] `GET /.well-known/nodeinfo` + `/nodeinfo/2.1`（任意だが実装しておくと調査が楽）
 
-### ✅ チェックポイント 1
+### ✅ チェックポイント 1（達成）
 Mastodon の検索窓に `@admin@example.com` と入力して、プロフィールカードが表示される。
 （この時点ではフォローボタンを押しても成立しない。それが Phase 2）
 
@@ -491,19 +497,32 @@ Mastodon の検索窓に `@admin@example.com` と入力して、プロフィー�
 ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signatures) で認証する。
 「受信の検証」と「送信の署名」の両方が必要。ここが実装の山場。
 
-- [ ] `POST /users/admin/inbox` を受ける（まずは中身をログに落とすだけ）
-- [ ] 署名の検証（受信）
-      - [ ] `Digest: SHA-256=<base64>` ヘッダとボディの SHA-256 を突き合わせる
-      - [ ] `Signature` ヘッダをパース（`keyId`, `algorithm`, `headers`, `signature`）
-      - [ ] `keyId`（例: `https://mastodon.social/users/foo#main-key`）のアクターを GET して公開鍵を取得
-      - [ ] `headers` の並び順どおりに署名文字列を再構築
+- [x] `POST /users/admin/inbox` を受ける（まずは中身をログに落とすだけ）
+      - `inbox/InboxRoutes.kt`。固定アクターと `test-` の使い捨てアクターの両方で受ける
+      - ボディには上限を置く。署名を検証する前の段階でメモリを食い潰させないため
+- [x] 署名の検証（受信）
+      - [x] `Digest: SHA-256=<base64>` ヘッダとボディの SHA-256 を突き合わせる
+            - 署名が掛かるのはヘッダだけ。`Digest` を見ないとボディは差し替え可能なままになる
+      - [x] `Signature` ヘッダをパース（`keyId`, `algorithm`, `headers`, `signature`）
+      - [x] `keyId`（例: `https://mastodon.social/users/foo#main-key`）のアクターを GET して公開鍵を取得
+            - `actor/RemoteActorKeys.kt`。相手が指定した URL を GET することになるので、
+              https のみ・別ホストへのリダイレクトは捨てる・`owner` は `keyId` と同じホスト、で縛る
+            - Ktor の HTTP クライアント（CIO）を入れた。native バイナリから外向きの HTTPS を
+              張れることは実機で確認済み（CI の起動確認は localhost しか叩かないので分からない）
+      - [x] `headers` の並び順どおりに署名文字列を再構築
             - `(request-target): post /users/admin/inbox`
             - `host: example.com`
             - `date: ...`
             - `digest: ...`
-      - [ ] RSA-SHA256 で検証
-      - [ ] `Date` のずれが大きいリクエストは拒否（リプレイ対策）
-      - [ ] 検証失敗は 401、成功は 202 Accepted を返す
+      - [x] RSA-SHA256 で検証
+      - [x] `Date` のずれが大きいリクエストは拒否（リプレイ対策）
+            - 許すずれは 5 分。短くしすぎると相手の時計のずれだけで成立しなくなる
+      - [x] 検証失敗は 401、成功は 202 Accepted を返す
+            - 落ちた理由は相手に返さずログにだけ出す。通る形を総当たりで探す助けになるため
+      - [x] `(request-target)` `host` `date` `digest` が署名対象に入っていなければ拒否
+            - 署名対象に入っていないヘッダは、署名が通っても中身を信用できない
+      - [x] アクティビティの `actor` が署名した鍵の持ち主と違えば拒否
+            - 自分の鍵で正しく署名しつつ、`actor` だけ他人を名乗る形を防ぐ
 - [ ] 署名の生成（送信） — 上記の逆。POST 時は `Digest` を必ず含める
 - [ ] `Follow` アクティビティを受けたら `Accept` を相手の `inbox` に POST し返す
       - `Accept` の `object` には受信した Follow アクティビティを丸ごと入れる（id だけだと通らない実装がある）

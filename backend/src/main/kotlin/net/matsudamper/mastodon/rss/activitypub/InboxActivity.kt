@@ -1,0 +1,29 @@
+package net.matsudamper.mastodon.rss.activitypub
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+/**
+ * inbox で受け取るアクティビティのうち、今のところ見ている部分だけ。
+ *
+ * `Follow` / `Undo` / `Delete` などの種類ごとの扱いは Phase 2 以降で足す。
+ * ここでは「誰が」「何をしようとしているか」をログに出し、署名した相手と
+ * `actor` が一致しているかを確かめるところまで。
+ *
+ * 未知のキーは [net.matsudamper.mastodon.rss.json.AppJson] の設定で無視される。
+ * ActivityPub のアクティビティは実装ごとに独自のプロパティが乗るため。
+ */
+@Serializable
+data class InboxActivity(
+    val id: String? = null,
+    val type: String? = null,
+    /** 実行した相手。URL 文字列のことも、アクターが丸ごと埋まっていることもある */
+    val actor: LinkOrObject? = null,
+    /** `object` は Kotlin の予約語なので名前を変えて受ける */
+    @SerialName("object")
+    val target: LinkOrObject? = null,
+) {
+    /** 実行した相手のアクター id。取れなければ null */
+    val actorId: String?
+        get() = actor?.id
+}
