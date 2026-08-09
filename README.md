@@ -39,6 +39,12 @@ flowchart TB
         res["リソース<br/>db/migration/V001__init.sql<br/>db/migration/index<br/>resource-config.json"]
     end
 
+    subgraph rss[":backend:rss"]
+        parser["FeedParser<br/>RSS 2.0 / RSS 1.0 / Atom 1.0"]
+        feedmodel["ParsedFeed<br/>ParsedFeedItem<br/>FeedContent"]
+        feedutil["FeedItemKey 差分検出の鍵<br/>HtmlSanitizer 配信前に削る<br/>FeedDates / FeedText"]
+    end
+
     subgraph frontend[":frontend"]
         compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>Navigation 3 で画面を出し分け"]
     end
@@ -74,6 +80,9 @@ flowchart TB
     module --> static
     static --> dist
     compose -.->|デプロイ時に配置| dist
+    parser --> feedmodel
+    parser --> feedutil
+    main -.->|Phase 5 で繋ぐ。いまは :backend から参照していない| parser
 ```
 
 `:frontend` と `:backend` は別々にビルドする。互いに依存させない。
@@ -100,24 +109,9 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 ./gradlew test
 ```
 
-`test` のようにプロジェクトのパスを付けない指定は、全プロジェクトの同名タスクに
-展開される。対象は `:backend`、`:backend:crypto`、`:backend:repository` の 3 つで、
-`:frontend` は wasmJs ターゲットだけなので `test` を持たず対象にならない。
-CI の backend ジョブもこれを使っている。
-
-逆に `:backend:test` のようにパスで絞ると、そのモジュールのテストしか走らない。
-依存先のモジュールは jar が作られるだけでテストは走らないので、モジュールを
-またいで確かめたいときはパスを付けない方を使う。
-
 ### backend
 
 ```sh
-# ビルドとテスト
-./gradlew :backend:build
-
-# テストのみ
-./gradlew :backend:test
-
 # JVM で起動する（http://localhost:8080）
 # DOMAIN は必須。手元で試すだけなら適当な値でよいが、
 # Mastodon から実際に引かせるときは公開しているホスト名にすること

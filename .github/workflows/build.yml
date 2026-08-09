@@ -42,10 +42,6 @@ jobs:
       - name: Gradle のセットアップ
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
-      # パスを付けない test は全プロジェクトの同名タスクに展開されるので、
-      # :backend と依存先の :backend:crypto / :backend:repository が一度に回る。
-      # :frontend は wasmJs ターゲットだけで test を持たないため対象にならない。
-      #
       # build ではなく test にしているのは、build に付いてくる ktlintCheck が
       # ktlint ジョブと重複し、application プラグインの distZip / distTar も
       # 作られるため。配布は native-image なのでアーカイブは使わない
@@ -80,7 +76,7 @@ jobs:
           ls "$DIST"/*.wasm > /dev/null
 
   native-test:
-    name: backend/crypto の native テスト
+    name: backend/crypto と backend/rss の native テスト
     runs-on: ubuntu-latest
     steps:
       - name: チェックアウト
@@ -96,10 +92,15 @@ jobs:
       - name: Gradle のセットアップ
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
-      # JCA が native-image 上で動くかは JVM のテストでは分からないので、
-      # テストごと native バイナリにして実行する
-      - name: native テスト
+      # JCA と StAX が native-image 上で動くかは JVM のテストでは分からないので、
+      # テストごと native バイナリにして実行する。
+      # どちらも実装を実行時に探す作りで、解決に失敗すると実バイナリだけが落ちる。
+      # GraalVM のセットアップが重いので、ジョブは分けずに 2 つとも回す
+      - name: crypto の native テスト
         run: ./gradlew :backend:crypto:nativeTest
+
+      - name: rss の native テスト
+        run: ./gradlew :backend:rss:nativeTest
 
   native-image:
     name: native-image ビルド
