@@ -196,8 +196,38 @@ curl "http://localhost:8080/.well-known/webfinger?resource=acct:admin@example.co
 curl -H 'Accept: application/activity+json' http://localhost:8080/users/admin
 ```
 
-外から見えるようにするには HTTPS が要る。開発中は Cloudflare Tunnel や ngrok で
-`DOMAIN` に指定したホスト名に向ける。
+## HTTPS で外から見えるようにする
+
+外から見えるようにするには HTTPS が要る。ActivityPub の実装は平文 HTTP のアクターを
+受け付けないことが多く、アクター ID の scheme も `https` で固定している。理由は
+[ActorUrls.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/actor/ActorUrls.kt)
+の KDoc にある。
+
+このサーバー自身は TLS を終端しない。Ktor の CIO エンジンに HTTPS の口が無く平文 HTTP しか
+話せないため、TLS は必ず前段（Cloudflare Tunnel、ngrok、リバースプロキシ）で終端して、
+そこから平文でここへ流す。証明書に関わる設定はこのリポジトリには無い。
+
+### Cloudflare Tunnel の場合
+
+ingress の service は平文の `http://` を指す。`https://` にすると cloudflared が
+このサーバーへ TLS ハンドシェイクを投げることになり、平文しか話せないので繋がらない。
+
+```yaml
+ingress:
+  - hostname: rss.example.com
+    service: http://localhost:8080
+  - service: http_status:404
+```
+
+`hostname` は `DOMAIN` と同じにする。ここがずれると、アクター ID に焼き込まれた
+ホスト名と実際に配信しているホスト名が食い違い、Mastodon から見つからない。
+
+ホスト名の深さに注意する。Cloudflare の Universal SSL（無料）が出す証明書は
+`example.com` と `*.example.com` までで、`rss.home.example.com` のような 2 段以上の
+サブドメインには証明書が出ない。この場合ブラウザは TLS ハンドシェイクの時点で失敗し、
+`http://` では開けるのに `https://` だけ「安全な接続を確立できません」になる。
+リクエストがサーバーまで届いていないので、こちらのログには何も残らない。
+1 段のサブドメインにするか、Advanced Certificate Manager の Total TLS を使う。
 
 ## 動作確認用のアカウント
 

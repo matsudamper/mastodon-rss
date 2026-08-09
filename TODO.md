@@ -473,6 +473,12 @@ ActivityPub のアカウント発見は WebFinger → Actor の 2 ホップで�
       - `DOMAIN` を渡さないと起動しないことも確認する
 - [ ] HTTPS で外部公開する経路を用意（開発中は Cloudflare Tunnel / ngrok など）
       - ドメインは早めに固定する。 アクター ID にドメインが焼き込まれ、Mastodon 側にキャッシュされるため
+      - 手順は README の「HTTPS で外から見えるようにする」に書いた。経路そのものは各自の環境で用意する
+      - サーバー側に持つ設定は無い。Ktor の CIO エンジンは TLS を終端できないので、
+        前段で終端して平文でこちらへ流す。ingress の service は `http://` を指すこと
+      - Cloudflare で `https` だけ「安全な接続を確立できません」になる場合、
+        Universal SSL が `*.example.com` までしか覆わないのが原因のことが多い。
+        2 段以上のサブドメインでは証明書が出ず、リクエストはサーバーまで届かない
 - [ ] `GET /.well-known/nodeinfo` + `/nodeinfo/2.1`（任意だが実装しておくと調査が楽）
 
 ### ✅ チェックポイント 1
