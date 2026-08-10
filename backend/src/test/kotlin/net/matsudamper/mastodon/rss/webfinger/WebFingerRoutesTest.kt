@@ -6,13 +6,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import net.matsudamper.mastodon.rss.FakeRepositories
-import net.matsudamper.mastodon.rss.TestActorKey
-import net.matsudamper.mastodon.rss.TestDelivery
-import net.matsudamper.mastodon.rss.TestRemoteActors
-import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.testDependencies
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -21,7 +17,7 @@ import kotlin.test.assertNull
 class WebFingerRoutesTest {
     private fun ApplicationTestBuilder.installModule() {
         application {
-            module(FakeRepositories(), TestActorKey.value, TestServerEnv.value, TestRemoteActors(), TestDelivery())
+            module(testDependencies())
         }
     }
 

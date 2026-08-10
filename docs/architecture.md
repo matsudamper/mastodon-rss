@@ -12,6 +12,11 @@ sqlite-jdbc と jOOQ も `implementation` で入れているため、JDBC と jO
 `:backend` の compile classpath にも現れない。jOOQ の生成コードも
 `:backend:repository` の中で閉じていて、外には出さない。
 
+`:backend:repository` の責務は DB 専用ではない。どこからデータを読むかを
+呼び出し側から隠す境界で、DB はその実装のひとつでしかない。実際 `ExpiringCache` は
+プロセスのメモリ上に持つだけの取得口としてここに置いてある。DB の口だけを束ねているのは
+`Repositories` で、モジュールそのものと同じ広さではない。
+
 `:backend:crypto` は `:backend` がアクターの鍵を読むために使っている。HTTP Signatures の
 署名と検証で使うのは Phase 2 から。別モジュールに切り出してあるのは、
 テストを native バイナリとして実行するため。`:backend` のテストは

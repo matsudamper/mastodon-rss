@@ -19,6 +19,11 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json)
 
+    // InboxService のように Ktor のルーティングから切り離したクラスは
+    // Application.log を持たないので、SLF4J のロガーを直接引く。
+    // ktor-server-core の推移依存でも見えるが、直接 import するなら明示する
+    implementation(libs.slf4j.api)
+
     // SLF4J の実装が無いと Ktor もこちらのログも NOP になって何も出ない。
     // 起動時の DOMAIN と鍵の取得元は運用で必ず見たいので実装を入れる。
     // logback は native-image で設定ファイルの読み込みに追加対応が要るため、

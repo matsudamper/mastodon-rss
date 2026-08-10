@@ -7,12 +7,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import net.matsudamper.mastodon.rss.FakeRepositories
-import net.matsudamper.mastodon.rss.TestActorKey
-import net.matsudamper.mastodon.rss.TestDelivery
-import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.testDependencies
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -128,7 +125,7 @@ class StaticRoutesTest {
             }
 
         application {
-            module(FakeRepositories(), TestActorKey.value, env, TestRemoteActors(), TestDelivery())
+            module(testDependencies(env = env))
         }
     }
 

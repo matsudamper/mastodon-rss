@@ -95,7 +95,7 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 揃えるため。ActivityPub 側は相手の実装が決まっているので REST のまま。
 
 モジュールは `:backend`（サーバー）、`:backend:crypto`（鍵と署名）、
-`:backend:repository`（DB アクセス）、`:backend:rss`（RSS/Atom の解析）、
+`:backend:repository`（データの取得と保存）、`:backend:rss`（RSS/Atom の解析）、
 `:frontend`（管理 UI）の 5 つ。
 crypto と repository と rss は JVM のライブラリに依存していて `:frontend` からは使えないため、
 `backend/` の下にネストしている。ビルド方法は [README.md](README.md) を参照。
@@ -169,9 +169,12 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
 
 まだ切っていないモジュール（必要になった時点で追加する）:
 
-- [x] `:backend:repository` — DB アクセス。0-4 で追加した
+- [x] `:backend:repository` — データの取得と保存。0-4 で追加した
       - 当初は `:core`（ドメインモデル / DB アクセス / ActivityPub の JSON モデル / RSS パーサ）
         という括りを想定していたが、責務が広すぎるので DB アクセスに絞った
+      - その後 `ExpiringCache` のようなインメモリの取得口も置いたので、いまの責務は
+        DB 専用ではない。どこからデータを読むかを呼び出し側から隠す境界として扱う。
+        DB はその実装のひとつで、`Repositories` がそこだけを束ねている
       - Kotlin JVM。Ktor に依存させない。公開するのは interface だけ
 - [x] `:backend:crypto` — 鍵と署名。0-6 で追加した
       - Kotlin JVM。依存は Kotlin 標準ライブラリと JCA だけで、Ktor も JDBC も入らない
