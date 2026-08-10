@@ -23,10 +23,14 @@ services:
       # ACTOR_PRIVATE_KEY_PEM: ${ACTOR_PRIVATE_KEY_PEM}
       HOST: 0.0.0.0
       PORT: 8080
-      # サーバーを動かす uid/gid。/data の所有者もこれに合わせる。
-      # 既定はイメージの中の app。変える理由は .env.example に書いてある
-      APP_UID: ${APP_UID:-10001}
-      APP_GID: ${APP_GID:-10001}
+      # サーバーを動かす uid/gid。起動時に /data の所有者もこれに合わせる。
+      # 既定はイメージの中の app。名前付きボリュームならこのままでよい。
+      # /data をホストのディレクトリにバインドマウントする場合、そのディレクトリごと
+      # この uid の持ち物になり、ホストのユーザーからは書けなくなる（scp が
+      # Permission denied になる）。ホスト側でも読み書きするなら、そのユーザーの
+      # id をここに書く。id -u と id -g で確認できる
+      APP_UID: 10001
+      APP_GID: 10001
       # 管理画面などの静的ファイルの置き場所。下の volumes と対になっている。
       # 設定しなければ何も配信しない（/ は 404）
       # STATIC_SRC_DIR: /srv/static
