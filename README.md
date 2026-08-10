@@ -271,12 +271,14 @@ docker compose ではボリュームの中（`/data/actor-private-key.pem`）に
 ## Docker で動かす
 
 ```sh
-cp .env.example .env
-# .env の DOMAIN を書き換えてから
+echo "DOMAIN=example.com" > .env
 docker compose up -d
 ```
 
-`DOMAIN` は必須で、未設定だと compose が起動前に失敗する。
+設定は `docker-compose.yml` に書いてある。どれを何のために変えるかはそこのコメントを読む。
+
+`DOMAIN` だけは焼き込まれると後から変えられないので、compose に既定値を置いていない。
+未設定だと compose が起動前に失敗する。`.env` に書くか、環境変数で渡すこと。
 
 初回は Gradle の依存取得と native-image のビルドが走るため時間がかかる。
 
