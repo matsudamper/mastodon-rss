@@ -26,6 +26,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
 jooq = { module = "org.jooq:jooq", version.ref = "jooq" }
 jooq-codegen = { module = "org.jooq:jooq-codegen", version.ref = "jooq" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 
 [plugins]

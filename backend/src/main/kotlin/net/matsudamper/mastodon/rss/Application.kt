@@ -19,6 +19,7 @@ import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.inbox.FollowHandler
+import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
@@ -113,11 +114,15 @@ fun Application.module(
         webFingerRoutes(directory)
         actorRoutes(directory, actorKey)
 
-        // 見つけた後、フォローなどのアクティビティはここに POST されてくる
+        // 見つけた後、フォローなどのアクティビティはここに POST されてくる。
+        // 種類ごとの処理はハンドラを足す形にしてある。Phase 3 の Undo と Delete はここに並ぶ
         inboxRoutes(
             directory = directory,
-            verifier = HttpSignatureVerifier(remoteActors),
-            followHandler = FollowHandler(remoteActors, delivery),
+            service =
+                InboxService(
+                    verifier = HttpSignatureVerifier(remoteActors),
+                    handlers = listOf(FollowHandler(remoteActors, delivery)),
+                ),
         )
 
         nodeInfoRoutes(env.domain)
