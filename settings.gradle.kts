@@ -1,6 +1,8 @@
 rootProject.name = "mastodon-rss"
 
 pluginManagement {
+    includeBuild("build-logic")
+
     repositories {
         gradlePluginPortal()
         mavenCentral()

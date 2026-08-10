@@ -2,6 +2,11 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
+import net.matsudamper.mastodon.rss.repository.jooq.Tables.HEALTH_CHECK
+import org.jooq.DSLContext
+import org.jooq.SQLDialect
+import org.jooq.conf.Settings
+import org.jooq.impl.DSL
 import java.time.Instant
 
 internal class SqliteRepositories(
@@ -11,7 +16,10 @@ internal class SqliteRepositories(
 
     init {
         // 未適用のマイグレーションがある状態でリクエストを受けても失敗するだけなので、
-        // 接続を開いた直後に適用しきる
+        // 接続を開いた直後に適用しきる。
+        //
+        // マイグレーションだけは jOOQ を通さない。生成コードは適用後のスキーマから
+        // 作られるので、適用する側がそれに依存すると鶏と卵になる
         try {
             MigrationRunner(connectionManager).migrate(MigrationLoader.load())
         } catch (e: Throwable) {
@@ -24,17 +32,21 @@ internal class SqliteRepositories(
         val writtenAt = Instant.now().toString()
 
         val readBack =
-            connectionManager.transaction { connection ->
-                connection.prepareStatement(UPSERT_HEALTH_CHECK).use { statement ->
-                    statement.setString(1, writtenAt)
-                    statement.executeUpdate()
-                }
+            transaction { dsl ->
+                dsl
+                    .insertInto(HEALTH_CHECK)
+                    .set(HEALTH_CHECK.ID, 1)
+                    .set(HEALTH_CHECK.CHECKED_AT, writtenAt)
+                    .onConflict(HEALTH_CHECK.ID)
+                    .doUpdate()
+                    .set(HEALTH_CHECK.CHECKED_AT, writtenAt)
+                    .execute()
 
-                connection.prepareStatement(SELECT_HEALTH_CHECK).use { statement ->
-                    statement.executeQuery().use { resultSet ->
-                        if (resultSet.next()) resultSet.getString(1) else null
-                    }
-                }
+                dsl
+                    .select(HEALTH_CHECK.CHECKED_AT)
+                    .from(HEALTH_CHECK)
+                    .where(HEALTH_CHECK.ID.eq(1))
+                    .fetchOne(HEALTH_CHECK.CHECKED_AT)
             }
 
         check(readBack == writtenAt) {
@@ -46,12 +58,35 @@ internal class SqliteRepositories(
         connectionManager.close()
     }
 
-    private companion object {
-        const val UPSERT_HEALTH_CHECK = """
-            INSERT INTO health_check (id, checked_at) VALUES (1, ?)
-            ON CONFLICT (id) DO UPDATE SET checked_at = excluded.checked_at
-        """
+    /**
+     * 1 トランザクションを jOOQ で処理する。
+     *
+     * [DSLContext] は接続に紐付くので毎回作る。作るのは設定を包む薄いオブジェクトで、
+     * 重いのは [SETTINGS] を持つ側なのでそちらだけ使い回す。
+     */
+    private fun <T> transaction(block: (DSLContext) -> T): T =
+        connectionManager.transaction { connection ->
+            block(DSL.using(connection, SQLDialect.SQLITE, SETTINGS))
+        }
 
-        const val SELECT_HEALTH_CHECK = "SELECT checked_at FROM health_check WHERE id = 1"
+    private companion object {
+        init {
+            // 何もしないと最初のクエリでロゴと「豆知識」がログに出る。
+            // jOOQ はこれを DefaultRenderContext の静的初期化子で見るので、
+            // そこに到達する前に立てる必要がある。DB を触る経路はこのクラスしかないので、
+            // 下の SETTINGS より先に、ここで立てておけば間に合う。
+            //
+            // これが効くのは JVM で動かしたときだけ。native バイナリでは jOOQ を
+            // ビルド時初期化にしている都合で、この静的初期化子はイメージを作る時点で
+            // 走り終わっている。そちらは :backend のビルド引数で渡している
+            System.setProperty("org.jooq.no-logo", "true")
+            System.setProperty("org.jooq.no-tips", "true")
+        }
+
+        val SETTINGS: Settings =
+            Settings()
+                // SQLite にスキーマもカタログも無い。付けて出すと構文にならない
+                .withRenderSchema(false)
+                .withRenderCatalog(false)
     }
 }

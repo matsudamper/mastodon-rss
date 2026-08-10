@@ -8,8 +8,9 @@
 ## モジュールの分け方
 
 `:backend` から見えるのは `:backend:repository` の公開 API だけ。実装は `internal` で、
-sqlite-jdbc も `implementation` で入れているため、JDBC の型は `:backend` の
-compile classpath にも現れない。
+sqlite-jdbc と jOOQ も `implementation` で入れているため、JDBC と jOOQ の型は
+`:backend` の compile classpath にも現れない。jOOQ の生成コードも
+`:backend:repository` の中で閉じていて、外には出さない。
 
 `:backend:crypto` は `:backend` がアクターの鍵を読むために使っている。HTTP Signatures の
 署名と検証で使うのは Phase 2 から。別モジュールに切り出してあるのは、
@@ -37,6 +38,25 @@ JVM のテストが全部通ったまま実バイナリだけが落ちる。
 
 環境変数を読むのは `:backend` の入口（`ServerEnv`）だけにする。`:backend:repository` の
 ような下位のモジュールは、値を引数で受け取る。
+
+## ビルドスクリプトに手続きを書かない
+
+タスクの定義は `build-logic`（複合ビルドとして取り込むプラグイン）に置く。
+`build.gradle.kts` に残すのは、プラグインの適用と、依存とパッケージ名のような
+そのモジュール固有の値だけにする。
+
+`doLast` に処理を直接書くと、入力と出力の宣言が曖昧なままでも動いてしまう。
+プラグイン側で型のあるタスクにすれば、何が入力で何が出力かを書かないと
+コンパイルが通らない。up-to-date 判定とビルドキャッシュはその宣言に乗るので、
+宣言が正しいことがそのまま再ビルドの正しさになる。
+
+バージョンはプラグインに持たせない。`build-logic` からも同じ
+`gradle/libs.versions.toml` を読む。プラグイン側に書くと version catalog の
+外にバージョンが散り、Renovate の追従から外れる。
+
+`build-logic` は別のビルドなので、root の `ktlintCheck` からは辿られない。
+CI が叩くのは root の `ktlintCheck` だけなので、root の build.gradle.kts で
+繋いである。
 
 `:frontend` と `:backend` のビルドを繋がないのは、繋ぐとサーバーのテストが
 Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられるため。wasm 側が
