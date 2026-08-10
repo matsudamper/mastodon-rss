@@ -122,6 +122,12 @@ Gradle は wrapper が入っているので個別のインストールは不要�
 DOMAIN=example.com ./gradlew :backend:run
 ```
 
+起動できたかは `GET /healthz` で見る。`{"status":"ok"}` が返れば動いている。
+
+```sh
+curl http://localhost:8080/healthz
+```
+
 ### backend の native-image
 
 GraalVM 25 が必要。
@@ -166,9 +172,8 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 
 ### 画面のパス
 
-サーバーのエンドポイント（[docs/mastodon-spec.md](docs/mastodon-spec.md)）以外のパスは
-静的ファイルの配信に落ちる。ファイルがあればそれを返し、無ければ `index.html` を返して
-画面側に解釈させる。どの画面を出すかはブラウザ側の判断になる。
+サーバーが持つパス以外は静的ファイルの配信に落ちる。ファイルがあればそれを返し、
+無ければ `index.html` を返して画面側に解釈させる。どの画面を出すかはブラウザ側の判断になる。
 
 | パス | 画面 |
 | --- | --- |

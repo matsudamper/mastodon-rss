@@ -11,7 +11,6 @@
 
 | パス | 内容 |
 | --- | --- |
-| `GET /healthz` | 生存確認。`{"status":"ok"}` |
 | `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
 | `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
 | `POST /users/{name}/inbox` | アクティビティの受け口。HTTP Signatures を検証する |
@@ -21,7 +20,7 @@
 `{name}` として応答するのは `ACTOR_USERNAME`（既定 `admin`）と、`test-` で始まる
 任意の名前の 2 通り。後者は動作確認用で、下の「動作確認用のアカウント」を参照。
 
-上の表以外のパスは静的ファイルの配信に落ちる。どの画面が出るかは
+サーバーが持つパス以外は静的ファイルの配信に落ちる。どの画面が出るかは
 [README.md](../README.md) の「画面のパス」を参照。
 
 アカウント画面の `/@{name}` と Actor JSON の `/users/{name}` は別のパス。
