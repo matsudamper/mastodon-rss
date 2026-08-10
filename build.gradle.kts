@@ -26,3 +26,10 @@ allprojects {
         version.set(ktlintVersion)
     }
 }
+
+// CI が叩くのは root の ktlintCheck だけなので、別ビルドの build-logic を繋いでおく
+listOf("ktlintCheck", "ktlintFormat").forEach { taskName ->
+    tasks.named(taskName) {
+        dependsOn(gradle.includedBuild("build-logic").task(":$taskName"))
+    }
+}

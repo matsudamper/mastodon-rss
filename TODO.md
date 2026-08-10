@@ -14,6 +14,8 @@ rss は `backend/` の下に置いている。
 `:backend:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
 `nativeTest` で native バイナリ上でも動くことを確認済み。
 `:backend:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
+DB アクセスは jOOQ を採用した。マイグレーション SQL からビルド時に codegen する
+（詳細は「jOOQ を採用する」の節）。
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm)。Navigation 3 で URL から画面を決め、
 トップ・アカウント画面（`/@ユーザー名`）・管理画面（`/admin`）・見つからない、の 4 つを出す。
 中身の値はまだ繋ぐ先が無いので仮のもの。
@@ -38,8 +40,11 @@ RSS 2.0 / RSS 1.0 (RDF) / Atom 1.0 の解析、差分検出の鍵、配信前の
 （詳細は Phase 5 の各項目に書いた）。フェーズの順番どおりではないが、
 ActivityPub 側とは独立していて、先に書いても後戻りが出ないため。
 
-次の一手: `AUTHORIZED_FETCH` のインスタンス向けに送信 GET へ署名を付ける。
-これが Phase 2 の最後の項目で、済めば Phase 3 のフォロワー永続化に移れる。
+次の一手: Phase 3 のスキーマ設計とフォロワーの永続化。
+
+Phase 2 で残っていた「送信 GET への署名」は「保留」の節に移した。
+`AUTHORIZED_FETCH` が有効なインスタンスが手元に無いと直ったかどうか確かめられず、
+Phase 3 とはコード上の接点も無いため、実際に困ってから拾う。
 
 Phase 0 でやったことと順序の理由:
 
@@ -54,10 +59,13 @@ Phase 0 でやったことと順序の理由:
 | 0-7 | reflect-config を無くす（完了） | Phase 1 で `@Serializable` 型が増える前にやる。手で足す運用は先に破綻する |
 | 0-8 | ktlint を入れるか決める（完了 → 入れた） | いつでもよいが Phase 1 に入る前が切りが良い |
 
-jOOQ の codegen は Phase 0 から外した。現在のスキーマは `health_check` と `schema_version` だけで、
-生成しても使う場所が無く、native-image のリフレクション設定だけが先に増える。
-スキーマが実際に必要になる Phase 3 の直前に、採用するかどうかごと判断する。
-詳細は Phase 2 と Phase 3 の間に置いた「jOOQ を採用するかの判断」を参照。
+jOOQ の codegen は Phase 0 から外し、スキーマが実際に必要になる Phase 3 の直前に
+採用するかどうかごと判断した。結果は採用。詳細は Phase 2 と Phase 3 の間に置いた
+「jOOQ を採用する」を参照。
+
+先送りした判断は正しかった。Phase 0 の時点で入れていたら、
+`Class.arrayType()` が native-image で null を返すことに起因する起動時の失敗を、
+フェデレーションの実装と同時に踏んでいた。
 
 DB を ActivityPub (Phase 1) より先に入れたのは、native-image で壊れるとしたら
 SQLite のネイティブライブラリが原因になる可能性が高く、
@@ -71,7 +79,7 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 | ランタイム | GraalVM (native-image) |
 | HTTP サーバー | Ktor (CIO) |
 | DB | SQLite |
-| DB アクセス | 素の JDBC（jOOQ を入れるかは Phase 3 の直前に判断する） |
+| DB アクセス | jOOQ（マイグレーション SQL から codegen。適用そのものは自前） |
 | 署名 | JCA（RSA / SHA256withRSA）。ライブラリは足さない |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
 | 管理 API | GraphQL。サーバーは graphql-java、クライアントは Apollo Kotlin（Phase 8 で作る） |
@@ -574,8 +582,6 @@ ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signa
         署名の検証で取った文書を `Accept` の宛先を決めるときにも使える
       - 取得に失敗した場合はキャッシュしない。相手のサーバーが一時的に落ちているだけなら、
         次の呼び出しで取り直せるようにするため
-- [ ] 送信 GET にも署名を付ける
-      - Mastodon の `AUTHORIZED_FETCH`（secure mode）が有効なインスタンスは無署名 GET を拒否する
 
 ### ✅ チェックポイント 2（達成）
 Mastodon からフォローボタンを押す → 数秒後に「フォロー中」で確定する（保留のまま戻らない）。
@@ -586,18 +592,38 @@ Mastodon からフォローボタンを押す → 数秒後に「フォロー中
 
 確認に使ったインスタンスは `AUTHORIZED_FETCH` が無効だった。有効なインスタンスからは
 まだフォローできない。無署名の GET が拒否されて相手の鍵も inbox も取れないため。
-この節の最後の項目がそれにあたる。
+これは下の「保留」に置いてある。
 
 ---
 
-## jOOQ を採用するかの判断（Phase 3 に入る前に決める）
+## 保留（困ってから実装する）
+
+フェーズの流れには乗せない。必要になった時点で拾う。
+先にやっても確認する手段が無かったり、動機が薄いもの。
+
+- [ ] 送信 GET にも署名を付ける
+      - Mastodon の `AUTHORIZED_FETCH`（secure mode）が有効なインスタンスは無署名 GET を拒否する。
+        こちらから相手のアクター文書を取れないので、そのインスタンスからはフォローが成立しない
+      - 実装そのものは小さい。`HttpSignatureSigner` は `method` を引数に取るので GET でも通り、
+        ボディが空なら `digest` を署名対象から外す分岐も入っている。
+        変えるのは `actor/HttpRemoteActors.kt` の GET と、鍵を渡すための組み立て
+        （いまは `HttpRemoteActors()` を引数なしで作っている）
+      - 後回しにする理由は、`AUTHORIZED_FETCH` が有効なインスタンスが手元に無いと
+        直したかどうか確かめられないため。実際にフォローできない相手が出てきたら着手する
+      - 遅くとも Phase 6 の前には片付けたい。複数アクターになると
+        「取得のたびにどのアクターとして署名するか」を決めて配信経路に引き回すことになり、
+        後からやるほど触る範囲が広がる
+
+---
+
+## jOOQ を採用する（判断済み）
 
 当初は Phase 0 の 0-6 で codegen を組む予定だったが、Phase 0 から外した。
 理由は、この時点のスキーマが `health_check` と `schema_version` だけで生成しても使う場所が無く、
 native-image のリフレクション設定という負債だけが先に増えるため。
 スキーマが実際に必要になる Phase 3 の直前なら、テーブルの数と SQL の複雑さを見てから決められる。
 
-判断の材料:
+判断の材料だったもの:
 
 - Phase 3 で増えるのは `actors` / `remote_actors` / `followers` / `deliveries` の 4 テーブル。
   この規模なら素の JDBC で書ききれる可能性がある
@@ -609,27 +635,66 @@ native-image のリフレクション設定という負債だけが先に増え�
   どういう SQL が要るかはここから見えるので、判断の材料に使える
   （`findExistingKeys` の IN 句のような、書き方に差が出るものが含まれている）
 
-採用する場合にやること:
+決めたことは採用。想定していた native-image のリスクは実際に踏んだが、
+原因が特定できて 2 行の設定に収まったので、これから増える SQL の量に対して割に合う。
 
-- [ ] codegen のパイプラインを組む
+やったこと:
+
+- [x] codegen のパイプラインを組む
       1. 一時 SQLite ファイルを作る（`build/jooq/schema.db`）
       2. `db/migration` の SQL を順に適用する
       3. その DB を入力に jOOQ codegen を実行する
       4. 出力を `build/generated/jooq` に置き、`:backend:repository` の sourceSet に加える
-- [ ] `compileKotlin` が codegen タスクに依存するようにする（初回ビルドで生成物が無くて落ちないように）
-- [ ] マイグレーション SQL が変わったら codegen が再実行されるよう入力を宣言する（up-to-date チェックを効かせる）
-- [ ] 生成コードは git 管理しない（`build/` 配下なので `.gitignore` 済み）
-- [ ] jOOQ の SQLite dialect を使う（OSS 版で対応している）
-- [ ] `nu.studer.jooq` プラグインを使うか、素の `JavaExec` で回すかを決める
-      - プラグインは楽だが Gradle との相性問題を踏むことがある。素の `JavaExec` + `configuration` の方が読める場合もある
-- [ ] jOOQ のログ設定を入れる（何もしないと起動時にバナーと警告が出る）
-- [ ] jOOQ のリフレクション設定（`reflect-config.json`）を用意する
-- [ ] native バイナリで jOOQ 経由のクエリが動くことを確認する
+      - スキーマの作り方は上記のとおり実物の SQLite を経由する。jOOQ には SQL を
+        直接読む `DDLDatabase` もあるが、そちらは jOOQ 自身のパーサで DDL を解釈するので、
+        SQLite の型親和性まで一致する保証が無い
+- [x] `compileKotlin` が codegen タスクに依存するようにする（初回ビルドで生成物が無くて落ちないように）
+      - 生成物を sourceSet に足すことで依存が付く。タスクの定義は
+        `build-logic` の `DatabaseCodegenPlugin` にある
+- [x] マイグレーション SQL が変わったら codegen が再実行されるよう入力を宣言する（up-to-date チェックを効かせる）
+- [x] 生成コードは git 管理しない（`build/` 配下なので `.gitignore` 済み）
+- [x] jOOQ の SQLite dialect を使う（OSS 版で対応している）
+      - `Settings` で schema と catalog を出さないようにしている。SQLite にはどちらも無い
+- [x] `nu.studer.jooq` プラグインを使うか、素の `JavaExec` で回すかを決める
+      - 素の `JavaExec` にした。プラグインが省いてくれるのはタスク定義だけで、
+        代わりに Gradle と jOOQ のバージョンの組み合わせに追従することになる。
+        やるのは「XML を書いて `GenerationTool` を叩く」だけなので、書いた方が読める
+- [x] jOOQ のログ設定を入れる（何もしないと起動時にバナーと警告が出る）
+      - `org.jooq.no-logo` と `org.jooq.no-tips`。JVM では `SqliteRepositories` が
+        最初のクエリの前に立てる。native バイナリでは後述の理由でビルド引数として渡す
+- [x] jOOQ のリフレクション設定（`reflect-config.json`）を用意する
+      - jOOQ はクエリの組み立てでテーブルに対応する `Record` を
+        `getDeclaredConstructor().newInstance()` から作るので、登録が要る
+      - 手では書かない。生成物の `*Record.java` を走査して
+        `generateJooqReflectConfig` が作る。テーブルが増えたときの更新漏れが起きない
+- [x] native バイナリで jOOQ 経由のクエリが動くことを確認する
+      - `verifyWritable()` を jOOQ で書き直したので、CI の native-image ジョブの
+        起動確認がそのまま jOOQ の経路を通る。専用の確認を足していない
 
-採用しない場合にやること:
+native-image で踏んだこと（`Class.arrayType()` が null を返す）:
 
-- [ ] 「使用技術」の表と README から jOOQ を落とす
-- [ ] SQL を書く場所の決まりを `:backend:repository` の中で決める（文字列定数か、専用のファイルか）
+jOOQ は組み込みの型を静的初期化子で登録し、その中で配列型を `Class.arrayType()` から作る。
+native-image の `Class.arrayType()` は、その配列型がイメージに入っていなければ null を返す。
+結果、型の登録先に null が渡って起動した瞬間に落ちる。
+
+```
+Caused by: java.lang.NullPointerException
+  at java.util.concurrent.ConcurrentHashMap.putVal
+  at org.jooq.impl.DefaultDataType.<init>
+  at org.jooq.impl.SQLDataType.<clinit>
+```
+
+`--initialize-at-build-time=org.jooq` で解決する。静的初期化子が普通の JVM 上で走るので
+`Class.arrayType()` が本物を返し、型と配列クラスがそのままイメージヒープに載る。
+
+これに `--initialize-at-build-time=org.slf4j` が付いてくる。jOOQ の型登録の入口が
+static な `JooqLogger` を持っているため、SLF4J のロガー実体がイメージヒープに載り、
+SLF4J 側が実行時初期化のままだとビルドが止まる。
+
+JVM のテストでは一切再現しない。`:backend:repository:test` は jOOQ 経由で
+書き込みと読み戻しをしていて全部通るが、native バイナリは起動時に落ちていた。
+検出できるのは CI の native-image ジョブだけなので、あのジョブの起動確認は
+消さないこと。
 
 ---
 
@@ -642,7 +707,7 @@ Phase 2 まではオンメモリでよい。ここで初めて DB が要る。
       - `remote_actors`（inbox, shared_inbox, public_key, fetched_at）
       - `followers`（actor_id, remote_actor_id, follow_activity_id, state, created_at）
       - `deliveries`（配信キュー: target_inbox, payload, attempts, next_retry_at, state）
-- [ ] follow を INSERT / UPDATE（jOOQ を採用したならその DSL で）
+- [ ] follow を INSERT / UPDATE（jOOQ の DSL で）
 - [ ] `Undo{Follow}` を処理してフォロー解除
 - [ ] `Delete{Actor}`（アカウント削除・引っ越し）を処理してフォロワーを掃除
       - 削除済みアクターは鍵を取得できないので、署名検証に失敗しても握り潰す例外パスが要る
@@ -722,9 +787,9 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
       - 複数フィードを同時に動かせるようになるのは Phase 6。
         `feeds.actor_id` を足してフィードごとのアクターに振り分ける
       - `FeedRepository` と `FeedItemRepository` を interface だけ先に置いた
-        （`:backend:repository`）。DB アクセスの方法（素の JDBC か jOOQ か）が
-        決まっていないので実装は無く、`Repositories` からも取れない。
-        マイグレーション SQL もまだ書いていない
+        （`:backend:repository`）。マイグレーション SQL がまだ無く、
+        テーブルが無ければ jOOQ の生成物も無いので実装は書けない。
+        `Repositories` からも取れない
 - [x] 差分検出: `guid` / `id` / `link` を主キーに、なければ URL + タイトルのハッシュ
       - `FeedItemKey`。優先順は `id`（`guid` / Atom の `id` / `rdf:about`）→ `link` → ハッシュ
       - どちらも無いときは、フィードの URL と題名の SHA-256。題名も無いときだけ本文を混ぜる
@@ -976,7 +1041,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 | 相手から 401 が返る | `Digest` ヘッダ未送信 / `Date` のずれ / secure mode で GET に署名がない |
 | 投稿が届かない | `to` に Public が入っていない / `cc` に followers がない |
 | アクターを直しても反映されない | Mastodon 側のキャッシュ（ユーザー名を変えて試す） |
-| native-image で落ちる | リフレクション設定不足（`@Serializable` 型の登録漏れなど）・SQLite ネイティブライブラリ・jOOQ を入れた場合はその設定 |
+| native-image で落ちる | リフレクション設定不足（`@Serializable` 型や jOOQ の `Record` の登録漏れ）・SQLite ネイティブライブラリ・ビルド時初期化と実行時初期化の食い違い |
 | JVM のテストは通るのに native だけ落ちる | テストが native で実行されていない。`nativeTest` の対象に入れられないか検討する |
 | native バイナリでマイグレーションが動かない | SQL がリソースとして同梱されていない（`resource-config.json` 未登録）/ jar 内ディレクトリ走査に頼っている |
 | native バイナリで Shift_JIS のフィードだけ読めない | 文字コードが同梱されていない（`-H:+AddAllCharsets` 未指定） |
