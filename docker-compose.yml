@@ -8,11 +8,12 @@ services:
     restart: unless-stopped
     environment:
       # 公開するドメイン。アクター ID に焼き込まれ、Mastodon 側にキャッシュされると
-      # 後から変えられないので、必ず指定させる
+      # 後から変えられない。ここに既定値を置くと気付かないまま起動できてしまうので、
+      # これだけは外から渡させる
       DOMAIN: ${DOMAIN:?DOMAIN を .env か環境変数で指定すること}
       # アクターのユーザー名。acct:<name>@<DOMAIN> と /users/<name> に入る。
       # ドメインと同じく、変えると別人のアカウントになる
-      ACTOR_USERNAME: ${ACTOR_USERNAME:-admin}
+      ACTOR_USERNAME: admin
       DB_PATH: /data/mastodon-rss.db
       # アクターの秘密鍵。無ければ初回起動時に生成してここに書き出す。
       # ボリュームの中に置くので、コンテナを作り直しても同じ鍵のまま。
@@ -23,19 +24,25 @@ services:
       # ACTOR_PRIVATE_KEY_PEM: ${ACTOR_PRIVATE_KEY_PEM}
       HOST: 0.0.0.0
       PORT: 8080
+      # サーバーを動かす uid, gid。
+      # 起動時に /data の所有者もこれに合わせる。
+      # id -u
+      APP_UID: 10001
+      # id -g
+      APP_GID: 10001
       # 管理画面などの静的ファイルの置き場所。下の volumes と対になっている。
       # 設定しなければ何も配信しない（/ は 404）
       # STATIC_SRC_DIR: /srv/static
     ports:
       # 外に出すのは HTTPS を終端するリバースプロキシの後ろを想定している。
       # 直接インターネットに晒さないこと
-      - "${PUBLISH_PORT:-8080}:8080"
+      - "8080:8080"
     volumes:
       - data:/data
       # :frontend の成果物を置いたホスト側のディレクトリ。イメージには入れていないので、
       # 画面を出すならここでマウントする。上の STATIC_SRC_DIR と一緒にコメントを外すこと。
       # サーバーは読むだけなので ro で渡す
-      # - ${STATIC_SRC_DIR}:/srv/static:ro
+      # - ./frontend/build/dist/wasmJs/productionExecutable:/srv/static:ro
       # ./gradlew :backend:nativeCompile の出力でイメージの中のバイナリを差し替える。
       # イメージを作り直さずに手元のビルドを試したいときだけコメントを外す。
       # entrypoint は /docker-entrypoint.sh に置いてあるので、ここを被せても隠れない

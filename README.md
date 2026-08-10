@@ -271,20 +271,21 @@ docker compose ではボリュームの中（`/data/actor-private-key.pem`）に
 ## Docker で動かす
 
 ```sh
-cp .env.example .env
-# .env の DOMAIN を書き換えてから
+echo "DOMAIN=example.com" > .env
 docker compose up -d
 ```
 
-`DOMAIN` は必須で、未設定だと compose が起動前に失敗する。
+設定は `docker-compose.yml` に書いてある。どれを何のために変えるかはそこのコメントを読む。
+
+`DOMAIN` だけは焼き込まれると後から変えられないので、compose に既定値を置いていない。
+未設定だと compose が起動前に失敗する。`.env` に書くか、環境変数で渡すこと。
 
 初回は Gradle の依存取得と native-image のビルドが走るため時間がかかる。
 
 DB は `data` という名前付きボリュームに置く。コンテナを作り直してもフォロワーは残る。
 
-サーバーは `app`（uid 10001）として動く。`/data` の所有者は起動時に entrypoint が
-合わせるので、名前付きボリュームなら何もしなくてよい。バインドマウントに変える場合は
-ホスト側のディレクトリを uid 10001 にしておく。
+サーバーは `app`（uid 10001）として動く。`/data` の所有者は起動のたびに entrypoint が
+この uid に合わせるので、名前付きボリュームなら何もしなくてよい。
 
 `HEALTHCHECK` で `/healthz` を叩いているので、healthy になれば DB まで通っている。
 
