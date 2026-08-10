@@ -10,8 +10,6 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import net.matsudamper.mastodon.rss.FakeRepositories
-import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
@@ -21,6 +19,7 @@ import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.httpsignature.TestSigning
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.testDependencies
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -50,7 +49,7 @@ class InboxRoutesTest {
         delivery: ActivityDelivery = TestDelivery(),
     ) {
         application {
-            module(FakeRepositories(), TestActorKey.value, TestServerEnv.value, remoteActors, delivery)
+            module(testDependencies(remoteActors = remoteActors, delivery = delivery))
         }
     }
 
