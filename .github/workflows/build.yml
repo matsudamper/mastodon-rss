@@ -128,6 +128,11 @@ jobs:
 
           # 一時ディレクトリを DB_PATH に渡して、SQLite への書き込みも確認する
           export DB_PATH="$RUNNER_TEMP/native-check/mastodon-rss.db"
+
+          # 起動時のスキーマ自動適用は無い（実運用では sqlite3def で手適用する）。
+          # 空の DB だと verifyWritable が落ちるので、実運用の手適用にあたる操作をここでやる
+          mkdir -p "$(dirname "$DB_PATH")"
+          sqlite3 "$DB_PATH" < backend/repository/src/main/resources/db/schema.sql
           # 鍵の生成と書き出しも native バイナリで動く必要がある
           export ACTOR_PRIVATE_KEY_PATH="$RUNNER_TEMP/native-check/actor-private-key.pem"
           # DOMAIN は必須。未設定だと起動せず、WebFinger と Actor も確認できない
@@ -164,7 +169,7 @@ jobs:
             exit 1
           fi
 
-          # マイグレーションが適用され、書き込みまで通っていることを確かめる。
+          # jOOQ 経由の書き込みまで通っていることを確かめる。
           # native バイナリではリソースの同梱漏れやネイティブライブラリの
           # 展開失敗が起きても、起動自体は通ってしまうことがある
           echo "--- DB ファイル ---"

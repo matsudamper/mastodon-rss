@@ -13,9 +13,11 @@ rss は `backend/` の下に置いている。
 `:backend` は Ktor (CIO) + kotlinx.serialization で `/healthz` を返し、JVM でも native-image でも動く。
 `:backend:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
 `nativeTest` で native バイナリ上でも動くことを確認済み。
-`:backend:repository` は SQLite に接続し、起動時にマイグレーションを適用するところまで。
-DB アクセスは jOOQ を採用した。マイグレーション SQL からビルド時に codegen する
-（詳細は「jOOQ を採用する」の節）。
+`:backend:repository` は SQLite に接続するところまで。
+DB アクセスは jOOQ を採用した。スキーマの正はコミットされた `schema.sql` で、
+そこからビルド時に codegen する。実 DB への適用は sqlite3def で手動
+（詳細は「jOOQ を採用する」の節と、`schema.sql` と同じ場所の README）。
+当初あった自前マイグレーション機構は、この運用に切り替えたときに削除した。
 `:frontend` は Compose Multiplatform for Web (Kotlin/Wasm)。Navigation 3 で URL から画面を決め、
 トップ・アカウント画面（`/@ユーザー名`）・管理画面（`/admin`）・見つからない、の 4 つを出す。
 中身の値はまだ繋ぐ先が無いので仮のもの。
@@ -79,7 +81,7 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 | ランタイム | GraalVM (native-image) |
 | HTTP サーバー | Ktor (CIO) |
 | DB | SQLite |
-| DB アクセス | jOOQ（マイグレーション SQL から codegen。適用そのものは自前） |
+| DB アクセス | jOOQ（`schema.sql` から codegen。実 DB への適用は sqlite3def で手動） |
 | 署名 | JCA（RSA / SHA256withRSA）。ライブラリは足さない |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
 | 管理 API | GraphQL。サーバーは graphql-java、クライアントは Apollo Kotlin（Phase 8 で作る） |
@@ -259,6 +261,10 @@ sqlite-jdbc を `implementation` で入れているため、`:backend` の compi
 
 ### 0-5. マイグレーション（自前の連番 SQL）
 
+> この機構は jOOQ 採用後に丸ごと廃止した。スキーマの正を `schema.sql` にして
+> sqlite3def で手適用する運用に切り替えたため（「jOOQ を採用する」の節の最後を参照）。
+> 以下は当時の記録。
+
 - [x] `backend/repository/src/main/resources/db/migration/V001__init.sql` の形式で SQL を置く
       - 置き場所は `:backend` ではなく `:backend:repository`。SQL とそれを読むコードを同じモジュールに置く
       - V001 の中身は `health_check` テーブルだけ。フォロワーなどのスキーマ設計は Phase 3 でやる
@@ -371,8 +377,9 @@ JVM のテストは全部通るのに native バイナリだけ 500 を返す状
 
 - [x] native ジョブの起動確認を「`/healthz` が 200」＋「SQLite に書き込めて読み戻せる」まで広げる
       - 一時ディレクトリを `DB_PATH` に渡して起動し、DB ファイルができていることを確認する。
-        起動時に必ずマイグレーションと `verifyWritable()` が走るので、
+        起動時に必ず `verifyWritable()` が走るので、
         `/healthz` が 200 を返した時点で書き込みまで通っていることになる
+        （スキーマは実運用の手適用にあたる操作として、起動前に sqlite3 で適用する）
 - [x] 起動確認スクリプトで、サーバーが立たなかった場合にログを出して失敗させる
       - プロセスの生死・HTTP レスポンス本体・サーバーログを出すようにした
       - `curl -sf` は 500 でも失敗するため、応答があったかどうかを分けて表示する。
@@ -696,13 +703,32 @@ JVM のテストでは一切再現しない。`:backend:repository:test` は jOO
 検出できるのは CI の native-image ジョブだけなので、あのジョブの起動確認は
 消さないこと。
 
+その後の変更（マイグレーション廃止、`schema.sql` を正にする）:
+
+上のパイプラインは当初 `db/migration` の連番 SQL を入力にしていたが、
+運用をこう変えた。ホビーユースで運用者が自分だけなので、履歴管理の仕組みより
+イテレーションの軽さを取った。
+
+- スキーマの正はコミットされた `schema.sql`。codegen の入力もこれ 1 ファイル
+- 開発用 DB（ローカル、git に入れない）を直接いじって形を決め、
+  `./gradlew :backend:repository:dumpSchema -PdevDb=/絶対パス/dev.db` で書き出して commit する。
+  書き出す前に使い捨て DB へ適用し直して、単体で適用可能なことを確かめている
+- 実 DB への適用は sqlite3def で手動。起動時の自動適用はしない
+- 起動時の検証も置かない。空の DB や適用忘れは `verifyWritable()` が
+  `no such table` で落ちるので、事実上そこが門番になる。
+  スキーマが古いまま起動が通った場合も、触った瞬間に SQL エラーになる
+- `MigrationRunner` / `MigrationLoader` / `SqlStatementSplitter` /
+  `schema_version` / `db/migration/index` の生成は削除した
+- 新しいバイナリを動かす前に sqlite3def で適用する、が唯一の運用規律。
+  `--dry-run` で差分を確認でき、適用前に DB ファイルを cp しておけば戻せる
+
 ---
 
 ## Phase 3: フォロワーを永続化する
 
 Phase 2 まではオンメモリでよい。ここで初めて DB が要る。
 
-- [ ] スキーマ設計とマイグレーション
+- [ ] スキーマ設計（開発用 DB で形を決めて `dumpSchema` で `schema.sql` に書き出す）
       - `actors`（ローカルアクター: name, display_name, private_key, public_key, created_at）
       - `remote_actors`（inbox, shared_inbox, public_key, fetched_at）
       - `followers`（actor_id, remote_actor_id, follow_activity_id, state, created_at）
@@ -787,7 +813,7 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
       - 複数フィードを同時に動かせるようになるのは Phase 6。
         `feeds.actor_id` を足してフィードごとのアクターに振り分ける
       - `FeedRepository` と `FeedItemRepository` を interface だけ先に置いた
-        （`:backend:repository`）。マイグレーション SQL がまだ無く、
+        （`:backend:repository`）。テーブルがまだ `schema.sql` に無く、
         テーブルが無ければ jOOQ の生成物も無いので実装は書けない。
         `Repositories` からも取れない
 - [x] 差分検出: `guid` / `id` / `link` を主キーに、なければ URL + タイトルのハッシュ
@@ -972,7 +998,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - [ ] `POST /graphql` を 1 つ作る。本文は `receiveText()` してから読み、
             変数は `JsonObject` で受けて実行の直前に素の値へ開く
       - [ ] 実行結果の `Map` を `JsonElement` に変換して返す。知らない型が来たら落とす
-      - [ ] スキーマを `resource-config.json` に登録する（マイグレーション SQL と同じ扱い）
+      - [ ] スキーマを `resource-config.json` に登録する（リソースは明示しないと native バイナリに入らない）
       - [ ] CI の native-image ジョブの起動確認で実際に叩く。
             graphql-java が native-image で動くかは JVM のテストでは分からない
 - [ ] 管理 API に認証をかける（inbox と違って外に開けてはいけない）
@@ -1043,7 +1069,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 | アクターを直しても反映されない | Mastodon 側のキャッシュ（ユーザー名を変えて試す） |
 | native-image で落ちる | リフレクション設定不足（`@Serializable` 型や jOOQ の `Record` の登録漏れ）・SQLite ネイティブライブラリ・ビルド時初期化と実行時初期化の食い違い |
 | JVM のテストは通るのに native だけ落ちる | テストが native で実行されていない。`nativeTest` の対象に入れられないか検討する |
-| native バイナリでマイグレーションが動かない | SQL がリソースとして同梱されていない（`resource-config.json` 未登録）/ jar 内ディレクトリ走査に頼っている |
+| 起動時に `no such table` で落ちる | スキーマの適用忘れ。sqlite3def で `schema.sql` を適用する（起動時の自動適用は無い） |
 | native バイナリで Shift_JIS のフィードだけ読めない | 文字コードが同梱されていない（`-H:+AddAllCharsets` 未指定） |
 | ログが 1 行も出ない | SLF4J の実装が classpath に無い。`No SLF4J providers were found` が出て以降すべて NOP になる |
 | 外部キー制約が効かない | SQLite は `PRAGMA foreign_keys` が既定で OFF。接続ごとに ON にする必要がある |

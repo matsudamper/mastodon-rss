@@ -12,21 +12,10 @@ import java.time.Instant
 internal class SqliteRepositories(
     config: DatabaseConfig,
 ) : Repositories {
+    // スキーマの適用はしない。実 DB へは sqlite3def で手適用する運用
+    // （db/schema.sql と同じ場所の README を参照）。空の DB で起動した場合は
+    // verifyWritable() が no such table で落ちるので、適用忘れはそこで分かる
     private val connectionManager = SqliteConnectionManager(config)
-
-    init {
-        // 未適用のマイグレーションがある状態でリクエストを受けても失敗するだけなので、
-        // 接続を開いた直後に適用しきる。
-        //
-        // マイグレーションだけは jOOQ を通さない。生成コードは適用後のスキーマから
-        // 作られるので、適用する側がそれに依存すると鶏と卵になる
-        try {
-            MigrationRunner(connectionManager).migrate(MigrationLoader.load())
-        } catch (e: Throwable) {
-            connectionManager.close()
-            throw e
-        }
-    }
 
     override fun verifyWritable() {
         val writtenAt = Instant.now().toString()

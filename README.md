@@ -35,9 +35,9 @@ flowchart TB
 
     subgraph repository[":backend:repository"]
         api["公開 API<br/>Repositories<br/>DatabaseConfig"]
-        impl["internal 実装<br/>SqliteRepositories<br/>SqliteConnectionManager<br/>MigrationLoader<br/>MigrationRunner"]
-        gen["jOOQ 生成コード<br/>ビルド時に SQL から生成<br/>git には入らない"]
-        res["リソース<br/>db/migration/V001__init.sql<br/>db/migration/index<br/>resource-config.json"]
+        impl["internal 実装<br/>SqliteRepositories<br/>SqliteConnectionManager"]
+        gen["jOOQ 生成コード<br/>ビルド時に schema.sql から生成<br/>git には入らない"]
+        res["リソース<br/>db/schema.sql"]
     end
 
     subgraph rss[":backend:rss"]
@@ -62,7 +62,6 @@ flowchart TB
     module -->|verifyWritable| api
     api -.->|backend からは見えない| impl
     impl -->|テーブルの型| gen
-    impl --> res
     res -.->|codegen の入力| gen
     impl --> db
     actor --> keys
@@ -335,6 +334,7 @@ CI では `ktlintCheck` が通らないとビルドが落ちる。
 
 ## スキーマを変えるとき
 
-SQL と同じ場所に置いた
-[backend/repository/src/main/resources/db/migration/README.md](backend/repository/src/main/resources/db/migration/README.md)
-を参照。追加のしかた、起動時の適用、そこから jOOQ の型が作られるまでを書いてある。
+`schema.sql` と同じ場所に置いた
+[backend/repository/src/main/resources/db/README.md](backend/repository/src/main/resources/db/README.md)
+を参照。開発用 DB から `dumpSchema` で書き出して commit し、実 DB へは sqlite3def で
+手適用する。そこから jOOQ の型が作られるまでも書いてある。

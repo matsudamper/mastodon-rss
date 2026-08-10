@@ -11,7 +11,8 @@ import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 
 /**
- * マイグレーション SQL を入力に、実行時に読む一覧と jOOQ の生成コードを作る。
+ * コミットされた `schema.sql` を入力に、jOOQ の生成コードとリフレクション設定を作る。
+ * `schema.sql` 自体は `dumpSchema` が開発用 DB から書き出す。
  *
  * codegen 用の依存は使う側が `jooqCodegen` に入れる。バージョンをこのプラグインに
  * 持たせないのは、version catalog の外にバージョンが散ると Renovate の追従から
@@ -20,8 +21,8 @@ import org.gradle.kotlin.dsl.register
 class DatabaseCodegenPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         val extension = target.extensions.create<DatabaseCodegenExtension>(EXTENSION_NAME)
-        extension.migrationDirectory.convention(
-            target.layout.projectDirectory.dir("src/main/resources/db/migration"),
+        extension.schemaFile.convention(
+            target.layout.projectDirectory.file("src/main/resources/db/schema.sql"),
         )
         extension.excludes.convention("schema_version|sqlite_.*")
         extension.nativeImageMetadataPath.convention(
@@ -35,25 +36,20 @@ class DatabaseCodegenPlugin : Plugin<Project> {
                 description = "jOOQ の codegen を回すためだけの classpath"
             }
 
-        // 入力はディレクトリではなく SQL に絞る。同じ場所に説明の README を
-        // 置いてあり、ディレクトリを入力にすると文章を直しただけで再生成が走る
-        val migrationSqlFiles =
-            extension.migrationDirectory.map { directory ->
-                directory.asFileTree.matching { include("*.sql") }
-            }
-
         target.pluginManager.withPlugin("java") {
-            val generateMigrationIndex =
-                target.tasks.register<GenerateMigrationIndexTask>("generateMigrationIndex") {
-                    description = "マイグレーション SQL の一覧を生成する"
-                    migrationSql.from(migrationSqlFiles)
-                    outputDirectory.set(target.layout.buildDirectory.dir("generated/migrationIndex"))
-                }
+            target.tasks.register<DumpSchemaTask>("dumpSchema") {
+                description = "開発用 DB (-PdevDb=絶対パス) から schema.sql を書き出す"
+                devDatabasePath.set(target.providers.gradleProperty("devDb"))
+                driverClasspath.from(codegenConfiguration)
+                excludes.set(extension.excludes)
+                schemaFile.set(extension.schemaFile)
+                workDatabase.set(target.layout.buildDirectory.file("dump/normalize.db"))
+            }
 
             val buildJooqSchema =
                 target.tasks.register<BuildSchemaDatabaseTask>("buildJooqSchema") {
                     description = "codegen の入力にする一時 SQLite を作る"
-                    migrationSql.from(migrationSqlFiles)
+                    schemaSql.set(extension.schemaFile)
                     driverClasspath.from(codegenConfiguration)
                     databaseFile.set(target.layout.buildDirectory.file("jooq/schema.db"))
                 }
@@ -82,7 +78,6 @@ class DatabaseCodegenPlugin : Plugin<Project> {
                 }
 
             target.extensions.getByType<SourceSetContainer>().named("main") {
-                resources.srcDir(generateMigrationIndex.flatMap { it.outputDirectory })
                 resources.srcDir(generateJooqReflectConfig.flatMap { it.outputDirectory })
                 java.srcDir(generateJooq.flatMap { it.outputDirectory })
             }
