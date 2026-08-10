@@ -2,7 +2,8 @@
 RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon からフォローできるようにする自作サーバー。
 
 開発の進め方とロードマップは [TODO.md](TODO.md)、横断的な設計は
-[docs/architecture.md](docs/architecture.md) を参照。
+[docs/architecture.md](docs/architecture.md)、Mastodon から見える仕様
+（エンドポイント・鍵の扱いなど）は [docs/mastodon-spec.md](docs/mastodon-spec.md) を参照。
 
 ## モジュール構成
 
@@ -163,6 +164,26 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 [StaticFiles.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/staticfiles/StaticFiles.kt)、
 環境変数は [ServerEnv.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/ServerEnv.kt) を参照。
 
+### 画面のパス
+
+サーバーのエンドポイント（[docs/mastodon-spec.md](docs/mastodon-spec.md)）以外のパスは
+静的ファイルの配信に落ちる。ファイルがあればそれを返し、無ければ `index.html` を返して
+画面側に解釈させる。どの画面を出すかはブラウザ側の判断になる。
+
+| パス | 画面 |
+| --- | --- |
+| `/` | トップ |
+| `/@{name}` | アカウント画面。フィードの取得状況と配信した記事 |
+| `/admin` | 管理画面。中身は Phase 8 で作る |
+| それ以外 | 見つからない（HTTP は 200 のまま） |
+
+画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
+Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。
+実体は `frontend/src/wasmJsMain/resources/fonts/`（SIL Open Font License 1.1。同じ場所に
+`OFL.txt` を置いてある）で、読み込みは `:frontend` の `ui/Font.kt`。
+
+表示している数値と記事はまだ仮の値で、画面の上にその旨を出している。
+
 ## 環境変数
 
 | 変数 | 既定値 | 内容 |
@@ -181,92 +202,8 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 どちらもアクターの ID に焼き込まれ、変えると相手からは別人のアカウントに見える。
 理由は `ServerEnv.kt` と `ActorUsername.kt` の KDoc にある。
 
-## エンドポイント
-
-| パス | 内容 |
-| --- | --- |
-| `GET /healthz` | 生存確認。`{"status":"ok"}` |
-| `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
-| `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
-| `POST /users/{name}/inbox` | アクティビティの受け口。HTTP Signatures を検証する |
-| `GET /.well-known/nodeinfo` | NodeInfo の discovery document |
-| `GET /nodeinfo/2.1` | サーバーの実装と規模。調査用 |
-
-`{name}` として応答するのは `ACTOR_USERNAME`（既定 `admin`）と、`test-` で始まる
-任意の名前の 2 通り。後者は動作確認用で、下の「動作確認用のアカウント」を参照。
-
-上の表以外のパスは静的ファイルの配信に落ちる。ファイルがあればそれを返し、無ければ
-`index.html` を返して画面側に解釈させる。どの画面を出すかはブラウザ側の判断になる。
-
-| パス | 画面 |
-| --- | --- |
-| `/` | トップ |
-| `/@{name}` | アカウント画面。フィードの取得状況と配信した記事 |
-| `/admin` | 管理画面。中身は Phase 8 で作る |
-| それ以外 | 見つからない（HTTP は 200 のまま） |
-
-画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
-Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。
-実体は `frontend/src/wasmJsMain/resources/fonts/`（SIL Open Font License 1.1。同じ場所に
-`OFL.txt` を置いてある）で、読み込みは `:frontend` の `ui/Font.kt`。
-
-アカウント画面の `/@{name}` と Actor JSON の `/users/{name}` は別のパス。
-1 つのパスで `Accept` を見て HTML と JSON を出し分けると、相手の綴りの揺れで
-アカウントごと見つからなくなる。表示している数値と記事はまだ仮の値で、
-画面の上にその旨を出している。
-
-inbox は署名が通れば 202、通らなければ 401 を返す。検証の内容は
-[HttpSignatureVerifier.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
-の KDoc にある。
-
-届いたアクティビティのうち処理するのは `Follow` だけで、相手の inbox に `Accept` を
-返してフォローを成立させる。フォロワーはまだ保存しないので、再起動すると
-こちらには何も残らない（相手側にはフォローが残る）。それ以外の種類は
-種類と送り主をログに出すだけ。
-
-```sh
-curl "http://localhost:8080/.well-known/webfinger?resource=acct:admin@example.com"
-curl -H 'Accept: application/activity+json' http://localhost:8080/users/admin
-```
-
-外から見えるようにするには HTTPS が要る。開発中は Cloudflare Tunnel や ngrok で
-`DOMAIN` に指定したホスト名に向ける。
-
-## 動作確認用のアカウント
-
-`test-` で始まる名前は、設定に関係なくすべてアクターとして応答する。
-`@test-1@example.com` でも `@test-20260808@example.com` でも引ける。
-
-```sh
-curl "http://localhost:8080/.well-known/webfinger?resource=acct:test-1@example.com"
-curl -H 'Accept: application/activity+json' http://localhost:8080/users/test-1
-```
-
-`admin` で試して失敗すると `admin` が使えなくなるので、検証はこちらを使い、
-名前を変えながらやり直す。理由は `ActorUsername.kt` の KDoc にある。
-
-- 中身は固定アクターと同じで、鍵も共有する
-- `summary` が「動作確認用のアカウント」になるので、Mastodon 側の表示でも見分けられる
-- 接頭辞は小文字ちょうど。`Test-1` は 404 になる
-
-## アクターの鍵
-
-鍵は消さずに持ち続ける必要がある。読み込み元は 2 つあり、同時には指定できない。
-両方が設定されていると起動時に落とす。
-
-| 指定 | 動き |
-| --- | --- |
-| `ACTOR_PRIVATE_KEY_PATH`（既定） | ファイルがあれば読む。無ければ生成して書き出す（所有者のみ読み書き可） |
-| `ACTOR_PRIVATE_KEY_PEM` | PEM をそのまま使う。ファイルには書き出さない |
-
-どちらから読んだかは起動ログに出る。生成した場合だけ警告になるので、
-運用中に出ていたら以前の鍵を失っていることになる。
-
-docker compose ではボリュームの中（`/data/actor-private-key.pem`）に置いている。
-コンテナを作り直しても同じ鍵のままだが、ボリュームごと消すとアクターは別人になる。
-
-保存するのは秘密鍵だけで、公開鍵は起動のたびに秘密鍵から導く。
-鍵を持ち続ける理由とこの判断の理由は `ServerEnv.kt` の KDoc にある。
+エンドポイント、動作確認用のアカウント、アクターの鍵の扱いなど、
+ビルド以外の仕様は [docs/mastodon-spec.md](docs/mastodon-spec.md) にまとめてある。
 
 ## スキーマを変えるとき
 

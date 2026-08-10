@@ -3,7 +3,8 @@
 コードの 1 か所に紐付かない、横断的な決めごとを置く。個別の判断はコードの KDoc と
 ビルドスクリプトのコメントに書いてあるので、こちらには重複させない。
 
-使い方は [README.md](../README.md)、これからやることは [TODO.md](../TODO.md) を参照。
+使い方は [README.md](../README.md)、外に対して何をどう応答するかは
+[mastodon-spec.md](mastodon-spec.md)、これからやることは [TODO.md](../TODO.md) を参照。
 
 ## モジュールの分け方
 
