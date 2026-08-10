@@ -124,10 +124,6 @@ DOMAIN=example.com ./gradlew :backend:run
 
 起動できたかは `GET /healthz` で見る。`{"status":"ok"}` が返れば動いている。
 
-```sh
-curl http://localhost:8080/healthz
-```
-
 ### backend の native-image
 
 GraalVM 25 が必要。

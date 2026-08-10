@@ -49,11 +49,6 @@ curl -H 'Accept: application/activity+json' http://localhost:8080/users/admin
 `test-` で始まる名前は、設定に関係なくすべてアクターとして応答する。
 `@test-1@example.com` でも `@test-20260808@example.com` でも引ける。
 
-```sh
-curl "http://localhost:8080/.well-known/webfinger?resource=acct:test-1@example.com"
-curl -H 'Accept: application/activity+json' http://localhost:8080/users/test-1
-```
-
 `admin` で試して失敗すると `admin` が使えなくなるので、検証はこちらを使い、
 名前を変えながらやり直す。理由は `ActorUsername.kt` の KDoc にある。
 
