@@ -42,11 +42,16 @@ FROM debian:13-slim
 # curl は HEALTHCHECK で /healthz を叩くためだけに入れている。
 # util-linux は entrypoint が権限を落とすのに使う setpriv のために明示している
 # （基本パッケージなので実際には既に入っているが、消えたらビルドで気付けるようにする）
+#
+# /app は app の home であり WORKDIR でもある。useradd はこれを 0750 で作るので、
+# APP_UID に別の uid を渡すと cwd に入れなくなる。ktor は起動時に cwd を解決するため、
+# FileNotFoundException: /app/. で起動前に落ちる。どの uid でも辿れるようにしておく
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl util-linux \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid app --home-dir /app --create-home app \
+    && chmod 0755 /app \
     && mkdir -p /data \
     && chown app:app /data
 
