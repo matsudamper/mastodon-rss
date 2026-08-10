@@ -53,9 +53,18 @@ jobs:
         run: |
           set -euo pipefail
 
+          # 起動時のスキーマ自動適用は無い（実運用では sqlite3def で手適用する）。
+          # 空の DB だと verifyWritable が落ちるので、適用済みの DB を作ってマウントする。
+          # 777 なのはコンテナ内の app ユーザーと uid が合わないため。使い捨てなので構わない
+          DATA_DIR="$RUNNER_TEMP/publish-check"
+          mkdir -p "$DATA_DIR"
+          sqlite3 "$DATA_DIR/mastodon-rss.db" < backend/repository/src/main/resources/db/schema.sql
+          chmod -R 777 "$DATA_DIR"
+
           docker run --rm --detach --name mastodon-rss-check \
             --publish 8080:8080 \
             --env DOMAIN=example.com \
+            --volume "$DATA_DIR:/data" \
             "$IMAGE:$GITHUB_SHA"
           trap 'docker rm -f mastodon-rss-check > /dev/null 2>&1 || true' EXIT
 

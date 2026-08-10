@@ -107,7 +107,6 @@ sequenceDiagram
     A->>A: PEM を読む（ファイルが無ければ生成して書き出す）
     M->>R: createRepositories
     R->>DB: 接続して PRAGMA を適用
-    R->>DB: 未適用のマイグレーションをバージョン昇順で適用
     M->>K: embeddedServer で起動
     K->>M: module を実行
     M->>R: verifyWritable
@@ -115,7 +114,11 @@ sequenceDiagram
     Note over K: リクエスト受付開始
 ```
 
-DB を開けなかった場合もマイグレーションに失敗した場合も、この時点で例外になって
+スキーマの適用は起動時にはやらない。実 DB へは sqlite3def で手適用する運用で、
+適用していない DB（空の DB を含む）で起動すると `verifyWritable` が
+`no such table` で落ちる。適用のしかたは `db/schema.sql` と同じ場所の README を参照。
+
+DB を開けなかった場合もスキーマが無い場合も、この時点で例外になって
 起動が止まる。native バイナリでは SQLite のネイティブライブラリの展開に失敗しても
 起動自体は通ってしまうことがあるため、書き込みの往復まで確かめている。
 

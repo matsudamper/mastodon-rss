@@ -1,12 +1,15 @@
 package net.matsudamper.mastodon.rss.gradle
 
-import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 
 /** [DatabaseCodegenPlugin] の設定 */
 interface DatabaseCodegenExtension {
-    /** マイグレーション SQL の置き場所。既定は `src/main/resources/db/migration` */
-    val migrationDirectory: DirectoryProperty
+    /**
+     * スキーマの唯一の定義になる SQL ファイル。既定は `src/main/resources/db/schema.sql`。
+     * [DumpSchemaTask] の書き出し先で、codegen の入力でもある
+     */
+    val schemaFile: RegularFileProperty
 
     /** 生成コードのパッケージ名 */
     val packageName: Property<String>
@@ -14,9 +17,9 @@ interface DatabaseCodegenExtension {
     /**
      * 生成の対象から外すテーブルの正規表現。
      *
-     * 既定では `schema_version` と SQLite 自身の内部表を外す。前者は
-     * マイグレーションの適用を記録する管理表で、生成すると適用の記録を
-     * DSL 経由で書き換えられるようになってしまう。
+     * 既定では SQLite 自身の内部表と、旧マイグレーション機構の管理表
+     * `schema_version` を外す。後者は、切り替え前の開発用 DB に残っていても
+     * dump と生成物に紛れ込まないようにするため。
      */
     val excludes: Property<String>
 
