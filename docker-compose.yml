@@ -24,12 +24,9 @@ services:
       # ACTOR_PRIVATE_KEY_PEM: ${ACTOR_PRIVATE_KEY_PEM}
       HOST: 0.0.0.0
       PORT: 8080
-      # サーバーを動かす uid。起動時に /data の所有者もこれに合わせる。
-      # 既定はイメージの中の app。名前付きボリュームならこのままでよい。
-      # /data をホストのディレクトリにバインドマウントする場合、そのディレクトリごと
-      # この uid の持ち物になり、ホストのユーザーからは書けなくなる
-      # （scp が Permission denied になる）。ホスト側でも読み書きするなら、
-      # そのユーザーの id -u の値を書く
+      # サーバーを動かす uid, gid。
+      # 起動時に /data の所有者もこれに合わせる。
+      # id -u
       APP_UID: 10001
       # id -g
       APP_GID: 10001
