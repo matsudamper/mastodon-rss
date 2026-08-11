@@ -14,11 +14,22 @@ configure<KtlintExtension> {
     version.set(libs.versions.ktlint.get())
 }
 
+dependencies {
+    // native-image の設定（どの GraalVM で作るか）をプラグイン側で書くために要る。
+    // モジュールごとに同じ結線を 3 回書かないようにするため
+    implementation(libs.graalvm.native.plugin)
+}
+
 gradlePlugin {
     plugins {
         create("databaseCodegen") {
             id = "mastodon-rss.database-codegen"
             implementationClass = "net.matsudamper.mastodon.rss.gradle.DatabaseCodegenPlugin"
+        }
+
+        create("nativeImage") {
+            id = "mastodon-rss.native-image"
+            implementationClass = "net.matsudamper.mastodon.rss.gradle.NativeImagePlugin"
         }
     }
 }

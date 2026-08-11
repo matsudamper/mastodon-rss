@@ -10,6 +10,15 @@ pluginManagement {
     }
 }
 
+// JDK をビルド側で用意する。ツールチェインが手元に無ければ Gradle が取ってくるので、
+// JDK 25 と GraalVM を各自で入れる必要がなくなる。
+//
+// バージョンを version catalog に置けないのは、settings.gradle.kts の plugins ブロックが
+// 評価される時点で catalog のアクセサがまだ無いため。Renovate はこの記法も追える
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
 dependencyResolutionManagement {
     repositories {
         mavenCentral()

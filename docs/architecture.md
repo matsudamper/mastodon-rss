@@ -60,6 +60,25 @@ JVM のテストが全部通ったまま実バイナリだけが落ちる。
 `gradle/libs.versions.toml` を読む。プラグイン側に書くと version catalog の
 外にバージョンが散り、Renovate の追従から外れる。
 
+## JDK と GraalVM はビルドが用意する
+
+`settings.gradle.kts` に foojay-resolver を入れてあるので、ツールチェインが手元に
+無ければ Gradle が取ってくる。開発を始めるのに必要なのは Gradle を起動できる JDK 1 つで、
+JDK 25 と GraalVM を各自で入れる手順は要らない。
+
+native-image を使うモジュール（`:backend`・`:backend:crypto`・`:backend:rss`）は
+`mastodon-rss.native-image` を適用する。決めているのは「どの GraalVM で作るか」だけで、
+`imageName` や `buildArgs` はモジュール側に残す。3 モジュールに同じ結線を書かないため。
+
+GraalVM は Gradle が配置する時点で `bin/native-image` のシンボリックリンクが
+0 バイトのファイルに化ける（[gradle#28583](https://github.com/gradle/gradle/issues/28583)）。
+`RepairNativeImageLauncherTask` が native のタスクの前に実体へのリンクを張り直す。
+自分で入れた GraalVM を使う場合は壊れていないので何もしない。
+
+`graalvmNative` の `toolchainDetection` は切らないこと。切ると native-image を探す
+処理がツールチェインの launcher を読まなくなり、`JAVA_HOME` を見に行って
+「native-image が無い」と言って落ちる。
+
 `build-logic` は別のビルドなので、root の `ktlintCheck` からは辿られない。
 CI が叩くのは root の `ktlintCheck` だけなので、root の build.gradle.kts で
 繋いである。
