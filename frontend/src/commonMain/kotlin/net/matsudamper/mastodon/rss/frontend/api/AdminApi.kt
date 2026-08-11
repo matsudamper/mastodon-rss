@@ -45,8 +45,7 @@ class AdminApi(
 
             AdminLoginFailure.NOT_CONFIGURED -> AdminLoginResult.NotConfigured
 
-            // スキーマに理由が増えたが画面がまだ知らない。通ったことにはしない
-            AdminLoginFailure.UNKNOWN__ -> AdminLoginResult.Failure("画面が知らない理由で断られた")
+            AdminLoginFailure.UNKNOWN__ -> AdminLoginResult.Failure("Unknown")
         }
     }
 
