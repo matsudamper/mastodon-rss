@@ -25,6 +25,9 @@ ktlint_function_signature_rule_force_multiline_when_parameter_count_greater_or_e
 # テストのソースセットでは既定で無効になるが、判定に失敗した場合に備えて明示しておく
 ktlint_function_naming_ignore_when_annotated_with = Composable, Test
 
+# 複数行の本体は {} で囲む。ktlint の既定は 1 つの式なら式本体に寄せるので外す
+ktlint_standard_function-expression-body = disabled
+
 [*.{yml,yaml,json,md}]
 indent_size = 2
 

@@ -26,11 +26,12 @@ class AdminApi(
             .build(),
 ) : AutoCloseable {
     /** いまログインしているかを聞く */
-    suspend fun session(): AdminSessionResult =
-        client
+    suspend fun session(): AdminSessionResult {
+        return client
             .query(AdminSessionQuery())
             .execute()
             .toSessionResult { it.admin.session.adminSessionFields }
+    }
 
     /** サーバーが PBKDF2 を回すぶん応答まで一拍あるので、呼ぶ側は待っている表示を出すこと */
     suspend fun login(password: String): AdminLoginResult {
@@ -50,11 +51,12 @@ class AdminApi(
     }
 
     /** ログアウトする。サーバー側のセッションも消える */
-    suspend fun logout(): AdminSessionResult =
-        client
+    suspend fun logout(): AdminSessionResult {
+        return client
             .mutation(AdminLogoutMutation())
             .execute()
             .toSessionResult { it.admin.logout.adminSessionFields }
+    }
 
     override fun close() {
         client.close()
@@ -77,10 +79,11 @@ class AdminApi(
     }
 
     /** Apollo は例外を投げずに応答へ入れて返すので、通信の失敗も errors もここに来る */
-    private fun ApolloResponse<*>.failureMessage(): String =
-        exception?.message
+    private fun ApolloResponse<*>.failureMessage(): String {
+        return exception?.message
             ?: errors?.joinToString("\n") { it.message }?.takeIf { it.isNotEmpty() }
             ?: "サーバーに繋がらなかった"
+    }
 }
 
 /** [AdminApi.session] と [AdminApi.logout] の結果 */

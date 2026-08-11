@@ -105,8 +105,8 @@ class AdminScreenViewModel(
         }
     }
 
-    private fun createContent(state: ViewModelState): AdminScreenUiState.Content =
-        when (val session = state.session) {
+    private fun createContent(state: ViewModelState): AdminScreenUiState.Content {
+        return when (val session = state.session) {
             null -> {
                 AdminScreenUiState.Content.Loading
             }
@@ -135,6 +135,7 @@ class AdminScreenViewModel(
                 }
             }
         }
+    }
 
     /** session が null の間は問い合わせ中 */
     private data class ViewModelState(

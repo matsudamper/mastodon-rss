@@ -10,8 +10,8 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 
 /** 実行結果を JSON にする */
-fun Any?.toJsonElement(): JsonElement =
-    when (this) {
+fun Any?.toJsonElement(): JsonElement {
+    return when (this) {
         null -> {
             JsonNull
         }
@@ -45,10 +45,11 @@ fun Any?.toJsonElement(): JsonElement =
             throw IllegalArgumentException("GraphQL の結果に知らない型が入っている: ${this::class.qualifiedName}")
         }
     }
+}
 
 /** 変数を graphql-java に渡せる形にする */
-fun JsonElement.toRawValue(): Any? =
-    when (this) {
+fun JsonElement.toRawValue(): Any? {
+    return when (this) {
         is JsonNull -> {
             null
         }
@@ -68,3 +69,4 @@ fun JsonElement.toRawValue(): Any? =
             map { it.toRawValue() }
         }
     }
+}

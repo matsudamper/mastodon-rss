@@ -53,10 +53,11 @@ class GraphQlEngine private constructor(
             return GraphQlEngine(GraphQL.newGraphQL(schema).build())
         }
 
-        fun DataFetchingEnvironment.applicationCall(): ApplicationCall =
-            requireNotNull(graphQlContext.get<ApplicationCall>(CALL_KEY)) {
+        fun DataFetchingEnvironment.applicationCall(): ApplicationCall {
+            return requireNotNull(graphQlContext.get<ApplicationCall>(CALL_KEY)) {
                 "GraphQLContext に ApplicationCall が無い"
             }
+        }
 
         /** native バイナリでは resource-config.json にも書く */
         private const val SCHEMA_RESOURCE = "graphql/schema.graphqls"

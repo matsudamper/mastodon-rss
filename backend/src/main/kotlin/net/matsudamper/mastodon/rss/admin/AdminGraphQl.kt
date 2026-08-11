@@ -66,11 +66,12 @@ class AdminGraphQl(
         return mapOf("loggedIn" to false, "passwordConfigured" to (passwordHash != null))
     }
 
-    private fun ApplicationCall.sessionState(): Map<String, Any?> =
-        mapOf(
+    private fun ApplicationCall.sessionState(): Map<String, Any?> {
+        return mapOf(
             "loggedIn" to sessions.isValid(sessionToken()),
             "passwordConfigured" to (passwordHash != null),
         )
+    }
 
     @Suppress("unused")
     fun <T> requireLoggedIn(
