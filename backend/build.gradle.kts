@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     application
-    alias(libs.plugins.graalvm.native)
+    id("mastodon-rss.native-image")
 }
 
 dependencies {
