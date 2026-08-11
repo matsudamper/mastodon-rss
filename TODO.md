@@ -985,6 +985,10 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
         スキーマに書けない定数（パスワードの長さ制限、環境変数名、画面のパス）だけ
       - 両モジュールから等距離にするため root に置く。`:backend` に置くと
         `:frontend` のビルドが `:backend` のディレクトリを見ることになる
+
+      `:shared:graphql`（口のパス）と `:shared:graphql:schema`（スキーマ）を作った。
+      スキーマを別モジュールにしたのは「ここを直せばスキーマが変わる」を 1 ディレクトリに
+      閉じるため。パスワードの長さ制限と画面のパスはまだ移していないので、チェックは付けない。
 - [ ] `:frontend` の成果物を配置するデプロイスクリプトを用意する
       （インフラ側で用意する。このリポジトリの範囲外。Phase 0 の「ビルドと配布の分け方」を参照）
 - [x] `:backend` が静的ファイルを配信する
@@ -1025,13 +1029,19 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       `PropertyDataFetcher` のリフレクション経路に入れない。データクラスを返すと、
       JVM では動いて native バイナリでだけ全フィールドが null になる形の不具合になる。
 
-      - [ ] スキーマを `:shared` に置き、version catalog に graphql-java と Apollo を足す
-      - [ ] `POST /graphql` を 1 つ作る。本文は `receiveText()` してから読み、
+      口と結線の仕組みは動いていて、いま載っているのはログインだけ。
+      フィード CRUD などが載ってからチェックを付ける。
+
+      - [x] スキーマを `:shared` に置き、version catalog に graphql-java と Apollo を足す
+            - 置いたのは `:shared:graphql:schema`。Apollo は 4.x が Kotlin 2.4 の KGP で
+              落ちる（`KotlinJsTarget` が見つからない）ので 5.0.1 にした
+      - [x] `POST /graphql` を 1 つ作る。本文は `receiveText()` してから読み、
             変数は `JsonObject` で受けて実行の直前に素の値へ開く
-      - [ ] 実行結果の `Map` を `JsonElement` に変換して返す。知らない型が来たら落とす
-      - [ ] スキーマを `resource-config.json` に登録する（リソースは明示しないと native バイナリに入らない）
-      - [ ] CI の native-image ジョブの起動確認で実際に叩く。
+      - [x] 実行結果の `Map` を `JsonElement` に変換して返す。知らない型が来たら落とす
+      - [x] スキーマを `resource-config.json` に登録する（リソースは明示しないと native バイナリに入らない）
+      - [x] CI の native-image ジョブの起動確認で実際に叩く。
             graphql-java が native-image で動くかは JVM のテストでは分からない
+            - query / mutation / 変数 / enum / `Set-Cookie` まで通している
 - [ ] 管理 API に認証をかける（inbox と違って外に開けてはいけない）
       - パスワード 1 つ + セッション。ハッシュは `ADMIN_PASSWORD_HASH` に入れる
       - ハッシュは `:backend:crypto` の `PasswordHash`（PBKDF2-HMAC-SHA256）で作る。部品は用意済み
@@ -1040,12 +1050,11 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - セッションの持ち方（メモリ上のトークン / 署名付き Cookie）は実装時に決める
       - 総当たり対策（試行回数の制限）は Phase 7 で入れる
 
-      ログインの仕組みは実装済み。守る対象の管理 API がまだ無いので、チェックは付けない。
+      ログインの仕組みは実装済み。守る対象のフィールドがまだ無いので、チェックは付けない。
 
       - できているもの
-        - `GET /api/admin/session` / `POST /api/admin/login` / `POST /api/admin/logout`。
-          ログインは GraphQL に入れない。認証が無いと叩けない口の中に認証そのものを置くと、
-          未ログインでも通す例外をスキーマ側に作ることになる
+        - `Query.admin.session` / `Mutation.admin.login` / `Mutation.admin.logout`。
+          認可はフィールドごとに見るので、ログインの口も同じ `/graphql` に置いている
         - セッションはメモリ上のトークン（`admin/AdminSessions.kt`、期限 12 時間）。
           署名付き Cookie は署名鍵の設定が増えるうえ、鍵を固定するとログアウトさせる手段が
           無くなるので取らなかった。サーバー 1 台なら再起動でログインし直しになるだけで済む
@@ -1054,7 +1063,8 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
           リバースプロキシの後ろでは scheme が http に見えるので、サーバーからは判定できない
         - 画面は `/admin`（`:frontend` の `screen/admin/`）。ログイン後は「ログイン済み」と出すだけ
       - 残っているもの
-        - GraphQL 側の認可。作るときに `AdminSessions` で見る
+        - ログインが要るフィールドに `AdminGraphQl.requireLoggedIn` を通す。
+          いまは通す先が無いので用意だけしてある
         - ハッシュ生成を画面から。いまは `./gradlew --quiet :backend:crypto:passwordHash`
           （標準入力にパスワードを渡す）で作る。未設定の間だけ開ける口は作っていない
         - 総当たり対策（Phase 7）
@@ -1072,8 +1082,8 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
 
-      `/api` の転送だけ入れた（`frontend/webpack.config.d/dev-server-proxy.js`）。
-      ログインがそこを通るため。`/graphql` は口を作るときに同じ配列へ足す。
+      `/graphql` の転送を入れた（`frontend/webpack.config.d/dev-server-proxy.js`）。
+      オリジンが 1 つのままなので CORS も SameSite も緩めていない。実機での確認はまだ。
 - [ ] Compose でフィード一覧 / 追加 / 削除
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
 - [ ] フィードのプレビュー（投稿前にどう見えるか）

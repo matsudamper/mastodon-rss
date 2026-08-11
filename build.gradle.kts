@@ -24,6 +24,12 @@ allprojects {
         // プラグイン既定のバージョンに引きずられないよう version catalog で固定する。
         // Renovate に追従させるためでもある
         version.set(ktlintVersion)
+
+        // 生成されたコードは整形の対象にしない。Apollo が出す GraphQL のクライアントは
+        // ktlint の規則どおりには出力されず、直す手段が無いのに落ちる
+        filter {
+            exclude { element -> element.file.invariantSeparatorsPath.contains("/build/generated/") }
+        }
     }
 }
 

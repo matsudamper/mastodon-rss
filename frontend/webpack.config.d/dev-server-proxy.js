@@ -1,4 +1,4 @@
-// 開発サーバー (8081) に来た API のリクエストを backend (8080) に転送する。
+// 開発サーバー (8081) に来た GraphQL のリクエストを backend (8080) に転送する。
 //
 // 画面は dev サーバーから、API は backend から返ることになるが、ブラウザから見た
 // オリジンは 8081 のまま 1 つなので、CORS もセッション Cookie の SameSite も
@@ -10,7 +10,7 @@
 config.devServer = config.devServer || {};
 config.devServer.proxy = [
     {
-        context: ["/api"],
+        context: ["/graphql"],
         target: "http://localhost:8080",
     },
 ];

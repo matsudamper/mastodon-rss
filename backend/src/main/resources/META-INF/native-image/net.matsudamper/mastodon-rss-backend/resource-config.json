@@ -1,0 +1,10 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "comment": "管理 API のスキーマ (:shared:graphql:schema)。native バイナリにはリソースを明示しないと入らず、入っていないと起動時に GraphQlEngine.create が落ちる",
+        "pattern": "\\Qgraphql/schema.graphqls\\E"
+      }
+    ]
+  }
+}

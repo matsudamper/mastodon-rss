@@ -1,0 +1,35 @@
+# 管理画面が使う問い合わせ。スキーマは :shared:graphql:schema のものから生成する。
+# セッションは HttpOnly の Cookie なので、ここには出てこない。同じオリジンへの
+# リクエストにはブラウザが勝手に付ける。
+
+query AdminSession {
+    admin {
+        session {
+            ...AdminSessionFields
+        }
+    }
+}
+
+mutation AdminLogin($password: String!) {
+    admin {
+        login(password: $password) {
+            session {
+                ...AdminSessionFields
+            }
+            failure
+        }
+    }
+}
+
+mutation AdminLogout {
+    admin {
+        logout {
+            ...AdminSessionFields
+        }
+    }
+}
+
+fragment AdminSessionFields on AdminSession {
+    loggedIn
+    passwordConfigured
+}

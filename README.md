@@ -11,6 +11,8 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | --- | --- | --- |
 | `:backend` | `backend/` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
 | `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の画面。管理画面とアカウント画面 |
+| `:shared:graphql` | `shared/graphql/` | 管理 API の口のパスなど、スキーマに書けない定数 |
+| `:shared:graphql:schema` | `shared/graphql/schema/` | 管理 API のスキーマ (`schema.graphqls`)。中身はこれ 1 つだけ |
 
 ```mermaid
 flowchart TB
@@ -26,7 +28,8 @@ flowchart TB
         nodeinfo["nodeinfo<br/>GET /.well-known/nodeinfo<br/>GET /nodeinfo/2.1"]
         sig["httpsignature<br/>HttpSignatureVerifier<br/>HttpSignatureSigner<br/>SigningString<br/>BodyDigest"]
         delivery["delivery<br/>HttpActivityDelivery"]
-        admin["admin<br/>POST /api/admin/login<br/>AdminSessions"]
+        graphql["graphql<br/>POST /graphql<br/>GraphQlEngine"]
+        admin["admin<br/>Query.admin / Mutation.admin<br/>AdminSessions"]
         static["staticfiles<br/>StaticFiles<br/>staticRoutes"]
     end
 
@@ -52,6 +55,12 @@ flowchart TB
 
     subgraph frontend[":frontend"]
         compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>Navigation 3 で画面を出し分け"]
+        apollo["Apollo Kotlin<br/>スキーマから生成したクライアント"]
+    end
+
+    subgraph shared[":shared:graphql"]
+        endpoint["GraphQlEndpoint<br/>/graphql のパス"]
+        schemafile["schema.graphqls<br/>:shared:graphql:schema"]
     end
 
     db[("SQLite<br/>DB_PATH")]
@@ -71,7 +80,8 @@ flowchart TB
     actor --> keys
     module --> inbox
     module --> nodeinfo
-    module --> admin
+    module --> graphql
+    graphql -->|フィールドの結線| admin
     admin -->|パスワードの照合| pass
     inbox --> sig
     inbox -->|Follow に Accept| delivery
@@ -88,12 +98,19 @@ flowchart TB
     module --> static
     static --> dist
     compose -.->|デプロイ時に配置| dist
+    compose --> apollo
+    apollo -->|POST /graphql| graphql
+    schemafile -->|実行時に読む| graphql
+    schemafile -.->|ビルド時にコード生成| apollo
+    endpoint --> graphql
+    endpoint --> apollo
     parser --> feedmodel
     parser --> feedutil
     main -.->|Phase 5 で繋ぐ。いまは :backend から参照していない| parser
 ```
 
-`:frontend` と `:backend` は別々にビルドする。互いに依存させない。
+`:frontend` と `:backend` は別々にビルドする。互いに依存させない。共有するのは
+`:shared:graphql` だけで、管理 API のスキーマと口のパスがそこに入っている。
 `:frontend` の成果物は配信するファイルを置くディレクトリに配置し、`:backend` が
 その場所を `STATIC_SRC_DIR` で受け取って root から配信する。
 分けた理由は [docs/architecture.md](docs/architecture.md) を参照。
@@ -209,9 +226,31 @@ ADMIN_COOKIE_SECURE=false \
 `ADMIN_PASSWORD_HASH` が未設定でも起動する。最初のハッシュを作る前に起動できないと
 先に進めないため。この場合はログインできず、画面と起動ログにその旨が出る。
 
-ログイン後に出るのは「ログイン済み」だけ。フィードの登録や配信状況は、管理 API（GraphQL）を
-作ってから繋ぐ。セッションの持ち方と Cookie の扱いは
-[docs/architecture.md](docs/architecture.md) を参照。
+ログイン後に出るのは「ログイン済み」だけ。フィードの登録や配信状況はこれから作る。
+セッションの持ち方と Cookie の扱いは [docs/architecture.md](docs/architecture.md) を参照。
+
+### 管理 API
+
+エンドポイントは `POST /graphql` の 1 つ。管理用は `Query.admin` / `Mutation.admin` の
+下にまとめてあり、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側
+（WebFinger・Actor・inbox）は相手の実装が決まっている REST なので、ここには載せない。
+
+スキーマは [shared/graphql/schema](shared/graphql/schema/src/commonMain/resources/graphql/schema.graphqls)
+の 1 つだけ。`:backend` は起動時にリソースとして読み、`:frontend` は同じファイルから
+Apollo Kotlin でクライアントを生成する。写しを持たないので、片方にだけフィールドがある
+状態にはならない。
+
+```sh
+# ログインしているかを聞く
+curl -sf -X POST -H 'Content-Type: application/json' \
+  -d '{"query":"query { admin { session { loggedIn passwordConfigured } } }"}' \
+  http://localhost:8080/graphql
+```
+
+サーバー側のリゾルバは `RuntimeWiring` に `DataFetcher` を明示して結線している。
+リフレクションで結線する仕組み（graphql-java-tools など）は native-image で動かない。
+同じ理由でフィールドの値は `Map` で返す。データクラスを返すと JVM では動いて
+native バイナリでだけ全フィールドが null になる。
 
 画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
 Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。

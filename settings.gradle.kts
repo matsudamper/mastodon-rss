@@ -25,3 +25,9 @@ include(":backend:crypto")
 include(":backend:repository")
 include(":backend:rss")
 include(":frontend")
+
+// GraphQL のスキーマは :backend と :frontend の両方から使う。どちらかの下に置くと
+// 相手のビルドがそのディレクトリを見ることになるので、等距離になる root に置く。
+// 共有するものが増えたら :shared の下に並べる
+include(":shared:graphql")
+include(":shared:graphql:schema")

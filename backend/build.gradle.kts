@@ -9,6 +9,12 @@ dependencies {
     implementation(project(":backend:repository"))
     implementation(project(":backend:crypto"))
 
+    // 管理 API の口のパス
+    implementation(project(":shared:graphql"))
+
+    // 管理 API のスキーマ。実行時にリソースとして読むので、コンパイルだけでなく実行にも要る
+    implementation(project(":shared:graphql:schema"))
+
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
 
@@ -18,6 +24,11 @@ dependencies {
     implementation(libs.ktor.client.cio)
 
     implementation(libs.kotlinx.serialization.json)
+
+    // 管理 API。スキーマ優先で、リゾルバは RuntimeWiring に明示して結線する。
+    // graphql-java-tools (kickstart) のようなリフレクションで結線する仕組みは
+    // native-image で動かないので入れない
+    implementation(libs.graphql.java)
 
     // InboxService のように Ktor のルーティングから切り離したクラスは
     // Application.log を持たないので、SLF4J のロガーを直接引く。

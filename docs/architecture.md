@@ -42,6 +42,16 @@ JVM のテストが全部通ったまま実バイナリだけが落ちる。
 使い回すと、DB のスキーマを変えるたびにパーサを触ることになるため。詰め替えは
 両方を知っている取り込み処理（Phase 5 で `:backend` に置く）の仕事にする。
 
+`:shared:graphql` は `:backend` と `:frontend` の両方が使う唯一のモジュール。中身は
+管理 API のスキーマ（`:shared:graphql:schema`）と、スキーマに書けない定数だけで、
+ロジックは置かない。置くと JVM と Kotlin/Wasm の両方で動くことを常に気にすることになる。
+`backend/` にも `frontend/` にも入れずに root に置いているのは、どちらかの下に置くと
+相手のビルドがそのディレクトリを見ることになるため。
+
+スキーマだけを `:shared:graphql:schema` にさらに分けているのは、「ここを直せばスキーマが
+変わる」を 1 ディレクトリに閉じておくため。定数と同居していると、スキーマを見に来た人が
+関係のないものを一緒に読むことになる。
+
 環境変数を読むのは `:backend` の入口（`ServerEnv`）だけにする。`:backend:repository` の
 ような下位のモジュールは、値を引数で受け取る。
 
@@ -98,6 +108,29 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 `FontFamily` を組み立てる（`:frontend` の `ui/Font.kt`）。配信するファイルの置き場を
 管理画面専用にせず `STATIC_SRC_DIR` にまとめてあるのは、こういうものが入るため。
 
+## 管理 API
+
+エンドポイントは `POST /graphql` の 1 つ。管理用は `Query.admin` / `Mutation.admin` の下に
+まとめ、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側は相手の実装が
+決まっている REST なので、こちらの都合で形を変えられない。触らずに分けておく。
+
+スキーマは `:shared:graphql:schema` の `schema.graphqls` 1 つだけ。`:backend` は起動時に
+リソースとして読み、`:frontend` は同じファイルから Apollo Kotlin でクライアントを生成する。
+両方から等距離の場所に置いているのは、どちらかの下に置くと相手のビルドがそのディレクトリを
+見ることになるため。写しを作らないので、片方にだけフィールドがある状態にはならない。
+
+native-image で動かすための制約が 2 つある。どちらも JVM のテストでは分からず、
+native バイナリを起動して初めて出る。
+
+- リゾルバは `RuntimeWiring` に `DataFetcher` を明示して結線する。graphql-java-tools
+  (kickstart) や kobylynskyi の codegen はリフレクションで結線するので動かない
+- フィールドの値は `Map` で返す。データクラスを返すと `PropertyDataFetcher` の
+  リフレクション経路に入り、JVM では動いて native バイナリでだけ全フィールドが null になる
+
+スキーマはリソースなので `resource-config.json` に登録している。抜けると起動した瞬間に
+`GraphQlEngine.create` が落ちる。CI の native-image ジョブでは実際に `/graphql` を叩いて、
+query・mutation・変数・enum・`Set-Cookie` までを通している。
+
 ## 管理画面のログイン
 
 パスワード 1 つとセッションで見る。ユーザー名は無い。管理画面を開くのは運用者だけで、
@@ -107,6 +140,8 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 `:backend:crypto` の `PasswordHash`）を入れる。ハッシュは
 `./gradlew --quiet :backend:crypto:passwordHash` で作る。
 
+やり取りは管理 API（`POST /graphql`）の `admin.session` / `admin.login` / `admin.logout`。
+
 未設定でも起動する。最初のハッシュを作る前に起動できないと先に進めないため。
 この場合はログインできず、画面には設定方法が出る。起動ログにも警告を出す。
 
@@ -115,10 +150,10 @@ sequenceDiagram
     participant B as ブラウザ（/admin）
     participant S as :backend
 
-    B->>S: GET /api/admin/session
+    B->>S: POST /graphql（query admin.session）
     S-->>B: loggedIn: false, passwordConfigured: true
     Note over B: ログインの入力を出す
-    B->>S: POST /api/admin/login（パスワード）
+    B->>S: POST /graphql（mutation admin.login）
     Note over S: PBKDF2 を 21 万回（Dispatchers.IO で回す）
     S-->>B: Set-Cookie: admin_session（HttpOnly, SameSite=Strict）
     Note over B: 以降のリクエストにブラウザが Cookie を付ける
@@ -129,9 +164,9 @@ sequenceDiagram
 ログアウトさせる手段が無くなる（発行済みの Cookie が期限まで有効なまま残る）。サーバーは 1 台で
 再起動も稀なので、再起動でログインし直しになる代わりに設定が増えない方を選んでいる。
 
-ログインの口は GraphQL（Phase 8）には入れない。認証が無いと叩けない口の中に認証そのものを
-置くと、未ログインでも通す例外をスキーマ側に作ることになる。フィードの CRUD などの管理 API は
-`/graphql` に寄せ、そちらの認可は `AdminSessions` で見る。
+ログインの口も管理 API と同じ `/graphql` に置く。認可はエンドポイントではなくフィールドごとに
+見る決まりなので、`admin.session` と `admin.login` だけを認証なしで通せばよく、口を分ける理由が無い。
+分けると認可の有無が URL と実装の 2 か所に散る。
 
 Cookie の `Secure` は既定で付ける。本番はリバースプロキシで HTTPS を終端する前提だが、
 プロキシの後ろではリクエストの scheme が http に見えるのでサーバーからは判定できない。

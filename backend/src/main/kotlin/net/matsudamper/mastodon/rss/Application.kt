@@ -10,7 +10,9 @@ import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorUsername
 import net.matsudamper.mastodon.rss.actor.actorRoutes
-import net.matsudamper.mastodon.rss.admin.adminRoutes
+import net.matsudamper.mastodon.rss.admin.AdminGraphQl
+import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
@@ -81,6 +83,20 @@ fun Application.module(deps: AppDependencies) {
     // 設定し忘れに起動時点で気付けるよう、状態を出しておく
     logAdminLogin(env)
 
+    // スキーマの読み込みと結線は起動時に 1 回だけ。
+    // 読めない・結線が合っていない場合はここで落ちる。リクエストを受けてから
+    // 気付くより、起動を止める方が早い
+    val graphQl =
+        GraphQlEngine.create(
+            listOf(
+                AdminGraphQl(
+                    passwordHash = env.adminPasswordHash,
+                    sessions = deps.adminSessions,
+                    cookieSecure = env.adminCookieSecure,
+                ),
+            ),
+        )
+
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
     // native-image で解決できず 500 になる。詳細は json/JsonResponse.kt を参照
     routing {
@@ -97,13 +113,8 @@ fun Application.module(deps: AppDependencies) {
 
         nodeInfoRoutes(env.domain)
 
-        // 管理画面のログイン。画面自体は静的ファイルの配信に落ちるので、
-        // ここにあるのはログインの状態を出し入れする口だけ
-        adminRoutes(
-            passwordHash = env.adminPasswordHash,
-            sessions = deps.adminSessions,
-            cookieSecure = env.adminCookieSecure,
-        )
+        // 管理 API。口は 1 つで、管理用とそれ以外はフィールドで分ける
+        graphQlRoutes(graphQl)
 
         // 残り全部を受けるので最後に置く
         staticRoutes(staticFiles)
