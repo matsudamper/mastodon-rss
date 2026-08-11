@@ -9,9 +9,7 @@ dependencies {
     implementation(project(":backend:repository"))
     implementation(project(":backend:crypto"))
 
-    // 管理 API のスキーマと、そこから生成したモデル・リゾルバのインタフェース。
-    // スキーマは実行時にリソースとして読むので、コンパイルだけでなく実行にも要る。
-    // api で公開されている graphql-java と kickstart もここから見える
+    // スキーマは実行時にリソースとして読むので、コンパイルだけでなく実行にも要る
     implementation(project(":backend:graphql"))
 
     implementation(libs.ktor.server.core)
@@ -24,8 +22,7 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json)
 
-    // native-image の Feature（GraphQlReflectionFeature）を書くための API。
-    // イメージを作る native-image 側が持っているので、実行時の依存にはしない
+    // GraphQlReflectionFeature を書くための API。native-image 側が持っている
     compileOnly(libs.graalvm.nativeimage)
 
     // InboxService のように Ktor のルーティングから切り離したクラスは
@@ -81,13 +78,7 @@ graalvmNative {
             mainClass.set("net.matsudamper.mastodon.rss.ApplicationKt")
             buildArgs.add("--no-fallback")
 
-            // graphql-java-tools (kickstart) はスキーマとクラスの対応をリフレクションで
-            // 解決する。対象のクラスをイメージのビルド時に走査して登録する。
-            // 手で reflect-config.json に並べると、スキーマを触るたびに更新が要る。
-            //
-            // Feature は kotlin-reflect の実装クラスも登録する。kickstart が
-            // リゾルバの引数の数を数えるのに使い、登録が無いと native でだけ落ちる。
-            // 詳細は GraphQlReflectionFeature を参照
+            // kickstart の結線に要るクラスを登録する。詳細は GraphQlReflectionFeature
             buildArgs.add("--features=net.matsudamper.mastodon.rss.graalvm.GraphQlReflectionFeature")
 
             // native-image は解析中に自分で isAnnotationPresent を呼ぶ（PodFeature.isPodClass）。
@@ -136,25 +127,12 @@ graalvmNative {
             // 読まれるのがビルド時になる点に注意する
             buildArgs.add("--initialize-at-build-time=org.slf4j")
 
-            // 上の org.jooq のビルド時初期化から 1 クラスだけ外す。
-            //
-            // jOOQ は JSON 型の変換に Jackson を使えるようになっていて、
-            // クラスパスに居れば Convert$_JSON が ObjectMapper を作って
-            // static final に持つ（遅延初期化のための holder クラス）。
-            // パッケージごとビルド時初期化にしていると、その実体が
-            // イメージヒープに載ってビルドが止まる。
+            // 上の org.jooq から 1 クラスだけ外す。kickstart が連れてくる Jackson を
+            // jOOQ が拾い、Convert$_JSON が持つ ObjectMapper の実体が
+            // イメージヒープに載ってビルドが止まる。JSON 型は使っていない。
             //
             //   An object of type 'com.fasterxml.jackson.databind.json.JsonMapper'
-            //   was found in the image heap. This type, however, is marked for
-            //   initialization at image run time
-            //
-            // Jackson は graphql-java-tools (kickstart) が連れてくる。それまでは
-            // クラスパスに無く、jOOQ 側もこの経路に入らなかったので起きなかった。
-            //
-            // Jackson をビルド時初期化にして通す手もあるが、ObjectMapper の
-            // 設定とキャッシュをイメージに焼き込むことになる。こちらは JSON 型を
-            // 使っていない（jOOQ で読み書きするのは SQLite の素の型だけ）ので、
-            // holder ごと実行時に回す方を選ぶ
+            //   was found in the image heap
             buildArgs.add("--initialize-at-run-time=org.jooq.impl.Convert${'$'}_JSON")
 
             // 上の初期化に伴って、jOOQ のロゴと「豆知識」を出す静的初期化子も

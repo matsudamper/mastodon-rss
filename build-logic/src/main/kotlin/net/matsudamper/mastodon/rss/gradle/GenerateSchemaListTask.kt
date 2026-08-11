@@ -10,15 +10,8 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 
 /**
- * スキーマのファイル名を並べた一覧をリソースとして作る。
- *
- * native バイナリではディレクトリの列挙が効かない。クラスパス上のリソースは
- * 明示したものだけがイメージに入り、`graphql/` の下に何があるかを実行時に
- * 数え上げる手段が無くなる。
- *
- * 一覧をビルド時に作れば、実行時は 1 ファイル読んでから中身のファイルを引くだけで済む。
- * 手で並べていたときはスキーマを分けるたびに更新が要り、忘れるとその型だけ
- * 「スキーマに無い」ことになって起動後に初めて分かる形だった。
+ * スキーマのファイル名を並べた一覧をリソースとして作る。native バイナリでは
+ * ディレクトリの列挙が効かないので、実行時に `graphql/` の中身を数え上げられない。
  */
 @CacheableTask
 abstract class GenerateSchemaListTask : DefaultTask() {
@@ -56,10 +49,7 @@ abstract class GenerateSchemaListTask : DefaultTask() {
     }
 
     companion object {
-        /** スキーマと一覧を置くディレクトリ。リソースとして読むときのパスの先頭でもある */
         const val SCHEMA_DIRECTORY = "graphql"
-
-        /** 読む側は `graphql/schema-list.txt` を引く */
         const val SCHEMA_LIST_NAME = "schema-list.txt"
 
         private const val SCHEMA_EXTENSION = "graphqls"

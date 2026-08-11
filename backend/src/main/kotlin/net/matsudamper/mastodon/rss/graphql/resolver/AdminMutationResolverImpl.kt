@@ -16,12 +16,6 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 
-/**
- * `login` はログインしていなくても叩ける。ログインする手段が他に無いので。
- *
- * パスワードの照合で PBKDF2 を回すぶん応答まで一拍あるが、口
- * （`graphQlRoutes`）が `Dispatchers.IO` に載せているので他のリクエストは詰まらない。
- */
 class AdminMutationResolverImpl(
     private val passwordHash: PasswordHash?,
     private val sessions: AdminSessions,

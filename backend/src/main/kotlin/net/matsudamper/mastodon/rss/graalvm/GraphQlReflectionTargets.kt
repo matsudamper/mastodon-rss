@@ -7,14 +7,10 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 /**
- * リフレクションの登録対象を数え上げる。
- *
- * [GraphQlReflectionFeature] から切り離してあるのは、GraalVM の API に触らずに
- * 走査だけをテストできるようにするため。Feature の側は native-image が
- * イメージのビルド中に読み込むので、JVM のテストからは動かせない。
+ * リフレクションの登録対象を数え上げる。[GraphQlReflectionFeature] から切り離してあるのは、
+ * GraalVM の API に触らずに走査だけをテストできるようにするため。
  */
 object GraphQlReflectionTargets {
-    /** 生成されたモデルとリゾルバのインタフェース、そしてその実装 */
     val PACKAGES: List<String> =
         listOf(
             "net.matsudamper.mastodon.rss.graphql.model",
@@ -23,7 +19,7 @@ object GraphQlReflectionTargets {
 
     private const val CLASS_EXTENSION = ".class"
 
-    /** [packageName] の下にあるクラスの名前。入れ子のクラスも含む */
+    /** 入れ子のクラスも含む */
     fun classNamesIn(packageName: String): List<String> {
         val packagePath = packageName.replace('.', '/')
         val classLoader =
@@ -36,10 +32,10 @@ object GraphQlReflectionTargets {
             .flatMap { resource ->
                 val uri = resource.toURI()
                 when (uri.scheme) {
-                    // 展開済みのクラスファイル。:backend 自身の出力がこちら
+                    // :backend 自身の出力
                     "file" -> classNamesInDirectory(Paths.get(uri), packageName)
 
-                    // jar の中。依存として入る :backend:graphql の生成物がこちら
+                    // 依存として入る :backend:graphql の生成物
                     "jar" ->
                         FileSystems.newFileSystem(uri, emptyMap<String, Any>()).use { fileSystem ->
                             classNamesInDirectory(fileSystem.getPath(packagePath), packageName)
@@ -52,20 +48,13 @@ object GraphQlReflectionTargets {
             .toList()
     }
 
-    /**
-     * ディレクトリの下の `.class` を、パッケージ名を前に付けたクラス名にする。
-     *
-     * 入れ子のクラス（`Foo$Bar`）も 1 つのファイルとして出てくるので、
-     * ファイル名をそのまま使えばよい。
-     */
     private fun classNamesInDirectory(
         directory: Path,
         packageName: String,
     ): Sequence<String> {
         if (!Files.isDirectory(directory)) return emptySequence()
 
-        // 一度リストにしてから返す。遅延したままだと jar の FileSystem を
-        // 閉じた後に辿ることになる
+        // 遅延したままだと jar の FileSystem を閉じた後に辿ることになる
         return Files.walk(directory).use { paths ->
             paths
                 .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(CLASS_EXTENSION) }

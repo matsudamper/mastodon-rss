@@ -137,7 +137,6 @@ class AdminScreenViewModel(
         }
     }
 
-    /** session が null の間は問い合わせ中 */
     private data class ViewModelState(
         val session: AdminSessionResult? = null,
         val password: String = "",

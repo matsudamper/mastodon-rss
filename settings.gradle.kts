@@ -34,10 +34,7 @@ dependencyResolutionManagement {
 
 // :crypto と :repository と :rss と :graphql は :backend からしか使われない（JCA も JDBC も
 // javax.xml も JVM 専用で、Kotlin/Wasm の :frontend からは参照できない）ので、
-// backend の下にネストする。
-//
-// :backend:graphql はスキーマと、そこから生成したモデル・リゾルバのインタフェースを持つ。
-// :frontend はスキーマのファイルを Apollo のコード生成の入力として読むだけで、依存はしない
+// backend の下にネストする
 include(":backend")
 include(":backend:crypto")
 include(":backend:graphql")

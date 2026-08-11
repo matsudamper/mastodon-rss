@@ -9,13 +9,8 @@ import graphql.schema.DataFetchingEnvironment
 import io.ktor.server.application.ApplicationCall
 
 /**
- * スキーマ優先。`:backend:graphql` がスキーマからモデルとリゾルバのインタフェースを作り、
- * ここでは実装をスキーマに結び付けるだけにする。
- *
- * 結線は graphql-java-tools (kickstart) がリフレクションで行う。native バイナリは
- * 到達可能性を静的に解析するので、この経路に入るクラスは
- * `graalvm/GraphQlReflectionFeature` がイメージのビルド時にまとめて登録する。
- * それで足りるかは native バイナリで動作確認すること。
+ * 結線は graphql-java-tools (kickstart) がリフレクションで行う。native-image 向けの
+ * 登録は `graalvm/GraphQlReflectionFeature` がまとめて行う。
  */
 class GraphQlEngine private constructor(
     private val graphQl: GraphQL,
@@ -63,12 +58,7 @@ class GraphQlEngine private constructor(
             }
         }
 
-        /**
-         * スキーマは複数ファイルに分けてあるので、繋いで 1 つの文字列にする。
-         *
-         * どのファイルを読むかは `:backend:graphql` が作る一覧から引く。
-         * ディレクトリの列挙は native バイナリで効かないので、実行時には数え上げられない。
-         */
+        /** 読むファイルは一覧から引く。ディレクトリの列挙は native バイナリで効かない */
         private fun readSchema(): String {
             val fileNames =
                 readResource(SCHEMA_LIST_RESOURCE)

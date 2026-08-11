@@ -10,7 +10,6 @@ import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 
-/** `session` はログインしていなくても叩ける。ログインしているかを聞くための口なので */
 class AdminQueryResolverImpl(
     private val passwordHash: PasswordHash?,
     private val sessions: AdminSessions,

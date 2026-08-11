@@ -31,14 +31,11 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 graphql-java = { module = "com.graphql-java:graphql-java", version.ref = "graphqlJava" }
 graphql-kickstart-tools = { module = "com.graphql-java-kickstart:graphql-java-tools", version.ref = "graphqlKickstartTools" }
 apollo-runtime = { module = "com.apollographql.apollo:apollo-runtime", version.ref = "apollo" }
-# native-image の Feature を書くための API。イメージを作る側が持っているので compileOnly で足りる
 graalvm-nativeimage = { module = "org.graalvm.sdk:nativeimage", version.ref = "graalvmSdk" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
 jooq = { module = "org.jooq:jooq", version.ref = "jooq" }
 jooq-codegen = { module = "org.jooq:jooq-codegen", version.ref = "jooq" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
-# build-logic が native-image の設定を書くために読む。プラグインの実体そのもの。
-# [plugins] の graalvm-native と同じバージョンを指す
 graalvm-native-plugin = { module = "org.graalvm.buildtools:native-gradle-plugin", version.ref = "graalvmBuildtools" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 
