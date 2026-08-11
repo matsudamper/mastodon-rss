@@ -40,11 +40,8 @@ class AdminApi(
 
         return when (login.failure) {
             null -> AdminLoginResult.Success
-
             AdminLoginFailure.WRONG_PASSWORD -> AdminLoginResult.WrongPassword
-
             AdminLoginFailure.NOT_CONFIGURED -> AdminLoginResult.NotConfigured
-
             AdminLoginFailure.UNKNOWN__ -> AdminLoginResult.Failure("Unknown")
         }
     }
