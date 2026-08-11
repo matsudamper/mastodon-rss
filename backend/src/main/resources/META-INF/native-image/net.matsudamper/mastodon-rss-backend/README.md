@@ -8,7 +8,7 @@
 native バイナリにはリソースが自動では入らない。明示していないものは実行時に
 「無い」ものとして振る舞い、JVM では動くのでビルドまで気付けない。
 
-- 管理 API のスキーマ (`graphql/schema.graphqls`)。`GraphQlEngine.create` が起動時に読む
+- 管理 API のスキーマ (`graphql/*.graphqls`)。`GraphQlEngine.create` が起動時に読む
 - graphql-java のメッセージ (`i18n.*`)。エラー文用に見えるが `SchemaParser` が
   スキーマを読む時点で `i18n.Parsing` を引くので、無いと起動した瞬間に
   `MissingResourceException` で落ちる

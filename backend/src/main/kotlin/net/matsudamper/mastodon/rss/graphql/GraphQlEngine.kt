@@ -6,6 +6,7 @@ import graphql.schema.DataFetchingEnvironment
 import graphql.schema.idl.RuntimeWiring
 import graphql.schema.idl.SchemaGenerator
 import graphql.schema.idl.SchemaParser
+import graphql.schema.idl.TypeDefinitionRegistry
 import io.ktor.server.application.ApplicationCall
 import kotlinx.serialization.json.JsonObject
 
@@ -41,7 +42,7 @@ class GraphQlEngine private constructor(
         private val CALL_KEY = Any()
 
         fun create(wirings: List<GraphQlWiring>): GraphQlEngine {
-            val registry = SchemaParser().parse(readSchema())
+            val registry = readSchema()
 
             val runtimeWiring =
                 RuntimeWiring
@@ -59,14 +60,27 @@ class GraphQlEngine private constructor(
             }
         }
 
-        /** native バイナリでは resource-config.json にも書く */
-        private const val SCHEMA_RESOURCE = "graphql/schema.graphqls"
+        /** ディレクトリの列挙は native バイナリで効かないので、読むものを並べる */
+        private val SCHEMA_RESOURCES =
+            listOf(
+                "graphql/schema.graphqls",
+                "graphql/admin_query.graphqls",
+                "graphql/admin_mutation.graphqls",
+            )
 
-        private fun readSchema(): String {
+        private fun readSchema(): TypeDefinitionRegistry {
+            val parser = SchemaParser()
+
+            return SCHEMA_RESOURCES.fold(TypeDefinitionRegistry()) { registry, resource ->
+                registry.merge(parser.parse(readResource(resource)))
+            }
+        }
+
+        private fun readResource(resource: String): String {
             val stream =
-                GraphQlEngine::class.java.classLoader.getResourceAsStream(SCHEMA_RESOURCE)
+                GraphQlEngine::class.java.classLoader.getResourceAsStream(resource)
                     ?: throw IllegalStateException(
-                        "$SCHEMA_RESOURCE が見つからない。" +
+                        "$resource が見つからない。" +
                             ":shared:graphql が classpath にあるか、native バイナリなら resource-config.json を確かめること",
                     )
 

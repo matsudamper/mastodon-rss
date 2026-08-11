@@ -1068,9 +1068,6 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
-
-      `/graphql` の転送を入れた（`frontend/webpack.config.d/dev-server-proxy.js`）。
-      実機での確認はまだ。
 - [ ] Compose でフィード一覧 / 追加 / 削除
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
 - [ ] フィードのプレビュー（投稿前にどう見えるか）

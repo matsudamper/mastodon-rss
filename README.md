@@ -58,7 +58,7 @@ flowchart TB
     end
 
     subgraph shared[":shared:graphql"]
-        schemafile["schema.graphqls"]
+        schemafile["schema.graphqls<br/>admin_query.graphqls<br/>admin_mutation.graphqls"]
     end
 
     db[("SQLite<br/>DB_PATH")]
@@ -231,8 +231,9 @@ ADMIN_COOKIE_SECURE=false \
 下にまとめてあり、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側
 （WebFinger・Actor・inbox）は相手の実装が決まっている REST なので、ここには載せない。
 
-スキーマは [shared/graphql](shared/graphql/src/main/resources/graphql/schema.graphqls) の
-1 つだけ。`:backend` は起動時にリソースとして読み、`:frontend` は同じファイルから
+スキーマは [shared/graphql](shared/graphql/src/main/resources/graphql) に置き、ルートの
+`schema.graphqls`・`admin_query.graphqls`・`admin_mutation.graphqls` に分けてある。
+`:backend` は起動時に全部をリソースとして読んで 1 つに繋ぎ、`:frontend` は同じファイルから
 Apollo Kotlin でクライアントを生成する。写しを持たないので、片方にだけフィールドがある
 状態にはならない。
 

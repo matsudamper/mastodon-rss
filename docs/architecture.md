@@ -115,8 +115,9 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 まとめ、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側は相手の実装が
 決まっている REST なので、こちらの都合で形を変えられない。触らずに分けておく。
 
-スキーマは `:shared:graphql` の `schema.graphqls` 1 つだけ。`:backend` は起動時に
-リソースとして読み、`:frontend` は同じファイルから Apollo Kotlin でクライアントを生成する。
+スキーマは `:shared:graphql` に置き、`schema.graphqls`・`admin_query.graphqls`・
+`admin_mutation.graphqls` に分けてある。`:backend` は起動時に全部をリソースとして読んで
+1 つに繋ぎ、`:frontend` は同じファイルから Apollo Kotlin でクライアントを生成する。
 両方から等距離の場所に置いているのは、どちらかの下に置くと相手のビルドがそのディレクトリを
 見ることになるため。写しを作らないので、片方にだけフィールドがある状態にはならない。
 

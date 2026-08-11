@@ -56,6 +56,8 @@ kotlin {
 apollo {
     service("admin") {
         packageName.set("net.matsudamper.mastodon.rss.frontend.graphql")
-        schemaFiles.from(rootProject.file("shared/graphql/src/main/resources/graphql/schema.graphqls"))
+        schemaFiles.from(
+            rootProject.fileTree("shared/graphql/src/main/resources/graphql") { include("*.graphqls") },
+        )
     }
 }
