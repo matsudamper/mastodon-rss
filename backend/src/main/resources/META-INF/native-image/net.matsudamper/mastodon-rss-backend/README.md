@@ -1,8 +1,23 @@
 # native-image の設定
 
-このディレクトリに設定ファイルは置いていない。`:backend` はリフレクションに依存しない
-作りにしてあり、`reflect-config.json` を必要としないため。
-その状態を保つための経緯をここに残す。
+置いてあるのは `resource-config.json` だけ。`:backend` はリフレクションに依存しない
+作りにしてあり、`reflect-config.json` は要らない。その状態を保つための経緯をここに残す。
+
+## `resource-config.json` に入っているもの
+
+native バイナリにはリソースが自動では入らない。明示していないものは実行時に
+「無い」ものとして振る舞い、JVM では動くのでビルドまで気付けない。
+
+- 管理 API のスキーマ (`graphql/schema.graphqls`)。`GraphQlEngine.create` が起動時に読む
+- graphql-java のメッセージ (`i18n.*`)。エラー文の組み立てにしか使わないように見えるが、
+  `SchemaParser` はスキーマを読む時点で `i18n.Parsing` を引く。登録が無いと
+  起動した瞬間に `MissingResourceException: Can't find bundle for base name i18n.Parsing`
+  で落ちる。JVM のテストは全部通るので、CI の native-image ジョブの起動確認が唯一の検出手段になる
+
+third-party ライブラリの設定を配る GraalVM Reachability Metadata Repository を
+有効にすれば graphql-java のぶんは向こうが持っているかもしれないが、無効のままにしている。
+理由は `backend/build.gradle.kts` のコメントを参照。5 行で済むものを取り込むために
+仕組みを 1 つ増やす方が高くつく。
 
 ## かつて必要だった理由
 
