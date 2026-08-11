@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     // nativeTest のためだけに入れている。このモジュールは実行可能バイナリを作らない
-    alias(libs.plugins.graalvm.native)
+    id("mastodon-rss.native-image")
 }
 
 dependencies {

@@ -96,10 +96,13 @@ flowchart TB
 
 ## 必要なもの
 
-- JDK 25
-- native-image をビルドする場合は GraalVM 25
+JDK が 1 つあれば足りる。バージョンは問わない（Gradle を起動できればよい）。
 
-Gradle は wrapper が入っているので個別のインストールは不要。
+ビルドに使う JDK 25 と、native-image に使う GraalVM 25 は Gradle が必要に応じて
+取ってくる（`settings.gradle.kts` の foojay-resolver）。手元に入れてあるものが
+条件に合えばそれを使い、無ければダウンロードして `~/.gradle/jdks` に置く。
+
+Gradle 自体も wrapper が入っているので個別のインストールは不要。
 
 ## ビルド
 
@@ -126,7 +129,8 @@ DOMAIN=example.com ./gradlew :backend:run
 
 ### backend の native-image
 
-GraalVM 25 が必要。
+GraalVM は Gradle が用意するので、事前のインストールは要らない。初回は
+ダウンロードするぶん時間がかかる。
 
 ```sh
 # ネイティブバイナリを生成する
