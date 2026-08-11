@@ -1,8 +1,11 @@
 package net.matsudamper.mastodon.rss.graphql
 
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
+import io.ktor.server.request.header
 import io.ktor.server.request.receiveText
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +44,15 @@ private data class GraphQlBadRequest(
 const val GRAPHQL_PATH: String = "/graphql"
 
 /**
+ * 受け付けるボディの上限。
+ *
+ * 認証は問い合わせの中のフィールドで見るので、この口自体は誰でも叩ける。
+ * 上限が無いと、`receiveText()` が読み切るまで際限なくメモリに載る。
+ * inbox と同じ 1 MiB にしてある。問い合わせ 1 つがこの大きさになることは無い。
+ */
+private const val MAX_BODY_BYTES = 1024 * 1024
+
+/**
  * 口は [GRAPHQL_PATH] の 1 つだけ。
  *
  * 管理用とそれ以外はフィールドで分け、認可もフィールドごとに見る。
@@ -51,8 +63,21 @@ const val GRAPHQL_PATH: String = "/graphql"
  */
 fun Route.graphQlRoutes(engine: GraphQlEngine) {
     post(GRAPHQL_PATH) {
+        // 読む前に長さで弾く。読んでから確かめても、その時点で受け取り終えている
+        val declaredLength = call.request.header(HttpHeaders.ContentLength)?.toLongOrNull()
+        if (declaredLength != null && declaredLength > MAX_BODY_BYTES) {
+            call.respondText("ボディが大きすぎる", status = HttpStatusCode.PayloadTooLarge)
+            return@post
+        }
+
+        val body = call.receiveText()
+        if (body.length > MAX_BODY_BYTES) {
+            call.respondText("ボディが大きすぎる", status = HttpStatusCode.PayloadTooLarge)
+            return@post
+        }
+
         val request =
-            runCatching { AppJson.decodeFromString(GraphQlRequest.serializer(), call.receiveText()) }
+            runCatching { AppJson.decodeFromString(GraphQlRequest.serializer(), body) }
                 .getOrElse {
                     call.respondJson(
                         GraphQlBadRequest.serializer(),
