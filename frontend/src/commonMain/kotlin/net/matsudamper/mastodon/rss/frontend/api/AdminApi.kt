@@ -13,16 +13,10 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 private const val GRAPHQL_PATH = "/graphql"
 
 /**
- * 管理画面から管理 API を叩くところ。
+ * 管理 API を叩くところ。問い合わせは `:shared:graphql` のスキーマから Apollo が生成する。
  *
- * 口は `/graphql` の 1 つで、問い合わせは `:shared:graphql` のスキーマから
- * Apollo が生成したものを使う。パスを相対で書いているのは、画面を配信している
- * オリジンと同じところに投げるため。開発サーバー (8081) から動かす場合は、
- * webpack の devServer が `/graphql` を backend (8080) に転送する
- * （`webpack.config.d/dev-server-proxy.js`）。
- *
- * セッションは `HttpOnly` の Cookie なので、ここからは読めないし持ち回りもしない。
- * 同じオリジンへのリクエストにはブラウザが勝手に付ける。
+ * パスが相対なのは、画面を配信しているオリジンと同じところに投げるため。
+ * セッションは `HttpOnly` の Cookie で、同じオリジンならブラウザが勝手に付ける。
  */
 class AdminApi(
     private val client: ApolloClient =
@@ -38,12 +32,7 @@ class AdminApi(
             .execute()
             .toSessionResult { it.admin.session.adminSessionFields }
 
-    /**
-     * パスワードを送る。通れば Cookie が返り、以降のリクエストに付く。
-     *
-     * サーバーは PBKDF2 を 21 万回まわしてから返すので、応答まで一拍ある。
-     * 呼ぶ側は待っている間の表示を出すこと。
-     */
+    /** サーバーが PBKDF2 を回すぶん応答まで一拍あるので、呼ぶ側は待っている表示を出すこと */
     suspend fun login(password: String): AdminLoginResult {
         val response = client.mutation(AdminLoginMutation(password)).execute()
         val login = response.data?.admin?.login ?: return AdminLoginResult.Failure(response.failureMessage())
@@ -51,10 +40,8 @@ class AdminApi(
         return when (login.failure) {
             null -> AdminLoginResult.Success
 
-            // 入れ直せば通る
             AdminLoginFailure.WRONG_PASSWORD -> AdminLoginResult.WrongPassword
 
-            // サーバーに ADMIN_PASSWORD_HASH が入っていない。パスワードの問題ではない
             AdminLoginFailure.NOT_CONFIGURED -> AdminLoginResult.NotConfigured
 
             // スキーマに理由が増えたが画面がまだ知らない。通ったことにはしない
@@ -74,11 +61,8 @@ class AdminApi(
     }
 
     /**
-     * 応答からセッションの状態を取り出す。
-     *
-     * `data` が無いのは、繋がらなかったか、サーバーが GraphQL のエラーを返したとき。
-     * どちらも「ログインしていない」とは違うので分けて返す。ここで未ログイン扱いに
-     * すると、サーバーが落ちているときにパスワードを入れさせることになる。
+     * `data` が無いのは繋がらなかったか errors が返ったとき。未ログインとは違うので分ける。
+     * 混ぜると、サーバーが落ちているときにパスワードを入れさせることになる。
      */
     private fun <D : Operation.Data> ApolloResponse<D>.toSessionResult(
         select: (D) -> AdminSessionFields,
@@ -92,12 +76,7 @@ class AdminApi(
         )
     }
 
-    /**
-     * 失敗の理由。
-     *
-     * Apollo は例外を投げずに応答へ入れて返すので、繋がらなかった場合も
-     * サーバーが errors を返した場合もここに来る。
-     */
+    /** Apollo は例外を投げずに応答へ入れて返すので、通信の失敗も errors もここに来る */
     private fun ApolloResponse<*>.failureMessage(): String =
         exception?.message
             ?: errors?.joinToString("\n") { it.message }?.takeIf { it.isNotEmpty() }
@@ -106,18 +85,13 @@ class AdminApi(
 
 /** [AdminApi.session] と [AdminApi.logout] の結果 */
 sealed interface AdminSessionResult {
-    /**
-     * 状態を取れた。
-     *
-     * @param passwordConfigured サーバーに `ADMIN_PASSWORD_HASH` が入っているか。
-     *   入っていなければログインする手段が無いので、画面には設定方法を出す
-     */
+    /** @param passwordConfigured 入っていなければログインする手段が無いので、設定方法を出す */
     data class Success(
         val loggedIn: Boolean,
         val passwordConfigured: Boolean,
     ) : AdminSessionResult
 
-    /** 状態が分からなかった。ログインしているともしていないとも言えない */
+    /** ログインしているともしていないとも言えない */
     data class Failure(
         val message: String,
     ) : AdminSessionResult
@@ -127,10 +101,9 @@ sealed interface AdminSessionResult {
 sealed interface AdminLoginResult {
     data object Success : AdminLoginResult
 
-    /** パスワードが違う。入力を直せば通る */
     data object WrongPassword : AdminLoginResult
 
-    /** サーバーに `ADMIN_PASSWORD_HASH` が無い。入力を直しても通らない */
+    /** 入力を直しても通らない */
     data object NotConfigured : AdminLoginResult
 
     data class Failure(

@@ -9,8 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-// graphql-java の素の値と JSON の変換を確認する。
-// ここが崩れると、実行そのものは通っているのにレスポンスの形だけが変わる。
+// ここが崩れると、実行は通っているのにレスポンスの形だけが変わる。
 class GraphQlValuesTest {
     @Test
     fun `実行結果を JSON にする`() {
@@ -35,7 +34,6 @@ class GraphQlValuesTest {
         )
     }
 
-    // 黙って toString() すると、レスポンスの形が型によって変わるうえ変換の失敗に気付けない
     @Test
     fun `知らない型が来たら落ちる`() {
         assertFailsWith<IllegalArgumentException> {
@@ -43,7 +41,6 @@ class GraphQlValuesTest {
         }
     }
 
-    // GraphQL のフィールド名は文字列でしか来ない。他のものが来たら組み立てが壊れている
     @Test
     fun `キーが文字列でなければ落ちる`() {
         assertFailsWith<IllegalArgumentException> {
@@ -78,7 +75,6 @@ class GraphQlValuesTest {
         )
     }
 
-    // 引用符が付いていたものは、中身が数字に見えても文字列のまま渡す
     @Test
     fun `数字に見える文字列は文字列のまま`() {
         val variables = JsonObject(mapOf("value" to JsonPrimitive("3")))

@@ -1,6 +1,4 @@
-# 管理画面が使う問い合わせ。スキーマは :shared:graphql のものから生成する。
-# セッションは HttpOnly の Cookie なので、ここには出てこない。同じオリジンへの
-# リクエストにはブラウザが勝手に付ける。
+# 管理画面が使う問い合わせ。:shared:graphql のスキーマから生成する。
 
 query AdminSession {
     admin {

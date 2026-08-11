@@ -26,11 +26,8 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                // 管理 API のクライアント。Apollo が生成するコードは commonMain に入るので、
-                // 依存も wasmJsMain ではなくここに置く
+                // Apollo が生成するコードは commonMain に入るので、依存もここに置く
                 implementation(libs.apollo.runtime)
-                // 画面の状態を持つところまでは commonMain に置ける。
-                // 描画に使う compose.foundation などはブラウザ側の ui/ から参照するので wasmJsMain に置く
                 implementation(compose.runtime)
             }
         }
@@ -57,9 +54,8 @@ kotlin {
     }
 }
 
-// 管理 API のクライアントをスキーマから生成する。
-// スキーマは :shared:graphql のものをそのまま読む。写しを置くと、増やしたフィールドが
-// 片方にだけ入っている状態を作れてしまう
+// 管理 API のクライアントを :shared:graphql のスキーマから生成する。
+// 写しを置くと、増やしたフィールドが片方にだけ入っている状態を作れてしまう
 apollo {
     service("admin") {
         packageName.set("net.matsudamper.mastodon.rss.frontend.graphql")

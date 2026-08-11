@@ -9,18 +9,10 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 
-// graphql-java が扱う素の値と kotlinx.serialization の [JsonElement] の変換。
-//
-// ContentNegotiation を使わない（理由は `json/JsonResponse.kt`）ので、
-// 本文の読み書きは自分でやることになる。graphql-java は `Map` と `List` と
-// 素のスカラーしか知らないため、境界のここで変換する。
+// graphql-java が扱う素の値と JsonElement の変換。
+// ContentNegotiation を使わない（理由は json/JsonResponse.kt）ので、境界のここで変換する。
 
-/**
- * 実行結果を JSON にする。
- *
- * 知らない型が来たら落とす。黙って `toString()` すると、レスポンスの形が
- * 型によって変わるうえ、変換に失敗していることに気付けない。
- */
+/** 実行結果を JSON にする。知らない型で落とすのは、黙って `toString()` すると気付けないため */
 fun Any?.toJsonElement(): JsonElement =
     when (this) {
         null -> {
@@ -42,7 +34,6 @@ fun Any?.toJsonElement(): JsonElement =
         is Map<*, *> -> {
             JsonObject(
                 entries.associate { (key, value) ->
-                    // GraphQL のフィールド名は文字列でしか来ない。他のものが来たら組み立てが壊れている
                     require(key is String) { "GraphQL の結果のキーが文字列ではない: $key" }
                     key to value.toJsonElement()
                 },
@@ -58,12 +49,7 @@ fun Any?.toJsonElement(): JsonElement =
         }
     }
 
-/**
- * 変数を graphql-java に渡せる形にする。
- *
- * 変数は型が決まらないので [JsonObject] のまま受け、実行の直前にここで開く。
- * `@Serializable` な型に落とすと、スキーマを増やすたびに受け皿の型が要る。
- */
+/** 変数を graphql-java に渡せる形にする */
 fun JsonElement.toRawValue(): Any? =
     when (this) {
         is JsonNull -> {
@@ -72,7 +58,7 @@ fun JsonElement.toRawValue(): Any? =
 
         is JsonPrimitive -> {
             when {
-                // 引用符が付いていたものは、中身が数字に見えても文字列のまま渡す
+                // 引用符が付いていたものは、数字に見えても文字列のまま渡す
                 isString -> content
 
                 else -> booleanOrNull ?: longOrNull ?: doubleOrNull ?: content

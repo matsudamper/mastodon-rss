@@ -135,10 +135,9 @@ jobs:
           sqlite3 "$DB_PATH" < backend/repository/src/main/resources/db/schema.sql
           # 鍵の生成と書き出しも native バイナリで動く必要がある
           export ACTOR_PRIVATE_KEY_PATH="$RUNNER_TEMP/native-check/actor-private-key.pem"
-          # 管理画面のログインを native バイナリでも通す。パスワードは ci-password で、
-          # このジョブの中でしか使わない使い捨て。ハッシュの作り方は README を参照
+          # パスワードは ci-password。このジョブの中でしか使わない使い捨て
           export ADMIN_PASSWORD_HASH='pbkdf2-sha256:210000:HP9l044PxKN0LJhMy5GyrQ:tWTwqvZDQgC75D39BMPPm2TvA3F9S3bUP1-XyH5l4HQ'
-          # curl は http で叩くので、Secure を付けると Cookie の確認ができない
+          # http で叩くので、Secure を付けると Cookie の確認ができない
           export ADMIN_COOKIE_SECURE=false
           # DOMAIN は必須。未設定だと起動せず、WebFinger と Actor も確認できない
           export DOMAIN=example.com
@@ -238,8 +237,8 @@ jobs:
             -d '{"type":"Follow"}' \
             "http://localhost:8080/users/other/inbox")" = "404"
 
-          # graphql-java が native-image で動くかは JVM のテストでは分からない。
-          # スキーマはリソースなので同梱漏れもここでしか出ない
+          # graphql-java が native-image で動くか、スキーマが同梱されているかは
+          # JVM のテストでは分からない
           echo "--- GraphQL の query ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -d '{"query":"query { admin { session { loggedIn passwordConfigured } } }"}' \
@@ -248,7 +247,7 @@ jobs:
           grep -q '"loggedIn":false' /tmp/graphql-session.json
           grep -q '"passwordConfigured":true' /tmp/graphql-session.json
 
-          # 変数と enum の経路を通す。パスワードが違うので WRONG_PASSWORD が返る
+          # 変数と enum の経路を通す
           echo "--- GraphQL の mutation（パスワードが違う） ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -d '{"query":"mutation Login($password: String!) { admin { login(password: $password) { failure } } }","variables":{"password":"wrong"}}' \
@@ -256,7 +255,7 @@ jobs:
           cat /tmp/graphql-wrong.json
           grep -q '"failure":"WRONG_PASSWORD"' /tmp/graphql-wrong.json
 
-          # PBKDF2 の照合と Set-Cookie まで通す。ここが動かないと管理画面に入れない
+          # PBKDF2 の照合と Set-Cookie まで通す
           echo "--- GraphQL の mutation（ログイン） ---"
           curl -sf -D /tmp/graphql-login-headers.txt -X POST -H 'Content-Type: application/json' \
             -d '{"query":"mutation Login($password: String!) { admin { login(password: $password) { session { loggedIn } failure } } }","variables":{"password":"ci-password"}}' \
@@ -266,7 +265,6 @@ jobs:
           grep -q '"failure":null' /tmp/graphql-login.json
           grep -qi 'set-cookie: admin_session=' /tmp/graphql-login-headers.txt
 
-          # スキーマの検証が効いていないと、結線の漏れが素通りする
           echo "--- スキーマに無いフィールドは errors ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -d '{"query":"query { admin { unknownField } }"}' \

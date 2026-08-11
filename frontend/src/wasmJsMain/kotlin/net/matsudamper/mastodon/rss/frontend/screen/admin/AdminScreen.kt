@@ -27,14 +27,9 @@ import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 /**
- * 管理画面。
+ * 管理画面。いまあるのはログインだけ。
  *
- * いまあるのはログインだけで、通った後は「ログイン済み」と出すところで止まっている。
- * フィードの登録や配信状況は管理 API (GraphQL) を作ってから繋ぐ。
- *
- * ログインしているかどうかはサーバーに聞く。セッションは `HttpOnly` の Cookie で
- * 画面からは読めないので、画面側だけで判断できるものが無い。読み込みの間は
- * 入力欄を出さない。出してから消えると、入力の途中で消えることになる。
+ * 読み込みの間に入力欄を出さないのは、出してから消えると入力の途中で消えることになるため。
  */
 @Composable
 fun AdminScreen(onNavigate: (Screen) -> Unit) {
@@ -89,12 +84,7 @@ private fun LoadingCard() {
     }
 }
 
-/**
- * ログインの入力。
- *
- * 入れるのはパスワードだけ。管理画面を開くのは運用者ひとりなので、
- * ユーザー名を足しても覚えるものが増えるだけになる。
- */
+/** 入れるのはパスワードだけ。運用者ひとりなので、ユーザー名を足しても覚えるものが増える */
 @Composable
 private fun LoginCard(
     uiState: AdminUiState.Login,
@@ -114,15 +104,12 @@ private fun LoginCard(
             label = { Text("パスワード") },
             singleLine = true,
             enabled = !uiState.submitting,
-            // 肩越しに見られても分からないようにする。canvas に描いているので、
-            // ブラウザのパスワード管理は効かない
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions =
                 KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
                 ),
-            // 入力欄が 1 つしかないので、Enter で送れないと必ずボタンを押しに行くことになる
             keyboardActions = KeyboardActions(onDone = { onSubmit() }),
             isError = uiState.error != null,
         )
@@ -137,8 +124,7 @@ private fun LoginCard(
 
         Button(
             onClick = onSubmit,
-            // 送信中に押せると、待っている間に何度も投げることになる。
-            // サーバーは 1 回ごとに PBKDF2 を 21 万回まわす
+            // 送信中に押せると、1 回ごとに PBKDF2 を回すものを何度も投げることになる
             enabled = !uiState.submitting && uiState.password.isNotEmpty(),
         ) {
             Text(if (uiState.submitting) "確認中..." else "ログイン")
@@ -164,11 +150,7 @@ private fun LoggedInCard(onLogout: () -> Unit) {
     }
 }
 
-/**
- * パスワードハッシュが設定されていないとき。
- *
- * 入力欄は出さない。何を入れても通らないので、試させるだけ無駄になる。
- */
+/** 何を入れても通らないので、入力欄は出さない */
 @Composable
 private fun NotConfiguredCard() {
     SectionCard(title = "ログインできない") {
@@ -185,9 +167,7 @@ private fun NotConfiguredCard() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            // 貼れないと写し間違える。等幅で出して選択できるようにする。
-            // 中身を英字にしているのは、読み込んでいるのが Noto Sans JP だけで、
-            // 等幅を指定すると日本語のグリフが無く豆腐になるため
+            // 中身が英字なのは、等幅を指定すると日本語のグリフが無く豆腐になるため
             SelectionContainer {
                 Text(
                     text = "pbkdf2-sha256:<iterations>:<salt>:<hash>",
@@ -199,12 +179,7 @@ private fun NotConfiguredCard() {
     }
 }
 
-/**
- * 状態を聞けなかったとき。
- *
- * ログインしていないのとは分けて出す。ここで入力欄を出すと、
- * パスワードの問題だと思って何度も試すことになる。
- */
+/** 状態を聞けなかったとき。入力欄を出すと、パスワードの問題だと思って何度も試すことになる */
 @Composable
 private fun UnavailableCard(
     message: String,

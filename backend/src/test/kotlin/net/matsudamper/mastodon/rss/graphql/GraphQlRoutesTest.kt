@@ -13,8 +13,6 @@ import kotlin.test.assertEquals
 
 // 口そのものの振る舞いを確認する。中身（管理画面のフィールド）は AdminGraphQlTest 側。
 class GraphQlRoutesTest {
-    // 認証は問い合わせの中のフィールドで見るので、この口自体は誰でも叩ける。
-    // 上限が無いと、読み切るまで際限なくメモリに載る
     @Test
     fun `ボディが大きすぎれば 413 で読まない`() =
         testApplication {

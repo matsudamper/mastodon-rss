@@ -111,12 +111,9 @@ class ServerEnv(
         }
 
     /**
-     * 管理画面のログインに使うパスワードハッシュ。未設定なら null で、この場合はログインできない。
+     * 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない。
      *
-     * 未設定でも起動する。最初のハッシュを作る手段が他に無いので、
-     * 設定していない状態を異常にすると先に進めない。画面には未設定である旨を出す。
-     *
-     * 形式が壊れているときは落とす。ログインが必ず失敗するだけの値を抱えると、
+     * 形式が壊れていたら落とす。ログインが必ず失敗するだけの値を抱えると、
      * パスワードを間違えたのか設定を間違えたのかが区別できなくなる。
      */
     val adminPasswordHash: PasswordHash? =
@@ -126,15 +123,10 @@ class ServerEnv(
         }
 
     /**
-     * 管理画面のセッション Cookie に `Secure` を付けるか。
+     * セッション Cookie に `Secure` を付けるか。既定は付ける。
      *
-     * 既定は付ける。本番はリバースプロキシで HTTPS を終端する前提で、そこを
-     * 平文で流すと Cookie ごと持って行かれる。プロキシの後ろでは
-     * リクエストの scheme が http に見えるので、サーバー側からは判定できない。
-     *
-     * 付けたままだと http では Cookie が保存されず、ログインしても
-     * ログインしていない状態のままになる。手元で `localhost:8080` を開いて
-     * 試すときだけ false にする。
+     * プロキシの後ろでは scheme が http に見えてサーバーからは判定できないので設定にした。
+     * 付けたまま http で開くと Cookie が保存されず、ログインできたように見えない。
      */
     val adminCookieSecure: Boolean =
         run {
@@ -142,8 +134,7 @@ class ServerEnv(
             if (raw.isNullOrEmpty()) {
                 true
             } else {
-                // 綴りを間違えたまま false のつもりで動くと、Cookie が平文で流れる。
-                // 読めない値は既定に落とさず落とす
+                // 綴りを間違えたまま false のつもりで動くと、Cookie が平文で流れる
                 raw.lowercase().toBooleanStrictOrNull()
                     ?: throw IllegalArgumentException("ADMIN_COOKIE_SECURE は true か false にすること: $raw")
             }

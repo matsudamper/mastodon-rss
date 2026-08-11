@@ -131,7 +131,6 @@ class ServerEnvTest {
         }
     }
 
-    // 最初のハッシュを作る手段が他に無いので、未設定でも起動できないと先に進めない
     @Test
     fun `パスワードハッシュは未設定でも起動する`() {
         assertNull(env().adminPasswordHash)
@@ -147,8 +146,6 @@ class ServerEnvTest {
         assertTrue(hash.matches("とても長いパスワード"))
     }
 
-    // ログインが必ず失敗するだけの値を抱えると、パスワードを間違えたのか
-    // 設定を間違えたのかが区別できなくなる
     @Test
     fun `パスワードハッシュの形式が違えば落ちる`() {
         assertFailsWith<IllegalArgumentException> { env("ADMIN_PASSWORD_HASH" to "パスワード") }
@@ -167,7 +164,6 @@ class ServerEnvTest {
         assertFalse(env("ADMIN_COOKIE_SECURE" to "False").adminCookieSecure)
     }
 
-    // 綴りを間違えたまま false のつもりで動くと、Cookie が平文で流れる
     @Test
     fun `Cookie の Secure が true でも false でもなければ落ちる`() {
         assertFailsWith<IllegalArgumentException> { env("ADMIN_COOKIE_SECURE" to "no") }

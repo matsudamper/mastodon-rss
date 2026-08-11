@@ -10,7 +10,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
-// セッションの発行と期限を確認する。
 // 期限は時計を進めて見るので、実時間で待つテストにはしない。
 class AdminSessionsTest {
     private val clock = TestClock(Instant.parse("2026-08-11T00:00:00Z"))
@@ -83,7 +82,7 @@ class AdminSessionsTest {
         assertTrue(sessions.isValid(kept))
     }
 
-    /** 進められる時計。[AdminSessions] の期限を実時間を待たずに越えさせる */
+    /** 進められる時計 */
     private class TestClock(
         var now: Instant,
     ) : Clock() {

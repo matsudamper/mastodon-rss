@@ -2,14 +2,14 @@
   "resources": {
     "includes": [
       {
-        "comment": "管理 API のスキーマ (:shared:graphql)。native バイナリにはリソースを明示しないと入らず、入っていないと起動時に GraphQlEngine.create が落ちる",
+        "comment": "管理 API のスキーマ。入っていないと起動時に GraphQlEngine.create が落ちる",
         "pattern": "\\Qgraphql/schema.graphqls\\E"
       }
     ]
   },
   "bundles": [
     {
-      "comment": "graphql-java のメッセージ。エラー文の組み立てだけでなく、SchemaParser がスキーマを読む時点で i18n.Parsing を引くので、無いと起動した瞬間に MissingResourceException で落ちる",
+      "comment": "graphql-java のメッセージ。SchemaParser がスキーマを読む時点で i18n.Parsing を引く",
       "name": "i18n.General"
     },
     {

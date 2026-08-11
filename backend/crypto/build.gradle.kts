@@ -16,13 +16,11 @@ tasks.test {
     useJUnitPlatform()
 }
 
-// 管理画面のパスワードハッシュを作る。ADMIN_PASSWORD_HASH に入れる値がこれ。
-// パスワードは標準入力から渡す（引数にするとシェルの履歴と ps に平文で残る）。
+// ADMIN_PASSWORD_HASH に入れる値を作る。パスワードは標準入力から渡す。
 //
 //   ./gradlew --quiet :backend:crypto:passwordHash
 //
-// application プラグインは入れていない。このモジュールは配布物を作らず、
-// 実行したいのはこの 1 つだけなので、タスクを 1 つ足すだけにする
+// application プラグインを入れないのは、実行したいのがこの 1 つだけのため
 tasks.register<JavaExec>("passwordHash") {
     group = "application"
     description = "標準入力のパスワードから ADMIN_PASSWORD_HASH に入れる値を作る"

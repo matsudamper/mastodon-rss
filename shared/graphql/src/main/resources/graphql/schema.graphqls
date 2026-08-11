@@ -1,11 +1,5 @@
 "問い合わせ。管理用は admin の下にまとめる"
 type Query {
-    """
-    管理画面から引くもの。
-
-    認可はエンドポイントではなくフィールドごとに見る。この下は session を除いて
-    ログインしている人だけが引ける。
-    """
     admin: AdminQuery!
 }
 
@@ -15,20 +9,14 @@ type Mutation {
 }
 
 type AdminQuery {
-    """
-    いまログインしているか。
-
-    ログインしていなくても引ける。画面はこれを見てログインの入力を出すかどうかを決める。
-    """
+    "いまログインしているか。ログインしていなくても引ける"
     session: AdminSession!
 }
 
 type AdminMutation {
     """
-    パスワードを送ってログインする。
-
-    ログインの口なので、これだけは認証を要求しない。通るとセッションの Cookie が返り、
-    以降のリクエストにブラウザが付ける。
+    パスワードを送ってログインする。認可はフィールドごとに見るので、これだけは認証を要求しない。
+    通るとセッションの Cookie が返る。
     """
     login(password: String!): AdminLoginResult!
 
@@ -37,20 +25,17 @@ type AdminMutation {
 }
 
 type AdminSession {
-    "ログインしているか"
     loggedIn: Boolean!
 
     """
     サーバーに ADMIN_PASSWORD_HASH が設定されているか。
-
-    未設定の間はログインする手段が無い。パスワードが違うのとは分けて扱えるように、
-    セッションと一緒に返す。
+    未設定の間はログインする手段が無いので、パスワードが違うのとは分けて扱う。
     """
     passwordConfigured: Boolean!
 }
 
 type AdminLoginResult {
-    "送った後の状態。通っていれば loggedIn が true になる"
+    "送った後の状態"
     session: AdminSession!
 
     "通らなかった理由。通ったときは null"
@@ -58,7 +43,7 @@ type AdminLoginResult {
 }
 
 enum AdminLoginFailure {
-    "パスワードが違う。入れ直せば通る"
+    "入れ直せば通る"
     WRONG_PASSWORD
 
     "ADMIN_PASSWORD_HASH が未設定。入れ直しても通らない"

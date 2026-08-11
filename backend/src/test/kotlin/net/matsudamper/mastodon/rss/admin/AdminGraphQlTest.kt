@@ -66,7 +66,6 @@ class AdminGraphQlTest {
 
             val response = mutateLogin(PASSWORD)
 
-            // パスワードが違うのと同じ扱いにすると、何を直せばよいのか画面から分からない
             val result = response.loginResult()
             assertEquals("NOT_CONFIGURED", result.string("failure"))
             assertFalse(result.obj("session").boolean("loggedIn"))
@@ -95,13 +94,9 @@ class AdminGraphQlTest {
 
             val setCookie = assertNotNull(mutateLogin(PASSWORD).headers[HttpHeaders.SetCookie])
 
-            // JavaScript から読めるようにすると、script を差し込まれたときに持ち出される
             assertContains(setCookie, "HttpOnly")
-            // 他所のページから管理 API を叩かれても Cookie が付かないようにする
             assertContains(setCookie, "SameSite=Strict")
-            // 平文で流れると Cookie ごと持って行かれる
             assertContains(setCookie, "Secure")
-            // 発行と削除で Path がずれるとブラウザが別の Cookie として扱う
             assertContains(setCookie, "Path=/")
         }
 
@@ -189,7 +184,7 @@ class AdminGraphQlTest {
 
             val response = graphQl("query { admin { 知らないフィールド } }")
 
-            // GraphQL の仕様どおり、問い合わせのエラーは HTTP 200 で errors に入る
+            // 問い合わせのエラーは HTTP 200 で errors に入る
             assertEquals(HttpStatusCode.OK, response.status)
             assertTrue(response.body().containsKey("errors"))
         }
@@ -244,15 +239,12 @@ class AdminGraphQlTest {
     private companion object {
         const val PASSWORD = "とても長いパスワード"
 
-        /**
-         * テスト用のハッシュ。反復回数はハッシュの文字列に入っていて検証もその回数で行うので、
-         * 既定 (21 万) まで回さなくても経路は同じ。回すとテストのたびに待つことになるので落としてある。
-         */
+        /** 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ */
         val PASSWORD_HASH: String = PasswordHash.create(PASSWORD, iterations = 1_000).encode()
 
         suspend fun HttpResponse.body(): JsonObject = AppJson.parseToJsonElement(bodyAsText()).jsonObject
 
-        /** `data.admin` まで降りる。errors が入っていたらここで落ちるので、失敗が分かる */
+        /** `data.admin` まで降りる。errors が入っていたらここで落ちる */
         suspend fun HttpResponse.admin(): JsonObject = body().obj("data").obj("admin")
 
         suspend fun HttpResponse.session(): JsonObject = admin().obj("session")
@@ -265,7 +257,7 @@ class AdminGraphQlTest {
 
         fun JsonObject.string(name: String): String = getValue(name).jsonPrimitive.content
 
-        /** Set-Cookie にセッションが入っていればその値。無ければ null */
+        /** Set-Cookie のセッション。無ければ null */
         fun HttpResponse.sessionCookieValue(): String? =
             setCookie().firstOrNull { it.name == AdminSessions.COOKIE_NAME }?.value
 

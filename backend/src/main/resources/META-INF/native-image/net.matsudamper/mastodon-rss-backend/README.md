@@ -9,15 +9,11 @@ native バイナリにはリソースが自動では入らない。明示して�
 「無い」ものとして振る舞い、JVM では動くのでビルドまで気付けない。
 
 - 管理 API のスキーマ (`graphql/schema.graphqls`)。`GraphQlEngine.create` が起動時に読む
-- graphql-java のメッセージ (`i18n.*`)。エラー文の組み立てにしか使わないように見えるが、
-  `SchemaParser` はスキーマを読む時点で `i18n.Parsing` を引く。登録が無いと
-  起動した瞬間に `MissingResourceException: Can't find bundle for base name i18n.Parsing`
-  で落ちる。JVM のテストは全部通るので、CI の native-image ジョブの起動確認が唯一の検出手段になる
+- graphql-java のメッセージ (`i18n.*`)。エラー文用に見えるが `SchemaParser` が
+  スキーマを読む時点で `i18n.Parsing` を引くので、無いと起動した瞬間に
+  `MissingResourceException` で落ちる
 
-third-party ライブラリの設定を配る GraalVM Reachability Metadata Repository を
-有効にすれば graphql-java のぶんは向こうが持っているかもしれないが、無効のままにしている。
-理由は `backend/build.gradle.kts` のコメントを参照。5 行で済むものを取り込むために
-仕組みを 1 つ増やす方が高くつく。
+どちらも JVM のテストは通るので、CI の native-image ジョブの起動確認が唯一の検出手段になる。
 
 ## かつて必要だった理由
 

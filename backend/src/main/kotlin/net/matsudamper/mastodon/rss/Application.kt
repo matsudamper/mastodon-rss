@@ -79,13 +79,10 @@ fun Application.module(deps: AppDependencies) {
     // 黙って 404 になると、設定し忘れなのか置き忘れなのかが分からない
     val staticFiles = resolveStaticFiles(env.staticSrcDir)
 
-    // ログインできるかどうかは画面を開くまで分からない。
-    // 設定し忘れに起動時点で気付けるよう、状態を出しておく
+    // 設定し忘れに起動時点で気付けるようにする
     logAdminLogin(env)
 
-    // スキーマの読み込みと結線は起動時に 1 回だけ。
-    // 読めない・結線が合っていない場合はここで落ちる。リクエストを受けてから
-    // 気付くより、起動を止める方が早い
+    // スキーマを読めない・結線が合っていない場合はここで落ちる
     val graphQl =
         GraphQlEngine.create(
             listOf(
@@ -113,7 +110,6 @@ fun Application.module(deps: AppDependencies) {
 
         nodeInfoRoutes(env.domain)
 
-        // 管理 API。口は 1 つで、管理用とそれ以外はフィールドで分ける
         graphQlRoutes(graphQl)
 
         // 残り全部を受けるので最後に置く
@@ -121,12 +117,7 @@ fun Application.module(deps: AppDependencies) {
     }
 }
 
-/**
- * 管理画面にログインできる状態かを起動ログに出す。
- *
- * `ADMIN_PASSWORD_HASH` が未設定でも起動する。最初のハッシュを作る手段が
- * 他に無いためだが、黙って起動すると設定し忘れに気付けない。
- */
+/** 管理画面にログインできる状態かを起動ログに出す */
 private fun Application.logAdminLogin(env: ServerEnv) {
     if (env.adminPasswordHash == null) {
         log.warn("ADMIN_PASSWORD_HASH が未設定なので管理画面にログインできない")
@@ -136,7 +127,7 @@ private fun Application.logAdminLogin(env: ServerEnv) {
     if (env.adminCookieSecure) {
         log.info("管理画面のログインを受け付ける。セッション Cookie には Secure を付ける")
     } else {
-        // 本番でこれが出ていたら、Cookie が平文で流れる状態になっている
+        // 本番でこれが出ていたら Cookie が平文で流れる
         log.warn(
             "管理画面のログインを受け付ける。ADMIN_COOKIE_SECURE=false なので" +
                 "セッション Cookie に Secure を付けない。http で試すとき以外は外すこと",

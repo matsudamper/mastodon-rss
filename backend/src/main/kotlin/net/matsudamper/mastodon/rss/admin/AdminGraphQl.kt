@@ -7,22 +7,14 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine.Companion.applicationC
 import net.matsudamper.mastodon.rss.graphql.GraphQlWiring
 
 /**
- * 管理画面のフィールドの結線。
+ * 管理画面のフィールドの結線。`Query.admin` と `Mutation.admin` の下にまとめる。
  *
- * `Query.admin` と `Mutation.admin` の下にまとめる。認可はエンドポイントではなく
- * フィールドごとに見るので、ログインの口も同じ `/graphql` に置ける。
- * `session` と `login` はログインしていなくても叩ける。フィードの CRUD のように
- * ログインした人だけが叩けるものを足すときは、[requireLoggedIn] を通す。
- *
- * 返す値は全て `Map`。データクラスを返すと graphql-java が
- * `PropertyDataFetcher` のリフレクションで読みに行き、JVM では動いて native
- * バイナリでだけ全フィールドが null になる。
+ * `session` と `login` はログインしていなくても叩ける。ログインした人だけが
+ * 叩けるものを足すときは [requireLoggedIn] を通す。
  *
  * 総当たり対策（試行回数の制限）はまだ無い。Phase 7 で入れる。
  *
- * @param passwordHash `ADMIN_PASSWORD_HASH` から読んだもの。未設定なら null で、
- *   この場合はログインできない。設定前でも画面は開けるようにするため起動は通す
- * @param cookieSecure セッション Cookie に `Secure` を付けるか
+ * @param passwordHash 未設定なら null。この場合はログインできない
  */
 class AdminGraphQl(
     private val passwordHash: PasswordHash?,
@@ -30,8 +22,7 @@ class AdminGraphQl(
     private val cookieSecure: Boolean,
 ) : GraphQlWiring {
     override fun contribute(builder: RuntimeWiring.Builder) {
-        // admin は入れ物でしかないので、中身の無い値を返して下のフィールドに進ませる。
-        // null を返すと non-null 違反になって、下まで到達しない
+        // null を返すと non-null 違反で下まで到達しない
         builder.type("Query") { it.dataFetcher("admin", { NAMESPACE }) }
         builder.type("Mutation") { it.dataFetcher("admin", { NAMESPACE }) }
 
@@ -42,7 +33,7 @@ class AdminGraphQl(
         builder.type("AdminMutation") {
             it
                 .dataFetcher("login", { env ->
-                    // 引数はスキーマで String! なので、graphql-java が検証を通した時点で必ず入っている
+                    // スキーマで String! なので、検証を通った時点で必ず入っている
                     val password = requireNotNull(env.getArgument<String>("password")) { "password が無い" }
                     login(env.applicationCall(), password)
                 })
@@ -50,12 +41,7 @@ class AdminGraphQl(
         }
     }
 
-    /**
-     * パスワードを照合して、通ればセッションを発行する。
-     *
-     * 失敗の理由は分けて返す。ハッシュが未設定なのを「パスワードが違う」と同じに
-     * 見せると、何を直せばよいのか画面からは分からない。
-     */
+    /** 失敗の理由を分けるのは、何を直せばよいのかが画面から分かるようにするため */
     private fun login(
         call: ApplicationCall,
         password: String,
@@ -74,8 +60,7 @@ class AdminGraphQl(
             secure = cookieSecure,
         )
 
-        // 発行したばかりの Cookie はまだリクエスト側に無いので、
-        // sessionState() を呼ぶと未ログインに見える。ここは通った事実をそのまま返す
+        // 発行した Cookie はまだリクエスト側に無いので sessionState() は使えない
         return mapOf(
             "session" to mapOf("loggedIn" to true, "passwordConfigured" to true),
             "failure" to null,
@@ -96,13 +81,7 @@ class AdminGraphQl(
             "passwordConfigured" to (passwordHash != null),
         )
 
-    /**
-     * ログインしている人だけが通れるようにする。
-     *
-     * まだ守る対象のフィールドが無いので呼ばれていない。フィードの CRUD を
-     * 足すときにここを通す。認可を各フィールドの中に書くと、書き忘れたものが
-     * 素通りする。
-     */
+    /** 守る対象のフィールドがまだ無いので呼ばれていない。足すときにここを通す */
     @Suppress("unused")
     fun <T> requireLoggedIn(
         call: ApplicationCall,
@@ -115,19 +94,14 @@ class AdminGraphQl(
     }
 
     private companion object {
-        /** `admin` の下に進むためだけの値。フィールドは全て個別に結線してあるので中身は要らない */
+        /** `admin` の下に進むためだけの値。フィールドは個別に結線してある */
         val NAMESPACE: Map<String, Any?> = emptyMap()
 
-        // enum は名前の文字列で返す。Java の enum を作ると graphql-java が
-        // リフレクションで対応付けることになり、native バイナリで解決できない
+        // Java の enum にすると graphql-java がリフレクションで対応付けて native で壊れる
         const val FAILURE_WRONG_PASSWORD = "WRONG_PASSWORD"
         const val FAILURE_NOT_CONFIGURED = "NOT_CONFIGURED"
     }
 }
 
-/**
- * ログインしていない人が、ログインが要るフィールドを引いたとき。
- *
- * graphql-java がこれを捕まえて `errors` に入れる。HTTP は 200 のまま。
- */
+/** graphql-java が捕まえて `errors` に入れる。HTTP は 200 のまま */
 class AdminNotLoggedInException : RuntimeException("ログインしていない")
