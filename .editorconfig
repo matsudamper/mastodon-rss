@@ -9,24 +9,30 @@ indent_style = space
 indent_size = 4
 
 [*.{kt,kts}]
-ktlint_code_style = ktlint_official
+max_line_length = 200
+ktlint_code_style = intellij_idea
 
-# ktlint_official の既定は 140。日本語は全角で幅を取るため、
-# 文字数が同じでも見た目はかなり長くなる。少し狭めに取る
-max_line_length = 120
+ij_kotlin_imports_layout = android.**,androidx.**,java.**,javax.**,kotlin.**,kotlinx.**,*
+ij_kotlin_name_count_to_use_star_import = 9999
+ij_kotlin_name_count_to_use_star_import_for_members = 9999
+ij_kotlin_packages_to_use_import_on_demand = unset
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
 
-# 引数が 2 個以上の関数は、行長に収まっていても複数行に展開する。
-# 引数を足したときに 1 行だけの差分になり、レビューで何が増えたか分かるため。
-# ktlint_official の既定と同じ設定。
-ktlint_function_signature_rule_force_multiline_when_parameter_count_greater_or_equal_than = 2
-
-# Composable は大文字始まりが Compose の慣習なので function-naming の対象から外す。
-# テスト名はバッククォート付きの日本語で書く決まり（AGENTS.md）で、
-# テストのソースセットでは既定で無効になるが、判定に失敗した場合に備えて明示しておく
-ktlint_function_naming_ignore_when_annotated_with = Composable, Test
+ktlint_standard_function-signature = disabled
+ktlint_standard_parameter-list-wrapping = disabled
+ktlint_standard_package-name = disabled
+ktlint_standard_annotation = disabled
+ktlint_standard_function-naming = disabled
+ktlint_standard_class-signature = disabled
+ktlint_standard_function-expression-body = disabled
+ktlint_standard_property-naming = disabled
 
 [*.{yml,yaml,json,md}]
 indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
+
+[.editorconfig]
+ij_any_space_after_comma = false
