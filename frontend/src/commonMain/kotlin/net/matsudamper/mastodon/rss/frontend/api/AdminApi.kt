@@ -8,12 +8,14 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
-import net.matsudamper.mastodon.rss.shared.GraphQlEndpoint
+
+/** GraphQL を受けるパス。サーバーが登録しているものと同じ */
+private const val GRAPHQL_PATH = "/graphql"
 
 /**
  * 管理画面から管理 API を叩くところ。
  *
- * 口は `/graphql` の 1 つで、問い合わせは `:shared:graphql:schema` のスキーマから
+ * 口は `/graphql` の 1 つで、問い合わせは `:shared:graphql` のスキーマから
  * Apollo が生成したものを使う。パスを相対で書いているのは、画面を配信している
  * オリジンと同じところに投げるため。開発サーバー (8081) から動かす場合は、
  * webpack の devServer が `/graphql` を backend (8080) に転送する
@@ -26,7 +28,7 @@ class AdminApi(
     private val client: ApolloClient =
         ApolloClient
             .Builder()
-            .serverUrl(GraphQlEndpoint.PATH)
+            .serverUrl(GRAPHQL_PATH)
             .build(),
 ) : AutoCloseable {
     /** いまログインしているかを聞く */

@@ -43,4 +43,3 @@ include(":frontend")
 // 相手のビルドがそのディレクトリを見ることになるので、等距離になる root に置く。
 // 共有するものが増えたら :shared の下に並べる
 include(":shared:graphql")
-include(":shared:graphql:schema")

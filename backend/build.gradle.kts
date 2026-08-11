@@ -9,11 +9,8 @@ dependencies {
     implementation(project(":backend:repository"))
     implementation(project(":backend:crypto"))
 
-    // 管理 API の口のパス
-    implementation(project(":shared:graphql"))
-
     // 管理 API のスキーマ。実行時にリソースとして読むので、コンパイルだけでなく実行にも要る
-    implementation(project(":shared:graphql:schema"))
+    implementation(project(":shared:graphql"))
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)

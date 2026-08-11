@@ -22,7 +22,6 @@ COPY backend/repository/build.gradle.kts ./backend/repository/
 COPY backend/rss/build.gradle.kts ./backend/rss/
 COPY frontend/build.gradle.kts ./frontend/
 COPY shared/graphql/build.gradle.kts ./shared/graphql/
-COPY shared/graphql/schema/build.gradle.kts ./shared/graphql/schema/
 # build-logic は複合ビルドなので、定義だけでなくソースごと要る。
 # :backend:repository がここのプラグインを適用するため、構成の時点で読まれる
 COPY build-logic ./build-logic

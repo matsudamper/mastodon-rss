@@ -25,8 +25,13 @@ allprojects {
         // Renovate に追従させるためでもある
         version.set(ktlintVersion)
 
-        // 生成されたコードは整形の対象にしない。Apollo が出す GraphQL のクライアントは
-        // ktlint の規則どおりには出力されず、直す手段が無いのに落ちる
+        // 生成されたコードは対象にしない。Apollo が出す GraphQL のクライアントは
+        // ktlint の規則どおりには出力されず、直す手段が無いのに落ちる。
+        //
+        // これが効くのは ktlintCheck（CI が叩くもの）まで。ktlintFormat は
+        // ソースのルートごと走査していてファイル単位のフィルタを見ないため、
+        // 手元で流すと生成コードの違反（どれも auto-correct 不可）が出る。
+        // 実ソースの整形自体は済むので、そのまま ktlintCheck で確かめること
         filter {
             exclude { element -> element.file.invariantSeparatorsPath.contains("/build/generated/") }
         }

@@ -11,7 +11,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.json.respondJson
-import net.matsudamper.mastodon.rss.shared.GraphQlEndpoint
 
 /**
  * GraphQL の本文。
@@ -34,7 +33,15 @@ private data class GraphQlBadRequest(
 )
 
 /**
- * 口は [GraphQlEndpoint.PATH] の 1 つだけ。
+ * GraphQL を受けるパス。
+ *
+ * どの URL で受けるかはサーバーの都合で、スキーマの一部ではない。
+ * `:shared:graphql` には置かず、口を持っているこちらで決める。
+ */
+const val GRAPHQL_PATH: String = "/graphql"
+
+/**
+ * 口は [GRAPHQL_PATH] の 1 つだけ。
  *
  * 管理用とそれ以外はフィールドで分け、認可もフィールドごとに見る。
  * エンドポイントを分けると、認可の有無が URL と実装の 2 か所に散る。
@@ -43,7 +50,7 @@ private data class GraphQlBadRequest(
  * 決まっている REST なので、こちらの都合で形を変えられない。
  */
 fun Route.graphQlRoutes(engine: GraphQlEngine) {
-    post(GraphQlEndpoint.PATH) {
+    post(GRAPHQL_PATH) {
         val request =
             runCatching { AppJson.decodeFromString(GraphQlRequest.serializer(), call.receiveText()) }
                 .getOrElse {

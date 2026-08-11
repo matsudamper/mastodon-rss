@@ -11,8 +11,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | --- | --- | --- |
 | `:backend` | `backend/` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
 | `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の画面。管理画面とアカウント画面 |
-| `:shared:graphql` | `shared/graphql/` | 管理 API の口のパスなど、スキーマに書けない定数 |
-| `:shared:graphql:schema` | `shared/graphql/schema/` | 管理 API のスキーマ (`schema.graphqls`)。中身はこれ 1 つだけ |
+| `:shared:graphql` | `shared/graphql/` | 管理 API のスキーマ (`schema.graphqls`)。`:backend` と `:frontend` が同じものを見る |
 
 ```mermaid
 flowchart TB
@@ -59,8 +58,7 @@ flowchart TB
     end
 
     subgraph shared[":shared:graphql"]
-        endpoint["GraphQlEndpoint<br/>/graphql のパス"]
-        schemafile["schema.graphqls<br/>:shared:graphql:schema"]
+        schemafile["schema.graphqls"]
     end
 
     db[("SQLite<br/>DB_PATH")]
@@ -102,15 +100,13 @@ flowchart TB
     apollo -->|POST /graphql| graphql
     schemafile -->|実行時に読む| graphql
     schemafile -.->|ビルド時にコード生成| apollo
-    endpoint --> graphql
-    endpoint --> apollo
     parser --> feedmodel
     parser --> feedutil
     main -.->|Phase 5 で繋ぐ。いまは :backend から参照していない| parser
 ```
 
 `:frontend` と `:backend` は別々にビルドする。互いに依存させない。共有するのは
-`:shared:graphql` だけで、管理 API のスキーマと口のパスがそこに入っている。
+`:shared:graphql` の管理 API のスキーマだけ。
 `:frontend` の成果物は配信するファイルを置くディレクトリに配置し、`:backend` が
 その場所を `STATIC_SRC_DIR` で受け取って root から配信する。
 分けた理由は [docs/architecture.md](docs/architecture.md) を参照。
@@ -235,8 +231,8 @@ ADMIN_COOKIE_SECURE=false \
 下にまとめてあり、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側
 （WebFinger・Actor・inbox）は相手の実装が決まっている REST なので、ここには載せない。
 
-スキーマは [shared/graphql/schema](shared/graphql/schema/src/commonMain/resources/graphql/schema.graphqls)
-の 1 つだけ。`:backend` は起動時にリソースとして読み、`:frontend` は同じファイルから
+スキーマは [shared/graphql](shared/graphql/src/main/resources/graphql/schema.graphqls) の
+1 つだけ。`:backend` は起動時にリソースとして読み、`:frontend` は同じファイルから
 Apollo Kotlin でクライアントを生成する。写しを持たないので、片方にだけフィールドがある
 状態にはならない。
 

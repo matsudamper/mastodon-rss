@@ -1,20 +1,17 @@
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
-
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.jvm)
 }
 
-// スキーマに書けないものを置く。スキーマそのものは :shared:graphql:schema にある。
-// いまあるのは口のパスだけで、増えるとしてもスキーマに表せない定数に限る。
-// ロジックは入れない。入れると JVM と Kotlin/Wasm の両方で動くことを常に気にすることになる。
+// GraphQL のスキーマだけを持つ。
+//
+// スキーマは :backend（実行時にリソースとして読む）と :frontend（Apollo の
+// コード生成の入力）の両方が見る唯一の定義で、写しを作ると片方にだけ
+// フィールドがある状態になる。backend/ にも frontend/ にも入れずに root へ
+// 置いているのは、どちらかの下に置くと相手のビルドがそのディレクトリを
+// 見ることになるため。
+//
+// 成果物を使うのは :backend だけなので JVM のモジュールにしてある。
+// :frontend はビルド時にファイルを読むだけで、依存はしない。
 kotlin {
-    jvm()
-
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
-        browser()
-    }
-
-    // :backend が JVM 25 なので合わせる。低いと backend から読めないクラスファイルになる
     jvmToolchain(25)
 }

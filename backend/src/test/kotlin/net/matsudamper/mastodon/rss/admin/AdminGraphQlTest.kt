@@ -21,9 +21,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
+import net.matsudamper.mastodon.rss.graphql.GRAPHQL_PATH
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
-import net.matsudamper.mastodon.rss.shared.GraphQlEndpoint
 import net.matsudamper.mastodon.rss.testDependencies
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -173,7 +173,7 @@ class AdminGraphQlTest {
             applicationWith(passwordConfigured = true)
 
             val response =
-                client.post(GraphQlEndpoint.PATH) {
+                client.post(GRAPHQL_PATH) {
                     contentType(ContentType.Application.Json)
                     setBody("パスワード")
                 }
@@ -228,7 +228,7 @@ class AdminGraphQlTest {
         token: String? = null,
         variables: String? = null,
     ): HttpResponse =
-        client.post(GraphQlEndpoint.PATH) {
+        client.post(GRAPHQL_PATH) {
             contentType(ContentType.Application.Json)
             if (token != null) withSessionCookie(token)
 

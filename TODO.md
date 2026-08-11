@@ -986,9 +986,9 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - 両モジュールから等距離にするため root に置く。`:backend` に置くと
         `:frontend` のビルドが `:backend` のディレクトリを見ることになる
 
-      `:shared:graphql`（口のパス）と `:shared:graphql:schema`（スキーマ）を作った。
-      スキーマを別モジュールにしたのは「ここを直せばスキーマが変わる」を 1 ディレクトリに
-      閉じるため。パスワードの長さ制限と画面のパスはまだ移していないので、チェックは付けない。
+      `:shared:graphql` を作ってスキーマを置いた。口の URL は「どこで受けるか」で
+      スキーマの一部ではないので、サーバーと画面がそれぞれ持つ。パスワードの長さ制限と
+      画面のパスはまだ移していないので、チェックは付けない。
 - [ ] `:frontend` の成果物を配置するデプロイスクリプトを用意する
       （インフラ側で用意する。このリポジトリの範囲外。Phase 0 の「ビルドと配布の分け方」を参照）
 - [x] `:backend` が静的ファイルを配信する
@@ -1033,7 +1033,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       フィード CRUD などが載ってからチェックを付ける。
 
       - [x] スキーマを `:shared` に置き、version catalog に graphql-java と Apollo を足す
-            - 置いたのは `:shared:graphql:schema`。Apollo は 4.x が Kotlin 2.4 の KGP で
+            - 置いたのは `:shared:graphql`。Apollo は 4.x が Kotlin 2.4 の KGP で
               落ちる（`KotlinJsTarget` が見つからない）ので 5.0.1 にした
       - [x] `POST /graphql` を 1 つ作る。本文は `receiveText()` してから読み、
             変数は `JsonObject` で受けて実行の直前に素の値へ開く

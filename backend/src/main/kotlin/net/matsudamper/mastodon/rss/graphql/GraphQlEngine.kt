@@ -8,12 +8,12 @@ import graphql.schema.idl.SchemaGenerator
 import graphql.schema.idl.SchemaParser
 import io.ktor.server.application.ApplicationCall
 import kotlinx.serialization.json.JsonObject
-import net.matsudamper.mastodon.rss.shared.GraphQlEndpoint
+import net.matsudamper.mastodon.rss.shared.GraphQlSchema
 
 /**
  * GraphQL の実行。
  *
- * スキーマは `:shared:graphql:schema` の `graphql/schema.graphqls` を読む。スキーマ優先で、
+ * スキーマは `:shared:graphql` の `graphql/schema.graphqls` を読む。スキーマ優先で、
  * 型はここには書かない。同じファイルを `:frontend` の Apollo もコード生成の入力にする。
  *
  * リゾルバは [RuntimeWiring] に [graphql.schema.DataFetcher] を明示して結線する。
@@ -106,10 +106,10 @@ class GraphQlEngine private constructor(
          */
         private fun readSchema(): String {
             val stream =
-                GraphQlEngine::class.java.classLoader.getResourceAsStream(GraphQlEndpoint.SCHEMA_RESOURCE)
+                GraphQlEngine::class.java.classLoader.getResourceAsStream(GraphQlSchema.RESOURCE_PATH)
                     ?: throw IllegalStateException(
-                        "${GraphQlEndpoint.SCHEMA_RESOURCE} が見つからない。" +
-                            ":shared:graphql:schema が classpath にあるか、native バイナリなら resource-config.json を確かめること",
+                        "${GraphQlSchema.RESOURCE_PATH} が見つからない。" +
+                            ":shared:graphql が classpath にあるか、native バイナリなら resource-config.json を確かめること",
                     )
 
             return stream.use { it.readBytes().decodeToString() }
