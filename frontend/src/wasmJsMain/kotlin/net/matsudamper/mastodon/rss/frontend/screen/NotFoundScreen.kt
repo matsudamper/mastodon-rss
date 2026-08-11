@@ -37,8 +37,8 @@ fun NotFoundScreen(
             )
             Text(
                 text =
-                    "アカウントの画面は「/@ユーザー名」。ActivityPub の Actor JSON は「/users/ユーザー名」で、" +
-                        "こちらはブラウザ向けの画面ではない。",
+                "アカウントの画面は「/@ユーザー名」。ActivityPub の Actor JSON は「/users/ユーザー名」で、" +
+                    "こちらはブラウザ向けの画面ではない。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

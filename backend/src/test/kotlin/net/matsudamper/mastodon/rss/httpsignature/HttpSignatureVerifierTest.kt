@@ -1,10 +1,5 @@
 package net.matsudamper.mastodon.rss.httpsignature
 
-import io.ktor.http.Headers
-import kotlinx.coroutines.runBlocking
-import net.matsudamper.mastodon.rss.TestRemoteActor
-import net.matsudamper.mastodon.rss.TestRemoteActors
-import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -13,6 +8,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
+import io.ktor.http.Headers
+import net.matsudamper.mastodon.rss.TestRemoteActor
+import net.matsudamper.mastodon.rss.TestRemoteActors
+import net.matsudamper.mastodon.rss.crypto.RsaKeys
 
 // ActivityPub のサーバー間通信で相手を確かめる手段はこれしか無い。
 // 判断が曖昧なものは通さない。

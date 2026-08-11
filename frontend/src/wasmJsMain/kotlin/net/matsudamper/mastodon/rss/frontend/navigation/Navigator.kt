@@ -11,10 +11,10 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import kotlin.js.ExperimentalWasmJsInterop
 import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.events.Event
-import kotlin.js.ExperimentalWasmJsInterop
 
 /**
  * Navigation 3 のバックスタックを、ブラウザの履歴に合わせて持つ。

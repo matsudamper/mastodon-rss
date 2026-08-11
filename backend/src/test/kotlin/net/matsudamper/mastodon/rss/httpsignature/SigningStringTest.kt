@@ -1,10 +1,10 @@
 package net.matsudamper.mastodon.rss.httpsignature
 
-import io.ktor.http.Headers
-import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import io.ktor.http.Headers
+import io.ktor.http.headersOf
 
 // 送信側が署名した文字列と 1 バイトでも違えば検証は落ちる。
 class SigningStringTest {

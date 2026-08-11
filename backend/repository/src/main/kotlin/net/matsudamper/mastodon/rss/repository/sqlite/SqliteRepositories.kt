@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
+import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.HEALTH_CHECK
@@ -7,7 +8,6 @@ import org.jooq.DSLContext
 import org.jooq.SQLDialect
 import org.jooq.conf.Settings
 import org.jooq.impl.DSL
-import java.time.Instant
 
 internal class SqliteRepositories(
     config: DatabaseConfig,

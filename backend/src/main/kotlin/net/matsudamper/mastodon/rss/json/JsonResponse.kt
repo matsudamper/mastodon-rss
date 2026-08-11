@@ -1,10 +1,10 @@
 package net.matsudamper.mastodon.rss.json
 
+import kotlinx.serialization.SerializationStrategy
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respondText
-import kotlinx.serialization.SerializationStrategy
 
 /**
  * serializer を明示して JSON を返す。

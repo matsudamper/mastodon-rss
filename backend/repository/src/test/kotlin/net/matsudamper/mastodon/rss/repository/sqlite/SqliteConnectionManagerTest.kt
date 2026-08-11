@@ -1,6 +1,5 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
-import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import java.nio.file.Path
 import java.sql.Connection
 import kotlin.io.path.createTempDirectory
@@ -10,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 
 // 接続まわりの土台を確認する。
 // PRAGMA が実際に効いていること、SQL が通ること、

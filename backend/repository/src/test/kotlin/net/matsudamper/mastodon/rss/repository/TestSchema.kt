@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss.repository
 
-import org.sqlite.SQLiteDataSource
 import java.nio.file.Files
 import java.nio.file.Path
+import org.sqlite.SQLiteDataSource
 
 /**
  * テスト用に `schema.sql` を適用する。

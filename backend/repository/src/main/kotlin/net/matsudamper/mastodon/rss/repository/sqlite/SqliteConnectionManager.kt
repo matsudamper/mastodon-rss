@@ -1,11 +1,11 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
-import net.matsudamper.mastodon.rss.repository.DatabaseConfig
-import org.sqlite.SQLiteDataSource
 import java.nio.file.Files
 import java.sql.Connection
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import net.matsudamper.mastodon.rss.repository.DatabaseConfig
+import org.sqlite.SQLiteDataSource
 
 /**
  * SQLite への接続を持ち、PRAGMA の適用とアクセスの直列化を担う。

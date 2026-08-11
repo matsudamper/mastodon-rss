@@ -1,5 +1,9 @@
 package net.matsudamper.mastodon.rss.actor
 
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -13,10 +17,6 @@ import net.matsudamper.mastodon.rss.activitypub.Actor
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.testDependencies
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 // アカウント発見の 2 ホップ目。Mastodon はここの JSON からプロフィールと公開鍵を作る。
 class ActorRoutesTest {

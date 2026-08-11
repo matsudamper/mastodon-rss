@@ -27,8 +27,8 @@ fun AdminScreen(onNavigate: (Screen) -> Unit) {
         SectionCard(title = "まだ何も無い") {
             Text(
                 text =
-                    "ここに入るのはフィードの登録・削除、アクターごとのフォロワー数と配信エラー、" +
-                        "手動での再取得。管理 API（GraphQL）を作ってから繋ぐ。",
+                "ここに入るのはフィードの登録・削除、アクターごとのフォロワー数と配信エラー、" +
+                    "手動での再取得。管理 API（GraphQL）を作ってから繋ぐ。",
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(

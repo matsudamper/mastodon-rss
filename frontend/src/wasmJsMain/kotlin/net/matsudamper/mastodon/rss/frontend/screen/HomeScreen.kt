@@ -55,8 +55,8 @@ private fun AccountCard(
     SectionCard(title = "アカウント画面", modifier = modifier) {
         Text(
             text =
-                "配信しているアカウントの画面は「/@ユーザー名」で開く。" +
-                    "フィードの取得状況と、直近で配信した記事が見られる。",
+            "配信しているアカウントの画面は「/@ユーザー名」で開く。" +
+                "フィードの取得状況と、直近で配信した記事が見られる。",
             style = MaterialTheme.typography.bodyMedium,
         )
         TextLink(

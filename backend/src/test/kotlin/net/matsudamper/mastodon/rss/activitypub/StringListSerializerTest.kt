@@ -1,11 +1,11 @@
 package net.matsudamper.mastodon.rss.activitypub
 
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
-import net.matsudamper.mastodon.rss.json.AppJson
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import net.matsudamper.mastodon.rss.json.AppJson
 
 // ActivityPub の @context / to / cc / type のように、
 // 単一文字列と配列のどちらでも来るフィールドの正規化を確認する。

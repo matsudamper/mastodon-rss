@@ -21,15 +21,15 @@ fun Route.nodeInfoRoutes(domain: String) {
         call.respondJson(
             serializer = NodeInfoDiscovery.serializer(),
             value =
-                NodeInfoDiscovery(
-                    links =
-                        listOf(
-                            NodeInfoDiscoveryLink(
-                                rel = NodeInfoDiscoveryLink.REL_2_1,
-                                href = "https://$domain/nodeinfo/2.1",
-                            ),
-                        ),
+            NodeInfoDiscovery(
+                links =
+                listOf(
+                    NodeInfoDiscoveryLink(
+                        rel = NodeInfoDiscoveryLink.REL_2_1,
+                        href = "https://$domain/nodeinfo/2.1",
+                    ),
                 ),
+            ),
         )
     }
 
@@ -37,17 +37,17 @@ fun Route.nodeInfoRoutes(domain: String) {
         call.respondJson(
             serializer = NodeInfo.serializer(),
             value =
-                NodeInfo(
-                    // version は build.gradle.kts の allprojects.version と合わせる。自動で追従はしない
-                    software =
-                        NodeInfoSoftware(
-                            name = "mastodon-rss",
-                            version = "0.1.0",
-                            repository = "https://github.com/matsudamper/mastodon-rss",
-                        ),
-                    // 固定アクター1つだけなので常にこの値
-                    usage = NodeInfoUsage(users = NodeInfoUsers(total = 1)),
+            NodeInfo(
+                // version は build.gradle.kts の allprojects.version と合わせる。自動で追従はしない
+                software =
+                NodeInfoSoftware(
+                    name = "mastodon-rss",
+                    version = "0.1.0",
+                    repository = "https://github.com/matsudamper/mastodon-rss",
                 ),
+                // 固定アクター1つだけなので常にこの値
+                usage = NodeInfoUsage(users = NodeInfoUsers(total = 1)),
+            ),
         )
     }
 }

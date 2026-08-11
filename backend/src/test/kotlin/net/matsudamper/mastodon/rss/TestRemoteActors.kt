@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss
 
+import java.security.PublicKey
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
-import java.security.PublicKey
 
 /**
  * 相手のアクターの引き先の差し替え。

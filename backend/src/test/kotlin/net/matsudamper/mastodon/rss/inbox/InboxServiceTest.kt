@@ -1,9 +1,16 @@
 package net.matsudamper.mastodon.rss.inbox
 
-import io.ktor.http.Headers
+import java.time.Instant
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.test.fail
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import io.ktor.http.Headers
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.activitypub.InboxActivity
@@ -12,13 +19,6 @@ import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.httpsignature.TestSigning
-import java.time.Instant
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
-import kotlin.test.fail
 
 // 受け取ったものを信用してよいかの判断と、種類ごとの振り分け。
 // HTTP の status への変換は inboxRoutes 側なので、ここはサーバーを立てずに確かめる。

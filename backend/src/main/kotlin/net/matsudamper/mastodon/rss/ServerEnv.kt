@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss
 
-import net.matsudamper.mastodon.rss.actor.ActorUsername
 import java.nio.file.Path
+import net.matsudamper.mastodon.rss.actor.ActorUsername
 
 /**
  * 環境変数を読む唯一の場所。起動時にここで全部読み、以降は引数で配る。

@@ -37,26 +37,26 @@ fun App() {
             backStack = navigator.backStack,
             onBack = { navigator.back() },
             entryProvider =
-                entryProvider {
-                    entry<Screen.Home> {
-                        HomeScreen(onNavigate = navigator::navigateTo)
-                    }
-                    entry<Screen.Admin> {
-                        AdminScreen(onNavigate = navigator::navigateTo)
-                    }
-                    entry<Screen.Account> { screen ->
-                        AccountScreen(
-                            username = screen.username,
-                            onNavigate = navigator::navigateTo,
-                        )
-                    }
-                    entry<Screen.NotFound> { screen ->
-                        NotFoundScreen(
-                            requestedPath = screen.path,
-                            onNavigate = navigator::navigateTo,
-                        )
-                    }
-                },
+            entryProvider {
+                entry<Screen.Home> {
+                    HomeScreen(onNavigate = navigator::navigateTo)
+                }
+                entry<Screen.Admin> {
+                    AdminScreen(onNavigate = navigator::navigateTo)
+                }
+                entry<Screen.Account> { screen ->
+                    AccountScreen(
+                        username = screen.username,
+                        onNavigate = navigator::navigateTo,
+                    )
+                }
+                entry<Screen.NotFound> { screen ->
+                    NotFoundScreen(
+                        requestedPath = screen.path,
+                        onNavigate = navigator::navigateTo,
+                    )
+                }
+            },
         )
     }
 }

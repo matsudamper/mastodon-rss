@@ -163,10 +163,10 @@ fun StatusDot(
     ) {
         Column(
             modifier =
-                Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(color),
+            Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color),
         ) {}
     }
 }
@@ -193,10 +193,10 @@ fun OutlinedBox(
 ) {
     Column(
         modifier =
-            modifier
-                .fillMaxWidth()
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
-                .padding(14.dp),
+        modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+            .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
         content = content,
     )
