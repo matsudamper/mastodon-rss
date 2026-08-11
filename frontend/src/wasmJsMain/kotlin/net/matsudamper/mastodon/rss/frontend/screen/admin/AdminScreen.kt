@@ -12,6 +12,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -20,22 +24,31 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.api.AdminApi
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
-/**
- * 管理画面。いまあるのはログインだけ。
- *
- * 読み込みの間に入力欄を出さないのは、出してから消えると入力の途中で消えることになるため。
- */
 @Composable
 fun AdminScreen(onNavigate: (Screen) -> Unit) {
-    val state = rememberAdminScreenState()
-    val scope = rememberCoroutineScope()
+    val viewModelScope = rememberCoroutineScope()
+    val api = remember { AdminApi() }
+    DisposableEffect(api) {
+        onDispose { api.close() }
+    }
 
+    val viewModel = remember(api, viewModelScope) { AdminScreenViewModel(viewModelScope, api) }
+    val uiState by viewModel.uiStateFlow.collectAsState()
+
+    AdminScreen(uiState = uiState, onNavigate = onNavigate)
+}
+
+@Composable
+private fun AdminScreen(
+    uiState: AdminScreenUiState,
+    onNavigate: (Screen) -> Unit,
+) {
     AppScaffold(onNavigate = onNavigate) { _ ->
         Text(
             text = "管理画面",
@@ -43,32 +56,25 @@ fun AdminScreen(onNavigate: (Screen) -> Unit) {
             fontWeight = FontWeight.Bold,
         )
 
-        when (val uiState = state.uiState) {
-            AdminUiState.Loading -> {
+        when (val content = uiState.content) {
+            AdminScreenUiState.Content.Loading -> {
                 LoadingCard()
             }
 
-            is AdminUiState.Login -> {
-                LoginCard(
-                    uiState = uiState,
-                    onPasswordChange = state::updatePassword,
-                    onSubmit = { scope.launch { state.login() } },
-                )
+            is AdminScreenUiState.Content.Login -> {
+                LoginCard(content = content, listener = uiState.listener)
             }
 
-            AdminUiState.LoggedIn -> {
-                LoggedInCard(onLogout = { scope.launch { state.logout() } })
+            AdminScreenUiState.Content.LoggedIn -> {
+                LoggedInCard(listener = uiState.listener)
             }
 
-            AdminUiState.NotConfigured -> {
+            AdminScreenUiState.Content.NotConfigured -> {
                 NotConfiguredCard()
             }
 
-            is AdminUiState.Unavailable -> {
-                UnavailableCard(
-                    message = uiState.message,
-                    onRetry = { scope.launch { state.reload() } },
-                )
+            is AdminScreenUiState.Content.Unavailable -> {
+                UnavailableCard(content = content, listener = uiState.listener)
             }
         }
     }
@@ -84,12 +90,10 @@ private fun LoadingCard() {
     }
 }
 
-/** 入れるのはパスワードだけ。運用者ひとりなので、ユーザー名を足しても覚えるものが増える */
 @Composable
 private fun LoginCard(
-    uiState: AdminUiState.Login,
-    onPasswordChange: (String) -> Unit,
-    onSubmit: () -> Unit,
+    content: AdminScreenUiState.Content.Login,
+    listener: AdminScreenUiState.Listener,
 ) {
     SectionCard(title = "ログイン") {
         Text(
@@ -98,42 +102,42 @@ private fun LoginCard(
         )
 
         OutlinedTextField(
-            value = uiState.password,
-            onValueChange = onPasswordChange,
+            value = content.password,
+            onValueChange = { listener.onPasswordChanged(it) },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("パスワード") },
             singleLine = true,
-            enabled = !uiState.submitting,
+            enabled = !content.submitting,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions =
                 KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
                 ),
-            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
-            isError = uiState.error != null,
+            keyboardActions = KeyboardActions(onDone = { listener.onClickLogin() }),
+            isError = content.error != null,
         )
 
-        if (uiState.error != null) {
+        if (content.error != null) {
             Text(
-                text = uiState.error,
+                text = content.error,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
         }
 
         Button(
-            onClick = onSubmit,
+            onClick = { listener.onClickLogin() },
             // 送信中に押せると、1 回ごとに PBKDF2 を回すものを何度も投げることになる
-            enabled = !uiState.submitting && uiState.password.isNotEmpty(),
+            enabled = !content.submitting && content.password.isNotEmpty(),
         ) {
-            Text(if (uiState.submitting) "確認中..." else "ログイン")
+            Text(if (content.submitting) "確認中..." else "ログイン")
         }
     }
 }
 
 @Composable
-private fun LoggedInCard(onLogout: () -> Unit) {
+private fun LoggedInCard(listener: AdminScreenUiState.Listener) {
     SectionCard(title = "ログイン済み") {
         Text(
             text =
@@ -143,14 +147,13 @@ private fun LoggedInCard(onLogout: () -> Unit) {
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = onLogout) {
+            OutlinedButton(onClick = { listener.onClickLogout() }) {
                 Text("ログアウト")
             }
         }
     }
 }
 
-/** 何を入れても通らないので、入力欄は出さない */
 @Composable
 private fun NotConfiguredCard() {
     SectionCard(title = "ログインできない") {
@@ -179,15 +182,14 @@ private fun NotConfiguredCard() {
     }
 }
 
-/** 状態を聞けなかったとき。入力欄を出すと、パスワードの問題だと思って何度も試すことになる */
 @Composable
 private fun UnavailableCard(
-    message: String,
-    onRetry: () -> Unit,
+    content: AdminScreenUiState.Content.Unavailable,
+    listener: AdminScreenUiState.Listener,
 ) {
     SectionCard(title = "状態が分からない") {
         Text(
-            text = message,
+            text = content.message,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
         )
@@ -198,7 +200,7 @@ private fun UnavailableCard(
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = onRetry) {
+            OutlinedButton(onClick = { listener.onClickRetry() }) {
                 Text("もう一度確かめる")
             }
         }
