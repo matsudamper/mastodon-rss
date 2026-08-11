@@ -148,26 +148,28 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 メソッドが増えるので、実装しなければコンパイルが通らない。リゾルバを
 `GraphQlEngine.create` に渡し忘れた場合は `makeExecutableSchema` が落ちる。
 
-### native-image で動かすための制約
+### native-image との組み合わせ
 
 kickstart はスキーマとクラスの対応をリフレクションで解決する。native バイナリは
-到達可能性を静的に解析するので、対象のクラスを登録しないと実行時に見つからない。
+到達可能性を静的に解析するので、リフレクションで引かれるクラスは登録しておく。
 
 登録は `graalvm/GraphQlReflectionFeature`（`--features=` で渡す GraalVM の Feature）が
 イメージのビルド時にクラスパスを走査して行う。対象は生成物のパッケージ
 （`graphql.model`）とリゾルバの実装のパッケージ（`graphql.resolver`）の 2 つ。
 手で `reflect-config.json` に並べると、スキーマを触るたびに更新が要る。
 
-リゾルバの実装を `graphql.resolver` 以外に置くと走査から外れる。JVM のテストは通り、
-native バイナリでだけそのフィールドが解決できなくなる。
+リゾルバの実装を `graphql.resolver` 以外に置くと走査から外れる。こちらは
+`GraphQlReflectionTargetsTest` が JVM のテストで見ている。
 
 スキーマはリソースなので `resource-config.json` に登録している。読むファイルの一覧
 （`graphql/schema-list.txt`）は `:backend:graphql` がビルド時に作る。native バイナリでは
 ディレクトリを列挙できないので、実行時に `graphql/` の中身を数え上げる手段が無い。
 
-どれも JVM のテストでは分からず、native バイナリを起動して初めて出る。CI の
-native-image ジョブでは実際に `/graphql` を叩いて、query・mutation・変数・enum・
-`Set-Cookie` までを通している。
+この構成を native バイナリで動かした確認はまだ取れていない。JVM のテストは
+リフレクションの経路を通らないので、通ったことは何の保証にもならない。
+CI の native-image ジョブで実際に `/graphql` を叩いて動作確認する
+（query・mutation・変数・enum・`Set-Cookie` まで）。足りない登録や
+初期化の指定が出たら、そこで分かったことをここに書き足す。
 
 ## 管理画面のログイン
 

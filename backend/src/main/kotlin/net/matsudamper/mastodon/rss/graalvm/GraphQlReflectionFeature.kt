@@ -7,13 +7,14 @@ import org.graalvm.nativeimage.hosted.RuntimeReflection
  * GraphQL の結線に使うクラスを native-image のリフレクション対象に登録する。
  *
  * graphql-java-tools (kickstart) はスキーマとクラスの対応をリフレクションで解決する。
- * リゾルバはメソッド名で、モデルはプロパティ名で引かれるので、登録が無いと
- * そのフィールドを解決できないまま起動する。JVM のテストは通るので、
- * CI の native-image ジョブが唯一の検出手段になる。
+ * リゾルバはメソッド名で、モデルはプロパティ名で引かれるので、その両方を登録する。
+ *
+ * これで足りるかは確かめていない。JVM のテストはリフレクションの経路を通らないので、
+ * CI の native-image ジョブで実際に叩いて動作確認する。足りない登録が出たら
+ * ここに足して、分かったことを `META-INF/native-image/` の README に書く。
  *
  * 手で `reflect-config.json` に並べないのは、スキーマにフィールドを足すたびに
- * 更新が要り、忘れると native バイナリでだけ落ちるため。イメージのビルド時に
- * クラスパスを走査すれば忘れようがない。
+ * 更新が要るため。イメージのビルド時にクラスパスを走査すれば忘れようがない。
  *
  * 走査するのは [GraphQlReflectionTargets.PACKAGES] だけ。そこに入っていない
  * クラスは対象にならないので、リゾルバの実装は `graphql.resolver` パッケージに置くこと。

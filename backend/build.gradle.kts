@@ -84,7 +84,9 @@ graalvmNative {
             // graphql-java-tools (kickstart) はスキーマとクラスの対応をリフレクションで
             // 解決する。対象のクラスをイメージのビルド時に走査して登録する。
             // 手で reflect-config.json に並べると、スキーマを触るたびに更新が要る。
-            // 詳細は GraphQlReflectionFeature を参照
+            //
+            // これで足りるかはまだ確かめていない。CI の native-image ジョブで
+            // 実際に /graphql を叩いて動作確認する。詳細は GraphQlReflectionFeature を参照
             buildArgs.add("--features=net.matsudamper.mastodon.rss.graalvm.GraphQlReflectionFeature")
 
             // native-image は解析中に自分で isAnnotationPresent を呼ぶ（PodFeature.isPodClass）。

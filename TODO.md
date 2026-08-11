@@ -1032,19 +1032,23 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       （管理用は `Query.admin` / `Mutation.admin` の下）。認可はエンドポイントではなく
       フィールドごとに見る。ActivityPub 側は相手の実装が決まっている REST なので触らない。
 
-      kickstart はリフレクションで結線するので native-image では登録が要る。
+      kickstart はリフレクションで結線するので、native-image 向けにクラスを登録する。
       登録はイメージのビルド時に `GraphQlReflectionFeature`（GraalVM の Feature）が
       クラスパスを走査して行う。走査するのは `graphql.model`（生成物）と
       `graphql.resolver`（リゾルバの実装）の 2 つのパッケージだけなので、
-      リゾルバの実装は必ず `graphql.resolver` に置くこと。外に置くと JVM のテストは
-      通って native バイナリでだけ解決できなくなる。
+      リゾルバの実装は必ず `graphql.resolver` に置くこと（外に出ていないかは
+      `GraphQlReflectionTargetsTest` が見ている）。
 
       当初は `RuntimeWiring` に `DataFetcher` を明示し、値を `Map` で返して
-      リフレクションを一切使わない形にしていた。スキーマとリゾルバの対応が
-      コンパイル時に確かめられず、フィールド名の綴り違いが実行時まで分からないので、
-      生成したインタフェースを実装する形に変えた。いまはスキーマに
-      フィールドを足すとインタフェースにメソッドが増えるので、実装しなければ
-      コンパイルが通らない。
+      リフレクションを一切使わない形にしていた。その理由として「kickstart や
+      kobylynskyi の codegen は native-image で動かない」と書いていたが、実際に
+      試しておらず根拠が無かった。スキーマとリゾルバの対応がコンパイル時に
+      確かめられない方が実害が大きいので、生成したインタフェースを実装する形に
+      変えた。いまはスキーマにフィールドを足すとインタフェースにメソッドが
+      増えるので、実装しなければコンパイルが通らない。
+
+      native で動くかどうかは決めつけずに実際に確かめる。この構成で native
+      バイナリを動かした確認はまだ取れていない。
 
       口と結線の仕組みは動いていて、いま載っているのはログインだけ。
       フィード CRUD などが載ってからチェックを付ける。
@@ -1059,11 +1063,13 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
               native バイナリではディレクトリを列挙できない
             - リフレクションの登録は Feature でクラスパスを走査する。
               手で `reflect-config.json` に並べるとスキーマを触るたびに更新が要る
-      - [ ] CI の native-image ジョブの起動確認で実際に叩く。
-            kickstart の結線が native-image で通るかは JVM のテストでは分からない
-            - query / mutation / 変数 / enum / `Set-Cookie` まで通している
-            - 結線を kickstart に変えてから native バイナリでは動かしていないので、
-              チェックを外した。CI の native-image ジョブが通ったら戻す
+      - [ ] kickstart の結線が native バイナリで動くことを確認する
+            - JVM のテストはリフレクションの経路を通らないので、通っても分からない
+            - CI の native-image ジョブの起動確認で実際に `/graphql` を叩く。
+              query / mutation / 変数 / enum / `Set-Cookie` までを通す
+            - 足りない登録や `--initialize-at-build-time` の指定が出たら足して、
+              分かったことを `META-INF/native-image/` の README に書く
+            - 通ったらチェックを付ける。動くかどうかを先に決めつけない
 - [ ] 管理 API に認証をかける（inbox と違って外に開けてはいけない）
       - パスワード 1 つ + セッション。ハッシュは `ADMIN_PASSWORD_HASH` に入れる
       - ハッシュは `:backend:crypto` の `PasswordHash`（PBKDF2-HMAC-SHA256）で作る。部品は用意済み

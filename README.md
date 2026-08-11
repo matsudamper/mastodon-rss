@@ -258,11 +258,14 @@ curl -sf -X POST -H 'Content-Type: application/json' \
 | サーバーのモデルとリゾルバのインタフェース | kobylynskyi の graphql-java-codegen | `:backend:graphql` |
 | 画面のクライアント | Apollo Kotlin | `:frontend` |
 
-結線は graphql-java-tools (kickstart) が行う。リフレクションを使うので native-image
-では登録が要る。登録はイメージのビルド時に `GraphQlReflectionFeature` が
+結線は graphql-java-tools (kickstart) が行う。リフレクションを使うので、native-image
+向けにクラスを登録する。登録はイメージのビルド時に `GraphQlReflectionFeature` が
 クラスパスを走査して行うので、スキーマを触っても設定ファイルの更新は要らない。
-ただしリゾルバの実装は `graphql.resolver` パッケージに置くこと。走査の対象から
-外れると、JVM のテストは通って native バイナリでだけ解決できなくなる。
+ただしリゾルバの実装は `graphql.resolver` パッケージに置くこと（走査の対象から
+外れていないかは `GraphQlReflectionTargetsTest` が見ている）。
+
+この構成で native バイナリが動くかはまだ確かめていない。CI の native-image
+ジョブで実際に `/graphql` を叩いて動作確認する。
 
 画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
 Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。

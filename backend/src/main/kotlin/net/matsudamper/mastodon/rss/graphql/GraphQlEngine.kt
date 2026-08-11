@@ -12,10 +12,10 @@ import io.ktor.server.application.ApplicationCall
  * スキーマ優先。`:backend:graphql` がスキーマからモデルとリゾルバのインタフェースを作り、
  * ここでは実装をスキーマに結び付けるだけにする。
  *
- * 結線は graphql-java-tools (kickstart) がリフレクションで行う。native バイナリでは
- * 到達可能性を静的に解析するため、この経路に入るクラスは登録しておかないと
- * 実行時に見つからない。登録は `graalvm/GraphQlReflectionFeature` が
- * イメージのビルド時にまとめて行う。
+ * 結線は graphql-java-tools (kickstart) がリフレクションで行う。native バイナリは
+ * 到達可能性を静的に解析するので、この経路に入るクラスは
+ * `graalvm/GraphQlReflectionFeature` がイメージのビルド時にまとめて登録する。
+ * それで足りるかは native バイナリで動作確認すること。
  */
 class GraphQlEngine private constructor(
     private val graphQl: GraphQL,

@@ -6,11 +6,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * native-image のリフレクション登録が漏れていないかを JVM のテストで見る。
+ * native-image のリフレクション登録から漏れているものが無いかを JVM のテストで見る。
  *
- * 本体（[GraphQlReflectionFeature]）が動くのはイメージのビルド中だけで、
- * 登録が漏れても native バイナリを起動するまで分からない。走査の部分だけを
- * ここで確かめておけば、パッケージを移した時点で気付ける。
+ * 本体（[GraphQlReflectionFeature]）が動くのはイメージのビルド中だけなので、
+ * JVM のテストからは動かせない。走査の部分だけをここで確かめておけば、
+ * パッケージを移した時点で気付ける。
+ *
+ * 登録が足りているかどうか自体はここでは分からない。それは native バイナリを
+ * 動かして確かめる。
  */
 class GraphQlReflectionTargetsTest {
     @Test
@@ -48,8 +51,8 @@ class GraphQlReflectionTargetsTest {
             "リゾルバの実装が $EXPECTED_RESOLVER_IMPLS 個未満しか見つからない: $implementations",
         )
 
-        // 実装を別のパッケージに移すと登録から外れ、native バイナリでだけ
-        // そのフィールドが解決できなくなる
+        // 実装を別のパッケージに移すと登録から外れる。JVM のテストには影響しないので、
+        // ここで見ておかないと気付く手段が無くなる
         assertEquals(
             emptyList(),
             implementations.filterNot { it in scanned },
