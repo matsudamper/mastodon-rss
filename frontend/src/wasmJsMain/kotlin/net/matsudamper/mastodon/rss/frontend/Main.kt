@@ -8,10 +8,10 @@ import androidx.navigation3.ui.NavDisplay
 import kotlinx.browser.document
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigator
-import net.matsudamper.mastodon.rss.frontend.screen.AdminScreen
 import net.matsudamper.mastodon.rss.frontend.screen.HomeScreen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundScreen
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountScreen
+import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreen
 import net.matsudamper.mastodon.rss.frontend.ui.AppTheme
 
 @OptIn(ExperimentalComposeUiApi::class)

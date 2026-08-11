@@ -26,12 +26,14 @@ flowchart TB
         nodeinfo["nodeinfo<br/>GET /.well-known/nodeinfo<br/>GET /nodeinfo/2.1"]
         sig["httpsignature<br/>HttpSignatureVerifier<br/>HttpSignatureSigner<br/>SigningString<br/>BodyDigest"]
         delivery["delivery<br/>HttpActivityDelivery"]
+        admin["admin<br/>POST /api/admin/login<br/>AdminSessions"]
         static["staticfiles<br/>StaticFiles<br/>staticRoutes"]
     end
 
     subgraph crypto[":backend:crypto"]
         keys["RsaKeys<br/>鍵ペア生成 / PEM 入出力"]
         sign["RsaSignature<br/>SHA256withRSA"]
+        pass["PasswordHash<br/>PBKDF2-HMAC-SHA256"]
     end
 
     subgraph repository[":backend:repository"]
@@ -69,6 +71,8 @@ flowchart TB
     actor --> keys
     module --> inbox
     module --> nodeinfo
+    module --> admin
+    admin -->|パスワードの照合| pass
     inbox --> sig
     inbox -->|Follow に Accept| delivery
     delivery -->|送信の署名| sig
@@ -175,8 +179,39 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | --- | --- |
 | `/` | トップ |
 | `/@{name}` | アカウント画面。フィードの取得状況と配信した記事 |
-| `/admin` | 管理画面。中身は Phase 8 で作る |
+| `/admin` | 管理画面。ログインが要る。中身はログインまでで、その先は Phase 8 |
 | それ以外 | 見つからない（HTTP は 200 のまま） |
+
+### 管理画面のログイン
+
+`/admin` にはログインが要る。パスワード 1 つで、ユーザー名は無い。
+
+パスワードそのものはサーバーに置かず、ハッシュを `ADMIN_PASSWORD_HASH` に入れる。
+ハッシュは標準入力にパスワードを渡して作る。引数にするとシェルの履歴と `ps` に平文で残る。
+
+```sh
+# 表示された 1 行がそのまま ADMIN_PASSWORD_HASH の値
+./gradlew --quiet :backend:crypto:passwordHash
+```
+
+手元で試すときは `ADMIN_COOKIE_SECURE=false` を付ける。既定ではセッション Cookie に
+`Secure` が付き、`http://localhost:8080` ではブラウザが Cookie を保存しないので、
+ログインしてもログインしていない状態のままになる。
+
+```sh
+DOMAIN=example.com \
+STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
+ADMIN_PASSWORD_HASH='pbkdf2-sha256:...' \
+ADMIN_COOKIE_SECURE=false \
+  ./gradlew :backend:run
+```
+
+`ADMIN_PASSWORD_HASH` が未設定でも起動する。最初のハッシュを作る前に起動できないと
+先に進めないため。この場合はログインできず、画面と起動ログにその旨が出る。
+
+ログイン後に出るのは「ログイン済み」だけ。フィードの登録や配信状況は、管理 API（GraphQL）を
+作ってから繋ぐ。セッションの持ち方と Cookie の扱いは
+[docs/architecture.md](docs/architecture.md) を参照。
 
 画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
 Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。
@@ -196,6 +231,9 @@ Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み
 | `ACTOR_USERNAME` | `admin` | アクターのユーザー名。`acct:<name>@<DOMAIN>` と `/users/<name>` に入る |
 | `ACTOR_PRIVATE_KEY_PATH` | `./data/actor-private-key.pem` | アクターの秘密鍵 (PEM)。無ければ起動時に生成して書き出す |
 | `ACTOR_PRIVATE_KEY_PEM` | なし | 秘密鍵の PEM を直接渡す場合に使う。`ACTOR_PRIVATE_KEY_PATH` とは併用できない |
+| `STATIC_SRC_DIR` | なし | 配信する静的ファイルのディレクトリ。未設定なら何も配信しない |
+| `ADMIN_PASSWORD_HASH` | なし | 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない |
+| `ADMIN_COOKIE_SECURE` | `true` | セッション Cookie に `Secure` を付けるか。手元で http で試すときだけ `false` にする |
 
 `DOMAIN` は scheme と末尾の `/` を書いても落として扱う。未設定だと起動しない。
 `ACTOR_USERNAME` に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`。

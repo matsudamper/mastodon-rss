@@ -1039,6 +1039,25 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
         未設定の間だけハッシュ生成を認証なしで開ける。設定後はログインした人だけ
       - セッションの持ち方（メモリ上のトークン / 署名付き Cookie）は実装時に決める
       - 総当たり対策（試行回数の制限）は Phase 7 で入れる
+
+      ログインの仕組みは実装済み。守る対象の管理 API がまだ無いので、チェックは付けない。
+
+      - できているもの
+        - `GET /api/admin/session` / `POST /api/admin/login` / `POST /api/admin/logout`。
+          ログインは GraphQL に入れない。認証が無いと叩けない口の中に認証そのものを置くと、
+          未ログインでも通す例外をスキーマ側に作ることになる
+        - セッションはメモリ上のトークン（`admin/AdminSessions.kt`、期限 12 時間）。
+          署名付き Cookie は署名鍵の設定が増えるうえ、鍵を固定するとログアウトさせる手段が
+          無くなるので取らなかった。サーバー 1 台なら再起動でログインし直しになるだけで済む
+        - Cookie は `HttpOnly` + `SameSite=Strict`。`Secure` は既定で付け、
+          手元で http で試すときだけ `ADMIN_COOKIE_SECURE=false` で外す。
+          リバースプロキシの後ろでは scheme が http に見えるので、サーバーからは判定できない
+        - 画面は `/admin`（`:frontend` の `screen/admin/`）。ログイン後は「ログイン済み」と出すだけ
+      - 残っているもの
+        - GraphQL 側の認可。作るときに `AdminSessions` で見る
+        - ハッシュ生成を画面から。いまは `./gradlew --quiet :backend:crypto:passwordHash`
+          （標準入力にパスワードを渡す）で作る。未設定の間だけ開ける口は作っていない
+        - 総当たり対策（Phase 7）
 - [x] 画面遷移を Navigation Compose 3 にする
       - `org.jetbrains.androidx.navigation3:navigation3-ui`（JetBrains 版。wasmJs 向けの成果物がある）
       - 画面のキーを sealed interface で定義し、`NavDisplay` + バックスタックで切り替える
@@ -1052,6 +1071,9 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
+
+      `/api` の転送だけ入れた（`frontend/webpack.config.d/dev-server-proxy.js`）。
+      ログインがそこを通るため。`/graphql` は口を作るときに同じ配列へ足す。
 - [ ] Compose でフィード一覧 / 追加 / 削除
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
 - [ ] フィードのプレビュー（投稿前にどう見えるか）

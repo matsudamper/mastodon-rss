@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose)
 }
 
@@ -36,9 +37,13 @@ kotlin {
                 // 画面遷移。JetBrains 版の Navigation 3（wasmJs 向けの成果物がある）。
                 // runtime は推移的に androidx.navigation3 から入る
                 implementation(libs.navigation3.ui)
-                // 日本語フォントを配信元から取ってくるのに使う。詳細は ui/Font.kt を参照
+                // 日本語フォントを配信元から取ってくるのと、管理画面のログイン API を叩くのに使う。
+                // 詳細は ui/Font.kt と api/AdminApi.kt を参照
                 implementation(libs.ktor.client.core)
                 implementation(libs.ktor.client.js)
+                // ログイン API の本文を読み書きする。ktor の ContentNegotiation は入れず、
+                // serializer を明示して使う（理由は :backend の json/JsonResponse.kt と同じ）
+                implementation(libs.kotlinx.serialization.json)
                 // document 等のブラウザ API。Kotlin/Wasm では stdlib から分離されている
                 implementation(libs.kotlinx.browser)
             }

@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss
 
 import net.matsudamper.mastodon.rss.actor.ActorUsername
+import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import java.nio.file.Path
 
 /**
@@ -107,6 +108,45 @@ class ServerEnv(
         run {
             val raw = env["STATIC_SRC_DIR"]?.trim()
             if (raw.isNullOrEmpty()) null else Path.of(raw)
+        }
+
+    /**
+     * 管理画面のログインに使うパスワードハッシュ。未設定なら null で、この場合はログインできない。
+     *
+     * 未設定でも起動する。最初のハッシュを作る手段が他に無いので、
+     * 設定していない状態を異常にすると先に進めない。画面には未設定である旨を出す。
+     *
+     * 形式が壊れているときは落とす。ログインが必ず失敗するだけの値を抱えると、
+     * パスワードを間違えたのか設定を間違えたのかが区別できなくなる。
+     */
+    val adminPasswordHash: PasswordHash? =
+        run {
+            val raw = env["ADMIN_PASSWORD_HASH"]?.trim()
+            if (raw.isNullOrEmpty()) null else PasswordHash.parse(raw)
+        }
+
+    /**
+     * 管理画面のセッション Cookie に `Secure` を付けるか。
+     *
+     * 既定は付ける。本番はリバースプロキシで HTTPS を終端する前提で、そこを
+     * 平文で流すと Cookie ごと持って行かれる。プロキシの後ろでは
+     * リクエストの scheme が http に見えるので、サーバー側からは判定できない。
+     *
+     * 付けたままだと http では Cookie が保存されず、ログインしても
+     * ログインしていない状態のままになる。手元で `localhost:8080` を開いて
+     * 試すときだけ false にする。
+     */
+    val adminCookieSecure: Boolean =
+        run {
+            val raw = env["ADMIN_COOKIE_SECURE"]?.trim()
+            if (raw.isNullOrEmpty()) {
+                true
+            } else {
+                // 綴りを間違えたまま false のつもりで動くと、Cookie が平文で流れる。
+                // 読めない値は既定に落とさず落とす
+                raw.lowercase().toBooleanStrictOrNull()
+                    ?: throw IllegalArgumentException("ADMIN_COOKIE_SECURE は true か false にすること: $raw")
+            }
         }
 
     /**

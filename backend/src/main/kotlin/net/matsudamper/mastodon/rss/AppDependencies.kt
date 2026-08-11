@@ -6,6 +6,7 @@ import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
 import net.matsudamper.mastodon.rss.actor.RemoteActors
+import net.matsudamper.mastodon.rss.admin.AdminSessions
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
@@ -31,6 +32,9 @@ import net.matsudamper.mastodon.rss.repository.createRepositories
  *   `Accept` の宛先になる inbox をここから取る。本番は [HttpRemoteActors] が
  *   相手のサーバーに GET しに行く
  * @param delivery こちらから相手の inbox に POST する口
+ * @param adminSessions 管理画面のログイン済みセッション。メモリ上に持つので、
+ *   サーバーの再起動でログインし直しになる。既定のまま使うが、期限の扱いを
+ *   テストから見るために差し替えられるようにしている
  */
 class AppDependencies(
     val repositories: Repositories,
@@ -38,6 +42,7 @@ class AppDependencies(
     val env: ServerEnv,
     val remoteActors: RemoteActors,
     val delivery: ActivityDelivery,
+    val adminSessions: AdminSessions = AdminSessions(),
 ) : AutoCloseable {
     /**
      * ドメインはアクター ID に焼き込まれ、Mastodon 側にキャッシュされると後から変えられない。

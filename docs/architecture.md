@@ -79,7 +79,7 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 | --- | --- |
 | `/` | トップ |
 | `/@{name}` | アカウント画面 |
-| `/admin` 以下 | 管理画面。認証を掛ける対象（Phase 8） |
+| `/admin` 以下 | 管理画面。ログインが要る |
 | それ以外 | 見つからない |
 
 アカウント画面を `/@{name}` にして ActivityPub の `/users/{name}` と分けているのは、
@@ -97,6 +97,49 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 日本語のフォントは静的ファイルと一緒に `/fonts/` で配信し、起動後に取ってきて
 `FontFamily` を組み立てる（`:frontend` の `ui/Font.kt`）。配信するファイルの置き場を
 管理画面専用にせず `STATIC_SRC_DIR` にまとめてあるのは、こういうものが入るため。
+
+## 管理画面のログイン
+
+パスワード 1 つとセッションで見る。ユーザー名は無い。管理画面を開くのは運用者だけで、
+名前を足しても覚えるものが増えるだけになる。
+
+パスワードそのものは持たず、`ADMIN_PASSWORD_HASH` にハッシュ（PBKDF2-HMAC-SHA256、
+`:backend:crypto` の `PasswordHash`）を入れる。ハッシュは
+`./gradlew --quiet :backend:crypto:passwordHash` で作る。
+
+未設定でも起動する。最初のハッシュを作る前に起動できないと先に進めないため。
+この場合はログインできず、画面には設定方法が出る。起動ログにも警告を出す。
+
+```mermaid
+sequenceDiagram
+    participant B as ブラウザ（/admin）
+    participant S as :backend
+
+    B->>S: GET /api/admin/session
+    S-->>B: loggedIn: false, passwordConfigured: true
+    Note over B: ログインの入力を出す
+    B->>S: POST /api/admin/login（パスワード）
+    Note over S: PBKDF2 を 21 万回（Dispatchers.IO で回す）
+    S-->>B: Set-Cookie: admin_session（HttpOnly, SameSite=Strict）
+    Note over B: 以降のリクエストにブラウザが Cookie を付ける
+```
+
+セッションはメモリ上のトークン（`AdminSessions`）で、期限は 12 時間。署名付き Cookie に
+して状態を持たない形も選べるが、署名鍵をどこから渡すかという設定が増えるうえ、鍵を固定すると
+ログアウトさせる手段が無くなる（発行済みの Cookie が期限まで有効なまま残る）。サーバーは 1 台で
+再起動も稀なので、再起動でログインし直しになる代わりに設定が増えない方を選んでいる。
+
+ログインの口は GraphQL（Phase 8）には入れない。認証が無いと叩けない口の中に認証そのものを
+置くと、未ログインでも通す例外をスキーマ側に作ることになる。フィードの CRUD などの管理 API は
+`/graphql` に寄せ、そちらの認可は `AdminSessions` で見る。
+
+Cookie の `Secure` は既定で付ける。本番はリバースプロキシで HTTPS を終端する前提だが、
+プロキシの後ろではリクエストの scheme が http に見えるのでサーバーからは判定できない。
+手元で `localhost:8080` を平文で開いて試すときだけ `ADMIN_COOKIE_SECURE=false` にする。
+付けたまま http で開くと、ブラウザが Cookie を保存せず、ログインしてもログインしていない
+状態のままになる。
+
+総当たり対策（試行回数の制限）はまだ無い。Phase 7 で入れる。
 
 ## 起動時の流れ
 

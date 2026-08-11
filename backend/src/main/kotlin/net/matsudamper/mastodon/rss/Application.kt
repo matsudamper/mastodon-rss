@@ -10,6 +10,7 @@ import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorUsername
 import net.matsudamper.mastodon.rss.actor.actorRoutes
+import net.matsudamper.mastodon.rss.admin.adminRoutes
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
@@ -76,6 +77,10 @@ fun Application.module(deps: AppDependencies) {
     // 黙って 404 になると、設定し忘れなのか置き忘れなのかが分からない
     val staticFiles = resolveStaticFiles(env.staticSrcDir)
 
+    // ログインできるかどうかは画面を開くまで分からない。
+    // 設定し忘れに起動時点で気付けるよう、状態を出しておく
+    logAdminLogin(env)
+
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
     // native-image で解決できず 500 になる。詳細は json/JsonResponse.kt を参照
     routing {
@@ -92,8 +97,39 @@ fun Application.module(deps: AppDependencies) {
 
         nodeInfoRoutes(env.domain)
 
+        // 管理画面のログイン。画面自体は静的ファイルの配信に落ちるので、
+        // ここにあるのはログインの状態を出し入れする口だけ
+        adminRoutes(
+            passwordHash = env.adminPasswordHash,
+            sessions = deps.adminSessions,
+            cookieSecure = env.adminCookieSecure,
+        )
+
         // 残り全部を受けるので最後に置く
         staticRoutes(staticFiles)
+    }
+}
+
+/**
+ * 管理画面にログインできる状態かを起動ログに出す。
+ *
+ * `ADMIN_PASSWORD_HASH` が未設定でも起動する。最初のハッシュを作る手段が
+ * 他に無いためだが、黙って起動すると設定し忘れに気付けない。
+ */
+private fun Application.logAdminLogin(env: ServerEnv) {
+    if (env.adminPasswordHash == null) {
+        log.warn("ADMIN_PASSWORD_HASH が未設定なので管理画面にログインできない")
+        return
+    }
+
+    if (env.adminCookieSecure) {
+        log.info("管理画面のログインを受け付ける。セッション Cookie には Secure を付ける")
+    } else {
+        // 本番でこれが出ていたら、Cookie が平文で流れる状態になっている
+        log.warn(
+            "管理画面のログインを受け付ける。ADMIN_COOKIE_SECURE=false なので" +
+                "セッション Cookie に Secure を付けない。http で試すとき以外は外すこと",
+        )
     }
 }
 
