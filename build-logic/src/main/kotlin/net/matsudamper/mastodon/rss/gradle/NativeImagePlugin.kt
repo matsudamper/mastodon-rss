@@ -42,6 +42,9 @@ class NativeImagePlugin : Plugin<Project> {
             target.tasks.register<RepairNativeImageLauncherTask>("repairNativeImageLauncher") {
                 description = "Gradle が用意した GraalVM の native-image を使える状態に直す"
                 javaLauncher.set(graalVmLauncher)
+                // 直す先は共有された JDK なので、モジュールごとに走る分が同時に
+                // 同じディレクトリを触る。途中のファイルの名前を分ける
+                temporaryNameSuffix.set(target.path.trim(':').replace(':', '-'))
             }
 
         target.extensions.configure<GraalVMExtension> {
