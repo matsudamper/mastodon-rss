@@ -8,6 +8,19 @@ pluginManagement {
         mavenCentral()
         google()
     }
+
+    resolutionStrategy {
+        eachPlugin {
+            // Apollo 5.x のプラグインマーカーは Gradle Plugin Portal に実体が無く、
+            // Maven Central へ 303 で飛ばされる（4.x はポータルが直接返していた）。
+            // このリダイレクトの扱いは環境によって差があり、CI では
+            // 「could not resolve plugin artifact」でビルドが落ちた。
+            // マーカーを引かずに実体を直接指せば、どこから引いても同じ結果になる
+            if (requested.id.id == "com.apollographql.apollo") {
+                useModule("com.apollographql.apollo:apollo-gradle-plugin:${requested.version}")
+            }
+        }
+    }
 }
 
 dependencyResolutionManagement {
