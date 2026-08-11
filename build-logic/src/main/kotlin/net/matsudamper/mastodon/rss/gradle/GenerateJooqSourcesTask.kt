@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.gradle
 
+import java.io.File
+import javax.inject.Inject
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
@@ -16,8 +18,6 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.jvm.toolchain.JavaLauncher
 import org.gradle.process.ExecOperations
-import java.io.File
-import javax.inject.Inject
 
 /**
  * jOOQ の生成コードを作る。

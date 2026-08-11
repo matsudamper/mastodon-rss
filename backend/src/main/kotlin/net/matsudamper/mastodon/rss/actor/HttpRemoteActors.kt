@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.actor
 
+import java.io.Closeable
+import kotlinx.serialization.Serializable
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -11,14 +13,12 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.http.isSuccess
-import kotlinx.serialization.Serializable
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.repository.ExpiringCache
 import net.matsudamper.mastodon.rss.repository.createExpiringCache
-import java.io.Closeable
 
 /**
  * 相手のアクター文書を実際に GET して、公開鍵と inbox を取る。

@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss
 
-import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import java.security.KeyPair
+import net.matsudamper.mastodon.rss.crypto.RsaKeys
 
 /**
  * 署名付きのリクエストを送ってくる相手の想定。

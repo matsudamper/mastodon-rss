@@ -1,5 +1,9 @@
 package net.matsudamper.mastodon.rss.delivery
 
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlinx.coroutines.runBlocking
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.cio.CIO
@@ -10,16 +14,12 @@ import io.ktor.server.request.uri
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import kotlinx.coroutines.runBlocking
 import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
 
 /**
  * 実際に HTTP を張って送る側。

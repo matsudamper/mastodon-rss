@@ -63,11 +63,11 @@ internal fun actorDocument(
         following = urls.following,
         url = urls.actorId,
         publicKey =
-            ActorPublicKey(
-                id = urls.publicKeyId,
-                owner = urls.actorId,
-                publicKeyPem = actorKey.publicKeyPem,
-            ),
+        ActorPublicKey(
+            id = urls.publicKeyId,
+            owner = urls.actorId,
+            publicKeyPem = actorKey.publicKeyPem,
+        ),
     )
 
 private const val SUMMARY = "RSS/Atom フィードを ActivityPub で配信するアカウント"

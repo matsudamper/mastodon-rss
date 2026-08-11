@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.graphql
 
+import kotlin.test.Test
+import kotlin.test.assertEquals
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -8,8 +10,6 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.testDependencies
-import kotlin.test.Test
-import kotlin.test.assertEquals
 
 // 口そのものの振る舞いを確認する。中身（管理画面のフィールド）は AdminGraphQlTest 側。
 class GraphQlRoutesTest {

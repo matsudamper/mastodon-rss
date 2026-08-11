@@ -1,5 +1,13 @@
 package net.matsudamper.mastodon.rss.staticfiles
 
+import java.nio.file.Files
+import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.deleteRecursively
+import kotlin.io.path.writeText
+import kotlin.test.AfterTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -10,14 +18,6 @@ import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.testDependencies
-import java.nio.file.Files
-import java.nio.file.Path
-import kotlin.io.path.createDirectories
-import kotlin.io.path.deleteRecursively
-import kotlin.io.path.writeText
-import kotlin.test.AfterTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
 
 // root から静的ファイルを配信するところを確認する。
 // パスの解決そのものは StaticFilesTest 側で見るので、ここは HTTP から見た形だけ。

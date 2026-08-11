@@ -38,9 +38,9 @@ fun AppScaffold(
 ) {
     Column(
         modifier =
-            Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
     ) {
         AppHeader(onNavigate = onNavigate)
 
@@ -50,17 +50,17 @@ fun AppScaffold(
 
             Column(
                 modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = outerPadding, vertical = outerPadding),
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = outerPadding, vertical = outerPadding),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Column(
                     modifier =
-                        Modifier
-                            .widthIn(max = ContentMaxWidth)
-                            .fillMaxWidth(),
+                    Modifier
+                        .widthIn(max = ContentMaxWidth)
+                        .fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     content = { content(wide) },
                 )
@@ -78,9 +78,9 @@ private fun AppHeader(onNavigate: (Screen) -> Unit) {
         Column {
             Row(
                 modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {

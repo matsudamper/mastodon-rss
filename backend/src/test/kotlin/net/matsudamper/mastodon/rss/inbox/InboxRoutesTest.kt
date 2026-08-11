@@ -1,5 +1,11 @@
 package net.matsudamper.mastodon.rss.inbox
 
+import java.time.Instant
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -8,8 +14,6 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
@@ -20,10 +24,6 @@ import net.matsudamper.mastodon.rss.httpsignature.TestSigning
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.testDependencies
-import java.time.Instant
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 // 相手のサーバーからアクティビティが POST されてくる口。
 // 署名が通ったかどうかが、送り主を確かめる唯一の根拠になる。
@@ -101,13 +101,13 @@ class InboxRoutesTest {
                 postInbox(
                     body = body,
                     headers =
-                        TestSigning
-                            .headers(
-                                requestTarget = "/users/admin/inbox",
-                                host = host,
-                                date = Instant.now(),
-                                body = body,
-                            ).filterKeys { it != "Signature" },
+                    TestSigning
+                        .headers(
+                            requestTarget = "/users/admin/inbox",
+                            host = host,
+                            date = Instant.now(),
+                            body = body,
+                        ).filterKeys { it != "Signature" },
                 )
 
             assertEquals(HttpStatusCode.Unauthorized, response.status)
@@ -143,12 +143,12 @@ class InboxRoutesTest {
                 postInbox(
                     body = """{"type":"Undo"}""".toByteArray(),
                     headers =
-                        TestSigning.headers(
-                            requestTarget = "/users/admin/inbox",
-                            host = host,
-                            date = Instant.now(),
-                            body = signed,
-                        ),
+                    TestSigning.headers(
+                        requestTarget = "/users/admin/inbox",
+                        host = host,
+                        date = Instant.now(),
+                        body = signed,
+                    ),
                 )
 
             assertEquals(HttpStatusCode.Unauthorized, response.status)

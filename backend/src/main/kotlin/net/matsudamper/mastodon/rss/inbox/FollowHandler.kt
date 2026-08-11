@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.inbox
 
+import java.util.UUID
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activitypub.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
@@ -11,7 +12,6 @@ import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
 import net.matsudamper.mastodon.rss.json.AppJson
 import org.slf4j.LoggerFactory
-import java.util.UUID
 
 /**
  * `Follow` を受けたときの処理。

@@ -1,9 +1,9 @@
 package net.matsudamper.mastodon.rss.actor
 
-import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import java.nio.file.Path
 import java.security.PrivateKey
 import java.security.PublicKey
+import net.matsudamper.mastodon.rss.crypto.RsaKeys
 
 /**
  * アクターが持つ鍵。

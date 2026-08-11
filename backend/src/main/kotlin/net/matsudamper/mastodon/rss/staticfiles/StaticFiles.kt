@@ -1,9 +1,9 @@
 package net.matsudamper.mastodon.rss.staticfiles
 
-import io.ktor.http.ContentType
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
+import io.ktor.http.ContentType
 
 /**
  * [root] の下から、リクエストのパスに対応するファイルを引く。

@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss
 
+import java.nio.file.Path
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.application.log
@@ -19,7 +20,6 @@ import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
-import java.nio.file.Path
 
 fun main() {
     // 環境変数を読むのはここだけ。以降は引数で配る。

@@ -1,5 +1,8 @@
 package net.matsudamper.mastodon.rss.webfinger
 
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
@@ -9,9 +12,6 @@ import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.testDependencies
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 // アカウント発見の 1 ホップ目。ここが 404 だと Mastodon の検索に何も出ない。
 class WebFingerRoutesTest {

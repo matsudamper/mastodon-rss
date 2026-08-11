@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.graphql
 
+import kotlinx.serialization.json.JsonObject
 import graphql.ExecutionInput
 import graphql.GraphQL
 import graphql.schema.DataFetchingEnvironment
@@ -8,7 +9,6 @@ import graphql.schema.idl.SchemaGenerator
 import graphql.schema.idl.SchemaParser
 import graphql.schema.idl.TypeDefinitionRegistry
 import io.ktor.server.application.ApplicationCall
-import kotlinx.serialization.json.JsonObject
 
 /**
  * リゾルバは [RuntimeWiring] に明示して結線し、フィールドの値は `Map` で返すこと。

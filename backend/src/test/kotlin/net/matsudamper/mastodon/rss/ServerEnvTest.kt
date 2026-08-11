@@ -1,6 +1,5 @@
 package net.matsudamper.mastodon.rss
 
-import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,6 +8,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
 // 環境変数の読み取りを確認する。読むのはここ 1 か所だけなので、
 // 変数と既定値の一覧としてもこのテストを見れば分かるようにしておく。

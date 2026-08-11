@@ -1,13 +1,13 @@
 package net.matsudamper.mastodon.rss.graphql
 
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 // ここが崩れると、実行は通っているのにレスポンスの形だけが変わる。
 class GraphQlValuesTest {

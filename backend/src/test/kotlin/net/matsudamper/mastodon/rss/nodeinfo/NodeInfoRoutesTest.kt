@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.nodeinfo
 
+import kotlin.test.Test
+import kotlin.test.assertEquals
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
@@ -8,8 +10,6 @@ import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.testDependencies
-import kotlin.test.Test
-import kotlin.test.assertEquals
 
 // 調査ツール向けの任意実装。無くても Mastodon からのフォローには影響しない。
 class NodeInfoRoutesTest {

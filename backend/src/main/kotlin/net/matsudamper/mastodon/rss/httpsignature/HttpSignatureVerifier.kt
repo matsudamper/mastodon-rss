@@ -1,9 +1,9 @@
 package net.matsudamper.mastodon.rss.httpsignature
 
-import io.ktor.http.HttpHeaders
-import net.matsudamper.mastodon.rss.crypto.RsaSignature
 import java.time.Clock
 import java.time.Duration
+import io.ktor.http.HttpHeaders
+import net.matsudamper.mastodon.rss.crypto.RsaSignature
 
 /**
  * 受信したリクエストの HTTP Signatures を検証する。

@@ -21,23 +21,23 @@ class AdminScreenViewModel(
             AdminScreenUiState(
                 content = AdminScreenUiState.Content.Loading,
                 listener =
-                    object : AdminScreenUiState.Listener {
-                        override fun onPasswordChanged(text: String) {
-                            viewModelStateFlow.update { it.copy(password = text, error = null) }
-                        }
+                object : AdminScreenUiState.Listener {
+                    override fun onPasswordChanged(text: String) {
+                        viewModelStateFlow.update { it.copy(password = text, error = null) }
+                    }
 
-                        override fun onClickLogin() {
-                            login()
-                        }
+                    override fun onClickLogin() {
+                        login()
+                    }
 
-                        override fun onClickLogout() {
-                            logout()
-                        }
+                    override fun onClickLogout() {
+                        logout()
+                    }
 
-                        override fun onClickRetry() {
-                            reload()
-                        }
-                    },
+                    override fun onClickRetry() {
+                        reload()
+                    }
+                },
             ),
         ).also { uiStateFlow ->
             viewModelScope.launch {

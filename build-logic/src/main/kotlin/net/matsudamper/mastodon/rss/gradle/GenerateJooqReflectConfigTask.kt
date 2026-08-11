@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.gradle
 
+import java.io.File
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
@@ -10,7 +11,6 @@ import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
-import java.io.File
 
 /**
  * 生成コードの native-image 向けリフレクション設定を作る。

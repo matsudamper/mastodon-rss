@@ -124,8 +124,8 @@ private fun PlaceholderNotice() {
             )
             Text(
                 text =
-                    "実際の値になるのは、フィードの取り込み（Phase 5）と管理 API（Phase 8）を繋いでから。" +
-                        "ユーザー名と acct は URL から決まるので、こちらは本物。",
+                "実際の値になるのは、フィードの取り込み（Phase 5）と管理 API（Phase 8）を繋いでから。" +
+                    "ユーザー名と acct は URL から決まるので、こちらは本物。",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -155,26 +155,26 @@ private fun ProfileHeader(
         Column {
             Box(
                 modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(if (wide) 132.dp else 88.dp)
-                        .background(Brush.linearGradient(colors)),
+                Modifier
+                    .fillMaxWidth()
+                    .height(if (wide) 132.dp else 88.dp)
+                    .background(Brush.linearGradient(colors)),
             )
 
             Row(
                 modifier =
-                    Modifier
-                        .padding(horizontal = 20.dp)
-                        .offset(y = -avatarSize / 3),
+                Modifier
+                    .padding(horizontal = 20.dp)
+                    .offset(y = -avatarSize / 3),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Box(
                     modifier =
-                        Modifier
-                            .size(avatarSize)
-                            .clip(RoundedCornerShape(avatarSize / 4))
-                            .background(Brush.linearGradient(colors.reversed())),
+                    Modifier
+                        .size(avatarSize)
+                        .clip(RoundedCornerShape(avatarSize / 4))
+                        .background(Brush.linearGradient(colors.reversed())),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -204,9 +204,9 @@ private fun ProfileHeader(
 
             Column(
                 modifier =
-                    Modifier
-                        .padding(horizontal = 20.dp)
-                        .padding(bottom = 20.dp),
+                Modifier
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

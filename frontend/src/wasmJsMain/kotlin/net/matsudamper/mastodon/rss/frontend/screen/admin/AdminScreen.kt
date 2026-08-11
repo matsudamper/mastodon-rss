@@ -110,10 +110,10 @@ private fun LoginCard(
             enabled = !content.submitting,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions =
-                KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done,
-                ),
+            KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+            ),
             keyboardActions = KeyboardActions(onDone = { listener.onClickLogin() }),
             isError = content.error != null,
         )
@@ -141,8 +141,8 @@ private fun LoggedInCard(listener: AdminScreenUiState.Listener) {
     SectionCard(title = "ログイン済み") {
         Text(
             text =
-                "ここに入るのはフィードの登録・削除、アクターごとのフォロワー数と配信エラー、" +
-                    "手動での再取得。管理 API（GraphQL）を作ってから繋ぐ。",
+            "ここに入るのはフィードの登録・削除、アクターごとのフォロワー数と配信エラー、" +
+                "手動での再取得。管理 API（GraphQL）を作ってから繋ぐ。",
             style = MaterialTheme.typography.bodyMedium,
         )
 
@@ -159,8 +159,8 @@ private fun NotConfiguredCard() {
     SectionCard(title = "ログインできない") {
         Text(
             text =
-                "サーバーに ADMIN_PASSWORD_HASH が設定されていないので、ログインする手段が無い。" +
-                    "パスワードのハッシュを作って環境変数に入れ、サーバーを起動し直すこと。",
+            "サーバーに ADMIN_PASSWORD_HASH が設定されていないので、ログインする手段が無い。" +
+                "パスワードのハッシュを作って環境変数に入れ、サーバーを起動し直すこと。",
             style = MaterialTheme.typography.bodyMedium,
         )
 

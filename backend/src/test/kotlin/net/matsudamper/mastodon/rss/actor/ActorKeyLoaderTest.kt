@@ -1,8 +1,5 @@
 package net.matsudamper.mastodon.rss.actor
 
-import net.matsudamper.mastodon.rss.ServerEnv
-import net.matsudamper.mastodon.rss.crypto.RsaKeys
-import net.matsudamper.mastodon.rss.crypto.RsaSignature
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
@@ -14,6 +11,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import net.matsudamper.mastodon.rss.ServerEnv
+import net.matsudamper.mastodon.rss.crypto.RsaKeys
+import net.matsudamper.mastodon.rss.crypto.RsaSignature
 
 // 起動のたびに同じ鍵が返ることを確認する。
 // 鍵が入れ替わると相手側の署名検証が通らなくなるので、

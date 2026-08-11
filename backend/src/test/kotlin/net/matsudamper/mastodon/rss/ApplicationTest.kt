@@ -1,13 +1,13 @@
 package net.matsudamper.mastodon.rss
 
+import kotlin.test.Test
+import kotlin.test.assertEquals
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
-import kotlin.test.Test
-import kotlin.test.assertEquals
 
 // ルーティングとレスポンスの形を確認する。
 // DB そのものの挙動は :backend:repository 側でテストするので、

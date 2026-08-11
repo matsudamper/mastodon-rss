@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.delivery
 
+import java.io.Closeable
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -13,7 +14,6 @@ import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureSigner
-import java.io.Closeable
 
 /**
  * 実際に相手のサーバーへ POST する [ActivityDelivery]。

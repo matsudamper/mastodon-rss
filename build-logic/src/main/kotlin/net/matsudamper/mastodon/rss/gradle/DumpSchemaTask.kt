@@ -1,13 +1,13 @@
 package net.matsudamper.mastodon.rss.gradle
 
+import java.io.File
+import java.sql.Connection
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
-import java.io.File
-import java.sql.Connection
 
 /**
  * 開発用 DB から `schema.sql` を書き出す。スキーマを変えたときに手で叩く唯一のタスク。

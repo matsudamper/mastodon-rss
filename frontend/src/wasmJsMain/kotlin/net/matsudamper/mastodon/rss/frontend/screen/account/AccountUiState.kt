@@ -61,52 +61,52 @@ data class AccountUiState(
                 domain = domain,
                 displayName = username,
                 summary =
-                    when (kind) {
-                        // :backend の actorDocument が返す summary と同じ文面にしている。
-                        // 画面と Actor JSON で説明が違うと、どちらが本当か分からなくなる
-                        AccountKind.Test -> "動作確認用のアカウント。フォローしても何も流れない"
+                when (kind) {
+                    // :backend の actorDocument が返す summary と同じ文面にしている。
+                    // 画面と Actor JSON で説明が違うと、どちらが本当か分からなくなる
+                    AccountKind.Test -> "動作確認用のアカウント。フォローしても何も流れない"
 
-                        AccountKind.Feed -> "RSS/Atom フィードを ActivityPub で配信するアカウント"
-                    },
+                    AccountKind.Feed -> "RSS/Atom フィードを ActivityPub で配信するアカウント"
+                },
                 kind = kind,
                 followers = "128",
                 deliveredCount = "342",
                 lastDeliveredAt = "2026-08-09 11:02",
                 feed =
-                    FeedUiState(
-                        title = "サンプルフィード",
-                        feedUrl = "https://example.com/blog/feed.xml",
-                        siteUrl = "https://example.com/blog",
-                        format = "Atom 1.0",
-                        interval = "15 分ごと",
-                        lastFetchedAt = "2026-08-09 12:40",
-                        nextFetchAt = "2026-08-09 12:55",
-                        status = FetchStatus.Ok,
-                    ),
+                FeedUiState(
+                    title = "サンプルフィード",
+                    feedUrl = "https://example.com/blog/feed.xml",
+                    siteUrl = "https://example.com/blog",
+                    format = "Atom 1.0",
+                    interval = "15 分ごと",
+                    lastFetchedAt = "2026-08-09 12:40",
+                    nextFetchAt = "2026-08-09 12:55",
+                    status = FetchStatus.Ok,
+                ),
                 delivery =
-                    DeliveryUiState(
-                        queued = "0",
-                        failed = "0",
-                        lastError = null,
-                    ),
+                DeliveryUiState(
+                    queued = "0",
+                    failed = "0",
+                    lastError = null,
+                ),
                 articles =
-                    listOf(
-                        ArticleUiState(
-                            title = "フィードを ActivityPub で配信する",
-                            publishedAt = "2026-08-09 11:02",
-                            url = "https://example.com/blog/3",
-                        ),
-                        ArticleUiState(
-                            title = "HTTP Signatures の検証でつまずいたところ",
-                            publishedAt = "2026-08-08 20:15",
-                            url = "https://example.com/blog/2",
-                        ),
-                        ArticleUiState(
-                            title = "はじめての記事",
-                            publishedAt = "2026-08-07 09:30",
-                            url = "https://example.com/blog/1",
-                        ),
+                listOf(
+                    ArticleUiState(
+                        title = "フィードを ActivityPub で配信する",
+                        publishedAt = "2026-08-09 11:02",
+                        url = "https://example.com/blog/3",
                     ),
+                    ArticleUiState(
+                        title = "HTTP Signatures の検証でつまずいたところ",
+                        publishedAt = "2026-08-08 20:15",
+                        url = "https://example.com/blog/2",
+                    ),
+                    ArticleUiState(
+                        title = "はじめての記事",
+                        publishedAt = "2026-08-07 09:30",
+                        url = "https://example.com/blog/1",
+                    ),
+                ),
                 operatorUsername = OPERATOR_USERNAME,
                 placeholder = true,
             )

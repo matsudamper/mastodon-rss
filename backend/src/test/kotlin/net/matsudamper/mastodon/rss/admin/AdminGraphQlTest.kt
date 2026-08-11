@@ -1,5 +1,18 @@
 package net.matsudamper.mastodon.rss.admin
 
+import kotlin.test.Test
+import kotlin.test.assertContains
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -13,25 +26,12 @@ import io.ktor.http.contentType
 import io.ktor.http.setCookie
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import net.matsudamper.mastodon.rss.graphql.GRAPHQL_PATH
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.testDependencies
-import kotlin.test.Test
-import kotlin.test.assertContains
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 // 管理画面のログインを GraphQL の口から確認する。
 // Cookie の保存はクライアント側の実装に寄るので、テストでは Set-Cookie を自分で読んで付け直す。
@@ -210,8 +210,8 @@ class AdminGraphQlTest {
     private suspend fun ApplicationTestBuilder.mutateLogin(password: String): HttpResponse =
         graphQl(
             query =
-                "mutation Login(${'$'}password: String!) { admin { " +
-                    "login(password: ${'$'}password) { session { loggedIn passwordConfigured } failure } } }",
+            "mutation Login(${'$'}password: String!) { admin { " +
+                "login(password: ${'$'}password) { session { loggedIn passwordConfigured } failure } } }",
             variables = """{"password":${JsonPrimitive(password)}}""",
         )
 

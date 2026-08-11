@@ -1,13 +1,13 @@
 package net.matsudamper.mastodon.rss.activitypub
 
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import net.matsudamper.mastodon.rss.json.AppJson
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 // Undo や Accept の object のように、
 // URL 文字列と埋め込みオブジェクトの両方を取るフィールドを確認する。

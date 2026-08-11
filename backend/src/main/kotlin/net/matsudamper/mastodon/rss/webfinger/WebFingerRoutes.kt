@@ -37,20 +37,20 @@ fun Route.webFingerRoutes(directory: ActorDirectory) {
         call.respondJson(
             serializer = WebFingerResponse.serializer(),
             value =
-                WebFingerResponse(
-                    // 要求された綴りではなく正規の acct を返す。
-                    // 大文字小文字が混ざったまま返すと相手側の突き合わせで揺れる
-                    subject = urls.acct,
-                    aliases = listOf(urls.actorId),
-                    links =
-                        listOf(
-                            WebFingerLink(
-                                rel = WebFingerLink.REL_SELF,
-                                type = ActivityPubContentTypes.ActivityJson.toString(),
-                                href = urls.actorId,
-                            ),
-                        ),
+            WebFingerResponse(
+                // 要求された綴りではなく正規の acct を返す。
+                // 大文字小文字が混ざったまま返すと相手側の突き合わせで揺れる
+                subject = urls.acct,
+                aliases = listOf(urls.actorId),
+                links =
+                listOf(
+                    WebFingerLink(
+                        rel = WebFingerLink.REL_SELF,
+                        type = ActivityPubContentTypes.ActivityJson.toString(),
+                        href = urls.actorId,
+                    ),
                 ),
+            ),
             contentType = ActivityPubContentTypes.JrdJson,
         )
     }

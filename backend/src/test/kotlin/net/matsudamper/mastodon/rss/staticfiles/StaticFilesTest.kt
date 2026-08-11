@@ -1,6 +1,5 @@
 package net.matsudamper.mastodon.rss.staticfiles
 
-import io.ktor.http.ContentType
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -10,6 +9,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import io.ktor.http.ContentType
 
 class StaticFilesTest {
     /** 配信ディレクトリの外にファイルを置きたいので、1 段上を作っておく */
