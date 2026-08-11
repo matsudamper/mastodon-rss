@@ -24,6 +24,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.api.AdminApi
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
@@ -40,6 +41,11 @@ fun AdminScreen(onNavigate: (Screen) -> Unit) {
 
     val viewModel = remember(api, viewModelScope) { AdminScreenViewModel(viewModelScope, api) }
     val uiState by viewModel.uiStateFlow.collectAsState()
+
+    LifecycleStartEffect(Unit) {
+        viewModel.onStart()
+        onStopOrDispose {}
+    }
 
     AdminScreen(uiState = uiState, onNavigate = onNavigate)
 }

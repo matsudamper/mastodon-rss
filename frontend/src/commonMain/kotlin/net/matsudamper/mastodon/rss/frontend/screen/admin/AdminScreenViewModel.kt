@@ -49,7 +49,8 @@ class AdminScreenViewModel(
             }
         }.asStateFlow()
 
-    init {
+
+    fun onStart() {
         reload()
     }
 
