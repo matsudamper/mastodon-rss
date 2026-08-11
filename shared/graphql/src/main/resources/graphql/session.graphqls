@@ -1,6 +1,0 @@
-type AdminSession {
-    loggedIn: Boolean!
-
-    "サーバーに ADMIN_PASSWORD_HASH が設定されているか"
-    passwordConfigured: Boolean!
-}

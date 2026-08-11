@@ -3,11 +3,15 @@ type AdminMutation {
     login(password: String!): AdminLoginResult!
 
     "サーバー側のセッションも消える"
-    logout: AdminSession!
+    logout: AdminLogoutResult!
+}
+
+type AdminLogoutResult {
+    isSuccess: Boolean!
 }
 
 type AdminLoginResult {
-    session: AdminSession!
+    isSuccess: Boolean!
     failure: AdminLoginFailure
 }
 
