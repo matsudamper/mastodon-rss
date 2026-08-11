@@ -1,51 +1,38 @@
-"問い合わせ。管理用は admin の下にまとめる"
 type Query {
     admin: AdminQuery!
 }
 
-"更新。管理用は admin の下にまとめる"
 type Mutation {
     admin: AdminMutation!
 }
 
 type AdminQuery {
-    "いまログインしているか。ログインしていなくても引ける"
     session: AdminSession!
 }
 
 type AdminMutation {
-    """
-    パスワードを送ってログインする。認可はフィールドごとに見るので、これだけは認証を要求しない。
-    通るとセッションの Cookie が返る。
-    """
+    "通るとセッションの Cookie が返る"
     login(password: String!): AdminLoginResult!
 
-    "ログアウトする。サーバー側のセッションも消える"
+    "サーバー側のセッションも消える"
     logout: AdminSession!
 }
 
 type AdminSession {
     loggedIn: Boolean!
 
-    """
-    サーバーに ADMIN_PASSWORD_HASH が設定されているか。
-    未設定の間はログインする手段が無いので、パスワードが違うのとは分けて扱う。
-    """
+    "サーバーに ADMIN_PASSWORD_HASH が設定されているか"
     passwordConfigured: Boolean!
 }
 
 type AdminLoginResult {
-    "送った後の状態"
     session: AdminSession!
-
-    "通らなかった理由。通ったときは null"
     failure: AdminLoginFailure
 }
 
 enum AdminLoginFailure {
-    "入れ直せば通る"
     WRONG_PASSWORD
 
-    "ADMIN_PASSWORD_HASH が未設定。入れ直しても通らない"
+    "ADMIN_PASSWORD_HASH が未設定"
     NOT_CONFIGURED
 }
