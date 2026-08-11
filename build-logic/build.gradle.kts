@@ -20,5 +20,10 @@ gradlePlugin {
             id = "mastodon-rss.database-codegen"
             implementationClass = "net.matsudamper.mastodon.rss.gradle.DatabaseCodegenPlugin"
         }
+
+        create("graphQlSchemaList") {
+            id = "mastodon-rss.graphql-schema-list"
+            implementationClass = "net.matsudamper.mastodon.rss.gradle.GraphQlSchemaListPlugin"
+        }
     }
 }

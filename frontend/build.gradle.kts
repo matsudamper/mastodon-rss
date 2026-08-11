@@ -53,11 +53,14 @@ kotlin {
     }
 }
 
+// 問い合わせ（src/commonMain/graphql/*.graphql）はこのモジュールが持つ。
+// スキーマは :backend:graphql のものをファイルとして読むだけで、依存はしない。
+// 写しを持たないので、片方にだけフィールドがある状態にはならない
 apollo {
     service("admin") {
         packageName.set("net.matsudamper.mastodon.rss.frontend.graphql")
         schemaFiles.from(
-            rootProject.fileTree("shared/graphql/src/main/resources/graphql") { include("*.graphqls") },
+            rootProject.fileTree("backend/graphql/src/main/resources/graphql") { include("*.graphqls") },
         )
     }
 }

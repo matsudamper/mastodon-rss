@@ -11,9 +11,12 @@ import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorUsername
 import net.matsudamper.mastodon.rss.actor.actorRoutes
-import net.matsudamper.mastodon.rss.admin.AdminGraphQl
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
+import net.matsudamper.mastodon.rss.graphql.resolver.AdminMutationResolverImpl
+import net.matsudamper.mastodon.rss.graphql.resolver.AdminQueryResolverImpl
+import net.matsudamper.mastodon.rss.graphql.resolver.MutationResolverImpl
+import net.matsudamper.mastodon.rss.graphql.resolver.QueryResolverImpl
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
@@ -81,10 +84,18 @@ fun Application.module(deps: AppDependencies) {
 
     logAdminLogin(env)
 
+    // スキーマに載っているフィールドの数だけリゾルバが要る。結線の漏れは
+    // 起動時の makeExecutableSchema で落ちるので、ここに並べ忘れれば起動しない
     val graphQl =
         GraphQlEngine.create(
             listOf(
-                AdminGraphQl(
+                QueryResolverImpl(),
+                MutationResolverImpl(),
+                AdminQueryResolverImpl(
+                    passwordHash = env.adminPasswordHash,
+                    sessions = deps.adminSessions,
+                ),
+                AdminMutationResolverImpl(
                     passwordHash = env.adminPasswordHash,
                     sessions = deps.adminSessions,
                     cookieSecure = env.adminCookieSecure,

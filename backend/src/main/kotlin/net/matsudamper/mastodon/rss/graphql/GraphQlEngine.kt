@@ -3,21 +3,24 @@ package net.matsudamper.mastodon.rss.graphql
 import kotlinx.serialization.json.JsonObject
 import graphql.ExecutionInput
 import graphql.GraphQL
+import graphql.kickstart.tools.GraphQLResolver
+import graphql.kickstart.tools.SchemaParser
 import graphql.schema.DataFetchingEnvironment
-import graphql.schema.idl.RuntimeWiring
-import graphql.schema.idl.SchemaGenerator
-import graphql.schema.idl.SchemaParser
-import graphql.schema.idl.TypeDefinitionRegistry
 import io.ktor.server.application.ApplicationCall
 
 /**
- * リゾルバは [RuntimeWiring] に明示して結線し、フィールドの値は `Map` で返すこと。
- * リフレクション経路に入ると native バイナリでだけ壊れる。
+ * スキーマ優先。`:backend:graphql` がスキーマからモデルとリゾルバのインタフェースを作り、
+ * ここでは実装をスキーマに結び付けるだけにする。
+ *
+ * 結線は graphql-java-tools (kickstart) がリフレクションで行う。native バイナリでは
+ * 到達可能性を静的に解析するため、この経路に入るクラスは登録しておかないと
+ * 実行時に見つからない。登録は `graalvm/GraphQlReflectionFeature` が
+ * イメージのビルド時にまとめて行う。
  */
 class GraphQlEngine private constructor(
     private val graphQl: GraphQL,
 ) {
-    /** データフェッチャーは同期なので、呼ぶ側が `Dispatchers.IO` に載せること */
+    /** リゾルバは同期に済ませてあるので、呼ぶ側が `Dispatchers.IO` に載せること */
     fun execute(
         request: GraphQlRequest,
         call: ApplicationCall,
@@ -41,54 +44,56 @@ class GraphQlEngine private constructor(
     companion object {
         private val CALL_KEY = Any()
 
-        fun create(wirings: List<GraphQlWiring>): GraphQlEngine {
-            val registry = readSchema()
-
-            val runtimeWiring =
-                RuntimeWiring
-                    .newRuntimeWiring()
-                    .apply { wirings.forEach { it.contribute(this) } }
+        fun create(resolvers: List<GraphQLResolver<*>>): GraphQlEngine {
+            val schema =
+                SchemaParser
+                    .newParser()
+                    .schemaString(readSchema())
+                    .resolvers(resolvers)
                     .build()
+                    .makeExecutableSchema()
 
-            val schema = SchemaGenerator().makeExecutableSchema(registry, runtimeWiring)
             return GraphQlEngine(GraphQL.newGraphQL(schema).build())
         }
 
+        /** Cookie を読み書きするリゾルバはここから [ApplicationCall] を取る */
         fun DataFetchingEnvironment.applicationCall(): ApplicationCall {
             return requireNotNull(graphQlContext.get<ApplicationCall>(CALL_KEY)) {
                 "GraphQLContext に ApplicationCall が無い"
             }
         }
 
-        /** ディレクトリの列挙は native バイナリで効かないので、読むものを並べる */
-        private val SCHEMA_RESOURCES =
-            listOf(
-                "graphql/schema.graphqls",
-                "graphql/admin_query.graphqls",
-                "graphql/admin_mutation.graphqls",
-            )
+        /**
+         * スキーマは複数ファイルに分けてあるので、繋いで 1 つの文字列にする。
+         *
+         * どのファイルを読むかは `:backend:graphql` が作る一覧から引く。
+         * ディレクトリの列挙は native バイナリで効かないので、実行時には数え上げられない。
+         */
+        private fun readSchema(): String {
+            val fileNames =
+                readResource(SCHEMA_LIST_RESOURCE)
+                    .lineSequence()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .toList()
 
-        private fun readSchema(): TypeDefinitionRegistry {
-            val parser = SchemaParser()
+            check(fileNames.isNotEmpty()) { "$SCHEMA_LIST_RESOURCE が空。スキーマが 1 つも無い" }
 
-            return SCHEMA_RESOURCES.fold(TypeDefinitionRegistry()) { registry, resource ->
-                registry.merge(parser.parse(readResource(resource)))
-            }
+            return fileNames.joinToString(separator = "\n") { readResource("$SCHEMA_DIRECTORY/$it") }
         }
+
+        private const val SCHEMA_DIRECTORY = "graphql"
+        private const val SCHEMA_LIST_RESOURCE = "$SCHEMA_DIRECTORY/schema-list.txt"
 
         private fun readResource(resource: String): String {
             val stream =
                 GraphQlEngine::class.java.classLoader.getResourceAsStream(resource)
                     ?: throw IllegalStateException(
                         "$resource が見つからない。" +
-                            ":shared:graphql が classpath にあるか、native バイナリなら resource-config.json を確かめること",
+                            ":backend:graphql が classpath にあるか、native バイナリなら resource-config.json を確かめること",
                     )
 
             return stream.use { it.readBytes().decodeToString() }
         }
     }
-}
-
-fun interface GraphQlWiring {
-    fun contribute(builder: RuntimeWiring.Builder)
 }

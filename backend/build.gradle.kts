@@ -9,8 +9,10 @@ dependencies {
     implementation(project(":backend:repository"))
     implementation(project(":backend:crypto"))
 
-    // 管理 API のスキーマ。実行時にリソースとして読むので、コンパイルだけでなく実行にも要る
-    implementation(project(":shared:graphql"))
+    // 管理 API のスキーマと、そこから生成したモデル・リゾルバのインタフェース。
+    // スキーマは実行時にリソースとして読むので、コンパイルだけでなく実行にも要る。
+    // api で公開されている graphql-java と kickstart もここから見える
+    implementation(project(":backend:graphql"))
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
@@ -22,10 +24,9 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json)
 
-    // 管理 API。スキーマ優先で、リゾルバは RuntimeWiring に明示して結線する。
-    // graphql-java-tools (kickstart) のようなリフレクションで結線する仕組みは
-    // native-image で動かないので入れない
-    implementation(libs.graphql.java)
+    // native-image の Feature（GraphQlReflectionFeature）を書くための API。
+    // イメージを作る native-image 側が持っているので、実行時の依存にはしない
+    compileOnly(libs.graalvm.nativeimage)
 
     // InboxService のように Ktor のルーティングから切り離したクラスは
     // Application.log を持たないので、SLF4J のロガーを直接引く。
@@ -79,6 +80,12 @@ graalvmNative {
             imageName.set("mastodon-rss")
             mainClass.set("net.matsudamper.mastodon.rss.ApplicationKt")
             buildArgs.add("--no-fallback")
+
+            // graphql-java-tools (kickstart) はスキーマとクラスの対応をリフレクションで
+            // 解決する。対象のクラスをイメージのビルド時に走査して登録する。
+            // 手で reflect-config.json に並べると、スキーマを触るたびに更新が要る。
+            // 詳細は GraphQlReflectionFeature を参照
+            buildArgs.add("--features=net.matsudamper.mastodon.rss.graalvm.GraphQlReflectionFeature")
 
             // native-image は解析中に自分で isAnnotationPresent を呼ぶ（PodFeature.isPodClass）。
             // そこで Kotlin の @Deprecated のデフォルト値が読まれ、level の型である

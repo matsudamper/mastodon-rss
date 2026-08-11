@@ -10,8 +10,8 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | モジュール | ディレクトリ | 内容 |
 | --- | --- | --- |
 | `:backend` | `backend/` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
+| `:backend:graphql` | `backend/graphql/` | 管理 API のスキーマと、そこから生成したモデル・リゾルバのインタフェース |
 | `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の画面。管理画面とアカウント画面 |
-| `:shared:graphql` | `shared/graphql/` | 管理 API のスキーマ (`schema.graphqls`)。`:backend` と `:frontend` が同じものを見る |
 
 ```mermaid
 flowchart TB
@@ -28,7 +28,8 @@ flowchart TB
         sig["httpsignature<br/>HttpSignatureVerifier<br/>HttpSignatureSigner<br/>SigningString<br/>BodyDigest"]
         delivery["delivery<br/>HttpActivityDelivery"]
         graphql["graphql<br/>POST /graphql<br/>GraphQlEngine"]
-        admin["admin<br/>Query.admin / Mutation.admin<br/>AdminSessions"]
+        resolver["graphql.resolver<br/>QueryResolverImpl / MutationResolverImpl<br/>AdminQueryResolverImpl / AdminMutationResolverImpl"]
+        admin["admin<br/>AdminSessions<br/>セッション Cookie"]
         static["staticfiles<br/>StaticFiles<br/>staticRoutes"]
     end
 
@@ -57,8 +58,9 @@ flowchart TB
         apollo["Apollo Kotlin<br/>スキーマから生成したクライアント"]
     end
 
-    subgraph shared[":shared:graphql"]
-        schemafile["schema.graphqls<br/>admin_query.graphqls<br/>admin_mutation.graphqls"]
+    subgraph graphqlschema[":backend:graphql"]
+        schemafile["schema.graphqls<br/>admin_query.graphqls<br/>admin_mutation.graphqls<br/>directive.graphqls"]
+        qlmodel["graphql.model<br/>QlAdminSession / QlAdminLoginResult<br/>QueryResolver / AdminMutationResolver<br/>ビルド時に生成。git には入らない"]
     end
 
     db[("SQLite<br/>DB_PATH")]
@@ -79,8 +81,9 @@ flowchart TB
     module --> inbox
     module --> nodeinfo
     module --> graphql
-    graphql -->|フィールドの結線| admin
-    admin -->|パスワードの照合| pass
+    graphql -->|リゾルバの実装を渡して結線| resolver
+    resolver -->|セッションの発行と検証| admin
+    resolver -->|パスワードの照合| pass
     inbox --> sig
     inbox -->|Follow に Accept| delivery
     delivery -->|送信の署名| sig
@@ -99,14 +102,17 @@ flowchart TB
     compose --> apollo
     apollo -->|POST /graphql| graphql
     schemafile -->|実行時に読む| graphql
+    schemafile -.->|ビルド時にコード生成| qlmodel
     schemafile -.->|ビルド時にコード生成| apollo
+    qlmodel -->|実装するインタフェース| resolver
     parser --> feedmodel
     parser --> feedutil
     main -.->|Phase 5 で繋ぐ。いまは :backend から参照していない| parser
 ```
 
 `:frontend` と `:backend` は別々にビルドする。互いに依存させない。共有するのは
-`:shared:graphql` の管理 API のスキーマだけ。
+`:backend:graphql` の管理 API のスキーマだけで、`:frontend` はそれをコード生成の
+入力としてファイルで読む。モジュールとしては依存しない。
 `:frontend` の成果物は配信するファイルを置くディレクトリに配置し、`:backend` が
 その場所を `STATIC_SRC_DIR` で受け取って root から配信する。
 分けた理由は [docs/architecture.md](docs/architecture.md) を参照。
@@ -231,11 +237,11 @@ ADMIN_COOKIE_SECURE=false \
 下にまとめてあり、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側
 （WebFinger・Actor・inbox）は相手の実装が決まっている REST なので、ここには載せない。
 
-スキーマは [shared/graphql](shared/graphql/src/main/resources/graphql) に置き、ルートの
-`schema.graphqls`・`admin_query.graphqls`・`admin_mutation.graphqls` に分けてある。
-`:backend` は起動時に全部をリソースとして読んで 1 つに繋ぎ、`:frontend` は同じファイルから
-Apollo Kotlin でクライアントを生成する。写しを持たないので、片方にだけフィールドがある
-状態にはならない。
+スキーマは [backend/graphql](backend/graphql/src/main/resources/graphql) に置き、ルートの
+`schema.graphqls`・`admin_query.graphqls`・`admin_mutation.graphqls`・`directive.graphqls`
+に分けてある。`:backend` は起動時に全部をリソースとして読んで 1 つに繋ぎ、`:frontend` は
+同じファイルから Apollo Kotlin でクライアントを生成する。写しを持たないので、片方にだけ
+フィールドがある状態にはならない。
 
 ```sh
 # ログインしているかを聞く
@@ -244,10 +250,19 @@ curl -sf -X POST -H 'Content-Type: application/json' \
   http://localhost:8080/graphql
 ```
 
-サーバー側のリゾルバは `RuntimeWiring` に `DataFetcher` を明示して結線している。
-リフレクションで結線する仕組み（graphql-java-tools など）は native-image で動かない。
-同じ理由でフィールドの値は `Map` で返す。データクラスを返すと JVM では動いて
-native バイナリでだけ全フィールドが null になる。
+スキーマ優先で、手で書くのはスキーマとリゾルバの実装だけ。その間にある型は
+[kake-bo](https://github.com/matsudamper/kake-bo) と同じ組み合わせで生成する。
+
+| 生成するもの | 使うもの | 置き場所 |
+| --- | --- | --- |
+| サーバーのモデルとリゾルバのインタフェース | kobylynskyi の graphql-java-codegen | `:backend:graphql` |
+| 画面のクライアント | Apollo Kotlin | `:frontend` |
+
+結線は graphql-java-tools (kickstart) が行う。リフレクションを使うので native-image
+では登録が要る。登録はイメージのビルド時に `GraphQlReflectionFeature` が
+クラスパスを走査して行うので、スキーマを触っても設定ファイルの更新は要らない。
+ただしリゾルバの実装は `graphql.resolver` パッケージに置くこと。走査の対象から
+外れると、JVM のテストは通って native バイナリでだけ解決できなくなる。
 
 画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
 Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。

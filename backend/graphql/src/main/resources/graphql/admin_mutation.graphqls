@@ -1,17 +1,13 @@
 type AdminMutation {
     "通るとセッションの Cookie が返る"
-    login(password: String!): AdminLoginResult!
+    login(password: String!): AdminLoginResult! @lazy
 
     "サーバー側のセッションも消える"
-    logout: AdminLogoutResult!
-}
-
-type AdminLogoutResult {
-    isSuccess: Boolean!
+    logout: AdminSession! @lazy
 }
 
 type AdminLoginResult {
-    isSuccess: Boolean!
+    session: AdminSession!
     failure: AdminLoginFailure
 }
 

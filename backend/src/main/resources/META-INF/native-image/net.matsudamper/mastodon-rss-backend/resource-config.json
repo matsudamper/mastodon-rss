@@ -4,6 +4,10 @@
       {
         "comment": "管理 API のスキーマ。入っていないと起動時に GraphQlEngine.create が落ちる",
         "pattern": "\\Qgraphql/\\E.*\\Q.graphqls\\E"
+      },
+      {
+        "comment": "読むスキーマの一覧。:backend:graphql が作る。native バイナリではディレクトリを列挙できない",
+        "pattern": "\\Qgraphql/schema-list.txt\\E"
       }
     ]
   },

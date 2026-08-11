@@ -42,16 +42,20 @@ JVM のテストが全部通ったまま実バイナリだけが落ちる。
 使い回すと、DB のスキーマを変えるたびにパーサを触ることになるため。詰め替えは
 両方を知っている取り込み処理（Phase 5 で `:backend` に置く）の仕事にする。
 
-`:shared:graphql` は `:backend` と `:frontend` の両方が見る唯一のモジュール。中身は
-管理 API のスキーマと、それを読み出すための位置だけ。`backend/` にも `frontend/` にも
-入れずに root に置いているのは、どちらかの下に置くと相手のビルドがそのディレクトリを
-見ることになるため。
+`:backend:graphql` は管理 API のスキーマと、そこから生成したモデル・リゾルバの
+インタフェースを持つ。生成物を使うのはサーバーだけなので `backend/` の下に置く。
 
-口の URL（`/graphql`）はここに置かない。どこで受けるかはサーバーの都合で、スキーマの
-一部ではない。サーバーは自分の routing で、画面は自分のクライアントで持つ。
+`:frontend` はスキーマのファイルを Apollo のコード生成の入力として読むだけで、
+依存はしない。画面側の生成物（問い合わせから作るクライアント）は `:frontend` の中に
+できる。両方の生成物を 1 つのモジュールに入れると、サーバー用の JVM の依存が
+Kotlin/Wasm のビルドに混ざる。
 
-成果物を使うのは `:backend` だけなので JVM のモジュールにしてある。`:frontend` は
-Apollo のコード生成の入力としてファイルを読むだけで、依存はしない。
+スキーマだけを root の共有モジュールに切り出す形も採れるが、そうすると
+コード生成の設定と入力が別のモジュールに分かれる。スキーマを触るときに
+見る場所が 2 つになるので、生成する側と同じ場所に置いている。
+
+口の URL（`/graphql`）はスキーマに書かない。どこで受けるかはサーバーの都合で、
+スキーマの一部ではない。サーバーは自分の routing で、画面は自分のクライアントで持つ。
 
 環境変数を読むのは `:backend` の入口（`ServerEnv`）だけにする。`:backend:repository` の
 ような下位のモジュールは、値を引数で受け取る。
@@ -115,23 +119,55 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 まとめ、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側は相手の実装が
 決まっている REST なので、こちらの都合で形を変えられない。触らずに分けておく。
 
-スキーマは `:shared:graphql` に置き、`schema.graphqls`・`admin_query.graphqls`・
-`admin_mutation.graphqls` に分けてある。`:backend` は起動時に全部をリソースとして読んで
-1 つに繋ぎ、`:frontend` は同じファイルから Apollo Kotlin でクライアントを生成する。
-両方から等距離の場所に置いているのは、どちらかの下に置くと相手のビルドがそのディレクトリを
-見ることになるため。写しを作らないので、片方にだけフィールドがある状態にはならない。
+スキーマは `:backend:graphql` に置き、`schema.graphqls`・`admin_query.graphqls`・
+`admin_mutation.graphqls`・`directive.graphqls` に分けてある。`:backend` は起動時に
+全部をリソースとして読んで 1 つに繋ぎ、`:frontend` は同じファイルから Apollo Kotlin で
+クライアントを生成する。写しを作らないので、片方にだけフィールドがある状態にはならない。
 
-native-image で動かすための制約が 2 つある。どちらも JVM のテストでは分からず、
-native バイナリを起動して初めて出る。
+### スキーマ優先とコード生成
 
-- リゾルバは `RuntimeWiring` に `DataFetcher` を明示して結線する。graphql-java-tools
-  (kickstart) や kobylynskyi の codegen はリフレクションで結線するので動かない
-- フィールドの値は `Map` で返す。データクラスを返すと `PropertyDataFetcher` の
-  リフレクション経路に入り、JVM では動いて native バイナリでだけ全フィールドが null になる
+[kake-bo](https://github.com/matsudamper/kake-bo) と同じ構成にしてある。手で書くのは
+スキーマとリゾルバの実装だけで、その間にある型は全部生成する。
 
-スキーマはリソースなので `resource-config.json` に登録している。抜けると起動した瞬間に
-`GraphQlEngine.create` が落ちる。CI の native-image ジョブでは実際に `/graphql` を叩いて、
-query・mutation・変数・enum・`Set-Cookie` までを通している。
+- サーバーのモデルとリゾルバのインタフェース: kobylynskyi の
+  [graphql-java-codegen](https://github.com/kobylynskyi/graphql-java-codegen)
+  （Gradle プラグイン `io.github.kobylynskyi.graphql.codegen`）。設定は
+  `backend/graphql/build.gradle.kts`
+- 結線: graphql-java-tools (kickstart) の `SchemaParser`。リゾルバの実装を渡すだけで、
+  スキーマのフィールドとメソッドを対応付ける
+- 画面のクライアント: Apollo Kotlin。入力は同じスキーマと `:frontend` の問い合わせ
+
+生成されるモデルには `Ql` を付けている。スキーマと同じ名前にすると、リゾルバの中で
+スキーマの型と自分のドメインの型が同じ名前で並ぶ。
+
+リゾルバのインタフェースを作るのは `@lazy` を付けたフィールドだけ。付けないフィールドは
+親のモデルが持っている値がそのまま返る。`Query` と `Mutation` は付けなくても
+1 つずつインタフェースができる。
+
+結線の漏れはコンパイルか起動時に出る。スキーマにフィールドを足すとインタフェースに
+メソッドが増えるので、実装しなければコンパイルが通らない。リゾルバを
+`GraphQlEngine.create` に渡し忘れた場合は `makeExecutableSchema` が落ちる。
+
+### native-image で動かすための制約
+
+kickstart はスキーマとクラスの対応をリフレクションで解決する。native バイナリは
+到達可能性を静的に解析するので、対象のクラスを登録しないと実行時に見つからない。
+
+登録は `graalvm/GraphQlReflectionFeature`（`--features=` で渡す GraalVM の Feature）が
+イメージのビルド時にクラスパスを走査して行う。対象は生成物のパッケージ
+（`graphql.model`）とリゾルバの実装のパッケージ（`graphql.resolver`）の 2 つ。
+手で `reflect-config.json` に並べると、スキーマを触るたびに更新が要る。
+
+リゾルバの実装を `graphql.resolver` 以外に置くと走査から外れる。JVM のテストは通り、
+native バイナリでだけそのフィールドが解決できなくなる。
+
+スキーマはリソースなので `resource-config.json` に登録している。読むファイルの一覧
+（`graphql/schema-list.txt`）は `:backend:graphql` がビルド時に作る。native バイナリでは
+ディレクトリを列挙できないので、実行時に `graphql/` の中身を数え上げる手段が無い。
+
+どれも JVM のテストでは分からず、native バイナリを起動して初めて出る。CI の
+native-image ジョブでは実際に `/graphql` を叩いて、query・mutation・変数・enum・
+`Set-Cookie` までを通している。
 
 ## 管理画面のログイン
 

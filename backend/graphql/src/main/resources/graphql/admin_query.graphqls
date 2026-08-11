@@ -1,4 +1,8 @@
 type AdminQuery {
+    session: AdminSession! @lazy
+}
+
+type AdminSession {
     loggedIn: Boolean!
 
     "サーバーに ADMIN_PASSWORD_HASH が設定されているか"

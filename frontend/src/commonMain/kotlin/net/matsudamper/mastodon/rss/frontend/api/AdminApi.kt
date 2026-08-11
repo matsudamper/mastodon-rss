@@ -13,7 +13,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 private const val GRAPHQL_PATH = "/graphql"
 
 /**
- * 管理 API を叩くところ。問い合わせは `:shared:graphql` のスキーマから Apollo が生成する。
+ * 管理 API を叩くところ。問い合わせは `:backend:graphql` のスキーマから Apollo が生成する。
  *
  * パスが相対なのは、画面を配信しているオリジンと同じところに投げるため。
  * セッションは `HttpOnly` の Cookie で、同じオリジンならブラウザが勝手に付ける。

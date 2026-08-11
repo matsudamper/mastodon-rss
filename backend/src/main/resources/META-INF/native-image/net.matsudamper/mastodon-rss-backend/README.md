@@ -1,7 +1,9 @@
 # native-image の設定
 
-置いてあるのは `resource-config.json` だけ。`:backend` はリフレクションに依存しない
-作りにしてあり、`reflect-config.json` は要らない。その状態を保つための経緯をここに残す。
+置いてあるのは `resource-config.json` だけ。リフレクションの登録が要るのは GraphQL の
+結線だけで、そちらは設定ファイルではなくビルド時にクラスパスを走査して登録する
+（`graalvm/GraphQlReflectionFeature`）。手で書く `reflect-config.json` を増やさない
+ための経緯をここに残す。
 
 ## `resource-config.json` に入っているもの
 
@@ -9,11 +11,38 @@ native バイナリにはリソースが自動では入らない。明示して�
 「無い」ものとして振る舞い、JVM では動くのでビルドまで気付けない。
 
 - 管理 API のスキーマ (`graphql/*.graphqls`)。`GraphQlEngine.create` が起動時に読む
+- 読むスキーマの一覧 (`graphql/schema-list.txt`)。`:backend:graphql` がビルド時に作る。
+  native バイナリではディレクトリを列挙できないので、`graphql/` の中身を実行時に
+  数え上げる手段が無い
 - graphql-java のメッセージ (`i18n.*`)。エラー文用に見えるが `SchemaParser` が
   スキーマを読む時点で `i18n.Parsing` を引くので、無いと起動した瞬間に
   `MissingResourceException` で落ちる
 
-どちらも JVM のテストは通るので、CI の native-image ジョブの起動確認が唯一の検出手段になる。
+どれも JVM のテストは通るので、CI の native-image ジョブの起動確認が唯一の検出手段になる。
+
+## GraphQL の結線だけはリフレクションを使う
+
+管理 API はスキーマ優先で、モデルとリゾルバのインタフェースを
+kobylynskyi の graphql-java-codegen が作り、graphql-java-tools (kickstart) が
+スキーマのフィールドとリゾルバのメソッドを対応付ける。この対応付けはリフレクションで、
+native バイナリでは登録しないと解決できない。
+
+登録は `--features=net.matsudamper.mastodon.rss.graalvm.GraphQlReflectionFeature` で
+渡す Feature が、イメージのビルド時に次の 2 つのパッケージを走査して行う。
+
+- `net.matsudamper.mastodon.rss.graphql.model`（生成されたモデルとインタフェース）
+- `net.matsudamper.mastodon.rss.graphql.resolver`（リゾルバの実装）
+
+ここに入っていないクラスは登録されない。リゾルバの実装を別のパッケージに置くと、
+JVM のテストは通って native バイナリでだけそのフィールドが解決できなくなる。
+
+手で並べないのは、スキーマにフィールドや型を足すたびに更新が要るため。
+生成物とリゾルバをまとめて走査すれば忘れようがない。
+
+以前は `RuntimeWiring` に `DataFetcher` を明示し、フィールドの値を `Map` で返して
+リフレクションを一切使わない形にしていた。スキーマとリゾルバの対応が
+コンパイル時に確かめられず、フィールド名の綴り違いが実行時まで分からないので、
+生成したインタフェースを実装する形に変えた。
 
 ## かつて必要だった理由
 
@@ -28,7 +57,7 @@ JVM では問題なく動くので、native バイナリを起動して初めて
 当初は `@Serializable` な型ごとに `Foo` / `Foo$Companion` / `Foo$$serializer` の
 3 つを `reflect-config.json` に登録して回避していた。
 
-## いまの方針
+## いまの方針（kotlinx.serialization）
 
 `ContentNegotiation` を使わず、`call.respondJson(Foo.serializer(), value)` のように
 serializer を明示する。コンパイル時に serializer が決まるのでリフレクションが発生せず、
