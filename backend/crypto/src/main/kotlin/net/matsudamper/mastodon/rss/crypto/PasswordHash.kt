@@ -17,7 +17,7 @@ import javax.crypto.spec.PBEKeySpec
  * パディング無しの URL-safe Base64。`+` や `/` が出ないので、シェルや
  * docker compose の `.env` にそのまま貼れる。
  *
- * 区切りが `$` でないのは、この種のハッシュでよくある PHC 形式（`$` 区切り）を
+ * 区切りが $ でないのは、この種のハッシュでよくある PHC 形式（$ 区切り）を
  * `.env` に貼ると docker compose が変数展開しようとして壊れるため。
  * `:` なら展開もクォートも要らない。
  *
