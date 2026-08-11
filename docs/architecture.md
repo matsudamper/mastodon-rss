@@ -165,11 +165,16 @@ kickstart はスキーマとクラスの対応をリフレクションで解決�
 （`graphql/schema-list.txt`）は `:backend:graphql` がビルド時に作る。native バイナリでは
 ディレクトリを列挙できないので、実行時に `graphql/` の中身を数え上げる手段が無い。
 
-この構成を native バイナリで動かした確認はまだ取れていない。JVM のテストは
-リフレクションの経路を通らないので、通ったことは何の保証にもならない。
-CI の native-image ジョブで実際に `/graphql` を叩いて動作確認する
-（query・mutation・変数・enum・`Set-Cookie` まで）。足りない登録や
-初期化の指定が出たら、そこで分かったことをここに書き足す。
+リフレクション登録の他に 2 つ要る。kickstart がリゾルバの引数の数を
+kotlin-reflect で数えるので、その実装クラスの登録と `*.kotlin_builtins` の同梱。
+それと kickstart が連れてくる jackson-databind を jOOQ が拾うので
+`--initialize-at-run-time=org.jooq.impl.Convert$_JSON`。どれも native バイナリを
+動かして 1 つずつ見つけた。症状と経緯は
+`backend/src/main/resources/META-INF/native-image/` の README にある。
+
+native バイナリで `/graphql` を叩いて query・mutation・変数・enum・`Set-Cookie`・
+スキーマ検証まで通ることは確認済み。CI の native-image ジョブでも同じ確認をする。
+JVM のテストはこの経路の問題を出さないので、依存を足したときは native ビルドを通すこと。
 
 ## 管理画面のログイン
 

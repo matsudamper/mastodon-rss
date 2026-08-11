@@ -8,6 +8,14 @@
       {
         "comment": "読むスキーマの一覧。:backend:graphql が作る。native バイナリではディレクトリを列挙できない",
         "pattern": "\\Qgraphql/schema-list.txt\\E"
+      },
+      {
+        "comment": "Kotlin の組み込み宣言。kotlin-reflect が最初に読む。kickstart がリゾルバの引数を数えるのに使う",
+        "pattern": ".*\\.kotlin_builtins"
+      },
+      {
+        "comment": "モジュールごとの Kotlin メタデータ。kotlin-reflect がクラスの所属を引くのに読む",
+        "pattern": ".*\\.kotlin_module"
       }
     ]
   },

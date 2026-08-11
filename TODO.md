@@ -1047,8 +1047,9 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       変えた。いまはスキーマにフィールドを足すとインタフェースにメソッドが
       増えるので、実装しなければコンパイルが通らない。
 
-      native で動くかどうかは決めつけずに実際に確かめる。この構成で native
-      バイナリを動かした確認はまだ取れていない。
+      native で動くことは実際に確かめた。kotlin-reflect の実装クラスの登録、
+      `*.kotlin_builtins` の同梱、`--initialize-at-run-time=org.jooq.impl.Convert$_JSON`
+      の 3 つが要る。症状と経緯は `META-INF/native-image/` の README にある。
 
       口と結線の仕組みは動いていて、いま載っているのはログインだけ。
       フィード CRUD などが載ってからチェックを付ける。
@@ -1063,13 +1064,14 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
               native バイナリではディレクトリを列挙できない
             - リフレクションの登録は Feature でクラスパスを走査する。
               手で `reflect-config.json` に並べるとスキーマを触るたびに更新が要る
-      - [ ] kickstart の結線が native バイナリで動くことを確認する
-            - JVM のテストはリフレクションの経路を通らないので、通っても分からない
-            - CI の native-image ジョブの起動確認で実際に `/graphql` を叩く。
-              query / mutation / 変数 / enum / `Set-Cookie` までを通す
-            - 足りない登録や `--initialize-at-build-time` の指定が出たら足して、
-              分かったことを `META-INF/native-image/` の README に書く
-            - 通ったらチェックを付ける。動くかどうかを先に決めつけない
+      - [x] kickstart の結線が native バイナリで動くことを確認する
+            - 手元で `nativeCompile` してバイナリを起動し、query / mutation / 変数 /
+              enum / `Set-Cookie` / スキーマ検証まで通した。CI の native-image
+              ジョブでも同じ確認をする
+            - 落ちるたびに足した 3 つ（kotlin-reflect の実装クラスの登録、
+              `*.kotlin_builtins` の同梱、`Convert$_JSON` の実行時初期化）は
+              `META-INF/native-image/` の README に症状ごと書いた
+            - JVM のテストはこの経路の問題を出さない。依存を足したら native ビルドを通す
 - [ ] 管理 API に認証をかける（inbox と違って外に開けてはいけない）
       - パスワード 1 つ + セッション。ハッシュは `ADMIN_PASSWORD_HASH` に入れる
       - ハッシュは `:backend:crypto` の `PasswordHash`（PBKDF2-HMAC-SHA256）で作る。部品は用意済み

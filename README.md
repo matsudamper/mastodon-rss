@@ -264,8 +264,10 @@ curl -sf -X POST -H 'Content-Type: application/json' \
 ただしリゾルバの実装は `graphql.resolver` パッケージに置くこと（走査の対象から
 外れていないかは `GraphQlReflectionTargetsTest` が見ている）。
 
-この構成で native バイナリが動くかはまだ確かめていない。CI の native-image
-ジョブで実際に `/graphql` を叩いて動作確認する。
+native バイナリで動くことは確認済み（`/graphql` に query・mutation・変数・enum・
+`Set-Cookie` まで通した）。そのために足した指定と、それぞれ何で落ちたかは
+[native-image の README](backend/src/main/resources/META-INF/native-image/net.matsudamper/mastodon-rss-backend/README.md)
+に書いてある。
 
 画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
 Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。

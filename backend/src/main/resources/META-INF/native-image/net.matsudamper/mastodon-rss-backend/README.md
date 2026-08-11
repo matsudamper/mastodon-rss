@@ -39,19 +39,60 @@ kobylynskyi の graphql-java-codegen が作り、graphql-java-tools (kickstart) 
 手で並べないのは、スキーマにフィールドや型を足すたびに更新が要るため。
 生成物とリゾルバをまとめて走査すれば忘れようがない。
 
-### まだ native バイナリで動かしていない
-
-この登録で足りるのか、他に `--initialize-at-build-time` のような指定が要るのかは
-確かめていない。JVM のテストはリフレクションの経路を通らないので、
-通ったことは何の保証にもならない。CI の native-image ジョブで実際に
-`/graphql` を叩いて動作確認する。分かったことはここに書き足す。
-
 以前は `RuntimeWiring` に `DataFetcher` を明示し、フィールドの値を `Map` で返して
 リフレクションを一切使わない形にしていた。その理由として「kickstart や
 kobylynskyi の codegen は native-image で動かない」と書いてあったが、
-実際に試した記録は無く、根拠の無い決めつけだった。スキーマとリゾルバの対応が
-コンパイル時に確かめられない方が実害が大きいので、生成したインタフェースを
-実装する形に変えて、native で動くかどうかは実際に確かめることにした。
+実際に試した記録は無く、根拠の無い決めつけだった。実際に動かしたところ、
+下に並べた 3 つを足せば動く。
+
+### kickstart を動かすのに足したもの
+
+native バイナリを実際に動かして、落ちるたびに 1 つずつ足した。どれも JVM では
+起きない。JVM のテストはリフレクションの経路を通るが、必要なクラスとリソースが
+最初からクラスパスに居るので何も起きない。
+
+1. リゾルバとモデルのリフレクション登録（上に書いた Feature）
+
+2. `kotlin.reflect.jvm.internal.ReflectionFactoryImpl` の登録
+
+   kickstart はリゾルバの引数の数を数えるのに `ReflectJvmMapping.getKotlinFunction`
+   （kotlin-reflect）を使う。`kotlin.jvm.internal.Reflection` は実装を
+   `Class.forName` + `newInstance` で探すので、登録が無いと実装が見つからない。
+
+       KotlinReflectionNotSupportedError: Kotlin reflection implementation is not
+       found at runtime. Make sure you have kotlin-reflect.jar in the classpath
+         at graphql.kickstart.tools.resolver.FieldResolverScanner.getMethodParameterCount
+
+   jar 自体はクラスパスに居る（kickstart の推移依存）。登録だけが足りていなかった。
+
+3. `*.kotlin_builtins` と `*.kotlin_module` をリソースとして同梱する
+
+   kotlin-reflect は Kotlin の組み込み宣言を kotlin-stdlib の中の
+   `kotlin/kotlin.kotlin_builtins` などから読む。上の 2 を足すと実装は
+   見つかるようになるが、その先で組み込み宣言が読めずに落ちる。
+
+       java.lang.AssertionError: Built-in class kotlin.Any is not found
+         at kotlin.reflect.jvm.internal.impl.builtins.KotlinBuiltIns.getBuiltInClassByName
+
+### jOOQ と Jackson の組み合わせ
+
+kickstart は jackson-databind を連れてくる。jOOQ は JSON 型の変換に Jackson を
+使えるようになっていて、クラスパスに居ると `Convert$_JSON` が `ObjectMapper` を
+作って static final に持つ。`--initialize-at-build-time=org.jooq` があるので、
+その実体がイメージヒープに載ってビルドが止まる。
+
+    An object of type 'com.fasterxml.jackson.databind.json.JsonMapper' was found
+    in the image heap. This type, however, is marked for initialization at image
+    run time
+
+`--initialize-at-run-time=org.jooq.impl.Convert$_JSON` で holder クラスだけ外した。
+Jackson をビルド時初期化にして通す手もあるが、`ObjectMapper` の設定とキャッシュを
+イメージに焼き込むことになる。こちらは jOOQ で JSON 型を使っていないので、
+holder ごと実行時に回す方を選んだ。
+
+Jackson がクラスパスに無かった間はこの経路に入らなかったので、GraphQL の
+ライブラリを足した副作用で出たことになる。依存を足したら native ビルドを
+通すこと。
 
 ## かつて必要だった理由
 
