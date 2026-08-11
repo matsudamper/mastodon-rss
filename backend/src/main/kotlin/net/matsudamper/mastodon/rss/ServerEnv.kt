@@ -110,31 +110,20 @@ class ServerEnv(
             if (raw.isNullOrEmpty()) null else Path.of(raw)
         }
 
-    /**
-     * 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない。
-     *
-     * 形式が壊れていたら落とす。ログインが必ず失敗するだけの値を抱えると、
-     * パスワードを間違えたのか設定を間違えたのかが区別できなくなる。
-     */
+    /** 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない */
     val adminPasswordHash: PasswordHash? =
         run {
             val raw = env["ADMIN_PASSWORD_HASH"]?.trim()
             if (raw.isNullOrEmpty()) null else PasswordHash.parse(raw)
         }
 
-    /**
-     * セッション Cookie に `Secure` を付けるか。既定は付ける。
-     *
-     * プロキシの後ろでは scheme が http に見えてサーバーからは判定できないので設定にした。
-     * 付けたまま http で開くと Cookie が保存されず、ログインできたように見えない。
-     */
+    /** セッション Cookie に `Secure` を付けるか。付けたまま http で開くとログインできない */
     val adminCookieSecure: Boolean =
         run {
             val raw = env["ADMIN_COOKIE_SECURE"]?.trim()
             if (raw.isNullOrEmpty()) {
                 true
             } else {
-                // 綴りを間違えたまま false のつもりで動くと、Cookie が平文で流れる
                 raw.lowercase().toBooleanStrictOrNull()
                     ?: throw IllegalArgumentException("ADMIN_COOKIE_SECURE は true か false にすること: $raw")
             }

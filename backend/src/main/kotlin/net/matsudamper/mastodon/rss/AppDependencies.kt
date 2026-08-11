@@ -32,8 +32,6 @@ import net.matsudamper.mastodon.rss.repository.createRepositories
  *   `Accept` の宛先になる inbox をここから取る。本番は [HttpRemoteActors] が
  *   相手のサーバーに GET しに行く
  * @param delivery こちらから相手の inbox に POST する口
- * @param adminSessions 管理画面のログイン済みセッション。期限の扱いを
- *   テストから見るために差し替えられるようにしている
  */
 class AppDependencies(
     val repositories: Repositories,

@@ -7,14 +7,7 @@ import java.time.Instant
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * ログイン済みセッション。トークンをメモリ上に持つだけで、再起動すると消える。
- *
- * 署名付き Cookie にしないのは、署名鍵の設定が増えるうえ、鍵を固定すると
- * ログアウトさせる手段が無くなるため。
- *
- * @param clock 期限の判定に使う。テストから進めるためだけに引数にしている
- */
+/** ログイン済みセッション。メモリ上に持つので、再起動すると消える */
 class AdminSessions(
     private val ttl: Duration = DEFAULT_TTL,
     private val clock: Clock = Clock.systemUTC(),
@@ -23,10 +16,8 @@ class AdminSessions(
 
     private val random = SecureRandom()
 
-    /** 期限までの秒数。Cookie の Max-Age に入れる */
     val ttlSeconds: Long get() = ttl.toSeconds()
 
-    /** 新しいトークンを発行する。使われないまま期限切れになったものはここで捨てる */
     fun create(): String {
         purgeExpired()
 
@@ -61,7 +52,6 @@ class AdminSessions(
 
         private const val TOKEN_SIZE_BYTES = 32
 
-        // Cookie の値になるので、区切りに使われる文字が出ない URL-safe にする
         private val BASE64_ENCODER: Base64.Encoder = Base64.getUrlEncoder().withoutPadding()
     }
 }

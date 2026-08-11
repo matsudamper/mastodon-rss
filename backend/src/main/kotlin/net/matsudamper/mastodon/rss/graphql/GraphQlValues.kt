@@ -9,10 +9,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 
-// graphql-java が扱う素の値と JsonElement の変換。
-// ContentNegotiation を使わない（理由は json/JsonResponse.kt）ので、境界のここで変換する。
-
-/** 実行結果を JSON にする。知らない型で落とすのは、黙って `toString()` すると気付けないため */
+/** 実行結果を JSON にする */
 fun Any?.toJsonElement(): JsonElement =
     when (this) {
         null -> {
@@ -58,9 +55,7 @@ fun JsonElement.toRawValue(): Any? =
 
         is JsonPrimitive -> {
             when {
-                // 引用符が付いていたものは、数字に見えても文字列のまま渡す
                 isString -> content
-
                 else -> booleanOrNull ?: longOrNull ?: doubleOrNull ?: content
             }
         }

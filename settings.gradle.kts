@@ -6,7 +6,7 @@ pluginManagement {
     repositories {
         gradlePluginPortal {
             // Apollo 5.x はポータルに実体が無く Maven Central へ 303 で飛ばされる。
-            // このリダイレクトの扱いには環境差があり、CI では解決できなかったので直接取る
+            // このリダイレクトの扱いには環境差があり、CI では解決できなかったのでportalはexcludeする
             content {
                 excludeGroup("com.apollographql.apollo")
             }

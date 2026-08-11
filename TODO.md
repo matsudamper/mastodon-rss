@@ -986,9 +986,8 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - 両モジュールから等距離にするため root に置く。`:backend` に置くと
         `:frontend` のビルドが `:backend` のディレクトリを見ることになる
 
-      `:shared:graphql` を作ってスキーマを置いた。口の URL は「どこで受けるか」で
-      スキーマの一部ではないので、サーバーと画面がそれぞれ持つ。パスワードの長さ制限と
-      画面のパスはまだ移していないので、チェックは付けない。
+      `:shared:graphql` にスキーマを置いた。パスワードの長さ制限と画面のパスは
+      まだ移していないので、チェックは付けない。
 - [ ] `:frontend` の成果物を配置するデプロイスクリプトを用意する
       （インフラ側で用意する。このリポジトリの範囲外。Phase 0 の「ビルドと配布の分け方」を参照）
 - [x] `:backend` が静的ファイルを配信する
@@ -1032,9 +1031,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       口と結線の仕組みは動いていて、いま載っているのはログインだけ。
       フィード CRUD などが載ってからチェックを付ける。
 
-      - [x] スキーマを `:shared` に置き、version catalog に graphql-java と Apollo を足す
-            - 置いたのは `:shared:graphql`。Apollo は 4.x が Kotlin 2.4 の KGP で
-              落ちる（`KotlinJsTarget` が見つからない）ので 5.0.1 にした
+      - [x] スキーマを `:shared:graphql` に置き、version catalog に graphql-java と Apollo を足す
       - [x] `POST /graphql` を 1 つ作る。本文は `receiveText()` してから読み、
             変数は `JsonObject` で受けて実行の直前に素の値へ開く
       - [x] 実行結果の `Map` を `JsonElement` に変換して返す。知らない型が来たら落とす
@@ -1052,22 +1049,12 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 
       ログインの仕組みは実装済み。守る対象のフィールドがまだ無いので、チェックは付けない。
 
-      - できているもの
-        - `Query.admin.session` / `Mutation.admin.login` / `Mutation.admin.logout`。
-          認可はフィールドごとに見るので、ログインの口も同じ `/graphql` に置いている
-        - セッションはメモリ上のトークン（`admin/AdminSessions.kt`、期限 12 時間）。
-          署名付き Cookie は署名鍵の設定が増えるうえ、鍵を固定するとログアウトさせる手段が
-          無くなるので取らなかった。サーバー 1 台なら再起動でログインし直しになるだけで済む
-        - Cookie は `HttpOnly` + `SameSite=Strict`。`Secure` は既定で付け、
-          手元で http で試すときだけ `ADMIN_COOKIE_SECURE=false` で外す。
-          リバースプロキシの後ろでは scheme が http に見えるので、サーバーからは判定できない
-        - 画面は `/admin`（`:frontend` の `screen/admin/`）。ログイン後は「ログイン済み」と出すだけ
-      - 残っているもの
-        - ログインが要るフィールドに `AdminGraphQl.requireLoggedIn` を通す。
-          いまは通す先が無いので用意だけしてある
-        - ハッシュ生成を画面から。いまは `./gradlew --quiet :backend:crypto:passwordHash`
-          （標準入力にパスワードを渡す）で作る。未設定の間だけ開ける口は作っていない
-        - 総当たり対策（Phase 7）
+      - できているもの: `Query.admin.session` / `Mutation.admin.login` / `Mutation.admin.logout`、
+        メモリ上のセッション（`admin/AdminSessions.kt`、期限 12 時間）、`HttpOnly` +
+        `SameSite=Strict` の Cookie、`/admin` の画面（ログイン後は「ログイン済み」と出すだけ）
+      - 残っているもの: ログインが要るフィールドに `AdminGraphQl.requireLoggedIn` を通す、
+        ハッシュ生成を画面から（いまは `./gradlew --quiet :backend:crypto:passwordHash`）、
+        総当たり対策（Phase 7）
 - [x] 画面遷移を Navigation Compose 3 にする
       - `org.jetbrains.androidx.navigation3:navigation3-ui`（JetBrains 版。wasmJs 向けの成果物がある）
       - 画面のキーを sealed interface で定義し、`NavDisplay` + バックスタックで切り替える
@@ -1083,7 +1070,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
 
       `/graphql` の転送を入れた（`frontend/webpack.config.d/dev-server-proxy.js`）。
-      オリジンが 1 つのままなので CORS も SameSite も緩めていない。実機での確認はまだ。
+      実機での確認はまだ。
 - [ ] Compose でフィード一覧 / 追加 / 削除
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
 - [ ] フィードのプレビュー（投稿前にどう見えるか）

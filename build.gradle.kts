@@ -25,9 +25,6 @@ allprojects {
         // Renovate に追従させるためでもある
         version.set(ktlintVersion)
 
-        // 生成されたコードは対象にしない。Apollo の出力は ktlint の規則どおりにならない。
-        // 効くのは ktlintCheck まで。ktlintFormat はソースのルートごと走査していて
-        // これを見ないので、手元で流すと生成コードの違反（auto-correct 不可）が出る
         filter {
             exclude { element -> element.file.invariantSeparatorsPath.contains("/build/generated/") }
         }

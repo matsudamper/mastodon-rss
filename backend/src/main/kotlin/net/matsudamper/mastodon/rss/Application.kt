@@ -79,10 +79,8 @@ fun Application.module(deps: AppDependencies) {
     // 黙って 404 になると、設定し忘れなのか置き忘れなのかが分からない
     val staticFiles = resolveStaticFiles(env.staticSrcDir)
 
-    // 設定し忘れに起動時点で気付けるようにする
     logAdminLogin(env)
 
-    // スキーマを読めない・結線が合っていない場合はここで落ちる
     val graphQl =
         GraphQlEngine.create(
             listOf(
@@ -117,7 +115,6 @@ fun Application.module(deps: AppDependencies) {
     }
 }
 
-/** 管理画面にログインできる状態かを起動ログに出す */
 private fun Application.logAdminLogin(env: ServerEnv) {
     if (env.adminPasswordHash == null) {
         log.warn("ADMIN_PASSWORD_HASH が未設定なので管理画面にログインできない")
@@ -127,7 +124,6 @@ private fun Application.logAdminLogin(env: ServerEnv) {
     if (env.adminCookieSecure) {
         log.info("管理画面のログインを受け付ける。セッション Cookie には Secure を付ける")
     } else {
-        // 本番でこれが出ていたら Cookie が平文で流れる
         log.warn(
             "管理画面のログインを受け付ける。ADMIN_COOKIE_SECURE=false なので" +
                 "セッション Cookie に Secure を付けない。http で試すとき以外は外すこと",
