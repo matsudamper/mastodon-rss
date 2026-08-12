@@ -16,6 +16,7 @@ import io.ktor.server.application.ApplicationCall
  */
 class GraphQlEngine private constructor(
     private val graphQl: GraphQL,
+    private val createContext: (ApplicationCall) -> GraphQlContext,
 ) {
     suspend fun execute(
         request: GraphQlRequest,
@@ -25,7 +26,7 @@ class GraphQlEngine private constructor(
             .newExecutionInput(request.query)
             .operationName(request.operationName)
             .variables(request.variables?.toRawValue().orEmptyMap())
-            .graphQLContext(mapOf(CALL_KEY to call))
+            .graphQLContext(mapOf(CONTEXT_KEY to createContext(call)))
             .build()
 
         return withContext(Dispatchers.IO) {
@@ -41,9 +42,12 @@ class GraphQlEngine private constructor(
     }
 
     companion object {
-        private val CALL_KEY = Any()
+        private val CONTEXT_KEY = Any()
 
-        fun create(resolvers: List<GraphQLResolver<*>>): GraphQlEngine {
+        fun create(
+            resolvers: List<GraphQLResolver<*>>,
+            createContext: (ApplicationCall) -> GraphQlContext,
+        ): GraphQlEngine {
             val schema =
                 SchemaParser
                     .newParser()
@@ -52,15 +56,15 @@ class GraphQlEngine private constructor(
                     .build()
                     .makeExecutableSchema()
 
-            return GraphQlEngine(GraphQL.newGraphQL(schema).build())
+            return GraphQlEngine(
+                graphQl = GraphQL.newGraphQL(schema).build(),
+                createContext = createContext,
+            )
         }
 
-        /**
-         * Cookie を読み書きするリゾルバはここから [ApplicationCall] を取る
-         */
-        fun DataFetchingEnvironment.applicationCall(): ApplicationCall {
-            return requireNotNull(graphQlContext.get<ApplicationCall>(CALL_KEY)) {
-                "GraphQLContext に ApplicationCall が無い"
+        fun DataFetchingEnvironment.graphQlContext(): GraphQlContext {
+            return requireNotNull(graphQlContext.get<GraphQlContext>(CONTEXT_KEY)) {
+                "GraphQLContext に GraphQlContext が無い"
             }
         }
 

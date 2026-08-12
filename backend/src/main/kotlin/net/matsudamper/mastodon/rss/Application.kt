@@ -11,6 +11,7 @@ import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorUsername
 import net.matsudamper.mastodon.rss.actor.actorRoutes
+import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminMutationResolverImpl
@@ -88,19 +89,21 @@ fun Application.module(deps: AppDependencies) {
     // 起動時の makeExecutableSchema で落ちるので、ここに並べ忘れれば起動しない
     val graphQl =
         GraphQlEngine.create(
+            resolvers =
             listOf(
                 QueryResolverImpl(),
                 MutationResolverImpl(),
-                AdminQueryResolverImpl(
-                    passwordHash = env.adminPasswordHash,
-                    sessions = deps.adminSessions,
-                ),
-                AdminMutationResolverImpl(
+                AdminQueryResolverImpl(),
+                AdminMutationResolverImpl(),
+            ),
+            createContext = { call ->
+                GraphQlContext(
+                    call = call,
                     passwordHash = env.adminPasswordHash,
                     sessions = deps.adminSessions,
                     cookieSecure = env.adminCookieSecure,
-                ),
-            ),
+                )
+            },
         )
 
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため

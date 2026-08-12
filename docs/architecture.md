@@ -168,6 +168,14 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 メソッドが増えるので、実装しなければコンパイルが通らない。リゾルバを
 `GraphQlEngine.create` に渡し忘れた場合は `makeExecutableSchema` が落ちる。
 
+### リクエストごとのもの
+
+リゾルバは自分では何も持たず、要るものは `GraphQlContext` から取る。1 リクエストに
+1 つ作って `GraphQLContext` に載せ、`DataFetchingEnvironment.graphQlContext()` で引く。
+
+`ApplicationCall` をそのまま渡すとリゾルバが Ktor に依存する。`GraphQlContext` が
+出すのはセッションの読み書きだけなので、Cookie の名前や有効期限はリゾルバから見えない。
+
 ### native-image との組み合わせ
 
 kickstart はスキーマとクラスの対応をリフレクションで解決する。native バイナリは

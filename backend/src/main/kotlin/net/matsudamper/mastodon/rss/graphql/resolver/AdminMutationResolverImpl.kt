@@ -3,46 +3,32 @@ package net.matsudamper.mastodon.rss.graphql.resolver
 import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
-import io.ktor.server.application.ApplicationCall
-import net.matsudamper.mastodon.rss.admin.AdminSessions
-import net.matsudamper.mastodon.rss.admin.appendSessionCookie
-import net.matsudamper.mastodon.rss.admin.expireSessionCookie
-import net.matsudamper.mastodon.rss.admin.sessionToken
-import net.matsudamper.mastodon.rss.crypto.PasswordHash
-import net.matsudamper.mastodon.rss.graphql.GraphQlEngine.Companion.applicationCall
+import net.matsudamper.mastodon.rss.graphql.GraphQlContext
+import net.matsudamper.mastodon.rss.graphql.GraphQlEngine.Companion.graphQlContext
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 
-class AdminMutationResolverImpl(
-    private val passwordHash: PasswordHash?,
-    private val sessions: AdminSessions,
-    private val cookieSecure: Boolean,
-) : AdminMutationResolver {
+class AdminMutationResolverImpl : AdminMutationResolver {
     override fun login(
         adminMutation: QlAdminMutation,
         password: String,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminLoginResult>> {
-        val call = env.applicationCall()
+        val context = env.graphQlContext()
 
-        if (passwordHash == null) {
-            return completed(call.loginFailure(QlAdminLoginFailure.NOT_CONFIGURED))
+        if (context.adminPasswordConfigured.not()) {
+            return completed(context.loginFailure(QlAdminLoginFailure.NOT_CONFIGURED))
         }
 
-        if (!passwordHash.matches(password)) {
-            return completed(call.loginFailure(QlAdminLoginFailure.WRONG_PASSWORD))
+        if (context.matchesAdminPassword(password).not()) {
+            return completed(context.loginFailure(QlAdminLoginFailure.WRONG_PASSWORD))
         }
 
-        call.appendSessionCookie(
-            token = sessions.create(),
-            maxAgeSeconds = sessions.ttlSeconds,
-            secure = cookieSecure,
-        )
+        context.issueAdminSession()
 
-        // 発行した Cookie はまだリクエスト側に無いので、読み直して組み立てることはできない
         return completed(
             QlAdminLoginResult(
                 session = QlAdminSession(loggedIn = true, passwordConfigured = true),
@@ -55,20 +41,17 @@ class AdminMutationResolverImpl(
         adminMutation: QlAdminMutation,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminSession>> {
-        val call = env.applicationCall()
-
-        // Cookie を消すだけだと、値を控えられていた場合に使い続けられる
-        sessions.remove(call.sessionToken())
-        call.expireSessionCookie(secure = cookieSecure)
+        val context = env.graphQlContext()
+        context.clearAdminSession()
 
         return completed(
-            QlAdminSession(loggedIn = false, passwordConfigured = passwordHash != null),
+            QlAdminSession(loggedIn = false, passwordConfigured = context.adminPasswordConfigured),
         )
     }
 
-    private fun ApplicationCall.loginFailure(failure: QlAdminLoginFailure): QlAdminLoginResult {
+    private fun GraphQlContext.loginFailure(failure: QlAdminLoginFailure): QlAdminLoginResult {
         return QlAdminLoginResult(
-            session = adminSession(this, passwordHash, sessions),
+            session = toQlAdminSession(),
             failure = failure,
         )
     }
