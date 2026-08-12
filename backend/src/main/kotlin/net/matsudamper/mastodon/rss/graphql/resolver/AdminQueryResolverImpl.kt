@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
@@ -15,11 +16,13 @@ class AdminQueryResolverImpl : AdminQueryResolver {
     ): CompletionStage<DataFetcherResult<QlAdminSession>> {
         val context = GraphQlEngine.graphQlContext(env)
 
-        return completed(
-            QlAdminSession(
-                loggedIn = context.isAdminLoggedIn(),
-                passwordConfigured = context.adminPasswordConfigured,
-            ),
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(
+                QlAdminSession(
+                    loggedIn = context.isAdminLoggedIn(),
+                    passwordConfigured = context.adminPasswordConfigured,
+                ),
+            ).build(),
         )
     }
 }

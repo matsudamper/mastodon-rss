@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
@@ -20,20 +21,22 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         val context = GraphQlEngine.graphQlContext(env)
 
         if (context.adminPasswordConfigured.not()) {
-            return completed(loginFailure(context, QlAdminLoginFailure.NOT_CONFIGURED))
+            return CompletableFuture.completedFuture(DataFetcherResult.Builder(loginFailure(context, QlAdminLoginFailure.NOT_CONFIGURED)).build())
         }
 
         if (context.matchesAdminPassword(password).not()) {
-            return completed(loginFailure(context, QlAdminLoginFailure.WRONG_PASSWORD))
+            return CompletableFuture.completedFuture(DataFetcherResult.Builder(loginFailure(context, QlAdminLoginFailure.WRONG_PASSWORD)).build())
         }
 
         context.issueAdminSession()
 
-        return completed(
-            QlAdminLoginResult(
-                session = QlAdminSession(loggedIn = true, passwordConfigured = true),
-                failure = null,
-            ),
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(
+                QlAdminLoginResult(
+                    session = QlAdminSession(loggedIn = true, passwordConfigured = true),
+                    failure = null,
+                ),
+            ).build(),
         )
     }
 
@@ -44,9 +47,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         val context = GraphQlEngine.graphQlContext(env)
         context.clearAdminSession()
 
-        return completed(
-            QlAdminSession(loggedIn = false, passwordConfigured = context.adminPasswordConfigured),
-        )
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(QlAdminSession(loggedIn = false, passwordConfigured = context.adminPasswordConfigured)).build())
     }
 
     private fun loginFailure(
