@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.graphql
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import graphql.ExecutionInput
 import graphql.GraphQL
@@ -15,20 +17,22 @@ import io.ktor.server.application.ApplicationCall
 class GraphQlEngine private constructor(
     private val graphQl: GraphQL,
 ) {
-    /** リゾルバは同期に済ませてあるので、呼ぶ側が `Dispatchers.IO` に載せること */
-    fun execute(
+    suspend fun execute(
         request: GraphQlRequest,
         call: ApplicationCall,
     ): JsonObject {
-        val input =
-            ExecutionInput
-                .newExecutionInput(request.query)
-                .operationName(request.operationName)
-                .variables(request.variables?.toRawValue().orEmptyMap())
-                .graphQLContext(mapOf(CALL_KEY to call))
-                .build()
+        val input = ExecutionInput
+            .newExecutionInput(request.query)
+            .operationName(request.operationName)
+            .variables(request.variables?.toRawValue().orEmptyMap())
+            .graphQLContext(mapOf(CALL_KEY to call))
+            .build()
 
-        return graphQl.execute(input).toSpecification().toJsonElement() as JsonObject
+        return withContext(Dispatchers.IO) {
+            graphQl.execute(input)
+                .toSpecification()
+                .toJsonElement() as JsonObject
+        }
     }
 
     private fun Any?.orEmptyMap(): Map<String, Any?> {

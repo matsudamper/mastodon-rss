@@ -61,7 +61,7 @@ fun Route.graphQlRoutes(engine: GraphQlEngine) {
                 }
 
         // パスワードの照合で PBKDF2 を回すので、そのまま実行すると他が詰まる
-        val result = withContext(Dispatchers.IO) { engine.execute(request, call) }
+        val result = engine.execute(request, call)
 
         call.respondJson(JsonObject.serializer(), result)
     }
