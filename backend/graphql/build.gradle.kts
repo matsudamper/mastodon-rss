@@ -9,7 +9,6 @@ plugins {
 }
 
 dependencies {
-    // 生成物のインタフェースと戻り値に出るので、使う側にも見えている必要がある
     api(libs.graphql.kickstart.tools)
 
     // kickstart の推移依存に任せず version catalog で固定する
