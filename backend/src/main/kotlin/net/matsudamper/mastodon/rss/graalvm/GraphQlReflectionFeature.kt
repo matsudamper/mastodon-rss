@@ -14,7 +14,10 @@ import org.graalvm.nativeimage.hosted.RuntimeReflection
 class GraphQlReflectionFeature : Feature {
     override fun beforeAnalysis(access: Feature.BeforeAnalysisAccess) {
         registerKotlinReflection()
+        registerGraphQlReflection()
+    }
 
+    private fun registerGraphQlReflection() {
         GraphQlReflectionTargets.PACKAGES.forEach { packageName ->
             val classNames = GraphQlReflectionTargets.classNamesIn(packageName)
 
