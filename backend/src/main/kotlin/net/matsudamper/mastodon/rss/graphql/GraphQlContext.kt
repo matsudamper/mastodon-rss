@@ -2,7 +2,7 @@ package net.matsudamper.mastodon.rss.graphql
 
 import io.ktor.server.application.ApplicationCall
 import net.matsudamper.mastodon.rss.admin.AdminSessionCookieManager
-import net.matsudamper.mastodon.rss.admin.AdminSessionStore
+import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
 /**
@@ -12,7 +12,7 @@ import net.matsudamper.mastodon.rss.crypto.PasswordHash
 class GraphQlContext(
     call: ApplicationCall,
     private val passwordHash: PasswordHash?,
-    private val sessionStore: AdminSessionStore,
+    private val sessionStore: AdminSessionInMemoryStore,
     cookieSecure: Boolean,
 ) {
     private val cookie = AdminSessionCookieManager(call = call, secure = cookieSecure)

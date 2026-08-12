@@ -7,7 +7,7 @@ import java.time.Instant
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 
-class AdminSessionStore(
+class AdminSessionInMemoryStore(
     private val ttl: Duration = DEFAULT_TTL,
     private val clock: Clock = Clock.systemUTC(),
 ) {

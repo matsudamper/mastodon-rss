@@ -16,14 +16,14 @@ class AdminSessionStoreTest {
 
     @Test
     fun `発行したトークンは有効`() {
-        val sessions = AdminSessionStore(clock = clock)
+        val sessions = AdminSessionInMemoryStore(clock = clock)
 
         assertTrue(sessions.isValid(sessions.create()))
     }
 
     @Test
     fun `発行していないトークンは無効`() {
-        val sessions = AdminSessionStore(clock = clock)
+        val sessions = AdminSessionInMemoryStore(clock = clock)
         sessions.create()
 
         assertFalse(sessions.isValid("知らないトークン"))
@@ -32,14 +32,14 @@ class AdminSessionStoreTest {
 
     @Test
     fun `発行のたびに違うトークンになる`() {
-        val sessions = AdminSessionStore(clock = clock)
+        val sessions = AdminSessionInMemoryStore(clock = clock)
 
         assertNotEquals(sessions.create(), sessions.create())
     }
 
     @Test
     fun `期限を過ぎたトークンは無効`() {
-        val sessions = AdminSessionStore(ttl = Duration.ofHours(1), clock = clock)
+        val sessions = AdminSessionInMemoryStore(ttl = Duration.ofHours(1), clock = clock)
         val token = sessions.create()
 
         clock.now = clock.now.plus(Duration.ofMinutes(59))
@@ -51,7 +51,7 @@ class AdminSessionStoreTest {
 
     @Test
     fun `期限切れのトークンは時計を戻しても復活しない`() {
-        val sessions = AdminSessionStore(ttl = Duration.ofHours(1), clock = clock)
+        val sessions = AdminSessionInMemoryStore(ttl = Duration.ofHours(1), clock = clock)
         val token = sessions.create()
 
         clock.now = clock.now.plus(Duration.ofHours(2))
@@ -63,7 +63,7 @@ class AdminSessionStoreTest {
 
     @Test
     fun `remove したトークンは無効`() {
-        val sessions = AdminSessionStore(clock = clock)
+        val sessions = AdminSessionInMemoryStore(clock = clock)
         val token = sessions.create()
 
         sessions.remove(token)
@@ -73,7 +73,7 @@ class AdminSessionStoreTest {
 
     @Test
     fun `remove しても他のトークンは残る`() {
-        val sessions = AdminSessionStore(clock = clock)
+        val sessions = AdminSessionInMemoryStore(clock = clock)
         val removed = sessions.create()
         val kept = sessions.create()
 
