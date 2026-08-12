@@ -149,8 +149,9 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 スキーマとリゾルバの実装だけで、その間にある型は全部生成する。
 
 - サーバーのモデルとリゾルバのインタフェース: kobylynskyi の
-  [graphql-java-codegen](https://github.com/kobylynskyi/graphql-java-codegen)
-  （Gradle プラグイン `io.github.kobylynskyi.graphql.codegen`）。設定は
+  graphql-java-codegen（Gradle プラグイン `io.github.kobylynskyi.graphql.codegen`）。
+  取るのは [fork](https://github.com/matsudamper/graphql-java-codegen) のビルドで、
+  GitHub Packages にあるので資格情報が要る（README を参照）。設定は
   `backend/graphql/build.gradle.kts`
 - 結線: graphql-java-tools (kickstart) の `SchemaParser`。リゾルバの実装を渡すだけで、
   スキーマのフィールドとメソッドを対応付ける

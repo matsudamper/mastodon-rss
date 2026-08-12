@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+# graphql-java-codegen は GitHub Packages にある fork のビルドを使う。
+# 資格情報が無いと構成の時点で落ちるので、gradle を回す全ジョブに渡す
+env:
+  GITHUB_ACTOR: ${{ github.actor }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   ktlint:
     name: コード整形の確認

@@ -42,9 +42,16 @@ jobs:
       - name: ビルド
         run: |
           set -euo pipefail
+          # codegen を GitHub Packages から取るための資格情報。
+          # build-arg にすると履歴に残るので secret で渡す
+          printf '%s' "${{ github.actor }}" > "$RUNNER_TEMP/gpr_user"
+          printf '%s' "${{ secrets.GITHUB_TOKEN }}" > "$RUNNER_TEMP/gpr_key"
+
           # latest と commit SHA の 2 つを打つ。
           # 動いていたバージョンに戻せるよう latest だけにはしない
-          docker build \
+          DOCKER_BUILDKIT=1 docker build \
+            --secret "id=gpr_user,src=$RUNNER_TEMP/gpr_user" \
+            --secret "id=gpr_key,src=$RUNNER_TEMP/gpr_key" \
             --tag "$IMAGE:latest" \
             --tag "$IMAGE:$GITHUB_SHA" \
             .

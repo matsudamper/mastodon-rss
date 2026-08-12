@@ -127,6 +127,20 @@ JDK が 1 つあれば足りる。バージョンは問わない（Gradle を起
 
 Gradle 自体も wrapper が入っているので個別のインストールは不要。
 
+### GitHub Packages の資格情報
+
+管理 API のコード生成に使う graphql-java-codegen は
+[matsudamper/graphql-java-codegen](https://github.com/matsudamper/graphql-java-codegen)
+の fork のビルドを GitHub Packages から取る。無いと構成の時点で落ちるので、
+`~/.gradle/gradle.properties` に置く。
+
+```properties
+gpr.user=<GitHub のユーザー名>
+gpr.key=<read:packages を付けたパーソナルアクセストークン>
+```
+
+環境変数 `GITHUB_ACTOR` / `GITHUB_TOKEN` でも読む。CI はそちらを使っている。
+
 ## ビルド
 
 ### 全体

@@ -26,13 +26,23 @@ COPY frontend/build.gradle.kts ./frontend/
 # :backend:repository がここのプラグインを適用するため、構成の時点で読まれる
 COPY build-logic ./build-logic
 
+# graphql-java-codegen を GitHub Packages から取るので資格情報が要る。
+# build-arg にすると値がイメージの履歴に残るため secret で渡す。
+# 渡し方は .github/workflows/publish.yml を参照
+#
 # 出力は捨てるが失敗は握り潰さない。ここで転ぶならビルド環境の問題で、
 # 先に進んでも本ビルドで同じ理由で落ちるだけ
-RUN ./gradlew --no-daemon :backend:dependencies > /dev/null
+RUN --mount=type=secret,id=gpr_user --mount=type=secret,id=gpr_key \
+    GITHUB_ACTOR="$(cat /run/secrets/gpr_user)" \
+    GITHUB_TOKEN="$(cat /run/secrets/gpr_key)" \
+    ./gradlew --no-daemon :backend:dependencies > /dev/null
 
 COPY . .
 
-RUN ./gradlew --no-daemon :backend:nativeCompile
+RUN --mount=type=secret,id=gpr_user --mount=type=secret,id=gpr_key \
+    GITHUB_ACTOR="$(cat /run/secrets/gpr_user)" \
+    GITHUB_TOKEN="$(cat /run/secrets/gpr_key)" \
+    ./gradlew --no-daemon :backend:nativeCompile
 
 # ---- 実行 ----
 # native バイナリは動的リンクなので、ビルド時より古い glibc のイメージに置くと起動しない。
