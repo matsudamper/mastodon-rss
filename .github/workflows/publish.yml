@@ -15,8 +15,6 @@ on:
       - docker-entrypoint.sh
       - .github/workflows/publish.yml
 
-# graphql-java-codegen は GitHub Packages にある fork のビルドを使う。
-# 資格情報が無いと構成の時点で落ちるので、gradle を回すジョブに渡す
 env:
   GITHUB_ACTOR: ${{ github.actor }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
