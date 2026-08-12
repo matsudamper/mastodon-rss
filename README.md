@@ -249,32 +249,9 @@ ADMIN_COOKIE_SECURE=false \
 ログイン後に出るのは「ログイン済み」だけ。フィードの登録や配信状況はこれから作る。
 セッションの持ち方と Cookie の扱いは [docs/architecture.md](docs/architecture.md) を参照。
 
-### 管理 API
-
-エンドポイントは `POST /graphql` の 1 つ。管理用は `Query.admin` / `Mutation.admin` の
-下にまとめてあり、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側
-（WebFinger・Actor・inbox）は相手の実装が決まっている REST なので、ここには載せない。
-
-スキーマは [backend/graphql](backend/graphql/src/main/resources/graphql) に置き、ルートの
-`schema.graphqls`・`admin_query.graphqls`・`admin_mutation.graphqls`・`directive.graphqls`
-に分けてある。`:backend` は起動時に全部をリソースとして読んで 1 つに繋ぎ、`:frontend` は
-同じファイルから Apollo Kotlin でクライアントを生成する。写しを持たないので、片方にだけ
-フィールドがある状態にはならない。
-
-```sh
-# ログインしているかを聞く
-curl -sf -X POST -H 'Content-Type: application/json' \
-  -d '{"query":"query { admin { session { loggedIn passwordConfigured } } }"}' \
-  http://localhost:8080/graphql
-```
-
-スキーマ優先で、手で書くのはスキーマとリゾルバの実装だけ。その間にある型は
-[kake-bo](https://github.com/matsudamper/kake-bo) と同じ組み合わせで生成する。
-
-| 生成するもの | 使うもの | 置き場所 |
-| --- | --- | --- |
-| サーバーのモデルとリゾルバのインタフェース | kobylynskyi の graphql-java-codegen | `:backend:graphql` |
-| 画面のクライアント | Apollo Kotlin | `:frontend` |
+### API
+graphqlを使用している `POST /graphql`
+スキーマファースト`backend/graphql`モジュール参照
 
 結線は graphql-java-tools (kickstart) が行う。リフレクションを使うので、native-image
 向けにクラスを登録する。登録はイメージのビルド時に `GraphQlReflectionFeature` が
