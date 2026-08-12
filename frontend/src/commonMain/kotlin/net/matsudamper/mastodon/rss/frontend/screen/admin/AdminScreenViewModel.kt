@@ -12,7 +12,7 @@ import net.matsudamper.mastodon.rss.frontend.api.AdminSessionResult
 
 class AdminScreenViewModel(
     private val viewModelScope: CoroutineScope,
-    private val api: AdminApi,
+    private val api: AdminApi = AdminApi(),
 ) {
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
@@ -51,6 +51,10 @@ class AdminScreenViewModel(
 
     fun onStart() {
         reload()
+    }
+
+    fun onDispose() {
+        api.close()
     }
 
     private fun reload() {

@@ -25,7 +25,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
-import net.matsudamper.mastodon.rss.frontend.api.AdminApi
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
@@ -34,13 +33,12 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 @Composable
 fun AdminScreen(onNavigate: (Screen) -> Unit) {
     val viewModelScope = rememberCoroutineScope()
-    val api = remember { AdminApi() }
-    DisposableEffect(api) {
-        onDispose { api.close() }
-    }
-
-    val viewModel = remember(api, viewModelScope) { AdminScreenViewModel(viewModelScope, api) }
+    val viewModel = remember(viewModelScope) { AdminScreenViewModel(viewModelScope) }
     val uiState by viewModel.uiStateFlow.collectAsState()
+
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.onDispose() }
+    }
 
     LifecycleStartEffect(Unit) {
         viewModel.onStart()
