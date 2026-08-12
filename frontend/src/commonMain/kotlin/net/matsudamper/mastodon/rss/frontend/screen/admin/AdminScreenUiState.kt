@@ -7,7 +7,6 @@ data class AdminScreenUiState(
     val listener: Listener,
 ) {
     sealed interface Content {
-        /** ログインしているかはサーバーに聞かないと分からない。聞いている間 */
         data object Loading : Content
 
         data class Login(
