@@ -30,21 +30,21 @@ class GraphQlValuesTest {
         assertEquals(
             """{"data":{"admin":{"session":{"loggedIn":true,"passwordConfigured":false},""" +
                 """"failure":null,"count":3,"names":["a","b"]}}}""",
-            result.toJsonElement().toString(),
+            GraphQlValues.toJsonElement(result).toString(),
         )
     }
 
     @Test
     fun `知らない型が来たら落ちる`() {
         assertFailsWith<IllegalArgumentException> {
-            mapOf("value" to Any()).toJsonElement()
+            GraphQlValues.toJsonElement(mapOf("value" to Any()))
         }
     }
 
     @Test
     fun `キーが文字列でなければ落ちる`() {
         assertFailsWith<IllegalArgumentException> {
-            mapOf(1 to "value").toJsonElement()
+            GraphQlValues.toJsonElement(mapOf(1 to "value"))
         }
     }
 
@@ -71,7 +71,7 @@ class GraphQlValuesTest {
                 "names" to listOf("a"),
                 "nested" to mapOf("key" to "value"),
             ),
-            variables.toRawValue(),
+            GraphQlValues.toRawValue(variables),
         )
     }
 
@@ -79,6 +79,6 @@ class GraphQlValuesTest {
     fun `数字に見える文字列は文字列のまま`() {
         val variables = JsonObject(mapOf("value" to JsonPrimitive("3")))
 
-        assertEquals(mapOf("value" to "3"), variables.toRawValue())
+        assertEquals(mapOf("value" to "3"), GraphQlValues.toRawValue(variables))
     }
 }

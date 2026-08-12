@@ -1,10 +1,8 @@
 package net.matsudamper.mastodon.rss.graphql
 
 import io.ktor.server.application.ApplicationCall
+import net.matsudamper.mastodon.rss.admin.AdminSessionCookie
 import net.matsudamper.mastodon.rss.admin.AdminSessions
-import net.matsudamper.mastodon.rss.admin.appendSessionCookie
-import net.matsudamper.mastodon.rss.admin.expireSessionCookie
-import net.matsudamper.mastodon.rss.admin.sessionToken
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
 /**
@@ -12,29 +10,27 @@ import net.matsudamper.mastodon.rss.crypto.PasswordHash
  * 渡すとヘッダもボディもレスポンスも触れるが、要るのはセッションの読み書きだけ
  */
 class GraphQlContext(
-    private val call: ApplicationCall,
+    call: ApplicationCall,
     private val passwordHash: PasswordHash?,
     private val sessions: AdminSessions,
-    private val cookieSecure: Boolean,
+    cookieSecure: Boolean,
 ) {
+    private val cookie = AdminSessionCookie(call = call, secure = cookieSecure)
+
     val adminPasswordConfigured: Boolean = passwordHash != null
 
-    fun isAdminLoggedIn(): Boolean = sessions.isValid(call.sessionToken())
+    fun isAdminLoggedIn(): Boolean = sessions.isValid(cookie.token())
 
     fun matchesAdminPassword(password: String): Boolean = passwordHash?.matches(password) == true
 
     /** 発行した Cookie はまだリクエスト側に無いので、[isAdminLoggedIn] は false のまま */
     fun issueAdminSession() {
-        call.appendSessionCookie(
-            token = sessions.create(),
-            maxAgeSeconds = sessions.ttlSeconds,
-            secure = cookieSecure,
-        )
+        cookie.append(token = sessions.create(), maxAgeSeconds = sessions.ttlSeconds)
     }
 
     fun clearAdminSession() {
         // Cookie を消すだけだと、値を控えられていた場合に使い続けられる
-        sessions.remove(call.sessionToken())
-        call.expireSessionCookie(secure = cookieSecure)
+        sessions.remove(cookie.token())
+        cookie.expire()
     }
 }

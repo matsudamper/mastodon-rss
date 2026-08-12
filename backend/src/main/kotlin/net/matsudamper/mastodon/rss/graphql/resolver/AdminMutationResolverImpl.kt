@@ -4,7 +4,7 @@ import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
-import net.matsudamper.mastodon.rss.graphql.GraphQlEngine.Companion.graphQlContext
+import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
@@ -17,14 +17,14 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         password: String,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminLoginResult>> {
-        val context = env.graphQlContext()
+        val context = GraphQlEngine.graphQlContext(env)
 
         if (context.adminPasswordConfigured.not()) {
-            return completed(context.loginFailure(QlAdminLoginFailure.NOT_CONFIGURED))
+            return completed(loginFailure(context, QlAdminLoginFailure.NOT_CONFIGURED))
         }
 
         if (context.matchesAdminPassword(password).not()) {
-            return completed(context.loginFailure(QlAdminLoginFailure.WRONG_PASSWORD))
+            return completed(loginFailure(context, QlAdminLoginFailure.WRONG_PASSWORD))
         }
 
         context.issueAdminSession()
@@ -41,7 +41,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         adminMutation: QlAdminMutation,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminSession>> {
-        val context = env.graphQlContext()
+        val context = GraphQlEngine.graphQlContext(env)
         context.clearAdminSession()
 
         return completed(
@@ -49,9 +49,16 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         )
     }
 
-    private fun GraphQlContext.loginFailure(failure: QlAdminLoginFailure): QlAdminLoginResult {
+    private fun loginFailure(
+        context: GraphQlContext,
+        failure: QlAdminLoginFailure,
+    ): QlAdminLoginResult {
         return QlAdminLoginResult(
-            session = toQlAdminSession(),
+            session =
+            QlAdminSession(
+                loggedIn = context.isAdminLoggedIn(),
+                passwordConfigured = context.adminPasswordConfigured,
+            ),
             failure = failure,
         )
     }
