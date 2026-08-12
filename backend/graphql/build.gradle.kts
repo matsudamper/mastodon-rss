@@ -10,8 +10,6 @@ plugins {
 
 dependencies {
     api(libs.graphql.kickstart.tools)
-
-    // kickstart の推移依存に任せず version catalog で固定する
     api(libs.graphql.java)
 }
 
@@ -29,15 +27,14 @@ tasks.named<GraphQLCodegenGradleTask>("graphqlCodegen") {
     // 実行時に Task.project を触る
     notCompatibleWithConfigurationCache("graphqlCodegen uses Task.project at execution time")
 
-    graphqlSchemaPaths =
-        layout.projectDirectory
-            .dir("src/main/resources/graphql")
-            .asFile
-            .listFiles()
-            .orEmpty()
-            .filter { it.extension == "graphqls" }
-            .map { it.toString() }
-            .sorted()
+    graphqlSchemaPaths = layout.projectDirectory
+        .dir("src/main/resources/graphql")
+        .asFile
+        .listFiles()
+        .orEmpty()
+        .filter { it.extension == "graphqls" }
+        .map { it.toString() }
+        .sorted()
 
     generatedLanguage = GeneratedLanguage.KOTLIN
     outputDir = generatedSourcesDirectory.get().asFile
