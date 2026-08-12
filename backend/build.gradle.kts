@@ -9,7 +9,6 @@ dependencies {
     implementation(project(":backend:repository"))
     implementation(project(":backend:crypto"))
 
-    // スキーマは実行時にリソースとして読むので、コンパイルだけでなく実行にも要る
     implementation(project(":backend:graphql"))
 
     implementation(libs.ktor.server.core)
