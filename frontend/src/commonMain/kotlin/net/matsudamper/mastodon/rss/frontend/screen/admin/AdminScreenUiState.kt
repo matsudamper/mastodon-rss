@@ -17,7 +17,7 @@ data class AdminScreenUiState(
 
         data object LoggedIn : Content
 
-        /** `ADMIN_PASSWORD_HASH` が無い。入れても通らないので入力欄は出さない */
+       // ログインが無効化されている
         data object NotConfigured : Content
 
         /** 入力欄を出すと、パスワードの問題だと思って何度も試すことになる */
