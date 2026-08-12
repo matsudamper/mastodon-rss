@@ -26,9 +26,8 @@ jobs:
       - name: チェックアウト
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # native バイナリはここで作る。Dockerfile の中でビルドしていた頃は
-      # Gradle のキャッシュがイメージのレイヤ頼りで、ソースを変えるたびに
-      # 依存の解決からやり直していた。setup-gradle のキャッシュに乗せる
+      # イメージに入れる native バイナリはここで作る。
+      # Dockerfile は出来上がったものを置くだけ
       - name: GraalVM のセットアップ
         uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2 # v1.6.4
         with:
