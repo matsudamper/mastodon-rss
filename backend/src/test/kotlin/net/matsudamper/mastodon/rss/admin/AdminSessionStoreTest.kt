@@ -10,7 +10,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
-// 期限は時計を進めて見るので、実時間で待つテストにはしない。
 class AdminSessionStoreTest {
     private val clock = TestClock(Instant.parse("2026-08-11T00:00:00Z"))
 
