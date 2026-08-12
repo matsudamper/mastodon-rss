@@ -1,9 +1,6 @@
-.git
-.github
-.claude
-.gradle
-**/.gradle
-**/build
-kotlin-js-store
-data
-*.log
+# イメージに入れるのはビルド済みのバイナリと entrypoint の 2 つだけなので、
+# コンテキストにもそれ以外を送らない。ソースを送っていた頃と違い、
+# 除外の書き漏らしでキャッシュが無駄に飛ぶこともなくなる
+*
+!mastodon-rss
+!docker-entrypoint.sh

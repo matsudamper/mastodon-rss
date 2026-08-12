@@ -10,5 +10,8 @@ scripts
 # 既定の DB_PATH の置き場所
 data/
 
+# docker build に渡す native バイナリの置き場所
+/mastodon-rss
+
 # docker compose の設定
 .env
