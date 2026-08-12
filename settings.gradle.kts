@@ -22,9 +22,6 @@ pluginManagement {
     }
 
     repositories {
-        // graphql-java-codegen は upstream ではなく fork のビルドを使う。
-        // 読むには GitHub の資格情報が要る。gpr.user / gpr.key を
-        // ~/.gradle/gradle.properties に置くか、GITHUB_ACTOR / GITHUB_TOKEN を渡す
         exclusiveContent {
             forRepository {
                 maven {
