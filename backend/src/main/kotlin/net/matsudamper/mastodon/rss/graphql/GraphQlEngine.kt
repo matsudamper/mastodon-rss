@@ -55,14 +55,18 @@ class GraphQlEngine private constructor(
             return GraphQlEngine(GraphQL.newGraphQL(schema).build())
         }
 
-        /** Cookie を読み書きするリゾルバはここから [ApplicationCall] を取る */
+        /**
+         * Cookie を読み書きするリゾルバはここから [ApplicationCall] を取る
+         */
         fun DataFetchingEnvironment.applicationCall(): ApplicationCall {
             return requireNotNull(graphQlContext.get<ApplicationCall>(CALL_KEY)) {
                 "GraphQLContext に ApplicationCall が無い"
             }
         }
 
-        /** 読むファイルは一覧から引く。ディレクトリの列挙は native バイナリで効かない */
+        /**
+         *  読むファイルは一覧から引く。ディレクトリの列挙は native バイナリで効かない
+         */
         private fun readSchema(): String {
             val fileNames =
                 readResource(SCHEMA_LIST_RESOURCE)
