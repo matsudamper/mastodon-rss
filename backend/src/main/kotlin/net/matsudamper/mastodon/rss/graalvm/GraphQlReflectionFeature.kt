@@ -31,7 +31,9 @@ class GraphQlReflectionFeature : Feature {
         }
     }
 
-    /** kickstart がリゾルバの引数を数えるのに kotlin-reflect を使う。実装は名前で引かれる */
+    /**
+     * kickstart がリゾルバの引数を数えるのに kotlin-reflect を使う。実装は名前で引かれる
+     */
     private fun registerKotlinReflection() {
         val factory = Class.forName(KOTLIN_REFLECTION_FACTORY, false, javaClass.classLoader)
 
