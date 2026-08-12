@@ -9,64 +9,66 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 
-/** 実行結果を JSON にする */
-fun Any?.toJsonElement(): JsonElement {
-    return when (this) {
-        null -> {
-            JsonNull
-        }
+object GraphQlValues {
+    /** 実行結果を JSON にする */
+    fun toJsonElement(value: Any?): JsonElement {
+        return when (value) {
+            null -> {
+                JsonNull
+            }
 
-        is String -> {
-            JsonPrimitive(this)
-        }
+            is String -> {
+                JsonPrimitive(value)
+            }
 
-        is Boolean -> {
-            JsonPrimitive(this)
-        }
+            is Boolean -> {
+                JsonPrimitive(value)
+            }
 
-        is Number -> {
-            JsonPrimitive(this)
-        }
+            is Number -> {
+                JsonPrimitive(value)
+            }
 
-        is Map<*, *> -> {
-            JsonObject(
-                entries.associate { (key, value) ->
-                    require(key is String) { "GraphQL の結果のキーが文字列ではない: $key" }
-                    key to value.toJsonElement()
-                },
-            )
-        }
+            is Map<*, *> -> {
+                JsonObject(
+                    value.entries.associate { (key, element) ->
+                        require(key is String) { "GraphQL の結果のキーが文字列ではない: $key" }
+                        key to toJsonElement(element)
+                    },
+                )
+            }
 
-        is List<*> -> {
-            JsonArray(map { it.toJsonElement() })
-        }
+            is List<*> -> {
+                JsonArray(value.map { toJsonElement(it) })
+            }
 
-        else -> {
-            throw IllegalArgumentException("GraphQL の結果に知らない型が入っている: ${this::class.qualifiedName}")
-        }
-    }
-}
-
-/** 変数を graphql-java に渡せる形にする */
-fun JsonElement.toRawValue(): Any? {
-    return when (this) {
-        is JsonNull -> {
-            null
-        }
-
-        is JsonPrimitive -> {
-            when {
-                isString -> content
-                else -> booleanOrNull ?: longOrNull ?: doubleOrNull ?: content
+            else -> {
+                throw IllegalArgumentException("GraphQL の結果に知らない型が入っている: ${value::class.qualifiedName}")
             }
         }
+    }
 
-        is JsonObject -> {
-            mapValues { (_, value) -> value.toRawValue() }
-        }
+    /** 変数を graphql-java に渡せる形にする */
+    fun toRawValue(element: JsonElement): Any? {
+        return when (element) {
+            is JsonNull -> {
+                null
+            }
 
-        is JsonArray -> {
-            map { it.toRawValue() }
+            is JsonPrimitive -> {
+                when {
+                    element.isString -> element.content
+                    else -> element.booleanOrNull ?: element.longOrNull ?: element.doubleOrNull ?: element.content
+                }
+            }
+
+            is JsonObject -> {
+                element.mapValues { (_, value) -> toRawValue(value) }
+            }
+
+            is JsonArray -> {
+                element.map { toRawValue(it) }
+            }
         }
     }
 }

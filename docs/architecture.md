@@ -171,7 +171,7 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 ### リクエストごとのもの
 
 リゾルバは自分では何も持たず、要るものは `GraphQlContext` から取る。1 リクエストに
-1 つ作って `GraphQLContext` に載せ、`DataFetchingEnvironment.graphQlContext()` で引く。
+1 つ作って `GraphQLContext` に載せ、`GraphQlEngine.graphQlContext(env)` で引く。
 
 `ApplicationCall` をそのまま渡すとリゾルバが Ktor に依存する。`GraphQlContext` が
 出すのはセッションの読み書きだけなので、Cookie の名前や有効期限はリゾルバから見えない。

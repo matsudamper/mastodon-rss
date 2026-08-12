@@ -4,37 +4,43 @@ import io.ktor.http.CookieEncoding
 import io.ktor.server.application.ApplicationCall
 import io.ktor.util.date.GMTDate
 
-private val COOKIE_ENCODING = CookieEncoding.RAW
-
-fun ApplicationCall.sessionToken(): String? = request.cookies[AdminSessions.COOKIE_NAME, COOKIE_ENCODING]
-
-fun ApplicationCall.appendSessionCookie(
-    token: String,
-    maxAgeSeconds: Long,
-    secure: Boolean,
+/** 発行と失効で属性がずれると別の Cookie として扱われるので、1 箇所にまとめる */
+class AdminSessionCookie(
+    private val call: ApplicationCall,
+    private val secure: Boolean,
 ) {
-    response.cookies.append(
-        name = AdminSessions.COOKIE_NAME,
-        value = token,
-        encoding = COOKIE_ENCODING,
-        maxAge = maxAgeSeconds,
-        path = "/",
-        secure = secure,
-        httpOnly = true,
-        extensions = mapOf("SameSite" to "Strict"),
-    )
-}
+    fun token(): String? = call.request.cookies[AdminSessions.COOKIE_NAME, ENCODING]
 
-/** `Path` と `Secure` は発行したときと揃える。ずれると別の Cookie として扱われる */
-fun ApplicationCall.expireSessionCookie(secure: Boolean) {
-    response.cookies.append(
-        name = AdminSessions.COOKIE_NAME,
-        value = "",
-        encoding = COOKIE_ENCODING,
-        expires = GMTDate.START,
-        path = "/",
-        secure = secure,
-        httpOnly = true,
-        extensions = mapOf("SameSite" to "Strict"),
-    )
+    fun append(
+        token: String,
+        maxAgeSeconds: Long,
+    ) {
+        append(value = token, maxAge = maxAgeSeconds, expires = null)
+    }
+
+    fun expire() {
+        append(value = "", maxAge = null, expires = GMTDate.START)
+    }
+
+    private fun append(
+        value: String,
+        maxAge: Long?,
+        expires: GMTDate?,
+    ) {
+        call.response.cookies.append(
+            name = AdminSessions.COOKIE_NAME,
+            value = value,
+            encoding = ENCODING,
+            maxAge = maxAge,
+            expires = expires,
+            path = "/",
+            secure = secure,
+            httpOnly = true,
+            extensions = mapOf("SameSite" to "Strict"),
+        )
+    }
+
+    private companion object {
+        val ENCODING = CookieEncoding.RAW
+    }
 }

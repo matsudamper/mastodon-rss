@@ -25,20 +25,22 @@ class GraphQlEngine private constructor(
         val input = ExecutionInput
             .newExecutionInput(request.query)
             .operationName(request.operationName)
-            .variables(request.variables?.toRawValue().orEmptyMap())
+            .variables(variablesOf(request))
             .graphQLContext(mapOf(CONTEXT_KEY to createContext(call)))
             .build()
 
         return withContext(Dispatchers.IO) {
-            graphQl.execute(input)
-                .toSpecification()
-                .toJsonElement() as JsonObject
+            GraphQlValues.toJsonElement(
+                graphQl.execute(input).toSpecification(),
+            ) as JsonObject
         }
     }
 
-    private fun Any?.orEmptyMap(): Map<String, Any?> {
+    private fun variablesOf(request: GraphQlRequest): Map<String, Any?> {
+        val raw = request.variables?.let { GraphQlValues.toRawValue(it) }
+
         @Suppress("UNCHECKED_CAST")
-        return this as? Map<String, Any?> ?: emptyMap()
+        return raw as? Map<String, Any?> ?: emptyMap()
     }
 
     companion object {
@@ -62,8 +64,8 @@ class GraphQlEngine private constructor(
             )
         }
 
-        fun DataFetchingEnvironment.graphQlContext(): GraphQlContext {
-            return requireNotNull(graphQlContext.get<GraphQlContext>(CONTEXT_KEY)) {
+        fun graphQlContext(env: DataFetchingEnvironment): GraphQlContext {
+            return requireNotNull(env.graphQlContext.get<GraphQlContext>(CONTEXT_KEY)) {
                 "GraphQLContext に GraphQlContext が無い"
             }
         }
