@@ -1,53 +1,19 @@
 # syntax=docker/dockerfile:1
 
-# ---- ビルド ----
-# native-image のビルドには GraalVM が要るが、実行時には要らない。
-# ステージを分けて、最終イメージに JDK を持ち込まないようにする
-FROM ghcr.io/graalvm/native-image-community:25 AS build
-
-# このイメージは最小構成で xargs が入っておらず、gradlew が
-# 「xargs is not available」で起動できない
-RUN microdnf install -y findutils \
-    && microdnf clean all
-
-WORKDIR /src
-
-# 先にビルド定義だけを入れて依存を解決しておく。
-# こうするとソースだけ変えたときに依存の再ダウンロードが起きない
-COPY gradlew gradle.properties settings.gradle.kts build.gradle.kts ./
-COPY gradle ./gradle
-COPY backend/build.gradle.kts ./backend/
-COPY backend/crypto/build.gradle.kts ./backend/crypto/
-COPY backend/graphql/build.gradle.kts ./backend/graphql/
-COPY backend/repository/build.gradle.kts ./backend/repository/
-COPY backend/rss/build.gradle.kts ./backend/rss/
-COPY frontend/build.gradle.kts ./frontend/
-# build-logic は複合ビルドなので、定義だけでなくソースごと要る。
-# :backend:repository がここのプラグインを適用するため、構成の時点で読まれる
-COPY build-logic ./build-logic
-
-# graphql-java-codegen を GitHub Packages から取るので資格情報が要る。
-# build-arg にすると値がイメージの履歴に残るため secret で渡す。
-# 渡し方は .github/workflows/publish.yml を参照
+# native バイナリのビルドはここではやらない。GitHub Actions
+# (.github/workflows/publish.yml) で ./gradlew :backend:nativeCompile を回し、
+# その出力をコンテキスト直下に mastodon-rss として置いてから docker build する。
+# ここは出来上がったものを置くだけ。
+# 手元でイメージを作る場合も同じで、先にバイナリを用意しておくこと
 #
-# 出力は捨てるが失敗は握り潰さない。ここで転ぶならビルド環境の問題で、
-# 先に進んでも本ビルドで同じ理由で落ちるだけ
-RUN --mount=type=secret,id=gpr_user --mount=type=secret,id=gpr_key \
-    GITHUB_ACTOR="$(cat /run/secrets/gpr_user)" \
-    GITHUB_TOKEN="$(cat /run/secrets/gpr_key)" \
-    ./gradlew --no-daemon :backend:dependencies > /dev/null
-
-COPY . .
-
-RUN --mount=type=secret,id=gpr_user --mount=type=secret,id=gpr_key \
-    GITHUB_ACTOR="$(cat /run/secrets/gpr_user)" \
-    GITHUB_TOKEN="$(cat /run/secrets/gpr_key)" \
-    ./gradlew --no-daemon :backend:nativeCompile
-
-# ---- 実行 ----
-# native バイナリは動的リンクなので、ビルド時より古い glibc のイメージに置くと起動しない。
-# ビルドステージは Oracle Linux 9 (glibc 2.34)、こちらは Debian 13 (glibc 2.41) で、
-# 新しい側に置いているため動く
+#   ./gradlew :backend:nativeCompile
+#   cp backend/build/native/nativeCompile/mastodon-rss .
+#   docker build -t mastodon-rss .
+#
+# native バイナリは動的リンクなので、ビルドしたところより古い glibc のイメージに
+# 置くと起動しない。ここは Debian 13 (glibc 2.41) で、GHA の ubuntu-latest
+# (Ubuntu 24.04, glibc 2.39) より新しいため動く。runner が上がって逆転したら、
+# ここの base image も上げること。publish.yml の起動確認で気付ける
 FROM debian:13-slim
 
 # curl は HEALTHCHECK で /healthz を叩くためだけに入れている。
@@ -66,7 +32,8 @@ RUN apt-get update \
     && mkdir -p /data \
     && chown app:app /data
 
-COPY --from=build /src/backend/build/native/nativeCompile/mastodon-rss /usr/local/bin/mastodon-rss
+# 実行権限は元のファイルの属性に頼らず、ここで付ける
+COPY --chmod=0755 mastodon-rss /usr/local/bin/mastodon-rss
 
 # entrypoint をバイナリと同じ /usr/local/bin に置かないのは、ローカルでビルドした
 # バイナリを差し替えるときに /usr/local/bin ごとマウントするため。同じ場所に置くと

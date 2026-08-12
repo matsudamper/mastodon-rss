@@ -1,7 +1,11 @@
 services:
   mastodon-rss:
-    # ローカルでビルドする場合はこのまま。GitHub Packages の
-    # イメージを使う場合は build: を消して docker compose pull する
+    # ローカルでビルドする場合はこのまま。ただし Dockerfile はバイナリを
+    # 入れるだけなので、先に用意しておくこと。
+    #   ./gradlew :backend:nativeCompile
+    #   cp backend/build/native/nativeCompile/mastodon-rss .
+    # GitHub Packages のイメージを使う場合は build: を消して
+    # docker compose pull する
     build:
       context: .
     image: ghcr.io/matsudamper/mastodon-rss:latest
