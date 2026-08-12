@@ -110,7 +110,6 @@ class ServerEnv(
             if (raw.isNullOrEmpty()) null else Path.of(raw)
         }
 
-    /** 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない */
     val adminPasswordHash: PasswordHash? =
         run {
             val raw = env["ADMIN_PASSWORD_HASH"]?.trim()
