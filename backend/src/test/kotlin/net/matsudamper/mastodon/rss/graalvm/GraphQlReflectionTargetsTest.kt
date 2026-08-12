@@ -56,7 +56,9 @@ class GraphQlReflectionTargetsTest {
         const val RESOLVER_PACKAGE = "$ROOT_PACKAGE.graphql.resolver"
         const val RESOLVER_IMPL_SUFFIX = "ResolverImpl"
 
-        /** Query / Mutation / AdminQuery / AdminMutation */
+        /**
+         * Query / Mutation / AdminQuery / AdminMutation
+         */
         const val EXPECTED_RESOLVER_IMPLS = 4
     }
 }

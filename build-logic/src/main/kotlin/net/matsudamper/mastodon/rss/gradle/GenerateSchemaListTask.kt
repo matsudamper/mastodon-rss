@@ -19,7 +19,9 @@ abstract class GenerateSchemaListTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val schemaDirectory: DirectoryProperty
 
-    /** リソースの root。この下の [SCHEMA_DIRECTORY] に一覧を置く */
+    /**
+     * リソースの root。この下の [SCHEMA_DIRECTORY] に一覧を置く
+     */
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 

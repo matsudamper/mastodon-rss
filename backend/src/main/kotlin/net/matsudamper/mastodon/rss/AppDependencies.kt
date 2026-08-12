@@ -6,7 +6,7 @@ import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
 import net.matsudamper.mastodon.rss.actor.RemoteActors
-import net.matsudamper.mastodon.rss.admin.AdminSessions
+import net.matsudamper.mastodon.rss.admin.AdminSessionStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
@@ -39,7 +39,7 @@ class AppDependencies(
     val env: ServerEnv,
     val remoteActors: RemoteActors,
     val delivery: ActivityDelivery,
-    val adminSessions: AdminSessions = AdminSessions(),
+    val adminSessionStore: AdminSessionStore = AdminSessionStore(),
 ) : AutoCloseable {
     /**
      * ドメインはアクター ID に焼き込まれ、Mastodon 側にキャッシュされると後から変えられない。

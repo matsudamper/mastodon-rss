@@ -100,7 +100,7 @@ fun Application.module(deps: AppDependencies) {
                 GraphQlContext(
                     call = call,
                     passwordHash = env.adminPasswordHash,
-                    sessions = deps.adminSessions,
+                    sessionStore = deps.adminSessionStore,
                     cookieSecure = env.adminCookieSecure,
                 )
             },

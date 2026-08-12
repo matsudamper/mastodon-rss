@@ -11,17 +11,16 @@ data class AdminScreenUiState(
 
         data class Login(
             val password: String,
+            // 無効化してメッセージを出す
+            val enabled: Boolean,
             val submitting: Boolean,
+            val message: String?,
             val error: String?,
         ) : Content
 
         data object LoggedIn : Content
 
-       // ログインが無効化されている
-        data object NotConfigured : Content
-
-        /** 入力欄を出すと、パスワードの問題だと思って何度も試すことになる */
-        data class Unavailable(
+        data class Error(
             val message: String,
         ) : Content
     }

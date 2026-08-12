@@ -1,6 +1,8 @@
 package net.matsudamper.mastodon.rss.crypto
 
-/** 引数ではなく標準入力から受けるのは、シェルの履歴と `ps` に平文で残るため */
+/**
+ * 引数ではなく標準入力から受けるのは、シェルの履歴と `ps` に平文で残るため
+ */
 fun main() {
     System.err.println("hash化するパスワードを入力してください")
     val password = readlnOrNull()?.trim()

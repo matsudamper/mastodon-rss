@@ -24,14 +24,18 @@ import net.matsudamper.mastodon.rss.crypto.PasswordHash
 class ServerEnv(
     env: Map<String, String> = System.getenv(),
 ) {
-    /** バインドするアドレス */
+    /**
+     * バインドするアドレス
+     */
     val host: String =
         run {
             val raw = env["HOST"]?.trim()
             if (raw.isNullOrEmpty()) "0.0.0.0" else raw
         }
 
-    /** 待ち受けポート。数値でなければ既定値に落とす */
+    /**
+     * 待ち受けポート。数値でなければ既定値に落とす
+     */
     val port: Int = env["PORT"]?.trim()?.toIntOrNull() ?: 8080
 
     /**
@@ -75,14 +79,18 @@ class ServerEnv(
             username
         }
 
-    /** SQLite の DB ファイル。親ディレクトリは接続時に作られる */
+    /**
+     * SQLite の DB ファイル。親ディレクトリは接続時に作られる
+     */
     val dbPath: Path =
         run {
             val raw = env["DB_PATH"]?.trim()
             Path.of(if (raw.isNullOrEmpty()) "./data/mastodon-rss.db" else raw)
         }
 
-    /** アクターの秘密鍵をどこから読むか */
+    /**
+     * アクターの秘密鍵をどこから読むか
+     */
     val actorPrivateKey: ActorPrivateKey =
         run {
             // PEM は中身をそのまま鍵として読むので、前後の空白も落とさずに渡す
@@ -103,7 +111,9 @@ class ServerEnv(
             }
         }
 
-    /** 配信する静的ファイルのディレクトリ。未設定なら null で、何も配信しない */
+    /**
+     * 配信する静的ファイルのディレクトリ。未設定なら null で、何も配信しない
+     */
     val staticSrcDir: Path? =
         run {
             val raw = env["STATIC_SRC_DIR"]?.trim()
@@ -116,7 +126,9 @@ class ServerEnv(
             if (raw.isNullOrEmpty()) null else PasswordHash.parse(raw)
         }
 
-    /** セッション Cookie に `Secure` を付けるか。付けたまま http で開くとログインできない */
+    /**
+     * セッション Cookie に `Secure` を付けるか。付けたまま http で開くとログインできない
+     */
     val adminCookieSecure: Boolean =
         run {
             val raw = env["ADMIN_COOKIE_SECURE"]?.trim()

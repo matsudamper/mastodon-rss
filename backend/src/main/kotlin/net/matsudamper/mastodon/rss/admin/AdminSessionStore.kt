@@ -7,8 +7,11 @@ import java.time.Instant
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 
-/** ログイン済みセッション。メモリ上に持つので、再起動すると消える */
-class AdminSessions(
+/**
+ * ログイン済みセッションの置き場。
+ * メモリ上に持つので、再起動すると消える
+ */
+class AdminSessionStore(
     private val ttl: Duration = DEFAULT_TTL,
     private val clock: Clock = Clock.systemUTC(),
 ) {
@@ -46,8 +49,6 @@ class AdminSessions(
     }
 
     companion object {
-        const val COOKIE_NAME: String = "admin_session"
-
         val DEFAULT_TTL: Duration = Duration.ofHours(12)
 
         private const val TOKEN_SIZE_BYTES = 32

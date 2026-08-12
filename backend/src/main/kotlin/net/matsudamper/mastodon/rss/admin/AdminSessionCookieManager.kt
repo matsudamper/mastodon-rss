@@ -4,12 +4,15 @@ import io.ktor.http.CookieEncoding
 import io.ktor.server.application.ApplicationCall
 import io.ktor.util.date.GMTDate
 
-/** 発行と失効で属性がずれると別の Cookie として扱われるので、1 箇所にまとめる */
-class AdminSessionCookie(
+/**
+ * セッション Cookie の読み書き。
+ * 発行と失効で属性がずれると別の Cookie として扱われるので、1 箇所にまとめる
+ */
+class AdminSessionCookieManager(
     private val call: ApplicationCall,
     private val secure: Boolean,
 ) {
-    fun token(): String? = call.request.cookies[AdminSessions.COOKIE_NAME, ENCODING]
+    fun token(): String? = call.request.cookies[COOKIE_NAME, ENCODING]
 
     fun append(
         token: String,
@@ -28,7 +31,7 @@ class AdminSessionCookie(
         expires: GMTDate?,
     ) {
         call.response.cookies.append(
-            name = AdminSessions.COOKIE_NAME,
+            name = COOKIE_NAME,
             value = value,
             encoding = ENCODING,
             maxAge = maxAge,
@@ -40,7 +43,9 @@ class AdminSessionCookie(
         )
     }
 
-    private companion object {
-        val ENCODING = CookieEncoding.RAW
+    companion object {
+        const val COOKIE_NAME: String = "admin_session"
+
+        private val ENCODING = CookieEncoding.RAW
     }
 }

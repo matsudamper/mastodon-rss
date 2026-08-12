@@ -11,19 +11,19 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 // 期限は時計を進めて見るので、実時間で待つテストにはしない。
-class AdminSessionsTest {
+class AdminSessionStoreTest {
     private val clock = TestClock(Instant.parse("2026-08-11T00:00:00Z"))
 
     @Test
     fun `発行したトークンは有効`() {
-        val sessions = AdminSessions(clock = clock)
+        val sessions = AdminSessionStore(clock = clock)
 
         assertTrue(sessions.isValid(sessions.create()))
     }
 
     @Test
     fun `発行していないトークンは無効`() {
-        val sessions = AdminSessions(clock = clock)
+        val sessions = AdminSessionStore(clock = clock)
         sessions.create()
 
         assertFalse(sessions.isValid("知らないトークン"))
@@ -32,14 +32,14 @@ class AdminSessionsTest {
 
     @Test
     fun `発行のたびに違うトークンになる`() {
-        val sessions = AdminSessions(clock = clock)
+        val sessions = AdminSessionStore(clock = clock)
 
         assertNotEquals(sessions.create(), sessions.create())
     }
 
     @Test
     fun `期限を過ぎたトークンは無効`() {
-        val sessions = AdminSessions(ttl = Duration.ofHours(1), clock = clock)
+        val sessions = AdminSessionStore(ttl = Duration.ofHours(1), clock = clock)
         val token = sessions.create()
 
         clock.now = clock.now.plus(Duration.ofMinutes(59))
@@ -51,7 +51,7 @@ class AdminSessionsTest {
 
     @Test
     fun `期限切れのトークンは時計を戻しても復活しない`() {
-        val sessions = AdminSessions(ttl = Duration.ofHours(1), clock = clock)
+        val sessions = AdminSessionStore(ttl = Duration.ofHours(1), clock = clock)
         val token = sessions.create()
 
         clock.now = clock.now.plus(Duration.ofHours(2))
@@ -63,7 +63,7 @@ class AdminSessionsTest {
 
     @Test
     fun `remove したトークンは無効`() {
-        val sessions = AdminSessions(clock = clock)
+        val sessions = AdminSessionStore(clock = clock)
         val token = sessions.create()
 
         sessions.remove(token)
@@ -73,7 +73,7 @@ class AdminSessionsTest {
 
     @Test
     fun `remove しても他のトークンは残る`() {
-        val sessions = AdminSessions(clock = clock)
+        val sessions = AdminSessionStore(clock = clock)
         val removed = sessions.create()
         val kept = sessions.create()
 
@@ -82,7 +82,9 @@ class AdminSessionsTest {
         assertTrue(sessions.isValid(kept))
     }
 
-    /** 進められる時計 */
+    /**
+     * 進められる時計
+     */
     private class TestClock(
         var now: Instant,
     ) : Clock() {

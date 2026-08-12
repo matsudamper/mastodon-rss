@@ -29,7 +29,9 @@ class AdminApi(
             .toSessionResult { it.admin.session.adminSessionFields }
     }
 
-    /** サーバーが PBKDF2 を回すぶん応答まで一拍あるので、呼ぶ側は待っている表示を出すこと */
+    /**
+     * サーバーが PBKDF2 を回すぶん応答まで一拍あるので、呼ぶ側は待っている表示を出すこと
+     */
     suspend fun login(password: String): AdminLoginResult {
         val response = client.mutation(AdminLoginMutation(password)).execute()
         val login = response.data?.admin?.login ?: return AdminLoginResult.Failure(response.failureMessage())
@@ -42,7 +44,9 @@ class AdminApi(
         }
     }
 
-    /** サーバー側のセッションも消える */
+    /**
+     * サーバー側のセッションも消える
+     */
     suspend fun logout(): AdminSessionResult {
         return client
             .mutation(AdminLogoutMutation())
@@ -70,7 +74,9 @@ class AdminApi(
         )
     }
 
-    /** Apollo は例外を投げずに応答へ入れて返す */
+    /**
+     * Apollo は例外を投げずに応答へ入れて返す
+     */
     private fun ApolloResponse<*>.failureMessage(): String {
         return exception?.message
             ?: errors?.joinToString("\n") { it.message }?.takeIf { it.isNotEmpty() }
@@ -79,7 +85,9 @@ class AdminApi(
 }
 
 sealed interface AdminSessionResult {
-    /** @param passwordConfigured false ならログインする手段が無いので、設定方法を出す */
+    /**
+     * @param passwordConfigured false ならログインする手段が無いので、設定方法を出す
+     */
     data class Success(
         val loggedIn: Boolean,
         val passwordConfigured: Boolean,
@@ -95,7 +103,9 @@ sealed interface AdminLoginResult {
 
     data object WrongPassword : AdminLoginResult
 
-    /** 入力を直しても通らない */
+    /**
+     * 入力を直しても通らない
+     */
     data object NotConfigured : AdminLoginResult
 
     data class Failure(

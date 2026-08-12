@@ -239,12 +239,16 @@ class AdminGraphQlTest {
     private companion object {
         const val PASSWORD = "とても長いパスワード"
 
-        /** 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ */
+        /**
+         * 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ
+         */
         val PASSWORD_HASH: String = PasswordHash.create(PASSWORD, iterations = 1_000).encode()
 
         suspend fun HttpResponse.body(): JsonObject = AppJson.parseToJsonElement(bodyAsText()).jsonObject
 
-        /** `data.admin` まで降りる。errors が入っていたらここで落ちる */
+        /**
+         * `data.admin` まで降りる。errors が入っていたらここで落ちる
+         */
         suspend fun HttpResponse.admin(): JsonObject = body().obj("data").obj("admin")
 
         suspend fun HttpResponse.session(): JsonObject = admin().obj("session")
@@ -257,12 +261,14 @@ class AdminGraphQlTest {
 
         fun JsonObject.string(name: String): String = getValue(name).jsonPrimitive.content
 
-        /** Set-Cookie のセッション。無ければ null */
+        /**
+         * Set-Cookie のセッション。無ければ null
+         */
         fun HttpResponse.sessionCookieValue(): String? =
-            setCookie().firstOrNull { it.name == AdminSessions.COOKIE_NAME }?.value
+            setCookie().firstOrNull { it.name == AdminSessionCookieManager.COOKIE_NAME }?.value
 
         fun HttpRequestBuilder.withSessionCookie(token: String) {
-            header(HttpHeaders.Cookie, "${AdminSessions.COOKIE_NAME}=$token")
+            header(HttpHeaders.Cookie, "${AdminSessionCookieManager.COOKIE_NAME}=$token")
         }
     }
 }

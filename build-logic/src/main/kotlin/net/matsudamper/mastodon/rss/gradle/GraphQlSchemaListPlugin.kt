@@ -7,7 +7,9 @@ import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 
-/** [GenerateSchemaListTask] の出力をリソースに足す。置き場所は読む側と揃えるので固定 */
+/**
+ * [GenerateSchemaListTask] の出力をリソースに足す。置き場所は読む側と揃えるので固定
+ */
 class GraphQlSchemaListPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         target.pluginManager.withPlugin("java") {

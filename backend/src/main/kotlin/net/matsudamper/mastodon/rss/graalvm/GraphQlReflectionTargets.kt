@@ -19,7 +19,9 @@ object GraphQlReflectionTargets {
 
     private const val CLASS_EXTENSION = ".class"
 
-    /** 入れ子のクラスも含む */
+    /**
+     * 入れ子のクラスも含む
+     */
     fun classNamesIn(packageName: String): List<String> {
         val packagePath = packageName.replace('.', '/')
         val classLoader =
