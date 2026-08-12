@@ -1085,7 +1085,6 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - できているもの: `Query.admin.session` / `Mutation.admin.login` / `Mutation.admin.logout`、
         メモリ上のセッション（`admin/AdminSessions.kt`、期限 12 時間）、`HttpOnly` +
         `SameSite=Strict` の Cookie、`/admin` の画面（ログイン後は「ログイン済み」と出すだけ）
-      - 残っているもの: ログインが要るフィールドに `AdminSessions.requireLoggedIn` を通す、
         ハッシュ生成を画面から（いまは `./gradlew --quiet :backend:crypto:passwordHash`）、
         総当たり対策（Phase 7）
 - [x] 画面遷移を Navigation Compose 3 にする
