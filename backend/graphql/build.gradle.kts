@@ -24,9 +24,6 @@ kotlin {
 }
 
 tasks.named<GraphQLCodegenGradleTask>("graphqlCodegen") {
-    // 実行時に Task.project を触る
-    notCompatibleWithConfigurationCache("graphqlCodegen uses Task.project at execution time")
-
     graphqlSchemaPaths = layout.projectDirectory
         .dir("src/main/resources/graphql")
         .asFile
