@@ -12,6 +12,7 @@ on:
       - Dockerfile
       - .dockerignore
       - docker-compose.yml
+      - docker-entrypoint.sh
       - .github/workflows/publish.yml
 
 jobs:
@@ -24,6 +25,21 @@ jobs:
     steps:
       - name: チェックアウト
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # イメージに入れる native バイナリはここで作る。
+      # Dockerfile は出来上がったものを置くだけ
+      - name: GraalVM のセットアップ
+        uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2 # v1.6.4
+        with:
+          java-version: "25"
+          distribution: "graalvm"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Gradle のセットアップ
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      - name: native バイナリのビルド
+        run: ./gradlew :backend:nativeCompile
 
       # docker と buildx は ubuntu-latest に入っているので、
       # SHA ピン留めの対象を増やさないよう docker コマンドを直接使う
@@ -39,9 +55,14 @@ jobs:
           # ghcr.io のリポジトリ名は小文字しか受け付けない
           echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
-      - name: ビルド
+      - name: イメージのビルド
         run: |
           set -euo pipefail
+
+          # Dockerfile はコンテキスト直下の mastodon-rss を入れるだけなので、
+          # nativeCompile の出力をそこに置いてから渡す
+          cp backend/build/native/nativeCompile/mastodon-rss ./mastodon-rss
+
           # latest と commit SHA の 2 つを打つ。
           # 動いていたバージョンに戻せるよう latest だけにはしない
           docker build \
