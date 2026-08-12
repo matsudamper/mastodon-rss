@@ -9,6 +9,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
 import net.matsudamper.mastodon.rss.testDependencies
 
 // 口そのものの振る舞いを確認する。中身（管理画面のフィールド）は AdminGraphQlTest 側。

@@ -11,12 +11,21 @@ data class AdminScreenUiState(
 
         data class Login(
             val password: String,
-            // 無効化してメッセージを出す
-            val enabled: Boolean,
             val submitting: Boolean,
-            val message: String?,
             val error: String?,
-        ) : Content
+            val input: Input,
+        ) : Content {
+            val inputEnabled: Boolean get() = input is Input.Enabled
+
+            sealed interface Input {
+                data object Enabled : Input
+
+                // 無効化してメッセージを出す
+                data class Disabled(
+                    val message: String,
+                ) : Input
+            }
+        }
 
         data object LoggedIn : Content
 

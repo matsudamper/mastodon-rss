@@ -14,6 +14,7 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
 
 /**
  * `variables` を [JsonObject] のまま受けるのは、型が問い合わせごとに変わるため
@@ -29,8 +30,6 @@ data class GraphQlRequest(
 private data class GraphQlBadRequest(
     val message: String,
 )
-
-const val GRAPHQL_PATH: String = "/graphql"
 
 private const val MAX_BODY_BYTES = 1024 * 1024
 

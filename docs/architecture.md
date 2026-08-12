@@ -8,6 +8,9 @@
 
 ## モジュールの分け方
 
+`:shared` は `:backend` と `:frontend` の両方から見る値だけを置く KMP モジュール
+（`jvm` と `wasmJs`）。
+
 `:backend` から見えるのは `:backend:repository` の公開 API だけ。実装は `internal` で、
 sqlite-jdbc と jOOQ も `implementation` で入れているため、JDBC と jOOQ の型は
 `:backend` の compile classpath にも現れない。jOOQ の生成コードも
@@ -55,7 +58,8 @@ Kotlin/Wasm のビルドに混ざる。
 見る場所が 2 つになるので、生成する側と同じ場所に置いている。
 
 口の URL（`/graphql`）はスキーマに書かない。どこで受けるかはサーバーの都合で、
-スキーマの一部ではない。サーバーは自分の routing で、画面は自分のクライアントで持つ。
+スキーマの一部ではない。ただしサーバーの routing と画面のクライアントで同じ値が要り、
+ずれても誰も気付けないので `:shared` に置いて両方から見る。
 
 環境変数を読むのは `:backend` の入口（`ServerEnv`）だけにする。`:backend:repository` の
 ような下位のモジュールは、値を引数で受け取る。

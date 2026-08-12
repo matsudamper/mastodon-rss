@@ -11,7 +11,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -32,10 +31,6 @@ fun AdminScreen(onNavigate: (Screen) -> Unit) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) { AdminScreenViewModel(viewModelScope) }
     val uiState by viewModel.uiStateFlow.collectAsState()
-
-    DisposableEffect(viewModel) {
-        onDispose { viewModel.onDispose() }
-    }
 
     LifecycleStartEffect(Unit) {
         viewModel.onStart()
@@ -93,10 +88,21 @@ private fun LoginCard(
     listener: AdminScreenUiState.Listener,
 ) {
     SectionCard(title = "ログイン") {
-        Text(
-            text = content.message ?: "管理画面のパスワードを入れる。",
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        when (val input = content.input) {
+            AdminScreenUiState.Content.Login.Input.Enabled -> {
+                Text(
+                    text = "管理画面のパスワードを入れる。",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            is AdminScreenUiState.Content.Login.Input.Disabled -> {
+                Text(
+                    text = input.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
 
         OutlinedTextField(
             value = content.password,
@@ -104,7 +110,7 @@ private fun LoginCard(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("パスワード") },
             singleLine = true,
-            enabled = content.enabled && !content.submitting,
+            enabled = content.inputEnabled && !content.submitting,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions =
             KeyboardOptions(
@@ -126,7 +132,7 @@ private fun LoginCard(
         Button(
             onClick = { listener.onClickLogin() },
             // 送信中に押せると、1 回ごとに PBKDF2 を回すものを何度も投げることになる
-            enabled = content.enabled && !content.submitting && content.password.isNotEmpty(),
+            enabled = content.inputEnabled && !content.submitting && content.password.isNotEmpty(),
         ) {
             Text(if (content.submitting) "確認中..." else "ログイン")
         }

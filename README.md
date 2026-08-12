@@ -12,6 +12,7 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | `:backend` | `backend/` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
 | `:backend:graphql` | `backend/graphql/` | 管理 API のスキーマと、そこから生成したモデル・リゾルバのインタフェース |
 | `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の画面。管理画面とアカウント画面 |
+| `:shared` | `shared/` | `:backend` と `:frontend` の両方から見る値。今は GraphQL のパスだけ |
 
 ```mermaid
 flowchart TB
@@ -110,9 +111,9 @@ flowchart TB
     main -.->|Phase 5 で繋ぐ。いまは :backend から参照していない| parser
 ```
 
-`:frontend` と `:backend` は別々にビルドする。互いに依存させない。共有するのは
-`:backend:graphql` の管理 API のスキーマだけで、`:frontend` はそれをコード生成の
-入力としてファイルで読む。モジュールとしては依存しない。
+`:frontend` と `:backend` は別々にビルドする。互いに依存させない。
+`:backend:graphql` の管理 API のスキーマは `:frontend` がコード生成の入力として
+ファイルで読むだけで、モジュールとしては依存しない。両方が要る値だけを `:shared` に置く。
 `:frontend` の成果物は配信するファイルを置くディレクトリに配置し、`:backend` が
 その場所を `STATIC_SRC_DIR` で受け取って root から配信する。
 分けた理由は [docs/architecture.md](docs/architecture.md) を参照。

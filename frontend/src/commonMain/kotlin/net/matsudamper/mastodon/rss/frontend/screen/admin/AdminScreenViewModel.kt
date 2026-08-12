@@ -53,10 +53,6 @@ class AdminScreenViewModel(
         reload()
     }
 
-    fun onDispose() {
-        api.close()
-    }
-
     private fun reload() {
         viewModelStateFlow.update { it.copy(session = null) }
         viewModelScope.launch {
@@ -128,10 +124,14 @@ class AdminScreenViewModel(
                     else -> {
                         AdminScreenUiState.Content.Login(
                             password = state.password,
-                            enabled = session.passwordConfigured,
                             submitting = state.submitting,
-                            message = if (session.passwordConfigured) null else LOGIN_DISABLED_MESSAGE,
                             error = state.error,
+                            input =
+                            if (session.passwordConfigured) {
+                                AdminScreenUiState.Content.Login.Input.Enabled
+                            } else {
+                                AdminScreenUiState.Content.Login.Input.Disabled(LOGIN_DISABLED_MESSAGE)
+                            },
                         )
                     }
                 }
@@ -147,8 +147,6 @@ class AdminScreenViewModel(
     )
 
     private companion object {
-        val LOGIN_DISABLED_MESSAGE =
-            "ログインが無効化されている。サーバーに ADMIN_PASSWORD_HASH を設定して起動し直すこと。" +
-                "値の形式は pbkdf2-sha256:<iterations>:<salt>:<hash>"
+        const val LOGIN_DISABLED_MESSAGE = "ログインが無効化されている"
     }
 }

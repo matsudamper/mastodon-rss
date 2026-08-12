@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":backend:crypto"))
 
     implementation(project(":backend:graphql"))
+    implementation(project(":shared"))
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
