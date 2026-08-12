@@ -7,10 +7,6 @@ import java.time.Instant
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * ログイン済みセッションの置き場。
- * メモリ上に持つので、再起動すると消える
- */
 class AdminSessionStore(
     private val ttl: Duration = DEFAULT_TTL,
     private val clock: Clock = Clock.systemUTC(),

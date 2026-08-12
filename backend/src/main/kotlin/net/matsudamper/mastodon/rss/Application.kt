@@ -85,8 +85,6 @@ fun Application.module(deps: AppDependencies) {
 
     logAdminLogin(env)
 
-    // スキーマに載っているフィールドの数だけリゾルバが要る。結線の漏れは
-    // 起動時の makeExecutableSchema で落ちるので、ここに並べ忘れれば起動しない
     val graphQl =
         GraphQlEngine.create(
             resolvers =

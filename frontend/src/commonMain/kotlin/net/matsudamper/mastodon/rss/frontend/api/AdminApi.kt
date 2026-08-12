@@ -9,8 +9,6 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 
-private const val GRAPHQL_PATH = "/graphql"
-
 /**
  * パスが相対なのは、画面を配信しているオリジンと同じところに投げるため。
  * セッションは `HttpOnly` の Cookie で、同じオリジンならブラウザが勝手に付ける。
@@ -19,7 +17,7 @@ class AdminApi(
     private val client: ApolloClient =
         ApolloClient
             .Builder()
-            .serverUrl(GRAPHQL_PATH)
+            .serverUrl("/graphql")
             .build(),
 ) : AutoCloseable {
     suspend fun session(): AdminSessionResult {

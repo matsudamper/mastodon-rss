@@ -32,13 +32,10 @@ private data class GraphQlBadRequest(
 
 const val GRAPHQL_PATH: String = "/graphql"
 
-/**
- * 認可はフィールドで見るので、口自体は誰でも叩ける
- */
 private const val MAX_BODY_BYTES = 1024 * 1024
 
 /**
- * 口は [GRAPHQL_PATH] の 1 つだけ。管理用とそれ以外はフィールドで分ける
+ * 口は [GRAPHQL_PATH] の 1 つだけ。認可はフィールドで見るので、叩くのは誰でもできる
  */
 fun Route.graphQlRoutes(engine: GraphQlEngine) {
     post(GRAPHQL_PATH) {

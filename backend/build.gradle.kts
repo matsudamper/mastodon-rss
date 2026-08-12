@@ -21,7 +21,7 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json)
 
-    // GraphQlReflectionFeature を書くための API。native-image 側が持っている
+    // GraphQlReflectionFeature を書くための API
     compileOnly(libs.graalvm.nativeimage)
 
     // InboxService のように Ktor のルーティングから切り離したクラスは
@@ -77,7 +77,6 @@ graalvmNative {
             mainClass.set("net.matsudamper.mastodon.rss.ApplicationKt")
             buildArgs.add("--no-fallback")
 
-            // kickstart の結線に要るクラスを登録する。詳細は GraphQlReflectionFeature
             buildArgs.add("--features=net.matsudamper.mastodon.rss.graalvm.GraphQlReflectionFeature")
 
             // native-image は解析中に自分で isAnnotationPresent を呼ぶ（PodFeature.isPodClass）。

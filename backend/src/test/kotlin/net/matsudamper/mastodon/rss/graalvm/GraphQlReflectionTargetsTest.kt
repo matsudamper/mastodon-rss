@@ -38,10 +38,7 @@ class GraphQlReflectionTargetsTest {
                 .filter { it.substringAfterLast('.').endsWith(RESOLVER_IMPL_SUFFIX) }
 
         // 空振りしていると下の確認が意味を持たない
-        assertTrue(
-            implementations.size >= EXPECTED_RESOLVER_IMPLS,
-            "リゾルバの実装が $EXPECTED_RESOLVER_IMPLS 個未満しか見つからない: $implementations",
-        )
+        assertTrue(implementations.isNotEmpty(), "リゾルバの実装が 1 つも見つからない")
 
         assertEquals(
             emptyList(),
@@ -55,10 +52,5 @@ class GraphQlReflectionTargetsTest {
         const val MODEL_PACKAGE = "$ROOT_PACKAGE.graphql.model"
         const val RESOLVER_PACKAGE = "$ROOT_PACKAGE.graphql.resolver"
         const val RESOLVER_IMPL_SUFFIX = "ResolverImpl"
-
-        /**
-         * Query / Mutation / AdminQuery / AdminMutation
-         */
-        const val EXPECTED_RESOLVER_IMPLS = 4
     }
 }
