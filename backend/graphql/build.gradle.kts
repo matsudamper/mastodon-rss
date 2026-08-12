@@ -37,7 +37,6 @@ tasks.named<GraphQLCodegenGradleTask>("graphqlCodegen") {
     outputDir = generatedSourcesDirectory.get().asFile
     packageName = "net.matsudamper.mastodon.rss.graphql.model"
 
-    // 付けないと、リゾルバの中でスキーマの型と自分のドメインの型が同じ名前で並ぶ
     modelNamePrefix = "Ql"
     generateImmutableModels = true
     generateBuilder = false
@@ -54,8 +53,6 @@ tasks.named<GraphQLCodegenGradleTask>("graphqlCodegen") {
 
     apiReturnType = "java.util.concurrent.CompletionStage<graphql.execution.DataFetcherResult<{{TYPE}}>>"
     generateApisWithThrowsException = false
-
-    // ApplicationCall を GraphQLContext から取るのに要る
     generateDataFetchingEnvironmentArgumentInApis = true
 
     parentInterfaces {
