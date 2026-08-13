@@ -8,7 +8,7 @@ kotlinxSerialization = "1.11.0"
 sqliteJdbc = "3.53.2.1"
 jooq = "3.21.7"
 slf4j = "2.0.18"
-graalvmBuildtools = "1.1.8"
+graalvmBuildtools = "1.1.9"
 ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
 
