@@ -5,17 +5,19 @@ import kotlin.test.assertEquals
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.module
-import net.matsudamper.mastodon.rss.testDependencies
 
 // 調査ツール向けの任意実装。無くても Mastodon からのフォローには影響しない。
 class NodeInfoRoutesTest {
     private fun ApplicationTestBuilder.installModule() {
         application {
-            module(testDependencies())
+            routing {
+                nodeInfoRoutes(TestLocalActor.DOMAIN)
+            }
         }
     }
 

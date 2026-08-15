@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import io.ktor.client.request.get
+import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -25,6 +26,26 @@ class ApplicationTest {
             assertEquals(HttpStatusCode.OK, response.status)
             assertEquals("""{"status":"ok"}""", response.bodyAsText())
             assertEquals(ContentType.Application.Json, response.contentType()?.withoutParameters())
+        }
+
+    @Test
+    fun `ActivityPub のエンドポイントが組み込まれている`() =
+        testApplication {
+            application {
+                module(testDependencies())
+            }
+
+            // 返す中身は :backend:feature-mastodon 側で確かめる。
+            // ここで見るのは module() がそれらを組み込んでいることだけ
+            assertEquals(
+                HttpStatusCode.OK,
+                client.get("/.well-known/webfinger?resource=acct:admin@example.com").status,
+            )
+            assertEquals(HttpStatusCode.OK, client.get("/users/admin").status)
+            assertEquals(HttpStatusCode.OK, client.get("/.well-known/nodeinfo").status)
+
+            // 署名が無いので inbox は 401。ルートが無ければ 404 になる
+            assertEquals(HttpStatusCode.Unauthorized, client.post("/users/admin/inbox").status)
         }
 
     @Test

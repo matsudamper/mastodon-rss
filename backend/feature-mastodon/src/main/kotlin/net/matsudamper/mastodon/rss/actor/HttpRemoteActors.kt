@@ -17,8 +17,6 @@ import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.repository.ExpiringCache
-import net.matsudamper.mastodon.rss.repository.createExpiringCache
 
 /**
  * 相手のアクター文書を実際に GET して、公開鍵と inbox を取る。

@@ -8,18 +8,32 @@
 
 ## モジュールの分け方
 
+`:backend` に残すのは、アプリとしての組み立てだけにする。環境変数を読み、
+使うものを作って配り（`AppDependencies`）、ルーティングに並べ（`Application.module`）、
+静的ファイルを配信する。相手のサーバーとどう話すかも、どこに保存するかも持たない。
+
+`:backend:feature-mastodon` は ActivityPub の実装をまとめたモジュール。
+WebFinger・Actor・inbox・NodeInfo の応答、HTTP Signature の署名と検証、
+相手のアクター文書の取得、`Accept` の送信までが入る。後から単体のライブラリとして
+切り出せるようにしてあるので、次を守る。
+
+- このアプリ固有のものを入れない。`ServerEnv` も `Repositories` も参照しない。
+  設定は引数で受け取る（アクターの鍵の在り処は `ActorPrivateKey`、
+  ドメインとユーザー名は `ActorUrls`）
+- 依存は Ktor・kotlinx.serialization・SLF4J・`:backend:crypto` まで。
+  SQLite も jOOQ も入らない。相手のアクター文書のキャッシュを
+  `:backend:repository` の `ExpiringCache` から、モジュール内の `internal` な
+  実装に移したのはこのため
+- 組み立てに要る知識は外に出さない。inbox がどのハンドラを必要とするかは
+  `InboxService.default` の中にあり、`:backend` からは見えない
+
 `:backend` から見えるのは `:backend:repository` の公開 API だけ。実装は `internal` で、
 sqlite-jdbc と jOOQ も `implementation` で入れているため、JDBC と jOOQ の型は
 `:backend` の compile classpath にも現れない。jOOQ の生成コードも
 `:backend:repository` の中で閉じていて、外には出さない。
 
-`:backend:repository` の責務は DB 専用ではない。どこからデータを読むかを
-呼び出し側から隠す境界で、DB はその実装のひとつでしかない。実際 `ExpiringCache` は
-プロセスのメモリ上に持つだけの取得口としてここに置いてある。DB の口だけを束ねているのは
-`Repositories` で、モジュールそのものと同じ広さではない。
-
-`:backend:crypto` は `:backend` がアクターの鍵を読むために使っている。HTTP Signatures の
-署名と検証で使うのは Phase 2 から。別モジュールに切り出してあるのは、
+`:backend:crypto` は `:backend:feature-mastodon` がアクターの鍵を読み、HTTP Signatures の
+署名と検証をするために使っている。別モジュールに切り出してあるのは、
 テストを native バイナリとして実行するため。`:backend` のテストは
 `ktor-server-test-host` 経由で ByteBuddy と JNA を引き込み、これらは実行時の
 バイトコード書き換えに依存するので native-image では動かない。JCA の確認を
@@ -42,8 +56,8 @@ JVM のテストが全部通ったまま実バイナリだけが落ちる。
 使い回すと、DB のスキーマを変えるたびにパーサを触ることになるため。詰め替えは
 両方を知っている取り込み処理（Phase 5 で `:backend` に置く）の仕事にする。
 
-環境変数を読むのは `:backend` の入口（`ServerEnv`）だけにする。`:backend:repository` の
-ような下位のモジュールは、値を引数で受け取る。
+環境変数を読むのは `:backend` の入口（`ServerEnv`）だけにする。`:backend:repository` や
+`:backend:feature-mastodon` のような下位のモジュールは、値を引数で受け取る。
 
 ## ビルドスクリプトに手続きを書かない
 

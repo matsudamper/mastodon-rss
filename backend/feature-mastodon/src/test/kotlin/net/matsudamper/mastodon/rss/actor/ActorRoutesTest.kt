@@ -10,19 +10,21 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.TestActorKey
+import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.activitypub.Actor
 import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.module
-import net.matsudamper.mastodon.rss.testDependencies
 
 // アカウント発見の 2 ホップ目。Mastodon はここの JSON からプロフィールと公開鍵を作る。
 class ActorRoutesTest {
     private fun ApplicationTestBuilder.installModule() {
         application {
-            module(testDependencies())
+            routing {
+                actorRoutes(TestLocalActor.directory, TestActorKey.value)
+            }
         }
     }
 
