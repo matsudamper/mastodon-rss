@@ -11,7 +11,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import net.matsudamper.mastodon.rss.ServerEnv
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.crypto.RsaSignature
 
@@ -31,7 +30,7 @@ class ActorKeyLoaderTest {
     fun `ファイルが無ければ生成して書き出す`() {
         val path = tempDir.resolve("actor-private-key.pem")
 
-        val key = ActorKeyLoader.load(ServerEnv.ActorPrivateKey.File(path))
+        val key = ActorKeyLoader.load(ActorPrivateKey.File(path))
 
         assertEquals(ActorKey.Origin.GeneratedFile(path.toAbsolutePath().normalize()), key.origin)
         assertTrue(Files.exists(path))
@@ -42,7 +41,7 @@ class ActorKeyLoaderTest {
     fun `親ディレクトリが無くても作る`() {
         val path = tempDir.resolve("keys").resolve("actor-private-key.pem")
 
-        ActorKeyLoader.load(ServerEnv.ActorPrivateKey.File(path))
+        ActorKeyLoader.load(ActorPrivateKey.File(path))
 
         assertTrue(Files.exists(path))
     }
@@ -51,7 +50,7 @@ class ActorKeyLoaderTest {
     fun `書き出した鍵ファイルは所有者しか読めない`() {
         val path = tempDir.resolve("actor-private-key.pem")
 
-        ActorKeyLoader.load(ServerEnv.ActorPrivateKey.File(path))
+        ActorKeyLoader.load(ActorPrivateKey.File(path))
 
         assertEquals(
             setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE),
@@ -63,8 +62,8 @@ class ActorKeyLoaderTest {
     fun `2回目は書き出した鍵をそのまま読む`() {
         val path = tempDir.resolve("actor-private-key.pem")
 
-        val generated = ActorKeyLoader.load(ServerEnv.ActorPrivateKey.File(path))
-        val loaded = ActorKeyLoader.load(ServerEnv.ActorPrivateKey.File(path))
+        val generated = ActorKeyLoader.load(ActorPrivateKey.File(path))
+        val loaded = ActorKeyLoader.load(ActorPrivateKey.File(path))
 
         assertEquals(ActorKey.Origin.LoadedFile(path.toAbsolutePath().normalize()), loaded.origin)
         assertEquals(generated.privateKey, loaded.privateKey)
@@ -75,7 +74,7 @@ class ActorKeyLoaderTest {
     fun `環境変数の PEM から読む`() {
         val privateKey = RsaKeys.generateKeyPair().private
 
-        val key = ActorKeyLoader.load(ServerEnv.ActorPrivateKey.Pem(RsaKeys.encodeToPem(privateKey)))
+        val key = ActorKeyLoader.load(ActorPrivateKey.Pem(RsaKeys.encodeToPem(privateKey)))
 
         assertIs<ActorKey.Origin.Environment>(key.origin)
         assertEquals(privateKey, key.privateKey)
@@ -83,7 +82,7 @@ class ActorKeyLoaderTest {
 
     @Test
     fun `導いた公開鍵で秘密鍵の署名を検証できる`() {
-        val key = ActorKeyLoader.load(ServerEnv.ActorPrivateKey.File(tempDir.resolve("actor-private-key.pem")))
+        val key = ActorKeyLoader.load(ActorPrivateKey.File(tempDir.resolve("actor-private-key.pem")))
         val data = "署名する対象".toByteArray()
 
         val signature = RsaSignature.sign(key.privateKey, data)
@@ -97,10 +96,10 @@ class ActorKeyLoaderTest {
         Files.writeString(path, "-----BEGIN PRIVATE KEY-----\nこれは鍵ではない\n-----END PRIVATE KEY-----\n")
 
         assertFailsWith<IllegalArgumentException> {
-            ActorKeyLoader.load(ServerEnv.ActorPrivateKey.File(path))
+            ActorKeyLoader.load(ActorPrivateKey.File(path))
         }
         assertFailsWith<IllegalArgumentException> {
-            ActorKeyLoader.load(ServerEnv.ActorPrivateKey.Pem("鍵ではない"))
+            ActorKeyLoader.load(ActorPrivateKey.Pem("鍵ではない"))
         }
     }
 }

@@ -9,8 +9,6 @@ import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
-import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
-import net.matsudamper.mastodon.rss.inbox.FollowHandler
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
@@ -51,13 +49,12 @@ class AppDependencies(
 
     /**
      * inbox が受け取ったアクティビティの検証と振り分け。
-     * 種類ごとの処理はハンドラを足す形になっていて、Phase 3 の `Undo` と `Delete` はここに並ぶ。
+     *
+     * 何をどう組み合わせるかは ActivityPub 側の話なので
+     * [InboxService.default] に任せる。ここで決めるのは、その材料になる
+     * [remoteActors] と [delivery] を本番のものにするかフェイクにするかだけ。
      */
-    val inboxService: InboxService =
-        InboxService(
-            verifier = HttpSignatureVerifier(remoteActors),
-            handlers = listOf(FollowHandler(remoteActors, delivery)),
-        )
+    val inboxService: InboxService = InboxService.default(remoteActors = remoteActors, delivery = delivery)
 
     /**
      * 抱えているものを作った順の逆に閉じる。

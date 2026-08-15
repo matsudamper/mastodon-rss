@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss
 
 import java.nio.file.Path
+import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
 import net.matsudamper.mastodon.rss.actor.ActorUsername
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
@@ -139,28 +140,4 @@ class ServerEnv(
                     ?: throw IllegalArgumentException("ADMIN_COOKIE_SECURE は true か false にすること: $raw")
             }
         }
-
-    /**
-     * アクターの秘密鍵の取得元。
-     *
-     * 鍵はアクターの同一性そのもので、変わると相手側の署名検証が通らなくなるため、
-     * どちらから読んだのかが起動ログから分かるように型で分けている。
-     */
-    sealed interface ActorPrivateKey {
-        /**
-         * PEM を直接渡す。Kubernetes の Secret や systemd の
-         * `EnvironmentFile` から入れる場合はこちら。
-         */
-        data class Pem(
-            val pem: String,
-        ) : ActorPrivateKey
-
-        /**
-         * PEM をファイルから読む。ファイルが無ければ生成して書き出す。
-         * docker compose のようにボリュームを持てる場合はこちら。
-         */
-        data class File(
-            val path: Path,
-        ) : ActorPrivateKey
-    }
 }

@@ -7,9 +7,11 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 
 ## 現在地と次の一手
 
-現在地: Phase 0 は完了。`:backend` / `:backend:crypto` / `:backend:repository` /
-`:backend:rss` / `:frontend` の 5 モジュール構成。サーバー専用の crypto と repository と
-rss は `backend/` の下に置いている。
+現在地: Phase 0 は完了。`:backend` / `:backend:feature-mastodon` / `:backend:crypto` /
+`:backend:repository` / `:backend:rss` / `:frontend` の 6 モジュール構成。サーバー専用の
+feature-mastodon と crypto と repository と rss は `backend/` の下に置いている。
+ActivityPub の実装は `:backend:feature-mastodon` にまとめてあり、`:backend` に残るのは
+環境変数の読み取りと組み立て、`/healthz`、静的ファイルの配信だけ。
 `:backend` は Ktor (CIO) + kotlinx.serialization で `/healthz` を返し、JVM でも native-image でも動く。
 `:backend:crypto` は RSA 鍵の生成と PEM 変換、SHA256withRSA の署名・検証。
 `nativeTest` で native バイナリ上でも動くことを確認済み。
@@ -94,11 +96,12 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 管理 API を GraphQL にするのは [kake-bo](https://github.com/matsudamper/kake-bo) と
 揃えるため。ActivityPub 側は相手の実装が決まっているので REST のまま。
 
-モジュールは `:backend`（サーバー）、`:backend:crypto`（鍵と署名）、
-`:backend:repository`（データの取得と保存）、`:backend:rss`（RSS/Atom の解析）、
-`:frontend`（管理 UI）の 5 つ。
-crypto と repository と rss は JVM のライブラリに依存していて `:frontend` からは使えないため、
-`backend/` の下にネストしている。ビルド方法は [README.md](README.md) を参照。
+モジュールは `:backend`（サーバー）、`:backend:feature-mastodon`（ActivityPub の実装）、
+`:backend:crypto`（鍵と署名）、`:backend:repository`（データの取得と保存）、
+`:backend:rss`（RSS/Atom の解析）、`:frontend`（管理 UI）の 6 つ。
+feature-mastodon と crypto と repository と rss は JVM のライブラリに依存していて
+`:frontend` からは使えないため、`backend/` の下にネストしている。
+ビルド方法は [README.md](README.md) を参照。
 
 ---
 
@@ -172,9 +175,10 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
 - [x] `:backend:repository` — データの取得と保存。0-4 で追加した
       - 当初は `:core`（ドメインモデル / DB アクセス / ActivityPub の JSON モデル / RSS パーサ）
         という括りを想定していたが、責務が広すぎるので DB アクセスに絞った
-      - その後 `ExpiringCache` のようなインメモリの取得口も置いたので、いまの責務は
-        DB 専用ではない。どこからデータを読むかを呼び出し側から隠す境界として扱う。
-        DB はその実装のひとつで、`Repositories` がそこだけを束ねている
+      - 責務は「どこからデータを読むかを呼び出し側から隠す」ことで、DB はその実装のひとつ。
+        インメモリの `ExpiringCache` も一時ここに置いていたが、使うのが ActivityPub の
+        アクター文書のキャッシュだけだったので、`:backend:feature-mastodon` の中に移した
+        （そちらから `:backend:repository` に依存させないため）。いまの実装は DB だけ
       - Kotlin JVM。Ktor に依存させない。公開するのは interface だけ
 - [x] `:backend:crypto` — 鍵と署名。0-6 で追加した
       - Kotlin JVM。依存は Kotlin 標準ライブラリと JCA だけで、Ktor も JDBC も入らない
@@ -188,9 +192,34 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
       - 分けた理由は crypto と同じで `nativeTest` を回すため。StAX はパーサの実装を
         実行時に探すので、native-image で解決に失敗すると JVM のテストだけ通る状態になる
       - 取得（HTTP）と保存（DB）は入れない。解析のテストにサーバーと DB を要らなくするため
+- [x] `:backend:feature-mastodon` — ActivityPub の実装。Phase 2 まで書き終えた後に切り出した
+      - 入るのは `activitypub` / `actor` / `webfinger` / `inbox` / `nodeinfo` /
+        `httpsignature` / `delivery` / `json` の各パッケージ。パッケージ名は変えていないので、
+        移動しただけで参照側の import はそのまま
+      - 切り出す目的は、後から単体のライブラリとして出せるようにすること。
+        そのためこのアプリ固有のものを入れない。`ServerEnv` も `Repositories` も参照せず、
+        設定は引数で受け取る（鍵の在り処は `ActorPrivateKey`、ドメインとユーザー名は `ActorUrls`）
+      - 依存は Ktor（server-core / client-core / client-cio）・kotlinx.serialization・
+        SLF4J・`:backend:crypto` まで。SQLite と jOOQ は入らない
+      - 切り出しに伴って動かしたもの
+        - `ServerEnv.ActorPrivateKey` → `actor/ActorPrivateKey.kt`。環境変数の読み方は
+          アプリ側の都合で、鍵を読む側が知る必要はない
+        - `:backend:repository` の `ExpiringCache` → `actor/ExpiringCache.kt`（`internal`）。
+          使うのはアクター文書のキャッシュだけで、DB のモジュールに依存する理由が無い
+        - inbox の組み立て → `InboxService.default`。どのハンドラが要るかは ActivityPub の話で、
+          `AppDependencies` が持つ知識ではない
+      - テスト用のフェイク（`TestActorKey` / `TestRemoteActor` / `TestRemoteActors` /
+        `TestDelivery` / `TestLocalActor`）は `testFixtures` として出し、`:backend` からも使う
+      - ルーティングのテストはこのモジュール側で該当のルートだけを組んで確認する。
+        `:backend` 側には「`Application.module` がそれらを組み込んでいること」だけを残した
+      - `nativeTest` は回さない。`ktor-server-test-host` を使うテストは native-image で動かない
+        （`:backend` と同じ理由）。native バイナリでの確認は `:backend` の `nativeCompile` で行う
 - [x] `:backend:graphql` — 管理 API のスキーマと、そこから生成したモデル・リゾルバのインタフェース
       - Kotlin JVM。生成物を使うのはサーバーだけなので `backend/` の下に置く
       - `:frontend` はスキーマのファイルを Apollo のコード生成の入力として読むだけで、依存はしない
+- [ ] `:shared` — `:backend` と `:frontend` の両方から見る値。KMP (`jvm` + `wasmJs`)
+
+      いまは `/graphql` のパスだけ入れてある。スキーマに書けない定数はまだ移していない。
 
 依存とバージョンの現状:
 
@@ -220,7 +249,7 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
       - `encodeDefaults = true`（ActivityPub は既定値の省略で相手側が転ぶことがある）
       - `explicitNulls = false`（`null` フィールドを出力しない）
       - `ignoreUnknownKeys = true`（受信側。相手の拡張プロパティで落ちないように）
-      - 実体は `backend/src/main/kotlin/net/matsudamper/mastodon/rss/json/AppJson.kt`
+      - 実体は `backend/feature-mastodon/src/main/kotlin/net/matsudamper/mastodon/rss/json/AppJson.kt`
 - [x] `/healthz` を JSON レスポンスに変える
 - [x] ActivityPub 向けの下ごしらえ（Phase 1 で効いてくるので、ここで型だけ用意しておく）
       - [x] `@context` のような記号入りのキーは `@SerialName("@context")` で対応する
@@ -590,8 +619,11 @@ ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signa
         中身を見ずに返すと、フォローしていないアクターのフォローが成立したように見える
       - フォロワーの記録はまだしない。再起動するとこちら側には何も残らない（Phase 3）
 - [x] リモートアクターの取得結果をキャッシュ（毎回 GET しない）
-      - キャッシュの入れ物は `ExpiringCache`（`:backend:repository`。`repository/ExpiringCache.kt`）として
+      - キャッシュの入れ物は `ExpiringCache`（`:backend:feature-mastodon`。`actor/ExpiringCache.kt`）として
         interface 化し、実装は非公開にした。差し替え（テスト用フェイクや将来の永続キャッシュ）はここだけ見れば済む
+      - 当初は `:backend:repository` に置いていたが、モジュール分割で移した。
+        使うのはアクター文書のキャッシュだけで、ActivityPub の実装から SQLite と jOOQ を
+        抱えるモジュールに依存させたくないため
       - `actor/HttpRemoteActors.kt` はこれをアクター文書のキャッシュとして使う。TTL は 1 時間。
         鍵と inbox を別々に持たないのは、どちらも同じ 1 つの文書から読むものだから
       - キャッシュのキーはフラグメントを落とした URL。`keyId` はアクター id に

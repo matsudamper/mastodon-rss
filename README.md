@@ -14,6 +14,14 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の画面。管理画面とアカウント画面 |
 | `:shared` | `shared/` | `:backend` と `:frontend` の両方から見る値。今は GraphQL のパスだけ |
 
+`:backend` の下には `:backend:feature-mastodon`（ActivityPub の実装）、
+`:backend:crypto`（鍵と署名）、`:backend:repository`（データの取得と保存）、
+`:backend:rss`（RSS/Atom の解析）がある。
+
+`:backend:feature-mastodon` はこのアプリ固有のものを持たない。`ServerEnv` も
+`Repositories` も参照せず、必要な設定は引数で受け取る。後から単体のライブラリとして
+切り出せるようにするため。
+
 ```mermaid
 flowchart TB
     subgraph backend[":backend"]
@@ -21,17 +29,23 @@ flowchart TB
         env["ServerEnv<br/>環境変数を読むのはここだけ"]
         module["Application.module"]
         route["routing<br/>GET /healthz"]
-        json["json<br/>AppJson<br/>respondJson"]
-        ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
-        actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls<br/>HttpRemoteActors"]
-        inbox["inbox<br/>POST /users/{name}/inbox<br/>FollowHandler"]
-        nodeinfo["nodeinfo<br/>GET /.well-known/nodeinfo<br/>GET /nodeinfo/2.1"]
-        sig["httpsignature<br/>HttpSignatureVerifier<br/>HttpSignatureSigner<br/>SigningString<br/>BodyDigest"]
-        delivery["delivery<br/>HttpActivityDelivery"]
+        deps["AppDependencies<br/>作る順と閉じる順"]
         graphql["graphql<br/>POST /graphql<br/>GraphQlEngine"]
         resolver["graphql.resolver<br/>QueryResolverImpl / MutationResolverImpl<br/>AdminQueryResolverImpl / AdminMutationResolverImpl"]
         admin["admin<br/>AdminSessions<br/>セッション Cookie"]
         static["staticfiles<br/>StaticFiles<br/>staticRoutes"]
+    end
+
+    subgraph mastodon[":backend:feature-mastodon"]
+        json["json<br/>AppJson<br/>respondJson"]
+        ap["activitypub<br/>ActivityPubContentTypes<br/>StringListSerializer<br/>LinkOrObject"]
+        actor["actor<br/>ActorKeyLoader<br/>ActorKey<br/>ActorUrls<br/>HttpRemoteActors"]
+        webfinger["webfinger<br/>GET /.well-known/webfinger"]
+        actorroute["actor のルート<br/>GET /users/{name}"]
+        inbox["inbox<br/>POST /users/{name}/inbox<br/>InboxService.default<br/>FollowHandler"]
+        nodeinfo["nodeinfo<br/>GET /.well-known/nodeinfo<br/>GET /nodeinfo/2.1"]
+        sig["httpsignature<br/>HttpSignatureVerifier<br/>HttpSignatureSigner<br/>SigningString<br/>BodyDigest"]
+        delivery["delivery<br/>HttpActivityDelivery"]
     end
 
     subgraph crypto[":backend:crypto"]
@@ -67,20 +81,26 @@ flowchart TB
     db[("SQLite<br/>DB_PATH")]
 
     main --> env
+    main --> deps
     main --> module
-    module --> json
     module --> route
+    route --> json
     json --> ap
-    main -->|createRepositories| api
-    main -->|load| actor
+    deps -->|createRepositories| api
+    deps -->|ActorKeyLoader.load| actor
+    deps -->|InboxService.default| inbox
     module -->|verifyWritable| api
     api -.->|backend からは見えない| impl
     impl -->|テーブルの型| gen
     res -.->|codegen の入力| gen
     impl --> db
     actor --> keys
+    module --> webfinger
+    module --> actorroute
     module --> inbox
     module --> nodeinfo
+    webfinger --> actor
+    actorroute --> actor
     module --> graphql
     graphql -->|リゾルバの実装を渡して結線| resolver
     resolver -->|セッションの発行と検証| admin

@@ -112,7 +112,7 @@ JVM では問題なく動くので、native バイナリを起動して初めて
 `ContentNegotiation` を使わず、`call.respondJson(Foo.serializer(), value)` のように
 serializer を明示する。コンパイル時に serializer が決まるのでリフレクションが発生せず、
 `reflect-config.json` も `--initialize-at-build-time` も要らない。
-実体は `backend/src/main/kotlin/net/matsudamper/mastodon/rss/json/JsonResponse.kt`。
+実体は `backend/feature-mastodon/src/main/kotlin/net/matsudamper/mastodon/rss/json/JsonResponse.kt`。
 
 受信側も同じ理由で `call.receive<Foo>()` のように `@Serializable` な型を直接は受けない。
 inbox は `call.receive<ByteArray>()` で生のバイト列を受け、
