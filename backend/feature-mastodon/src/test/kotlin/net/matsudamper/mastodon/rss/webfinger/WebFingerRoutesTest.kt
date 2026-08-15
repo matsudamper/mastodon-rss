@@ -7,17 +7,19 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.module
-import net.matsudamper.mastodon.rss.testDependencies
 
 // アカウント発見の 1 ホップ目。ここが 404 だと Mastodon の検索に何も出ない。
 class WebFingerRoutesTest {
     private fun ApplicationTestBuilder.installModule() {
         application {
-            module(testDependencies())
+            routing {
+                webFingerRoutes(TestLocalActor.directory)
+            }
         }
     }
 

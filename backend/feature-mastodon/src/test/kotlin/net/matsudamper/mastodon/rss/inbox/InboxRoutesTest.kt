@@ -12,18 +12,17 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.TestDelivery
+import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
-import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.httpsignature.TestSigning
 import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.module
-import net.matsudamper.mastodon.rss.testDependencies
 
 // 相手のサーバーからアクティビティが POST されてくる口。
 // 署名が通ったかどうかが、送り主を確かめる唯一の根拠になる。
@@ -33,7 +32,7 @@ class InboxRoutesTest {
      */
     private val host = "localhost"
 
-    private val fixedActor = "https://${TestServerEnv.DOMAIN}/users/${TestServerEnv.USERNAME}"
+    private val fixedActor = "https://${TestLocalActor.DOMAIN}/users/${TestLocalActor.USERNAME}"
 
     private fun follow(
         actor: String = TestRemoteActor.ACTOR_ID,
@@ -49,7 +48,12 @@ class InboxRoutesTest {
         delivery: ActivityDelivery = TestDelivery(),
     ) {
         application {
-            module(testDependencies(remoteActors = remoteActors, delivery = delivery))
+            routing {
+                inboxRoutes(
+                    directory = TestLocalActor.directory,
+                    service = InboxService.default(remoteActors = remoteActors, delivery = delivery),
+                )
+            }
         }
     }
 
@@ -85,7 +89,7 @@ class InboxRoutesTest {
             installModule()
 
             val path = "/users/test-1/inbox"
-            val testActor = "https://${TestServerEnv.DOMAIN}/users/test-1"
+            val testActor = "https://${TestLocalActor.DOMAIN}/users/test-1"
             val response = postInbox(path = path, body = follow(target = testActor))
 
             assertEquals(HttpStatusCode.Accepted, response.status)
@@ -232,7 +236,7 @@ class InboxRoutesTest {
             installModule(delivery = delivery)
 
             // 署名も actor も正しいが、フォローしようとしている相手が別のアクター
-            val response = postInbox(body = follow(target = "https://${TestServerEnv.DOMAIN}/users/test-9"))
+            val response = postInbox(body = follow(target = "https://${TestLocalActor.DOMAIN}/users/test-9"))
 
             assertEquals(HttpStatusCode.Accepted, response.status)
             assertTrue(delivery.delivered.isEmpty(), "${delivery.delivered}")

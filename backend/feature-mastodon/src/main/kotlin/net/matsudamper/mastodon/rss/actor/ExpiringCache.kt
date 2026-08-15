@@ -1,17 +1,19 @@
-package net.matsudamper.mastodon.rss.repository
+package net.matsudamper.mastodon.rss.actor
 
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 有効期限つきのキーバリューキャッシュ。
  *
- * DB そのものではないが、「どこからデータを読むか」を呼び出し側から隠すという
- * repository の役割としてはここに置く。実装は [InMemoryExpiringCache] が持つが
- * `private` なので外からは見えない。呼び出し側が触れるのはこの interface と
- * [createExpiringCache] だけで、テスト用のフェイクへの差し替えや、将来 DB / Redis
- * 等の永続キャッシュへの置き換えをここだけ見れば済むようにする。
+ * 相手のアクター文書を持ち回るためだけのもので、モジュールの外には出さない。
+ * 元は `:backend:repository` に置いていたが、そちらは SQLite と jOOQ を抱える
+ * アプリ側のモジュールで、ActivityPub の実装が依存するものではない。
+ * このモジュールだけで完結させるために持ってきた。
+ *
+ * interface にしてあるのは差し替えのため。プロセスをまたいでキャッシュしたくなったら
+ * [createExpiringCache] の戻りを変えれば済む。
  */
-interface ExpiringCache<K : Any, V : Any> {
+internal interface ExpiringCache<K : Any, V : Any> {
     /** 有効期限内なら値を返す。無い場合と期限切れの場合はどちらも null */
     fun get(key: K): V?
 
@@ -28,7 +30,7 @@ interface ExpiringCache<K : Any, V : Any> {
  *
  * 実装はプロセスのメモリ上に持つだけで、再起動やプロセス間では共有しない。
  */
-fun <K : Any, V : Any> createExpiringCache(): ExpiringCache<K, V> = InMemoryExpiringCache()
+internal fun <K : Any, V : Any> createExpiringCache(): ExpiringCache<K, V> = InMemoryExpiringCache()
 
 private class InMemoryExpiringCache<K : Any, V : Any> : ExpiringCache<K, V> {
     private val entries = ConcurrentHashMap<K, Entry<V>>()

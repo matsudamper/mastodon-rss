@@ -3,6 +3,8 @@ package net.matsudamper.mastodon.rss.inbox
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activitypub.InboxActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.actor.RemoteActors
+import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
@@ -93,6 +95,30 @@ class InboxService(
         )
 
         return InboxResult.Accepted
+    }
+
+    companion object {
+        /**
+         * 既定の組み合わせで作る。
+         *
+         * 署名の検証と Follow への `Accept` は ActivityPub として要るもので、
+         * 使う側が選ぶものではない。組み立てを呼び出し側に書かせると
+         * 「どのハンドラが要るか」がモジュールの外に漏れるので、ここに置く。
+         * 種類ごとの処理はハンドラを足す形になっていて、Phase 3 の `Undo` と
+         * `Delete` はこの一覧に並ぶ。
+         *
+         * @param remoteActors 相手のアクターの引き先。署名検証に使う公開鍵と、
+         *   `Accept` の宛先になる inbox をここから取る
+         * @param delivery こちらから相手の inbox に POST する口
+         */
+        fun default(
+            remoteActors: RemoteActors,
+            delivery: ActivityDelivery,
+        ): InboxService =
+            InboxService(
+                verifier = HttpSignatureVerifier(remoteActors),
+                handlers = listOf(FollowHandler(remoteActors, delivery)),
+            )
     }
 }
 

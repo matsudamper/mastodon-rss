@@ -4,25 +4,24 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
-import net.matsudamper.mastodon.rss.ServerEnv
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 
 /**
- * [ServerEnv.ActorPrivateKey] に従ってアクターの秘密鍵を用意する。
+ * [ActorPrivateKey] に従ってアクターの秘密鍵を用意する。
  *
  * ファイル指定で中身が無い場合だけ新しく生成する。既にあるファイルを書き換えることはしない。
  */
 object ActorKeyLoader {
-    fun load(config: ServerEnv.ActorPrivateKey): ActorKey =
+    fun load(config: ActorPrivateKey): ActorKey =
         when (config) {
-            is ServerEnv.ActorPrivateKey.Pem -> {
+            is ActorPrivateKey.Pem -> {
                 ActorKey(
                     privateKey = decode(config.pem) { "ACTOR_PRIVATE_KEY_PEM の PEM を読めなかった" },
                     origin = ActorKey.Origin.Environment,
                 )
             }
 
-            is ServerEnv.ActorPrivateKey.File -> {
+            is ActorPrivateKey.File -> {
                 loadFromFile(config.path.toAbsolutePath().normalize())
             }
         }

@@ -5,9 +5,9 @@ import net.matsudamper.mastodon.rss.repository.sqlite.SqliteRepositories
 /**
  * DB アクセスの入口。
  *
- * 束ねるのは DB の口だけで、モジュール `:backend:repository` 全体の入口ではない。
- * モジュールの責務は「どこからデータを読むかを呼び出し側から隠す」ことなので、
- * [ExpiringCache] のように DB を経由しない取得口も同じモジュールに置いてある。
+ * モジュールの責務は「どこからデータを読むかを呼び出し側から隠す」ことで、
+ * いまはその実装が DB だけなのでここが唯一の入口になっている。
+ * DB を経由しない取得口を足す場合もこのモジュールに並べる。
  *
  * 実装は [SqliteRepositories] が持つが `internal` なので外からは見えない。
  * 呼び出し側が触れるのはこの interface と [DatabaseConfig] だけで、

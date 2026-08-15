@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
 
 // 環境変数の読み取りを確認する。読むのはここ 1 か所だけなので、
 // 変数と既定値の一覧としてもこのテストを見れば分かるようにしておく。
@@ -20,7 +21,7 @@ class ServerEnvTest {
         assertEquals(8080, env.port)
         assertEquals("admin", env.actorUsername)
         assertEquals(Path.of("./data/mastodon-rss.db"), env.dbPath)
-        assertEquals(ServerEnv.ActorPrivateKey.File(Path.of("./data/actor-private-key.pem")), env.actorPrivateKey)
+        assertEquals(ActorPrivateKey.File(Path.of("./data/actor-private-key.pem")), env.actorPrivateKey)
         assertNull(env.staticSrcDir)
     }
 
@@ -40,7 +41,7 @@ class ServerEnvTest {
         assertEquals(9000, env.port)
         assertEquals("feed1", env.actorUsername)
         assertEquals(Path.of("/data/rss.db"), env.dbPath)
-        assertEquals(ServerEnv.ActorPrivateKey.File(Path.of("/data/actor.pem")), env.actorPrivateKey)
+        assertEquals(ActorPrivateKey.File(Path.of("/data/actor.pem")), env.actorPrivateKey)
         assertEquals(Path.of("/srv/static"), env.staticSrcDir)
     }
 
@@ -106,14 +107,14 @@ class ServerEnvTest {
     fun `鍵の PEM を直接指定できる`() {
         val env = env("ACTOR_PRIVATE_KEY_PEM" to "-----BEGIN PRIVATE KEY-----")
 
-        assertEquals(ServerEnv.ActorPrivateKey.Pem("-----BEGIN PRIVATE KEY-----"), env.actorPrivateKey)
+        assertEquals(ActorPrivateKey.Pem("-----BEGIN PRIVATE KEY-----"), env.actorPrivateKey)
     }
 
     @Test
     fun `鍵の指定が空白だけなら未設定として扱う`() {
         val env = env("ACTOR_PRIVATE_KEY_PEM" to "   ", "ACTOR_PRIVATE_KEY_PATH" to "")
 
-        assertEquals(ServerEnv.ActorPrivateKey.File(Path.of("./data/actor-private-key.pem")), env.actorPrivateKey)
+        assertEquals(ActorPrivateKey.File(Path.of("./data/actor-private-key.pem")), env.actorPrivateKey)
     }
 
     // 片方を黙って無視すると、意図していない鍵で起動したことに気付けない

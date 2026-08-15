@@ -28,7 +28,7 @@
 アカウントごと見つからなくなる。
 
 inbox は署名が通れば 202、通らなければ 401 を返す。検証の内容は
-[HttpSignatureVerifier.kt](../backend/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
+[HttpSignatureVerifier.kt](../backend/feature-mastodon/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
 の KDoc にある。
 
 届いたアクティビティのうち処理するのは `Follow` だけで、相手の inbox に `Accept` を

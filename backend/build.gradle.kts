@@ -7,22 +7,17 @@ plugins {
 
 dependencies {
     implementation(project(":backend:repository"))
-    implementation(project(":backend:crypto"))
+
+    // ActivityPub（WebFinger / Actor / inbox / NodeInfo）の実装。
+    // 相手のサーバーとのやり取りはこのモジュールの中で完結していて、
+    // :backend の側にあるのは「何を渡して組み立てるか」だけ。
+    // crypto と ktor-client はこのモジュールの中でしか使わないので、こちらでは持たない
+    implementation(project(":backend:feature-mastodon"))
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
 
-    // inbox の署名検証で、相手の keyId を GET して公開鍵を取りに行く。
-    // engine はサーバーと揃えて CIO にする
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.cio)
-
     implementation(libs.kotlinx.serialization.json)
-
-    // InboxService のように Ktor のルーティングから切り離したクラスは
-    // Application.log を持たないので、SLF4J のロガーを直接引く。
-    // ktor-server-core の推移依存でも見えるが、直接 import するなら明示する
-    implementation(libs.slf4j.api)
 
     // SLF4J の実装が無いと Ktor もこちらのログも NOP になって何も出ない。
     // 起動時の DOMAIN と鍵の取得元は運用で必ず見たいので実装を入れる。
@@ -32,6 +27,10 @@ dependencies {
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test)
+
+    // 相手のアクターと送信先のフェイク。ActivityPub の組み立てを差し替えるものなので、
+    // 実装と同じモジュールが出す
+    testImplementation(testFixtures(project(":backend:feature-mastodon")))
 }
 
 application {

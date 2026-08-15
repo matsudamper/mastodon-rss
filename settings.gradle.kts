@@ -26,11 +26,12 @@ dependencyResolutionManagement {
     }
 }
 
-// :crypto と :repository と :rss は :backend からしか使われない（JCA も JDBC も
-// javax.xml も JVM 専用で、Kotlin/Wasm の :frontend からは参照できない）ので、
-// backend の下にネストする
+// :crypto と :repository と :rss と :feature-mastodon は :backend からしか使われない
+// （JCA も JDBC も javax.xml も Ktor のサーバーも JVM 専用で、Kotlin/Wasm の
+// :frontend からは参照できない）ので、backend の下にネストする
 include(":backend")
 include(":backend:crypto")
+include(":backend:feature-mastodon")
 include(":backend:repository")
 include(":backend:rss")
 include(":frontend")
