@@ -150,6 +150,22 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 `FontFamily` を組み立てる（`:frontend` の `ui/Font.kt`）。配信するファイルの置き場を
 管理画面専用にせず `STATIC_SRC_DIR` にまとめてあるのは、こういうものが入るため。
 
+## 静的ファイルのキャッシュ
+
+入口の `index.html` はキャッシュさせない（`Cache-Control: no-store`）。JS と `.wasm` は
+名前に中身のハッシュが入るので、`immutable` で 1 年持たせる。
+
+配布物を置き換えると JS も `.wasm` も別の名前になる。`index.html` が古いまま使われると、
+既に消えた名前を取りに行って画面が出ない。入口だけ毎回取り直せば、そこから読むものは
+名前で決まるので、新旧が混ざることもない。
+
+JS の名前にハッシュを入れるのは `:frontend` のビルド（`frontend/build.gradle.kts`）で、
+配布物を作るときに `index.html` の参照も一緒に差し替える。dev server はこの経路を
+通らないため、ハッシュの無い名前のまま動く。
+
+フォントのように名前が変わらないものには何も付けない。中身を差し替えても名前が同じなので、
+長く持たせると新しいものに変わらなくなる。
+
 ## 管理 API
 
 エンドポイントは `POST /graphql` の 1 つ。管理用は `Query.admin` / `Mutation.admin` の下に
