@@ -53,6 +53,5 @@ fragment AdminAccountFields on AdminAccount {
     username
     acct
     actorUrl
-    deletable
     createdAt
 }

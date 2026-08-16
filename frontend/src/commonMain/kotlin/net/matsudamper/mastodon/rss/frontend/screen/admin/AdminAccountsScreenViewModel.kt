@@ -78,7 +78,6 @@ class AdminAccountsScreenViewModel(
                         AdminAccountsScreenUiState.Account(
                             username = account.username,
                             acct = account.acct,
-                            badge = if (account.deletable) null else NOT_DELETABLE_BADGE,
                             actorUrl = account.actorUrl,
                             createdAt = account.createdAt?.let { UnixTimeUtil.format(it) },
                         )
@@ -92,11 +91,4 @@ class AdminAccountsScreenViewModel(
         val session: AdminSessionResult? = null,
         val accounts: AdminAccountsResult? = null,
     )
-
-    private companion object {
-        /**
-         * 消せないアカウントに付ける印
-         */
-        const val NOT_DELETABLE_BADGE = "消せない"
-    }
 }

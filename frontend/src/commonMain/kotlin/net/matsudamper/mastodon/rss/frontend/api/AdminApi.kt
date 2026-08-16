@@ -75,7 +75,6 @@ class AdminApi(
             username = username,
             acct = acct,
             actorUrl = actorUrl,
-            deletable = deletable,
             createdAt = createdAt,
         )
 
@@ -125,14 +124,12 @@ sealed interface AdminLoginResult {
 }
 
 /**
- * @param deletable 管理画面から消せるか
- * @param createdAt 追加した時刻。エポックからの秒数。消せないアカウントには無い
+ * @param createdAt 追加した時刻。エポックからの秒数。設定で決まるアカウントには無い
  */
 data class AdminAccount(
     val username: String,
     val acct: String,
     val actorUrl: String,
-    val deletable: Boolean,
     val createdAt: Long?,
 )
 
