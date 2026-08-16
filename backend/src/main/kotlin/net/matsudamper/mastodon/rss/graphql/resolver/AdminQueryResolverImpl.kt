@@ -35,7 +35,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
     ): CompletionStage<DataFetcherResult<List<QlAdminAccount>>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val accounts = GraphQlEngine.diContainer(env).accountService.list()
+        val accounts = GraphQlEngine.diContainer(env).accountService.accounts()
 
         return CompletableFuture.completedFuture(
             DataFetcherResult.Builder(accounts.map { it.toGraphqlResponse() }).build(),
