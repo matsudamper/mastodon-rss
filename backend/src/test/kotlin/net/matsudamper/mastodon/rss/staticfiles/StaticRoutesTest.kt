@@ -95,12 +95,12 @@ class StaticRoutesTest {
     fun `名前にハッシュが入るjsとwasmは長くキャッシュされる`() =
         testApplication {
             putFile("index.html", "<html></html>")
-            putFile("frontend.0123456789abcdef.js", "console.log()")
+            putFile("main.0123456789abcdef.js", "console.log()")
             putFile("0123456789abcdef.wasm", "wasm")
             applicationWith(root)
 
             val expected = "public, max-age=31536000, immutable"
-            assertEquals(expected, client.get("/frontend.0123456789abcdef.js").headers[HttpHeaders.CacheControl])
+            assertEquals(expected, client.get("/main.0123456789abcdef.js").headers[HttpHeaders.CacheControl])
             assertEquals(expected, client.get("/0123456789abcdef.wasm").headers[HttpHeaders.CacheControl])
         }
 
@@ -109,12 +109,12 @@ class StaticRoutesTest {
         testApplication {
             putFile("index.html", "<html></html>")
             putFile("fonts/NotoSansJP-Regular.ttf", "ttf")
-            // 古い配布物を置いた場合。名前が変わらないので長く持たせてはいけない
-            putFile("frontend.js", "console.log()")
+            // 名前が固定の JS。同じ URL のまま中身が変わりうるので長く持たせてはいけない
+            putFile("main.js", "console.log()")
             applicationWith(root)
 
             assertEquals(null, client.get("/fonts/NotoSansJP-Regular.ttf").headers[HttpHeaders.CacheControl])
-            assertEquals(null, client.get("/frontend.js").headers[HttpHeaders.CacheControl])
+            assertEquals(null, client.get("/main.js").headers[HttpHeaders.CacheControl])
         }
 
     @Test
