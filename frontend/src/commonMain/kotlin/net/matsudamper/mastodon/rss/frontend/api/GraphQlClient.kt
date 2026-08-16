@@ -11,7 +11,6 @@ object GraphQlClient {
     val apollo: ApolloClient =
         ApolloClient
             .Builder()
-            // 相対にすると、画面を配信しているオリジンへ投げる
             .serverUrl(GRAPHQL_PATH)
             .build()
 }
