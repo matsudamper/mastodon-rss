@@ -262,7 +262,7 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 - [ ] 配信キュー: 失敗時に指数バックオフでリトライ、上限到達で諦める
 - [ ] `GET /users/admin/outbox`（OrderedCollection）
 - [ ] `GET /notes/{id}` で単体の Note を返す（Mastodon がパーマリンクを引きに来る）
-- [ ] 投稿を発火させる管理用エンドポイント（開発用。あとで UI から叩く）
+- [ ] 投稿を発火させる管理用画面
 
 ### ✅ チェックポイント 4
 フォロワーのホームタイムラインに投稿が現れ、リンクをクリックできる。
@@ -463,9 +463,6 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
         DB は名前付きボリューム。`HEALTHCHECK` で `/healthz` を叩く
 - [x] `main` へのマージで GitHub Packages（ghcr.io）にイメージを publish する
       - タグは `latest` と commit SHA。戻せるよう latest だけにはしない
-- [ ] systemd unit（コンテナを使わない場合の起動方法）
-- [ ] セットアップ手順の README
-- [ ] リバースプロキシ設定例（nginx / Caddy）
 
 ---
 
