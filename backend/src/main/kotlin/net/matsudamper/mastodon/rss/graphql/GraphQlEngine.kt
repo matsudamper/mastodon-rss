@@ -9,6 +9,7 @@ import graphql.kickstart.tools.GraphQLResolver
 import graphql.kickstart.tools.SchemaParser
 import graphql.schema.DataFetchingEnvironment
 import io.ktor.server.application.ApplicationCall
+import net.matsudamper.mastodon.rss.ServerEnv
 
 /**
  * 結線は graphql-java-tools (kickstart) がリフレクションで行う。native-image 向けの
@@ -17,6 +18,7 @@ import io.ktor.server.application.ApplicationCall
 class GraphQlEngine private constructor(
     private val graphQl: GraphQL,
     private val createContext: (ApplicationCall) -> GraphQlContext,
+    private val env: ServerEnv,
 ) {
     suspend fun execute(
         request: GraphQlRequest,
@@ -27,6 +29,13 @@ class GraphQlEngine private constructor(
             .operationName(request.operationName)
             .variables(variablesOf(request))
             .graphQLContext(mapOf(CONTEXT_KEY to createContext(call)))
+            .graphQLContext(
+                mapOf(
+                    DI_CONTAINER_KEY to DiContainer(
+                        passwordHash = env.adminPasswordHash,
+                    ),
+                ),
+            )
             .build()
 
         return withContext(Dispatchers.IO) {
@@ -45,28 +54,36 @@ class GraphQlEngine private constructor(
 
     companion object {
         private val CONTEXT_KEY = Any()
+        private val DI_CONTAINER_KEY = Any()
 
         fun create(
             resolvers: List<GraphQLResolver<*>>,
             createContext: (ApplicationCall) -> GraphQlContext,
+            env: ServerEnv,
         ): GraphQlEngine {
-            val schema =
-                SchemaParser
-                    .newParser()
-                    .schemaString(readSchema())
-                    .resolvers(resolvers)
-                    .build()
-                    .makeExecutableSchema()
+            val schema = SchemaParser
+                .newParser()
+                .schemaString(readSchema())
+                .resolvers(resolvers)
+                .build()
+                .makeExecutableSchema()
 
             return GraphQlEngine(
                 graphQl = GraphQL.newGraphQL(schema).build(),
                 createContext = createContext,
+                env = env
             )
         }
 
         fun graphQlContext(env: DataFetchingEnvironment): GraphQlContext {
-            return requireNotNull(env.graphQlContext.get<GraphQlContext>(CONTEXT_KEY)) {
+            return requireNotNull(env.graphQlContext.get(CONTEXT_KEY)) {
                 "GraphQLContext に GraphQlContext が無い"
+            }
+        }
+
+        fun diContainer(env: DataFetchingEnvironment): DiContainer {
+            return requireNotNull(env.graphQlContext.get(DI_CONTAINER_KEY)) {
+                "GraphQLContext に DiContainer が無い"
             }
         }
 

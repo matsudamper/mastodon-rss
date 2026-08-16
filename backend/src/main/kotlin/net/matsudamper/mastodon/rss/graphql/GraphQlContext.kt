@@ -11,17 +11,12 @@ import net.matsudamper.mastodon.rss.crypto.PasswordHash
  */
 class GraphQlContext(
     call: ApplicationCall,
-    private val passwordHash: PasswordHash?,
     private val sessionStore: AdminSessionInMemoryStore,
     cookieSecure: Boolean,
 ) {
     private val cookie = AdminSessionCookieManager(call = call, secure = cookieSecure)
 
-    val adminPasswordConfigured: Boolean = passwordHash != null
-
     fun isAdminLoggedIn(): Boolean = sessionStore.isValid(cookie.token())
-
-    fun matchesAdminPassword(password: String): Boolean = passwordHash?.matches(password) == true
 
     /**
      * 発行した Cookie はまだリクエスト側に無いので、[isAdminLoggedIn] は false のまま

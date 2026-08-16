@@ -17,7 +17,7 @@ import net.matsudamper.mastodon.rss.crypto.PasswordHash
  * 設定の入口そのものは環境変数に寄せている。
  *
  * 空文字と空白だけの指定はどれも未設定と同じに扱う。docker compose の
- * `${VAR}` が空で展開されたときに、既定値へ落ちる方が扱いやすい。
+ * `VAR` が空で展開されたときに、既定値へ落ちる方が扱いやすい。
  *
  * @param env 環境変数。テストから差し替えるためだけに引数にしている。
  *   JVM から自プロセスの環境変数は設定できないので、差し替えられないと読み取りのテストが書けない
@@ -134,10 +134,10 @@ class ServerEnv(
         run {
             val raw = env["ADMIN_COOKIE_SECURE"]?.trim()
             if (raw.isNullOrEmpty()) {
-                true
-            } else {
-                raw.lowercase().toBooleanStrictOrNull()
-                    ?: throw IllegalArgumentException("ADMIN_COOKIE_SECURE は true か false にすること: $raw")
+                return@run true
             }
+
+            raw.lowercase().toBooleanStrictOrNull()
+                ?: throw IllegalArgumentException("ADMIN_COOKIE_SECURE は true か false にすること: $raw")
         }
 }

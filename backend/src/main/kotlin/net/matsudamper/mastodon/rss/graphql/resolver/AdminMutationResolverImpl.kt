@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.logic.AdminLoginService
 
 class AdminMutationResolverImpl : AdminMutationResolver {
     override fun login(
@@ -19,13 +20,22 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminLoginResult>> {
         val context = GraphQlEngine.graphQlContext(env)
+        val adminLoginService = GraphQlEngine.diContainer(env).adminLoginService
 
-        if (context.adminPasswordConfigured.not()) {
-            return CompletableFuture.completedFuture(DataFetcherResult.Builder(loginFailure(context, QlAdminLoginFailure.NOT_CONFIGURED)).build())
+        if (adminLoginService.adminPasswordConfigured.not()) {
+            return CompletableFuture.completedFuture(
+                DataFetcherResult.Builder(
+                    loginFailure(context, QlAdminLoginFailure.NOT_CONFIGURED),
+                ).build(),
+            )
         }
 
-        if (context.matchesAdminPassword(password).not()) {
-            return CompletableFuture.completedFuture(DataFetcherResult.Builder(loginFailure(context, QlAdminLoginFailure.WRONG_PASSWORD)).build())
+        if (adminLoginService.matchesAdminPassword(password).not()) {
+            return CompletableFuture.completedFuture(
+                DataFetcherResult.Builder(
+                    loginFailure(context, QlAdminLoginFailure.WRONG_PASSWORD),
+                ).build(),
+            )
         }
 
         context.issueAdminSession()
@@ -46,19 +56,27 @@ class AdminMutationResolverImpl : AdminMutationResolver {
     ): CompletionStage<DataFetcherResult<QlAdminSession>> {
         val context = GraphQlEngine.graphQlContext(env)
         context.clearAdminSession()
+        val adminLoginService = GraphQlEngine.diContainer(env).adminLoginService
 
-        return CompletableFuture.completedFuture(DataFetcherResult.Builder(QlAdminSession(loggedIn = false, passwordConfigured = context.adminPasswordConfigured)).build())
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(
+                QlAdminSession(
+                    loggedIn = false,
+                    passwordConfigured = adminLoginService.adminPasswordConfigured,
+                ),
+            ).build(),
+        )
     }
 
     private fun loginFailure(
         context: GraphQlContext,
         failure: QlAdminLoginFailure,
+        adminLoginService: AdminLoginService,
     ): QlAdminLoginResult {
         return QlAdminLoginResult(
-            session =
-            QlAdminSession(
+            session = QlAdminSession(
                 loggedIn = context.isAdminLoggedIn(),
-                passwordConfigured = context.adminPasswordConfigured,
+                passwordConfigured = adminLoginService.adminPasswordConfigured,
             ),
             failure = failure,
         )

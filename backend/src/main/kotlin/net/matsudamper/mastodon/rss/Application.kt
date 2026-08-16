@@ -85,24 +85,22 @@ fun Application.module(deps: AppDependencies) {
 
     logAdminLogin(env)
 
-    val graphQl =
-        GraphQlEngine.create(
-            resolvers =
-            listOf(
-                QueryResolverImpl(),
-                MutationResolverImpl(),
-                AdminQueryResolverImpl(),
-                AdminMutationResolverImpl(),
-            ),
-            createContext = { call ->
-                GraphQlContext(
-                    call = call,
-                    passwordHash = env.adminPasswordHash,
-                    sessionStore = deps.adminSessionStore,
-                    cookieSecure = env.adminCookieSecure,
-                )
-            },
-        )
+    val graphQl = GraphQlEngine.create(
+        resolvers = listOf(
+            QueryResolverImpl(),
+            MutationResolverImpl(),
+            AdminQueryResolverImpl(),
+            AdminMutationResolverImpl(),
+        ),
+        createContext = { call ->
+            GraphQlContext(
+                call = call,
+                sessionStore = deps.adminSessionStore,
+                cookieSecure = env.adminCookieSecure,
+            )
+        },
+        env = env,
+    )
 
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
     // native-image で解決できず 500 になる。詳細は json/JsonResponse.kt を参照
