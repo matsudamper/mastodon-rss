@@ -6,8 +6,7 @@ import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
 /**
- * リクエスト 1 つぶんの入れ物。リゾルバは [ApplicationCall] を直接持たず、ここを通す。
- * 渡すとヘッダもボディもレスポンスも触れるが、要るのはセッションの読み書きだけ
+ * 通信に関係するものを入れておく
  */
 class GraphQlContext(
     call: ApplicationCall,
@@ -27,7 +26,6 @@ class GraphQlContext(
     }
 
     fun clearAdminSession() {
-        // Cookie を消すだけだと、値を控えられていた場合に使い続けられる
         sessionStore.remove(cookie.token())
         cookie.expire()
     }
