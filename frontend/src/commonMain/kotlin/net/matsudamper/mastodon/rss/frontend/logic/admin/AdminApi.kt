@@ -1,13 +1,16 @@
-package net.matsudamper.mastodon.rss.frontend.api
+package net.matsudamper.mastodon.rss.frontend.logic.admin
 
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
+import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 
 class AdminApi(
     private val client: ApolloClient = GraphQlClient.apollo,
@@ -38,6 +41,39 @@ class AdminApi(
             .toSessionResult { it.admin.logout.adminSessionFields }
     }
 
+    suspend fun accounts(): AdminAccountsResult {
+        val response = client.query(AdminAccountsQuery()).execute()
+        val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
+
+        return AdminAccountsResult.Success(
+            data.admin.accounts.map { account ->
+                AdminAccount(
+                    username = account.username,
+                    acct = account.acct,
+                    actorUrl = account.actorUrl,
+                    createdAt = account.createdAt,
+                )
+            },
+        )
+    }
+
+    suspend fun addAccount(username: String): AdminAddAccountResult {
+        val response = client.mutation(AdminAddAccountMutation(username)).execute()
+        val added = response.data?.admin?.addAccount ?: return AdminAddAccountResult.Failure(response.failureMessage())
+
+        val failure = added.failure
+            ?: return AdminAddAccountResult.Success(
+                added.account?.acct ?: return AdminAddAccountResult.Failure("追加できたが内容が返ってこない"),
+            )
+
+        return AdminAddAccountResult.Rejected(
+            unusableCharacters = failure.unusableCharacters.orEmpty(),
+            maxLength = failure.maxLength,
+            minLength = failure.minLength,
+            isDuplicated = failure.isDuplicated,
+        )
+    }
+
     /**
      * `data` が無いのは失敗。ログインしていない状態と混ぜない
      */
@@ -58,27 +94,4 @@ class AdminApi(
             ?: errors?.joinToString("\n") { it.message }?.takeIf { it.isNotEmpty() }
             ?: "ネットワークエラー"
     }
-}
-
-sealed interface AdminSessionResult {
-    data class Success(
-        val loggedIn: Boolean,
-        val passwordConfigured: Boolean,
-    ) : AdminSessionResult
-
-    data class Failure(
-        val message: String,
-    ) : AdminSessionResult
-}
-
-sealed interface AdminLoginResult {
-    data object Success : AdminLoginResult
-
-    data object WrongPassword : AdminLoginResult
-
-    data object NotConfigured : AdminLoginResult
-
-    data class Failure(
-        val message: String,
-    ) : AdminLoginResult
 }

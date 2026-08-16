@@ -62,14 +62,14 @@ class StaticFilesTest {
     fun `アカウントのパスはindex_htmlを返す`() {
         val index = putFile("index.html", "<html></html>")
 
-        assertEquals(index, staticFiles().resolve(listOf("@test-1")))
+        assertEquals(index, staticFiles().resolve(listOf("@feed1")))
     }
 
     @Test
     fun `ユーザー名にドットが入っていても拡張子として扱わない`() {
         val index = putFile("index.html", "<html></html>")
 
-        assertEquals(index, staticFiles().resolve(listOf("@test-1.2")))
+        assertEquals(index, staticFiles().resolve(listOf("@feed1.2")))
     }
 
     @Test

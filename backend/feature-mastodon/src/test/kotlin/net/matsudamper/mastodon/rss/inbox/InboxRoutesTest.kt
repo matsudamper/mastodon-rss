@@ -84,13 +84,14 @@ class InboxRoutesTest {
         }
 
     @Test
-    fun `使い捨てアクター宛でも受ける`() =
+    fun `保存されているアカウント宛でも受ける`() =
         testApplication {
             installModule()
 
-            val path = "/users/test-1/inbox"
-            val testActor = "https://${TestLocalActor.DOMAIN}/users/test-1"
-            val response = postInbox(path = path, body = follow(target = testActor))
+            val username = TestLocalActor.STORED_USERNAME
+            val path = "/users/$username/inbox"
+            val target = "https://${TestLocalActor.DOMAIN}/users/$username"
+            val response = postInbox(path = path, body = follow(target = target))
 
             assertEquals(HttpStatusCode.Accepted, response.status)
         }
@@ -236,7 +237,7 @@ class InboxRoutesTest {
             installModule(delivery = delivery)
 
             // 署名も actor も正しいが、フォローしようとしている相手が別のアクター
-            val response = postInbox(body = follow(target = "https://${TestLocalActor.DOMAIN}/users/test-9"))
+            val response = postInbox(body = follow(target = "https://${TestLocalActor.DOMAIN}/users/other"))
 
             assertEquals(HttpStatusCode.Accepted, response.status)
             assertTrue(delivery.delivered.isEmpty(), "${delivery.delivered}")

@@ -25,10 +25,14 @@ sealed interface Screen : NavKey {
     }
 
     /**
-     * 管理画面。
+     * 管理画面のトップ。
      *
      * `/admin` の下だけに出す。以前は全パスで管理画面が出ていたので、
      * アカウント画面を開いても管理画面が表示されていた。
+     *
+     * ログインと、管理画面の中の各画面への入口だけを置く。操作そのものは
+     * 下の階層に分ける。1 つの画面に並べると、開いた時点で必要のない
+     * 問い合わせまで走り、URL でその操作を指せなくなる。
      */
     data object Admin : Screen {
         override val path: String = "/$ADMIN_SEGMENT"
@@ -36,7 +40,23 @@ sealed interface Screen : NavKey {
     }
 
     /**
-     * アカウント画面。`/@test-1` のように `@` + ユーザー名で開く。
+     * アカウントの一覧
+     */
+    data object AdminAccounts : Screen {
+        override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT"
+        override val title: String = "アカウント | $SITE_NAME"
+    }
+
+    /**
+     * アカウントの追加
+     */
+    data object AdminAccountNew : Screen {
+        override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$NEW_SEGMENT"
+        override val title: String = "アカウントの追加 | $SITE_NAME"
+    }
+
+    /**
+     * アカウント画面。`/@feed1` のように `@` + ユーザー名で開く。
      *
      * ActivityPub の Actor JSON を返す `/users/{name}` とはパスを分ける。
      * 同じパスで Accept ヘッダを見て HTML と JSON を出し分ける手もあるが、
@@ -65,8 +85,14 @@ sealed interface Screen : NavKey {
     companion object {
         const val SITE_NAME: String = "mastodon-rss"
 
-        /** 管理画面のパスの先頭。`/admin/password-hash` のような下の階層も管理画面として扱う */
+        /**
+         * 管理画面のパスの先頭
+         */
         const val ADMIN_SEGMENT: String = "admin"
+
+        private const val ACCOUNTS_SEGMENT: String = "accounts"
+
+        private const val NEW_SEGMENT: String = "new"
 
         /** アカウント画面の目印。ユーザー名に `@` は使えないので、これで一意に判別できる */
         const val ACCOUNT_PREFIX: String = "@"
@@ -93,7 +119,16 @@ sealed interface Screen : NavKey {
 
             val first = segments.firstOrNull() ?: return Home
 
-            if (first == ADMIN_SEGMENT) return Admin
+            if (first == ADMIN_SEGMENT) {
+                // 知らない下の階層は管理画面ではなく見つからない扱いにする。
+                // 綴りを間違えたリンクで管理画面が出ると、間違いに気付けない
+                return when (segments.drop(1)) {
+                    emptyList<String>() -> Admin
+                    listOf(ACCOUNTS_SEGMENT) -> AdminAccounts
+                    listOf(ACCOUNTS_SEGMENT, NEW_SEGMENT) -> AdminAccountNew
+                    else -> NotFound(path)
+                }
+            }
 
             if (segments.size == 1 && first.startsWith(ACCOUNT_PREFIX)) {
                 val username = first.removePrefix(ACCOUNT_PREFIX)

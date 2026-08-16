@@ -7,12 +7,16 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -176,6 +180,152 @@ class AdminGraphQlTest {
             assertEquals(HttpStatusCode.BadRequest, response.status)
         }
 
+    @Test
+    fun `ログインしていなければアカウントを列挙できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            assertTrue(queryAccounts().body().containsKey("errors"))
+        }
+
+    @Test
+    fun `列挙には設定で決まるアカウントが必ず入る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val account = queryAccounts(token).accounts().single().jsonObject
+
+            assertEquals(TestServerEnv.USERNAME, account.string("username"))
+            assertEquals("@${TestServerEnv.USERNAME}@${TestServerEnv.DOMAIN}", account.string("acct"))
+            assertEquals(
+                "https://${TestServerEnv.DOMAIN}/users/${TestServerEnv.USERNAME}",
+                account.string("actorUrl"),
+            )
+            // 設定で決まるアカウントは管理画面から消せない。追加した時刻も持っていない
+            assertFalse(account.boolean("deletable"))
+            assertEquals(JsonNull, account.getValue("createdAt"))
+        }
+
+    @Test
+    fun `追加したアカウントが列挙に入る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val added = assertNotNull(mutateAddAccount("feed1", token).addAccountResult().obj("account"))
+
+            assertEquals("feed1", added.string("username"))
+            assertEquals("@feed1@${TestServerEnv.DOMAIN}", added.string("acct"))
+            assertTrue(added.boolean("deletable"))
+            // 時刻は文字列にせずエポックからの秒数で返す。書式の解釈を受け取る側に委ねない
+            assertTrue(added.getValue("createdAt").jsonPrimitive.long > 0)
+
+            assertEquals(
+                listOf(TestServerEnv.USERNAME, "feed1"),
+                queryAccounts(token).accounts().map { it.jsonObject.string("username") },
+            )
+        }
+
+    @Test
+    fun `使えない文字は入力にあったものを返す`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val result = mutateAddAccount("feed 1/あ", token).addAccountResult()
+
+            assertEquals(JsonNull, result.getValue("account"))
+            // どの文字が駄目なのかを画面が自分で決めなくて済むようにする
+            assertEquals(
+                listOf(" ", "/", "あ"),
+                result.failure().getValue("unusableCharacters").jsonArray.map { it.jsonPrimitive.content },
+            )
+        }
+
+    @Test
+    fun `末尾に置けない文字は使えない文字として返る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            // `-` は名前の間には置けるが、末尾には置けない
+            val result = mutateAddAccount("feed-", token).addAccountResult()
+
+            assertEquals(
+                listOf("-"),
+                result.failure().getValue("unusableCharacters").jsonArray.map { it.jsonPrimitive.content },
+            )
+        }
+
+    @Test
+    fun `長すぎる名前は上限と一緒に返る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val failure = mutateAddAccount("a".repeat(31), token).addAccountResult().failure()
+
+            assertEquals(30, failure.getValue("maxLength").jsonPrimitive.int)
+            assertEquals(JsonNull, failure.getValue("minLength"))
+        }
+
+    @Test
+    fun `名前が空なら下限が返る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val failure = mutateAddAccount("   ", token).addAccountResult().failure()
+
+            assertEquals(1, failure.getValue("minLength").jsonPrimitive.int)
+        }
+
+    @Test
+    fun `当てはまる理由は同時に返る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            // 1 つ直しても次で弾かれるのが分からないと直しようがない
+            val failure = mutateAddAccount("あ".repeat(31), token).addAccountResult().failure()
+
+            assertEquals(listOf("あ"), failure.getValue("unusableCharacters").jsonArray.map { it.jsonPrimitive.content })
+            assertEquals(30, failure.getValue("maxLength").jsonPrimitive.int)
+        }
+
+    @Test
+    fun `設定で決まるアカウントと同じ名前は追加できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            // 設定で決まるアカウントも引き当ての対象なので、名前は埋まっている
+            val result = mutateAddAccount(TestServerEnv.USERNAME.uppercase(), token).addAccountResult()
+
+            assertTrue(result.failure().boolean("isDuplicated"))
+        }
+
+    @Test
+    fun `同じ名前は追加できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+
+            val result = mutateAddAccount("FEED1", token).addAccountResult()
+
+            assertTrue(result.failure().boolean("isDuplicated"))
+        }
+
+    @Test
+    fun `ログインしていなければアカウントを追加できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            assertTrue(mutateAddAccount("feed1").body().containsKey("errors"))
+        }
+
     // スキーマに無いものが通ってしまうと、結線の漏れに気付けない
     @Test
     fun `スキーマに無いフィールドは errors になる`() =
@@ -218,6 +368,22 @@ class AdminGraphQlTest {
     private suspend fun ApplicationTestBuilder.mutateLogout(token: String): HttpResponse =
         graphQl("mutation { admin { logout { loggedIn passwordConfigured } } }", token = token)
 
+    private suspend fun ApplicationTestBuilder.queryAccounts(token: String? = null): HttpResponse =
+        graphQl("query { admin { accounts { $ACCOUNT_FIELDS } } }", token = token)
+
+    private suspend fun ApplicationTestBuilder.mutateAddAccount(
+        username: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation Add(${'$'}username: String!) { admin { " +
+                "addAccount(username: ${'$'}username) { account { $ACCOUNT_FIELDS } " +
+                "failure { unusableCharacters maxLength minLength isDuplicated } } } }",
+            token = token,
+            variables = """{"username":${JsonPrimitive(username)}}""",
+        )
+
     private suspend fun ApplicationTestBuilder.graphQl(
         query: String,
         token: String? = null,
@@ -239,6 +405,8 @@ class AdminGraphQlTest {
     private companion object {
         const val PASSWORD = "とても長いパスワード"
 
+        const val ACCOUNT_FIELDS = "username acct actorUrl deletable createdAt"
+
         /**
          * 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ
          */
@@ -254,6 +422,12 @@ class AdminGraphQlTest {
         suspend fun HttpResponse.session(): JsonObject = admin().obj("session")
 
         suspend fun HttpResponse.loginResult(): JsonObject = admin().obj("login")
+
+        suspend fun HttpResponse.accounts(): List<JsonElement> = admin().getValue("accounts").jsonArray
+
+        suspend fun HttpResponse.addAccountResult(): JsonObject = admin().obj("addAccount")
+
+        fun JsonObject.failure(): JsonObject = obj("failure")
 
         fun JsonObject.obj(name: String): JsonObject = getValue(name).jsonObject
 

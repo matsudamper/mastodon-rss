@@ -45,7 +45,10 @@ class AppDependencies(
      */
     val actorUrls: ActorUrls = ActorUrls(domain = env.domain, username = env.actorUsername)
 
-    val directory: ActorDirectory = ActorDirectory(actorUrls)
+    // 毎回引き直す。持ち回すと、追加したアカウントが引けるようになるまで間が空く
+    val directory: ActorDirectory = ActorDirectory(fixed = actorUrls) { username ->
+        repositories.accounts.findByUsername(username)?.username
+    }
 
     /**
      * inbox が受け取ったアクティビティの検証と振り分け。

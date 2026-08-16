@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.api
+package net.matsudamper.mastodon.rss.frontend.logic
 
 import com.apollographql.apollo.ApolloClient
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH

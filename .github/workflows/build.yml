@@ -137,6 +137,9 @@ jobs:
           # 空の DB だと verifyWritable が落ちるので、実運用の手適用にあたる操作をここでやる
           mkdir -p "$(dirname "$DB_PATH")"
           sqlite3 "$DB_PATH" < backend/repository/src/main/resources/db/schema.sql
+          # 追加したアカウントを DB から引けることを確かめるための 1 件
+          sqlite3 "$DB_PATH" \
+            "INSERT INTO accounts (username, created_at) VALUES ('ci-feed', '2026-01-01T00:00:00Z');"
           # 鍵の生成と書き出しも native バイナリで動く必要がある
           export ACTOR_PRIVATE_KEY_PATH="$RUNNER_TEMP/native-check/actor-private-key.pem"
           # パスワードは ci-password。このジョブの中でしか使わない使い捨て
@@ -215,16 +218,16 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' \
             "http://localhost:8080/.well-known/webfinger?resource=acct:other@example.com")" = "404"
 
-          # 検証用の使い捨てアクター。名前がリクエスト由来になるので、
-          # 固定アクターとは別の経路を通る
-          echo "--- test- の使い捨てアクター ---"
-          curl -sf "http://localhost:8080/.well-known/webfinger?resource=acct:test-ci@example.com" \
-            -o /tmp/test-webfinger.json
-          grep -q '"subject":"acct:test-ci@example.com"' /tmp/test-webfinger.json
+          # 追加したアカウントは DB から引く。設定で決まるアカウントとは
+          # 別の経路（jOOQ 経由の読み取り）を通るので、native では別に確かめる
+          echo "--- 追加したアカウント ---"
+          curl -sf "http://localhost:8080/.well-known/webfinger?resource=acct:ci-feed@example.com" \
+            -o /tmp/added-webfinger.json
+          grep -q '"subject":"acct:ci-feed@example.com"' /tmp/added-webfinger.json
 
-          curl -sf -H 'Accept: application/activity+json' http://localhost:8080/users/test-ci \
-            -o /tmp/test-actor.json
-          grep -q '"id":"https://example.com/users/test-ci"' /tmp/test-actor.json
+          curl -sf -H 'Accept: application/activity+json' http://localhost:8080/users/ci-feed \
+            -o /tmp/added-actor.json
+          grep -q '"id":"https://example.com/users/ci-feed"' /tmp/added-actor.json
 
           # 署名の検証は JCA を通る。native-image で欠けると素通りするか 500 になる。
           # 正しい署名を bash で作るのは割に合わないので、署名が無いときに
@@ -268,6 +271,43 @@ jobs:
           grep -q '"loggedIn":true' /tmp/graphql-login.json
           grep -q '"failure":null' /tmp/graphql-login.json
           grep -qi 'set-cookie: admin_session=' /tmp/graphql-login-headers.txt
+
+          # この先の確認はログインが要る
+          SESSION_COOKIE="$(grep -io 'admin_session=[^;]*' /tmp/graphql-login-headers.txt | head -n 1)"
+
+          # 一覧は DB を読む。設定のアカウントと、事前に入れておいたものが揃う
+          echo "--- GraphQL のアカウント一覧 ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"query { admin { accounts { username acct deletable createdAt } } }"}' \
+            http://localhost:8080/graphql -o /tmp/graphql-accounts.json
+          cat /tmp/graphql-accounts.json
+          grep -q '"acct":"@admin@example.com"' /tmp/graphql-accounts.json
+          grep -q '"acct":"@ci-feed@example.com"' /tmp/graphql-accounts.json
+          grep -q '"deletable":false' /tmp/graphql-accounts.json
+          # UnixTime の scalar は登録漏れがあると実行時に落ちる。事前に入れた行の時刻を見る
+          grep -q '"createdAt":1767225600' /tmp/graphql-accounts.json
+
+          # 追加は DB への書き込みを通る。入れた名前がそのまま WebFinger から引ける
+          echo "--- GraphQL のアカウント追加 ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"mutation Add($username: String!) { admin { addAccount(username: $username) { account { acct } failure { isDuplicated } } } }","variables":{"username":"ci-added"}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-add.json
+          cat /tmp/graphql-add.json
+          grep -q '"acct":"@ci-added@example.com"' /tmp/graphql-add.json
+          grep -q '"failure":null' /tmp/graphql-add.json
+
+          curl -sf "http://localhost:8080/.well-known/webfinger?resource=acct:ci-added@example.com" \
+            -o /tmp/added2-webfinger.json
+          grep -q '"subject":"acct:ci-added@example.com"' /tmp/added2-webfinger.json
+
+          # ログインしていなければ触れない。開いていると誰でもアカウントを増やせる
+          echo "--- ログインしていなければアカウントは触れない ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"query { admin { accounts { username } } }"}' \
+            http://localhost:8080/graphql -o /tmp/graphql-accounts-anon.json
+          grep -q '"errors"' /tmp/graphql-accounts-anon.json
 
           echo "--- スキーマに無いフィールドは errors ---"
           curl -sf -X POST -H 'Content-Type: application/json' \

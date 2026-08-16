@@ -3,16 +3,12 @@ package net.matsudamper.mastodon.rss.actor
 /**
  * リクエストで指定された名前から、どのアクターを指しているかを決める。
  *
- * Phase 6 でアクターを DB 駆動にするまでの引き当ては、
+ * 引き当てる先は、
  *
  * - 設定で決めた固定アクター（既定 `admin`）
- * - `test-` で始まる使い捨てアクター（[ActorUsername.TEST_PREFIX]）
+ * - [StoredActorNames] が持っているアクター
  *
- * の 2 つだけ。どちらでもなければ存在しない。
- *
- * 使い捨てアクターは常に有効にしている。設定で切り替えられるようにすると、
- * 検証したいときに限って無効なまま 404 を見て悩むことになる。中身は固定アクターと
- * 同じ鍵・同じ内容なので、増えて困るものでもない。
+ * の 2 つ。どちらでもなければ存在しない。
  *
  * WebFinger の `resource` とパスの `{username}` で判定がずれると、
  * 「検索には出るが開けない」という分かりにくい壊れ方をするので、
@@ -20,6 +16,7 @@ package net.matsudamper.mastodon.rss.actor
  */
 class ActorDirectory(
     private val fixed: ActorUrls,
+    private val stored: StoredActorNames = StoredActorNames { null },
 ) {
     private val domain: String = fixed.domain
 
@@ -27,19 +24,19 @@ class ActorDirectory(
      * パスの `{username}` から引く。
      *
      * 固定アクターは大文字小文字を区別しない（Mastodon 側の扱いに合わせる）。
-     * 使い捨てアクターは要求された綴りをそのまま識別子にするので、
-     * 接頭辞が小文字ちょうどのものだけを受ける。
      */
     fun resolve(username: String?): ActorUrls? {
         if (username.isNullOrEmpty()) return null
 
         if (username.equals(fixed.username, ignoreCase = true)) return fixed
 
-        if (ActorUsername.isTest(username)) {
-            return ActorUrls(domain = domain, username = username)
-        }
+        // 保存されている名前は必ずこの形式なので、引く前に落とせる。
+        // `test-1/inbox` のようにパスを含んだものが保存先まで届かなくなる
+        if (!ActorUsernameUtil.isValid(username)) return null
 
-        return null
+        val found = stored.find(username) ?: return null
+
+        return ActorUrls(domain = domain, username = found)
     }
 
     /**
@@ -54,7 +51,7 @@ class ActorDirectory(
 
         val actorUrlPrefix = "https://$domain/users/"
         if (trimmed.length > actorUrlPrefix.length && trimmed.startsWith(actorUrlPrefix, ignoreCase = true)) {
-            // 残りが `test-1/inbox` のようにパスを含んでいたらユーザー名として不正になり、
+            // 残りが `feed1/inbox` のようにパスを含んでいたらユーザー名として不正になり、
             // resolve が弾く（`/` は使える文字に入っていない）
             return resolve(trimmed.substring(actorUrlPrefix.length))
         }

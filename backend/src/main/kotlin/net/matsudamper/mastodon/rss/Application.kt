@@ -8,8 +8,8 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.actor.ActorKey
-import net.matsudamper.mastodon.rss.actor.ActorUsername
 import net.matsudamper.mastodon.rss.actor.actorRoutes
+import net.matsudamper.mastodon.rss.graphql.DiContainer
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
@@ -55,9 +55,8 @@ fun Application.module(deps: AppDependencies) {
     // 取り違えたまま気付かないのが一番まずいので、起動時に必ず見えるところに出す
     log.info("アクター: ${deps.actorUrls.acct} → ${deps.actorUrls.actorId}")
 
-    // 検証用の使い捨てアクター。Mastodon はリモートアクターを永続キャッシュするので、
-    // 名前を変えながら試せる口が無いと、一度間違えたときに直す手段が無くなる
-    log.info("動作確認用に acct:${ActorUsername.TEST_PREFIX}<任意>@${env.domain} も応答する")
+    // 追加したはずのアカウントに応答しないとき、DB を見ているかどうかがここで切り分けられる
+    log.info("管理画面から追加されたアカウント: ${deps.repositories.accounts.list().size} 件")
 
     // 鍵が入れ替わると相手側は署名検証に失敗し続ける。
     // どこから読んだ鍵なのかが後から追えるよう、取得元を必ず出す
@@ -98,7 +97,11 @@ fun Application.module(deps: AppDependencies) {
                 cookieSecure = env.adminCookieSecure,
             )
         },
-        env = env,
+        diContainer = DiContainer(
+            passwordHash = env.adminPasswordHash,
+            accountRepository = deps.repositories.accounts,
+            fixedActor = deps.actorUrls,
+        ),
     )
 
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため

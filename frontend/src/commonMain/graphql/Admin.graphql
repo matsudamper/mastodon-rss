@@ -6,6 +6,17 @@ query AdminSession {
     }
 }
 
+query AdminAccounts {
+    admin {
+        accounts {
+            username
+            acct
+            actorUrl
+            createdAt
+        }
+    }
+}
+
 mutation AdminLogin($password: String!) {
     admin {
         login(password: $password) {
@@ -21,6 +32,22 @@ mutation AdminLogout {
     admin {
         logout {
             ...AdminSessionFields
+        }
+    }
+}
+
+mutation AdminAddAccount($username: String!) {
+    admin {
+        addAccount(username: $username) {
+            account {
+                acct
+            }
+            failure {
+                unusableCharacters
+                maxLength
+                minLength
+                isDuplicated
+            }
         }
     }
 }

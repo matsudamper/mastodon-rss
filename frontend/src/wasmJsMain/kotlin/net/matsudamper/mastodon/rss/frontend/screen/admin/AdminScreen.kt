@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
+import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
 @Composable
 fun AdminScreen(onNavigate: (Screen) -> Unit) {
@@ -62,6 +63,7 @@ private fun AdminScreen(
             }
 
             AdminScreenUiState.Content.LoggedIn -> {
+                MenuCard(onNavigate = onNavigate)
                 LoggedInCard(listener = uiState.listener)
             }
 
@@ -139,16 +141,34 @@ private fun LoginCard(
     }
 }
 
+/**
+ * 管理画面の中の各画面への入口。
+ *
+ * 操作そのものはここに置かない。1 つの画面に並べると、開いた時点で
+ * 必要のない問い合わせまで走り、URL でその操作を指せなくなる。
+ */
+@Composable
+private fun MenuCard(onNavigate: (Screen) -> Unit) {
+    SectionCard(title = "できること") {
+        TextLink(
+            text = "アカウントの一覧",
+            onClick = { onNavigate(Screen.AdminAccounts) },
+        )
+        TextLink(
+            text = "アカウントの追加",
+            onClick = { onNavigate(Screen.AdminAccountNew) },
+        )
+        Text(
+            text = "フィードの登録・削除、フォロワー数と配信エラー、手動での再取得はこれから作る。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 @Composable
 private fun LoggedInCard(listener: AdminScreenUiState.Listener) {
     SectionCard(title = "ログイン済み") {
-        Text(
-            text =
-            "ここに入るのはフィードの登録・削除、アクターごとのフォロワー数と配信エラー、" +
-                "手動での再取得。管理 API（GraphQL）を作ってから繋ぐ。",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = { listener.onClickLogout() }) {
                 Text("ログアウト")

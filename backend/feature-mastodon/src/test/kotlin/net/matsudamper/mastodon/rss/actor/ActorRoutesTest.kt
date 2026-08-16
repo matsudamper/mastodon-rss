@@ -108,29 +108,18 @@ class ActorRoutesTest {
         }
 
     @Test
-    fun `test で始まるアクターはその名前で返る`() =
+    fun `保存されているアカウントもその名前で返る`() =
         testApplication {
             installModule()
 
-            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/test-1").bodyAsText())
+            val path = "/users/${TestLocalActor.STORED_USERNAME}"
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
 
-            assertEquals("https://example.com/users/test-1", actor.id)
-            assertEquals("test-1", actor.preferredUsername)
-            assertEquals("https://example.com/users/test-1/inbox", actor.inbox)
-            assertEquals("https://example.com/users/test-1#main-key", actor.publicKey.id)
-            // 鍵は固定アクターと同じものを使う。使い捨てのたびに鍵を作る意味が無い
+            assertEquals("https://example.com$path", actor.id)
+            assertEquals(TestLocalActor.STORED_USERNAME, actor.preferredUsername)
+            assertEquals("https://example.com$path/inbox", actor.inbox)
+            assertEquals("https://example.com$path#main-key", actor.publicKey.id)
+            // 鍵はまだアクターごとに持っていない
             assertEquals(TestActorKey.value.publicKeyPem, actor.publicKey.publicKeyPem)
-        }
-
-    @Test
-    fun `使い捨てアクターは説明文で見分けられる`() =
-        testApplication {
-            installModule()
-
-            val test = AppJson.decodeFromString(Actor.serializer(), client.get("/users/test-1").bodyAsText())
-            val fixed = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
-
-            assertTrue(test.summary.orEmpty().contains("動作確認用"))
-            assertFalse(fixed.summary.orEmpty().contains("動作確認用"))
         }
 }

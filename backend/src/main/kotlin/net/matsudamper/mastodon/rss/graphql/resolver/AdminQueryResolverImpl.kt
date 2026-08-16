@@ -4,8 +4,10 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
+import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 
@@ -24,6 +26,19 @@ class AdminQueryResolverImpl : AdminQueryResolver {
                     passwordConfigured = adminLoginService.adminPasswordConfigured,
                 ),
             ).build(),
+        )
+    }
+
+    override fun accounts(
+        adminQuery: QlAdminQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<List<QlAdminAccount>>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val accounts = GraphQlEngine.diContainer(env).accountService.accounts()
+
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(accounts.map { it.toGraphqlResponse() }).build(),
         )
     }
 }
