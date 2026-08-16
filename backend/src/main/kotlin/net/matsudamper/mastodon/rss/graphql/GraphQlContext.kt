@@ -26,7 +26,6 @@ class GraphQlContext(
     }
 
     fun clearAdminSession() {
-        // Cookie を消すだけだと、値を控えられていた場合に使い続けられる
         sessionStore.remove(cookie.token())
         cookie.expire()
     }
