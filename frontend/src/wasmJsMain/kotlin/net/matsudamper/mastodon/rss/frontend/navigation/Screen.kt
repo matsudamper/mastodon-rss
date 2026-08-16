@@ -36,7 +36,7 @@ sealed interface Screen : NavKey {
     }
 
     /**
-     * アカウント画面。`/@test-1` のように `@` + ユーザー名で開く。
+     * アカウント画面。`/@feed1` のように `@` + ユーザー名で開く。
      *
      * ActivityPub の Actor JSON を返す `/users/{name}` とはパスを分ける。
      * 同じパスで Accept ヘッダを見て HTML と JSON を出し分ける手もあるが、

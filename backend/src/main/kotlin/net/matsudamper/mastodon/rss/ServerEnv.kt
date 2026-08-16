@@ -64,8 +64,8 @@ class ServerEnv(
         }
 
     /**
-     * 固定アクターのユーザー名。`acct:<name>@<domain>` と `/users/<name>` の両方に入る。
-     * Phase 6 で複数アクターにするまでは 1 つだけ。
+     * 設定で決まるアクターのユーザー名。`acct:<name>@<domain>` と `/users/<name>` の両方に入る。
+     * これ以外のアカウントは管理画面から追加する。
      */
     val actorUsername: String =
         run {
@@ -75,7 +75,8 @@ class ServerEnv(
             // URL のパスと acct の両方に入るので、区切り文字が混ざると別のものを指してしまう
             require(ActorUsername.isValid(username)) {
                 "ACTOR_USERNAME が使えない形式: $username。" +
-                    "英数字と _ . - のみ、先頭と末尾は英数字か _ にすること"
+                    "英数字と _ . - のみ、先頭と末尾は英数字か _、" +
+                    "長さは ${ActorUsername.MAX_LENGTH} 文字までにすること"
             }
             username
         }

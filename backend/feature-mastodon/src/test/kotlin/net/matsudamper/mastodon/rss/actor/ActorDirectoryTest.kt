@@ -7,7 +7,13 @@ import kotlin.test.assertNull
 // WebFinger とパスで判定がずれると「検索には出るが開けない」という
 // 分かりにくい壊れ方をするので、両方の入口を同じだけ確かめる。
 class ActorDirectoryTest {
-    private val directory = ActorDirectory(ActorUrls(domain = "example.com", username = "admin"))
+    private val stored = mutableListOf("feed1", "Gihyo")
+
+    private val directory =
+        ActorDirectory(
+            fixed = ActorUrls(domain = "example.com", username = "admin"),
+            stored = { username -> stored.firstOrNull { it.equals(username, ignoreCase = true) } },
+        )
 
     @Test
     fun `固定アクターを引ける`() {
@@ -17,29 +23,23 @@ class ActorDirectoryTest {
     }
 
     @Test
-    fun `test で始まる名前は何でも引ける`() {
-        assertEquals("https://example.com/users/test-1", directory.resolve("test-1")?.actorId)
-        assertEquals("https://example.com/users/test-2", directory.resolve("test-2")?.actorId)
-        assertEquals(
-            "https://example.com/users/test-20260808_a",
-            directory.resolve("test-20260808_a")?.actorId,
-        )
+    fun `保存されているアカウントを引ける`() {
+        assertEquals("https://example.com/users/feed1", directory.resolve("feed1")?.actorId)
     }
 
     @Test
-    fun `test の接頭辞は小文字ちょうどで一致させる`() {
-        // 受けてしまうと test-1 と Test-1 が別のアクターとして生える
-        assertNull(directory.resolve("Test-1"))
-        assertNull(directory.resolve("TEST-1"))
+    fun `保存されている綴りで返る`() {
+        // 要求された綴りをそのまま返すと、同じアカウントが 2 つの ID で相手側にキャッシュされる
+        assertEquals("https://example.com/users/Gihyo", directory.resolve("gihyo")?.actorId)
     }
 
     @Test
-    fun `test だけや使えない文字を含む名前は引けない`() {
-        assertNull(directory.resolve("test-"))
-        assertNull(directory.resolve("test"))
-        assertNull(directory.resolve("test-1/inbox"))
-        assertNull(directory.resolve("test-1@example.com"))
-        assertNull(directory.resolve("test-あ"))
+    fun `使えない文字を含む名前は保存先まで引きに行かない`() {
+        stored += "feed1/inbox"
+
+        assertNull(directory.resolve("feed1/inbox"))
+        assertNull(directory.resolve("feed1@example.com"))
+        assertNull(directory.resolve("あ"))
         assertNull(directory.resolve(null))
         assertNull(directory.resolve(""))
     }
@@ -47,7 +47,7 @@ class ActorDirectoryTest {
     @Test
     fun `関係ない名前は引けない`() {
         assertNull(directory.resolve("other"))
-        assertNull(directory.resolve("gihyo"))
+        assertNull(directory.resolve("test-1"))
     }
 
     @Test
@@ -58,10 +58,10 @@ class ActorDirectoryTest {
             "acct:admin@example.com",
             directory.resolveResource("https://example.com/users/admin")?.acct,
         )
-        assertEquals("acct:test-1@example.com", directory.resolveResource("acct:test-1@example.com")?.acct)
+        assertEquals("acct:feed1@example.com", directory.resolveResource("acct:feed1@example.com")?.acct)
         assertEquals(
-            "acct:test-1@example.com",
-            directory.resolveResource("https://example.com/users/test-1")?.acct,
+            "acct:feed1@example.com",
+            directory.resolveResource("https://example.com/users/feed1")?.acct,
         )
     }
 
@@ -77,7 +77,7 @@ class ActorDirectoryTest {
         assertNull(directory.resolveResource("https://example.org/users/admin"))
         assertNull(directory.resolveResource("acct:admin"))
         assertNull(directory.resolveResource("acct:@example.com"))
-        assertNull(directory.resolveResource("https://example.com/users/test-1/inbox"))
+        assertNull(directory.resolveResource("https://example.com/users/feed1/inbox"))
         assertNull(directory.resolveResource("https://example.com/users/"))
         assertNull(directory.resolveResource(""))
         assertNull(directory.resolveResource("   "))

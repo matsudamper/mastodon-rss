@@ -3,10 +3,14 @@ package net.matsudamper.mastodon.rss.frontend.api
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminAddAccountFailure
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 
 class AdminApi(
@@ -37,6 +41,45 @@ class AdminApi(
             .execute()
             .toSessionResult { it.admin.logout.adminSessionFields }
     }
+
+    suspend fun accounts(): AdminAccountsResult {
+        val response = client.query(AdminAccountsQuery()).execute()
+        val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
+
+        return AdminAccountsResult.Success(data.admin.accounts.map { it.adminAccountFields.toAccount() })
+    }
+
+    suspend fun addAccount(username: String): AdminAddAccountResult {
+        val response = client.mutation(AdminAddAccountMutation(username)).execute()
+        val added = response.data?.admin?.addAccount ?: return AdminAddAccountResult.Failure(response.failureMessage())
+
+        return when (added.failure) {
+            null -> {
+                val account =
+                    added.account?.adminAccountFields
+                        ?: return AdminAddAccountResult.Failure("追加できたが内容が返ってこない")
+
+                AdminAddAccountResult.Success(account.toAccount())
+            }
+
+            AdminAddAccountFailure.INVALID_USERNAME -> AdminAddAccountResult.InvalidUsername
+
+            AdminAddAccountFailure.RESERVED_USERNAME -> AdminAddAccountResult.ReservedUsername
+
+            AdminAddAccountFailure.DUPLICATED -> AdminAddAccountResult.Duplicated
+
+            AdminAddAccountFailure.UNKNOWN__ -> AdminAddAccountResult.Failure("Unknown")
+        }
+    }
+
+    private fun AdminAccountFields.toAccount(): AdminAccount =
+        AdminAccount(
+            username = username,
+            acct = acct,
+            actorUrl = actorUrl,
+            fromConfig = fromConfig,
+            createdAt = createdAt,
+        )
 
     /**
      * `data` が無いのは失敗。ログインしていない状態と混ぜない
@@ -81,4 +124,42 @@ sealed interface AdminLoginResult {
     data class Failure(
         val message: String,
     ) : AdminLoginResult
+}
+
+/**
+ * @param fromConfig サーバーの設定で決まるアカウント。管理画面からは追加も削除もできない
+ * @param createdAt 追加した時刻。設定で決まるアカウントには無い
+ */
+data class AdminAccount(
+    val username: String,
+    val acct: String,
+    val actorUrl: String,
+    val fromConfig: Boolean,
+    val createdAt: String?,
+)
+
+sealed interface AdminAccountsResult {
+    data class Success(
+        val accounts: List<AdminAccount>,
+    ) : AdminAccountsResult
+
+    data class Failure(
+        val message: String,
+    ) : AdminAccountsResult
+}
+
+sealed interface AdminAddAccountResult {
+    data class Success(
+        val account: AdminAccount,
+    ) : AdminAddAccountResult
+
+    data object InvalidUsername : AdminAddAccountResult
+
+    data object ReservedUsername : AdminAddAccountResult
+
+    data object Duplicated : AdminAddAccountResult
+
+    data class Failure(
+        val message: String,
+    ) : AdminAddAccountResult
 }

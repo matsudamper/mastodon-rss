@@ -41,7 +41,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
 import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink
 
 /**
- * アカウント画面。`/@test-1` のような URL で開く。
+ * アカウント画面。`/@feed1` のような URL で開く。
  *
  * Mastodon のプロフィールに当たる画面だが、出すものは RSS に寄せている。
  * 人のアカウントと違って本文を書くことは無く、見たいのは「どのフィードが元で、
@@ -215,23 +215,11 @@ private fun ProfileHeader(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    when (state.kind) {
-                        AccountKind.Feed -> {
-                            AppBadge(
-                                text = "フィード",
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            )
-                        }
-
-                        AccountKind.Test -> {
-                            AppBadge(
-                                text = "動作確認用",
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+                    AppBadge(
+                        text = "フィード",
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
                 }
 
                 Text(

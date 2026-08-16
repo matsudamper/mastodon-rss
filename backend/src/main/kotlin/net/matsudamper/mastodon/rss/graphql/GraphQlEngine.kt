@@ -9,7 +9,6 @@ import graphql.kickstart.tools.GraphQLResolver
 import graphql.kickstart.tools.SchemaParser
 import graphql.schema.DataFetchingEnvironment
 import io.ktor.server.application.ApplicationCall
-import net.matsudamper.mastodon.rss.ServerEnv
 import net.matsudamper.mastodon.rss.graphql.data.GraphQlRequest
 
 /**
@@ -19,7 +18,7 @@ import net.matsudamper.mastodon.rss.graphql.data.GraphQlRequest
 class GraphQlEngine private constructor(
     private val graphQl: GraphQL,
     private val createContext: (ApplicationCall) -> GraphQlContext,
-    private val env: ServerEnv,
+    private val diContainer: DiContainer,
 ) {
     suspend fun execute(
         request: GraphQlRequest,
@@ -30,13 +29,7 @@ class GraphQlEngine private constructor(
             .operationName(request.operationName)
             .variables(variablesOf(request))
             .graphQLContext(mapOf(CONTEXT_KEY to createContext(call)))
-            .graphQLContext(
-                mapOf(
-                    DI_CONTAINER_KEY to DiContainer(
-                        passwordHash = env.adminPasswordHash,
-                    ),
-                ),
-            )
+            .graphQLContext(mapOf(DI_CONTAINER_KEY to diContainer))
             .build()
 
         return withContext(Dispatchers.IO) {
@@ -60,7 +53,7 @@ class GraphQlEngine private constructor(
         fun create(
             resolvers: List<GraphQLResolver<*>>,
             createContext: (ApplicationCall) -> GraphQlContext,
-            env: ServerEnv,
+            diContainer: DiContainer,
         ): GraphQlEngine {
             val schema = SchemaParser
                 .newParser()
@@ -72,7 +65,7 @@ class GraphQlEngine private constructor(
             return GraphQlEngine(
                 graphQl = GraphQL.newGraphQL(schema).build(),
                 createContext = createContext,
-                env = env,
+                diContainer = diContainer,
             )
         }
 

@@ -27,11 +27,45 @@ data class AdminScreenUiState(
             }
         }
 
-        data object LoggedIn : Content
+        data class LoggedIn(
+            val accounts: Accounts,
+            val addAccount: AddAccount,
+        ) : Content
 
         data class Error(
             val message: String,
         ) : Content
+    }
+
+    sealed interface Accounts {
+        data object Loading : Accounts
+
+        data class Loaded(
+            val items: List<Account>,
+        ) : Accounts
+
+        data class Error(
+            val message: String,
+        ) : Accounts
+    }
+
+    /**
+     * @param fromConfigLabel 設定で決まるアカウントに付ける印。追加したものには付かない
+     */
+    data class Account(
+        val username: String,
+        val acct: String,
+        val actorUrl: String,
+        val fromConfigLabel: String?,
+        val createdAt: String?,
+    )
+
+    data class AddAccount(
+        val username: String,
+        val submitting: Boolean,
+        val error: String?,
+    ) {
+        val canSubmit: Boolean get() = !submitting && username.isNotBlank()
     }
 
     @Immutable
@@ -43,5 +77,11 @@ data class AdminScreenUiState(
         fun onClickLogout()
 
         fun onClickRetry()
+
+        fun onAddAccountUsernameChanged(text: String)
+
+        fun onClickAddAccount()
+
+        fun onClickReloadAccounts()
     }
 }

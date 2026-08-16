@@ -15,8 +15,7 @@ import net.matsudamper.mastodon.rss.json.respondJson
 /**
  * Actor エンドポイント。WebFinger から辿り着く 2 ホップ目。
  *
- * 引き当ては [ActorDirectory] に任せる。固定アクターと `test-` の使い捨て
- * アクターのどちらでもなければ 404。
+ * 引き当ては [ActorDirectory] に任せる。知らない名前は 404。
  */
 fun Route.actorRoutes(
     directory: ActorDirectory,
@@ -54,9 +53,7 @@ internal fun actorDocument(
         id = urls.actorId,
         preferredUsername = urls.username,
         name = urls.username,
-        // 使い捨てアクターは Mastodon 側の表示でもそれと分かるようにしておく。
-        // 検証で作ったものが残っていても、見れば消していいものだと判断できる
-        summary = if (ActorUsername.isTest(urls.username)) TEST_SUMMARY else SUMMARY,
+        summary = SUMMARY,
         inbox = urls.inbox,
         outbox = urls.outbox,
         followers = urls.followers,
@@ -71,4 +68,3 @@ internal fun actorDocument(
     )
 
 private const val SUMMARY = "RSS/Atom フィードを ActivityPub で配信するアカウント"
-private const val TEST_SUMMARY = "動作確認用のアカウント。フォローしても何も流れない"

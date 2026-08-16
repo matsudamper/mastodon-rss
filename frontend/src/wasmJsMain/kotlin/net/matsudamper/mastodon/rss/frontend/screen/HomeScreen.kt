@@ -35,12 +35,12 @@ fun HomeScreen(onNavigate: (Screen) -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                AccountCard(onNavigate = onNavigate, modifier = Modifier.weight(1f))
+                AccountCard(modifier = Modifier.weight(1f))
                 AdminCard(onNavigate = onNavigate, modifier = Modifier.weight(1f))
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                AccountCard(onNavigate = onNavigate)
+                AccountCard()
                 AdminCard(onNavigate = onNavigate)
             }
         }
@@ -48,20 +48,14 @@ fun HomeScreen(onNavigate: (Screen) -> Unit) {
 }
 
 @Composable
-private fun AccountCard(
-    onNavigate: (Screen) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun AccountCard(modifier: Modifier = Modifier) {
     SectionCard(title = "アカウント画面", modifier = modifier) {
         Text(
             text =
             "配信しているアカウントの画面は「/@ユーザー名」で開く。" +
-                "フィードの取得状況と、直近で配信した記事が見られる。",
+                "フィードの取得状況と、直近で配信した記事が見られる。" +
+                "どの名前があるかは管理画面の一覧で分かる。",
             style = MaterialTheme.typography.bodyMedium,
-        )
-        TextLink(
-            text = "/@test-1（動作確認用のアカウント）",
-            onClick = { onNavigate(Screen.Account("test-1")) },
         )
     }
 }
@@ -73,7 +67,7 @@ private fun AdminCard(
 ) {
     SectionCard(title = "管理画面", modifier = modifier) {
         Text(
-            text = "フィードの登録と配信の状況を見るところ。中身は Phase 8 で作る。",
+            text = "アカウントの追加と一覧ができる。フィードの登録と配信の状況はこれから。",
             style = MaterialTheme.typography.bodyMedium,
         )
         TextLink(

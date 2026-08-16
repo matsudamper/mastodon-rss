@@ -6,6 +6,14 @@ query AdminSession {
     }
 }
 
+query AdminAccounts {
+    admin {
+        accounts {
+            ...AdminAccountFields
+        }
+    }
+}
+
 mutation AdminLogin($password: String!) {
     admin {
         login(password: $password) {
@@ -25,7 +33,26 @@ mutation AdminLogout {
     }
 }
 
+mutation AdminAddAccount($username: String!) {
+    admin {
+        addAccount(username: $username) {
+            account {
+                ...AdminAccountFields
+            }
+            failure
+        }
+    }
+}
+
 fragment AdminSessionFields on AdminSession {
     loggedIn
     passwordConfigured
+}
+
+fragment AdminAccountFields on AdminAccount {
+    username
+    acct
+    actorUrl
+    fromConfig
+    createdAt
 }

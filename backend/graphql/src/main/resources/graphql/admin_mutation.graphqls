@@ -4,6 +4,9 @@ type AdminMutation {
 
     "サーバー側のセッションも消える"
     logout: AdminSession! @lazy
+
+    "アカウントを追加する。ログインしていなければエラー"
+    addAccount(username: String!): AdminAddAccountResult! @lazy
 }
 
 type AdminLoginResult {
@@ -16,4 +19,22 @@ enum AdminLoginFailure {
 
     "ADMIN_PASSWORD_HASH が未設定"
     NOT_CONFIGURED
+}
+
+type AdminAddAccountResult {
+    "追加できた場合だけ入る"
+    account: AdminAccount
+
+    failure: AdminAddAccountFailure
+}
+
+enum AdminAddAccountFailure {
+    "使える文字か長さの範囲から外れている"
+    INVALID_USERNAME
+
+    "設定で決まるアカウントと同じ名前"
+    RESERVED_USERNAME
+
+    "同じ名前のアカウントが既にある"
+    DUPLICATED
 }

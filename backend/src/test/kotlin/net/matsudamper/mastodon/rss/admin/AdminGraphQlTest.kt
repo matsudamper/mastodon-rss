@@ -7,10 +7,12 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.client.request.HttpRequestBuilder
@@ -176,6 +178,94 @@ class AdminGraphQlTest {
             assertEquals(HttpStatusCode.BadRequest, response.status)
         }
 
+    @Test
+    fun `ログインしていなければアカウントを列挙できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            assertTrue(queryAccounts().body().containsKey("errors"))
+        }
+
+    @Test
+    fun `列挙には設定で決まるアカウントが必ず入る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val account = queryAccounts(token).accounts().single().jsonObject
+
+            assertEquals(TestServerEnv.USERNAME, account.string("username"))
+            assertEquals("@${TestServerEnv.USERNAME}@${TestServerEnv.DOMAIN}", account.string("acct"))
+            assertEquals(
+                "https://${TestServerEnv.DOMAIN}/users/${TestServerEnv.USERNAME}",
+                account.string("actorUrl"),
+            )
+            assertTrue(account.boolean("fromConfig"))
+            assertEquals(JsonNull, account.getValue("createdAt"))
+        }
+
+    @Test
+    fun `追加したアカウントが列挙に入る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val added = assertNotNull(mutateAddAccount("feed1", token).addAccountResult().obj("account"))
+
+            assertEquals("feed1", added.string("username"))
+            assertEquals("@feed1@${TestServerEnv.DOMAIN}", added.string("acct"))
+            assertFalse(added.boolean("fromConfig"))
+
+            assertEquals(
+                listOf(TestServerEnv.USERNAME, "feed1"),
+                queryAccounts(token).accounts().map { it.jsonObject.string("username") },
+            )
+        }
+
+    @Test
+    fun `使えない名前は追加できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val result = mutateAddAccount("feed 1", token).addAccountResult()
+
+            assertEquals("INVALID_USERNAME", result.string("failure"))
+            assertEquals(JsonNull, result.getValue("account"))
+        }
+
+    @Test
+    fun `設定で決まるアカウントと同じ名前は追加できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            // 設定側が勝つので、入れられても引けないアカウントが残るだけになる
+            val result = mutateAddAccount(TestServerEnv.USERNAME.uppercase(), token).addAccountResult()
+
+            assertEquals("RESERVED_USERNAME", result.string("failure"))
+        }
+
+    @Test
+    fun `同じ名前は追加できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+
+            val result = mutateAddAccount("FEED1", token).addAccountResult()
+
+            assertEquals("DUPLICATED", result.string("failure"))
+        }
+
+    @Test
+    fun `ログインしていなければアカウントを追加できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            assertTrue(mutateAddAccount("feed1").body().containsKey("errors"))
+        }
+
     // スキーマに無いものが通ってしまうと、結線の漏れに気付けない
     @Test
     fun `スキーマに無いフィールドは errors になる`() =
@@ -218,6 +308,21 @@ class AdminGraphQlTest {
     private suspend fun ApplicationTestBuilder.mutateLogout(token: String): HttpResponse =
         graphQl("mutation { admin { logout { loggedIn passwordConfigured } } }", token = token)
 
+    private suspend fun ApplicationTestBuilder.queryAccounts(token: String? = null): HttpResponse =
+        graphQl("query { admin { accounts { $ACCOUNT_FIELDS } } }", token = token)
+
+    private suspend fun ApplicationTestBuilder.mutateAddAccount(
+        username: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation Add(${'$'}username: String!) { admin { " +
+                "addAccount(username: ${'$'}username) { account { $ACCOUNT_FIELDS } failure } } }",
+            token = token,
+            variables = """{"username":${JsonPrimitive(username)}}""",
+        )
+
     private suspend fun ApplicationTestBuilder.graphQl(
         query: String,
         token: String? = null,
@@ -239,6 +344,8 @@ class AdminGraphQlTest {
     private companion object {
         const val PASSWORD = "とても長いパスワード"
 
+        const val ACCOUNT_FIELDS = "username acct actorUrl fromConfig createdAt"
+
         /**
          * 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ
          */
@@ -254,6 +361,10 @@ class AdminGraphQlTest {
         suspend fun HttpResponse.session(): JsonObject = admin().obj("session")
 
         suspend fun HttpResponse.loginResult(): JsonObject = admin().obj("login")
+
+        suspend fun HttpResponse.accounts(): List<JsonElement> = admin().getValue("accounts").jsonArray
+
+        suspend fun HttpResponse.addAccountResult(): JsonObject = admin().obj("addAccount")
 
         fun JsonObject.obj(name: String): JsonObject = getValue(name).jsonObject
 

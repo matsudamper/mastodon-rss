@@ -1,5 +1,8 @@
 type AdminQuery {
     session: AdminSession! @lazy
+
+    "応答するアカウントの一覧。ログインしていなければエラー"
+    accounts: [AdminAccount!]! @lazy
 }
 
 type AdminSession {
@@ -7,4 +10,21 @@ type AdminSession {
 
     "サーバーに ADMIN_PASSWORD_HASH が設定されているか"
     passwordConfigured: Boolean!
+}
+
+type AdminAccount {
+    "acct とパスに入る名前"
+    username: String!
+
+    "Mastodon の検索窓に貼る形"
+    acct: String!
+
+    "Actor の URL"
+    actorUrl: String!
+
+    "設定で決まるアカウント。管理画面からは追加も削除もできない"
+    fromConfig: Boolean!
+
+    "追加した時刻 (ISO 8601)。設定で決まるアカウントには無い"
+    createdAt: String
 }

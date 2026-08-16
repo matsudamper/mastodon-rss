@@ -4,13 +4,17 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
+import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.logic.AddAccountResult
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 
 class AdminMutationResolverImpl : AdminMutationResolver {
@@ -75,6 +79,38 @@ class AdminMutationResolverImpl : AdminMutationResolver {
             ).build(),
         )
     }
+
+    override fun addAccount(
+        adminMutation: QlAdminMutation,
+        username: String,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminAddAccountResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val result =
+            when (val added = GraphQlEngine.diContainer(env).accountService.add(username)) {
+                is AddAccountResult.Success -> {
+                    QlAdminAddAccountResult(account = added.account.toQl(), failure = null)
+                }
+
+                AddAccountResult.InvalidUsername -> {
+                    addAccountFailure(QlAdminAddAccountFailure.INVALID_USERNAME)
+                }
+
+                AddAccountResult.ReservedUsername -> {
+                    addAccountFailure(QlAdminAddAccountFailure.RESERVED_USERNAME)
+                }
+
+                AddAccountResult.Duplicated -> {
+                    addAccountFailure(QlAdminAddAccountFailure.DUPLICATED)
+                }
+            }
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
+    }
+
+    private fun addAccountFailure(failure: QlAdminAddAccountFailure): QlAdminAddAccountResult =
+        QlAdminAddAccountResult(account = null, failure = failure)
 
     private fun loginFailure(
         context: GraphQlContext,

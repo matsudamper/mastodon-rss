@@ -535,12 +535,10 @@ ActivityPub のアカウント発見は WebFinger → Actor の 2 ホップで�
       - Mastodon は内容を間違えたまま一度取得すると相手側からは直せない。
         `admin` で試して失敗すると `admin` が使えなくなるので、
         名前を変えながらやり直せる口を用意した
-      - 設定での切り替えにはしていない。検証したいときに限って無効なまま
-        404 を見て悩むことになるため。中身は固定アクターと同じで鍵も共有する
-      - 接頭辞は小文字ちょうど。`Test-1` を受けると `test-1` と別のアクターが生える
       - 引き当ては `actor/ActorDirectory.kt`。WebFinger とパスで判定がずれると
         「検索には出るが開けない」という分かりにくい壊れ方をするので 1 箇所に通す
-      - **Phase 6 で消す**（下記）
+      - Phase 6 で消した。管理画面からアカウントを作れるようになり、
+        検証用のアカウントも普通に作れるようになったため
 - [x] CI の native 起動確認に WebFinger と Actor を足す
       - `@SerialName` とカスタム serializer は native-image で解決に失敗すると 500 になる。
         JVM のテストでは分からないので、native バイナリを実際に叩いて中身を見る
@@ -575,7 +573,7 @@ ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signa
 「受信の検証」と「送信の署名」の両方が必要。ここが実装の山場。
 
 - [x] `POST /users/admin/inbox` を受ける（まずは中身をログに落とすだけ）
-      - `inbox/InboxRoutes.kt`。固定アクターと `test-` の使い捨てアクターの両方で受ける
+      - `inbox/InboxRoutes.kt`。引き当てに通った名前の inbox はすべて受ける
       - ボディには上限を置く。署名を検証する前の段階でメモリを食い潰させないため
 - [x] 署名の検証（受信）
       - [x] `Digest: SHA-256=<base64>` ヘッダとボディの SHA-256 を突き合わせる
@@ -635,9 +633,10 @@ ActivityPub のサーバー間通信は HTTP Signatures (draft-cavage-http-signa
 ### ✅ チェックポイント 2（達成）
 Mastodon からフォローボタンを押す → 数秒後に「フォロー中」で確定する（保留のまま戻らない）。
 
-`test-1` を Mastodon 4.5.6 のインスタンス（`m6n.onsen.tech`）からフォローして確認した。
-`Follow` を受けてから `Accept` を返すまでが同じリクエストの中で終わり、
-相手の following コレクションに `https://social-rss.matsudamper.net/users/test-1` が入る。
+当時あった使い捨てアクター `test-1` を Mastodon 4.5.6 のインスタンス
+（`m6n.onsen.tech`）からフォローして確認した。`Follow` を受けてから `Accept` を返すまでが
+同じリクエストの中で終わり、相手の following コレクションに
+`https://social-rss.matsudamper.net/users/test-1` が入る。
 
 確認に使ったインスタンスは `AUTHORIZED_FETCH` が無効だった。有効なインスタンスからは
 まだフォローできない。無署名の GET が拒否されて相手の鍵も inbox も取れないため。
@@ -932,16 +931,23 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
         フィードを消したらそのアクターも消す
       - ユーザー名の決め方: フィードの URL やタイトルから作ると衝突するし、
         後から変えられない（相手側にキャッシュされる）。登録時に明示的に指定させる
-      - `admin` のような予約名と、既存アクターとの重複を登録時に弾く
-- [ ] アクターを DB 駆動に変更（起動時ハードコードをやめる）
-      - `ActorUrls` はドメインとユーザー名から組み立てているので、
-        ユーザー名の出どころを設定から DB に差し替える形になる
-- [ ] WebFinger を動的解決（任意の `acct:` を DB 引きして応答）
+      - `accounts` テーブルは先に作った。`feeds` から参照するときに
+        `accounts.id` を外部キーにする
+      - `ACTOR_USERNAME` と同じ名前、既にある名前は追加時に弾いている
+- [x] アクターを DB 駆動に変更（起動時ハードコードをやめる）
+      - `accounts` テーブルを引く。`ActorUrls` の組み立てはそのままで、
+        ユーザー名の出どころだけが増えた形。引き先は `StoredActorNames`
+      - `ACTOR_USERNAME` のアカウントは設定のまま残している。
+        運用者のアカウントは管理画面から消せない方が扱いやすい
+- [x] WebFinger を動的解決（任意の `acct:` を DB 引きして応答）
+      - `ActorDirectory` の 1 か所を通すので、パスの `{username}` と一緒に動的になった
 - [ ] アクターごとに鍵ペアを生成して保存
       - Phase 1 の鍵はファイル 1 本。ここで `actors.private_key` に移すかを決める
         （Phase 3 の「フォロワーがいるなら鍵の自動生成を拒否する」と合わせて判断する）
 - [ ] アクター作成 / 削除の API
-      - 削除時は `Delete{Actor}` を配信してから消す。黙って消すと相手側に残り続ける
+      - 作成は入れた（`Mutation.admin.addAccount`）。一覧は `Query.admin.accounts`。
+        どちらもログインが要る
+      - 削除はまだ。`Delete{Actor}` を配信してから消す。黙って消すと相手側に残り続ける
 - [ ] アクター情報更新時に `Update{Actor}` を配信（アイコン・説明文の変更を伝播させる）
 - [ ] アイコン / ヘッダー画像（`icon` / `image`）の配信
 - [ ] フィードアクターのプロフィールに `admin` へのリンクを置く
@@ -953,12 +959,10 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - `attachment` を変えたら `Update{Actor}` を配信しないと相手側の表示が古いまま
 - [ ] 配信はアクター単位になる。フォロワーも投稿もアクターごとに分かれるので、
       Phase 4 の配信キューが「どのアクターとして署名するか」を持つ必要がある
-- [ ] Phase 1 で入れた `test-` の使い捨てアクターを消す
-      - `ActorUsername.isTest` と `ActorDirectory` の該当分岐、README の
-        「動作確認用のアカウント」、CI の起動確認、テストを一緒に落とす
-      - アクターを DB から作れるようになれば、検証用のアカウントも
-        普通に作って消せるので役目が終わる
-      - 消し忘れると、誰でも `test-<任意>` を引けるアカウントが本番に残る。
+- [x] Phase 1 で入れた `test-` の使い捨てアクターを消す
+      - `ActorUsername.isTest` と `ActorDirectory` の該当分岐、docs の
+        「動作確認用のアカウント」、CI の起動確認、テストを一緒に落とした
+      - 残したままだと、誰でも `test-<任意>` を引けるアカウントが本番に残る。
         Phase 3 でフォロワーを永続化した後だと、使い捨てのつもりの
         アクターにフォロワーが付く
 
@@ -1047,7 +1051,9 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 - [x] `index.html` の参照と webpack の `publicPath` を root 絶対（`/frontend.js`）にする
       - 相対のままだと画面の URL の深さで参照先が変わる。root 絶対なら
         `/admin` でも `/admin/password-hash` でも同じファイルを引く
-- [ ] サーバー側に管理 API（フィード CRUD、アクター一覧、配信状況、手動再取得）
+- [ ] サーバー側に管理 API（フィード CRUD、アカウント一覧、配信状況、手動再取得）
+      - アカウントの一覧 (`Query.admin.accounts`) と追加 (`Mutation.admin.addAccount`) は入れた。
+        フィード CRUD と配信状況はこれから
 - [ ] 管理 API を GraphQL にする（[kake-bo](https://github.com/matsudamper/kake-bo) と揃える）
 
       スキーマ優先。手で書くのはスキーマとリゾルバの実装だけで、その間の型は生成する。
@@ -1112,11 +1118,12 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - セッションの持ち方（メモリ上のトークン / 署名付き Cookie）は実装時に決める
       - 総当たり対策（試行回数の制限）は Phase 7 で入れる
 
-      ログインの仕組みは実装済み。守る対象のフィールドがまだ無いので、チェックは付けない。
+      ログインの仕組みは実装済み。アカウントの一覧と追加はログインが要る。
+      フィード CRUD などが載ってからチェックを付ける。
 
       - できているもの: `Query.admin.session` / `Mutation.admin.login` / `Mutation.admin.logout`、
         メモリ上のセッション（`admin/AdminSessions.kt`、期限 12 時間）、`HttpOnly` +
-        `SameSite=Strict` の Cookie、`/admin` の画面（ログイン後は「ログイン済み」と出すだけ）
+        `SameSite=Strict` の Cookie、`/admin` の画面（ログイン後はアカウントの一覧と追加）
         ハッシュ生成を画面から（いまは `./gradlew --quiet :backend:crypto:passwordHash`）、
         総当たり対策（Phase 7）
 - [x] 画面遷移を Navigation Compose 3 にする

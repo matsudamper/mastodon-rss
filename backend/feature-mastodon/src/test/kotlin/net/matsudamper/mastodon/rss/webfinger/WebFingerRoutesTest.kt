@@ -57,18 +57,19 @@ class WebFingerRoutesTest {
         }
 
     @Test
-    fun `test で始まる acct も引ける`() =
+    fun `保存されているアカウントの acct も引ける`() =
         testApplication {
             installModule()
 
-            val response = client.get("/.well-known/webfinger?resource=acct:test-1@example.com")
+            val username = TestLocalActor.STORED_USERNAME
+            val response = client.get("/.well-known/webfinger?resource=acct:$username@example.com")
 
             assertEquals(HttpStatusCode.OK, response.status)
 
             val body = AppJson.decodeFromString(WebFingerResponse.serializer(), response.bodyAsText())
-            assertEquals("acct:test-1@example.com", body.subject)
+            assertEquals("acct:$username@example.com", body.subject)
             assertEquals(
-                "https://example.com/users/test-1",
+                "https://example.com/users/$username",
                 body.links.single { it.rel == "self" }.href,
             )
         }

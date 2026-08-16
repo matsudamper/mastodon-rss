@@ -15,7 +15,6 @@ data class AccountUiState(
     val domain: String,
     val displayName: String,
     val summary: String,
-    val kind: AccountKind,
     val followers: String,
     val deliveredCount: String,
     val lastDeliveredAt: String,
@@ -54,21 +53,11 @@ data class AccountUiState(
             username: String,
             domain: String,
         ): AccountUiState {
-            val kind = if (username.startsWith(TEST_PREFIX)) AccountKind.Test else AccountKind.Feed
-
             return AccountUiState(
                 username = username,
                 domain = domain,
                 displayName = username,
-                summary =
-                when (kind) {
-                    // :backend の actorDocument が返す summary と同じ文面にしている。
-                    // 画面と Actor JSON で説明が違うと、どちらが本当か分からなくなる
-                    AccountKind.Test -> "動作確認用のアカウント。フォローしても何も流れない"
-
-                    AccountKind.Feed -> "RSS/Atom フィードを ActivityPub で配信するアカウント"
-                },
-                kind = kind,
+                summary = "RSS/Atom フィードを ActivityPub で配信するアカウント",
                 followers = "128",
                 deliveredCount = "342",
                 lastDeliveredAt = "2026-08-09 11:02",
@@ -112,9 +101,6 @@ data class AccountUiState(
             )
         }
 
-        /** `:backend` の `ActorUsername.TEST_PREFIX` と同じ。動作確認用アカウントの目印 */
-        private const val TEST_PREFIX = "test-"
-
         /**
          * 運用者アカウントの既定のユーザー名。
          *
@@ -123,15 +109,6 @@ data class AccountUiState(
          */
         private const val OPERATOR_USERNAME = "admin"
     }
-}
-
-/** アカウントの種類。表示の出し分けにだけ使う */
-enum class AccountKind {
-    /** フィード 1 本に紐付いたアカウント */
-    Feed,
-
-    /** `test-` で始まる動作確認用のアカウント */
-    Test,
 }
 
 /**
