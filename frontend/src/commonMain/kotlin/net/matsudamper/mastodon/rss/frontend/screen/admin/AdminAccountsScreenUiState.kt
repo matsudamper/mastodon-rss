@@ -9,7 +9,9 @@ data class AdminAccountsScreenUiState(
     sealed interface Content {
         data object Loading : Content
 
-        /** ログインしていない。管理画面のトップに送る */
+        /**
+         * ログインしていない。管理画面のトップに送る
+         */
         data object RequireLogin : Content
 
         data class Loaded(

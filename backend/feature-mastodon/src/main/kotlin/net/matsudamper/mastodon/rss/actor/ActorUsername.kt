@@ -14,7 +14,9 @@ object ActorUsername {
      */
     private val PATTERN = Regex("^[A-Za-z0-9_]([A-Za-z0-9_.-]*[A-Za-z0-9_])?$")
 
-    /** Mastodon のローカルアカウントの上限に合わせる。長い名前は相手側で扱えない */
+    /**
+     * Mastodon のローカルアカウントの上限に合わせる。長い名前は相手側で扱えない
+     */
     const val MAX_LENGTH: Int = 30
 
     fun isValid(username: String): Boolean = username.length <= MAX_LENGTH && PATTERN.matches(username)

@@ -39,13 +39,17 @@ sealed interface Screen : NavKey {
         override val title: String = "管理画面 | $SITE_NAME"
     }
 
-    /** アカウントの一覧 */
+    /**
+     * アカウントの一覧
+     */
     data object AdminAccounts : Screen {
         override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT"
         override val title: String = "アカウント | $SITE_NAME"
     }
 
-    /** アカウントの追加 */
+    /**
+     * アカウントの追加
+     */
     data object AdminAccountNew : Screen {
         override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$NEW_SEGMENT"
         override val title: String = "アカウントの追加 | $SITE_NAME"
@@ -81,7 +85,9 @@ sealed interface Screen : NavKey {
     companion object {
         const val SITE_NAME: String = "mastodon-rss"
 
-        /** 管理画面のパスの先頭 */
+        /**
+         * 管理画面のパスの先頭
+         */
         const val ADMIN_SEGMENT: String = "admin"
 
         private const val ACCOUNTS_SEGMENT: String = "accounts"

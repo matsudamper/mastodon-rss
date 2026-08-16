@@ -15,7 +15,9 @@ class AccountService(
     private val accounts: AccountRepository,
     private val fixed: ActorUrls,
 ) {
-    /** 設定で決まるアカウントを先頭に、追加した順で返す */
+    /**
+     * 設定で決まるアカウントを先頭に、追加した順で返す
+     */
     fun list(): List<ManagedAccount> {
         return buildList {
             add(ManagedAccount(urls = fixed, deletable = false, createdAt = null))

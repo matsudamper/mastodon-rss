@@ -9,10 +9,14 @@ import java.time.Instant
  * 2 つ並び、どちらを返すかが引き方で変わる。
  */
 interface AccountRepository {
-    /** 追加した順に返す */
+    /**
+     * 追加した順に返す
+     */
     fun list(): List<Account>
 
-    /** 名前で引く。大文字小文字の違いは無視する */
+    /**
+     * 名前で引く。大文字小文字の違いは無視する
+     */
     fun findByUsername(username: String): Account?
 
     /**

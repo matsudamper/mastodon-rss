@@ -44,7 +44,9 @@ internal class SqliteAccountRepository(
         }
     }
 
-    /** 列に COLLATE NOCASE が付いているので、綴りの揺れは SQLite 側で吸収される */
+    /**
+     * 列に COLLATE NOCASE が付いているので、綴りの揺れは SQLite 側で吸収される
+     */
     private fun DSLContext.selectByUsername(username: String): Account? {
         return select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
             .from(ACCOUNTS)

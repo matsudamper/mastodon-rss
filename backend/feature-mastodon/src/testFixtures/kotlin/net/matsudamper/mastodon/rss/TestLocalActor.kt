@@ -13,7 +13,9 @@ object TestLocalActor {
     const val DOMAIN: String = "example.com"
     const val USERNAME: String = "admin"
 
-    /** 設定ではなく保存されている側のアカウント。引き当ての経路が固定アクターと違う */
+    /**
+     * 設定ではなく保存されている側のアカウント。引き当ての経路が固定アクターと違う
+     */
     const val STORED_USERNAME: String = "feed1"
 
     val urls: ActorUrls = ActorUrls(domain = DOMAIN, username = USERNAME)

@@ -94,7 +94,9 @@ class AdminAccountsScreenViewModel(
     )
 
     private companion object {
-        /** 消せないアカウントに付ける印 */
+        /**
+         * 消せないアカウントに付ける印
+         */
         const val NOT_DELETABLE_BADGE = "消せない"
     }
 }
