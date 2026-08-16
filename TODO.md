@@ -461,9 +461,6 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
         DB は名前付きボリューム。`HEALTHCHECK` で `/healthz` を叩く
 - [x] `main` へのマージで GitHub Packages（ghcr.io）にイメージを publish する
       - タグは `latest` と commit SHA。戻せるよう latest だけにはしない
-- [ ] systemd unit（コンテナを使わない場合の起動方法）
-- [ ] セットアップ手順の README
-- [ ] リバースプロキシ設定例（nginx / Caddy）
 
 ---
 
