@@ -13,8 +13,13 @@ object ActorUsernameUtil {
      */
     const val MAX_LENGTH: Int = 30
 
+    /**
+     * 名前の無いアクターは引けない
+     */
+    const val MIN_LENGTH: Int = 1
+
     fun isValid(username: String): Boolean =
-        username.isNotEmpty() && username.length <= MAX_LENGTH && unusableCharacters(username).isEmpty()
+        username.length in MIN_LENGTH..MAX_LENGTH && unusableCharacters(username).isEmpty()
 
     /**
      * 使えない文字を重複なく返す。全部使えるなら空。

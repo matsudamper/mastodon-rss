@@ -56,6 +56,17 @@ class AccountRepositoryTest {
     }
 
     @Test
+    fun `秒未満の桁が違っても時刻の順に返る`() {
+        withRepositories { repositories ->
+            // 文字列で保存しているので、桁が揃っていないと並びが時刻の順にならない
+            repositories.accounts.add(username = "late", createdAt = Instant.parse("2026-08-16T00:00:00.5Z"))
+            repositories.accounts.add(username = "early", createdAt = Instant.parse("2026-08-16T00:00:00Z"))
+
+            assertEquals(listOf("early", "late"), repositories.accounts.list().map { it.username })
+        }
+    }
+
+    @Test
     fun `開き直しても残っている`() {
         val dbPath = tempDir.resolve("test.db")
         TestSchema.applyTo(dbPath)

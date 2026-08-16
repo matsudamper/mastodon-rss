@@ -24,25 +24,20 @@ enum AdminLoginFailure {
 type AdminAddAccountResult {
     account: AdminAccount
 
+    "追加できなかった場合だけ入る"
     failure: AdminAddAccountFailure
-
-    "UNUSABLE_CHARACTER のときに入る、入力にあった使えない文字"
-    unusableCharacters: [String!]
-
-    "TOO_LONG のときに入る、使える文字数の上限"
-    maxLength: Int
 }
 
-enum AdminAddAccountFailure {
-    "使えない文字が入っている"
-    UNUSABLE_CHARACTER
+type AdminAddAccountFailure {
+    "入力にあった使えない文字"
+    unusableCharacters: [String!]
 
-    "文字数が上限を超えている"
-    TOO_LONG
+    "使える文字数の上限を超えている場合の上限"
+    maxLength: Int
 
-    "名前が空"
-    EMPTY
+    "使える文字数の下限に足りない場合の下限"
+    minLength: Int
 
     "同じ名前のアカウントが既にある"
-    DUPLICATED
+    isDuplicated: Boolean!
 }
