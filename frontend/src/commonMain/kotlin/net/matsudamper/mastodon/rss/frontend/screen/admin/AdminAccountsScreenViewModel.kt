@@ -9,7 +9,7 @@ import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.api.AdminAccountsResult
 import net.matsudamper.mastodon.rss.frontend.api.AdminApi
 import net.matsudamper.mastodon.rss.frontend.api.AdminSessionResult
-import net.matsudamper.mastodon.rss.frontend.format.formatUnixTime
+import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 
 class AdminAccountsScreenViewModel(
     private val viewModelScope: CoroutineScope,
@@ -80,7 +80,7 @@ class AdminAccountsScreenViewModel(
                             acct = account.acct,
                             badge = if (account.deletable) null else NOT_DELETABLE_BADGE,
                             actorUrl = account.actorUrl,
-                            createdAt = account.createdAt?.let { formatUnixTime(it) },
+                            createdAt = account.createdAt?.let { UnixTimeUtil.format(it) },
                         )
                     },
                 )
