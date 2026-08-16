@@ -32,6 +32,11 @@ gradlePlugin {
             implementationClass = "net.matsudamper.mastodon.rss.gradle.GraphQlSchemaListPlugin"
         }
 
+        create("webpackBundleHash") {
+            id = "mastodon-rss.webpack-bundle-hash"
+            implementationClass = "net.matsudamper.mastodon.rss.gradle.WebpackBundleHashPlugin"
+        }
+
         create("nativeImage") {
             id = "mastodon-rss.native-image"
             implementationClass = "net.matsudamper.mastodon.rss.gradle.NativeImagePlugin"
