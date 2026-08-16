@@ -31,16 +31,17 @@ fun Route.graphQlRoutes(engine: GraphQlEngine) {
             return@post
         }
 
-        val request =
-            runCatching { AppJson.decodeFromString(GraphQlRequest.serializer(), body) }
-                .getOrElse {
-                    call.respondJson(
-                        GraphQlBadRequest.serializer(),
-                        GraphQlBadRequest("GraphQL のリクエストとして読めない"),
-                        status = HttpStatusCode.BadRequest,
-                    )
-                    return@post
-                }
+        val request = runCatching {
+            AppJson.decodeFromString(GraphQlRequest.serializer(), body)
+        }
+            .getOrElse {
+                call.respondJson(
+                    GraphQlBadRequest.serializer(),
+                    GraphQlBadRequest("GraphQL のリクエストとして読めない"),
+                    status = HttpStatusCode.BadRequest,
+                )
+                return@post
+            }
 
         // パスワードの照合で PBKDF2 を回すので、そのまま実行すると他が詰まる
         val result = engine.execute(request, call)
