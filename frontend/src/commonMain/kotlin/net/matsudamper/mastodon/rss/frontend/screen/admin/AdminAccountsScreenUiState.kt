@@ -22,13 +22,19 @@ data class AdminAccountsScreenUiState(
     }
 
     /**
-     * @param fromConfigLabel 設定で決まるアカウントに付ける印。追加したものには付かない
+     * 一覧の 1 行。
+     *
+     * @param acct 行の見出しとして大きく出す
+     * @param badge 見出しの右に並べる短い印。null なら何も出さない
+     * @param actorUrl 見出しの下に小さく出す
+     * @param createdAt 「追加: <値>」の形で出す。null ならこの行を出さない
+     * @param username 行から開くアカウント画面のリンク先。文字としては出さない
      */
     data class Account(
         val username: String,
         val acct: String,
+        val badge: String?,
         val actorUrl: String,
-        val fromConfigLabel: String?,
         val createdAt: String?,
     )
 

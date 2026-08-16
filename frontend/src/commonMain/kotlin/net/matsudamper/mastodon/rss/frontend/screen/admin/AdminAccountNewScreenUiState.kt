@@ -12,6 +12,12 @@ data class AdminAccountNewScreenUiState(
         /** ログインしていない。管理画面のトップに送る */
         data object RequireLogin : Content
 
+        /**
+         * 入力欄と追加ボタン。
+         *
+         * @param submitting true の間は入力欄とボタンを押せなくし、ボタンの文字を待ち状態にする
+         * @param error 入力欄の下に赤字で出す。null なら何も出さない
+         */
         data class Input(
             val username: String,
             val submitting: Boolean,
@@ -20,7 +26,11 @@ data class AdminAccountNewScreenUiState(
             val canSubmit: Boolean get() = !submitting && username.isNotBlank()
         }
 
-        /** 追加できた。続けて追加できるよう、入力に戻す口も出す */
+        /**
+         * 追加できた。入力欄の代わりに出す。
+         *
+         * @param acct 追加した名前として文中に出す
+         */
         data class Added(
             val acct: String,
         ) : Content

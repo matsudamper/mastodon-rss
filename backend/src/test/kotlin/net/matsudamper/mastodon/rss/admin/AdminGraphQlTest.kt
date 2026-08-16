@@ -15,6 +15,7 @@ import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -200,7 +201,8 @@ class AdminGraphQlTest {
                 "https://${TestServerEnv.DOMAIN}/users/${TestServerEnv.USERNAME}",
                 account.string("actorUrl"),
             )
-            assertTrue(account.boolean("fromConfig"))
+            // 設定で決まるアカウントは管理画面から消せない。追加した時刻も持っていない
+            assertFalse(account.boolean("deletable"))
             assertEquals(JsonNull, account.getValue("createdAt"))
         }
 
@@ -214,7 +216,9 @@ class AdminGraphQlTest {
 
             assertEquals("feed1", added.string("username"))
             assertEquals("@feed1@${TestServerEnv.DOMAIN}", added.string("acct"))
-            assertFalse(added.boolean("fromConfig"))
+            assertTrue(added.boolean("deletable"))
+            // 時刻は文字列にせずエポックからの秒数で返す。書式の解釈を受け取る側に委ねない
+            assertTrue(added.getValue("createdAt").jsonPrimitive.long > 0)
 
             assertEquals(
                 listOf(TestServerEnv.USERNAME, "feed1"),
@@ -240,10 +244,10 @@ class AdminGraphQlTest {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
 
-            // 設定側が勝つので、入れられても引けないアカウントが残るだけになる
+            // 設定で決まるアカウントも引き当ての対象なので、名前は埋まっている
             val result = mutateAddAccount(TestServerEnv.USERNAME.uppercase(), token).addAccountResult()
 
-            assertEquals("RESERVED_USERNAME", result.string("failure"))
+            assertEquals("DUPLICATED", result.string("failure"))
         }
 
     @Test
@@ -344,7 +348,7 @@ class AdminGraphQlTest {
     private companion object {
         const val PASSWORD = "とても長いパスワード"
 
-        const val ACCOUNT_FIELDS = "username acct actorUrl fromConfig createdAt"
+        const val ACCOUNT_FIELDS = "username acct actorUrl deletable createdAt"
 
         /**
          * 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ

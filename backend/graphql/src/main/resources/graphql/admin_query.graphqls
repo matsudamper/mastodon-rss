@@ -1,7 +1,7 @@
 type AdminQuery {
     session: AdminSession! @lazy
 
-    "応答するアカウントの一覧。ログインしていなければエラー"
+    "応答するアカウントの一覧"
     accounts: [AdminAccount!]! @lazy
 }
 
@@ -22,9 +22,9 @@ type AdminAccount {
     "Actor の URL"
     actorUrl: String!
 
-    "設定で決まるアカウント。管理画面からは追加も削除もできない"
-    fromConfig: Boolean!
+    "管理画面から削除できるか。サーバーの設定で決まっているものは消せない"
+    deletable: Boolean!
 
-    "追加した時刻 (ISO 8601)。設定で決まるアカウントには無い"
-    createdAt: String
+    "管理画面から追加した時刻。追加したものにだけ入る"
+    createdAt: UnixTime
 }

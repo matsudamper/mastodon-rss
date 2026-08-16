@@ -71,10 +71,6 @@ class AdminAccountNewScreenViewModel(
                     failed("英数字と _ . - のみ、先頭と末尾は英数字か _、30 文字までにする")
                 }
 
-                AdminAddAccountResult.ReservedUsername -> {
-                    failed("サーバーの設定で決まっているアカウントと同じ名前は使えない")
-                }
-
                 AdminAddAccountResult.Duplicated -> {
                     failed("同じ名前のアカウントが既にある")
                 }

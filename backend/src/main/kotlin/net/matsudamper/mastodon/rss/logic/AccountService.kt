@@ -16,35 +16,34 @@ class AccountService(
     private val fixed: ActorUrls,
 ) {
     /** 設定で決まるアカウントを先頭に、追加した順で返す */
-    fun list(): List<ManagedAccount> =
-        buildList {
-            add(ManagedAccount(urls = fixed, fromConfig = true, createdAt = null))
+    fun list(): List<ManagedAccount> {
+        return buildList {
+            add(ManagedAccount(urls = fixed, deletable = false, createdAt = null))
 
             accounts.list().mapTo(this) { account ->
                 ManagedAccount(
                     urls = ActorUrls(domain = fixed.domain, username = account.username),
-                    fromConfig = false,
+                    deletable = true,
                     createdAt = account.createdAt,
                 )
             }
         }
+    }
 
     fun add(username: String): AddAccountResult {
         val trimmed = username.trim()
 
         if (!ActorUsername.isValid(trimmed)) return AddAccountResult.InvalidUsername
 
-        // 設定側が勝つので、同じ名前を入れても引けないアカウントが残るだけになる
-        if (trimmed.equals(fixed.username, ignoreCase = true)) return AddAccountResult.ReservedUsername
+        // 設定で決まるアカウントも引き当ての対象なので、名前が埋まっていることに変わりはない
+        if (trimmed.equals(fixed.username, ignoreCase = true)) return AddAccountResult.Duplicated
 
-        val added =
-            accounts.add(username = trimmed, createdAt = Instant.now())
-                ?: return AddAccountResult.Duplicated
+        val added = accounts.add(username = trimmed, createdAt = Instant.now()) ?: return AddAccountResult.Duplicated
 
         return AddAccountResult.Success(
             ManagedAccount(
                 urls = ActorUrls(domain = fixed.domain, username = added.username),
-                fromConfig = false,
+                deletable = true,
                 createdAt = added.createdAt,
             ),
         )
@@ -52,12 +51,12 @@ class AccountService(
 }
 
 /**
- * @param fromConfig 設定で決まるアカウントか。管理画面から追加も削除もできない
+ * @param deletable 管理画面から消せるか。設定で決まるアカウントは消せない
  * @param createdAt 追加した時刻。設定で決まるアカウントには無い
  */
 data class ManagedAccount(
     val urls: ActorUrls,
-    val fromConfig: Boolean,
+    val deletable: Boolean,
     val createdAt: Instant?,
 )
 
@@ -67,8 +66,6 @@ sealed interface AddAccountResult {
     ) : AddAccountResult
 
     data object InvalidUsername : AddAccountResult
-
-    data object ReservedUsername : AddAccountResult
 
     data object Duplicated : AddAccountResult
 }

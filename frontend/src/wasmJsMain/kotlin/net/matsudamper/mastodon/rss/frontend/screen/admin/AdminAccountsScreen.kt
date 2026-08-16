@@ -21,11 +21,6 @@ import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
-/**
- * アカウントの一覧。`/admin/accounts`。
- *
- * ここに出る名前が Mastodon から検索できるものの全部になる。
- */
 @Composable
 fun AdminAccountsScreen(onNavigate: (Screen) -> Unit) {
     val viewModelScope = rememberCoroutineScope()
@@ -127,9 +122,9 @@ private fun AccountRow(
                 fontWeight = FontWeight.SemiBold,
             )
 
-            if (account.fromConfigLabel != null) {
+            if (account.badge != null) {
                 AppBadge(
-                    text = account.fromConfigLabel,
+                    text = account.badge,
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 )

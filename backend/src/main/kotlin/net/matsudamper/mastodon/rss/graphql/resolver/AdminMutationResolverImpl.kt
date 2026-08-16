@@ -87,30 +87,26 @@ class AdminMutationResolverImpl : AdminMutationResolver {
     ): CompletionStage<DataFetcherResult<QlAdminAddAccountResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val result =
-            when (val added = GraphQlEngine.diContainer(env).accountService.add(username)) {
-                is AddAccountResult.Success -> {
-                    QlAdminAddAccountResult(account = added.account.toQl(), failure = null)
-                }
-
-                AddAccountResult.InvalidUsername -> {
-                    addAccountFailure(QlAdminAddAccountFailure.INVALID_USERNAME)
-                }
-
-                AddAccountResult.ReservedUsername -> {
-                    addAccountFailure(QlAdminAddAccountFailure.RESERVED_USERNAME)
-                }
-
-                AddAccountResult.Duplicated -> {
-                    addAccountFailure(QlAdminAddAccountFailure.DUPLICATED)
-                }
-            }
+        val result = addAccountResult(GraphQlEngine.diContainer(env).accountService.add(username))
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
-    private fun addAccountFailure(failure: QlAdminAddAccountFailure): QlAdminAddAccountResult =
-        QlAdminAddAccountResult(account = null, failure = failure)
+    private fun addAccountResult(added: AddAccountResult): QlAdminAddAccountResult {
+        return when (added) {
+            is AddAccountResult.Success -> {
+                QlAdminAddAccountResult(account = added.account.toGraphqlResponse(), failure = null)
+            }
+
+            AddAccountResult.InvalidUsername -> {
+                QlAdminAddAccountResult(account = null, failure = QlAdminAddAccountFailure.INVALID_USERNAME)
+            }
+
+            AddAccountResult.Duplicated -> {
+                QlAdminAddAccountResult(account = null, failure = QlAdminAddAccountFailure.DUPLICATED)
+            }
+        }
+    }
 
     private fun loginFailure(
         context: GraphQlContext,

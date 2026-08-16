@@ -18,10 +18,11 @@ internal class SqliteJooq(
      * [DSLContext] は接続に紐付くので毎回作る。作るのは設定を包む薄いオブジェクトで、
      * 重いのは [SETTINGS] を持つ側なのでそちらだけ使い回す。
      */
-    fun <T> transaction(block: (DSLContext) -> T): T =
-        connectionManager.transaction { connection ->
+    fun <T> transaction(block: (DSLContext) -> T): T {
+        return connectionManager.transaction { connection ->
             block(DSL.using(connection, SQLDialect.SQLITE, SETTINGS))
         }
+    }
 
     private companion object {
         init {

@@ -9,11 +9,10 @@ import kotlin.test.assertNull
 class ActorDirectoryTest {
     private val stored = mutableListOf("feed1", "Gihyo")
 
-    private val directory =
-        ActorDirectory(
-            fixed = ActorUrls(domain = "example.com", username = "admin"),
-            stored = { username -> stored.firstOrNull { it.equals(username, ignoreCase = true) } },
-        )
+    private val directory = ActorDirectory(
+        fixed = ActorUrls(domain = "example.com", username = "admin"),
+        stored = { username -> stored.firstOrNull { it.equals(username, ignoreCase = true) } },
+    )
 
     @Test
     fun `固定アクターを引ける`() {

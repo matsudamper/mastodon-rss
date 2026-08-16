@@ -58,6 +58,7 @@ class GraphQlEngine private constructor(
             val schema = SchemaParser
                 .newParser()
                 .schemaString(readSchema())
+                .scalars(UnixTimeScalar.value)
                 .resolvers(resolvers)
                 .build()
                 .makeExecutableSchema()

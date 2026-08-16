@@ -38,7 +38,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         val accounts = GraphQlEngine.diContainer(env).accountService.list()
 
         return CompletableFuture.completedFuture(
-            DataFetcherResult.Builder(accounts.map { it.toQl() }).build(),
+            DataFetcherResult.Builder(accounts.map { it.toGraphqlResponse() }).build(),
         )
     }
 }

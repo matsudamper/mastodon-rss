@@ -63,5 +63,8 @@ apollo {
         schemaFiles.from(
             rootProject.fileTree("backend/graphql/src/main/resources/graphql") { include("*.graphqls") },
         )
+
+        // スキーマの scalar は対応を書かないと Any になる
+        mapScalarToKotlinLong("UnixTime")
     }
 }

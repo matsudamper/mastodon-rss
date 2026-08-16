@@ -279,12 +279,14 @@ jobs:
           echo "--- GraphQL のアカウント一覧 ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -H "Cookie: $SESSION_COOKIE" \
-            -d '{"query":"query { admin { accounts { username acct fromConfig } } }"}' \
+            -d '{"query":"query { admin { accounts { username acct deletable createdAt } } }"}' \
             http://localhost:8080/graphql -o /tmp/graphql-accounts.json
           cat /tmp/graphql-accounts.json
           grep -q '"acct":"@admin@example.com"' /tmp/graphql-accounts.json
           grep -q '"acct":"@ci-feed@example.com"' /tmp/graphql-accounts.json
-          grep -q '"fromConfig":true' /tmp/graphql-accounts.json
+          grep -q '"deletable":false' /tmp/graphql-accounts.json
+          # UnixTime の scalar は登録漏れがあると実行時に落ちる。事前に入れた行の時刻を見る
+          grep -q '"createdAt":1767225600' /tmp/graphql-accounts.json
 
           # 追加は DB への書き込みを通る。入れた名前がそのまま WebFinger から引ける
           echo "--- GraphQL のアカウント追加 ---"

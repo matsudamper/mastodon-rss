@@ -64,8 +64,6 @@ class AdminApi(
 
             AdminAddAccountFailure.INVALID_USERNAME -> AdminAddAccountResult.InvalidUsername
 
-            AdminAddAccountFailure.RESERVED_USERNAME -> AdminAddAccountResult.ReservedUsername
-
             AdminAddAccountFailure.DUPLICATED -> AdminAddAccountResult.Duplicated
 
             AdminAddAccountFailure.UNKNOWN__ -> AdminAddAccountResult.Failure("Unknown")
@@ -77,7 +75,7 @@ class AdminApi(
             username = username,
             acct = acct,
             actorUrl = actorUrl,
-            fromConfig = fromConfig,
+            deletable = deletable,
             createdAt = createdAt,
         )
 
@@ -127,15 +125,15 @@ sealed interface AdminLoginResult {
 }
 
 /**
- * @param fromConfig サーバーの設定で決まるアカウント。管理画面からは追加も削除もできない
- * @param createdAt 追加した時刻。設定で決まるアカウントには無い
+ * @param deletable 管理画面から消せるか
+ * @param createdAt 追加した時刻。エポックからの秒数。消せないアカウントには無い
  */
 data class AdminAccount(
     val username: String,
     val acct: String,
     val actorUrl: String,
-    val fromConfig: Boolean,
-    val createdAt: String?,
+    val deletable: Boolean,
+    val createdAt: Long?,
 )
 
 sealed interface AdminAccountsResult {
@@ -154,8 +152,6 @@ sealed interface AdminAddAccountResult {
     ) : AdminAddAccountResult
 
     data object InvalidUsername : AdminAddAccountResult
-
-    data object ReservedUsername : AdminAddAccountResult
 
     data object Duplicated : AdminAddAccountResult
 

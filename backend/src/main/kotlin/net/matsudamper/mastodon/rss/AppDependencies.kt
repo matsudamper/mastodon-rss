@@ -49,10 +49,9 @@ class AppDependencies(
      * 固定アクターに加えて、管理画面から追加されたアカウントにも応答する。
      * 引くたびに DB を見るので、追加した直後から引けるようにする
      */
-    val directory: ActorDirectory =
-        ActorDirectory(fixed = actorUrls) { username ->
-            repositories.accounts.findByUsername(username)?.username
-        }
+    val directory: ActorDirectory = ActorDirectory(fixed = actorUrls) { username ->
+        repositories.accounts.findByUsername(username)?.username
+    }
 
     /**
      * inbox が受け取ったアクティビティの検証と振り分け。

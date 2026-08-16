@@ -18,8 +18,7 @@ object TestLocalActor {
 
     val urls: ActorUrls = ActorUrls(domain = DOMAIN, username = USERNAME)
 
-    val directory: ActorDirectory =
-        ActorDirectory(fixed = urls) { username ->
-            STORED_USERNAME.takeIf { it.equals(username, ignoreCase = true) }
-        }
+    val directory: ActorDirectory = ActorDirectory(fixed = urls) { username ->
+        STORED_USERNAME.takeIf { it.equals(username, ignoreCase = true) }
+    }
 }

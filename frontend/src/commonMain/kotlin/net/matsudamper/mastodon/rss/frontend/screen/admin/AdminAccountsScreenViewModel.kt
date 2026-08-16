@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.api.AdminAccountsResult
 import net.matsudamper.mastodon.rss.frontend.api.AdminApi
 import net.matsudamper.mastodon.rss.frontend.api.AdminSessionResult
+import net.matsudamper.mastodon.rss.frontend.format.formatUnixTime
 
 class AdminAccountsScreenViewModel(
     private val viewModelScope: CoroutineScope,
@@ -75,14 +76,13 @@ class AdminAccountsScreenViewModel(
 
             is AdminAccountsResult.Success -> {
                 AdminAccountsScreenUiState.Content.Loaded(
-                    accounts =
-                    accounts.accounts.map { account ->
+                    accounts = accounts.accounts.map { account ->
                         AdminAccountsScreenUiState.Account(
                             username = account.username,
                             acct = account.acct,
+                            badge = if (account.deletable) null else NOT_DELETABLE_BADGE,
                             actorUrl = account.actorUrl,
-                            fromConfigLabel = if (account.fromConfig) FROM_CONFIG_LABEL else null,
-                            createdAt = account.createdAt,
+                            createdAt = account.createdAt?.let { formatUnixTime(it) },
                         )
                     },
                 )
@@ -96,6 +96,7 @@ class AdminAccountsScreenViewModel(
     )
 
     private companion object {
-        const val FROM_CONFIG_LABEL = "設定"
+        /** 消せないアカウントに付ける印 */
+        const val NOT_DELETABLE_BADGE = "消せない"
     }
 }

@@ -25,9 +25,6 @@ import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
-/**
- * アカウントの追加。`/admin/accounts/new`。
- */
 @Composable
 fun AdminAccountNewScreen(onNavigate: (Screen) -> Unit) {
     val viewModelScope = rememberCoroutineScope()
