@@ -8,8 +8,11 @@ import org.jooq.impl.DSL
 /**
  * jOOQ で 1 トランザクションを処理する。
  *
- * SQL を組み立てる経路は全てここを通す。設定を 1 か所に置くためと、
- * 下の静的初期化子を確実に先に走らせるため。
+ * 接続の一生（PRAGMA の適用・アクセスの直列化・close）は [SqliteConnectionManager] が持ち、
+ * こちらは借りた接続に jOOQ の設定を被せるだけ。接続の扱いに jOOQ を混ぜないための分け方で、
+ * SQL を組み立てる側は接続の都合を知らずに済む。
+ *
+ * SQL を組み立てる経路は全てここを通す。設定と下の静的初期化子が散らないようにするため。
  */
 internal class SqliteJooq(
     private val connectionManager: SqliteConnectionManager,
