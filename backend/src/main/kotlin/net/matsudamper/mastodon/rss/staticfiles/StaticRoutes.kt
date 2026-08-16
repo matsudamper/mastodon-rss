@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.staticfiles
 
+import kotlin.io.path.extension
 import kotlin.io.path.name
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.http.content.LocalFileContent
@@ -48,6 +49,10 @@ fun Route.staticRoutes(staticFiles: StaticFiles?) {
             call.response.header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
             call.response.header("Pragma", "no-cache")
             call.response.header("Expires", "0")
+        }
+
+        if (file.fileName.extension == "wasm") {
+            call.response.header("Cache-Control", "public, max-age=31536000, immutable")
         }
 
         // LocalFileContent は Content-Length と Last-Modified を付け、
