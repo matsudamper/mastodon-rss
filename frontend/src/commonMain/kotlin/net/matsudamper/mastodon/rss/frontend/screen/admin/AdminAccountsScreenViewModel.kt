@@ -45,8 +45,6 @@ class AdminAccountsScreenViewModel(
     private fun reload() {
         viewModelStateFlow.update { ViewModelState() }
         viewModelScope.launch {
-            // ログインしていなければ一覧は errors になる。先に確かめないと、
-            // 「ログインが要る」ことをネットワークの失敗と区別できない
             val session = api.session()
             viewModelStateFlow.update { it.copy(session = session) }
 

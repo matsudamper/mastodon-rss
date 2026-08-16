@@ -46,8 +46,6 @@ class AdminAccountNewScreenViewModel(
         }.asStateFlow()
 
     fun onStart() {
-        // ログインしていなければ追加は errors になる。フォームを出してから
-        // 弾くより、開いた時点でログインへ送る方が短い
         viewModelScope.launch {
             val session = api.session()
             viewModelStateFlow.update { it.copy(session = session) }
