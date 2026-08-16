@@ -71,10 +71,9 @@ fun AppTheme(content: @Composable () -> Unit) {
     ) {
         CompositionLocalProvider(
             // typography を通らない Text（style を指定していないもの）にも同じフォントを効かせる
-            LocalTextStyle provides
-                LocalTextStyle.current
-                    .merge(TextStyle(fontFamily = fontFamily))
-                    .merge(MaterialTheme.typography.bodyMedium),
+            LocalTextStyle provides LocalTextStyle.current
+                .merge(TextStyle(fontFamily = fontFamily))
+                .merge(MaterialTheme.typography.bodyMedium),
             content = content,
         )
     }
