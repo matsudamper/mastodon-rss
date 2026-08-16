@@ -471,24 +471,6 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
 フェーズの流れには乗せない。必要になった時点で拾う。
 先にやっても確認する手段が無かったり、動機が薄いもの。
 
-- [ ] 貼られた URL をフィードの URL に直す
-      - フィードの URL を直接入れれば購読はできるので、取り込みの本筋は止まらない。
-        登録の入口の使い勝手の話なので、フェーズには乗せない
-      - YouTube は人が目にする URL（`/@handle` や動画のページ）とフィードの URL が
-        別物になっている。`YouTubeFeedResolver`（`:backend:rss`）で変換する分は書いた。
-        `/@handle` `/channel/<id>` `/playlist?list=` `/watch?v=` `youtu.be` `/shorts/` と、
-        既にフィードの URL の形を読む。スキームの欠けた `youtube.com/@name` や
-        `m.` `music.` のホストも受ける
-      - `/@handle` `/c/<名前>` `/user/<名前>` と動画の URL はチャンネル ID が
-        ページの中にしか無いので、`NeedsPageLookup` として取得する URL だけ返す。
-        HTML から ID を抜くのは `channelIdFromPageHtml`
-      - `?user=<名前>` のフィードには読み替えない。旧ユーザー名の入口で、
-        同じ綴りの別チャンネルを 200 で返すことがある（`?user=MrBeast` で確認した）
-      - `RD` で始まるミックスと `WL` `LL` は入口で落とす。フィードは 404 になる
-      - [ ] `NeedsPageLookup` のページを取得して繋ぐ。HTTP クライアントを持つのは
-            `:backend` 側なので、取得を書くときに一緒に入れる
-      - [ ] YouTube 以外の配信元も、ページの `rel="alternate"` からフィードを見つける。
-            同じ `channelIdFromPageHtml` の形で一般化できる
 - [ ] YouTube の `media:group` を読む
       - YouTube の Atom は entry 直下に `summary` も `content` も持たず、説明文は
         `media:group/media:description` に入っている。いまは未知の要素として読み飛ばすので
