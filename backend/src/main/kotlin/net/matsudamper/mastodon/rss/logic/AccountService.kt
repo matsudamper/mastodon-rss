@@ -8,8 +8,7 @@ import net.matsudamper.mastodon.rss.repository.AccountRepository
 /**
  * 管理画面から見たアカウントの操作。
  *
- * @param fixed 設定 (`ACTOR_USERNAME`) で決まるアカウント。DB には無いが応答はするので、
- *   一覧に混ぜて出し、同じ名前の追加を弾く
+ * @param fixed DBに無い組み込みアカウント
  */
 class AccountService(
     private val accounts: AccountRepository,
