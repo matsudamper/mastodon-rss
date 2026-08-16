@@ -59,7 +59,9 @@ class WebpackBundleHashPlugin : Plugin<Project> {
 
         private const val INDEX_FILE_NAME = "index.html"
 
-        /** 名前に入れるハッシュの長さ。中身の違いが分かれば足りる */
+        /**
+         * 名前に入れるハッシュの長さ。中身の違いが分かれば足りる
+         */
         private const val HASH_LENGTH = 16
 
         /**

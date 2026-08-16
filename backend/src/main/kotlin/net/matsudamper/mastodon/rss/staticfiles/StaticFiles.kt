@@ -136,7 +136,9 @@ class StaticFiles(
                 .split('.')
                 .any { contentHashPattern.matches(it) }
 
-        /** 名前に入るハッシュ。短いものを数えないよう長さで下限を引く */
+        /**
+         * 名前に入るハッシュ。短いものを数えないよう長さで下限を引く
+         */
         private val contentHashPattern = Regex("[0-9a-f]{8,}")
     }
 }
