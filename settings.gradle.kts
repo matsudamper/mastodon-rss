@@ -73,6 +73,4 @@ include(":backend:graphql")
 include(":backend:repository")
 include(":backend:rss")
 include(":frontend")
-
-// backend と frontend の両方から見るもの。今は GraphQL のパスだけ
 include(":shared")
