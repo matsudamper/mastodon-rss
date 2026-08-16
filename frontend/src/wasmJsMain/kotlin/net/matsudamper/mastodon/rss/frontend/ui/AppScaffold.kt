@@ -48,18 +48,16 @@ fun AppScaffold(
                 val outerPadding = if (wide) 24.dp else 12.dp
 
                 Column(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = outerPadding, vertical = outerPadding),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = outerPadding, vertical = outerPadding),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Column(
-                        modifier =
-                            Modifier
-                                .widthIn(max = ContentMaxWidth)
-                                .fillMaxWidth(),
+                        modifier = Modifier
+                            .widthIn(max = ContentMaxWidth)
+                            .fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         content = { content(wide) },
                     )
