@@ -47,12 +47,11 @@ class AccountService(
         }
 
         // 設定で決まるアカウントも引き当ての対象なので、名前が埋まっていることに変わりはない
-        val added =
-            if (trimmed.equals(fixed.username, ignoreCase = true)) {
-                null
-            } else {
-                accounts.add(username = trimmed, createdAt = Instant.now())
-            }
+        val added = if (trimmed.equals(fixed.username, ignoreCase = true)) {
+            null
+        } else {
+            accounts.add(username = trimmed, createdAt = Instant.now())
+        }
 
         if (added == null) {
             return AddAccountResult.Failure(
