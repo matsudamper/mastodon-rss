@@ -5,19 +5,19 @@ sealed interface AdminAddAccountResult {
     ) : AdminAddAccountResult
 
     /**
-     * @param characters 入力に含まれていた使えない文字
+     * 追加できなかった理由。当てはまらないものは null か空で来る。
+     *
+     * @param unusableCharacters 入力に含まれていた使えない文字
+     * @param maxLength 文字数が多すぎる場合の上限
+     * @param minLength 文字数が足りない場合の下限
+     * @param isDuplicated 同じ名前のアカウントが既にある
      */
-    data class UnusableCharacter(
-        val characters: List<String>,
+    data class Rejected(
+        val unusableCharacters: List<String>,
+        val maxLength: Int?,
+        val minLength: Int?,
+        val isDuplicated: Boolean,
     ) : AdminAddAccountResult
-
-    data class TooLong(
-        val maxLength: Int,
-    ) : AdminAddAccountResult
-
-    data object Empty : AdminAddAccountResult
-
-    data object Duplicated : AdminAddAccountResult
 
     data class Failure(
         val message: String,

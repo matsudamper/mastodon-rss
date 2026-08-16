@@ -9,7 +9,6 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
-import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminAddAccountFailure
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 
@@ -62,29 +61,17 @@ class AdminApi(
         val response = client.mutation(AdminAddAccountMutation(username)).execute()
         val added = response.data?.admin?.addAccount ?: return AdminAddAccountResult.Failure(response.failureMessage())
 
-        return when (added.failure) {
-            null -> {
-                val acct = added.account?.acct ?: return AdminAddAccountResult.Failure("追加できたが内容が返ってこない")
+        val failure = added.failure
+            ?: return AdminAddAccountResult.Success(
+                added.account?.acct ?: return AdminAddAccountResult.Failure("追加できたが内容が返ってこない"),
+            )
 
-                AdminAddAccountResult.Success(acct)
-            }
-
-            AdminAddAccountFailure.UNUSABLE_CHARACTER -> {
-                AdminAddAccountResult.UnusableCharacter(added.unusableCharacters.orEmpty())
-            }
-
-            AdminAddAccountFailure.TOO_LONG -> {
-                val maxLength = added.maxLength ?: return AdminAddAccountResult.Failure("上限が返ってこない")
-
-                AdminAddAccountResult.TooLong(maxLength)
-            }
-
-            AdminAddAccountFailure.EMPTY -> AdminAddAccountResult.Empty
-
-            AdminAddAccountFailure.DUPLICATED -> AdminAddAccountResult.Duplicated
-
-            AdminAddAccountFailure.UNKNOWN__ -> AdminAddAccountResult.Failure("Unknown")
-        }
+        return AdminAddAccountResult.Rejected(
+            unusableCharacters = failure.unusableCharacters.orEmpty(),
+            maxLength = failure.maxLength,
+            minLength = failure.minLength,
+            isDuplicated = failure.isDuplicated,
+        )
     }
 
     /**

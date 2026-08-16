@@ -90,47 +90,27 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         val result = when (val added = GraphQlEngine.diContainer(env).accountService.add(username)) {
             is AccountService.AddAccountResult.Success -> {
-                QlAdminAddAccountResult(
-                    account = added.account.toGraphqlResponse(),
-                    failure = null,
-                    unusableCharacters = null,
-                    maxLength = null,
-                )
+                QlAdminAddAccountResult(account = added.account.toGraphqlResponse(), failure = null)
             }
 
-            is AccountService.AddAccountResult.UnusableCharacter -> {
-                addAccountFailure(
-                    failure = QlAdminAddAccountFailure.UNUSABLE_CHARACTER,
-                    unusableCharacters = added.characters.map { it.toString() },
-                )
-            }
-
-            AccountService.AddAccountResult.TooLong -> {
-                addAccountFailure(failure = QlAdminAddAccountFailure.TOO_LONG, maxLength = ActorUsernameUtil.MAX_LENGTH)
-            }
-
-            AccountService.AddAccountResult.Empty -> {
-                addAccountFailure(QlAdminAddAccountFailure.EMPTY)
-            }
-
-            AccountService.AddAccountResult.Duplicated -> {
-                addAccountFailure(QlAdminAddAccountFailure.DUPLICATED)
+            is AccountService.AddAccountResult.Failure -> {
+                QlAdminAddAccountResult(account = null, failure = added.toGraphqlResponse())
             }
         }
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
-    private fun addAccountFailure(
-        failure: QlAdminAddAccountFailure,
-        unusableCharacters: List<String>? = null,
-        maxLength: Int? = null,
-    ): QlAdminAddAccountResult = QlAdminAddAccountResult(
-        account = null,
-        failure = failure,
-        unusableCharacters = unusableCharacters,
-        maxLength = maxLength,
-    )
+    /**
+     * 当てはまらない理由は null にする。入っているものだけが理由になる
+     */
+    private fun AccountService.AddAccountResult.Failure.toGraphqlResponse(): QlAdminAddAccountFailure =
+        QlAdminAddAccountFailure(
+            unusableCharacters = unusableCharacters.map { it.toString() }.takeIf { it.isNotEmpty() },
+            maxLength = ActorUsernameUtil.MAX_LENGTH.takeIf { tooLong },
+            minLength = ActorUsernameUtil.MIN_LENGTH.takeIf { tooShort },
+            isDuplicated = duplicated,
+        )
 
     private fun loginFailure(
         context: GraphQlContext,

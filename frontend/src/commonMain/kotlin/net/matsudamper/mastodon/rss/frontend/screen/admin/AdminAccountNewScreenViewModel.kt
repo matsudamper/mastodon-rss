@@ -65,20 +65,8 @@ class AdminAccountNewScreenViewModel(
                     }
                 }
 
-                is AdminAddAccountResult.UnusableCharacter -> {
-                    failed("使えない文字が入っている: ${result.characters.joinToString(" ")}")
-                }
-
-                is AdminAddAccountResult.TooLong -> {
-                    failed("${result.maxLength} 文字までにする")
-                }
-
-                AdminAddAccountResult.Empty -> {
-                    failed("名前を入れる")
-                }
-
-                AdminAddAccountResult.Duplicated -> {
-                    failed("同じ名前のアカウントが既にある")
+                is AdminAddAccountResult.Rejected -> {
+                    failed(rejectedMessage(result))
                 }
 
                 is AdminAddAccountResult.Failure -> {
@@ -91,6 +79,18 @@ class AdminAccountNewScreenViewModel(
     private fun failed(message: String) {
         viewModelStateFlow.update { it.copy(submitting = false, error = message) }
     }
+
+    /**
+     * 当てはまる理由を全部並べる。1 つ直しても次で弾かれるのが分からないと直しようがない
+     */
+    private fun rejectedMessage(rejected: AdminAddAccountResult.Rejected): String = buildList {
+        if (rejected.unusableCharacters.isNotEmpty()) {
+            add("使えない文字が入っている: ${rejected.unusableCharacters.joinToString(" ")}")
+        }
+        if (rejected.minLength != null) add("${rejected.minLength} 文字以上にする")
+        if (rejected.maxLength != null) add("${rejected.maxLength} 文字までにする")
+        if (rejected.isDuplicated) add("同じ名前のアカウントが既にある")
+    }.joinToString("\n").ifEmpty { "追加できなかった" }
 
     private fun createContent(state: ViewModelState): AdminAccountNewScreenUiState.Content {
         val session = state.session ?: return AdminAccountNewScreenUiState.Content.Loading

@@ -42,9 +42,12 @@ mutation AdminAddAccount($username: String!) {
             account {
                 acct
             }
-            failure
-            unusableCharacters
-            maxLength
+            failure {
+                unusableCharacters
+                maxLength
+                minLength
+                isDuplicated
+            }
         }
     }
 }

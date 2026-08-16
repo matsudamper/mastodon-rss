@@ -235,12 +235,11 @@ class AdminGraphQlTest {
 
             val result = mutateAddAccount("feed 1/あ", token).addAccountResult()
 
-            assertEquals("UNUSABLE_CHARACTER", result.string("failure"))
             assertEquals(JsonNull, result.getValue("account"))
             // どの文字が駄目なのかを画面が自分で決めなくて済むようにする
             assertEquals(
                 listOf(" ", "/", "あ"),
-                result.getValue("unusableCharacters").jsonArray.map { it.jsonPrimitive.content },
+                result.failure().getValue("unusableCharacters").jsonArray.map { it.jsonPrimitive.content },
             )
         }
 
@@ -253,10 +252,9 @@ class AdminGraphQlTest {
             // `-` は名前の間には置けるが、末尾には置けない
             val result = mutateAddAccount("feed-", token).addAccountResult()
 
-            assertEquals("UNUSABLE_CHARACTER", result.string("failure"))
             assertEquals(
                 listOf("-"),
-                result.getValue("unusableCharacters").jsonArray.map { it.jsonPrimitive.content },
+                result.failure().getValue("unusableCharacters").jsonArray.map { it.jsonPrimitive.content },
             )
         }
 
@@ -266,19 +264,34 @@ class AdminGraphQlTest {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
 
-            val result = mutateAddAccount("a".repeat(31), token).addAccountResult()
+            val failure = mutateAddAccount("a".repeat(31), token).addAccountResult().failure()
 
-            assertEquals("TOO_LONG", result.string("failure"))
-            assertEquals(30, result.getValue("maxLength").jsonPrimitive.int)
+            assertEquals(30, failure.getValue("maxLength").jsonPrimitive.int)
+            assertEquals(JsonNull, failure.getValue("minLength"))
         }
 
     @Test
-    fun `名前が空なら EMPTY`() =
+    fun `名前が空なら下限が返る`() =
         testApplication {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
 
-            assertEquals("EMPTY", mutateAddAccount("   ", token).addAccountResult().string("failure"))
+            val failure = mutateAddAccount("   ", token).addAccountResult().failure()
+
+            assertEquals(1, failure.getValue("minLength").jsonPrimitive.int)
+        }
+
+    @Test
+    fun `当てはまる理由は同時に返る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            // 1 つ直しても次で弾かれるのが分からないと直しようがない
+            val failure = mutateAddAccount("あ".repeat(31), token).addAccountResult().failure()
+
+            assertEquals(listOf("あ"), failure.getValue("unusableCharacters").jsonArray.map { it.jsonPrimitive.content })
+            assertEquals(30, failure.getValue("maxLength").jsonPrimitive.int)
         }
 
     @Test
@@ -290,7 +303,7 @@ class AdminGraphQlTest {
             // 設定で決まるアカウントも引き当ての対象なので、名前は埋まっている
             val result = mutateAddAccount(TestServerEnv.USERNAME.uppercase(), token).addAccountResult()
 
-            assertEquals("DUPLICATED", result.string("failure"))
+            assertTrue(result.failure().boolean("isDuplicated"))
         }
 
     @Test
@@ -302,7 +315,7 @@ class AdminGraphQlTest {
 
             val result = mutateAddAccount("FEED1", token).addAccountResult()
 
-            assertEquals("DUPLICATED", result.string("failure"))
+            assertTrue(result.failure().boolean("isDuplicated"))
         }
 
     @Test
@@ -366,7 +379,7 @@ class AdminGraphQlTest {
             query =
             "mutation Add(${'$'}username: String!) { admin { " +
                 "addAccount(username: ${'$'}username) { account { $ACCOUNT_FIELDS } " +
-                "failure unusableCharacters maxLength } } }",
+                "failure { unusableCharacters maxLength minLength isDuplicated } } } }",
             token = token,
             variables = """{"username":${JsonPrimitive(username)}}""",
         )
@@ -413,6 +426,8 @@ class AdminGraphQlTest {
         suspend fun HttpResponse.accounts(): List<JsonElement> = admin().getValue("accounts").jsonArray
 
         suspend fun HttpResponse.addAccountResult(): JsonObject = admin().obj("addAccount")
+
+        fun JsonObject.failure(): JsonObject = obj("failure")
 
         fun JsonObject.obj(name: String): JsonObject = getValue(name).jsonObject
 

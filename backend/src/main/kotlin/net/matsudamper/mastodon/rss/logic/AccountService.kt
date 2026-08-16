@@ -33,17 +33,36 @@ class AccountService(
     fun add(username: String): AddAccountResult {
         val trimmed = username.trim()
 
-        if (trimmed.isEmpty()) return AddAccountResult.Empty
+        val unusableCharacters = ActorUsernameUtil.unusableCharacters(trimmed)
+        val tooShort = trimmed.length < ActorUsernameUtil.MIN_LENGTH
+        val tooLong = trimmed.length > ActorUsernameUtil.MAX_LENGTH
 
-        val unusable = ActorUsernameUtil.unusableCharacters(trimmed)
-        if (unusable.isNotEmpty()) return AddAccountResult.UnusableCharacter(unusable)
-
-        if (trimmed.length > ActorUsernameUtil.MAX_LENGTH) return AddAccountResult.TooLong
+        // 名前として通らないうちは重複を見に行かない。DB を引いても結果が変わらない
+        if (unusableCharacters.isNotEmpty() || tooShort || tooLong) {
+            return AddAccountResult.Failure(
+                unusableCharacters = unusableCharacters,
+                tooShort = tooShort,
+                tooLong = tooLong,
+                duplicated = false,
+            )
+        }
 
         // 設定で決まるアカウントも引き当ての対象なので、名前が埋まっていることに変わりはない
-        if (trimmed.equals(fixed.username, ignoreCase = true)) return AddAccountResult.Duplicated
+        val added =
+            if (trimmed.equals(fixed.username, ignoreCase = true)) {
+                null
+            } else {
+                accounts.add(username = trimmed, createdAt = Instant.now())
+            }
 
-        val added = accounts.add(username = trimmed, createdAt = Instant.now()) ?: return AddAccountResult.Duplicated
+        if (added == null) {
+            return AddAccountResult.Failure(
+                unusableCharacters = emptyList(),
+                tooShort = false,
+                tooLong = false,
+                duplicated = true,
+            )
+        }
 
         return AddAccountResult.Success(
             ManagedAccount(
@@ -70,16 +89,18 @@ class AccountService(
         ) : AddAccountResult
 
         /**
-         * @param characters 入力に含まれていた使えない文字
+         * 通らなかった理由。1 回の入力で複数当てはまることがあるので並べて返す。
+         *
+         * @param unusableCharacters 入力に含まれていた使えない文字
+         * @param tooShort 文字数が下限に足りない
+         * @param tooLong 文字数が上限を超えている
+         * @param duplicated 同じ名前のアカウントが既にある
          */
-        data class UnusableCharacter(
-            val characters: List<Char>,
+        data class Failure(
+            val unusableCharacters: List<Char>,
+            val tooShort: Boolean,
+            val tooLong: Boolean,
+            val duplicated: Boolean,
         ) : AddAccountResult
-
-        data object TooLong : AddAccountResult
-
-        data object Empty : AddAccountResult
-
-        data object Duplicated : AddAccountResult
     }
 }
