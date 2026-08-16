@@ -995,6 +995,8 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 - [x] `:frontend` モジュール（Kotlin/Wasm + Compose）を作り、Hello World を表示する
 - [x] URL から画面を決める（それまでは全パスで管理画面が出ていた）
       - `/` トップ / `/@ユーザー名` アカウント画面 / `/admin` 管理画面 / それ以外は見つからない
+      - 管理画面の中も操作ごとにパスを分ける（`/admin/accounts`、`/admin/accounts/new`）。
+        1 画面に並べると、開いた時点で必要のない問い合わせが走り、URL でその操作を指せない
       - 判定は `:frontend` の `navigation/Screen.kt` 1 箇所。リンクを張る側と画面を出す側で
         パスの綴りがずれると「リンクは踏めるが真っ白になる」壊れ方をする
       - `index.html` の `<title>` も「管理画面」固定をやめ、画面ごとに `document.title` を書き換える
@@ -1053,6 +1055,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
         `/admin` でも `/admin/password-hash` でも同じファイルを引く
 - [ ] サーバー側に管理 API（フィード CRUD、アカウント一覧、配信状況、手動再取得）
       - アカウントの一覧 (`Query.admin.accounts`) と追加 (`Mutation.admin.addAccount`) は入れた。
+        画面は `/admin/accounts` と `/admin/accounts/new` に分けてある。
         フィード CRUD と配信状況はこれから
 - [ ] 管理 API を GraphQL にする（[kake-bo](https://github.com/matsudamper/kake-bo) と揃える）
 
@@ -1123,7 +1126,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 
       - できているもの: `Query.admin.session` / `Mutation.admin.login` / `Mutation.admin.logout`、
         メモリ上のセッション（`admin/AdminSessions.kt`、期限 12 時間）、`HttpOnly` +
-        `SameSite=Strict` の Cookie、`/admin` の画面（ログイン後はアカウントの一覧と追加）
+        `SameSite=Strict` の Cookie、`/admin` の画面（ログイン後は各画面への入口）
         ハッシュ生成を画面から（いまは `./gradlew --quiet :backend:crypto:passwordHash`）、
         総当たり対策（Phase 7）
 - [x] 画面遷移を Navigation Compose 3 にする
