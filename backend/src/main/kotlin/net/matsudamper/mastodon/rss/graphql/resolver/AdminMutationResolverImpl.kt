@@ -87,26 +87,24 @@ class AdminMutationResolverImpl : AdminMutationResolver {
     ): CompletionStage<DataFetcherResult<QlAdminAddAccountResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val result = addAccountResult(GraphQlEngine.diContainer(env).accountService.add(username))
-
-        return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
-    }
-
-    private fun addAccountResult(added: AddAccountResult): QlAdminAddAccountResult {
-        return when (added) {
+        val result = when (val added = GraphQlEngine.diContainer(env).accountService.add(username)) {
             is AddAccountResult.Success -> {
                 QlAdminAddAccountResult(account = added.account.toGraphqlResponse(), failure = null)
             }
 
             AddAccountResult.InvalidUsername -> {
-                QlAdminAddAccountResult(account = null, failure = QlAdminAddAccountFailure.INVALID_USERNAME)
+                addAccountFailure(QlAdminAddAccountFailure.INVALID_USERNAME)
             }
 
             AddAccountResult.Duplicated -> {
-                QlAdminAddAccountResult(account = null, failure = QlAdminAddAccountFailure.DUPLICATED)
+                addAccountFailure(QlAdminAddAccountFailure.DUPLICATED)
             }
         }
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
+
+    private fun addAccountFailure(failure: QlAdminAddAccountFailure): QlAdminAddAccountResult = QlAdminAddAccountResult(account = null, failure = failure)
 
     private fun loginFailure(
         context: GraphQlContext,

@@ -18,17 +18,15 @@ class AccountService(
     /**
      * 設定で決まるアカウントを先頭に、追加した順で返す
      */
-    fun list(): List<ManagedAccount> {
-        return buildList {
-            add(ManagedAccount(urls = fixed, deletable = false, createdAt = null))
+    fun list(): List<ManagedAccount> = buildList {
+        add(ManagedAccount(urls = fixed, deletable = false, createdAt = null))
 
-            accounts.list().mapTo(this) { account ->
-                ManagedAccount(
-                    urls = ActorUrls(domain = fixed.domain, username = account.username),
-                    deletable = true,
-                    createdAt = account.createdAt,
-                )
-            }
+        accounts.list().mapTo(this) { account ->
+            ManagedAccount(
+                urls = ActorUrls(domain = fixed.domain, username = account.username),
+                deletable = true,
+                createdAt = account.createdAt,
+            )
         }
     }
 
