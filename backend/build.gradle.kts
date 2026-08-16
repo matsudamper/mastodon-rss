@@ -43,7 +43,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("net.matsudamper.mastodon.rss.ApplicationKt")
+    mainClass.set("net.matsudamper.mastodon.rss.MainKt")
 }
 
 kotlin {
@@ -77,7 +77,7 @@ graalvmNative {
     binaries {
         named("main") {
             imageName.set("mastodon-rss")
-            mainClass.set("net.matsudamper.mastodon.rss.ApplicationKt")
+            mainClass.set("net.matsudamper.mastodon.rss.MainKt")
             buildArgs.add("--no-fallback")
 
             buildArgs.add("--features=net.matsudamper.mastodon.rss.graalvm.GraphQlReflectionFeature")
