@@ -2,8 +2,10 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.nio.file.Path
 import java.sql.Connection
+import kotlin.io.path.copyTo
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
+import kotlin.io.path.exists
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -23,8 +25,9 @@ class SqliteConnectionManagerTest {
         tempDir.deleteRecursively()
     }
 
-    private fun createManager(): SqliteConnectionManager =
-        SqliteConnectionManager(DatabaseConfig(path = tempDir.resolve("test.db")))
+    private val dbPath: Path = tempDir.resolve("test.db")
+
+    private fun createManager(): SqliteConnectionManager = SqliteConnectionManager(DatabaseConfig(path = dbPath))
 
     @Test
     fun `接続時にPRAGMAが適用されている`() {
@@ -125,6 +128,28 @@ class SqliteConnectionManagerTest {
 
             assertEquals(true, autoCommit)
         }
+    }
+
+    @Test
+    fun `閉じた後はDBファイルだけをコピーしても中身が揃っている`() {
+        createManager().use { manager ->
+            manager.withConnection { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute("CREATE TABLE sample (id INTEGER PRIMARY KEY, name TEXT NOT NULL)")
+                    statement.execute("INSERT INTO sample (id, name) VALUES (1, 'テスト')")
+                }
+            }
+        }
+
+        assertFalse(dbPath.resolveSibling("test.db-wal").exists(), "-wal に書き込みが残っている")
+
+        val copied = dbPath.copyTo(tempDir.resolve("copied.db"))
+        val name =
+            SqliteConnectionManager(DatabaseConfig(path = copied)).use { manager ->
+                manager.queryString("SELECT name FROM sample WHERE id = 1")
+            }
+
+        assertEquals("テスト", name)
     }
 
     private fun SqliteConnectionManager.queryString(sql: String): String =
