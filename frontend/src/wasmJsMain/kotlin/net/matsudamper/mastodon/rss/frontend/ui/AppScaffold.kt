@@ -50,7 +50,6 @@ fun AppScaffold(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
                         .padding(horizontal = outerPadding, vertical = outerPadding),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
