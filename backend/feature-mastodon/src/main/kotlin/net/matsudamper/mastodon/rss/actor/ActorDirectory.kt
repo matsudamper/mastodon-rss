@@ -32,7 +32,7 @@ class ActorDirectory(
 
         // 保存されている名前は必ずこの形式なので、引く前に落とせる。
         // `test-1/inbox` のようにパスを含んだものが保存先まで届かなくなる
-        if (!ActorUsername.isValid(username)) return null
+        if (!ActorUsernameUtil.isValid(username)) return null
 
         val found = stored.find(username) ?: return null
 

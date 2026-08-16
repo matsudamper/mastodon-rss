@@ -2,7 +2,7 @@ package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.ActorUrls
-import net.matsudamper.mastodon.rss.actor.ActorUsername
+import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 
 /**
@@ -35,10 +35,10 @@ class AccountService(
 
         if (trimmed.isEmpty()) return AddAccountResult.Empty
 
-        val unusable = ActorUsername.unusableCharacters(trimmed)
+        val unusable = ActorUsernameUtil.unusableCharacters(trimmed)
         if (unusable.isNotEmpty()) return AddAccountResult.UnusableCharacter(unusable)
 
-        if (trimmed.length > ActorUsername.MAX_LENGTH) return AddAccountResult.TooLong
+        if (trimmed.length > ActorUsernameUtil.MAX_LENGTH) return AddAccountResult.TooLong
 
         // 設定で決まるアカウントも引き当ての対象なので、名前が埋まっていることに変わりはない
         if (trimmed.equals(fixed.username, ignoreCase = true)) return AddAccountResult.Duplicated

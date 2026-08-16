@@ -5,7 +5,7 @@ import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.GraphqlExceptions
-import net.matsudamper.mastodon.rss.actor.ActorUsername
+import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
@@ -106,7 +106,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
             }
 
             AccountService.AddAccountResult.TooLong -> {
-                addAccountFailure(failure = QlAdminAddAccountFailure.TOO_LONG, maxLength = ActorUsername.MAX_LENGTH)
+                addAccountFailure(failure = QlAdminAddAccountFailure.TOO_LONG, maxLength = ActorUsernameUtil.MAX_LENGTH)
             }
 
             AccountService.AddAccountResult.Empty -> {

@@ -333,7 +333,7 @@ Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み
 長さは 30 文字まで。
 
 どちらもアクターの ID に焼き込まれ、変えると相手からは別人のアカウントに見える。
-理由は `ServerEnv.kt` と `ActorUsername.kt` の KDoc にある。
+理由は `ServerEnv.kt` と `ActorUsernameUtil.kt` の KDoc にある。
 
 `ACTOR_USERNAME` のアカウントは設定でしか変えられない。それ以外は管理画面から追加する。
 

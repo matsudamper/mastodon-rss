@@ -7,7 +7,7 @@ package net.matsudamper.mastodon.rss.actor
  * WebFinger の `acct:` から来る名前も、同じ規則で検証する。URL のパスと `acct:` の
  * 両方に入るので、区切り文字が混ざると別のものを指してしまう。
  */
-object ActorUsername {
+object ActorUsernameUtil {
     /**
      * Mastodon のローカルアカウントの上限に合わせる。長い名前は相手側で扱えない
      */
