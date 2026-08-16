@@ -61,12 +61,20 @@ class AdminAccountNewScreenViewModel(
             when (val result = api.addAccount(state.username.trim())) {
                 is AdminAddAccountResult.Success -> {
                     viewModelStateFlow.update {
-                        it.copy(submitting = false, added = result.account.acct)
+                        it.copy(submitting = false, added = result.acct)
                     }
                 }
 
-                AdminAddAccountResult.InvalidUsername -> {
-                    failed("英数字と _ . - のみ、先頭と末尾は英数字か _、30 文字までにする")
+                is AdminAddAccountResult.UnusableCharacter -> {
+                    failed("使えない文字が入っている: ${result.characters.joinToString(" ")}")
+                }
+
+                is AdminAddAccountResult.TooLong -> {
+                    failed("${result.maxLength} 文字までにする")
+                }
+
+                AdminAddAccountResult.Empty -> {
+                    failed("名前を入れる")
                 }
 
                 AdminAddAccountResult.Duplicated -> {

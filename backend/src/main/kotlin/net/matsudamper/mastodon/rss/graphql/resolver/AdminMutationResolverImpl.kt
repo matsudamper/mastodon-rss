@@ -5,6 +5,7 @@ import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.GraphqlExceptions
+import net.matsudamper.mastodon.rss.actor.ActorUsername
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
@@ -89,11 +90,27 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         val result = when (val added = GraphQlEngine.diContainer(env).accountService.add(username)) {
             is AddAccountResult.Success -> {
-                QlAdminAddAccountResult(account = added.account.toGraphqlResponse(), failure = null)
+                QlAdminAddAccountResult(
+                    account = added.account.toGraphqlResponse(),
+                    failure = null,
+                    unusableCharacters = null,
+                    maxLength = null,
+                )
             }
 
-            AddAccountResult.InvalidUsername -> {
-                addAccountFailure(QlAdminAddAccountFailure.INVALID_USERNAME)
+            is AddAccountResult.UnusableCharacter -> {
+                addAccountFailure(
+                    failure = QlAdminAddAccountFailure.UNUSABLE_CHARACTER,
+                    unusableCharacters = added.characters.map { it.toString() },
+                )
+            }
+
+            AddAccountResult.TooLong -> {
+                addAccountFailure(failure = QlAdminAddAccountFailure.TOO_LONG, maxLength = ActorUsername.MAX_LENGTH)
+            }
+
+            AddAccountResult.Empty -> {
+                addAccountFailure(QlAdminAddAccountFailure.EMPTY)
             }
 
             AddAccountResult.Duplicated -> {
@@ -104,7 +121,16 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
-    private fun addAccountFailure(failure: QlAdminAddAccountFailure): QlAdminAddAccountResult = QlAdminAddAccountResult(account = null, failure = failure)
+    private fun addAccountFailure(
+        failure: QlAdminAddAccountFailure,
+        unusableCharacters: List<String>? = null,
+        maxLength: Int? = null,
+    ): QlAdminAddAccountResult = QlAdminAddAccountResult(
+        account = null,
+        failure = failure,
+        unusableCharacters = unusableCharacters,
+        maxLength = maxLength,
+    )
 
     private fun loginFailure(
         context: GraphQlContext,

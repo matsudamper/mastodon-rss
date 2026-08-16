@@ -9,7 +9,10 @@ query AdminSession {
 query AdminAccounts {
     admin {
         accounts {
-            ...AdminAccountFields
+            username
+            acct
+            actorUrl
+            createdAt
         }
     }
 }
@@ -37,9 +40,11 @@ mutation AdminAddAccount($username: String!) {
     admin {
         addAccount(username: $username) {
             account {
-                ...AdminAccountFields
+                acct
             }
             failure
+            unusableCharacters
+            maxLength
         }
     }
 }
@@ -47,11 +52,4 @@ mutation AdminAddAccount($username: String!) {
 fragment AdminSessionFields on AdminSession {
     loggedIn
     passwordConfigured
-}
-
-fragment AdminAccountFields on AdminAccount {
-    username
-    acct
-    actorUrl
-    createdAt
 }

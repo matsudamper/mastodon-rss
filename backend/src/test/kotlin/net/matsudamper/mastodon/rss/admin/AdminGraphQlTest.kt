@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -227,15 +228,57 @@ class AdminGraphQlTest {
         }
 
     @Test
-    fun `使えない名前は追加できない`() =
+    fun `使えない文字は入力にあったものを返す`() =
         testApplication {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
 
-            val result = mutateAddAccount("feed 1", token).addAccountResult()
+            val result = mutateAddAccount("feed 1/あ", token).addAccountResult()
 
-            assertEquals("INVALID_USERNAME", result.string("failure"))
+            assertEquals("UNUSABLE_CHARACTER", result.string("failure"))
             assertEquals(JsonNull, result.getValue("account"))
+            // どの文字が駄目なのかを画面が自分で決めなくて済むようにする
+            assertEquals(
+                listOf(" ", "/", "あ"),
+                result.getValue("unusableCharacters").jsonArray.map { it.jsonPrimitive.content },
+            )
+        }
+
+    @Test
+    fun `末尾に置けない文字は使えない文字として返る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            // `-` は名前の間には置けるが、末尾には置けない
+            val result = mutateAddAccount("feed-", token).addAccountResult()
+
+            assertEquals("UNUSABLE_CHARACTER", result.string("failure"))
+            assertEquals(
+                listOf("-"),
+                result.getValue("unusableCharacters").jsonArray.map { it.jsonPrimitive.content },
+            )
+        }
+
+    @Test
+    fun `長すぎる名前は上限と一緒に返る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val result = mutateAddAccount("a".repeat(31), token).addAccountResult()
+
+            assertEquals("TOO_LONG", result.string("failure"))
+            assertEquals(30, result.getValue("maxLength").jsonPrimitive.int)
+        }
+
+    @Test
+    fun `名前が空なら EMPTY`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            assertEquals("EMPTY", mutateAddAccount("   ", token).addAccountResult().string("failure"))
         }
 
     @Test
@@ -322,7 +365,8 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "mutation Add(${'$'}username: String!) { admin { " +
-                "addAccount(username: ${'$'}username) { account { $ACCOUNT_FIELDS } failure } } }",
+                "addAccount(username: ${'$'}username) { account { $ACCOUNT_FIELDS } " +
+                "failure unusableCharacters maxLength } } }",
             token = token,
             variables = """{"username":${JsonPrimitive(username)}}""",
         )

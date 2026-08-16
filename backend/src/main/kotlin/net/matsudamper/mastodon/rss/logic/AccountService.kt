@@ -33,7 +33,12 @@ class AccountService(
     fun add(username: String): AddAccountResult {
         val trimmed = username.trim()
 
-        if (!ActorUsername.isValid(trimmed)) return AddAccountResult.InvalidUsername
+        if (trimmed.isEmpty()) return AddAccountResult.Empty
+
+        val unusable = ActorUsername.unusableCharacters(trimmed)
+        if (unusable.isNotEmpty()) return AddAccountResult.UnusableCharacter(unusable)
+
+        if (trimmed.length > ActorUsername.MAX_LENGTH) return AddAccountResult.TooLong
 
         // 設定で決まるアカウントも引き当ての対象なので、名前が埋まっていることに変わりはない
         if (trimmed.equals(fixed.username, ignoreCase = true)) return AddAccountResult.Duplicated
@@ -65,7 +70,16 @@ sealed interface AddAccountResult {
         val account: ManagedAccount,
     ) : AddAccountResult
 
-    data object InvalidUsername : AddAccountResult
+    /**
+     * @param characters 入力に含まれていた使えない文字
+     */
+    data class UnusableCharacter(
+        val characters: List<Char>,
+    ) : AddAccountResult
+
+    data object TooLong : AddAccountResult
+
+    data object Empty : AddAccountResult
 
     data object Duplicated : AddAccountResult
 }

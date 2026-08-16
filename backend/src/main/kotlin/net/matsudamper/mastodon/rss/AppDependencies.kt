@@ -45,10 +45,7 @@ class AppDependencies(
      */
     val actorUrls: ActorUrls = ActorUrls(domain = env.domain, username = env.actorUsername)
 
-    /**
-     * 固定アクターに加えて、管理画面から追加されたアカウントにも応答する。
-     * 引くたびに DB を見るので、追加した直後から引けるようにする
-     */
+    // 毎回引き直す。持ち回すと、追加したアカウントが引けるようになるまで間が空く
     val directory: ActorDirectory = ActorDirectory(fixed = actorUrls) { username ->
         repositories.accounts.findByUsername(username)?.username
     }
