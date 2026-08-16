@@ -1,6 +1,5 @@
 package net.matsudamper.mastodon.rss.staticfiles
 
-import kotlin.io.path.extension
 import kotlin.io.path.name
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -25,9 +24,6 @@ import io.ktor.server.routing.get
  *   この場合は 404 を返す。理由は起動ログに出している
  */
 fun Route.staticRoutes(staticFiles: StaticFiles?) {
-    // 名前に中身のハッシュが入る拡張子。フォントや画像は名前が変わらないので入れない
-    val hashedNameExtensions = setOf("js", "wasm")
-
     get("/{path...}") {
         if (staticFiles == null) {
             call.respondText(
@@ -54,8 +50,8 @@ fun Route.staticRoutes(staticFiles: StaticFiles?) {
                 call.response.header(HttpHeaders.CacheControl, "no-store")
             }
 
-            // 名前にハッシュが入っているので、中身が変われば別の URL になる
-            file.fileName.extension in hashedNameExtensions -> {
+            // 名前にハッシュが入っていれば、中身が変わったときに別の URL になる
+            StaticFiles.hasContentHashInName(file.fileName.toString()) -> {
                 call.response.header(HttpHeaders.CacheControl, "public, max-age=31536000, immutable")
             }
         }

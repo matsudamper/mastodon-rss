@@ -109,11 +109,12 @@ class StaticRoutesTest {
         testApplication {
             putFile("index.html", "<html></html>")
             putFile("fonts/NotoSansJP-Regular.ttf", "ttf")
+            // 古い配布物を置いた場合。名前が変わらないので長く持たせてはいけない
+            putFile("frontend.js", "console.log()")
             applicationWith(root)
 
-            val response = client.get("/fonts/NotoSansJP-Regular.ttf")
-
-            assertEquals(null, response.headers[HttpHeaders.CacheControl])
+            assertEquals(null, client.get("/fonts/NotoSansJP-Regular.ttf").headers[HttpHeaders.CacheControl])
+            assertEquals(null, client.get("/frontend.js").headers[HttpHeaders.CacheControl])
         }
 
     @Test

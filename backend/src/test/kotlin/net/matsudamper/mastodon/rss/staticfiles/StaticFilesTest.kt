@@ -129,6 +129,17 @@ class StaticFilesTest {
         assertEquals(ContentType.Application.OctetStream, StaticFiles.contentTypeOf("unknown"))
     }
 
+    @Test
+    fun `名前にハッシュが入っているかを見分ける`() {
+        assertEquals(true, StaticFiles.hasContentHashInName("frontend.d223b78a13c314c5.js"))
+        assertEquals(true, StaticFiles.hasContentHashInName("6e23e5428398b92da386.wasm"))
+        assertEquals(false, StaticFiles.hasContentHashInName("frontend.js"))
+        assertEquals(false, StaticFiles.hasContentHashInName("index.html"))
+        assertEquals(false, StaticFiles.hasContentHashInName("NotoSansJP-Regular.ttf"))
+        // 短いものはハッシュと数えない。区切りの一部が 16 進に見えるだけのことがある
+        assertEquals(false, StaticFiles.hasContentHashInName("frontend.abc123.js"))
+    }
+
     private fun staticFiles(): StaticFiles = StaticFiles(root)
 
     private fun putFile(

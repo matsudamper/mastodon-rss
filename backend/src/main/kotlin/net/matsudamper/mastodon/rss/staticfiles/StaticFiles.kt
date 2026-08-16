@@ -119,5 +119,24 @@ class StaticFiles(
                 "xml" -> ContentType.Application.Xml
                 else -> ContentType.Application.OctetStream
             }
+
+        /**
+         * 名前に中身のハッシュが入っているか。
+         *
+         * 入っていれば中身が変わったときに URL も変わるので、長く持たせても
+         * 古いものを使い続けることにならない。`frontend.js` のように名前が変わらない
+         * ものを長く持たせると、置き換えても新しいものに変わらなくなる。
+         *
+         * 見ているのは 16 進が続くだけの区切りがあるかどうか。置き場所には
+         * ビルドした配布物以外も入るため、拡張子では判断しない。
+         */
+        fun hasContentHashInName(fileName: String): Boolean =
+            fileName
+                .substringBeforeLast('.', "")
+                .split('.')
+                .any { contentHashPattern.matches(it) }
+
+        /** 名前に入るハッシュ。短いものを数えないよう長さで下限を引く */
+        private val contentHashPattern = Regex("[0-9a-f]{8,}")
     }
 }
