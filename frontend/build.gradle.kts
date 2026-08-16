@@ -24,7 +24,7 @@ kotlin {
     }
 
     sourceSets {
-        val commonMain by getting {
+        commonMain {
             dependencies {
                 implementation(project(":shared"))
                 implementation(libs.apollo.runtime)
@@ -32,7 +32,7 @@ kotlin {
             }
         }
 
-        val wasmJsMain by getting {
+        wasmJsMain {
             dependencies {
                 // compose.* は deprecated 警告が出るが、1.11.1 では
                 // org.jetbrains.compose.* の直接座標がまだ公開されていない
