@@ -1,16 +1,16 @@
 package net.matsudamper.mastodon.rss.frontend.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -66,9 +66,6 @@ fun AppScaffold(
     }
 }
 
-/**
- * 画面の一番上に出す帯。どの画面からでもトップと管理画面に行けるようにする。
- */
 @Composable
 private fun AppHeader(onNavigate: (Screen) -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surface) {
@@ -82,18 +79,14 @@ private fun AppHeader(onNavigate: (Screen) -> Unit) {
             ) {
                 Text(
                     text = Screen.SITE_NAME,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .clickable {
+                            onNavigate(Screen.Home)
+                        },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
-                TextLink(
-                    text = "トップ",
-                    onClick = { onNavigate(Screen.Home) },
-                )
-                TextLink(
-                    text = "管理画面",
-                    onClick = { onNavigate(Screen.Admin) },
-                )
+                Spacer(modifier = Modifier.weight(1f))
             }
             HorizontalDivider(color = dividerColor())
         }
