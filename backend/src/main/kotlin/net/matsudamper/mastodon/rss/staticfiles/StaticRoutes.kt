@@ -1,8 +1,9 @@
 package net.matsudamper.mastodon.rss.staticfiles
 
+import kotlin.io.path.name
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.call
 import io.ktor.server.http.content.LocalFileContent
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
@@ -39,6 +40,14 @@ fun Route.staticRoutes(staticFiles: StaticFiles?) {
         if (file == null) {
             call.respondText("見つからない: /${segments.joinToString("/")}", status = HttpStatusCode.NotFound)
             return@get
+        }
+
+        // 中で参照しているwasmが変わる為、キャッシュされないようにする
+        // TODO jsにhashを付けて、index.htmlをキャッシュされないようにする
+        if (file.fileName.name == "frontend.js") {
+            call.response.header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            call.response.header("Pragma", "no-cache")
+            call.response.header("Expires", "0")
         }
 
         // LocalFileContent は Content-Length と Last-Modified を付け、
