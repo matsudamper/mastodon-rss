@@ -6,10 +6,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import net.matsudamper.mastodon.rss.frontend.api.AdminAccountsResult
-import net.matsudamper.mastodon.rss.frontend.api.AdminApi
-import net.matsudamper.mastodon.rss.frontend.api.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountsResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 
 class AdminAccountsScreenViewModel(
     private val viewModelScope: CoroutineScope,
