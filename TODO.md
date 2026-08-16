@@ -4,7 +4,8 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 ライブラリに依存せず ActivityPub を自前実装する。
 
 ここに書くのはこれからやることと、その順番の理由。終わったフェーズは
-「これまでにやったこと」に要約だけ残す。実装の詳細は書かない。横断的な設計は
+「これまでにやったこと」に要約だけ残す。フェーズの流れに乗せない、いつでもいいものは
+[GitHub の Issue](https://github.com/matsudamper/mastodon-rss/issues) に置く。実装の詳細は書かない。横断的な設計は
 [docs/architecture.md](docs/architecture.md)、外部への応答は
 [docs/mastodon-spec.md](docs/mastodon-spec.md)、ビルドと環境変数は [README.md](README.md)、
 native-image で踏んだことは `META-INF/native-image/` の README にある。
@@ -463,20 +464,6 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
 - [ ] systemd unit（コンテナを使わない場合の起動方法）
 - [ ] セットアップ手順の README
 - [ ] リバースプロキシ設定例（nginx / Caddy）
-
----
-
-## いつでもいい
-
-フェーズの流れには乗せない。必要になった時点で拾う。
-先にやっても確認する手段が無かったり、動機が薄いもの。
-
-- [ ] YouTube の `media:group` を読む
-      - YouTube の Atom は entry 直下に `summary` も `content` も持たず、説明文は
-        `media:group/media:description` に入っている。いまは未知の要素として読み飛ばすので
-        `bodyOrSummary()` が null になり、投稿が題名とリンクだけになる
-      - 同じ場所にある `media:thumbnail` も、画像を付けるなら要る
-      - 題名とリンクだけでも購読の役には立つので、実際に流してみて物足りなければ拾う
 
 ---
 
