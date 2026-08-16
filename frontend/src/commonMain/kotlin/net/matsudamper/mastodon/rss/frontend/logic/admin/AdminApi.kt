@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.api
+package net.matsudamper.mastodon.rss.frontend.logic.admin
 
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminAddAccountFailure
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
+import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 
 class AdminApi(
     private val client: ApolloClient = GraphQlClient.apollo,
@@ -106,72 +107,4 @@ class AdminApi(
             ?: errors?.joinToString("\n") { it.message }?.takeIf { it.isNotEmpty() }
             ?: "ネットワークエラー"
     }
-}
-
-sealed interface AdminSessionResult {
-    data class Success(
-        val loggedIn: Boolean,
-        val passwordConfigured: Boolean,
-    ) : AdminSessionResult
-
-    data class Failure(
-        val message: String,
-    ) : AdminSessionResult
-}
-
-sealed interface AdminLoginResult {
-    data object Success : AdminLoginResult
-
-    data object WrongPassword : AdminLoginResult
-
-    data object NotConfigured : AdminLoginResult
-
-    data class Failure(
-        val message: String,
-    ) : AdminLoginResult
-}
-
-/**
- * @param createdAt 追加した時刻。エポックからの秒数。設定で決まるアカウントには無い
- */
-data class AdminAccount(
-    val username: String,
-    val acct: String,
-    val actorUrl: String,
-    val createdAt: Long?,
-)
-
-sealed interface AdminAccountsResult {
-    data class Success(
-        val accounts: List<AdminAccount>,
-    ) : AdminAccountsResult
-
-    data class Failure(
-        val message: String,
-    ) : AdminAccountsResult
-}
-
-sealed interface AdminAddAccountResult {
-    data class Success(
-        val acct: String,
-    ) : AdminAddAccountResult
-
-    /**
-     * @param characters 入力に含まれていた使えない文字
-     */
-    data class UnusableCharacter(
-        val characters: List<String>,
-    ) : AdminAddAccountResult
-
-    data class TooLong(
-        val maxLength: Int,
-    ) : AdminAddAccountResult
-
-    data object Empty : AdminAddAccountResult
-
-    data object Duplicated : AdminAddAccountResult
-
-    data class Failure(
-        val message: String,
-    ) : AdminAddAccountResult
 }

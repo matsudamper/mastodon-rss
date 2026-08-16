@@ -1,5 +1,5 @@
-// 下の external 宣言に要る
 @file:OptIn(ExperimentalWasmJsInterop::class)
+@file:Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 
 package net.matsudamper.mastodon.rss.frontend.format
 
