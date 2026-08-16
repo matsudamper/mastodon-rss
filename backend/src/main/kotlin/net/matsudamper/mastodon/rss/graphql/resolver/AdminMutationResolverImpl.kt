@@ -15,7 +15,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
-import net.matsudamper.mastodon.rss.logic.AddAccountResult
+import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 
 class AdminMutationResolverImpl : AdminMutationResolver {
@@ -89,7 +89,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
         val result = when (val added = GraphQlEngine.diContainer(env).accountService.add(username)) {
-            is AddAccountResult.Success -> {
+            is AccountService.AddAccountResult.Success -> {
                 QlAdminAddAccountResult(
                     account = added.account.toGraphqlResponse(),
                     failure = null,
@@ -98,22 +98,22 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                 )
             }
 
-            is AddAccountResult.UnusableCharacter -> {
+            is AccountService.AddAccountResult.UnusableCharacter -> {
                 addAccountFailure(
                     failure = QlAdminAddAccountFailure.UNUSABLE_CHARACTER,
                     unusableCharacters = added.characters.map { it.toString() },
                 )
             }
 
-            AddAccountResult.TooLong -> {
+            AccountService.AddAccountResult.TooLong -> {
                 addAccountFailure(failure = QlAdminAddAccountFailure.TOO_LONG, maxLength = ActorUsername.MAX_LENGTH)
             }
 
-            AddAccountResult.Empty -> {
+            AccountService.AddAccountResult.Empty -> {
                 addAccountFailure(QlAdminAddAccountFailure.EMPTY)
             }
 
-            AddAccountResult.Duplicated -> {
+            AccountService.AddAccountResult.Duplicated -> {
                 addAccountFailure(QlAdminAddAccountFailure.DUPLICATED)
             }
         }

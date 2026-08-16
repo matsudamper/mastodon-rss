@@ -53,33 +53,33 @@ class AccountService(
             ),
         )
     }
-}
-
-/**
- * @param deletable 管理画面から消せるか。設定で決まるアカウントは消せない
- * @param createdAt 追加した時刻。設定で決まるアカウントには無い
- */
-data class ManagedAccount(
-    val urls: ActorUrls,
-    val deletable: Boolean,
-    val createdAt: Instant?,
-)
-
-sealed interface AddAccountResult {
-    data class Success(
-        val account: ManagedAccount,
-    ) : AddAccountResult
 
     /**
-     * @param characters 入力に含まれていた使えない文字
+     * @param deletable 管理画面から消せるか。設定で決まるアカウントは消せない
+     * @param createdAt 追加した時刻。設定で決まるアカウントには無い
      */
-    data class UnusableCharacter(
-        val characters: List<Char>,
-    ) : AddAccountResult
+    data class ManagedAccount(
+        val urls: ActorUrls,
+        val deletable: Boolean,
+        val createdAt: Instant?,
+    )
 
-    data object TooLong : AddAccountResult
+    sealed interface AddAccountResult {
+        data class Success(
+            val account: ManagedAccount,
+        ) : AddAccountResult
 
-    data object Empty : AddAccountResult
+        /**
+         * @param characters 入力に含まれていた使えない文字
+         */
+        data class UnusableCharacter(
+            val characters: List<Char>,
+        ) : AddAccountResult
 
-    data object Duplicated : AddAccountResult
+        data object TooLong : AddAccountResult
+
+        data object Empty : AddAccountResult
+
+        data object Duplicated : AddAccountResult
+    }
 }
