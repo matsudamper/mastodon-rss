@@ -23,7 +23,7 @@ fun NotFoundScreen(
         ) {
             Text(
                 text = "${requestedPath}\n404 Not Found",
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
             )
         }
