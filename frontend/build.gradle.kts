@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.compose.compiler)
     alias(libs.plugins.compose)
+    alias(libs.plugins.apollo)
 }
 
 kotlin {
@@ -23,13 +24,20 @@ kotlin {
     }
 
     sourceSets {
+        val commonMain by getting {
+            dependencies {
+                implementation(project(":shared"))
+                implementation(libs.apollo.runtime)
+                implementation(compose.runtime)
+            }
+        }
+
         val wasmJsMain by getting {
             dependencies {
                 // compose.* は deprecated 警告が出るが、1.11.1 では
                 // org.jetbrains.compose.* の直接座標がまだ公開されていない
                 // （material3 は alpha 止まり）ため、こちらを使う。
                 // 1.12 系が安定したら直接座標へ移行する。
-                implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3)
                 implementation(compose.ui)
@@ -43,5 +51,17 @@ kotlin {
                 implementation(libs.kotlinx.browser)
             }
         }
+    }
+}
+
+// 問い合わせ（src/commonMain/graphql/*.graphql）はこのモジュールが持つ。
+// スキーマは :backend:graphql のものをファイルとして読むだけで、依存はしない。
+// 写しを持たないので、片方にだけフィールドがある状態にはならない
+apollo {
+    service("admin") {
+        packageName.set("net.matsudamper.mastodon.rss.frontend.graphql")
+        schemaFiles.from(
+            rootProject.fileTree("backend/graphql/src/main/resources/graphql") { include("*.graphqls") },
+        )
     }
 }

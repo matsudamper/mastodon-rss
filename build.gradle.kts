@@ -24,6 +24,10 @@ allprojects {
         // プラグイン既定のバージョンに引きずられないよう version catalog で固定する。
         // Renovate に追従させるためでもある
         version.set(ktlintVersion)
+
+        filter {
+            exclude { element -> element.file.invariantSeparatorsPath.contains("/build/generated/") }
+        }
     }
 }
 

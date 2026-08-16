@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss
 
 import java.nio.file.Path
 import io.ktor.server.application.Application
-import io.ktor.server.application.call
 import io.ktor.server.application.log
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
@@ -11,6 +10,13 @@ import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorUsername
 import net.matsudamper.mastodon.rss.actor.actorRoutes
+import net.matsudamper.mastodon.rss.graphql.GraphQlContext
+import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
+import net.matsudamper.mastodon.rss.graphql.resolver.AdminMutationResolverImpl
+import net.matsudamper.mastodon.rss.graphql.resolver.AdminQueryResolverImpl
+import net.matsudamper.mastodon.rss.graphql.resolver.MutationResolverImpl
+import net.matsudamper.mastodon.rss.graphql.resolver.QueryResolverImpl
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
@@ -76,6 +82,25 @@ fun Application.module(deps: AppDependencies) {
     // 黙って 404 になると、設定し忘れなのか置き忘れなのかが分からない
     val staticFiles = resolveStaticFiles(env.staticSrcDir)
 
+    logAdminLogin(env)
+
+    val graphQl = GraphQlEngine.create(
+        resolvers = listOf(
+            QueryResolverImpl(),
+            MutationResolverImpl(),
+            AdminQueryResolverImpl(),
+            AdminMutationResolverImpl(),
+        ),
+        createContext = { call ->
+            GraphQlContext(
+                call = call,
+                sessionStore = deps.adminSessionStore,
+                cookieSecure = env.adminCookieSecure,
+            )
+        },
+        env = env,
+    )
+
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
     // native-image で解決できず 500 になる。詳細は json/JsonResponse.kt を参照
     routing {
@@ -92,8 +117,26 @@ fun Application.module(deps: AppDependencies) {
 
         nodeInfoRoutes(env.domain)
 
+        graphQlRoutes(graphQl)
+
         // 残り全部を受けるので最後に置く
         staticRoutes(staticFiles)
+    }
+}
+
+private fun Application.logAdminLogin(env: ServerEnv) {
+    if (env.adminPasswordHash == null) {
+        log.warn("ADMIN_PASSWORD_HASH が未設定なので管理画面にログインできない")
+        return
+    }
+
+    if (env.adminCookieSecure) {
+        log.info("管理画面のログインを受け付ける。セッション Cookie には Secure を付ける")
+    } else {
+        log.warn(
+            "管理画面のログインを受け付ける。ADMIN_COOKIE_SECURE=false なので" +
+                "セッション Cookie に Secure を付けない。http で試すとき以外は外すこと",
+        )
     }
 }
 

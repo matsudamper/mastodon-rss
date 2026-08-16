@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss
 import java.nio.file.Path
 import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
 import net.matsudamper.mastodon.rss.actor.ActorUsername
+import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
 /**
  * 環境変数を読む唯一の場所。起動時にここで全部読み、以降は引数で配る。
@@ -16,7 +17,7 @@ import net.matsudamper.mastodon.rss.actor.ActorUsername
  * 設定の入口そのものは環境変数に寄せている。
  *
  * 空文字と空白だけの指定はどれも未設定と同じに扱う。docker compose の
- * `${VAR}` が空で展開されたときに、既定値へ落ちる方が扱いやすい。
+ * `VAR` が空で展開されたときに、既定値へ落ちる方が扱いやすい。
  *
  * @param env 環境変数。テストから差し替えるためだけに引数にしている。
  *   JVM から自プロセスの環境変数は設定できないので、差し替えられないと読み取りのテストが書けない
@@ -24,14 +25,18 @@ import net.matsudamper.mastodon.rss.actor.ActorUsername
 class ServerEnv(
     env: Map<String, String> = System.getenv(),
 ) {
-    /** バインドするアドレス */
+    /**
+     * バインドするアドレス
+     */
     val host: String =
         run {
             val raw = env["HOST"]?.trim()
             if (raw.isNullOrEmpty()) "0.0.0.0" else raw
         }
 
-    /** 待ち受けポート。数値でなければ既定値に落とす */
+    /**
+     * 待ち受けポート。数値でなければ既定値に落とす
+     */
     val port: Int = env["PORT"]?.trim()?.toIntOrNull() ?: 8080
 
     /**
@@ -75,14 +80,18 @@ class ServerEnv(
             username
         }
 
-    /** SQLite の DB ファイル。親ディレクトリは接続時に作られる */
+    /**
+     * SQLite の DB ファイル。親ディレクトリは接続時に作られる
+     */
     val dbPath: Path =
         run {
             val raw = env["DB_PATH"]?.trim()
             Path.of(if (raw.isNullOrEmpty()) "./data/mastodon-rss.db" else raw)
         }
 
-    /** アクターの秘密鍵をどこから読むか */
+    /**
+     * アクターの秘密鍵をどこから読むか
+     */
     val actorPrivateKey: ActorPrivateKey =
         run {
             // PEM は中身をそのまま鍵として読むので、前後の空白も落とさずに渡す
@@ -103,10 +112,32 @@ class ServerEnv(
             }
         }
 
-    /** 配信する静的ファイルのディレクトリ。未設定なら null で、何も配信しない */
+    /**
+     * 配信する静的ファイルのディレクトリ。未設定なら null で、何も配信しない
+     */
     val staticSrcDir: Path? =
         run {
             val raw = env["STATIC_SRC_DIR"]?.trim()
             if (raw.isNullOrEmpty()) null else Path.of(raw)
+        }
+
+    val adminPasswordHash: PasswordHash? =
+        run {
+            val raw = env["ADMIN_PASSWORD_HASH"]?.trim()
+            if (raw.isNullOrEmpty()) null else PasswordHash.parse(raw)
+        }
+
+    /**
+     * セッション Cookie に `Secure` を付けるか。付けたまま http で開くとログインできない
+     */
+    val adminCookieSecure: Boolean =
+        run {
+            val raw = env["ADMIN_COOKIE_SECURE"]?.trim()
+            if (raw.isNullOrEmpty()) {
+                return@run true
+            }
+
+            raw.lowercase().toBooleanStrictOrNull()
+                ?: throw IllegalArgumentException("ADMIN_COOKIE_SECURE は true か false にすること: $raw")
         }
 }

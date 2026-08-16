@@ -4,8 +4,12 @@ import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
+import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
 // 環境変数の読み取りを確認する。読むのはここ 1 か所だけなので、
 // 変数と既定値の一覧としてもこのテストを見れば分かるようにしておく。
@@ -126,5 +130,43 @@ class ServerEnvTest {
                 "ACTOR_PRIVATE_KEY_PATH" to "/data/actor.pem",
             )
         }
+    }
+
+    @Test
+    fun `パスワードハッシュは未設定でも起動する`() {
+        assertNull(env().adminPasswordHash)
+        assertNull(env("ADMIN_PASSWORD_HASH" to "  ").adminPasswordHash)
+    }
+
+    @Test
+    fun `パスワードハッシュを読める`() {
+        val encoded = PasswordHash.create("とても長いパスワード", iterations = 1_000).encode()
+
+        val hash = assertNotNull(env("ADMIN_PASSWORD_HASH" to encoded).adminPasswordHash)
+
+        assertTrue(hash.matches("とても長いパスワード"))
+    }
+
+    @Test
+    fun `パスワードハッシュの形式が違えば落ちる`() {
+        assertFailsWith<IllegalArgumentException> { env("ADMIN_PASSWORD_HASH" to "パスワード") }
+    }
+
+    @Test
+    fun `Cookie の Secure は既定で付ける`() {
+        assertTrue(env().adminCookieSecure)
+        assertTrue(env("ADMIN_COOKIE_SECURE" to " ").adminCookieSecure)
+        assertTrue(env("ADMIN_COOKIE_SECURE" to "TRUE").adminCookieSecure)
+    }
+
+    @Test
+    fun `Cookie の Secure を外せる`() {
+        assertFalse(env("ADMIN_COOKIE_SECURE" to "false").adminCookieSecure)
+        assertFalse(env("ADMIN_COOKIE_SECURE" to "False").adminCookieSecure)
+    }
+
+    @Test
+    fun `Cookie の Secure が true でも false でもなければ落ちる`() {
+        assertFailsWith<IllegalArgumentException> { env("ADMIN_COOKIE_SECURE" to "no") }
     }
 }

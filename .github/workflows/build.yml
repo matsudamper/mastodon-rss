@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  GITHUB_ACTOR: ${{ github.actor }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   ktlint:
     name: コード整形の確認
@@ -135,6 +139,10 @@ jobs:
           sqlite3 "$DB_PATH" < backend/repository/src/main/resources/db/schema.sql
           # 鍵の生成と書き出しも native バイナリで動く必要がある
           export ACTOR_PRIVATE_KEY_PATH="$RUNNER_TEMP/native-check/actor-private-key.pem"
+          # パスワードは ci-password。このジョブの中でしか使わない使い捨て
+          export ADMIN_PASSWORD_HASH='pbkdf2-sha256:210000:HP9l044PxKN0LJhMy5GyrQ:tWTwqvZDQgC75D39BMPPm2TvA3F9S3bUP1-XyH5l4HQ'
+          # http で叩くので、Secure を付けると Cookie の確認ができない
+          export ADMIN_COOKIE_SECURE=false
           # DOMAIN は必須。未設定だと起動せず、WebFinger と Actor も確認できない
           export DOMAIN=example.com
           export ACTOR_USERNAME=admin
@@ -232,6 +240,40 @@ jobs:
             -X POST -H 'Content-Type: application/activity+json' \
             -d '{"type":"Follow"}' \
             "http://localhost:8080/users/other/inbox")" = "404"
+
+          # graphql-java が native-image で動くか、スキーマが同梱されているかは
+          # JVM のテストでは分からない
+          echo "--- GraphQL の query ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"query { admin { session { loggedIn passwordConfigured } } }"}' \
+            http://localhost:8080/graphql -o /tmp/graphql-session.json
+          cat /tmp/graphql-session.json
+          grep -q '"loggedIn":false' /tmp/graphql-session.json
+          grep -q '"passwordConfigured":true' /tmp/graphql-session.json
+
+          # 変数と enum の経路を通す
+          echo "--- GraphQL の mutation（パスワードが違う） ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"mutation Login($password: String!) { admin { login(password: $password) { failure } } }","variables":{"password":"wrong"}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-wrong.json
+          cat /tmp/graphql-wrong.json
+          grep -q '"failure":"WRONG_PASSWORD"' /tmp/graphql-wrong.json
+
+          # PBKDF2 の照合と Set-Cookie まで通す
+          echo "--- GraphQL の mutation（ログイン） ---"
+          curl -sf -D /tmp/graphql-login-headers.txt -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"mutation Login($password: String!) { admin { login(password: $password) { session { loggedIn } failure } } }","variables":{"password":"ci-password"}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-login.json
+          cat /tmp/graphql-login.json
+          grep -q '"loggedIn":true' /tmp/graphql-login.json
+          grep -q '"failure":null' /tmp/graphql-login.json
+          grep -qi 'set-cookie: admin_session=' /tmp/graphql-login-headers.txt
+
+          echo "--- スキーマに無いフィールドは errors ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"query { admin { unknownField } }"}' \
+            http://localhost:8080/graphql -o /tmp/graphql-unknown.json
+          grep -q '"errors"' /tmp/graphql-unknown.json
 
       - name: DOMAIN が無ければ起動しないことの確認
         run: |

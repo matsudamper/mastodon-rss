@@ -5,6 +5,11 @@ compose = "1.11.1"
 navigation3 = "1.1.1"
 kotlinxBrowser = "0.5.0"
 kotlinxSerialization = "1.11.0"
+graphqlJava = "26.0"
+graphqlKickstartTools = "14.0.1"
+graphqlCodegen = "5.10.1-BUILD-2dd014e63d18dcb3c0fcd704b1f3b6db2ac18b1e"
+apollo = "5.0.1"
+graalvmSdk = "25.0.4"
 sqliteJdbc = "3.53.2.1"
 jooq = "3.21.7"
 slf4j = "2.0.18"
@@ -23,12 +28,14 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinxBrowser" }
 navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+graphql-java = { module = "com.graphql-java:graphql-java", version.ref = "graphqlJava" }
+graphql-kickstart-tools = { module = "com.graphql-java-kickstart:graphql-java-tools", version.ref = "graphqlKickstartTools" }
+apollo-runtime = { module = "com.apollographql.apollo:apollo-runtime", version.ref = "apollo" }
+graalvm-nativeimage = { module = "org.graalvm.sdk:nativeimage", version.ref = "graalvmSdk" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
 jooq = { module = "org.jooq:jooq", version.ref = "jooq" }
 jooq-codegen = { module = "org.jooq:jooq-codegen", version.ref = "jooq" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
-# build-logic が native-image の設定を書くために読む。プラグインの実体そのもの。
-# [plugins] の graalvm-native と同じバージョンを指す
 graalvm-native-plugin = { module = "org.graalvm.buildtools:native-gradle-plugin", version.ref = "graalvmBuildtools" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 
@@ -38,5 +45,7 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose = { id = "org.jetbrains.compose", version.ref = "compose" }
+apollo = { id = "com.apollographql.apollo", version.ref = "apollo" }
+graphql-codegen = { id = "io.github.kobylynskyi.graphql.codegen", version.ref = "graphqlCodegen" }
 graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvmBuildtools" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }

@@ -1,0 +1,40 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "comment": "管理 API のスキーマ。入っていないと起動時に GraphQlEngine.create が落ちる",
+        "pattern": "\\Qgraphql/\\E.*\\Q.graphqls\\E"
+      },
+      {
+        "comment": "読むスキーマの一覧。:backend:graphql が作る。native バイナリではディレクトリを列挙できない",
+        "pattern": "\\Qgraphql/schema-list.txt\\E"
+      },
+      {
+        "comment": "Kotlin の組み込み宣言。kotlin-reflect が最初に読む。kickstart がリゾルバの引数を数えるのに使う",
+        "pattern": ".*\\.kotlin_builtins"
+      },
+      {
+        "comment": "モジュールごとの Kotlin メタデータ。kotlin-reflect がクラスの所属を引くのに読む",
+        "pattern": ".*\\.kotlin_module"
+      }
+    ]
+  },
+  "bundles": [
+    {
+      "comment": "graphql-java のメッセージ。SchemaParser がスキーマを読む時点で i18n.Parsing を引く",
+      "name": "i18n.General"
+    },
+    {
+      "name": "i18n.Parsing"
+    },
+    {
+      "name": "i18n.Validation"
+    },
+    {
+      "name": "i18n.Execution"
+    },
+    {
+      "name": "i18n.Scalars"
+    }
+  ]
+}

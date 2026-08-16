@@ -56,6 +56,25 @@ JVM のテストが全部通ったまま実バイナリだけが落ちる。
 使い回すと、DB のスキーマを変えるたびにパーサを触ることになるため。詰め替えは
 両方を知っている取り込み処理（Phase 5 で `:backend` に置く）の仕事にする。
 
+`:backend:graphql` は管理 API のスキーマと、そこから生成したモデル・リゾルバの
+インタフェースを持つ。生成物を使うのはサーバーだけなので `backend/` の下に置く。
+
+`:frontend` はスキーマのファイルを Apollo のコード生成の入力として読むだけで、
+依存はしない。画面側の生成物（問い合わせから作るクライアント）は `:frontend` の中に
+できる。両方の生成物を 1 つのモジュールに入れると、サーバー用の JVM の依存が
+Kotlin/Wasm のビルドに混ざる。
+
+スキーマだけを root の共有モジュールに切り出す形も採れるが、そうすると
+コード生成の設定と入力が別のモジュールに分かれる。スキーマを触るときに
+見る場所が 2 つになるので、生成する側と同じ場所に置いている。
+
+口の URL（`/graphql`）はスキーマに書かない。どこで受けるかはサーバーの都合で、
+スキーマの一部ではない。ただしサーバーの routing と画面のクライアントで同じ値が要り、
+ずれても誰も気付けないので `:shared` に置いて両方から見る。
+
+`:shared` は `:backend` と `:frontend` の両方から見る値だけを置く KMP モジュール
+（`jvm` と `wasmJs`）。
+
 環境変数を読むのは `:backend` の入口（`ServerEnv`）だけにする。`:backend:repository` や
 `:backend:feature-mastodon` のような下位のモジュールは、値を引数で受け取る。
 
@@ -112,7 +131,7 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 | --- | --- |
 | `/` | トップ |
 | `/@{name}` | アカウント画面 |
-| `/admin` 以下 | 管理画面。認証を掛ける対象（Phase 8） |
+| `/admin` 以下 | 管理画面。ログインが要る |
 | それ以外 | 見つからない |
 
 アカウント画面を `/@{name}` にして ActivityPub の `/users/{name}` と分けているのは、
@@ -130,6 +149,123 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 日本語のフォントは静的ファイルと一緒に `/fonts/` で配信し、起動後に取ってきて
 `FontFamily` を組み立てる（`:frontend` の `ui/Font.kt`）。配信するファイルの置き場を
 管理画面専用にせず `STATIC_SRC_DIR` にまとめてあるのは、こういうものが入るため。
+
+## 管理 API
+
+エンドポイントは `POST /graphql` の 1 つ。管理用は `Query.admin` / `Mutation.admin` の下に
+まとめ、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側は相手の実装が
+決まっている REST なので、こちらの都合で形を変えられない。触らずに分けておく。
+
+スキーマは `:backend:graphql` に置き、`schema.graphqls`・`admin_query.graphqls`・
+`admin_mutation.graphqls`・`directive.graphqls` に分けてある。`:backend` は起動時に
+全部をリソースとして読んで 1 つに繋ぎ、`:frontend` は同じファイルから Apollo Kotlin で
+クライアントを生成する。写しを作らないので、片方にだけフィールドがある状態にはならない。
+
+### スキーマ優先とコード生成
+
+[kake-bo](https://github.com/matsudamper/kake-bo) と同じ構成にしてある。手で書くのは
+スキーマとリゾルバの実装だけで、その間にある型は全部生成する。
+
+- サーバーのモデルとリゾルバのインタフェース: kobylynskyi の
+  graphql-java-codegen（Gradle プラグイン `io.github.kobylynskyi.graphql.codegen`）。
+  取るのは [fork](https://github.com/matsudamper/graphql-java-codegen) のビルドで、
+  GitHub Packages にあるので資格情報が要る（README を参照）。設定は
+  `backend/graphql/build.gradle.kts`
+- 結線: graphql-java-tools (kickstart) の `SchemaParser`。リゾルバの実装を渡すだけで、
+  スキーマのフィールドとメソッドを対応付ける
+- 画面のクライアント: Apollo Kotlin。入力は同じスキーマと `:frontend` の問い合わせ
+
+生成されるモデルには `Ql` を付けている。スキーマと同じ名前にすると、リゾルバの中で
+スキーマの型と自分のドメインの型が同じ名前で並ぶ。
+
+リゾルバのインタフェースを作るのは `@lazy` を付けたフィールドだけ。付けないフィールドは
+親のモデルが持っている値がそのまま返る。`Query` と `Mutation` は付けなくても
+1 つずつインタフェースができる。
+
+結線の漏れはコンパイルか起動時に出る。スキーマにフィールドを足すとインタフェースに
+メソッドが増えるので、実装しなければコンパイルが通らない。リゾルバを
+`GraphQlEngine.create` に渡し忘れた場合は `makeExecutableSchema` が落ちる。
+
+### リクエストごとのもの
+
+リゾルバは自分では何も持たず、要るものは `GraphQlContext` から取る。1 リクエストに
+1 つ作って `GraphQLContext` に載せ、`GraphQlEngine.graphQlContext(env)` で引く。
+
+`ApplicationCall` をそのまま渡すとリゾルバが Ktor に依存する。`GraphQlContext` が
+出すのはセッションの読み書きだけなので、Cookie の名前や有効期限はリゾルバから見えない。
+
+### native-image との組み合わせ
+
+kickstart はスキーマとクラスの対応をリフレクションで解決する。native バイナリは
+到達可能性を静的に解析するので、リフレクションで引かれるクラスは登録しておく。
+
+登録は `graalvm/GraphQlReflectionFeature`（`--features=` で渡す GraalVM の Feature）が
+イメージのビルド時にクラスパスを走査して行う。対象は生成物のパッケージ
+（`graphql.model`）とリゾルバの実装のパッケージ（`graphql.resolver`）の 2 つ。
+手で `reflect-config.json` に並べると、スキーマを触るたびに更新が要る。
+
+リゾルバの実装を `graphql.resolver` 以外に置くと走査から外れる。こちらは
+`GraphQlReflectionTargetsTest` が JVM のテストで見ている。
+
+スキーマはリソースなので `resource-config.json` に登録している。読むファイルの一覧
+（`graphql/schema-list.txt`）は `:backend:graphql` がビルド時に作る。native バイナリでは
+ディレクトリを列挙できないので、実行時に `graphql/` の中身を数え上げる手段が無い。
+
+リフレクション登録の他に 2 つ要る。kickstart がリゾルバの引数の数を
+kotlin-reflect で数えるので、その実装クラスの登録と `*.kotlin_builtins` の同梱。
+それと kickstart が連れてくる jackson-databind を jOOQ が拾うので
+`--initialize-at-run-time=org.jooq.impl.Convert$_JSON`。どれも native バイナリを
+動かして 1 つずつ見つけた。症状と経緯は
+`backend/src/main/resources/META-INF/native-image/` の README にある。
+
+native バイナリで `/graphql` を叩いて query・mutation・変数・enum・`Set-Cookie`・
+スキーマ検証まで通ることは確認済み。CI の native-image ジョブでも同じ確認をする。
+JVM のテストはこの経路の問題を出さないので、依存を足したときは native ビルドを通すこと。
+
+## 管理画面のログイン
+
+パスワード 1 つとセッションで見る。ユーザー名は無い。管理画面を開くのは運用者だけで、
+名前を足しても覚えるものが増えるだけになる。
+
+パスワードそのものは持たず、`ADMIN_PASSWORD_HASH` にハッシュ（PBKDF2-HMAC-SHA256、
+`:backend:crypto` の `PasswordHash`）を入れる。ハッシュは
+`./gradlew --quiet :backend:crypto:passwordHash` で作る。
+
+やり取りは管理 API（`POST /graphql`）の `admin.session` / `admin.login` / `admin.logout`。
+
+未設定でも起動する。最初のハッシュを作る前に起動できないと先に進めないため。
+この場合はログインできず、画面には設定方法が出る。起動ログにも警告を出す。
+
+```mermaid
+sequenceDiagram
+    participant B as ブラウザ（/admin）
+    participant S as :backend
+
+    B->>S: POST /graphql（query admin.session）
+    S-->>B: loggedIn: false, passwordConfigured: true
+    Note over B: ログインの入力を出す
+    B->>S: POST /graphql（mutation admin.login）
+    Note over S: PBKDF2 を 21 万回（Dispatchers.IO で回す）
+    S-->>B: Set-Cookie: admin_session（HttpOnly, SameSite=Strict）
+    Note over B: 以降のリクエストにブラウザが Cookie を付ける
+```
+
+セッションはメモリ上のトークン（`AdminSessions`）で、期限は 12 時間。署名付き Cookie に
+して状態を持たない形も選べるが、署名鍵をどこから渡すかという設定が増えるうえ、鍵を固定すると
+ログアウトさせる手段が無くなる（発行済みの Cookie が期限まで有効なまま残る）。サーバーは 1 台で
+再起動も稀なので、再起動でログインし直しになる代わりに設定が増えない方を選んでいる。
+
+ログインの口も管理 API と同じ `/graphql` に置く。認可はエンドポイントではなくフィールドごとに
+見る決まりなので、`admin.session` と `admin.login` だけを認証なしで通せばよく、口を分ける理由が無い。
+分けると認可の有無が URL と実装の 2 か所に散る。
+
+Cookie の `Secure` は既定で付ける。本番はリバースプロキシで HTTPS を終端する前提だが、
+プロキシの後ろではリクエストの scheme が http に見えるのでサーバーからは判定できない。
+手元で `localhost:8080` を平文で開いて試すときだけ `ADMIN_COOKIE_SECURE=false` にする。
+付けたまま http で開くと、ブラウザが Cookie を保存せず、ログインしてもログインしていない
+状態のままになる。
+
+総当たり対策（試行回数の制限）はまだ無い。Phase 7 で入れる。
 
 ## 起動時の流れ
 

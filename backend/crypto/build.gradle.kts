@@ -16,6 +16,15 @@ tasks.test {
     useJUnitPlatform()
 }
 
+//   ./gradlew --quiet :backend:crypto:passwordHash
+tasks.register<JavaExec>("passwordHash") {
+    group = "application"
+    description = "標準入力のパスワードから ADMIN_PASSWORD_HASH に入れる値を作る"
+    mainClass.set("net.matsudamper.mastodon.rss.crypto.PasswordHashCliKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    standardInput = System.`in`
+}
+
 graalvmNative {
     binaries {
         // テストを native バイナリにして実行する。

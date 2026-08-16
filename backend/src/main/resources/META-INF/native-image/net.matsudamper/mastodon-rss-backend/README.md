@@ -1,8 +1,98 @@
 # native-image の設定
 
-このディレクトリに設定ファイルは置いていない。`:backend` はリフレクションに依存しない
-作りにしてあり、`reflect-config.json` を必要としないため。
-その状態を保つための経緯をここに残す。
+置いてあるのは `resource-config.json` だけ。リフレクションの登録が要るのは GraphQL の
+結線だけで、そちらは設定ファイルではなくビルド時にクラスパスを走査して登録する
+（`graalvm/GraphQlReflectionFeature`）。手で書く `reflect-config.json` を増やさない
+ための経緯をここに残す。
+
+## `resource-config.json` に入っているもの
+
+native バイナリにはリソースが自動では入らない。明示していないものは実行時に
+「無い」ものとして振る舞い、JVM では動くのでビルドまで気付けない。
+
+- 管理 API のスキーマ (`graphql/*.graphqls`)。`GraphQlEngine.create` が起動時に読む
+- 読むスキーマの一覧 (`graphql/schema-list.txt`)。`:backend:graphql` がビルド時に作る。
+  native バイナリではディレクトリを列挙できないので、`graphql/` の中身を実行時に
+  数え上げる手段が無い
+- graphql-java のメッセージ (`i18n.*`)。エラー文用に見えるが `SchemaParser` が
+  スキーマを読む時点で `i18n.Parsing` を引くので、無いと起動した瞬間に
+  `MissingResourceException` で落ちる
+
+どれも JVM のテストは通るので、CI の native-image ジョブの起動確認が唯一の検出手段になる。
+
+## GraphQL の結線だけはリフレクションを使う
+
+管理 API はスキーマ優先で、モデルとリゾルバのインタフェースを
+kobylynskyi の graphql-java-codegen が作り、graphql-java-tools (kickstart) が
+スキーマのフィールドとリゾルバのメソッドを対応付ける。この対応付けはリフレクションを
+使うので、native-image 向けにクラスを登録する。
+
+登録は `--features=net.matsudamper.mastodon.rss.graalvm.GraphQlReflectionFeature` で
+渡す Feature が、イメージのビルド時に次の 2 つのパッケージを走査して行う。
+
+- `net.matsudamper.mastodon.rss.graphql.model`（生成されたモデルとインタフェース）
+- `net.matsudamper.mastodon.rss.graphql.resolver`（リゾルバの実装）
+
+ここに入っていないクラスは登録されない。リゾルバの実装が
+`graphql.resolver` から出ていないかは `GraphQlReflectionTargetsTest` が見ている。
+
+手で並べないのは、スキーマにフィールドや型を足すたびに更新が要るため。
+生成物とリゾルバをまとめて走査すれば忘れようがない。
+
+以前は `RuntimeWiring` に `DataFetcher` を明示し、フィールドの値を `Map` で返して
+リフレクションを一切使わない形にしていた。その理由として「kickstart や
+kobylynskyi の codegen は native-image で動かない」と書いてあったが、
+実際に試した記録は無く、根拠の無い決めつけだった。実際に動かしたところ、
+下に並べた 3 つを足せば動く。
+
+### kickstart を動かすのに足したもの
+
+native バイナリを実際に動かして、落ちるたびに 1 つずつ足した。どれも JVM では
+起きない。JVM のテストはリフレクションの経路を通るが、必要なクラスとリソースが
+最初からクラスパスに居るので何も起きない。
+
+1. リゾルバとモデルのリフレクション登録（上に書いた Feature）
+
+2. `kotlin.reflect.jvm.internal.ReflectionFactoryImpl` の登録
+
+   kickstart はリゾルバの引数の数を数えるのに `ReflectJvmMapping.getKotlinFunction`
+   （kotlin-reflect）を使う。`kotlin.jvm.internal.Reflection` は実装を
+   `Class.forName` + `newInstance` で探すので、登録が無いと実装が見つからない。
+
+       KotlinReflectionNotSupportedError: Kotlin reflection implementation is not
+       found at runtime. Make sure you have kotlin-reflect.jar in the classpath
+         at graphql.kickstart.tools.resolver.FieldResolverScanner.getMethodParameterCount
+
+   jar 自体はクラスパスに居る（kickstart の推移依存）。登録だけが足りていなかった。
+
+3. `*.kotlin_builtins` と `*.kotlin_module` をリソースとして同梱する
+
+   kotlin-reflect は Kotlin の組み込み宣言を kotlin-stdlib の中の
+   `kotlin/kotlin.kotlin_builtins` などから読む。上の 2 を足すと実装は
+   見つかるようになるが、その先で組み込み宣言が読めずに落ちる。
+
+       java.lang.AssertionError: Built-in class kotlin.Any is not found
+         at kotlin.reflect.jvm.internal.impl.builtins.KotlinBuiltIns.getBuiltInClassByName
+
+### jOOQ と Jackson の組み合わせ
+
+kickstart は jackson-databind を連れてくる。jOOQ は JSON 型の変換に Jackson を
+使えるようになっていて、クラスパスに居ると `Convert$_JSON` が `ObjectMapper` を
+作って static final に持つ。`--initialize-at-build-time=org.jooq` があるので、
+その実体がイメージヒープに載ってビルドが止まる。
+
+    An object of type 'com.fasterxml.jackson.databind.json.JsonMapper' was found
+    in the image heap. This type, however, is marked for initialization at image
+    run time
+
+`--initialize-at-run-time=org.jooq.impl.Convert$_JSON` で holder クラスだけ外した。
+Jackson をビルド時初期化にして通す手もあるが、`ObjectMapper` の設定とキャッシュを
+イメージに焼き込むことになる。こちらは jOOQ で JSON 型を使っていないので、
+holder ごと実行時に回す方を選んだ。
+
+Jackson がクラスパスに無かった間はこの経路に入らなかったので、GraphQL の
+ライブラリを足した副作用で出たことになる。依存を足したら native ビルドを
+通すこと。
 
 ## かつて必要だった理由
 
@@ -17,7 +107,7 @@ JVM では問題なく動くので、native バイナリを起動して初めて
 当初は `@Serializable` な型ごとに `Foo` / `Foo$Companion` / `Foo$$serializer` の
 3 つを `reflect-config.json` に登録して回避していた。
 
-## いまの方針
+## いまの方針（kotlinx.serialization）
 
 `ContentNegotiation` を使わず、`call.respondJson(Foo.serializer(), value)` のように
 serializer を明示する。コンパイル時に serializer が決まるのでリフレクションが発生せず、

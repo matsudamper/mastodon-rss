@@ -90,7 +90,7 @@ SQLite のネイティブライブラリが原因になる可能性が高く、
 | DB アクセス | jOOQ（`schema.sql` から codegen。実 DB への適用は sqlite3def で手動） |
 | 署名 | JCA（RSA / SHA256withRSA）。ライブラリは足さない |
 | UI | Compose Multiplatform for Web (Kotlin/Wasm) |
-| 管理 API | GraphQL。サーバーは graphql-java、クライアントは Apollo Kotlin（Phase 8 で作る） |
+| 管理 API | GraphQL。スキーマ優先。サーバーは kobylynskyi の codegen + graphql-java-tools、クライアントは Apollo Kotlin |
 | 画面遷移 | Navigation Compose 3（JetBrains 版） |
 
 管理 API を GraphQL にするのは [kake-bo](https://github.com/matsudamper/kake-bo) と
@@ -214,8 +214,12 @@ native-image で動くことだけを確認する。ここが一番の技術リ�
         `:backend` 側には「`Application.module` がそれらを組み込んでいること」だけを残した
       - `nativeTest` は回さない。`ktor-server-test-host` を使うテストは native-image で動かない
         （`:backend` と同じ理由）。native バイナリでの確認は `:backend` の `nativeCompile` で行う
-- [ ] `:shared` — `:backend` と `:frontend` で共有するもの。KMP (`jvm` + `wasmJs`)
-      - 中身は GraphQL のスキーマと、スキーマに書けない定数だけ。Phase 8 で追加する
+- [x] `:backend:graphql` — 管理 API のスキーマと、そこから生成したモデル・リゾルバのインタフェース
+      - Kotlin JVM。生成物を使うのはサーバーだけなので `backend/` の下に置く
+      - `:frontend` はスキーマのファイルを Apollo のコード生成の入力として読むだけで、依存はしない
+- [ ] `:shared` — `:backend` と `:frontend` の両方から見る値。KMP (`jvm` + `wasmJs`)
+
+      いまは `/graphql` のパスだけ入れてある。スキーマに書けない定数はまだ移していない。
 
 依存とバージョンの現状:
 
@@ -451,8 +455,10 @@ Phase 0 は完了。Phase 1 に入る前に「事前に決めておくこと」�
 > DOM ベースの Compose HTML ではなく、Compose Desktop と同じ `androidx.compose.*` の
 > API がそのまま使える方。`ComposeViewport` に描画する。
 >
-> 型の共有が必要になったら `:shared`（KMP: `jvm` + `wasmJs`）を作る。
-> 中身は GraphQL のスキーマと、スキーマに書けない定数だけにする。
+> GraphQL のスキーマは `:backend:graphql` に置き、`:frontend` はそれをコード生成の
+> 入力としてファイルで読む。モジュールの依存は作らない。スキーマに書けない定数
+> （パスワードの長さ制限、画面のパス）の共有が必要になったら、そのときに
+> `:shared`（KMP: `jvm` + `wasmJs`）を作る。
 
 > ### ビルドと配布の分け方（決定済み）
 > `:frontend` と `:backend` は別々にビルドする。Gradle 上で互いに依存させない。
@@ -1009,11 +1015,15 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
       - [ ] 実機で表示を確認する。読み込みの経路は通したが、実際の見た目はまだ見ていない
       - [ ] ttf のままなので 1 ファイル 5MB 台ある。日本語の常用範囲にサブセットすると
             桁で小さくなる。woff2 は Skia が読めないので ttf のまま subset する
-- [ ] `:shared` モジュール（KMP: `jvm` + `wasmJs`）を作る
-      - 中身は GraphQL のスキーマ（`src/commonMain/resources/graphql/schema.graphqls`）と、
-        スキーマに書けない定数（パスワードの長さ制限、環境変数名、画面のパス）だけ
-      - 両モジュールから等距離にするため root に置く。`:backend` に置くと
-        `:frontend` のビルドが `:backend` のディレクトリを見ることになる
+- [ ] スキーマに書けない定数（パスワードの長さ制限、環境変数名、画面のパス）を
+      `:backend` と `:frontend` で共有する
+      - 必要になったら `:shared`（KMP: `jvm` + `wasmJs`）を作って置く
+
+      GraphQL のスキーマは当初 root の `:shared:graphql` に置いていたが、
+      サーバー側のコード生成を入れる時点で `:backend:graphql` に移した。
+      生成の設定と入力を別のモジュールに分けると、スキーマを触るときに見る場所が
+      2 つになる。`:frontend` は Apollo のコード生成の入力としてファイルを読むだけで、
+      モジュールとしては依存しない。定数はまだ移していないのでチェックは付けない。
 - [ ] `:frontend` の成果物を配置するデプロイスクリプトを用意する
       （インフラ側で用意する。このリポジトリの範囲外。Phase 0 の「ビルドと配布の分け方」を参照）
 - [x] `:backend` が静的ファイルを配信する
@@ -1040,27 +1050,60 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
 - [ ] サーバー側に管理 API（フィード CRUD、アクター一覧、配信状況、手動再取得）
 - [ ] 管理 API を GraphQL にする（[kake-bo](https://github.com/matsudamper/kake-bo) と揃える）
 
-      スキーマ優先。サーバーは graphql-java、クライアントは Apollo Kotlin で、
-      どちらも `:shared` の同じ `.graphqls` から作る。REST は作らない。
+      スキーマ優先。手で書くのはスキーマとリゾルバの実装だけで、その間の型は生成する。
+      kake-bo と同じ組み合わせを使う。REST は作らない。
+
+      - サーバーのモデルとリゾルバのインタフェース: kobylynskyi の graphql-java-codegen
+        （Gradle プラグイン `io.github.kobylynskyi.graphql.codegen`）
+      - 結線: graphql-java-tools (kickstart) の `SchemaParser`
+      - 画面のクライアント: Apollo Kotlin
+
+      入力はどちらも `:backend:graphql` の同じ `.graphqls`。
 
       エンドポイントは `/graphql` の 1 つで、管理用とそれ以外はフィールドで分ける
       （管理用は `Query.admin` / `Mutation.admin` の下）。認可はエンドポイントではなく
       フィールドごとに見る。ActivityPub 側は相手の実装が決まっている REST なので触らない。
 
-      native-image への影響に注意する。kake-bo は JVM で動くので graphql-java-tools
-      (kickstart) と kobylynskyi の codegen を使い、リゾルバをリフレクションで
-      結線しているが、この構成は native-image では動かない。`RuntimeWiring` に
-      `DataFetcher` を明示して結線し、フィールドの取り出しも値を `Map` で返して
-      `PropertyDataFetcher` のリフレクション経路に入れない。データクラスを返すと、
-      JVM では動いて native バイナリでだけ全フィールドが null になる形の不具合になる。
+      kickstart はリフレクションで結線するので、native-image 向けにクラスを登録する。
+      登録はイメージのビルド時に `GraphQlReflectionFeature`（GraalVM の Feature）が
+      クラスパスを走査して行う。走査するのは `graphql.model`（生成物）と
+      `graphql.resolver`（リゾルバの実装）の 2 つのパッケージだけなので、
+      リゾルバの実装は必ず `graphql.resolver` に置くこと（外に出ていないかは
+      `GraphQlReflectionTargetsTest` が見ている）。
 
-      - [ ] スキーマを `:shared` に置き、version catalog に graphql-java と Apollo を足す
-      - [ ] `POST /graphql` を 1 つ作る。本文は `receiveText()` してから読み、
+      当初は `RuntimeWiring` に `DataFetcher` を明示し、値を `Map` で返して
+      リフレクションを一切使わない形にしていた。その理由として「kickstart や
+      kobylynskyi の codegen は native-image で動かない」と書いていたが、実際に
+      試しておらず根拠が無かった。スキーマとリゾルバの対応がコンパイル時に
+      確かめられない方が実害が大きいので、生成したインタフェースを実装する形に
+      変えた。いまはスキーマにフィールドを足すとインタフェースにメソッドが
+      増えるので、実装しなければコンパイルが通らない。
+
+      native で動くことは実際に確かめた。kotlin-reflect の実装クラスの登録、
+      `*.kotlin_builtins` の同梱、`--initialize-at-run-time=org.jooq.impl.Convert$_JSON`
+      の 3 つが要る。症状と経緯は `META-INF/native-image/` の README にある。
+
+      口と結線の仕組みは動いていて、いま載っているのはログインだけ。
+      フィード CRUD などが載ってからチェックを付ける。
+
+      - [x] スキーマを `:backend:graphql` に置き、version catalog に graphql-java と Apollo を足す
+      - [x] `POST /graphql` を 1 つ作る。本文は `receiveText()` してから読み、
             変数は `JsonObject` で受けて実行の直前に素の値へ開く
-      - [ ] 実行結果の `Map` を `JsonElement` に変換して返す。知らない型が来たら落とす
-      - [ ] スキーマを `resource-config.json` に登録する（リソースは明示しないと native バイナリに入らない）
-      - [ ] CI の native-image ジョブの起動確認で実際に叩く。
-            graphql-java が native-image で動くかは JVM のテストでは分からない
+      - [x] 実行結果の `Map` を `JsonElement` に変換して返す。知らない型が来たら落とす
+      - [x] スキーマを `resource-config.json` に登録する（リソースは明示しないと native バイナリに入らない）
+      - [x] スキーマからサーバー側のモデルとリゾルバのインタフェースを生成する
+            - 読むスキーマの一覧 (`graphql/schema-list.txt`) もビルド時に作る。
+              native バイナリではディレクトリを列挙できない
+            - リフレクションの登録は Feature でクラスパスを走査する。
+              手で `reflect-config.json` に並べるとスキーマを触るたびに更新が要る
+      - [x] kickstart の結線が native バイナリで動くことを確認する
+            - 手元で `nativeCompile` してバイナリを起動し、query / mutation / 変数 /
+              enum / `Set-Cookie` / スキーマ検証まで通した。CI の native-image
+              ジョブでも同じ確認をする
+            - 落ちるたびに足した 3 つ（kotlin-reflect の実装クラスの登録、
+              `*.kotlin_builtins` の同梱、`Convert$_JSON` の実行時初期化）は
+              `META-INF/native-image/` の README に症状ごと書いた
+            - JVM のテストはこの経路の問題を出さない。依存を足したら native ビルドを通す
 - [ ] 管理 API に認証をかける（inbox と違って外に開けてはいけない）
       - パスワード 1 つ + セッション。ハッシュは `ADMIN_PASSWORD_HASH` に入れる
       - ハッシュは `:backend:crypto` の `PasswordHash`（PBKDF2-HMAC-SHA256）で作る。部品は用意済み
@@ -1068,6 +1111,14 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、**運用者の
         未設定の間だけハッシュ生成を認証なしで開ける。設定後はログインした人だけ
       - セッションの持ち方（メモリ上のトークン / 署名付き Cookie）は実装時に決める
       - 総当たり対策（試行回数の制限）は Phase 7 で入れる
+
+      ログインの仕組みは実装済み。守る対象のフィールドがまだ無いので、チェックは付けない。
+
+      - できているもの: `Query.admin.session` / `Mutation.admin.login` / `Mutation.admin.logout`、
+        メモリ上のセッション（`admin/AdminSessions.kt`、期限 12 時間）、`HttpOnly` +
+        `SameSite=Strict` の Cookie、`/admin` の画面（ログイン後は「ログイン済み」と出すだけ）
+        ハッシュ生成を画面から（いまは `./gradlew --quiet :backend:crypto:passwordHash`）、
+        総当たり対策（Phase 7）
 - [x] 画面遷移を Navigation Compose 3 にする
       - `org.jetbrains.androidx.navigation3:navigation3-ui`（JetBrains 版。wasmJs 向けの成果物がある）
       - 画面のキーを sealed interface で定義し、`NavDisplay` + バックスタックで切り替える

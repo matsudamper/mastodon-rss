@@ -11,13 +11,22 @@ dependencies {
     // ActivityPub（WebFinger / Actor / inbox / NodeInfo）の実装。
     // 相手のサーバーとのやり取りはこのモジュールの中で完結していて、
     // :backend の側にあるのは「何を渡して組み立てるか」だけ。
-    // crypto と ktor-client はこのモジュールの中でしか使わないので、こちらでは持たない
+    // ktor-client はこのモジュールの中でしか使わないので、こちらでは持たない
     implementation(project(":backend:feature-mastodon"))
+
+    // 管理画面のパスワードの照合
+    implementation(project(":backend:crypto"))
+
+    implementation(project(":backend:graphql"))
+    implementation(project(":shared"))
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
 
     implementation(libs.kotlinx.serialization.json)
+
+    // GraphQlReflectionFeature を書くための API
+    compileOnly(libs.graalvm.nativeimage)
 
     // SLF4J の実装が無いと Ktor もこちらのログも NOP になって何も出ない。
     // 起動時の DOMAIN と鍵の取得元は運用で必ず見たいので実装を入れる。
@@ -71,6 +80,8 @@ graalvmNative {
             mainClass.set("net.matsudamper.mastodon.rss.ApplicationKt")
             buildArgs.add("--no-fallback")
 
+            buildArgs.add("--features=net.matsudamper.mastodon.rss.graalvm.GraphQlReflectionFeature")
+
             // native-image は解析中に自分で isAnnotationPresent を呼ぶ（PodFeature.isPodClass）。
             // そこで Kotlin の @Deprecated のデフォルト値が読まれ、level の型である
             // DeprecationLevel enum がビルド時に初期化される。native-image の既定は
@@ -116,6 +127,14 @@ graalvmNative {
             // ビルド時初期化にしてよい。ログの水準をシステムプロパティで変える場合は、
             // 読まれるのがビルド時になる点に注意する
             buildArgs.add("--initialize-at-build-time=org.slf4j")
+
+            // 上の org.jooq から 1 クラスだけ外す。kickstart が連れてくる Jackson を
+            // jOOQ が拾い、Convert$_JSON が持つ ObjectMapper の実体が
+            // イメージヒープに載ってビルドが止まる。JSON 型は使っていない。
+            //
+            //   An object of type 'com.fasterxml.jackson.databind.json.JsonMapper'
+            //   was found in the image heap
+            buildArgs.add("--initialize-at-run-time=org.jooq.impl.Convert${'$'}_JSON")
 
             // 上の初期化に伴って、jOOQ のロゴと「豆知識」を出す静的初期化子も
             // ビルド時に走る。実行時にシステムプロパティを立てても間に合わないので、

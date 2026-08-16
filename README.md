@@ -10,7 +10,9 @@ RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon �
 | モジュール | ディレクトリ | 内容 |
 | --- | --- | --- |
 | `:backend` | `backend/` | Ktor (CIO) のサーバー。GraalVM native-image でビルドする |
+| `:backend:graphql` | `backend/graphql/` | 管理 API のスキーマと、そこから生成したモデル・リゾルバのインタフェース |
 | `:frontend` | `frontend/` | Compose Multiplatform for Web (Kotlin/Wasm) の画面。管理画面とアカウント画面 |
+| `:shared` | `shared/` | `:backend` と `:frontend` の両方から見る値。今は GraphQL のパスだけ |
 
 `:backend` の下には `:backend:feature-mastodon`（ActivityPub の実装）、
 `:backend:crypto`（鍵と署名）、`:backend:repository`（データの取得と保存）、
@@ -28,6 +30,9 @@ flowchart TB
         module["Application.module"]
         route["routing<br/>GET /healthz"]
         deps["AppDependencies<br/>作る順と閉じる順"]
+        graphql["graphql<br/>POST /graphql<br/>GraphQlEngine"]
+        resolver["graphql.resolver<br/>QueryResolverImpl / MutationResolverImpl<br/>AdminQueryResolverImpl / AdminMutationResolverImpl"]
+        admin["admin<br/>AdminSessions<br/>セッション Cookie"]
         static["staticfiles<br/>StaticFiles<br/>staticRoutes"]
     end
 
@@ -46,6 +51,7 @@ flowchart TB
     subgraph crypto[":backend:crypto"]
         keys["RsaKeys<br/>鍵ペア生成 / PEM 入出力"]
         sign["RsaSignature<br/>SHA256withRSA"]
+        pass["PasswordHash<br/>PBKDF2-HMAC-SHA256"]
     end
 
     subgraph repository[":backend:repository"]
@@ -64,6 +70,12 @@ flowchart TB
 
     subgraph frontend[":frontend"]
         compose["Compose Multiplatform for Web<br/>Kotlin/Wasm<br/>Navigation 3 で画面を出し分け"]
+        apollo["Apollo Kotlin<br/>スキーマから生成したクライアント"]
+    end
+
+    subgraph graphqlschema[":backend:graphql"]
+        schemafile["schema.graphqls<br/>admin_query.graphqls<br/>admin_mutation.graphqls<br/>directive.graphqls"]
+        qlmodel["graphql.model<br/>QlAdminSession / QlAdminLoginResult<br/>QueryResolver / AdminMutationResolver<br/>ビルド時に生成。git には入らない"]
     end
 
     db[("SQLite<br/>DB_PATH")]
@@ -89,6 +101,10 @@ flowchart TB
     module --> nodeinfo
     webfinger --> actor
     actorroute --> actor
+    module --> graphql
+    graphql -->|リゾルバの実装を渡して結線| resolver
+    resolver -->|セッションの発行と検証| admin
+    resolver -->|パスワードの照合| pass
     inbox --> sig
     inbox -->|Follow に Accept| delivery
     delivery -->|送信の署名| sig
@@ -104,12 +120,20 @@ flowchart TB
     module --> static
     static --> dist
     compose -.->|デプロイ時に配置| dist
+    compose --> apollo
+    apollo -->|POST /graphql| graphql
+    schemafile -->|実行時に読む| graphql
+    schemafile -.->|ビルド時にコード生成| qlmodel
+    schemafile -.->|ビルド時にコード生成| apollo
+    qlmodel -->|実装するインタフェース| resolver
     parser --> feedmodel
     parser --> feedutil
     main -.->|Phase 5 で繋ぐ。いまは :backend から参照していない| parser
 ```
 
 `:frontend` と `:backend` は別々にビルドする。互いに依存させない。
+`:backend:graphql` の管理 API のスキーマは `:frontend` がコード生成の入力として
+ファイルで読むだけで、モジュールとしては依存しない。両方が要る値だけを `:shared` に置く。
 `:frontend` の成果物は配信するファイルを置くディレクトリに配置し、`:backend` が
 その場所を `STATIC_SRC_DIR` で受け取って root から配信する。
 分けた理由は [docs/architecture.md](docs/architecture.md) を参照。
@@ -123,6 +147,20 @@ JDK が 1 つあれば足りる。バージョンは問わない（Gradle を起
 条件に合えばそれを使い、無ければダウンロードして `~/.gradle/jdks` に置く。
 
 Gradle 自体も wrapper が入っているので個別のインストールは不要。
+
+### GitHub Packages の資格情報
+
+管理 API のコード生成に使う graphql-java-codegen は
+[matsudamper/graphql-java-codegen](https://github.com/matsudamper/graphql-java-codegen)
+の fork のビルドを GitHub Packages から取る。無いと構成の時点で落ちるので、
+`~/.gradle/gradle.properties` に置く。
+
+```properties
+gpr.user=<GitHub のユーザー名>
+gpr.key=<read:packages を付けたパーソナルアクセストークン>
+```
+
+環境変数 `GITHUB_ACTOR` / `GITHUB_TOKEN` でも読む。CI はそちらを使っている。
 
 ## ビルド
 
@@ -199,8 +237,53 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | --- | --- |
 | `/` | トップ |
 | `/@{name}` | アカウント画面。フィードの取得状況と配信した記事 |
-| `/admin` | 管理画面。中身は Phase 8 で作る |
+| `/admin` | 管理画面。ログインが要る。中身はログインまでで、その先は Phase 8 |
 | それ以外 | 見つからない（HTTP は 200 のまま） |
+
+### 管理画面のログイン
+
+`/admin` にはログインが要る。パスワード 1 つで、ユーザー名は無い。
+
+パスワードそのものはサーバーに置かず、ハッシュを `ADMIN_PASSWORD_HASH` に入れる。
+ハッシュは標準入力にパスワードを渡して作る。引数にするとシェルの履歴と `ps` に平文で残る。
+
+```sh
+# 表示された 1 行がそのまま ADMIN_PASSWORD_HASH の値
+./gradlew --quiet :backend:crypto:passwordHash
+```
+
+手元で試すときは `ADMIN_COOKIE_SECURE=false` を付ける。既定ではセッション Cookie に
+`Secure` が付き、`http://localhost:8080` ではブラウザが Cookie を保存しないので、
+ログインしてもログインしていない状態のままになる。
+
+```sh
+DOMAIN=example.com \
+STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
+ADMIN_PASSWORD_HASH='pbkdf2-sha256:...' \
+ADMIN_COOKIE_SECURE=false \
+  ./gradlew :backend:run
+```
+
+`ADMIN_PASSWORD_HASH` が未設定でも起動する。最初のハッシュを作る前に起動できないと
+先に進めないため。この場合はログインできず、画面と起動ログにその旨が出る。
+
+ログイン後に出るのは「ログイン済み」だけ。フィードの登録や配信状況はこれから作る。
+セッションの持ち方と Cookie の扱いは [docs/architecture.md](docs/architecture.md) を参照。
+
+### API
+graphqlを使用している `POST /graphql`
+スキーマファースト`backend/graphql`モジュール参照
+
+結線は graphql-java-tools (kickstart) が行う。リフレクションを使うので、native-image
+向けにクラスを登録する。登録はイメージのビルド時に `GraphQlReflectionFeature` が
+クラスパスを走査して行うので、スキーマを触っても設定ファイルの更新は要らない。
+ただしリゾルバの実装は `graphql.resolver` パッケージに置くこと（走査の対象から
+外れていないかは `GraphQlReflectionTargetsTest` が見ている）。
+
+native バイナリで動くことは確認済み（`/graphql` に query・mutation・変数・enum・
+`Set-Cookie` まで通した）。そのために足した指定と、それぞれ何で落ちたかは
+[native-image の README](backend/src/main/resources/META-INF/native-image/net.matsudamper/mastodon-rss-backend/README.md)
+に書いてある。
 
 画面は canvas に描いているので、ブラウザの持っているフォントは使われない。日本語を出すために
 Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み込んで当てている。
@@ -220,6 +303,9 @@ Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み
 | `ACTOR_USERNAME` | `admin` | アクターのユーザー名。`acct:<name>@<DOMAIN>` と `/users/<name>` に入る |
 | `ACTOR_PRIVATE_KEY_PATH` | `./data/actor-private-key.pem` | アクターの秘密鍵 (PEM)。無ければ起動時に生成して書き出す |
 | `ACTOR_PRIVATE_KEY_PEM` | なし | 秘密鍵の PEM を直接渡す場合に使う。`ACTOR_PRIVATE_KEY_PATH` とは併用できない |
+| `STATIC_SRC_DIR` | なし | 配信する静的ファイルのディレクトリ。未設定なら何も配信しない |
+| `ADMIN_PASSWORD_HASH` | なし | 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない |
+| `ADMIN_COOKIE_SECURE` | `true` | セッション Cookie に `Secure` を付けるか。手元で http で試すときだけ `false` にする |
 
 `DOMAIN` は scheme と末尾の `/` を書いても落として扱う。未設定だと起動しない。
 `ACTOR_USERNAME` に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`。

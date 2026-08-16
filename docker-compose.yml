@@ -37,6 +37,8 @@ services:
       # 管理画面などの静的ファイルの置き場所。下の volumes と対になっている。
       # 設定しなければ何も配信しない（/ は 404）
       # STATIC_SRC_DIR: /srv/static
+      # 管理画面のパスワードハッシュ。作り方は README を参照
+      ADMIN_PASSWORD_HASH: ""
     ports:
       # 外に出すのは HTTPS を終端するリバースプロキシの後ろを想定している。
       # 直接インターネットに晒さないこと

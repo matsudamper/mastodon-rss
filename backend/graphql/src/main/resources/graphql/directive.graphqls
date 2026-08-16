@@ -1,0 +1,2 @@
+# 付けたフィールドだけ codegen がリゾルバのインタフェースを作る
+directive @lazy on FIELD_DEFINITION

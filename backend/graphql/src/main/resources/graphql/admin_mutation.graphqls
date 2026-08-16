@@ -1,0 +1,19 @@
+type AdminMutation {
+    "通るとセッションの Cookie が返る"
+    login(password: String!): AdminLoginResult! @lazy
+
+    "サーバー側のセッションも消える"
+    logout: AdminSession! @lazy
+}
+
+type AdminLoginResult {
+    session: AdminSession!
+    failure: AdminLoginFailure
+}
+
+enum AdminLoginFailure {
+    WRONG_PASSWORD
+
+    "ADMIN_PASSWORD_HASH が未設定"
+    NOT_CONFIGURED
+}
