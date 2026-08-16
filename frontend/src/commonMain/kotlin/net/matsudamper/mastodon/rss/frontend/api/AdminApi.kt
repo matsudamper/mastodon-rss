@@ -53,13 +53,10 @@ class AdminApi(
         )
     }
 
-    /**
-     * Apollo は例外を投げずに応答へ入れて返す
-     */
     private fun ApolloResponse<*>.failureMessage(): String {
         return exception?.message
             ?: errors?.joinToString("\n") { it.message }?.takeIf { it.isNotEmpty() }
-            ?: "サーバーに繋がらなかった"
+            ?: "ネットワークエラー"
     }
 }
 

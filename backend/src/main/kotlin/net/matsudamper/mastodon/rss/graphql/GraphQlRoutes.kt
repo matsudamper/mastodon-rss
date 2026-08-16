@@ -33,9 +33,6 @@ private data class GraphQlBadRequest(
 
 private const val MAX_BODY_BYTES = 1024 * 1024
 
-/**
- * 口は [GRAPHQL_PATH] の 1 つだけ。認可はフィールドで見るので、叩くのは誰でもできる
- */
 fun Route.graphQlRoutes(engine: GraphQlEngine) {
     post(GRAPHQL_PATH) {
         // 読んでから確かめても、その時点で受け取り終えている
