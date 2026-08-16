@@ -19,6 +19,7 @@ class GraphQlContext(
     fun isAdminLoggedIn(): Boolean = sessionStore.isValid(cookie.token())
 
     /**
+     * Cookieを発行する
      * 発行した Cookie はまだリクエスト側に無いので、[isAdminLoggedIn] は false のまま
      */
     fun issueAdminSession() {
