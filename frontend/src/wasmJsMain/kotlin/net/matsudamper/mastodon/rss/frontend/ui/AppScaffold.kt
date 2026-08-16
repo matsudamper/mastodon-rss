@@ -1,6 +1,5 @@
 package net.matsudamper.mastodon.rss.frontend.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -36,34 +35,35 @@ fun AppScaffold(
     onNavigate: (Screen) -> Unit,
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
-    Column(
-        modifier =
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+    Surface(
+        modifier = Modifier
+            .fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
     ) {
-        AppHeader(onNavigate = onNavigate)
+        Column {
+            AppHeader(onNavigate = onNavigate)
 
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val wide = maxWidth >= WideBreakpoint
-            val outerPadding = if (wide) 24.dp else 12.dp
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val wide = maxWidth >= WideBreakpoint
+                val outerPadding = if (wide) 24.dp else 12.dp
 
-            Column(
-                modifier =
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = outerPadding, vertical = outerPadding),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
                 Column(
                     modifier =
-                    Modifier
-                        .widthIn(max = ContentMaxWidth)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    content = { content(wide) },
-                )
+                        Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = outerPadding, vertical = outerPadding),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Column(
+                        modifier =
+                            Modifier
+                                .widthIn(max = ContentMaxWidth)
+                                .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        content = { content(wide) },
+                    )
+                }
             }
         }
     }
@@ -77,8 +77,7 @@ private fun AppHeader(onNavigate: (Screen) -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
             Row(
-                modifier =
-                Modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
