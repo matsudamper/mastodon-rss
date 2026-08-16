@@ -25,7 +25,11 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         if (adminLoginService.adminPasswordConfigured.not()) {
             return CompletableFuture.completedFuture(
                 DataFetcherResult.Builder(
-                    loginFailure(context, QlAdminLoginFailure.NOT_CONFIGURED),
+                    loginFailure(
+                        context = context,
+                        failure = QlAdminLoginFailure.NOT_CONFIGURED,
+                        adminLoginService = adminLoginService,
+                    ),
                 ).build(),
             )
         }
@@ -33,7 +37,11 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         if (adminLoginService.matchesAdminPassword(password).not()) {
             return CompletableFuture.completedFuture(
                 DataFetcherResult.Builder(
-                    loginFailure(context, QlAdminLoginFailure.WRONG_PASSWORD),
+                    loginFailure(
+                        context = context,
+                        failure = QlAdminLoginFailure.WRONG_PASSWORD,
+                        adminLoginService = adminLoginService,
+                    ),
                 ).build(),
             )
         }

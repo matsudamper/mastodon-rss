@@ -71,7 +71,7 @@ class GraphQlEngine private constructor(
             return GraphQlEngine(
                 graphQl = GraphQL.newGraphQL(schema).build(),
                 createContext = createContext,
-                env = env
+                env = env,
             )
         }
 

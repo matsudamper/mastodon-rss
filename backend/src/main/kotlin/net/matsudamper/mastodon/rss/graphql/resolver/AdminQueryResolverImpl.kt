@@ -15,12 +15,13 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminSession>> {
         val context = GraphQlEngine.graphQlContext(env)
+        val adminLoginService = GraphQlEngine.diContainer(env).adminLoginService
 
         return CompletableFuture.completedFuture(
             DataFetcherResult.Builder(
                 QlAdminSession(
                     loggedIn = context.isAdminLoggedIn(),
-                    passwordConfigured = context.adminPasswordConfigured,
+                    passwordConfigured = adminLoginService.adminPasswordConfigured,
                 ),
             ).build(),
         )
