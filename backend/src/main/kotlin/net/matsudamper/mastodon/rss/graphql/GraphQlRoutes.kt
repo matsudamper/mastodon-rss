@@ -1,35 +1,18 @@
 package net.matsudamper.mastodon.rss.graphql
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.call
 import io.ktor.server.request.header
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
+import net.matsudamper.mastodon.rss.graphql.data.GraphQlBadRequest
+import net.matsudamper.mastodon.rss.graphql.data.GraphQlRequest
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
-
-/**
- * `variables` を [JsonObject] のまま受けるのは、型が問い合わせごとに変わるため
- */
-@Serializable
-data class GraphQlRequest(
-    val query: String,
-    val operationName: String? = null,
-    val variables: JsonObject? = null,
-)
-
-@Serializable
-private data class GraphQlBadRequest(
-    val message: String,
-)
 
 private const val MAX_BODY_BYTES = 1024 * 1024
 

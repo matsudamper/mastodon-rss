@@ -10,6 +10,7 @@ import graphql.kickstart.tools.SchemaParser
 import graphql.schema.DataFetchingEnvironment
 import io.ktor.server.application.ApplicationCall
 import net.matsudamper.mastodon.rss.ServerEnv
+import net.matsudamper.mastodon.rss.graphql.data.GraphQlRequest
 
 /**
  * 結線は graphql-java-tools (kickstart) がリフレクションで行う。native-image 向けの
