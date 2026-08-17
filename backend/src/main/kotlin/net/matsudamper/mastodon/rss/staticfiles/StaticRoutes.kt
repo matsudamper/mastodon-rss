@@ -64,8 +64,6 @@ fun Route.staticRoutes(staticFiles: StaticFiles?) {
 
             call.response.header(HttpHeaders.CacheControl, INDEX_CACHE_CONTROL)
 
-            // 名前が実在するかどうかはここでは見ない。画面が GraphQL で確かめる。
-            // ここでも判断すると、同じ判定がサーバーと画面の 2 か所に増える
             call.respond(LocalFileContent(index.toFile(), StaticFiles.contentTypeOf(index.fileName.toString())))
         }
     }
