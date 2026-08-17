@@ -221,11 +221,7 @@ dev server はこの経路を通らないため、ハッシュの無い名前の
 
 ### DataLoader
 
-同じものを引き直さないために DataLoader を通す。構成は
-[kake-bo](https://github.com/matsudamper/kake-bo) と同じ。
-
-キャッシュはリクエストごとに分ける。跨いで持つと、アカウントを追加しても
-前のリクエストの結果が返る。
+基本的にDataLoaderを使用してまとめて取得する
 
 ### native-image との組み合わせ
 
