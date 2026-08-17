@@ -66,6 +66,7 @@ class FakeFollowerRepository : FollowerRepository {
     override fun markAccepted(
         username: String,
         followerActorUri: String,
+        followActivityUri: String,
         acceptedAt: Instant,
     ): Boolean = accepted.add(username to followerActorUri)
 

@@ -34,7 +34,7 @@ class NotePublisherTest {
                 followActivityUri = "https://remote.example/activities/$index",
                 receivedAt = now,
             )
-            markAccepted(TestLocalActor.USERNAME, actorUri, now)
+            markAccepted(TestLocalActor.USERNAME, actorUri, "https://remote.example/activities/$index", now)
         }
     }
 

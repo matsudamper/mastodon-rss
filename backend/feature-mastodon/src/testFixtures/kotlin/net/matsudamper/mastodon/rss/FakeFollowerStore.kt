@@ -42,9 +42,14 @@ class FakeFollowerStore(
     override fun markAccepted(
         username: String,
         followerActorUri: String,
+        followActivityUri: String,
         acceptedAt: Instant,
     ) {
-        val index = rows.indexOfFirst { it.username == username && it.followerActorUri == followerActorUri }
+        val index = rows.indexOfFirst {
+            it.username == username &&
+                it.followerActorUri == followerActorUri &&
+                it.followActivityUri == followActivityUri
+        }
         if (index < 0) return
         rows[index] = rows[index].copy(accepted = true)
     }
