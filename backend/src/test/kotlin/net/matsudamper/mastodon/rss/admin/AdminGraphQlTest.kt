@@ -32,6 +32,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
+import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
@@ -323,7 +324,14 @@ class AdminGraphQlTest {
         testApplication {
             applicationWith(passwordConfigured = true)
 
-            assertTrue(mutateAddAccount("feed1").body().containsKey("errors"))
+            val errors = mutateAddAccount("feed1").body().getValue("errors").jsonArray
+
+            assertEquals(1, errors.size)
+            assertEquals(
+                GraphQlEngine.GENERIC_ERROR_MESSAGE,
+                errors.single().jsonObject.getValue("message").jsonPrimitive.content,
+            )
+            assertEquals(setOf("message"), errors.single().jsonObject.keys)
         }
 
     // スキーマに無いものが通ってしまうと、結線の漏れに気付けない
@@ -336,7 +344,13 @@ class AdminGraphQlTest {
 
             // 問い合わせのエラーは HTTP 200 で errors に入る
             assertEquals(HttpStatusCode.OK, response.status)
-            assertTrue(response.body().containsKey("errors"))
+            val errors = response.body().getValue("errors").jsonArray
+            assertEquals(1, errors.size)
+            assertEquals(
+                GraphQlEngine.GENERIC_ERROR_MESSAGE,
+                errors.single().jsonObject.getValue("message").jsonPrimitive.content,
+            )
+            assertEquals(setOf("message"), errors.single().jsonObject.keys)
         }
 
     private fun ApplicationTestBuilder.applicationWith(
