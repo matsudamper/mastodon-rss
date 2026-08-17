@@ -177,8 +177,6 @@ private fun PostCard(
         val result = post.result
         if (result != null) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                // 記録と配信は別。フォロワーが 0 人でも投稿自体は成立するし、
-                // 相手が受け取らなくてもこちらの記録は残る
                 Text(
                     text = "投稿した。宛先 ${result.targets} 件のうち ${result.delivered} 件に届いた。",
                     style = MaterialTheme.typography.bodyMedium,
