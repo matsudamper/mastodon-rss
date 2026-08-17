@@ -27,8 +27,7 @@ import org.slf4j.LoggerFactory
  * HTTP クライアント側にタイムアウトを入れてある。
  *
  * 記録してから `Accept` を返す。逆にすると、記録に失敗したときに相手だけが
- * フォローできたつもりになり、こちらには送り先が残らない。記録できなければ
- * `Accept` も返さないので、相手からは保留のまま見える。
+ * フォローできたつもりになり、こちらには送り先が残らない。
  */
 class FollowHandler(
     private val remoteActors: RemoteActors,
@@ -54,18 +53,14 @@ class FollowHandler(
         activity: InboxActivity,
         raw: JsonObject,
     ) {
-        // 宛先の異なる Follow をこちらの inbox に投げ込むことはできる。
-        // 中身を見ずに Accept を返すと、フォローしていないアクターの
-        // フォローが成立したように相手に見える
+        // 宛先の異なる Follow を投げ込まれても Accept を返さない
         val target = activity.target?.id
         if (target != recipient.actorId) {
             logger.warn("Follow の宛先が違うので Accept を返さない: object=$target 宛先=${recipient.actorId}")
             return
         }
 
-        // 相手が `id` を付けずに送ってくると、同じ `Follow` の送り直しと
-        // 新しい `Follow` を区別できない。区別できないものを記録すると、
-        // 送り直しのたびに行が増えるか、別のフォローを取り違えて消すことになる
+        // id が無いと、送り直しと新しい `Follow` を区別できない
         val followActivityUri = activity.id
         if (followActivityUri == null) {
             logger.warn("Follow に id が無いので受け付けない: ${recipient.acct} ← $signer")
@@ -106,8 +101,7 @@ class FollowHandler(
 
         when (val result = delivery.deliver(inbox = follower.inbox, sender = recipient, body = body)) {
             is DeliveryResult.Delivered -> {
-                // ここまで来たものだけをフォロワーとして数える。記録に失敗しても
-                // 相手は既にフォローできたつもりなので、例外は投げずにログに残す
+                // 記録に失敗しても相手は既にフォローできたつもりなので、例外は投げない
                 runCatching {
                     followers.markAccepted(
                         username = recipient.username,
@@ -123,8 +117,6 @@ class FollowHandler(
             }
 
             is DeliveryResult.Failed -> {
-                // 相手から見るとフォローが保留のまま残る。再送はしないので、
-                // 何が起きたのかはここに残っているものが唯一の手がかりになる。
                 // 記録は残るが `Accept` 前の状態なのでフォロワーには数えない
                 logger.warn("Follow に Accept を返せなかった: ${recipient.acct} ← $signer ${result.reason}")
             }
@@ -133,11 +125,7 @@ class FollowHandler(
 
     private companion object {
         /**
-         * `Accept` 自身の id。
-         *
-         * アクター id にフラグメントを付けた形にする。相手はこの URL を取りに来ないが、
-         * 独立したパスにすると「GET できる文書がある」と読める形になり、
-         * 実際には返せないものを配ることになる。Mastodon も同じ作りで送ってくる。
+         * `Accept` 自身の id。GET できる文書は無いのでフラグメントを付ける
          */
         fun acceptId(recipient: ActorUrls): String = "${recipient.actorId}#accepts/follows/${UUID.randomUUID()}"
     }

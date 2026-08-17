@@ -10,10 +10,8 @@ import net.matsudamper.mastodon.rss.note.StoredNote
 /**
  * 管理画面から見た投稿の操作。
  *
- * 本文はプレーンテキストで受け、配信する HTML に組み立てるのはここ。
- * HTML をそのまま受けると、管理画面を通して任意のタグをフォロワーに配ることになる。
- * 取り込んだ記事を流す Phase 5 では、フィード側のサニタイズ（`:backend:rss` の
- * `HtmlSanitizer`）を通したものが来るので、そちらは別の入口になる。
+ * 本文はプレーンテキストで受ける。HTML をそのまま受けると、管理画面を通して
+ * 任意のタグをフォロワーに配ることになる。
  */
 class NoteService(
     private val directory: ActorDirectory,
@@ -31,8 +29,7 @@ class NoteService(
         if (text.isEmpty()) {
             return PostResult.Failure(unknownAccount = false, isEmpty = true, tooLong = false)
         }
-        // 絵文字はサロゲートペアで 2 文字ぶんの長さになる。書いた人にとっての
-        // 文字数と合わせるため、コードポイントで数える
+        // 書いた人にとっての文字数と合わせるため、コードポイントで数える
         if (text.codePointCount(0, text.length) > MAX_LENGTH) {
             return PostResult.Failure(unknownAccount = false, isEmpty = false, tooLong = true)
         }
@@ -43,10 +40,8 @@ class NoteService(
     /**
      * 新しい順に返す。名前が引き当てられなければ空。
      *
-     * @param cursor 直前のページの最後を指す文字列。null なら先頭から。
-     *   読めない値は先頭に倒す。画面が持ち回すだけの値なので、直しようが無い
-     * @param limit 要求された件数。[MAX_LIST_LIMIT] を超える指定は切り詰める。
-     *   画面から幾つでも指定できると、1 回の問い合わせで全件返させられる
+     * @param cursor 直前のページの最後を指す文字列。null と読めない値は先頭から
+     * @param limit 要求された件数。[MAX_LIST_LIMIT] を超える指定は切り詰める
      */
     fun notes(
         username: String,
@@ -64,15 +59,11 @@ class NoteService(
 
         return NotePage(
             notes = page,
-            // 取れた件数で判断する。総数と突き合わせると、読んでいる間に
-            // 増えた分だけずれる
             cursor = if (page.size < size) null else page.last().cursor.encode(),
         )
     }
 
     /**
-     * 1 ページぶん。
-     *
      * @param cursor 次のページを取るときに渡す値。null なら最後のページ
      */
     data class NotePage(
@@ -86,8 +77,7 @@ class NoteService(
         ) : PostResult
 
         /**
-         * 通らなかった理由。当てはまらないものは false にして並べて返す。
-         * 1 回の入力で複数当てはまることは無いが、追加の形は `addAccount` と揃える
+         * 通らなかった理由。当てはまらないものは false にして並べて返す
          */
         data class Failure(
             val unknownAccount: Boolean,
@@ -98,31 +88,21 @@ class NoteService(
 
     companion object {
         /**
-         * 本文の長さの上限。
-         *
-         * Mastodon の既定の投稿長は 500 文字で、超えた分は相手側で切られる。
-         * ここで弾いておけば、切られたものが配られてから気付く形にならない。
+         * 本文の長さの上限。Mastodon の既定の投稿長で、超えた分は相手側で切られる
          */
         const val MAX_LENGTH: Int = 500
 
-        /**
-         * 件数の指定が無いときに返す数
-         */
         const val DEFAULT_LIST_LIMIT: Int = 20
 
         /**
-         * 1 回で返す件数の上限。
-         *
-         * 画面から指定できる値をそのまま使うと、1 回の問い合わせで全件を
-         * 読み出させられる。上限はサーバー側で決める。
+         * 1 回で返す件数の上限。画面から指定できる値をそのまま使わない
          */
         const val MAX_LIST_LIMIT: Int = 50
 
         /**
          * プレーンテキストを配信する HTML に直す。
          *
-         * 空行で段落に分け、行の切れ目は `<br>` にする。Mastodon が許可するのは
-         * この程度のタグで、それ以外は相手側で落とされる。
+         * 空行で段落に分け、行の切れ目は `<br>` にする
          */
         internal fun toHtml(text: String): String = text
             .replace("\r\n", "\n")

@@ -139,7 +139,6 @@ fun Application.module(deps: AppDependencies) {
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)
 
-        // Actor の followers / outbox が指している先と、投稿のパーマリンク
         followerRoutes(deps.directory, deps.followerStore)
         outboxRoutes(deps.directory, deps.noteStore)
         noteRoutes(env.domain, deps.noteStore)

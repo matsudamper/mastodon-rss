@@ -15,14 +15,9 @@ data class AdminNoteNewScreenUiState(
         data object RequireLogin : Content
 
         /**
-         * 投稿の入力欄と、そのアカウントが配信した投稿の一覧。
-         *
-         * @param accounts どのアカウントとして投稿するかの選択肢。1 つでも選ばせる。
-         *   どのアカウントから流れるかは相手のタイムラインでの見え方そのものなので、
-         *   暗黙に決まっていると取り違えに気付けない
+         * @param accounts どのアカウントとして投稿するかの選択肢。1 つでも選ばせる
          * @param submitting true の間は入力欄とボタンを押せなくする
          * @param result 直前の投稿の結果。次の入力を始めたら消す
-         * @param error 入力欄の下に赤字で出す
          */
         data class Input(
             val accounts: List<Account>,
@@ -33,7 +28,7 @@ data class AdminNoteNewScreenUiState(
             val error: String?,
             val notes: List<Note>,
             /**
-             * さらに古い投稿があるか。押すと続きを足す
+             * さらに古い投稿があるか
              */
             val canLoadMore: Boolean,
             val loadingMore: Boolean,
@@ -55,10 +50,7 @@ data class AdminNoteNewScreenUiState(
     )
 
     /**
-     * 配信した投稿 1 件。
-     *
-     * @param text 本文からタグを外したもの。管理画面で HTML をそのまま描くと、
-     *   配信した中身と画面の見え方がずれる
+     * @param text 本文からタグを外したもの
      */
     data class Note(
         val url: String,
@@ -66,8 +58,6 @@ data class AdminNoteNewScreenUiState(
     )
 
     /**
-     * 投稿の結果として画面に出すもの。
-     *
      * @param targets 送った宛先の数
      * @param delivered そのうち届いた数
      */

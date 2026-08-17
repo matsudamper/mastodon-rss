@@ -15,8 +15,7 @@ import org.slf4j.LoggerFactory
  * 記録してから配る。相手は受け取った直後にパーマリンクを引きに来ることがあるので、
  * 配信が先だと 404 を返してしまう。
  *
- * 配信はその場で 1 件ずつ送る。失敗しても再送はしないのでログに残すだけ。
- * 溜めて送り直す仕組みが要るのは、実際に取りこぼしが見えてからでよい。
+ * 失敗しても再送しない。
  */
 class NotePublisher(
     private val notes: NoteStore,
@@ -60,7 +59,6 @@ class NotePublisher(
                 }
 
                 is DeliveryResult.Failed -> {
-                    // 再送しないので、届かなかったことはここに残っているものが唯一の手がかり
                     logger.warn("投稿を配れなかった: ${sender.acct} → $inbox ${result.reason}")
                 }
             }
@@ -106,8 +104,6 @@ class NotePublisher(
 }
 
 /**
- * 配信した結果。
- *
  * @param targets 送った宛先の数。`sharedInbox` でまとまるのでフォロワーの数とは一致しない
  * @param delivered そのうち相手が受け取ったもの
  */

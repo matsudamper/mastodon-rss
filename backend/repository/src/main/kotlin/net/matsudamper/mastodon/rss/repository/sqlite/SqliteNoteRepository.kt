@@ -43,10 +43,8 @@ internal class SqliteNoteRepository(
             .from(NOTES)
             .where(NOTES.USERNAME.eq(username))
             .and(after?.let { olderThan(it) } ?: DSL.noCondition())
-            // 新しい順。同じ時刻のものが並んだときの順を決めるために公開 id も見る。
-            // 決めておかないと、ページをまたいで同じ投稿が 2 回出ることがある。
-            // 採番した id ではなく公開 id を使うのは、この並びが位置を指す鍵になり、
-            // 外に出す cursor にそのまま載るため
+            // 公開 id まで見て並びを一意にする。決めておかないと、ページをまたいで
+            // 同じ投稿が 2 回出ることがある
             .orderBy(NOTES.PUBLISHED_AT.desc(), NOTES.PUBLIC_ID.desc())
             .limit(limit)
             .fetch()
@@ -56,8 +54,7 @@ internal class SqliteNoteRepository(
     /**
      * 並び順で [cursor] より後ろにあるものを絞る条件。
      *
-     * 並びが 2 列で決まるので、条件も 2 列で書く。時刻だけで比べると、
-     * 同じ時刻の投稿がページの境目に来たときに落ちるか重複する。
+     * 時刻だけで比べると、同じ時刻の投稿がページの境目に来たときに落ちるか重複する
      */
     private fun olderThan(cursor: NoteCursor): Condition {
         val publishedAt = StoredInstant.format(cursor.publishedAt)

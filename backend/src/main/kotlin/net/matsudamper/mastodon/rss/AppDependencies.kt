@@ -51,14 +51,8 @@ class AppDependencies(
      */
     val actorUrls: ActorUrls = ActorUrls(domain = env.domain, username = env.actorUsername)
 
-    /**
-     * ActivityPub 側から見たフォロワーの置き先。中身は DB
-     */
     val followerStore: FollowerStore = RepositoryFollowerStore(repositories.followers)
 
-    /**
-     * ActivityPub 側から見た投稿の置き先。中身は DB
-     */
     val noteStore: NoteStore = RepositoryNoteStore(repositories.notes)
 
     // 毎回引き直す。持ち回すと、追加したアカウントが引けるようになるまで間が空く
@@ -88,9 +82,6 @@ class AppDependencies(
         followers = followerStore,
     )
 
-    /**
-     * 投稿を作って全フォロワーに配る。管理画面の投稿画面から GraphQL 経由で呼ぶ
-     */
     val notePublisher: NotePublisher = NotePublisher(
         notes = noteStore,
         followers = followerStore,
@@ -129,9 +120,8 @@ class AppDependencies(
             // ここから先で失敗すると、開いた DB が閉じられないまま起動が止まる
             return runCatching {
                 val actorKey = ActorKeyLoader.load(env.actorPrivateKey) {
-                    // 鍵を失った状態で新しい鍵を作ると、こちらのアクターは相手から見て
-                    // 別人になる。既存のフォロワーへの署名は全部通らなくなり、
-                    // 相手のキャッシュに古い鍵が残る以上こちらからは直せない
+                    // 新しい鍵を作ると相手から見て別人になり、既存のフォロワーへの
+                    // 署名が通らなくなる。相手のキャッシュは直せない
                     check(!repositories.followers.hasAny()) {
                         "フォロワーが記録されているのにアクターの秘密鍵が無い。" +
                             "鍵を失った状態で新しい鍵を作ると既存のフォロワーから見て別人になるため起動しない。" +

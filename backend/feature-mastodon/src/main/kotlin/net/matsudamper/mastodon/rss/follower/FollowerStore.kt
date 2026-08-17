@@ -6,17 +6,11 @@ import net.matsudamper.mastodon.rss.actor.RemoteActor
 /**
  * フォロワーの記録の置き先。
  *
- * どこに保存されているかはこのモジュールの関心ではないので、
- * `StoredActorNames` と同じく口だけを決めておく。実装は `:backend` が
- * repository に繋ぐ。ActivityPub 側が DB を知ると、フォローの扱いを変えるたびに
- * テーブルの都合が混ざってくる。
- *
- * こちらのアカウントは名前で指す。引き当ての正は
- * [net.matsudamper.mastodon.rss.actor.ActorDirectory] で、その結果の綴りが渡ってくる。
+ * `StoredActorNames` と同じく口だけを決めて、実装は `:backend` が repository に繋ぐ。
  *
  * `Accept` を返す前のフォローも記録する。相手から見ると成立していないので
  * [list] と [count] と [deliveryTargets] には出さないが、送り直されたときに
- * 行を増やさないために覚えておく必要がある。
+ * 行を増やさないために覚えておく。
  */
 interface FollowerStore {
     /**

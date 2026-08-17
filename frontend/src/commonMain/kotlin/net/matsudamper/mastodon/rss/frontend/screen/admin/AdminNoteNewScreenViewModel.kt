@@ -30,9 +30,7 @@ class AdminNoteNewScreenViewModel(
                     }
 
                     override fun onAccountSelected(username: String) {
-                        // 一覧と cursor をここで捨てる。残したまま取りに行くと、
-                        // 届くまで別のアカウントの投稿が出たままになり、
-                        // 取得に失敗した場合はそれが残り続ける
+                        // 残したまま取りに行くと、届くまで別のアカウントの投稿が出たままになる
                         viewModelStateFlow.update {
                             it.copy(
                                 selectedUsername = username,
@@ -94,11 +92,10 @@ class AdminNoteNewScreenViewModel(
     }
 
     /**
-     * 先頭から取り直す。アカウントを選び直したときと、投稿した直後に呼ぶ。
+     * 先頭から取り直す。
      *
-     * 取得のたびに世代を上げ、返ってきたものが最新の取得かどうかで判断する。
-     * 名前だけで見ると、同じアカウントで取り直したときに古い応答が後から
-     * 届いて、投稿直後の一覧を投稿前の内容で上書きしてしまう。
+     * 取得のたびに世代を上げ、最新の取得の結果だけを反映する。名前だけで見ると、
+     * 同じアカウントで取り直したときに古い応答が後から届いて上書きしてしまう。
      */
     private fun loadNotes(username: String) {
         val generation = viewModelStateFlow.updateAndGet {
@@ -137,7 +134,6 @@ class AdminNoteNewScreenViewModel(
         viewModelScope.launch {
             when (val result = api.notes(username = username, cursor = cursor, limit = PAGE_SIZE)) {
                 is AdminNotesResult.Success -> {
-                    // 続きを足している間に取り直しが走っていたら、足す先が別物になっている
                     if (viewModelStateFlow.value.loadGeneration != generation) return@launch
                     viewModelStateFlow.update {
                         it.copy(notes = it.notes + result.notes, cursor = result.cursor, loadingMore = false)
@@ -220,10 +216,7 @@ class AdminNoteNewScreenViewModel(
     }
 
     /**
-     * 配信した HTML を画面に出す形に直す。
-     *
-     * 段落と改行だけを改行に戻し、残りのタグは落とす。管理画面で HTML を
-     * そのまま描くと、配信した中身と画面の見え方がずれる。
+     * 配信した HTML を画面に出す形に直す。段落と改行だけを改行に戻す
      */
     private fun String.toPlainText(): String = replace("</p>", "\n")
         .replace("<br>", "\n")
@@ -253,7 +246,7 @@ class AdminNoteNewScreenViewModel(
 
     private companion object {
         /**
-         * 1 回に取る件数。上限はサーバー側で決まっているので、ここは表示の都合で選ぶ
+         * 1 回に取る件数。上限はサーバー側で決まる
          */
         const val PAGE_SIZE = 20
     }

@@ -10,9 +10,7 @@ import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 /**
  * ActivityPub 側の [FollowerStore] を DB に繋ぐ。
  *
- * 型を持ち替えるだけの層があるのは、`:backend:feature-mastodon` が
- * `:backend:repository` を知らないため。同じ形の型を使い回すと、スキーマを変えるたびに
- * ActivityPub の実装を触ることになる。
+ * `:backend:feature-mastodon` が `:backend:repository` を知らないので型を持ち替える
  */
 class RepositoryFollowerStore(
     private val followers: FollowerRepository,
