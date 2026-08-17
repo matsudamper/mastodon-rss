@@ -34,7 +34,7 @@ fun NotFoundScreen(
  * @param description 見つからない理由。何が無いのかが分かる場合に添える
  */
 @Composable
-fun NotFoundContent(
+internal fun NotFoundContent(
     requestedPath: String,
     description: String? = null,
 ) {
