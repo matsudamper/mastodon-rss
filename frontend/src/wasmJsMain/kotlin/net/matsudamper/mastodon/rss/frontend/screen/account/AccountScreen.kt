@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -133,50 +132,47 @@ private fun AccountScreen(
     }
 }
 
-/**
- * アカウントの中身。
- *
- * 広い画面では記事一覧を主、フィードと配信の状況を副の 2 カラムにする。
- * 狭い画面ではフィードの情報を先に出す。1 カラムに畳んだときに記事から始めると、
- * このアカウントが何を流すものなのかが画面外に押し出されるため。
- */
 @Composable
-private fun ColumnScope.AccountContent(
+private fun AccountContent(
     state: AccountUiState,
     wide: Boolean,
     onNavigate: (Screen) -> Unit,
 ) {
-    if (state.placeholder) {
-        PlaceholderNotice()
-    }
-
-    ProfileHeader(
-        state = state,
-        wide = wide,
-    )
-
-    if (wide) {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column(
-                modifier = Modifier.weight(1.5f),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                ArticlesSection(state = state)
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                FeedSection(state = state)
-                DeliverySection(state = state)
-                FollowSection(state = state, onNavigate = onNavigate)
-            }
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        if (state.placeholder) {
+            PlaceholderNotice()
         }
-    } else {
-        FeedSection(state = state)
-        FollowSection(state = state, onNavigate = onNavigate)
-        ArticlesSection(state = state)
-        DeliverySection(state = state)
+
+        ProfileHeader(
+            state = state,
+            wide = wide,
+        )
+
+        if (wide) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(
+                    modifier = Modifier.weight(1.5f),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    ArticlesSection(state = state)
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    FeedSection(state = state)
+                    DeliverySection(state = state)
+                    FollowSection(state = state, onNavigate = onNavigate)
+                }
+            }
+        } else {
+            FeedSection(state = state)
+            FollowSection(state = state, onNavigate = onNavigate)
+            ArticlesSection(state = state)
+            DeliverySection(state = state)
+        }
     }
 }
 

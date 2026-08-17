@@ -4,9 +4,6 @@ sealed interface AccountResult {
         val account: Account,
     ) : AccountResult
 
-    /**
-     * その名前のアカウントが無い。引けなかった [Failure] と混ぜない
-     */
     data object NotFound : AccountResult
 
     data class Failure(

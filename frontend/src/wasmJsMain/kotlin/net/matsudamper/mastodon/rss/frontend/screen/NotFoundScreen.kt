@@ -30,8 +30,6 @@ fun NotFoundScreen(
  *
  * 枠の外に出してあるのは、開いてみて初めて無いと分かる画面からも同じ見た目を出すため。
  * 見つからない表示が画面ごとに違うと、パスを間違えたのか中身が無いのかが分かりにくい。
- *
- * @param description 見つからない理由。何が無いのかが分かる場合に添える
  */
 @Composable
 internal fun NotFoundContent(
