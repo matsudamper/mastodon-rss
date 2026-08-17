@@ -1,0 +1,7 @@
+query Account($username: String!) {
+    account(username: $username) {
+        username
+        acct
+        actorUrl
+    }
+}
