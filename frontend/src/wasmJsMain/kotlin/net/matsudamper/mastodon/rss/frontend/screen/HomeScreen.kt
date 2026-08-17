@@ -17,6 +17,6 @@ fun HomeScreen(onNavigate: (Screen) -> Unit) {
         )
 
         // TODO アカウント一覧
-        //　ページングで
+        // 　ページングで
     }
 }
