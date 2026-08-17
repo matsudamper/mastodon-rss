@@ -11,6 +11,7 @@ import kotlin.test.assertEquals
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
@@ -66,6 +67,53 @@ class StaticRoutesTest {
 
             assertEquals(HttpStatusCode.OK, response.status)
             assertEquals("<html></html>", response.bodyAsText())
+        }
+
+    @Test
+    fun `index_htmlはキャッシュされない`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            applicationWith(root)
+
+            val response = client.get("/")
+
+            assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
+        }
+
+    @Test
+    fun `画面のパスで返すindex_htmlもキャッシュされない`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            applicationWith(root)
+
+            val response = client.get("/admin/accounts")
+
+            assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
+        }
+
+    @Test
+    fun `名前にハッシュが入るjsとwasmは長くキャッシュされる`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            putFile("frontend.0123456789abcdef.js", "console.log()")
+            putFile("0123456789abcdef.wasm", "wasm")
+            applicationWith(root)
+
+            val expected = "public, max-age=31536000, immutable"
+            assertEquals(expected, client.get("/frontend.0123456789abcdef.js").headers[HttpHeaders.CacheControl])
+            assertEquals(expected, client.get("/0123456789abcdef.wasm").headers[HttpHeaders.CacheControl])
+        }
+
+    @Test
+    fun `名前が変わらないファイルにはキャッシュの指示を付けない`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            putFile("fonts/NotoSansJP-Regular.ttf", "ttf")
+            applicationWith(root)
+
+            val response = client.get("/fonts/NotoSansJP-Regular.ttf")
+
+            assertEquals(null, response.headers[HttpHeaders.CacheControl])
         }
 
     @Test

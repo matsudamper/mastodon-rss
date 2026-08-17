@@ -228,6 +228,11 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 [StaticFiles.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/staticfiles/StaticFiles.kt)、
 環境変数は [ServerEnv.kt](backend/src/main/kotlin/net/matsudamper/mastodon/rss/ServerEnv.kt) を参照。
 
+配布物の JS は `frontend.{ハッシュ}.js` という名前で出る。`index.html` の参照も
+ビルドのときに差し替わるので、置き換えたときに古い JS が残らない。
+`index.html` はキャッシュさせず、名前にハッシュが入る JS と `.wasm` は長く持たせる。
+詳細は [docs/architecture.md](docs/architecture.md) の「静的ファイルのキャッシュ」を参照。
+
 ### 画面のパス
 
 サーバーが持つパス以外は静的ファイルの配信に落ちる。ファイルがあればそれを返し、
