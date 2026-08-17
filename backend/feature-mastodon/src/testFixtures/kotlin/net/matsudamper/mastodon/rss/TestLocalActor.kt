@@ -23,6 +23,6 @@ object TestLocalActor {
 
     val directory: ActorDirectory = ActorDirectory(
         fixed = urls,
-        stored = FakeStoredActorNames(storedUserName = STORED_USERNAME),
+        stored = FakeStoredActorNames(storedUserNames = listOf(STORED_USERNAME)),
     )
 }

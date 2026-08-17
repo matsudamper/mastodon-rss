@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.actor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import net.matsudamper.mastodon.rss.FakeStoredActorNames
 
 // WebFinger とパスで判定がずれると「検索には出るが開けない」という
 // 分かりにくい壊れ方をするので、両方の入口を同じだけ確かめる。
@@ -11,7 +12,7 @@ class ActorDirectoryTest {
 
     private val directory = ActorDirectory(
         fixed = ActorUrls(domain = "example.com", username = "admin"),
-        stored = { username -> stored.firstOrNull { it.equals(username, ignoreCase = true) } },
+        stored = FakeStoredActorNames(stored),
     )
 
     @Test
