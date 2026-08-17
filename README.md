@@ -148,20 +148,6 @@ JDK が 1 つあれば足りる。バージョンは問わない（Gradle を起
 
 Gradle 自体も wrapper が入っているので個別のインストールは不要。
 
-### Codex Cloud
-
-Codex Cloud のセットアップスクリプトには `.codex/setup.sh` を指定する。
-このスクリプトは foojay-resolver に JDK 25 と GraalVM 25 の用意を任せ、CI で行う
-コード整形の確認、JVM テスト、frontend の配布ビルド、native テスト、native-image の
-ビルドをまとめて実行する。初回はツールチェインも取得するため時間がかかる。
-
-リポジトリの環境変数には、次節にある `GITHUB_ACTOR` と `GITHUB_TOKEN` を設定する。
-セットアップ後に同じ一式を確認したい場合も、リポジトリルートで次を実行する。
-
-```sh
-./.codex/setup.sh
-```
-
 ### GitHub Packages の資格情報
 
 管理 API のコード生成に使う graphql-java-codegen は
