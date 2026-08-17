@@ -97,12 +97,21 @@ class InboxService(
 
         // 引き当てられない type は何もしない。未対応のアクティビティに 5xx を返すと
         // 相手は同じものを送り直し続けることになる
-        handlersByType[activity.type]?.handle(
-            recipient = recipient,
-            signer = owner,
-            activity = activity,
-            raw = json,
-        )
+        val handled = runCatching {
+            handlersByType[activity.type]?.handle(
+                recipient = recipient,
+                signer = owner,
+                activity = activity,
+                raw = json,
+            )
+        }
+
+        // 処理に失敗しても 202 で返す。5xx にすると相手は同じものを送り直し続けるので、
+        // こちらが書き込めない間ずっと同じ失敗を繰り返すことになる。
+        // 何が起きたかはここに残っているものが唯一の手がかりになる
+        handled.onFailure { failure ->
+            logger.warn("inbox の処理に失敗した: ${recipient.acct} type=${activity.type} actor=$owner", failure)
+        }
 
         return InboxResult.Accepted
     }
