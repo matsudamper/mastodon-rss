@@ -15,7 +15,5 @@ fi
 # 通常の JDK と GraalVM は foojay-resolver が必要な版を用意する。
 # CI の全ジョブに相当するタスクを一度に実行し、依存関係とツールチェインもキャッシュする。
 ./gradlew \
-  ktlintCheck \
-  test \
   :frontend:wasmJsBrowserDevelopmentExecutableDistribution \
   :backend:nativeTestBuild
