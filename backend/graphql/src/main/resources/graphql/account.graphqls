@@ -1,5 +1,4 @@
 type Account {
-    "acct とパスに入る名前。要求した綴りではなく、保存されている綴りが返る"
     username: String!
 
     "Mastodon の検索窓に貼る形"
