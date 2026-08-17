@@ -2,6 +2,9 @@ package net.matsudamper.mastodon.rss.graphql.resolver
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.future.future
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.GraphqlExceptions
@@ -14,9 +17,13 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
+import net.matsudamper.mastodon.rss.logic.NoteService
 
 class AdminMutationResolverImpl : AdminMutationResolver {
     override fun login(
@@ -99,6 +106,55 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         }
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
+    }
+
+    /**
+     * 配信の成否は投稿の成否と別に返す。相手のサーバーが受け取らなくても
+     * こちらの記録は残るので、どちらも分かる形にしないと画面で説明できない
+     */
+    override fun postNote(
+        adminMutation: QlAdminMutation,
+        username: String,
+        body: String,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminPostNoteResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        // 配信は相手のサーバーへの POST を伴うので中断できる形で呼ぶ。
+        // GraphQL のリゾルバは CompletionStage を返す約束なので、そこに繋ぎ直す
+        return CoroutineScope(Dispatchers.IO).future {
+            val result = when (val posted = diContainer.noteService.post(username = username, body = body)) {
+                is NoteService.PostResult.Success -> {
+                    QlAdminPostNoteResult(
+                        note = QlAdminNote(
+                            url = posted.published.url,
+                            contentHtml = posted.published.contentHtml,
+                            publishedAt = posted.published.publishedAt.epochSecond,
+                        ),
+                        deliveryTargets = posted.published.targets,
+                        delivered = posted.published.delivered,
+                        failure = null,
+                    )
+                }
+
+                is NoteService.PostResult.Failure -> {
+                    QlAdminPostNoteResult(
+                        note = null,
+                        deliveryTargets = null,
+                        delivered = null,
+                        failure = QlAdminPostNoteFailure(
+                            unknownAccount = posted.unknownAccount,
+                            isEmpty = posted.isEmpty,
+                            maxLength = NoteService.MAX_LENGTH.takeIf { posted.tooLong },
+                        ),
+                    )
+                }
+            }
+
+            DataFetcherResult.Builder(result).build()
+        }
     }
 
     /**

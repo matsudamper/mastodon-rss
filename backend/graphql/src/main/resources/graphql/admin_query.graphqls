@@ -3,6 +3,32 @@ type AdminQuery {
 
     "応答するアカウントの一覧"
     accounts: [AdminAccount!]! @lazy
+
+    """
+    アカウントが配信した投稿。新しい順。
+
+    位置は cursor で指す。件数で指すと、読んでいる間に投稿が増えたときに
+    同じものが 2 回出たり抜けたりする。
+    """
+    notes(username: String!, cursor: String, limit: Int): AdminNotes! @lazy
+}
+
+type AdminNotes {
+    items: [AdminNote!]!
+
+    "次のページを取るときに渡す。null なら最後のページ"
+    cursor: String
+}
+
+"配信した投稿 1 件"
+type AdminNote {
+    "投稿の URL。相手はここをパーマリンクとして開く"
+    url: String!
+
+    "配信した本文の HTML"
+    contentHtml: String!
+
+    publishedAt: UnixTime!
 }
 
 type AdminSession {

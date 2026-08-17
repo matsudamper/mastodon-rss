@@ -8,6 +8,8 @@ import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotes
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 
@@ -24,6 +26,28 @@ class AdminQueryResolverImpl : AdminQueryResolver {
                 QlAdminSession(
                     loggedIn = context.isAdminLoggedIn(),
                     passwordConfigured = adminLoginService.adminPasswordConfigured,
+                ),
+            ).build(),
+        )
+    }
+
+    override fun notes(
+        adminQuery: QlAdminQuery,
+        username: String,
+        cursor: String?,
+        limit: Int?,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminNotes>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+        val page = diContainer.noteService.notes(username = username, cursor = cursor, limit = limit)
+
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(
+                QlAdminNotes(
+                    items = page.notes.map { it.toGraphqlResponse(domain = diContainer.domain) },
+                    cursor = page.cursor,
                 ),
             ).build(),
         )
