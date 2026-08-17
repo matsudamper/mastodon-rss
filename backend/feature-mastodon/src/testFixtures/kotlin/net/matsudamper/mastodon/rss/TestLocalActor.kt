@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss
 
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.actor.StoredActorNames
 
 /**
  * テストで配信側に立つ、こちらのアクター。
@@ -20,7 +21,8 @@ object TestLocalActor {
 
     val urls: ActorUrls = ActorUrls(domain = DOMAIN, username = USERNAME)
 
-    val directory: ActorDirectory = ActorDirectory(fixed = urls) { username ->
-        STORED_USERNAME.takeIf { it.equals(username, ignoreCase = true) }
-    }
+    val directory: ActorDirectory = ActorDirectory(
+        fixed = urls,
+        stored = FakeStoredActorNames(storedUserName = STORED_USERNAME),
+    )
 }
