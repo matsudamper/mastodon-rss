@@ -46,24 +46,29 @@ fun Route.staticRoutes(staticFiles: StaticFiles?) {
 
     // アカウントの画面は受ける段階で分ける。ユーザー名には `.` が使えるので、
     // ファイルを引く経路に流すと `/@name.example` が拡張子付きのファイル要求に見え、
-    // 画面が開けなくなる。ファイルを引く側は拡張子だけを見ればよくなる
-    get("/$ACCOUNT_PREFIX{username}") {
-        if (staticFiles == null) {
-            call.respondText(NO_STATIC_FILES_MESSAGE, status = HttpStatusCode.NotFound)
-            return@get
+    // 画面が開けなくなる。ファイルを引く側は拡張子だけを見ればよくなる。
+    //
+    // 末尾のスラッシュは Ktor では別のパスになる。画面側は空のセグメントを無視して
+    // 同じ画面を出すので、両方受けないと `/@name/` だけ開けない
+    listOf("", "/").forEach { trailing ->
+        get("/$ACCOUNT_PREFIX{username}$trailing") {
+            if (staticFiles == null) {
+                call.respondText(NO_STATIC_FILES_MESSAGE, status = HttpStatusCode.NotFound)
+                return@get
+            }
+
+            val index = staticFiles.index()
+            if (index == null) {
+                call.respondText("見つからない: ${call.request.path()}", status = HttpStatusCode.NotFound)
+                return@get
+            }
+
+            call.response.header(HttpHeaders.CacheControl, INDEX_CACHE_CONTROL)
+
+            // 名前が実在するかどうかはここでは見ない。画面が GraphQL で確かめる。
+            // ここでも判断すると、同じ判定がサーバーと画面の 2 か所に増える
+            call.respond(LocalFileContent(index.toFile(), StaticFiles.contentTypeOf(index.fileName.toString())))
         }
-
-        val index = staticFiles.index()
-        if (index == null) {
-            call.respondText("見つからない: ${call.request.path()}", status = HttpStatusCode.NotFound)
-            return@get
-        }
-
-        call.response.header(HttpHeaders.CacheControl, INDEX_CACHE_CONTROL)
-
-        // 名前が実在するかどうかはここでは見ない。画面が GraphQL で確かめる。
-        // ここでも判断すると、同じ判定がサーバーと画面の 2 か所に増える
-        call.respond(LocalFileContent(index.toFile(), StaticFiles.contentTypeOf(index.fileName.toString())))
     }
 
     get("/{path...}") {

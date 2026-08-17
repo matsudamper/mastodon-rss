@@ -152,6 +152,18 @@ class StaticRoutesTest {
         }
 
     @Test
+    fun `末尾にスラッシュが付いていても画面が返る`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            applicationWith(root)
+
+            val response = client.get("/@feed1.example/")
+
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertEquals("<html></html>", response.bodyAsText())
+        }
+
+    @Test
     fun `アカウントのパスでもindex_htmlが無ければ404が返る`() =
         testApplication {
             putFile("frontend.js", "console.log()")
