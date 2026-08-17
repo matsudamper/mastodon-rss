@@ -176,10 +176,7 @@ dev server はこの経路を通らないため、ハッシュの無い名前の
 まとめ、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側は相手の実装が
 決まっている REST なので、こちらの都合で形を変えられない。触らずに分けておく。
 
-管理画面以外が使う口も同じエンドポイントに置く。ログインが要らないものは `Query` の直下
-（アカウント画面が引く `Query.account`）。認可をフィールドで見ているので、口を分ける理由が無い。
-返す型は管理画面用の `AdminAccount` と分けてある。同じ型にすると、誰でも引ける口に
-運用の情報が載ったときに気付けない。
+管理画面以外が使う口も同じエンドポイントに置く。ログインが要らないものは `Query` の直下。
 
 スキーマは `:backend:graphql` に置き、`schema.graphqls`・`admin_query.graphqls`・
 `admin_mutation.graphqls`・`directive.graphqls` に分けてある。`:backend` は起動時に
@@ -221,11 +218,7 @@ dev server はこの経路を通らないため、ハッシュの無い名前の
 
 ### DataLoader
 
-同じものを引き直さないために DataLoader を通す。構成は
-[kake-bo](https://github.com/matsudamper/kake-bo) と同じ。
-
-キャッシュはリクエストごとに分ける。跨いで持つと、アカウントを追加しても
-前のリクエストの結果が返る。
+基本的にDataLoaderを使用してまとめて取得する
 
 ### native-image との組み合わせ
 
