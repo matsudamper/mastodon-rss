@@ -45,18 +45,19 @@ class ActorDirectory(
             .filter { it.isNotEmpty() }
             .filter { ActorUsernameUtil.isValid(it) }
 
-        val result = mutableMapOf<String, ActorUrls>()
+        val foundFixedUser = mutableMapOf<String, ActorUrls>()
         val findUserNames = usernames.filter { username ->
             val isFixedUser = username.equals(fixed.username, ignoreCase = true)
             if (isFixedUser) {
-                result[username] = fixed
+                foundFixedUser[username] = fixed
             }
             isFixedUser.not()
         }.toSet()
-        if (findUserNames.isEmpty()) return result
+        if (findUserNames.isEmpty()) return foundFixedUser
 
         val found = stored.finds(findUserNames)
         return buildMap {
+            putAll(foundFixedUser)
             for (findUserName in findUserNames) {
                 val foundUser = found[findUserName] ?: continue
                 put(findUserName, ActorUrls(domain = domain, username = foundUser))
