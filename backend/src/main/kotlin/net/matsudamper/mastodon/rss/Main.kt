@@ -29,12 +29,27 @@ fun main() {
     // DOMAIN が無ければこの時点で落ちる。サーバーを立てる前に止めたいので順番を変えないこと
     val env = ServerEnv()
 
-    // サーバーが止まったら抱えているものも閉じる。start(wait = true) は停止まで返ってこない
-    AppDependencies.create(env).use { deps ->
+    val deps = AppDependencies.create(env)
+    val server =
         embeddedServer(CIO, port = env.port, host = env.host) {
             module(deps)
-        }.start(wait = true)
-    }
+        }
+
+    // 終了処理を `use` に任せない。docker stop で来る SIGTERM では main が返らないまま
+    // JVM が終わるので finally まで届かず、閉じずに終わると書き込みが DB のファイルに
+    // 確定しない。JVM が終わる経路は必ずシャットダウンフックを通るため、
+    // start が例外で終わった場合も含めてここ 1 か所で閉じられる
+    Runtime.getRuntime().addShutdownHook(
+        Thread {
+            // 処理中のリクエストが DB を触っている最中に閉じないよう、先にサーバーを止める。
+            // 待ち時間は docker stop の既定の猶予（10 秒）に収まる範囲にする
+            server.stop(gracePeriodMillis = 1_000, timeoutMillis = 5_000)
+            deps.close()
+        },
+    )
+
+    // start(wait = true) は停止まで返ってこない
+    server.start(wait = true)
 }
 
 /**

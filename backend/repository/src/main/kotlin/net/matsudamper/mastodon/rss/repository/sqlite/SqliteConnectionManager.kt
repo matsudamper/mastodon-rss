@@ -60,8 +60,23 @@ internal class SqliteConnectionManager(
             }
         }
 
+    /**
+     * WAL を DB ファイルに畳んでから閉じる。
+     *
+     * WAL は書き込みを -wal 側に貯めるので、畳まないまま終わると .db だけを
+     * コピーしても直前の更新が入らない。TRUNCATE まで指定して -wal を空にし、
+     * 閉じた後は .db 単体をコピーしたり別のツールで開いて編集したりできる状態にする。
+     */
     override fun close() {
-        lock.withLock { connection.close() }
+        lock.withLock {
+            try {
+                connection.createStatement().use { statement ->
+                    statement.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                }
+            } finally {
+                connection.close()
+            }
+        }
     }
 
     private companion object {
