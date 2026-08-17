@@ -1,3 +1,4 @@
+import net.matsudamper.mastodon.rss.gradle.WebpackBundleHashPlugin
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
@@ -6,6 +7,8 @@ plugins {
     alias(libs.plugins.kotlin.compose.compiler)
     alias(libs.plugins.compose)
     alias(libs.plugins.apollo)
+    // 配布物の JS の名前に中身のハッシュを入れる。理由はプラグイン側に書いてある
+    id("mastodon-rss.webpack-bundle-hash")
 }
 
 kotlin {
@@ -14,7 +17,7 @@ kotlin {
     wasmJs {
         browser {
             commonWebpackConfig {
-                outputFileName = "frontend.js"
+                outputFileName = WebpackBundleHashPlugin.BUNDLE_FILE_NAME
                 // 既定は 8080 で backend と衝突するのでずらす
                 devServer = (devServer ?: KotlinWebpackConfig.DevServer()).copy(port = 8081)
             }

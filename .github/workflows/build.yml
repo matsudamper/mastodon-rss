@@ -73,11 +73,17 @@ jobs:
 
       - name: 成果物の確認
         run: |
+          set -euo pipefail
+
           DIST=frontend/build/dist/wasmJs/productionExecutable
           ls -la "$DIST"
           test -f "$DIST/index.html"
-          test -f "$DIST/frontend.js"
           ls "$DIST"/*.wasm > /dev/null
+
+          # JS の名前には中身のハッシュが入る。index.html が読み込んでいる名前で
+          # 実際に配信できることまで見る。ここがずれると画面が真っ白になる
+          BUNDLE=$(sed -n 's|.*<script src="/\(frontend\.[0-9a-f]\{1,\}\.js\)".*|\1|p' "$DIST/index.html")
+          test -f "$DIST/$BUNDLE"
 
   native-test:
     name: backend/crypto と backend/rss の native テスト

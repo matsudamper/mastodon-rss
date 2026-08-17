@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.staticfiles
 
 import kotlin.io.path.extension
 import kotlin.io.path.name
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.http.content.LocalFileContent
 import io.ktor.server.response.header
@@ -24,6 +25,9 @@ import io.ktor.server.routing.get
  *   この場合は 404 を返す。理由は起動ログに出している
  */
 fun Route.staticRoutes(staticFiles: StaticFiles?) {
+    // 名前に中身のハッシュが入る拡張子。フォントや画像は名前が変わらないので入れない
+    val hashedNameExtensions = setOf("js", "wasm")
+
     get("/{path...}") {
         if (staticFiles == null) {
             call.respondText(
@@ -43,16 +47,17 @@ fun Route.staticRoutes(staticFiles: StaticFiles?) {
             return@get
         }
 
-        // 中で参照しているwasmが変わる為、キャッシュされないようにする
-        // TODO jsにhashを付けて、index.htmlをキャッシュされないようにする
-        if (file.fileName.name == "frontend.js") {
-            call.response.header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-            call.response.header("Pragma", "no-cache")
-            call.response.header("Expires", "0")
-        }
+        when {
+            // 入口だけは毎回取りに行かせる。中から読むファイルの名前は中身が変わると変わるので、
+            // ここが古いままだと、既に無い名前を取りに行って画面が出ない
+            file.fileName.name == StaticFiles.INDEX_FILE_NAME -> {
+                call.response.header(HttpHeaders.CacheControl, "no-store")
+            }
 
-        if (file.fileName.extension == "wasm") {
-            call.response.header("Cache-Control", "public, max-age=31536000, immutable")
+            // 名前にハッシュが入っているので、中身が変われば別の URL になる
+            file.fileName.extension in hashedNameExtensions -> {
+                call.response.header(HttpHeaders.CacheControl, "public, max-age=31536000, immutable")
+            }
         }
 
         // LocalFileContent は Content-Length と Last-Modified を付け、
