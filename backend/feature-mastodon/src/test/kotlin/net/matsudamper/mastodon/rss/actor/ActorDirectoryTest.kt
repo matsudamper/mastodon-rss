@@ -1,6 +1,8 @@
 package net.matsudamper.mastodon.rss.actor
 
 import kotlin.test.Test
+import kotlin.test.assertContains
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import net.matsudamper.mastodon.rss.FakeStoredActorNames
@@ -31,7 +33,7 @@ class ActorDirectoryTest {
     fun `複数アカウントをまとめて引ける`() {
         val resolved = directory.resolve(setOf("admin", "ADMIN", "feed1", "gihyo", "other", "invalid/name"))
 
-        assertEquals(4, resolved.size)
+        assertEquals(listOf("admin", "ADMIN", "feed1", "gihyo"), resolved.map { it.key })
         assertEquals("https://example.com/users/admin", resolved["admin"]?.actorId)
         assertEquals("https://example.com/users/admin", resolved["ADMIN"]?.actorId)
         assertEquals("https://example.com/users/feed1", resolved["feed1"]?.actorId)
