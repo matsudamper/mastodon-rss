@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +22,8 @@ class AccountScreenViewModel(
     private val api: AccountApi = AccountApi(),
 ) {
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+
+    private var loadingJob: Job? = null
 
     val uiStateFlow: StateFlow<AccountScreenUiState> =
         MutableStateFlow(
@@ -47,12 +50,18 @@ class AccountScreenViewModel(
         reload()
     }
 
+    /**
+     * 走っている取得を止めてから始める。残しておくと、後から始めた方が先に返ったときに
+     * 古い結果で上書きされ、あるアカウントが無いことになる
+     */
     private fun reload() {
+        loadingJob?.cancel()
         viewModelStateFlow.update { ViewModelState() }
-        viewModelScope.launch {
-            val account = api.account(username)
-            viewModelStateFlow.update { it.copy(account = account) }
-        }
+        loadingJob =
+            viewModelScope.launch {
+                val account = api.account(username)
+                viewModelStateFlow.update { it.copy(account = account) }
+            }
     }
 
     private fun createContent(state: ViewModelState): AccountScreenUiState.Content {
