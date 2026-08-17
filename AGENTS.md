@@ -14,6 +14,7 @@
 
 ## 基本的に禁止な事項
 - Global関数
+  - 慣習でGlobalなものは許可(例: Composeのremember*)
 
 # ルール
 日本語で記述するもの
