@@ -18,7 +18,10 @@ import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
 import net.matsudamper.mastodon.rss.json.respondJson
 
 /**
- * 相手が `Create` の `object.id` をパーマリンクとして引きに来る先
+ * 配信した投稿を返す。
+ *
+ * 相手は受け取った `Create` の `object.id` をパーマリンクとして引きに来る。
+ * ここが 404 だと、タイムラインには出ていても開けない投稿になる。
  */
 fun Route.noteRoutes(
     domain: String,
@@ -46,10 +49,11 @@ fun Route.noteRoutes(
 }
 
 /**
- * Actor の `outbox` が指している先。
+ * 配信した投稿の一覧を返す。Actor の `outbox` が指している先。
  *
- * 並べるのは投稿ではなく配信したときと同じ `Create`。`outbox` は
- * アクティビティの記録であって投稿の一覧ではない、というのが ActivityPub の決まり。
+ * 中身は投稿そのものではなく、配信したときと同じ `Create` を並べる。
+ * `outbox` はアクティビティの記録であって投稿の一覧ではない、というのが
+ * ActivityPub の決まり。
  */
 fun Route.outboxRoutes(
     directory: ActorDirectory,
@@ -83,6 +87,8 @@ fun Route.outboxRoutes(
 
         val page = notes.list(
             username = urls.username,
+            // 読めない cursor は先頭に倒す。相手が辿るだけの値なので、
+            // 壊れていることを教えても直しようが無い
             after = cursor.ifEmpty { null }?.let { NoteCursor.decode(it) },
             limit = COLLECTION_PAGE_SIZE,
         )
@@ -106,6 +112,7 @@ fun Route.outboxRoutes(
                 totalItems = total,
                 partOf = urls.outbox,
                 orderedItems = items,
+                // 総数ではなく取れた件数で判断する。読んでいる間に増えていることがある
                 next = if (page.size < COLLECTION_PAGE_SIZE) null else pageUrl(urls, page.last().cursor),
             ),
             contentType = contentType,
@@ -122,7 +129,10 @@ private fun pageUrl(
 ): String = "${urls.outbox}?$COLLECTION_CURSOR_PARAM=${after?.encode()?.encodeURLParameter().orEmpty()}"
 
 /**
- * @param embedded `Create` に包む場合は `@context` を入れない。外側が持っている
+ * 保存した投稿を返す形に直す。
+ *
+ * @param embedded `Create` に包む場合は `@context` を入れない。外側が持っているので、
+ *   重ねると同じものを 2 回書くことになる
  */
 private fun noteDocument(
     urls: ActorUrls,

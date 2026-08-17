@@ -3,8 +3,11 @@ package net.matsudamper.mastodon.rss.note
 /**
  * 投稿の URL。
  *
- * 相手は受け取った id をそのまま覚えるので、後から変えられない。
- * アカウントの名前をパスに入れないのは、名前を変えても URL を保つため。
+ * アクターの URL と同じく、綴りを散らすと 1 か所だけ違う形になり、
+ * 相手のキャッシュに残って後から直せない。組み立てはここに集約する。
+ *
+ * アカウントの名前をパスに入れないのは、名前が変わっても投稿の URL が
+ * 変わらないようにするため。相手は受け取った id をそのまま覚えている。
  */
 data class NoteUrls(
     val domain: String,
@@ -13,7 +16,7 @@ data class NoteUrls(
     val noteId: String = "https://$domain/notes/$publicId"
 
     /**
-     * `Create` 自身の id。GET できる文書は無いのでフラグメントを付ける
+     * `Create` 自身の id。GET できる文書があると読める形にしないためフラグメントを付ける
      */
     val createId: String = "$noteId#create"
 }

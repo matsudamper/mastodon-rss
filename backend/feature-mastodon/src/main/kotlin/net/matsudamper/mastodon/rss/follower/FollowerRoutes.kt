@@ -19,10 +19,11 @@ import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
 import net.matsudamper.mastodon.rss.json.respondJson
 
 /**
- * Actor の `followers` が指している先。
+ * フォロワーの一覧を返す。Actor の `followers` が指している先。
  *
- * 集合とページの 2 段構えは ActivityPub の決まりで、Mastodon は総数だけを
- * 見ることも、ページを辿って中身を読むこともある。
+ * `?cursor=` が無ければ総数と最初のページへの入口だけを返し、あればその中身を返す。
+ * 2 段構えは ActivityPub の決まりで、Mastodon は総数だけを見ることも、
+ * ページを辿って中身を読むこともある。
  */
 fun Route.followerRoutes(
     directory: ActorDirectory,
@@ -67,6 +68,8 @@ fun Route.followerRoutes(
                 totalItems = total,
                 partOf = urls.followers,
                 orderedItems = items,
+                // 総数ではなく取れた件数で判断する。読んでいる間に解除されると
+                // 総数の方は減っていることがある
                 next = if (items.size < COLLECTION_PAGE_SIZE) null else pageUrl(urls, items.last()),
             ),
             contentType = contentType,

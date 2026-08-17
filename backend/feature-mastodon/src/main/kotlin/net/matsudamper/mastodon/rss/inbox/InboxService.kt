@@ -50,8 +50,9 @@ class InboxService(
         val owner =
             when (val verification = verifier.verify(request)) {
                 is HttpSignatureResult.Rejected -> {
-                    // 削除の通知は本人が消えた後に届き、そのとき鍵は取りに行けない。
-                    // 落とすと相手が送り直し続ける
+                    // 消えたアクターからの Delete だけは、検証できないことを理由に
+                    // 落とすと相手が送り直し続ける。削除の通知は本人が消えた後に届き、
+                    // そのとき鍵はもう取りに行けないので、通しようがない
                     if (isSelfDelete(request.body)) {
                         logger.info("消えたアクターからの Delete として受け流す: ${recipient.acct} ${verification.reason}")
                         return InboxResult.Accepted
@@ -105,7 +106,9 @@ class InboxService(
             )
         }
 
-        // 処理に失敗しても 202 で返す。5xx にすると相手は同じものを送り直し続ける
+        // 処理に失敗しても 202 で返す。5xx にすると相手は同じものを送り直し続けるので、
+        // こちらが書き込めない間ずっと同じ失敗を繰り返すことになる。
+        // 何が起きたかはここに残っているものが唯一の手がかりになる
         handled.onFailure { failure ->
             logger.warn("inbox の処理に失敗した: ${recipient.acct} type=${activity.type} actor=$owner", failure)
         }
@@ -116,8 +119,9 @@ class InboxService(
     /**
      * 署名を検証できなかったボディが、送り主自身の削除の通知かどうか。
      *
-     * 検証を通っていないので、判断してよいのは 202 を返すかどうかだけ。
-     * フォロワーを消すのは検証を通ったものしか届かない [DeleteActorHandler]。
+     * 検証を通っていないので中身は信用できない。ここで見るのは
+     * 「202 を返して黙らせてよいか」だけで、これを見てフォロワーを消すことはしない。
+     * 消すのは [DeleteActorHandler] で、そちらには検証を通ったものしか届かない。
      */
     private fun isSelfDelete(body: ByteArray): Boolean {
         val activity = runCatching {

@@ -10,8 +10,8 @@ import net.matsudamper.mastodon.rss.note.StoredNote
 /**
  * 管理画面から見た投稿の操作。
  *
- * 本文はプレーンテキストで受ける。HTML をそのまま受けると、管理画面を通して
- * 任意のタグをフォロワーに配ることになる。
+ * 本文はプレーンテキストで受け、配信する HTML に組み立てるのはここ。
+ * HTML をそのまま受けると、管理画面を通して任意のタグをフォロワーに配ることになる。
  */
 class NoteService(
     private val directory: ActorDirectory,
@@ -88,7 +88,10 @@ class NoteService(
 
     companion object {
         /**
-         * 本文の長さの上限。Mastodon の既定の投稿長で、超えた分は相手側で切られる
+         * 本文の長さの上限。
+         *
+         * Mastodon の既定の投稿長は 500 文字で、超えた分は相手側で切られる。
+         * ここで弾いておけば、切られたものが配られてから気付く形にならない。
          */
         const val MAX_LENGTH: Int = 500
 
@@ -102,7 +105,8 @@ class NoteService(
         /**
          * プレーンテキストを配信する HTML に直す。
          *
-         * 空行で段落に分け、行の切れ目は `<br>` にする
+         * 空行で段落に分け、行の切れ目は `<br>` にする。Mastodon が許可するのは
+         * この程度のタグで、それ以外は相手側で落とされる。
          */
         internal fun toHtml(text: String): String = text
             .replace("\r\n", "\n")

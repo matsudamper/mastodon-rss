@@ -6,27 +6,42 @@ import net.matsudamper.mastodon.rss.activitypub.OutgoingActivity
 import net.matsudamper.mastodon.rss.activitypub.StringListSerializer
 
 /**
- * 配信する投稿。
+ * 配信する投稿。Mastodon のタイムラインに 1 件として並ぶもの。
  *
- * `cc` にフォロワーのコレクションを入れないと、配信してもホームタイムラインに
- * 並ばないことがある。
+ * `to` に公開を表す URI を入れると、フォロワーのホームタイムラインに出るうえ、
+ * 相手のインスタンスの公開タイムラインからも見える。`cc` にフォロワーの
+ * コレクションを入れるのは Mastodon の慣習で、これが無いと配信されても
+ * ホームタイムラインに並ばないことがある。
  *
- * `@context` は単体で返すときだけ入れる。[CreateNote] に包むときは外側が持つ。
+ * `@context` は単体で返すときだけ入れる。[CreateNote] に包んで送るときは
+ * 外側が持っているので、中で重ねると同じものを 2 回書くことになる。
  */
 @Serializable
 data class Note(
     @SerialName("@context")
     val context: List<String>? = null,
+    /**
+     * この投稿の URL。相手はここをパーマリンクとして引きに来る
+     */
     val id: String,
     val type: String = TYPE,
+    /**
+     * 投稿したアクターの id
+     */
     val attributedTo: String,
+    /**
+     * 本文の HTML。許可されていないタグは相手側で落とされる
+     */
     val content: String,
     /**
-     * ISO 8601
+     * ISO 8601。相手のタイムラインでの並び順になる
      */
     val published: String,
     val to: List<String>,
     val cc: List<String>,
+    /**
+     * プロフィールや検索から開くリンク。無ければ [id] が使われる
+     */
     val url: String? = null,
 ) {
     companion object {
@@ -39,12 +54,19 @@ data class Note(
  *
  * `to` と `cc` は中の [Note] と同じものを入れる。片方だけに入れると、
  * 実装によって配信先の判断が変わる。
+ *
+ * [OutgoingActivity] と分けているのは、あちらの `object` が
+ * [net.matsudamper.mastodon.rss.activitypub.LinkOrObject] で、受け取ったものを
+ * そのまま返す `Accept` のための形だから。こちらは中身をこちらが組み立てる。
  */
 @Serializable
 data class CreateNote(
     @SerialName("@context")
     @Serializable(with = StringListSerializer::class)
     val context: List<String> = OutgoingActivity.DEFAULT_CONTEXT,
+    /**
+     * このアクティビティ自身の id。相手側の重複判定に使われる
+     */
     val id: String,
     val type: String = TYPE,
     val actor: String,
@@ -62,6 +84,7 @@ data class CreateNote(
 /**
  * 誰でも見られることを表す宛先。
  *
- * `to` に入れると公開投稿、`cc` に入れると未収載になる。
+ * `to` に入れると公開投稿、`cc` に入れると未収載（フォロワーには届くが
+ * 公開タイムラインには出ない）になる。
  */
 const val PUBLIC_AUDIENCE: String = "https://www.w3.org/ns/activitystreams#Public"
