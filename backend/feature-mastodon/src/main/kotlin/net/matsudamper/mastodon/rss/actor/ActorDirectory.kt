@@ -59,7 +59,7 @@ class ActorDirectory(
         return buildMap {
             for (findUserName in findUserNames) {
                 val foundUser = found[findUserName] ?: continue
-                ActorUrls(domain = domain, username = foundUser)
+                put(findUserName, ActorUrls(domain = domain, username = foundUser))
             }
         }
     }
