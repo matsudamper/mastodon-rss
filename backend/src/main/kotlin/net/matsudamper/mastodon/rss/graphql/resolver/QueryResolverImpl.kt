@@ -14,10 +14,6 @@ class QueryResolverImpl : QueryResolver {
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(QlAdminQuery()).build())
     }
 
-    /**
-     * 名前が無ければ null を返す。エラーにしないのは、名前を間違えただけの状態と
-     * 引けなかった状態を画面が区別できるようにするため
-     */
     override fun account(
         username: String,
         env: DataFetchingEnvironment,
