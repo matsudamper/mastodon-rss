@@ -14,14 +14,22 @@ native-image で踏んだことは `META-INF/native-image/` の README にある
 
 ## 現在地と次の一手
 
-次の一手: Phase 3 のスキーマ設計とフォロワーの永続化。
+次の一手: チェックポイント 3 と 4 の実機確認。Mastodon からフォローし、
+管理画面の投稿画面から投稿して、タイムラインに出ることと、再起動しても
+フォロワーが残ることを確かめる。その後は Phase 5 の RSS の取り込み。
 
 - Phase 0（土台づくり）完了。`:backend` / `:backend:feature-mastodon` / `:backend:crypto` /
   `:backend:repository` / `:backend:rss` / `:backend:graphql` / `:frontend` のモジュール構成で、
   native バイナリが起動して SQLite に読み書きできる
 - Phase 1（アクターの発見）完了。`social-rss.matsudamper.net` で WebFinger と Actor を公開している
-- Phase 2（フォローの成立）完了。inbox の署名を検証し、`Follow` に `Accept` を返す。
-  フォロワーの記録はまだしないので、`Undo` が届いても何もしない（Phase 3）
+- Phase 2（フォローの成立）完了。inbox の署名を検証し、`Follow` に `Accept` を返す
+- Phase 3（フォロワーの永続化）実装済み。`Follow` を記録してから `Accept` を返し、
+  `Undo` で消える。アカウントを消した相手の `Delete` も掃除する。
+  `followers` コレクションも返す。鍵を失った状態での起動は、フォロワーが
+  記録されていれば止まる。実機での確認は未実施
+- Phase 4（投稿の配信）実装済み。管理画面の投稿画面から `Note` を `Create` に包んで
+  全フォロワーに配る。`outbox` と `/notes/{id}` も返す。配信キューは無く、
+  失敗したらログに残して諦める。実機での確認は未実施
 - Phase 5 のうちフィードの解析（`:backend:rss`）だけ先に実装した。取得（HTTP）と保存（DB）は
   繋いでいないので、まだ何も流れない。ActivityPub 側と独立していて後戻りが出ないため前倒しした
 - Phase 6 と Phase 8 の一部（管理画面の枠、GraphQL の口とログイン、アカウントの追加と一覧）も
@@ -218,18 +226,40 @@ CI の native-image ジョブの起動確認は、jOOQ 経由のクエリが nat
 
 Phase 2 まではオンメモリでよい。ここで初めて DB が要る。
 
-- [ ] スキーマ設計（開発用 DB で形を決めて `dumpSchema` で `schema.sql` に書き出す）
-      - `actors`（ローカルアクター: name, display_name, private_key, public_key, created_at）
-      - `remote_actors`（inbox, shared_inbox, public_key, fetched_at）
-      - `followers`（actor_id, remote_actor_id, follow_activity_id, state, created_at）
-      - `deliveries`（配信キュー: target_inbox, payload, attempts, next_retry_at, state）
-- [ ] follow を INSERT / UPDATE（jOOQ の DSL で）
-- [ ] `Undo{Follow}` を処理してフォロー解除
-- [ ] `Delete{Actor}`（アカウント削除・引っ越し）を処理してフォロワーを掃除
+- [x] スキーマ設計（開発用 DB で形を決めて `dumpSchema` で `schema.sql` に書き出す）
+      - 足したのは `remote_actors` / `followers` / `notes` の 3 つ。ローカルのアカウントは
+        既にある `accounts` を使う
+      - `followers` と `notes` はこちらのアカウントを名前で持ち、`accounts` への外部キーに
+        していない。`ACTOR_USERNAME` で決まる組み込みアカウントが `accounts` に行を
+        持たないため。外部キーにすると既定のアカウントでだけ落ちる
+      - 素案の `actors.private_key` / `public_key` / `display_name` は入れていない。
+        鍵はファイルに置いたままで、表示名は `Actor` を組み立てるコードが設定から決めている。
+        書き手のいない列になる。どちらも Phase 6 でアカウントを DB 駆動にするときに移す
+      - 素案の `deliveries`（配信キュー）は入れていない。下の配信キューの項目を参照
+- [x] follow を INSERT / UPDATE（jOOQ の DSL で）
+      - 記録してから `Accept` を返す。逆にすると、記録に失敗したときに相手だけが
+        フォローできたつもりになり、こちらには送り先が残らない
+      - `Accept` を返せなかったフォローは `pending` のまま残す。相手から見て成立して
+        いないのでフォロワーには数えないが、送り直されたときに行を増やさないため消さない
+- [x] `Undo{Follow}` を処理してフォロー解除
+      - `object` に `Follow` が埋まっている形と id だけの形の両方を受ける。id だけの場合は
+        記録している `Follow` の id と一致するときだけ消す。消す相手は署名の持ち主で固定する
+- [x] `Delete{Actor}`（アカウント削除・引っ越し）を処理してフォロワーを掃除
       - 削除済みアクターは鍵を取得できないので、署名検証に失敗しても握り潰す例外パスが要る
-- [ ] `GET /users/admin/followers`（OrderedCollection、ページング）
-- [ ] 冪等性: 同じ `Follow` を二重に受けても重複行を作らない（activity id で一意制約）
-- [ ] フォロワーがいるなら鍵の自動生成を拒否して起動を止める
+      - 握り潰す方は `InboxService` に入れた。検証していないので中身は信用せず、
+        202 で受け流すだけでフォロワーは消さない。実際に掃除できるのは、相手の
+        アクター文書がまだ引ける間に届いた `Delete` だけになる
+- [x] `GET /users/admin/followers`（OrderedCollection、ページング）
+      - ページは cursor で辿る。`?cursor=` が先頭で、続きは `next` の URL をそのまま使う
+- [x] 冪等性: 同じ `Follow` を二重に受けても重複行を作らない（activity id で一意制約）
+      - 実際に効くのは `(username, remote_actor_id)` の方。同じ相手が別の `Follow` の id で
+        送ってきても行は増えず、`Follow` の id だけ最後に受けたものに差し替える。
+        相手は受理された id で `Undo` を送ってくるので、古い id を残すと解除できない
+      - `id` の無い `Follow` は受け付けない。送り直しと新しい `Follow` を区別できない
+- [x] フォロワーがいるなら鍵の自動生成を拒否して起動を止める
+      - 鍵を作る直前に確かめる。作ってから確かめると、止めた時点でファイルが
+        出来上がっていて、次の起動では「元からあった鍵」として読まれてしまう
+      - この判定のために DB を鍵より先に開くようにした
       - Phase 1 の鍵の生成条件は「ファイルが無い」だけなので、鍵を失った状態でも
         新しい鍵を作って何事もなく起動する。このときアクターは相手から見て別人になり、
         既存のフォロワーへの署名が全部通らなくなる。いまは警告ログを出すだけ
@@ -239,12 +269,13 @@ Phase 2 まではオンメモリでよい。ここで初めて DB が要る。
         指せることで、DB は残して鍵だけ失う構成が作れてしまう
       - フォロワーを保存するまでは判定材料が無いのでここで入れる。
         `followers` が空でなければ生成せずに落とす
-      - 上の `actors` テーブルは `private_key` を持つ設計になっている。鍵の置き場を
-        ファイルから DB に移すなら、この項目は「移行時に鍵を引き継ぐ」に変わる。
-        どちらにするかは Phase 6 の複数アクター化と合わせて決める
+      - 鍵の置き場はファイルのままにした。DB に移すなら、この判定は「移行時に鍵を
+        引き継ぐ」に変わる。どちらにするかは Phase 6 の複数アクター化と合わせて決める
 
 ### ✅ チェックポイント 3
 プロセスを再起動してもフォロワー数が保持される。アンフォローすると減る。
+
+実装は済んでいる。実機での確認は未実施。
 
 ---
 
@@ -256,16 +287,32 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
       - `id` / `type: "Note"` / `attributedTo` / `content`（HTML）/ `published`（ISO 8601）
       - `to: ["https://www.w3.org/ns/activitystreams#Public"]`
       - `cc: ["<actor>/followers"]`
-      - リンクは `<a href="...">` として `content` に埋める
-- [ ] `Create` アクティビティで包んで全フォロワーの inbox に POST
-- [ ] `sharedInbox` があればそちらにまとめて送る（同一インスタンス宛の重複配信を避ける）
+      - ここまでは実装した。`@context` は単体で返すときだけ入れる。URL にアカウントの
+        名前を入れないのは、名前が変わっても投稿の URL が変わらないようにするため
+      - [ ] リンクを `<a href="...">` として `content` に埋めるのは未実装。本文の
+            組み立ては Phase 5 の取り込みで決まる。いまの投稿画面はプレーンテキストを
+            段落と改行だけの HTML に直している
+- [x] `Create` アクティビティで包んで全フォロワーの inbox に POST
+      - 配る前に記録する。相手は受け取った直後にパーマリンクを引きに来ることがあり、
+        配信が先だとそこで 404 を返してしまう
+      - `Accept` を返せていない相手には送らない
+- [x] `sharedInbox` があればそちらにまとめて送る（同一インスタンス宛の重複配信を避ける）
 - [ ] 配信キュー: 失敗時に指数バックオフでリトライ、上限到達で諦める
-- [ ] `GET /users/admin/outbox`（OrderedCollection）
-- [ ] `GET /notes/{id}` で単体の Note を返す（Mastodon がパーマリンクを引きに来る）
-- [ ] 投稿を発火させる管理用画面
+      - 入れていない。送信をその場でやる限り要らず、失敗したらログに残して諦めている。
+        テーブルも作っていない。読み書きするコードが無いまま実 DB にテーブルだけが残るため
+      - 要るのは実際に取りこぼしが見えてから
+- [x] `GET /users/admin/outbox`（OrderedCollection）
+      - 並ぶのは投稿ではなく配信したときと同じ `Create`。ページは cursor で辿る
+- [x] `GET /notes/{id}` で単体の Note を返す（Mastodon がパーマリンクを引きに来る）
+- [x] 投稿を発火させる管理用画面
+      - `/admin/notes/new`。GraphQL の `admin.postNote` を叩く。本文はプレーンテキストで
+        受けて HTML に組み立てる。HTML をそのまま受けると、管理画面を通して任意のタグを
+        フォロワーに配ることになる
 
 ### ✅ チェックポイント 4
 フォロワーのホームタイムラインに投稿が現れ、リンクをクリックできる。
+
+配信までは実装した。実機での確認は未実施。本文へのリンクの埋め込みは Phase 5 で入る。
 
 ---
 
