@@ -6,7 +6,7 @@ package net.matsudamper.mastodon.rss.actor
  * どこに保存されているかは [ActorDirectory] の関心ではないので、
  * 名前を渡して引けることだけを決めておく。
  */
-fun interface StoredActorNames {
+interface StoredActorNames {
     /**
      * 保存されている名前を返す。無ければ null。
      *
@@ -21,9 +21,5 @@ fun interface StoredActorNames {
      *
      * 返すマップのキーは要求された名前、値は保存されている綴り。
      */
-    fun find(usernames: Set<String>): Map<String, String> =
-        usernames.mapNotNull { username ->
-            val found = find(username) ?: return@mapNotNull null
-            username to found
-        }.toMap()
+    fun finds(usernames: Set<String>): Map<String, String>
 }

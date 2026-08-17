@@ -54,7 +54,7 @@ class AppDependencies(
                 return repositories.accounts.findByUsername(username)?.username
             }
 
-            override fun find(usernames: Set<String>): Map<String, String> {
+            override fun finds(usernames: Set<String>): Map<String, String> {
                 return repositories.accounts.findByUsernames(usernames).mapValues { it.value.username }
             }
         },

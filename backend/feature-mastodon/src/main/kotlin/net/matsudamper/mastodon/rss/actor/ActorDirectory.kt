@@ -16,7 +16,7 @@ package net.matsudamper.mastodon.rss.actor
  */
 class ActorDirectory(
     private val fixed: ActorUrls,
-    private val stored: StoredActorNames = StoredActorNames { null },
+    private val stored: StoredActorNames,
 ) {
     private val domain: String = fixed.domain
 
@@ -45,8 +45,7 @@ class ActorDirectory(
         val result = mutableMapOf<String, ActorUrls>()
         val toQuery = mutableSetOf<String>()
 
-        for (username in usernames) {
-            if (username.isEmpty()) continue
+        for (username in usernames.filter { it.isNotEmpty() }) {
             if (username.equals(fixed.username, ignoreCase = true)) {
                 result[username] = fixed
             } else if (ActorUsernameUtil.isValid(username)) {
@@ -55,7 +54,7 @@ class ActorDirectory(
         }
 
         if (toQuery.isNotEmpty()) {
-            val found = stored.find(toQuery)
+            val found = stored.finds(toQuery)
             for (username in toQuery) {
                 val name = found[username] ?: continue
                 result[username] = ActorUrls(domain = domain, username = name)
