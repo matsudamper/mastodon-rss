@@ -420,6 +420,10 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
       - [ ] ttf のままなので 1 ファイル 5MB 台ある。日本語の常用範囲にサブセットすると
             桁で小さくなる。woff2 は Skia が読めないので ttf のまま subset する
 - [x] `:backend` が静的ファイルを配信する（`STATIC_SRC_DIR`。root から配信し、無ければ `index.html`）
+      - 入口の `index.html` はキャッシュさせず、名前に中身のハッシュが入る JS と `.wasm` は
+        `immutable` で持たせる。JS の名前は `:frontend` のビルドで付け、`index.html` の参照も
+        そこで差し替える。詳細は [docs/architecture.md](docs/architecture.md) の
+        「静的ファイルのキャッシュ」
 - [ ] スキーマに書けない定数（パスワードの長さ制限、環境変数名、画面のパス）を
       `:backend` と `:frontend` で共有する
       - `:shared`（KMP: `jvm` + `wasmJs`）にはいま `/graphql` のパスだけ入れてある
