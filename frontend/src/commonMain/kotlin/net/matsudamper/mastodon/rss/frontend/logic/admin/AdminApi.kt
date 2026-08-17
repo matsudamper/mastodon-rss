@@ -3,11 +3,15 @@ package net.matsudamper.mastodon.rss.frontend.logic.admin
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
+import com.apollographql.apollo.api.Optional
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
@@ -73,6 +77,62 @@ class AdminApi(
             isDuplicated = failure.isDuplicated,
         )
     }
+
+    /**
+     * @param cursor 直前のページの続きから取る。null なら先頭から
+     * @param limit 要求する件数。上限はサーバー側で決まる
+     */
+    suspend fun notes(
+        username: String,
+        cursor: String? = null,
+        limit: Int? = null,
+    ): AdminNotesResult {
+        val response = client
+            .query(
+                AdminNotesQuery(
+                    username = username,
+                    cursor = Optional.presentIfNotNull(cursor),
+                    limit = Optional.presentIfNotNull(limit),
+                ),
+            ).execute()
+        val data = response.data ?: return AdminNotesResult.Failure(response.failureMessage())
+
+        return AdminNotesResult.Success(
+            notes = data.admin.notes.items.map { it.adminNoteFields.toAdminNote() },
+            cursor = data.admin.notes.cursor,
+        )
+    }
+
+    suspend fun postNote(
+        username: String,
+        body: String,
+    ): AdminPostNoteResult {
+        val response = client.mutation(AdminPostNoteMutation(username = username, body = body)).execute()
+        val posted = response.data?.admin?.postNote ?: return AdminPostNoteResult.Failure(response.failureMessage())
+
+        val failure = posted.failure
+        if (failure != null) {
+            return AdminPostNoteResult.Rejected(
+                unknownAccount = failure.unknownAccount,
+                isEmpty = failure.isEmpty,
+                maxLength = failure.maxLength,
+            )
+        }
+
+        val note = posted.note ?: return AdminPostNoteResult.Failure("投稿できたが内容が返ってこない")
+
+        return AdminPostNoteResult.Success(
+            note = note.adminNoteFields.toAdminNote(),
+            deliveryTargets = posted.deliveryTargets ?: 0,
+            delivered = posted.delivered ?: 0,
+        )
+    }
+
+    private fun AdminNoteFields.toAdminNote(): AdminNote = AdminNote(
+        url = url,
+        contentHtml = contentHtml,
+        publishedAt = publishedAt,
+    )
 
     /**
      * `data` が無いのは失敗。ログインしていない状態と混ぜない

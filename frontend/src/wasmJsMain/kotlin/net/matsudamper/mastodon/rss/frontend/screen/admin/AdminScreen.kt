@@ -158,6 +158,10 @@ private fun MenuCard(onNavigate: (Screen) -> Unit) {
             text = "アカウントの追加",
             onClick = { onNavigate(Screen.AdminAccountNew) },
         )
+        TextLink(
+            text = "投稿する",
+            onClick = { onNavigate(Screen.AdminNoteNew) },
+        )
         Text(
             text = "フィードの登録・削除、フォロワー数と配信エラー、手動での再取得はこれから作る。",
             style = MaterialTheme.typography.bodySmall,

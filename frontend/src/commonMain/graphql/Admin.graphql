@@ -56,3 +56,37 @@ fragment AdminSessionFields on AdminSession {
     loggedIn
     passwordConfigured
 }
+
+query AdminNotes($username: String!, $cursor: String, $limit: Int) {
+    admin {
+        notes(username: $username, cursor: $cursor, limit: $limit) {
+            items {
+                ...AdminNoteFields
+            }
+            cursor
+        }
+    }
+}
+
+mutation AdminPostNote($username: String!, $body: String!) {
+    admin {
+        postNote(username: $username, body: $body) {
+            note {
+                ...AdminNoteFields
+            }
+            deliveryTargets
+            delivered
+            failure {
+                unknownAccount
+                isEmpty
+                maxLength
+            }
+        }
+    }
+}
+
+fragment AdminNoteFields on AdminNote {
+    url
+    contentHtml
+    publishedAt
+}

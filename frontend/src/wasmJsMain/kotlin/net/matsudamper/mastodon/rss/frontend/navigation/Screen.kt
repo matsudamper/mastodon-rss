@@ -56,6 +56,16 @@ sealed interface Screen : NavKey {
     }
 
     /**
+     * 投稿する画面。
+     *
+     * アカウントを選んで本文を書き、フォロワーに配る。配信した投稿の一覧も同じ画面に出す。
+     */
+    data object AdminNoteNew : Screen {
+        override val path: String = "/$ADMIN_SEGMENT/$NOTES_SEGMENT/$NEW_SEGMENT"
+        override val title: String = "投稿 | $SITE_NAME"
+    }
+
+    /**
      * アカウント画面。`/@feed1` のように `@` + ユーザー名で開く。
      *
      * ActivityPub の Actor JSON を返す `/users/{name}` とはパスを分ける。
@@ -92,6 +102,8 @@ sealed interface Screen : NavKey {
 
         private const val ACCOUNTS_SEGMENT: String = "accounts"
 
+        private const val NOTES_SEGMENT: String = "notes"
+
         private const val NEW_SEGMENT: String = "new"
 
         /** アカウント画面の目印。ユーザー名に `@` は使えないので、これで一意に判別できる */
@@ -126,6 +138,7 @@ sealed interface Screen : NavKey {
                     emptyList<String>() -> Admin
                     listOf(ACCOUNTS_SEGMENT) -> AdminAccounts
                     listOf(ACCOUNTS_SEGMENT, NEW_SEGMENT) -> AdminAccountNew
+                    listOf(NOTES_SEGMENT, NEW_SEGMENT) -> AdminNoteNew
                     else -> NotFound(path)
                 }
             }
