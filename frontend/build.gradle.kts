@@ -7,7 +7,6 @@ plugins {
     alias(libs.plugins.kotlin.compose.compiler)
     alias(libs.plugins.compose)
     alias(libs.plugins.apollo)
-    // 配布物の JS の名前に中身のハッシュを入れる。理由はプラグイン側に書いてある
     id("mastodon-rss.webpack-bundle-hash")
 }
 
