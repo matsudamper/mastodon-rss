@@ -31,7 +31,9 @@ class NoteService(
         if (text.isEmpty()) {
             return PostResult.Failure(unknownAccount = false, isEmpty = true, tooLong = false)
         }
-        if (text.length > MAX_LENGTH) {
+        // 絵文字はサロゲートペアで 2 文字ぶんの長さになる。書いた人にとっての
+        // 文字数と合わせるため、コードポイントで数える
+        if (text.codePointCount(0, text.length) > MAX_LENGTH) {
             return PostResult.Failure(unknownAccount = false, isEmpty = false, tooLong = true)
         }
 
