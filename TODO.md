@@ -95,124 +95,10 @@ Mastodon --POST(署名)--> /users/{name}/inbox    (Follow / Undo / Delete)
 
 ## これまでにやったこと
 
-### Phase 0: 土台づくり（完了）
-
-GraalVM native-image は「あとで対応する」と致命傷になりやすいので、要素技術が native-image で
-動くことを実装より先に確かめた。Ktor (CIO) の `/healthz`、kotlinx.serialization、SQLite の接続、
-JCA の RSA と SHA256withRSA、そして native バイナリのビルドまで。CI では ktlint / JVM テスト /
-frontend / crypto と rss の native テスト / native-image の 5 ジョブが回っている。
-
-ここで決めて、いまも効いていること:
-
-- モジュールを最初に分けた。あとから分割すると全ファイルが動く
-- `:backend:crypto` と `:backend:rss` を切ったのは `nativeTest` を回すため。`:backend` のテストは
-  `ktor-server-test-host` 経由で ByteBuddy と JNA を引き込み、native-image では動かない
-- 設定は環境変数に寄せる。native-image は起動時に環境変数を読む方が設定ファイルより素直
-- リフレクションを増やさない。`ContentNegotiation` をやめて serializer を明示する形にしたので、
-  `@Serializable` な型が増えても native-image の設定は増えない
-- SQLite は接続 1 本 + `ReentrantLock` で直列化する。ライターが 1 本しか取れないので汎用プールは過剰
-- 起動時に `verifyWritable()` を通す。native バイナリでは SQLite のネイティブライブラリの
-  展開に失敗しても起動自体は通ってしまう
-
-先送りしてよかったのは jOOQ の codegen。Phase 0 で入れていたら、`Class.arrayType()` が
-native-image で null を返すことに起因する起動時の失敗を、フェデレーションの実装と同時に踏んでいた。
-逆に DB を Phase 1 より先に入れたのは、native-image で壊れるとしたら SQLite のネイティブ
-ライブラリが原因になる可能性が高く、フェデレーションの実装が乗る前に潰したかったため。
-
-当初あった自前のマイグレーション機構（連番 SQL + `schema_version`）は、jOOQ を採用したときに
-`schema.sql` を正とする運用へ切り替えて丸ごと削除した。
-
-チェックポイント 0（達成）: native バイナリ 1 個で `/healthz` が通り、SQLite に書き込める。
-native バイナリ上で RSA 鍵ペア生成と SHA256withRSA 署名ができる。
-
-> #### Compose の位置づけ（決定済み: 案2）
-> Compose Desktop（Skiko / JVM）は GraalVM native-image では現実的に動かない。
-> 管理 UI はブラウザで動かす形にする。
-> - 案1: サーバー = native-image バイナリ、管理UI = Compose Desktop の別アプリ（通常のJVM）
-> - 案2（採用）: 管理UI を Kotlin/Wasm の Compose で書き、ブラウザで動かす
-> - 案3: サーバーも JVM で動かし、native-image をやめる
->
-> DOM ベースの Compose HTML ではなく、Compose Desktop と同じ `androidx.compose.*` の API が
-> そのまま使える Compose Multiplatform for Web（canvas 描画）を使う。
-
-> #### ビルドと配布の分け方（決定済み）
-> `:frontend` と `:backend` は別々にビルドする。Gradle 上で互いに依存させない。
-> 成果物を 1 つにまとめるのはビルドの仕事ではなく、デプロイの仕事にする。
->
-> - `:frontend` をビルドすると `frontend/build/dist/wasmJs/productionExecutable/` に出る。
->   それをどこに置くかはインフラ側の話で、このリポジトリの外で用意する
-> - 配信するのは `:backend`。置き場所は環境変数（`STATIC_SRC_DIR`）で渡し、バイナリには埋め込まない。
->   管理画面の成果物に限らず、フォントなど配信するファイルはここに置く
-> - 配信は root から。管理画面は SPA なので画面のパスは全部 1 つの `index.html` から始まる
-> - `:backend` は `:frontend` を知らない。ビルドにもテストにも Kotlin/Wasm のツールチェインは要らない
->
-> 当初は `:backend` の `processResources` で取り込んで単一バイナリを維持する予定だったが、やめた。
-> サーバーの実装とテストが UI のツールチェイン（Node.js と yarn）に引きずられ、実際に繋いだときは
-> npm の lock がずれただけで backend と native-image のジョブまで落ちた。
-> DB ファイルも秘密鍵も既に外のファイルで、単一バイナリの利点も薄い。
-
-### Phase 1: 固定アクターが Mastodon から「見つかる」（完了）
-
-WebFinger と Actor JSON を返し、`social-rss.matsudamper.net` で公開した。応答の内容は
-[docs/mastodon-spec.md](docs/mastodon-spec.md) を参照。
-
-決めたこと:
-
-- 保存するのは秘密鍵だけ。公開鍵は起動のたびに導く。2 つ保存して片方だけ差し替わる事故を避ける
-- `DOMAIN` は必須にして、未設定なら起動を止める。既定値を用意すると `localhost` が焼き込まれた
-  アクター ID を配ることになり、Mastodon が永続キャッシュするので相手側からは直せない
-- URL の組み立ては `ActorUrls` に集約する。`acct:` / `id` / `#main-key` / inbox のどれか 1 つだけ
-  綴りが違う、という壊れ方を防ぐ
-- アクターの `type` は `Service`（bot 表示になる）。`Person` だと人間アカウントに見える
-- WebFinger の acct ドメインと Actor URL のホストは揃える。`resource` のホスト部が
-  `DOMAIN` と違えば 404 を返す
-
-チェックポイント 1（達成）: Mastodon の検索窓に `@admin@example.com` と入れてプロフィールカードが出る。
-
-> テスト時の注意
-> Mastodon はリモートアクターを永続キャッシュする。開発中にアクターの内容や鍵を変えても即座には
-> 反映されない。試行錯誤のたびに `ACTOR_USERNAME` を変えるのが最も手戻りが少ない。
-
-### Phase 2: フォローが成立する（HTTP Signatures）（完了）
-
-inbox が受け取ったアクティビティの署名を検証し、`Follow` なら相手の inbox に署名付きで
-`Accept` を返してフォローが成立する。Mastodon 4.5.6 のインスタンス（`m6n.onsen.tech`）から
-実際にフォローして確認した。検証の中身は `HttpSignatureVerifier` の KDoc にある。
-
-決めたこと:
-
-- 署名文字列の組み立ては送信と受信で同じ `SigningString` を通す。分かれると、どちらが
-  間違っているのか切り分けられなくなる
-- `Digest` を必ず見る。署名が掛かるのはヘッダだけなので、見ないとボディは差し替え可能なまま
-- `(request-target)` `host` `date` `digest` が署名対象に入っていなければ拒否する。
-  アクティビティの `actor` が署名した鍵の持ち主と違う場合も拒否する
-- 検証に落ちた理由は相手に返さずログにだけ出す。通る形を総当たりで探す助けになるため
-- `Accept` は inbox の応答を返す前に送る。配信キューが無いのでここで送らないと機会が無い。
-  送れなくても 202 で返す。5xx にすると相手は同じ Follow を送り直し続ける
-- リモートアクターの文書は `ExpiringCache` に 1 時間入れる。キーはフラグメントを落とした URL。
-  取得に失敗したものはキャッシュしない
-
-チェックポイント 2（達成）: Mastodon からフォローボタンを押すと「フォロー中」で確定する。
-
-確認に使ったインスタンスは `AUTHORIZED_FETCH` が無効だった。有効なインスタンスからはまだ
-フォローできない。無署名の GET が拒否されて相手の鍵も inbox も取れないため。
-対応は [送信 GET にも HTTP Signature を付ける](https://github.com/matsudamper/mastodon-rss/issues/62)。
-
-### jOOQ を採用し、スキーマの正を `schema.sql` にする（完了）
-
-codegen は Phase 0 から外し、スキーマが実際に必要になる Phase 3 の直前に、採用するかどうかごと
-判断した。結果は採用。想定していた native-image のリスクは実際に踏んだが（jOOQ が
-`Class.arrayType()` で配列型を作るところ）、原因が特定できて 2 行のビルド引数に収まったので、
-これから増える SQL の量に対して割に合う。症状と対処は `backend/build.gradle.kts` のコメントにある。
-
-スキーマの正はコミットされた `schema.sql` 1 ファイル。codegen の入力もこれで、実 DB への適用は
-sqlite3def で手動。履歴管理の仕組みより、ホビーユースでのイテレーションの軽さを取った。
-運用と codegen のパイプラインは `backend/repository/src/main/resources/db/README.md` にある。
-
-CI の native-image ジョブの起動確認は、jOOQ 経由のクエリが native バイナリで動くことを見る
-唯一の場所なので消さないこと。JVM のテストでは一切再現しない。
-
----
+- Phase 0: native バイナリでサーバーを起動し、SQLite、RSA 署名、RSS 解析を利用できる土台を作った
+- Phase 1: WebFinger と Actor を公開し、Mastodon からアクターを発見できるようにした
+- Phase 2: inbox の HTTP Signature を検証し、`Follow` に `Accept` を返せるようにした
+- Phase 3 の準備として jOOQ を採用し、`schema.sql` をスキーマの正にした
 
 ## Phase 3: フォロワーを永続化する
 
@@ -420,10 +306,6 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
       - [ ] ttf のままなので 1 ファイル 5MB 台ある。日本語の常用範囲にサブセットすると
             桁で小さくなる。woff2 は Skia が読めないので ttf のまま subset する
 - [x] `:backend` が静的ファイルを配信する（`STATIC_SRC_DIR`。root から配信し、無ければ `index.html`）
-      - 入口の `index.html` はキャッシュさせず、名前に中身のハッシュが入る JS と `.wasm` は
-        `immutable` で持たせる。JS の名前は `:frontend` のビルドで付け、`index.html` の参照も
-        そこで差し替える。詳細は [docs/architecture.md](docs/architecture.md) の
-        「静的ファイルのキャッシュ」
 - [ ] スキーマに書けない定数（パスワードの長さ制限、環境変数名、画面のパス）を
       `:backend` と `:frontend` で共有する
       - `:shared`（KMP: `jvm` + `wasmJs`）にはいま `/graphql` のパスだけ入れてある
