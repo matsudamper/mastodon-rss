@@ -9,6 +9,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.actorRoutes
+import net.matsudamper.mastodon.rss.follower.followerRoutes
 import net.matsudamper.mastodon.rss.graphql.DiContainer
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
@@ -20,6 +21,8 @@ import net.matsudamper.mastodon.rss.graphql.resolver.QueryResolverImpl
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
+import net.matsudamper.mastodon.rss.note.noteRoutes
+import net.matsudamper.mastodon.rss.note.outboxRoutes
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
@@ -116,6 +119,9 @@ fun Application.module(deps: AppDependencies) {
             passwordHash = env.adminPasswordHash,
             accountRepository = deps.repositories.accounts,
             fixedActor = deps.actorUrls,
+            directory = deps.directory,
+            notePublisher = deps.notePublisher,
+            noteStore = deps.noteStore,
         ),
     )
 
@@ -132,6 +138,11 @@ fun Application.module(deps: AppDependencies) {
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)
+
+        // Actor の followers / outbox が指している先と、投稿のパーマリンク
+        followerRoutes(deps.directory, deps.followerStore)
+        outboxRoutes(deps.directory, deps.noteStore)
+        noteRoutes(env.domain, deps.noteStore)
 
         nodeInfoRoutes(env.domain)
 

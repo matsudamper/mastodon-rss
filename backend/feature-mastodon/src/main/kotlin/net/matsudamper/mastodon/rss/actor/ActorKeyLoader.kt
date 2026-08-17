@@ -12,7 +12,15 @@ import net.matsudamper.mastodon.rss.crypto.RsaKeys
  * ファイル指定で中身が無い場合だけ新しく生成する。既にあるファイルを書き換えることはしない。
  */
 object ActorKeyLoader {
-    fun load(config: ActorPrivateKey): ActorKey =
+    /**
+     * @param beforeGenerate 鍵を新しく作る直前に呼ぶ。作らせたくない状況ならここで例外を投げる。
+     *   作ってから確かめる形にすると、止めた時点でファイルが出来上がっていて、
+     *   次の起動では「元からあった鍵」として読まれてしまう
+     */
+    fun load(
+        config: ActorPrivateKey,
+        beforeGenerate: () -> Unit = {},
+    ): ActorKey =
         when (config) {
             is ActorPrivateKey.Pem -> {
                 ActorKey(
@@ -22,17 +30,22 @@ object ActorKeyLoader {
             }
 
             is ActorPrivateKey.File -> {
-                loadFromFile(config.path.toAbsolutePath().normalize())
+                loadFromFile(config.path.toAbsolutePath().normalize(), beforeGenerate)
             }
         }
 
-    private fun loadFromFile(path: Path): ActorKey {
+    private fun loadFromFile(
+        path: Path,
+        beforeGenerate: () -> Unit,
+    ): ActorKey {
         if (Files.exists(path)) {
             return ActorKey(
                 privateKey = decode(Files.readString(path)) { "$path の PEM を読めなかった" },
                 origin = ActorKey.Origin.LoadedFile(path),
             )
         }
+
+        beforeGenerate()
 
         val keyPair = RsaKeys.generateKeyPair()
         write(path, RsaKeys.encodeToPem(keyPair.private))
