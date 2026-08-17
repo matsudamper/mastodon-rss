@@ -14,6 +14,7 @@ import net.matsudamper.mastodon.rss.graphql.DiContainer
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
+import net.matsudamper.mastodon.rss.graphql.resolver.AdminAccountResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminMutationResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminQueryResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.MutationResolverImpl
@@ -106,6 +107,7 @@ fun Application.module(deps: AppDependencies) {
             QueryResolverImpl(),
             MutationResolverImpl(),
             AdminQueryResolverImpl(),
+            AdminAccountResolverImpl(),
             AdminMutationResolverImpl(),
         ),
         createContext = { call ->
@@ -118,6 +120,7 @@ fun Application.module(deps: AppDependencies) {
         diContainer = DiContainer(
             passwordHash = env.adminPasswordHash,
             accountRepository = deps.repositories.accounts,
+            followerRepository = deps.repositories.followers,
             fixedActor = deps.actorUrls,
             actorDirectory = deps.directory,
             notePublisher = deps.notePublisher,

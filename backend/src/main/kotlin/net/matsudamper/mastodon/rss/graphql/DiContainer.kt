@@ -9,10 +9,12 @@ import net.matsudamper.mastodon.rss.logic.NoteService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
 class DiContainer(
     passwordHash: PasswordHash?,
     accountRepository: AccountRepository,
+    followerRepository: FollowerRepository,
     fixedActor: ActorUrls,
     val actorDirectory: ActorDirectory,
     notePublisher: NotePublisher,
@@ -25,7 +27,11 @@ class DiContainer(
 
     val adminLoginService: AdminLoginService = AdminLoginService(passwordHash)
 
-    val accountService: AccountService = AccountService(accounts = accountRepository, fixed = fixedActor)
+    val accountService: AccountService = AccountService(
+        accounts = accountRepository,
+        followers = followerRepository,
+        fixed = fixedActor,
+    )
 
     val noteService: NoteService = NoteService(
         directory = actorDirectory,

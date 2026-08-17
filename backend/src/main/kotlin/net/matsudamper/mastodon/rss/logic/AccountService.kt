@@ -4,6 +4,7 @@ import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
 /**
  * 管理画面から見たアカウントの操作。
@@ -12,6 +13,7 @@ import net.matsudamper.mastodon.rss.repository.AccountRepository
  */
 class AccountService(
     private val accounts: AccountRepository,
+    private val followers: FollowerRepository,
     private val fixed: ActorUrls,
 ) {
     /**
@@ -28,6 +30,28 @@ class AccountService(
             )
         }
     }
+
+    /**
+     * 名前で 1 つ引く。応答しない名前なら null
+     */
+    fun account(username: String): ManagedAccount? {
+        if (username.equals(fixed.username, ignoreCase = true)) {
+            return ManagedAccount(urls = fixed, deletable = false, createdAt = null)
+        }
+
+        val account = accounts.findByUsername(username) ?: return null
+
+        return ManagedAccount(
+            urls = ActorUrls(domain = fixed.domain, username = account.username),
+            deletable = true,
+            createdAt = account.createdAt,
+        )
+    }
+
+    /**
+     * フォロワーの数をまとめて数える。一覧に並べる分を 1 回で引くために口を分けている
+     */
+    fun followerCounts(usernames: Set<String>): Map<String, Long> = followers.counts(usernames)
 
     fun add(username: String): AddAccountResult {
         val trimmed = username.trim()

@@ -4,6 +4,9 @@ type AdminQuery {
     "応答するアカウントの一覧"
     accounts: [AdminAccount!]! @lazy
 
+    "アカウント 1 つ。応答しない名前なら null"
+    account(username: String!): AdminAccount @lazy
+
     """
     アカウントが配信した投稿。新しい順。
 
@@ -53,4 +56,7 @@ type AdminAccount {
 
     "管理画面から追加した時刻。追加したものにだけ入る"
     createdAt: UnixTime
+
+    "Accept を返せたフォロワーの数"
+    followerCount: Int! @lazy
 }

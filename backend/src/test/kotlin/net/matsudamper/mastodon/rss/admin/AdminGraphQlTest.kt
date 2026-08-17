@@ -229,6 +229,40 @@ class AdminGraphQlTest {
         }
 
     @Test
+    fun `アカウント 1 つを名前で引ける`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+
+            val account = assertNotNull(queryAccount("feed1", token).admin().getValue("account").jsonObject)
+
+            assertEquals("feed1", account.string("username"))
+            // フォロワーがいなくても 0 が返る。画面が「取れていない」と区別できるようにする
+            assertEquals(0, account.getValue("followerCount").jsonPrimitive.int)
+        }
+
+    @Test
+    fun `応答しない名前を引くと null`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            assertEquals(JsonNull, queryAccount("nobody", token).admin().getValue("account"))
+        }
+
+    @Test
+    fun `ログインしていなければアカウントを引けない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            val body = queryAccount(TestServerEnv.USERNAME).body()
+
+            assertNull(body["data"]?.jsonObject?.get("admin")?.jsonObject?.get("account")?.takeIf { it != JsonNull })
+            assertContains(body.getValue("errors").jsonArray.toString(), GraphQlEngine.GENERIC_ERROR_MESSAGE)
+        }
+
+    @Test
     fun `使えない文字は入力にあったものを返す`() =
         testApplication {
             applicationWith(passwordConfigured = true)
@@ -384,6 +418,18 @@ class AdminGraphQlTest {
 
     private suspend fun ApplicationTestBuilder.queryAccounts(token: String? = null): HttpResponse =
         graphQl("query { admin { accounts { $ACCOUNT_FIELDS } } }", token = token)
+
+    private suspend fun ApplicationTestBuilder.queryAccount(
+        username: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "query Account(${'$'}username: String!) { admin { " +
+                "account(username: ${'$'}username) { $ACCOUNT_FIELDS followerCount } } }",
+            token = token,
+            variables = """{"username":${JsonPrimitive(username)}}""",
+        )
 
     private suspend fun ApplicationTestBuilder.mutateAddAccount(
         username: String,

@@ -31,6 +31,20 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         )
     }
 
+    override fun account(
+        adminQuery: QlAdminQuery,
+        username: String,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminAccount?>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val account = GraphQlEngine.diContainer(env).accountService.account(username)
+
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder<QlAdminAccount?>(account?.toGraphqlResponse()).build(),
+        )
+    }
+
     override fun notes(
         adminQuery: QlAdminQuery,
         username: String,
