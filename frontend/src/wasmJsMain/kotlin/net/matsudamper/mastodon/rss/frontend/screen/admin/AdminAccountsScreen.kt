@@ -78,7 +78,8 @@ private fun AdminAccountsScreen(
             is AdminAccountsScreenUiState.Content.Loaded -> {
                 SectionCard(title = "応答するアカウント") {
                     Text(
-                        text = "この一覧にある名前が Mastodon から検索できる。",
+                        text = "この一覧にある名前が Mastodon から検索できる。名前を選ぶと、" +
+                            "そのアカウントとして投稿できる。",
                         style = MaterialTheme.typography.bodyMedium,
                     )
 
@@ -117,6 +118,12 @@ private fun AccountRow(
         )
 
         Text(
+            text = "フォロワー ${account.followerCount} 人",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Text(
             text = account.actorUrl,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -131,7 +138,12 @@ private fun AccountRow(
         }
 
         TextLink(
-            text = "アカウント画面を開く",
+            text = "このアカウントを管理する",
+            onClick = { onNavigate(Screen.AdminAccount(account.username)) },
+        )
+
+        TextLink(
+            text = "公開されているアカウント画面を開く",
             onClick = { onNavigate(Screen.Account(account.username)) },
         )
     }

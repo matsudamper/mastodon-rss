@@ -4,6 +4,7 @@ import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
 import com.apollographql.apollo.api.Optional
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
@@ -11,6 +12,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
@@ -50,15 +52,15 @@ class AdminApi(
         val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
 
         return AdminAccountsResult.Success(
-            data.admin.accounts.map { account ->
-                AdminAccount(
-                    username = account.username,
-                    acct = account.acct,
-                    actorUrl = account.actorUrl,
-                    createdAt = account.createdAt,
-                )
-            },
+            data.admin.accounts.map { it.adminAccountFields.toAdminAccount() },
         )
+    }
+
+    suspend fun account(username: String): AdminAccountResult {
+        val response = client.query(AdminAccountQuery(username)).execute()
+        val data = response.data ?: return AdminAccountResult.Failure(response.failureMessage())
+
+        return AdminAccountResult.Success(data.admin.account?.adminAccountFields?.toAdminAccount())
     }
 
     suspend fun addAccount(username: String): AdminAddAccountResult {
@@ -127,6 +129,14 @@ class AdminApi(
             delivered = posted.delivered ?: 0,
         )
     }
+
+    private fun AdminAccountFields.toAdminAccount(): AdminAccount = AdminAccount(
+        username = username,
+        acct = acct,
+        actorUrl = actorUrl,
+        createdAt = createdAt,
+        followerCount = followerCount,
+    )
 
     private fun AdminNoteFields.toAdminNote(): AdminNote = AdminNote(
         url = url,

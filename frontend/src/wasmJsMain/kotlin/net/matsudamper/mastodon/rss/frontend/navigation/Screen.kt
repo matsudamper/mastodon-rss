@@ -56,13 +56,15 @@ sealed interface Screen : NavKey {
     }
 
     /**
-     * 投稿する画面。
+     * アカウント 1 つの管理画面。
      *
-     * アカウントを選んで本文を書き、フォロワーに配る。配信した投稿の一覧も同じ画面に出す。
+     * そのアカウントとしての操作はここに集める。いまは投稿と、配信した投稿の一覧。
      */
-    data object AdminNoteNew : Screen {
-        override val path: String = "/$ADMIN_SEGMENT/$NOTES_SEGMENT/$NEW_SEGMENT"
-        override val title: String = "投稿 | $SITE_NAME"
+    data class AdminAccount(
+        val username: String,
+    ) : Screen {
+        override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$username"
+        override val title: String = "@$username の管理 | $SITE_NAME"
     }
 
     /**
@@ -102,8 +104,6 @@ sealed interface Screen : NavKey {
 
         private const val ACCOUNTS_SEGMENT: String = "accounts"
 
-        private const val NOTES_SEGMENT: String = "notes"
-
         private const val NEW_SEGMENT: String = "new"
 
         /** アカウント画面の目印。ユーザー名に `@` は使えないので、これで一意に判別できる */
@@ -134,11 +134,20 @@ sealed interface Screen : NavKey {
             if (first == ADMIN_SEGMENT) {
                 // 知らない下の階層は管理画面ではなく見つからない扱いにする。
                 // 綴りを間違えたリンクで管理画面が出ると、間違いに気付けない
-                return when (segments.drop(1)) {
-                    emptyList<String>() -> Admin
-                    listOf(ACCOUNTS_SEGMENT) -> AdminAccounts
-                    listOf(ACCOUNTS_SEGMENT, NEW_SEGMENT) -> AdminAccountNew
-                    listOf(NOTES_SEGMENT, NEW_SEGMENT) -> AdminNoteNew
+                val rest = segments.drop(1)
+
+                return when {
+                    rest.isEmpty() -> Admin
+
+                    rest == listOf(ACCOUNTS_SEGMENT) -> AdminAccounts
+
+                    rest == listOf(ACCOUNTS_SEGMENT, NEW_SEGMENT) -> AdminAccountNew
+
+                    // 追加の画面と同じ階層に並ぶので、`new` を先に見てから名前として扱う
+                    rest.size == 2 && rest[0] == ACCOUNTS_SEGMENT && USERNAME_PATTERN.matches(rest[1]) -> {
+                        AdminAccount(rest[1])
+                    }
+
                     else -> NotFound(path)
                 }
             }

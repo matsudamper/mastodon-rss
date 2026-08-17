@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -22,99 +21,145 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
+import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
 @Composable
-fun AdminNoteNewScreen(onNavigate: (Screen) -> Unit) {
+fun AdminAccountScreen(
+    username: String,
+    onNavigate: (Screen) -> Unit,
+) {
     val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope) { AdminNoteNewScreenViewModel(viewModelScope) }
+    val viewModel = remember(username, viewModelScope) {
+        AdminAccountScreenViewModel(username = username, viewModelScope = viewModelScope)
+    }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
-    LifecycleStartEffect(Unit) {
+    LifecycleStartEffect(username) {
         viewModel.onStart()
         onStopOrDispose {}
     }
 
-    AdminNoteNewScreen(uiState = uiState, onNavigate = onNavigate)
+    AdminAccountScreen(uiState = uiState, onNavigate = onNavigate)
 }
 
 @Composable
-private fun AdminNoteNewScreen(
-    uiState: AdminNoteNewScreenUiState,
+private fun AdminAccountScreen(
+    uiState: AdminAccountScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
     AppScaffold(onNavigate = onNavigate) { _ ->
         Text(
-            text = "投稿",
+            text = uiState.acct,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
         )
 
         when (val content = uiState.content) {
-            AdminNoteNewScreenUiState.Content.Loading -> {
+            AdminAccountScreenUiState.Content.Loading -> {
                 SectionCard(title = "読み込み中") {
                     Text(text = "アカウントを取ってきている。", style = MaterialTheme.typography.bodyMedium)
                 }
             }
 
-            AdminNoteNewScreenUiState.Content.RequireLogin -> {
+            AdminAccountScreenUiState.Content.RequireLogin -> {
                 RequireLoginCard(onNavigate = onNavigate)
             }
 
-            is AdminNoteNewScreenUiState.Content.Error -> {
-                SectionCard(title = "投稿できない") {
+            AdminAccountScreenUiState.Content.NotFound -> {
+                SectionCard(title = "このアカウントは無い") {
+                    Text(
+                        text = "この名前では Mastodon からも見つからない。",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    TextLink(
+                        text = "アカウントの一覧に戻る",
+                        onClick = { onNavigate(Screen.AdminAccounts) },
+                    )
+                }
+            }
+
+            is AdminAccountScreenUiState.Content.Error -> {
+                SectionCard(title = "この画面を出せない") {
                     Text(
                         text = content.message,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
+                            Text("もう一度試す")
+                        }
+                    }
                 }
             }
 
-            is AdminNoteNewScreenUiState.Content.Input -> {
-                InputCard(content = content, listener = uiState.listener)
-                PostedCard(content = content, listener = uiState.listener)
+            is AdminAccountScreenUiState.Content.Loaded -> {
+                AccountCard(account = content.account, onNavigate = onNavigate)
+                PostCard(post = content.post, listener = uiState.listener)
+                NotesCard(content = content, listener = uiState.listener)
             }
         }
     }
 }
 
 @Composable
-private fun InputCard(
-    content: AdminNoteNewScreenUiState.Content.Input,
-    listener: AdminNoteNewScreenUiState.Listener,
+private fun AccountCard(
+    account: AdminAccountScreenUiState.Account,
+    onNavigate: (Screen) -> Unit,
+) {
+    SectionCard(title = "このアカウント") {
+        Text(
+            text = "フォロワー ${account.followerCount} 人",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        Text(
+            text = account.actorUrl,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        if (account.createdAt != null) {
+            Text(
+                text = "追加: ${account.createdAt}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        TextLink(
+            text = "公開されているアカウント画面を開く",
+            onClick = { onNavigate(Screen.Account(account.username)) },
+        )
+    }
+}
+
+@Composable
+private fun PostCard(
+    post: AdminAccountScreenUiState.Post,
+    listener: AdminAccountScreenUiState.Listener,
 ) {
     SectionCard(title = "新しい投稿") {
         Text(
-            text = "選んだアカウントのフォロワーに配る。プレーンテキストで書くと、" +
+            text = "このアカウントのフォロワーに配る。プレーンテキストで書くと、" +
                 "段落と改行だけの HTML にして送る。",
             style = MaterialTheme.typography.bodyMedium,
         )
 
-        // どのアカウントから流れるかは相手のタイムラインでの見え方そのものなので、
-        // 選んでいるものが常に見えている形にする
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            content.accounts.forEach { account ->
-                FilterChip(
-                    selected = account.username == content.selectedUsername,
-                    onClick = { listener.onAccountSelected(account.username) },
-                    enabled = !content.submitting,
-                    label = { Text(account.acct) },
-                )
-            }
-        }
-
         OutlinedTextField(
-            value = content.body,
+            value = post.body,
             onValueChange = { listener.onBodyChanged(it) },
-            enabled = !content.submitting,
+            enabled = !post.submitting,
             modifier = Modifier.fillMaxWidth(),
             label = { Text("本文") },
             minLines = 4,
         )
 
-        if (content.error != null) {
+        if (post.error != null) {
             Text(
-                text = content.error,
+                text = post.error,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -123,13 +168,13 @@ private fun InputCard(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 onClick = { listener.onClickPost() },
-                enabled = content.canSubmit,
+                enabled = post.canSubmit,
             ) {
-                Text(if (content.submitting) "配信中" else "投稿する")
+                Text(if (post.submitting) "配信中" else "投稿する")
             }
         }
 
-        val result = content.result
+        val result = post.result
         if (result != null) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 // 記録と配信は別。フォロワーが 0 人でも投稿自体は成立するし、
@@ -138,8 +183,7 @@ private fun InputCard(
                     text = "投稿した。宛先 ${result.targets} 件のうち ${result.delivered} 件に届いた。",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                // 外部リンクを開く口がまだ無いので URL は文字として出す。
-                // Mastodon 側から開くときは相手がこの URL を引きに来る
+                // 外部リンクを開く口がまだ無いので URL は文字として出す
                 Text(
                     text = result.url,
                     style = MaterialTheme.typography.bodySmall,
@@ -151,22 +195,21 @@ private fun InputCard(
 }
 
 @Composable
-private fun PostedCard(
-    content: AdminNoteNewScreenUiState.Content.Input,
-    listener: AdminNoteNewScreenUiState.Listener,
+private fun NotesCard(
+    content: AdminAccountScreenUiState.Content.Loaded,
+    listener: AdminAccountScreenUiState.Listener,
 ) {
     SectionCard(title = "配信した投稿") {
-        val notes = content.notes
-        if (notes.isEmpty()) {
+        if (content.notes.isEmpty()) {
             Text(text = "まだ何も配信していない。", style = MaterialTheme.typography.bodyMedium)
             return@SectionCard
         }
 
-        notes.forEach { note ->
+        content.notes.forEach { note ->
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(text = note.text, style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    text = note.url,
+                    text = "${note.publishedAt} ${note.url}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

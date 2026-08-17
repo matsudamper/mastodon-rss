@@ -143,7 +143,7 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
         取りこぼしが見えてから
 - [x] `GET /users/{name}/outbox`（OrderedCollection、cursor でページング）
 - [x] `GET /notes/{id}` で単体の Note を返す
-- [x] 投稿を発火させる管理用画面（`/admin/notes/new`）
+- [x] 投稿を発火させる管理用画面（`/admin/accounts/{name}`）
 
 ### ✅ チェックポイント 4
 フォロワーのホームタイムラインに投稿が現れ、リンクをクリックできる。

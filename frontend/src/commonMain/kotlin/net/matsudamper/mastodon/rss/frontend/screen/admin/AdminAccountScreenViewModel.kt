@@ -7,40 +7,30 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountsResult
+import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 
-class AdminNoteNewScreenViewModel(
+class AdminAccountScreenViewModel(
+    private val username: String,
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
-    val uiStateFlow: StateFlow<AdminNoteNewScreenUiState> =
+    val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
         MutableStateFlow(
-            AdminNoteNewScreenUiState(
-                content = AdminNoteNewScreenUiState.Content.Loading,
-                listener = object : AdminNoteNewScreenUiState.Listener {
+            AdminAccountScreenUiState(
+                acct = "@$username",
+                content = AdminAccountScreenUiState.Content.Loading,
+                listener = object : AdminAccountScreenUiState.Listener {
                     override fun onBodyChanged(text: String) {
                         viewModelStateFlow.update { it.copy(body = text, error = null, result = null) }
-                    }
-
-                    override fun onAccountSelected(username: String) {
-                        // 残したまま取りに行くと、届くまで別のアカウントの投稿が出たままになる
-                        viewModelStateFlow.update {
-                            it.copy(
-                                selectedUsername = username,
-                                result = null,
-                                notes = emptyList(),
-                                cursor = null,
-                                error = null,
-                            )
-                        }
-                        loadNotes(username)
                     }
 
                     override fun onClickPost() {
@@ -49,6 +39,10 @@ class AdminNoteNewScreenViewModel(
 
                     override fun onClickLoadMore() {
                         loadMore()
+                    }
+
+                    override fun onClickReload() {
+                        reload()
                     }
                 },
             ),
@@ -61,43 +55,34 @@ class AdminNoteNewScreenViewModel(
         }.asStateFlow()
 
     fun onStart() {
+        reload()
+    }
+
+    private fun reload() {
+        viewModelStateFlow.update { ViewModelState(body = it.body) }
+
         viewModelScope.launch {
             val session = api.session()
             viewModelStateFlow.update { it.copy(session = session) }
 
             if (session !is AdminSessionResult.Success || !session.loggedIn) return@launch
 
-            when (val accounts = api.accounts()) {
-                is AdminAccountsResult.Success -> {
-                    val selected = accounts.accounts.firstOrNull()?.username.orEmpty()
-                    viewModelStateFlow.update {
-                        it.copy(
-                            accounts = accounts.accounts.map { account ->
-                                AdminNoteNewScreenUiState.Account(
-                                    username = account.username,
-                                    acct = account.acct,
-                                )
-                            },
-                            selectedUsername = selected,
-                        )
-                    }
-                    if (selected.isNotEmpty()) loadNotes(selected)
-                }
+            val account = api.account(username)
+            viewModelStateFlow.update { it.copy(account = account) }
 
-                is AdminAccountsResult.Failure -> {
-                    viewModelStateFlow.update { it.copy(error = accounts.message) }
-                }
+            if (account is AdminAccountResult.Success && account.account != null) {
+                loadNotes()
             }
         }
     }
 
     /**
-     * 先頭から取り直す。
+     * 投稿の一覧を先頭から取り直す。
      *
-     * 取得のたびに世代を上げ、最新の取得の結果だけを反映する。名前だけで見ると、
-     * 同じアカウントで取り直したときに古い応答が後から届いて上書きしてしまう。
+     * 取得のたびに世代を上げ、最新の取得の結果だけを反映する。投稿した直後に
+     * 取り直すので、投稿前に始まった取得が後から届くと投稿が消えて見える。
      */
-    private fun loadNotes(username: String) {
+    private fun loadNotes() {
         val generation = viewModelStateFlow.updateAndGet {
             it.copy(loadGeneration = it.loadGeneration + 1)
         }.loadGeneration
@@ -127,7 +112,6 @@ class AdminNoteNewScreenViewModel(
         val cursor = state.cursor ?: return
         if (state.loadingMore) return
 
-        val username = state.selectedUsername
         val generation = state.loadGeneration
         viewModelStateFlow.update { it.copy(loadingMore = true) }
 
@@ -150,9 +134,8 @@ class AdminNoteNewScreenViewModel(
 
     private fun post() {
         val state = viewModelStateFlow.value
-        if (state.submitting || state.body.isBlank() || state.selectedUsername.isEmpty()) return
+        if (state.submitting || state.body.isBlank()) return
 
-        val username = state.selectedUsername
         viewModelStateFlow.update { it.copy(submitting = true, error = null, result = null) }
 
         viewModelScope.launch {
@@ -162,14 +145,14 @@ class AdminNoteNewScreenViewModel(
                         it.copy(
                             submitting = false,
                             body = "",
-                            result = AdminNoteNewScreenUiState.PostResult(
+                            result = AdminAccountScreenUiState.PostResult(
                                 url = result.note.url,
                                 targets = result.deliveryTargets,
                                 delivered = result.delivered,
                             ),
                         )
                     }
-                    loadNotes(username)
+                    loadNotes()
                 }
 
                 is AdminPostNoteResult.Rejected -> {
@@ -184,36 +167,59 @@ class AdminNoteNewScreenViewModel(
     }
 
     private fun rejectedMessage(rejected: AdminPostNoteResult.Rejected): String = buildList {
-        if (rejected.unknownAccount) add("そのアカウントは応答しない")
+        if (rejected.unknownAccount) add("このアカウントは応答しない")
         if (rejected.isEmpty) add("本文が空")
         if (rejected.maxLength != null) add("${rejected.maxLength} 文字までにする")
     }.joinToString("\n").ifEmpty { "投稿できなかった" }
 
-    private fun createContent(state: ViewModelState): AdminNoteNewScreenUiState.Content {
-        val session = state.session ?: return AdminNoteNewScreenUiState.Content.Loading
+    private fun createContent(state: ViewModelState): AdminAccountScreenUiState.Content {
+        val session = state.session ?: return AdminAccountScreenUiState.Content.Loading
 
         when (session) {
-            is AdminSessionResult.Failure -> return AdminNoteNewScreenUiState.Content.Error(session.message)
+            is AdminSessionResult.Failure -> return AdminAccountScreenUiState.Content.Error(session.message)
 
             is AdminSessionResult.Success -> {
-                if (!session.loggedIn) return AdminNoteNewScreenUiState.Content.RequireLogin
+                if (!session.loggedIn) return AdminAccountScreenUiState.Content.RequireLogin
             }
         }
 
-        return AdminNoteNewScreenUiState.Content.Input(
-            accounts = state.accounts,
-            selectedUsername = state.selectedUsername,
-            body = state.body,
-            submitting = state.submitting,
-            result = state.result,
-            error = state.error,
-            notes = state.notes.map { note ->
-                AdminNoteNewScreenUiState.Note(url = note.url, text = note.contentHtml.toPlainText())
-            },
-            canLoadMore = state.cursor != null,
-            loadingMore = state.loadingMore,
-        )
+        return when (val account = state.account) {
+            null -> AdminAccountScreenUiState.Content.Loading
+
+            is AdminAccountResult.Failure -> AdminAccountScreenUiState.Content.Error(account.message)
+
+            is AdminAccountResult.Success -> {
+                val found = account.account ?: return AdminAccountScreenUiState.Content.NotFound
+
+                AdminAccountScreenUiState.Content.Loaded(
+                    account = found.toUiState(),
+                    post = AdminAccountScreenUiState.Post(
+                        body = state.body,
+                        submitting = state.submitting,
+                        result = state.result,
+                        error = state.error,
+                    ),
+                    notes = state.notes.map { it.toUiState() },
+                    canLoadMore = state.cursor != null,
+                    loadingMore = state.loadingMore,
+                )
+            }
+        }
     }
+
+    private fun AdminAccount.toUiState(): AdminAccountScreenUiState.Account = AdminAccountScreenUiState.Account(
+        username = username,
+        acct = acct,
+        actorUrl = actorUrl,
+        createdAt = createdAt?.let { UnixTimeUtil.format(it) },
+        followerCount = followerCount,
+    )
+
+    private fun AdminNote.toUiState(): AdminAccountScreenUiState.Note = AdminAccountScreenUiState.Note(
+        url = url,
+        text = contentHtml.toPlainText(),
+        publishedAt = UnixTimeUtil.format(publishedAt),
+    )
 
     /**
      * 配信した HTML を画面に出す形に直す。段落と改行だけを改行に戻す
@@ -229,11 +235,10 @@ class AdminNoteNewScreenViewModel(
 
     private data class ViewModelState(
         val session: AdminSessionResult? = null,
-        val accounts: List<AdminNoteNewScreenUiState.Account> = emptyList(),
-        val selectedUsername: String = "",
+        val account: AdminAccountResult? = null,
         val body: String = "",
         val submitting: Boolean = false,
-        val result: AdminNoteNewScreenUiState.PostResult? = null,
+        val result: AdminAccountScreenUiState.PostResult? = null,
         val error: String? = null,
         val notes: List<AdminNote> = emptyList(),
         val cursor: String? = null,

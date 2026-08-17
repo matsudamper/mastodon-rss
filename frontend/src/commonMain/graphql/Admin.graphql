@@ -9,12 +9,25 @@ query AdminSession {
 query AdminAccounts {
     admin {
         accounts {
-            username
-            acct
-            actorUrl
-            createdAt
+            ...AdminAccountFields
         }
     }
+}
+
+query AdminAccount($username: String!) {
+    admin {
+        account(username: $username) {
+            ...AdminAccountFields
+        }
+    }
+}
+
+fragment AdminAccountFields on AdminAccount {
+    username
+    acct
+    actorUrl
+    createdAt
+    followerCount
 }
 
 mutation AdminLogin($password: String!) {

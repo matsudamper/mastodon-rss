@@ -7,4 +7,5 @@ data class AdminAccount(
     val acct: String,
     val actorUrl: String,
     val createdAt: Long?,
+    val followerCount: Int,
 )
