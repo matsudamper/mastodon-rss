@@ -4,6 +4,5 @@ type Account {
     "Mastodon の検索窓に貼る形"
     acct: String!
 
-    "Actor の URL"
     actorUrl: String!
 }
