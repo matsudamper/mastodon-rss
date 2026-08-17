@@ -17,7 +17,5 @@ fi
 ./gradlew \
   ktlintCheck \
   test \
-  :frontend:wasmJsBrowserDistribution \
-  :backend:crypto:nativeTest \
-  :backend:rss:nativeTest \
-  :backend:nativeCompile
+  :frontend:wasmJsBrowserDevelopmentExecutableDistribution \
+  :backend:nativeTestBuild
