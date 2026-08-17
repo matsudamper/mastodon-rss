@@ -6,7 +6,6 @@ schema {
 type Query {
     admin: AdminQuery!
 
-    "存在しない名前なら null。誰でも引けるので、運用の情報は入れない"
     account(username: String!): Account @lazy
 }
 
