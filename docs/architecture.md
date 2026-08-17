@@ -119,7 +119,7 @@ CI が叩くのは root の `ktlintCheck` だけなので、root の build.gradl
 `:frontend` と `:backend` のビルドを繋がないのは、繋ぐとサーバーのテストが
 Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられるため。wasm 側が
 壊れているとサーバーのテストも回せなくなる。配信は実行時のディレクトリを読む形にして、
-ビルドの依存を作らない。詳細は [TODO.md](TODO.md) の「ビルドと配布の分け方」を参照。
+ビルドの依存を作らない。
 
 ## 画面のパス
 

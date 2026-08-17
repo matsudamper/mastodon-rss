@@ -25,7 +25,6 @@ import io.ktor.server.routing.get
  *   この場合は 404 を返す。理由は起動ログに出している
  */
 fun Route.staticRoutes(staticFiles: StaticFiles?) {
-    // 名前に中身のハッシュが入る拡張子。フォントや画像は名前が変わらないので入れない
     val hashedNameExtensions = setOf("js", "wasm")
 
     get("/{path...}") {
@@ -48,13 +47,10 @@ fun Route.staticRoutes(staticFiles: StaticFiles?) {
         }
 
         when {
-            // 入口だけは毎回取りに行かせる。中から読むファイルの名前は中身が変わると変わるので、
-            // ここが古いままだと、既に無い名前を取りに行って画面が出ない
             file.fileName.name == StaticFiles.INDEX_FILE_NAME -> {
                 call.response.header(HttpHeaders.CacheControl, "no-store")
             }
 
-            // 名前にハッシュが入っているので、中身が変われば別の URL になる
             file.fileName.extension in hashedNameExtensions -> {
                 call.response.header(HttpHeaders.CacheControl, "public, max-age=31536000, immutable")
             }
