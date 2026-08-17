@@ -11,8 +11,6 @@ class AccountApi(
     suspend fun account(username: String): AccountResult {
         val response = client.query(AccountQuery(username)).execute()
 
-        // 失敗したときも中身は null で返ってくる。先に見ないと、引けなかっただけの
-        // アカウントを存在しないものとして扱うことになる
         if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
             return AccountResult.Failure(response.failureMessage())
         }
