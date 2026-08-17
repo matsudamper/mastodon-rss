@@ -119,26 +119,5 @@ class StaticFiles(
                 "xml" -> ContentType.Application.Xml
                 else -> ContentType.Application.OctetStream
             }
-
-        /**
-         * 名前に中身のハッシュが入っているか。
-         *
-         * 入っていれば中身が変わったときに URL も変わるので、長く持たせても
-         * 古いものを使い続けることにならない。名前が変わらないものを長く持たせると、
-         * 置き換えても新しいものに変わらなくなる。
-         *
-         * 見るのは名前だけ。ここに置かれるファイルは配信するために誰かが並べたもので、
-         * 何がどう作られたかは分からないため、拡張子や作り手の都合では判断できない。
-         */
-        fun hasContentHashInName(fileName: String): Boolean =
-            fileName
-                .substringBeforeLast('.', "")
-                .split('.')
-                .any { contentHashPattern.matches(it) }
-
-        /**
-         * 名前に入るハッシュ。人が付けた名前をハッシュと数えないよう、長さで下限を引く
-         */
-        private val contentHashPattern = Regex("[0-9a-f]{16,}")
     }
 }

@@ -129,17 +129,6 @@ class StaticFilesTest {
         assertEquals(ContentType.Application.OctetStream, StaticFiles.contentTypeOf("unknown"))
     }
 
-    @Test
-    fun `名前にハッシュが入っているかを見分ける`() {
-        assertEquals(true, StaticFiles.hasContentHashInName("main.d223b78a13c314c5.js"))
-        assertEquals(true, StaticFiles.hasContentHashInName("6e23e5428398b92da386.wasm"))
-        assertEquals(false, StaticFiles.hasContentHashInName("main.js"))
-        assertEquals(false, StaticFiles.hasContentHashInName("index.html"))
-        assertEquals(false, StaticFiles.hasContentHashInName("NotoSansJP-Regular.ttf"))
-        // 人が付けた名前をハッシュと数えない。短ければ 16 進に見えることがある
-        assertEquals(false, StaticFiles.hasContentHashInName("catalog.deadbeef.json"))
-    }
-
     private fun staticFiles(): StaticFiles = StaticFiles(root)
 
     private fun putFile(
