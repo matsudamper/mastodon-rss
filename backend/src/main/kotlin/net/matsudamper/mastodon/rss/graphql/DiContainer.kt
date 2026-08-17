@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.graphql
 
+import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import net.matsudamper.mastodon.rss.logic.AccountService
@@ -10,6 +11,7 @@ class DiContainer(
     passwordHash: PasswordHash?,
     accountRepository: AccountRepository,
     fixedActor: ActorUrls,
+    val actorDirectory: ActorDirectory,
 ) {
     val adminLoginService: AdminLoginService = AdminLoginService(passwordHash)
 

@@ -14,6 +14,7 @@ import graphql.schema.DataFetchingEnvironment
 import io.ktor.server.application.ApplicationCall
 import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.data.GraphQlRequest
+import org.dataloader.DataLoaderRegistry
 import org.slf4j.LoggerFactory
 
 /**
@@ -29,12 +30,20 @@ class GraphQlEngine private constructor(
         request: GraphQlRequest,
         call: ApplicationCall,
     ): JsonObject {
+        val dataLoaderRegistryBuilder = DataLoaderRegistry.Builder()
+        val dataLoaders = DataLoaders(
+            diContainer = diContainer,
+            dataLoaderRegistryBuilder = dataLoaderRegistryBuilder,
+        )
+
         val input = ExecutionInput
             .newExecutionInput(request.query)
             .operationName(request.operationName)
             .variables(variablesOf(request))
+            .dataLoaderRegistry(dataLoaderRegistryBuilder.build())
             .graphQLContext(mapOf(CONTEXT_KEY to createContext(call)))
             .graphQLContext(mapOf(DI_CONTAINER_KEY to diContainer))
+            .graphQLContext(mapOf(DATA_LOADERS_KEY to dataLoaders))
             .build()
 
         return withContext(Dispatchers.IO) {
@@ -85,6 +94,8 @@ class GraphQlEngine private constructor(
     companion object {
         private val CONTEXT_KEY = Any()
         private val DI_CONTAINER_KEY = Any()
+        private val DATA_LOADERS_KEY = Any()
+
         private val logger = LoggerFactory.getLogger(GraphQlEngine::class.java)
 
         internal const val GENERIC_ERROR_MESSAGE = "GraphQL の実行に失敗した"
@@ -118,6 +129,12 @@ class GraphQlEngine private constructor(
         fun diContainer(env: DataFetchingEnvironment): DiContainer {
             return requireNotNull(env.graphQlContext.get(DI_CONTAINER_KEY)) {
                 "GraphQLContext に DiContainer が無い"
+            }
+        }
+
+        fun dataLoaders(env: DataFetchingEnvironment): DataLoaders {
+            return requireNotNull(env.graphQlContext.get(DATA_LOADERS_KEY)) {
+                "GraphQLContext に DataLoaders が無い"
             }
         }
 

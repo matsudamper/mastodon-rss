@@ -3,16 +3,21 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 /**
  * アカウント画面に出す内容。
  *
- * URL から決まるユーザー名とドメイン以外は、まだ本物の値ではない。
- * 管理 API (GraphQL) を作るのは Phase 8 で、フィードと記事を持つのは Phase 5 なので、
+ * 実際の値になっているのは、名前と貼り付ける文字列と Actor の URL だけ。
+ * フィードと記事を持つのは Phase 5、数値は管理 API を繋いでからなので、
  * それまでは [placeholder] が組み立てた固定値を出している。
  * 画面の上に仮の値である旨を出しているのはこのため。
- *
- * API ができたら、この型を組み立てるところだけを差し替えれば画面は変わらない。
  */
 data class AccountUiState(
     val username: String,
-    val domain: String,
+    /**
+     * Mastodon の検索窓に貼る形
+     */
+    val acct: String,
+    /**
+     * ActivityPub の Actor JSON の URL。この画面と対になるもの
+     */
+    val actorUrl: String,
     val displayName: String,
     val summary: String,
     val followers: String,
@@ -21,41 +26,45 @@ data class AccountUiState(
     val feed: FeedUiState,
     val delivery: DeliveryUiState,
     val articles: List<ArticleUiState>,
-    /** 問い合わせ先になる運用者アカウントのユーザー名 */
+    /**
+     * 問い合わせ先になる運用者アカウントのユーザー名
+     */
     val operatorUsername: String,
-    /** 実データを繋ぐ前かどうか。true の間は画面に断りを出す */
+    /**
+     * 運用者アカウントの acct
+     */
+    val operatorAcct: String,
+    /**
+     * 実データを繋ぐ前かどうか。true の間は画面に断りを出す
+     */
     val placeholder: Boolean,
 ) {
-    /** Mastodon の検索窓に貼る形 */
-    val acct: String get() = "@$username@$domain"
-
-    /** ActivityPub の Actor JSON の URL。この画面と対になるもの */
-    val actorUrl: String get() = "https://$domain/users/$username"
-
-    /** アバターの代わりに出す 1 文字 */
+    /**
+     * アバターの代わりに出す 1 文字
+     */
     val initial: String get() = username.first().uppercase()
-
-    /** 運用者アカウントの acct。同じサーバーの中なので、ドメインはこのアカウントと同じ */
-    val operatorAcct: String get() = "@$operatorUsername@$domain"
 
     companion object {
         /**
          * 表示用の仮データを作る。
          *
-         * ユーザー名とドメインだけは URL から取るので実際の値になる。
+         * 名前と acct と Actor の URL は取ってきたものをそのまま使う。
          * 残りはレイアウトを確認できる形にした固定値で、URL に `example.com` を
          * 使っているのは実在のフィードと見間違えないようにするため。
          *
-         * @param domain 画面を開いているホスト。`DOMAIN` と一致している前提で、
-         *   ずれている場合は Mastodon から引けない状態なので、そちらが設定の問題
+         * @param host 画面を開いているホスト。運用者アカウントは仮の値で、
+         *   acct を組み立てる先が他に無いのでここから作る
          */
         fun placeholder(
             username: String,
-            domain: String,
+            acct: String,
+            actorUrl: String,
+            host: String,
         ): AccountUiState {
             return AccountUiState(
                 username = username,
-                domain = domain,
+                acct = acct,
+                actorUrl = actorUrl,
                 displayName = username,
                 summary = "RSS/Atom フィードを ActivityPub で配信するアカウント",
                 followers = "128",
@@ -97,6 +106,7 @@ data class AccountUiState(
                     ),
                 ),
                 operatorUsername = OPERATOR_USERNAME,
+                operatorAcct = "@$OPERATOR_USERNAME@$host",
                 placeholder = true,
             )
         }
@@ -125,7 +135,9 @@ data class FeedUiState(
     val status: FetchStatus,
 )
 
-/** 直近の取得の結果 */
+/**
+ * 直近の取得の結果
+ */
 enum class FetchStatus(
     val label: String,
 ) {
@@ -134,14 +146,18 @@ enum class FetchStatus(
     Unknown("未取得"),
 }
 
-/** 配信キューの状況 */
+/**
+ * 配信キューの状況
+ */
 data class DeliveryUiState(
     val queued: String,
     val failed: String,
     val lastError: String?,
 )
 
-/** 配信した記事 1 件 */
+/**
+ * 配信した記事 1 件
+ */
 data class ArticleUiState(
     val title: String,
     val publishedAt: String,

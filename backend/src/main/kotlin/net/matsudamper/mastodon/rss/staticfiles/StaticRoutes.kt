@@ -5,11 +5,27 @@ import kotlin.io.path.name
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.http.content.LocalFileContent
+import io.ktor.server.request.path
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+
+/**
+ * アカウントの画面のパスの目印。
+ *
+ * 画面側（`:frontend` の `Screen`）が `/@ユーザー名` で開く。ユーザー名に `@` は
+ * 使えないので、これで一意に判別できる。
+ */
+private const val ACCOUNT_PREFIX: String = "@"
+
+private const val NO_STATIC_FILES_MESSAGE: String = "静的ファイルの配信先が無い。STATIC_SRC_DIR を確認すること"
+
+/**
+ * 入口は画面のパスでも同じ扱いにする。返すファイルが同じなので、扱いが分かれると片方だけ古くなる
+ */
+private const val INDEX_CACHE_CONTROL: String = "no-store"
 
 /**
  * 静的ファイルの配信。管理画面はここから始まる。
@@ -27,12 +43,34 @@ import io.ktor.server.routing.get
 fun Route.staticRoutes(staticFiles: StaticFiles?) {
     val hashedNameExtensions = setOf("js", "wasm")
 
+    // アカウントの画面は受ける段階で分ける。ユーザー名には `.` が使えるので、
+    // ファイルを引く経路に流すと `/@name.example` が拡張子付きのファイル要求に見え、
+    // 画面が開けなくなる。ファイルを引く側は拡張子だけを見ればよくなる。
+    //
+    // 末尾のスラッシュは Ktor では別のパスになる。画面側は空のセグメントを無視して
+    // 同じ画面を出すので、両方受けないと `/@name/` だけ開けない
+    listOf("", "/").forEach { trailing ->
+        get("/$ACCOUNT_PREFIX{username}$trailing") {
+            if (staticFiles == null) {
+                call.respondText(NO_STATIC_FILES_MESSAGE, status = HttpStatusCode.NotFound)
+                return@get
+            }
+
+            val index = staticFiles.index()
+            if (index == null) {
+                call.respondText("見つからない: ${call.request.path()}", status = HttpStatusCode.NotFound)
+                return@get
+            }
+
+            call.response.header(HttpHeaders.CacheControl, INDEX_CACHE_CONTROL)
+
+            call.respond(LocalFileContent(index.toFile(), StaticFiles.contentTypeOf(index.fileName.toString())))
+        }
+    }
+
     get("/{path...}") {
         if (staticFiles == null) {
-            call.respondText(
-                "静的ファイルの配信先が無い。STATIC_SRC_DIR を確認すること",
-                status = HttpStatusCode.NotFound,
-            )
+            call.respondText(NO_STATIC_FILES_MESSAGE, status = HttpStatusCode.NotFound)
             return@get
         }
 
@@ -48,7 +86,7 @@ fun Route.staticRoutes(staticFiles: StaticFiles?) {
 
         when {
             file.fileName.name == StaticFiles.INDEX_FILE_NAME -> {
-                call.response.header(HttpHeaders.CacheControl, "no-store")
+                call.response.header(HttpHeaders.CacheControl, INDEX_CACHE_CONTROL)
             }
 
             file.fileName.extension in hashedNameExtensions -> {

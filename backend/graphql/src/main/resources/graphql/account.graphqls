@@ -1,0 +1,8 @@
+type Account {
+    username: String!
+
+    "Mastodon の検索窓に貼る形"
+    acct: String!
+
+    actorUrl: String!
+}

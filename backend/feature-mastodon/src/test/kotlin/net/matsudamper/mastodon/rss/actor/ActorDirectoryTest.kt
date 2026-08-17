@@ -1,8 +1,11 @@
 package net.matsudamper.mastodon.rss.actor
 
 import kotlin.test.Test
+import kotlin.test.assertContains
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import net.matsudamper.mastodon.rss.FakeStoredActorNames
 
 // WebFinger とパスで判定がずれると「検索には出るが開けない」という
 // 分かりにくい壊れ方をするので、両方の入口を同じだけ確かめる。
@@ -11,7 +14,7 @@ class ActorDirectoryTest {
 
     private val directory = ActorDirectory(
         fixed = ActorUrls(domain = "example.com", username = "admin"),
-        stored = { username -> stored.firstOrNull { it.equals(username, ignoreCase = true) } },
+        stored = FakeStoredActorNames(stored),
     )
 
     @Test
@@ -24,6 +27,19 @@ class ActorDirectoryTest {
     @Test
     fun `保存されているアカウントを引ける`() {
         assertEquals("https://example.com/users/feed1", directory.resolve("feed1")?.actorId)
+    }
+
+    @Test
+    fun `複数アカウントをまとめて引ける`() {
+        val resolved = directory.resolve(setOf("admin", "ADMIN", "feed1", "gihyo", "other", "invalid/name"))
+
+        assertEquals(listOf("admin", "ADMIN", "feed1", "gihyo"), resolved.map { it.key })
+        assertEquals("https://example.com/users/admin", resolved["admin"]?.actorId)
+        assertEquals("https://example.com/users/admin", resolved["ADMIN"]?.actorId)
+        assertEquals("https://example.com/users/feed1", resolved["feed1"]?.actorId)
+        assertEquals("https://example.com/users/Gihyo", resolved["gihyo"]?.actorId)
+        assertNull(resolved["other"])
+        assertNull(resolved["invalid/name"])
     }
 
     @Test

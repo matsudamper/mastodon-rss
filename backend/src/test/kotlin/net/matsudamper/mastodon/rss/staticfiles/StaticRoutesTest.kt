@@ -117,6 +117,62 @@ class StaticRoutesTest {
         }
 
     @Test
+    fun `アカウントの画面のパスはindex_htmlが返る`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            applicationWith(root)
+
+            val response = client.get("/@feed1")
+
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertEquals("<html></html>", response.bodyAsText())
+            assertEquals(ContentType.Text.Html, response.contentType()?.withoutParameters())
+        }
+
+    @Test
+    fun `ユーザー名にドットが入っていても画面が返る`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            applicationWith(root)
+
+            // ファイルを引く経路に流れると、拡張子付きの要求と区別が付かず 404 になる
+            val response = client.get("/@feed1.example")
+
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertEquals("<html></html>", response.bodyAsText())
+        }
+
+    @Test
+    fun `アカウントの画面のパスで返すindex_htmlもキャッシュされない`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            applicationWith(root)
+
+            assertEquals("no-store", client.get("/@feed1").headers[HttpHeaders.CacheControl])
+        }
+
+    @Test
+    fun `末尾にスラッシュが付いていても画面が返る`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            applicationWith(root)
+
+            val response = client.get("/@feed1.example/")
+
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertEquals("<html></html>", response.bodyAsText())
+        }
+
+    @Test
+    fun `アカウントのパスでもindex_htmlが無ければ404が返る`() =
+        testApplication {
+            putFile("frontend.js", "console.log()")
+            applicationWith(root)
+
+            assertEquals(HttpStatusCode.NotFound, client.get("/@feed1").status)
+        }
+
+    @Test
     fun `無いファイルは404が返る`() =
         testApplication {
             putFile("index.html", "<html></html>")

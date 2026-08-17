@@ -23,6 +23,11 @@ class StaticFiles(
     fun isAvailable(): Boolean = Files.isDirectory(root)
 
     /**
+     * 画面を出すための [INDEX_FILE_NAME]。置かれていなければ null
+     */
+    fun index(): Path? = root.resolve(INDEX_FILE_NAME).takeIf { Files.isRegularFile(it) }
+
+    /**
      * 返すファイルを決める。見つからなければ null。
      *
      * @param segments リクエストパスをスラッシュで区切ったもの。デコード済みのものを渡す
@@ -34,13 +39,10 @@ class StaticFiles(
         if (Files.isRegularFile(requested)) return requested
 
         // 拡張子のあるパスは index.html に落とさない。落とすと .js や .wasm の
-        // 読み込み失敗が 200 + HTML になり、画面が真っ白になった理由を追えなくなる。
-        // ただし `/@name.example` のようなアカウントの画面は除く。ユーザー名には
-        // `.` が使えるので、拡張子として扱うと画面が開けなくなる
-        val last = safeSegments.lastOrNull()
-        if (last?.contains('.') == true && !last.startsWith(ACCOUNT_PREFIX)) return null
+        // 読み込み失敗が 200 + HTML になり、画面が真っ白になった理由を追えなくなる
+        if (safeSegments.lastOrNull()?.contains('.') == true) return null
 
-        return root.resolve(INDEX_FILE_NAME).takeIf { Files.isRegularFile(it) }
+        return index()
     }
 
     private fun fileOf(safeSegments: List<String>): Path? {
@@ -78,15 +80,6 @@ class StaticFiles(
 
     companion object {
         const val INDEX_FILE_NAME: String = "index.html"
-
-        /**
-         * アカウントの画面のパスの目印。
-         *
-         * 画面側（`:frontend` の `Screen`）が `/@ユーザー名` で開く。
-         * ここで見ているのは「拡張子付きに見えても画面のパスである」判定だけで、
-         * ユーザー名が実在するかどうかは画面が判断する。
-         */
-        const val ACCOUNT_PREFIX: String = "@"
 
         /**
          * 拡張子から Content-Type を決める。

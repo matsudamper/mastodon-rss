@@ -20,6 +20,13 @@ interface AccountRepository {
     fun findByUsername(username: String): Account?
 
     /**
+     * 名前でまとめて引く。大文字小文字の違いは無視する。
+     *
+     * 返すマップのキーは渡された名前、値は対応するアカウント
+     */
+    fun findByUsernames(usernames: Collection<String>): Map<String, Account>
+
+    /**
      * 追加する。同じ名前が既にあれば null を返す。
      *
      * 名前が使える形式かどうかはここでは見ない。保存できる文字列かどうかと、

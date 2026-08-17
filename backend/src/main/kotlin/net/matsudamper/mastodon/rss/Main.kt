@@ -116,6 +116,7 @@ fun Application.module(deps: AppDependencies) {
             passwordHash = env.adminPasswordHash,
             accountRepository = deps.repositories.accounts,
             fixedActor = deps.actorUrls,
+            actorDirectory = deps.directory,
         ),
     )
 

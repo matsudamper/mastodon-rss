@@ -37,3 +37,17 @@ listOf("ktlintCheck", "ktlintFormat").forEach { taskName ->
         dependsOn(gradle.includedBuild("build-logic").task(":$taskName"))
     }
 }
+
+tasks.register("compileAll") {
+    group = "build"
+    description = "frontend・backendを含む全モジュールのプロダクションコードおよびテストコードをコンパイルする"
+    dependsOn(
+        allprojects.map { project ->
+            project.tasks.matching { task ->
+                task.name.startsWith("compileKotlin") ||
+                    task.name.startsWith("compileTestKotlin") ||
+                    task.name in listOf("compileJava", "compileTestJava")
+            }
+        },
+    )
+}

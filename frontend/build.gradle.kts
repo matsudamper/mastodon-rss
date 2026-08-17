@@ -60,7 +60,7 @@ kotlin {
 // スキーマは :backend:graphql のものをファイルとして読むだけで、依存はしない。
 // 写しを持たないので、片方にだけフィールドがある状態にはならない
 apollo {
-    service("admin") {
+    service("app") {
         packageName.set("net.matsudamper.mastodon.rss.frontend.graphql")
         schemaFiles.from(
             rootProject.fileTree("backend/graphql/src/main/resources/graphql") { include("*.graphqls") },

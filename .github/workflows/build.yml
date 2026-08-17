@@ -258,6 +258,23 @@ jobs:
           grep -q '"loggedIn":false' /tmp/graphql-session.json
           grep -q '"passwordConfigured":true' /tmp/graphql-session.json
 
+          # アカウント画面が引く口。DataLoader を通るのはここだけなので、
+          # native バイナリで動くかは他の問い合わせでは分からない
+          echo "--- GraphQL のアカウント（ログイン不要） ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"query Account($username: String!) { account(username: $username) { username acct actorUrl } }","variables":{"username":"ci-feed"}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-account.json
+          cat /tmp/graphql-account.json
+          grep -q '"acct":"@ci-feed@example.com"' /tmp/graphql-account.json
+
+          # 無い名前はエラーではなく null。画面はこれを見て見つからない表示にする
+          echo "--- GraphQL の無い名前のアカウント ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"query { account(username: \"ci-unknown\") { username } }"}' \
+            http://localhost:8080/graphql -o /tmp/graphql-account-unknown.json
+          cat /tmp/graphql-account-unknown.json
+          grep -q '"account":null' /tmp/graphql-account-unknown.json
+
           # 変数と enum の経路を通す
           echo "--- GraphQL の mutation（パスワードが違う） ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
