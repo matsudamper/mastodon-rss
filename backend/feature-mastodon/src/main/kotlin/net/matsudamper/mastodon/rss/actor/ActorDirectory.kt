@@ -16,7 +16,7 @@ package net.matsudamper.mastodon.rss.actor
  */
 class ActorDirectory(
     private val fixed: ActorUrls,
-    private val stored: StoredActorNames = StoredActorNames { null },
+    private val stored: StoredActorNames,
 ) {
     private val domain: String = fixed.domain
 
@@ -37,6 +37,31 @@ class ActorDirectory(
         val found = stored.find(username) ?: return null
 
         return ActorUrls(domain = domain, username = found)
+    }
+
+    fun resolve(usernames: Set<String>): Map<String, ActorUrls> {
+        if (usernames.isEmpty()) return emptyMap()
+        val usernames = usernames
+            .filter { it.isNotEmpty() }
+            .filter { ActorUsernameUtil.isValid(it) }
+
+        val result = mutableMapOf<String, ActorUrls>()
+        val findUserNames = usernames.filter { username ->
+            val isFixedUser = username.equals(fixed.username, ignoreCase = true)
+            if (isFixedUser) {
+                result[username] = fixed
+            }
+            isFixedUser.not()
+        }.toSet()
+        if (findUserNames.isEmpty()) return result
+
+        val found = stored.finds(findUserNames)
+        return buildMap {
+            for (findUserName in findUserNames) {
+                val foundUser = found[findUserName] ?: continue
+                put(findUserName, ActorUrls(domain = domain, username = foundUser))
+            }
+        }
     }
 
     /**

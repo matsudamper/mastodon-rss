@@ -119,7 +119,7 @@ CI が叩くのは root の `ktlintCheck` だけなので、root の build.gradl
 `:frontend` と `:backend` のビルドを繋がないのは、繋ぐとサーバーのテストが
 Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられるため。wasm 側が
 壊れているとサーバーのテストも回せなくなる。配信は実行時のディレクトリを読む形にして、
-ビルドの依存を作らない。詳細は [TODO.md](TODO.md) の「ビルドと配布の分け方」を参照。
+ビルドの依存を作らない。
 
 ## 画面のパス
 
@@ -138,9 +138,13 @@ Kotlin/Wasm のツールチェイン（Node.js と yarn）に引きずられる�
 1 つのパスで `Accept` を見て HTML と JSON を出し分けると、相手側の `Accept` の綴りの
 揺れでアカウントごと見つからなくなるため。Mastodon 自身も 2 つに分けている。
 
-サーバー側で 1 箇所だけこの決まりを知っているのが `StaticFiles`。拡張子のあるパスは
-`index.html` に落とさない規則の例外として、`@` で始まるセグメントを画面のパスとして扱う。
-ユーザー名には `.` が使えるので、`/@name.example` を拡張子付きと見なすと開けなくなる。
+サーバー側で 1 箇所だけこの決まりを知っているのが `staticRoutes`。`/@{username}` を
+静的ファイルのテールカードとは別の route として受け、`index.html` を返す。ユーザー名には
+`.` が使えるので、ファイルを引く経路に流すと `/@name.example` が拡張子付きのファイル要求に
+見えて開けなくなる。受ける段階で分けておけば、`StaticFiles` は拡張子だけを見ればよくなる。
+
+名前が実在するかどうかはここでは見ない。見ると同じ判定がサーバーと画面の 2 か所に増える。
+画面が `Query.account` を引いて、無ければ見つからない表示にする。
 
 管理画面は `/admin` の下にだけ出す。以前はパスに関係なく管理画面が出ていて、
 アカウント画面のつもりで開いても管理画面が表示されていた。
@@ -171,6 +175,8 @@ dev server はこの経路を通らないため、ハッシュの無い名前の
 エンドポイントは `POST /graphql` の 1 つ。管理用は `Query.admin` / `Mutation.admin` の下に
 まとめ、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側は相手の実装が
 決まっている REST なので、こちらの都合で形を変えられない。触らずに分けておく。
+
+管理画面以外が使う口も同じエンドポイントに置く。ログインが要らないものは `Query` の直下。
 
 スキーマは `:backend:graphql` に置き、`schema.graphqls`・`admin_query.graphqls`・
 `admin_mutation.graphqls`・`directive.graphqls` に分けてある。`:backend` は起動時に
@@ -209,6 +215,10 @@ dev server はこの経路を通らないため、ハッシュの無い名前の
 
 `ApplicationCall` をそのまま渡すとリゾルバが Ktor に依存する。`GraphQlContext` が
 出すのはセッションの読み書きだけなので、Cookie の名前や有効期限はリゾルバから見えない。
+
+### DataLoader
+
+基本的にDataLoaderを使用してまとめて取得する
 
 ### native-image との組み合わせ
 

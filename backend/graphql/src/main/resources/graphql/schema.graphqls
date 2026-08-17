@@ -5,6 +5,8 @@ schema {
 
 type Query {
     admin: AdminQuery!
+
+    account(username: String!): Account @lazy
 }
 
 type Mutation {

@@ -19,7 +19,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,8 +31,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import kotlinx.browser.window
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
@@ -47,23 +52,95 @@ import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink
  * 人のアカウントと違って本文を書くことは無く、見たいのは「どのフィードが元で、
  * ちゃんと取れていて、直近で何が流れたか」なので、そこを主役にしている。
  *
- * 広い画面では記事一覧を主、フィードと配信の状況を副の 2 カラムにする。
- * 狭い画面ではフィードの情報を先に出す。1 カラムに畳んだときに記事から始めると、
- * このアカウントが何を流すものなのかが画面外に押し出されるため。
+ * 名前が合っていても、そのアカウントがあるとは限らない。開いてから引くので、
+ * 無ければ見つからない表示に変わる。
  */
 @Composable
 fun AccountScreen(
     username: String,
     onNavigate: (Screen) -> Unit,
 ) {
-    // acct のドメインは、いま画面を開いているホストと同じ。
-    // サーバーの DOMAIN とずれている場合は Mastodon から引けない状態なので、そちらの設定の問題
-    val state =
-        remember(username) {
-            AccountUiState.placeholder(username = username, domain = window.location.host)
+    val viewModelScope = rememberCoroutineScope()
+    val viewModel =
+        remember(viewModelScope, username) {
+            AccountScreenViewModel(
+                username = username,
+                host = window.location.host,
+                viewModelScope = viewModelScope,
+            )
         }
+    val uiState by viewModel.uiStateFlow.collectAsState()
 
+    LifecycleStartEffect(viewModel) {
+        viewModel.onStart()
+        onStopOrDispose {}
+    }
+
+    AccountScreen(
+        username = username,
+        uiState = uiState,
+        onNavigate = onNavigate,
+    )
+}
+
+@Composable
+private fun AccountScreen(
+    username: String,
+    uiState: AccountScreenUiState,
+    onNavigate: (Screen) -> Unit,
+) {
     AppScaffold(onNavigate = onNavigate) { wide ->
+        when (val content = uiState.content) {
+            AccountScreenUiState.Content.Loading -> {
+                SectionCard(title = "読み込み中") {
+                    Text(
+                        text = "アカウントを取ってきている。",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+
+            AccountScreenUiState.Content.NotFound -> {
+                NotFoundContent(
+                    requestedPath = Screen.Account(username).path,
+                    description = "ユーザーが存在しません",
+                )
+            }
+
+            is AccountScreenUiState.Content.Error -> {
+                SectionCard(title = "アカウントを出せない") {
+                    Text(
+                        text = content.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+
+                    OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
+                        Text("もう一度試す")
+                    }
+                }
+            }
+
+            is AccountScreenUiState.Content.Loaded -> {
+                AccountContent(
+                    state = content.account,
+                    wide = wide,
+                    onNavigate = onNavigate,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountContent(
+    state: AccountUiState,
+    wide: Boolean,
+    onNavigate: (Screen) -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
         if (state.placeholder) {
             PlaceholderNotice()
         }

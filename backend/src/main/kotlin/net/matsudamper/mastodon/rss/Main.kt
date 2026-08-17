@@ -119,7 +119,7 @@ fun Application.module(deps: AppDependencies) {
             passwordHash = env.adminPasswordHash,
             accountRepository = deps.repositories.accounts,
             fixedActor = deps.actorUrls,
-            directory = deps.directory,
+            actorDirectory = deps.directory,
             notePublisher = deps.notePublisher,
             noteStore = deps.noteStore,
         ),

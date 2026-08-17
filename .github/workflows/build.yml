@@ -11,19 +11,19 @@ env:
 
 jobs:
   ktlint:
-    name: コード整形の確認
+    name: ktlint
     runs-on: ubuntu-latest
     steps:
-      - name: チェックアウト
+      - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: JDK のセットアップ
+      - name: setup JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: "25"
 
-      - name: Gradle のセットアップ
+      - name: setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # 違反があればここで落とす。直し方は ./gradlew ktlintFormat
@@ -31,41 +31,41 @@ jobs:
         run: ./gradlew ktlintCheck
 
   backend:
-    name: backend テスト
+    name: backend test
     runs-on: ubuntu-latest
     steps:
-      - name: チェックアウト
+      - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: JDK のセットアップ
+      - name: setup JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: "25"
 
-      - name: Gradle のセットアップ
+      - name: setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # build ではなく test にしているのは、build に付いてくる ktlintCheck が
       # ktlint ジョブと重複し、application プラグインの distZip / distTar も
       # 作られるため。配布は native-image なのでアーカイブは使わない
-      - name: テスト
+      - name: test
         run: ./gradlew test
 
   frontend:
-    name: frontend ビルド
+    name: build frontend
     runs-on: ubuntu-latest
     steps:
-      - name: チェックアウト
+      - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: JDK のセットアップ
+      - name: setup JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: "25"
 
-      - name: Gradle のセットアップ
+      - name: setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Wasm バンドルのビルド
@@ -80,26 +80,24 @@ jobs:
           test -f "$DIST/index.html"
           ls "$DIST"/*.wasm > /dev/null
 
-          # JS の名前には中身のハッシュが入る。index.html が読み込んでいる名前で
-          # 実際に配信できることまで見る。ここがずれると画面が真っ白になる
           BUNDLE=$(sed -n 's|.*<script src="/\(frontend\.[0-9a-f]\{1,\}\.js\)".*|\1|p' "$DIST/index.html")
           test -f "$DIST/$BUNDLE"
 
   native-test:
-    name: backend/crypto と backend/rss の native テスト
+    name: native backend test
     runs-on: ubuntu-latest
     steps:
-      - name: チェックアウト
+      - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: GraalVM のセットアップ
+      - name: setup GraalVM
         uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2 # v1.6.4
         with:
           java-version: "25"
           distribution: "graalvm"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Gradle のセットアップ
+      - name: setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # JCA と StAX が native-image 上で動くかは JVM のテストでは分からないので、
@@ -259,6 +257,23 @@ jobs:
           cat /tmp/graphql-session.json
           grep -q '"loggedIn":false' /tmp/graphql-session.json
           grep -q '"passwordConfigured":true' /tmp/graphql-session.json
+
+          # アカウント画面が引く口。DataLoader を通るのはここだけなので、
+          # native バイナリで動くかは他の問い合わせでは分からない
+          echo "--- GraphQL のアカウント（ログイン不要） ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"query Account($username: String!) { account(username: $username) { username acct actorUrl } }","variables":{"username":"ci-feed"}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-account.json
+          cat /tmp/graphql-account.json
+          grep -q '"acct":"@ci-feed@example.com"' /tmp/graphql-account.json
+
+          # 無い名前はエラーではなく null。画面はこれを見て見つからない表示にする
+          echo "--- GraphQL の無い名前のアカウント ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"query { account(username: \"ci-unknown\") { username } }"}' \
+            http://localhost:8080/graphql -o /tmp/graphql-account-unknown.json
+          cat /tmp/graphql-account-unknown.json
+          grep -q '"account":null' /tmp/graphql-account-unknown.json
 
           # 変数と enum の経路を通す
           echo "--- GraphQL の mutation（パスワードが違う） ---"

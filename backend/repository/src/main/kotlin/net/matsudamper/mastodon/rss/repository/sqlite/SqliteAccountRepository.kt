@@ -22,6 +22,24 @@ internal class SqliteAccountRepository(
 
     override fun findByUsername(username: String): Account? = jooq.transaction { dsl -> dsl.selectByUsername(username) }
 
+    override fun findByUsernames(usernames: Collection<String>): Map<String, Account> {
+        if (usernames.isEmpty()) return emptyMap()
+        return jooq.transaction { dsl ->
+            val records = dsl
+                .select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+                .from(ACCOUNTS)
+                .where(ACCOUNTS.USERNAME.`in`(usernames))
+                .fetch()
+                .map { it.toAccount() }
+
+            val map = records.associateBy { it.username.lowercase() }
+            usernames.mapNotNull { key ->
+                val account = map[key.lowercase()] ?: return@mapNotNull null
+                key to account
+            }.toMap()
+        }
+    }
+
     override fun add(
         username: String,
         createdAt: Instant,

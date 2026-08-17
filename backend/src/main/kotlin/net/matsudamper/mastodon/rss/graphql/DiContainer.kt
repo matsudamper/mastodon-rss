@@ -14,7 +14,7 @@ class DiContainer(
     passwordHash: PasswordHash?,
     accountRepository: AccountRepository,
     fixedActor: ActorUrls,
-    directory: ActorDirectory,
+    val actorDirectory: ActorDirectory,
     notePublisher: NotePublisher,
     noteStore: NoteStore,
 ) {
@@ -28,7 +28,7 @@ class DiContainer(
     val accountService: AccountService = AccountService(accounts = accountRepository, fixed = fixedActor)
 
     val noteService: NoteService = NoteService(
-        directory = directory,
+        directory = actorDirectory,
         publisher = notePublisher,
         notes = noteStore,
     )
