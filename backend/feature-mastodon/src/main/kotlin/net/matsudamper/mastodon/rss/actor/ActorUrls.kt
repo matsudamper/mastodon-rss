@@ -18,7 +18,9 @@ data class ActorUrls(
     /** WebFinger の `subject`。`acct:admin@example.com` の形 */
     val acct: String = "acct:$username@$domain"
 
-    /** Mastodon の検索窓に貼る形。`acct:` を付けたままだと引けない */
+    /**
+     * Mastodon の検索窓に貼る形。`acct:` を付けたままだと引けない
+     */
     val mention: String = "@$username@$domain"
 
     /** Actor の `id`。Mastodon 側にキャッシュされる本体 */

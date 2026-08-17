@@ -22,7 +22,9 @@ private const val ACCOUNT_PREFIX: String = "@"
 
 private const val NO_STATIC_FILES_MESSAGE: String = "静的ファイルの配信先が無い。STATIC_SRC_DIR を確認すること"
 
-/** 入口は画面のパスでも同じ扱いにする。返すファイルが同じなので、扱いが分かれると片方だけ古くなる */
+/**
+ * 入口は画面のパスでも同じ扱いにする。返すファイルが同じなので、扱いが分かれると片方だけ古くなる
+ */
 private const val INDEX_CACHE_CONTROL: String = "no-store"
 
 /**

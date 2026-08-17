@@ -10,9 +10,13 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
  */
 data class AccountUiState(
     val username: String,
-    /** Mastodon の検索窓に貼る形 */
+    /**
+     * Mastodon の検索窓に貼る形
+     */
     val acct: String,
-    /** ActivityPub の Actor JSON の URL。この画面と対になるもの */
+    /**
+     * ActivityPub の Actor JSON の URL。この画面と対になるもの
+     */
     val actorUrl: String,
     val displayName: String,
     val summary: String,
@@ -22,14 +26,22 @@ data class AccountUiState(
     val feed: FeedUiState,
     val delivery: DeliveryUiState,
     val articles: List<ArticleUiState>,
-    /** 問い合わせ先になる運用者アカウントのユーザー名 */
+    /**
+     * 問い合わせ先になる運用者アカウントのユーザー名
+     */
     val operatorUsername: String,
-    /** 運用者アカウントの acct */
+    /**
+     * 運用者アカウントの acct
+     */
     val operatorAcct: String,
-    /** 実データを繋ぐ前かどうか。true の間は画面に断りを出す */
+    /**
+     * 実データを繋ぐ前かどうか。true の間は画面に断りを出す
+     */
     val placeholder: Boolean,
 ) {
-    /** アバターの代わりに出す 1 文字 */
+    /**
+     * アバターの代わりに出す 1 文字
+     */
     val initial: String get() = username.first().uppercase()
 
     companion object {
@@ -123,7 +135,9 @@ data class FeedUiState(
     val status: FetchStatus,
 )
 
-/** 直近の取得の結果 */
+/**
+ * 直近の取得の結果
+ */
 enum class FetchStatus(
     val label: String,
 ) {
@@ -132,14 +146,18 @@ enum class FetchStatus(
     Unknown("未取得"),
 }
 
-/** 配信キューの状況 */
+/**
+ * 配信キューの状況
+ */
 data class DeliveryUiState(
     val queued: String,
     val failed: String,
     val lastError: String?,
 )
 
-/** 配信した記事 1 件 */
+/**
+ * 配信した記事 1 件
+ */
 data class ArticleUiState(
     val title: String,
     val publishedAt: String,
