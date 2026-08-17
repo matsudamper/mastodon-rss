@@ -9,9 +9,7 @@ import org.dataloader.DataLoaderFactory
 /**
  * 名前からアカウントを引く。
  *
- * 引き当てを [ActorDirectory] に通すのは、WebFinger と Actor が応答する名前と、
- * 画面が「ある」と言う名前を揃えるため。判定が 2 つあると、検索には出るのに
- * 画面が開けない（逆も）という形でずれる。
+ * 存在する場合、正規化した名前を返す
  */
 class AccountDataLoaderDefine(
     private val directory: ActorDirectory,
