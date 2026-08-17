@@ -48,6 +48,6 @@ tasks.register("compileAll") {
                     task.name.startsWith("compileTestKotlin") ||
                     task.name in listOf("compileJava", "compileTestJava")
             }
-        }
+        },
     )
 }
