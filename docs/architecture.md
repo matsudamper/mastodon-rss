@@ -172,6 +172,11 @@ dev server はこの経路を通らないため、ハッシュの無い名前の
 まとめ、認可はエンドポイントではなくフィールドごとに見る。ActivityPub 側は相手の実装が
 決まっている REST なので、こちらの都合で形を変えられない。触らずに分けておく。
 
+管理画面以外が使う口も同じエンドポイントに置く。ログインが要らないものは `Query` の直下
+（アカウント画面が引く `Query.account`）。認可をフィールドで見ているので、口を分ける理由が無い。
+返す型は管理画面用の `AdminAccount` と分けてある。同じ型にすると、誰でも引ける口に
+運用の情報が載ったときに気付けない。
+
 スキーマは `:backend:graphql` に置き、`schema.graphqls`・`admin_query.graphqls`・
 `admin_mutation.graphqls`・`directive.graphqls` に分けてある。`:backend` は起動時に
 全部をリソースとして読んで 1 つに繋ぎ、`:frontend` は同じファイルから Apollo Kotlin で
@@ -209,6 +214,25 @@ dev server はこの経路を通らないため、ハッシュの無い名前の
 
 `ApplicationCall` をそのまま渡すとリゾルバが Ktor に依存する。`GraphQlContext` が
 出すのはセッションの読み書きだけなので、Cookie の名前や有効期限はリゾルバから見えない。
+
+### DataLoader
+
+同じものを何度も引かないための仕組み。GraphQL はフィールドごとにリゾルバが動くので、
+1 つの問い合わせの中で同じ行を何度も取りに行く形になりやすい。ここも
+[kake-bo](https://github.com/matsudamper/kake-bo) と同じ構成にしてある。
+
+- DataLoader 1 つの定義は `dataloader/*DataLoaderDefine`（`DataLoaderDefine` の実装）
+- リクエストごとに `DataLoaders` を作り、そこで registry へ登録する
+- リゾルバが受け取るのは `DataLoaders.DataLoaderProvider` で、実体は
+  `DataFetchingEnvironment` から引く。実体を直接渡すと、いま実行しているリクエストの
+  registry に載っていない DataLoader を使えてしまい、まとめる先が分かれる
+
+registry はリクエストごとに作り直す。使い回すと前のリクエストで引いた結果がそのまま返り、
+アカウントを追加しても見えないという形になる。
+
+引き当てそのものは DataLoader には書かない。アカウントの引き当ては `ActorDirectory` を通す。
+WebFinger と Actor が応答する名前と、画面が「ある」と言う名前がずれると、
+検索には出るのに画面が開けない（逆も）という壊れ方をする。
 
 ### native-image との組み合わせ
 
