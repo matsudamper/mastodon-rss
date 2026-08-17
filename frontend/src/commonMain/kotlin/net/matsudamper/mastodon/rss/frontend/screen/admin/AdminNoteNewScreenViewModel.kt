@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
@@ -93,21 +94,28 @@ class AdminNoteNewScreenViewModel(
     }
 
     /**
-     * 先頭から取り直す。アカウントを選び直したときと、投稿した直後に呼ぶ
+     * 先頭から取り直す。アカウントを選び直したときと、投稿した直後に呼ぶ。
+     *
+     * 取得のたびに世代を上げ、返ってきたものが最新の取得かどうかで判断する。
+     * 名前だけで見ると、同じアカウントで取り直したときに古い応答が後から
+     * 届いて、投稿直後の一覧を投稿前の内容で上書きしてしまう。
      */
     private fun loadNotes(username: String) {
+        val generation = viewModelStateFlow.updateAndGet {
+            it.copy(loadGeneration = it.loadGeneration + 1)
+        }.loadGeneration
+
         viewModelScope.launch {
             when (val result = api.notes(username = username, limit = PAGE_SIZE)) {
                 is AdminNotesResult.Success -> {
-                    // 選び直しの応答が入れ替わって届くことがある。
-                    // 表示中のアカウント宛のものだけ反映する
-                    if (viewModelStateFlow.value.selectedUsername != username) return@launch
+                    if (viewModelStateFlow.value.loadGeneration != generation) return@launch
                     viewModelStateFlow.update {
                         it.copy(notes = result.notes, cursor = result.cursor, loadingMore = false)
                     }
                 }
 
                 is AdminNotesResult.Failure -> {
+                    if (viewModelStateFlow.value.loadGeneration != generation) return@launch
                     viewModelStateFlow.update { it.copy(error = result.message, loadingMore = false) }
                 }
             }
@@ -123,18 +131,21 @@ class AdminNoteNewScreenViewModel(
         if (state.loadingMore) return
 
         val username = state.selectedUsername
+        val generation = state.loadGeneration
         viewModelStateFlow.update { it.copy(loadingMore = true) }
 
         viewModelScope.launch {
             when (val result = api.notes(username = username, cursor = cursor, limit = PAGE_SIZE)) {
                 is AdminNotesResult.Success -> {
-                    if (viewModelStateFlow.value.selectedUsername != username) return@launch
+                    // 続きを足している間に取り直しが走っていたら、足す先が別物になっている
+                    if (viewModelStateFlow.value.loadGeneration != generation) return@launch
                     viewModelStateFlow.update {
                         it.copy(notes = it.notes + result.notes, cursor = result.cursor, loadingMore = false)
                     }
                 }
 
                 is AdminNotesResult.Failure -> {
+                    if (viewModelStateFlow.value.loadGeneration != generation) return@launch
                     viewModelStateFlow.update { it.copy(error = result.message, loadingMore = false) }
                 }
             }
@@ -234,6 +245,10 @@ class AdminNoteNewScreenViewModel(
         val notes: List<AdminNote> = emptyList(),
         val cursor: String? = null,
         val loadingMore: Boolean = false,
+        /**
+         * 一覧の取得の世代。取り直すたびに上がる
+         */
+        val loadGeneration: Int = 0,
     )
 
     private companion object {
