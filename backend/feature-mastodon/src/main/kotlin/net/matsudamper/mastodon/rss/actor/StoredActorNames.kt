@@ -15,4 +15,15 @@ fun interface StoredActorNames {
      * 相手側に両方がキャッシュされる。
      */
     fun find(username: String): String?
+
+    /**
+     * 保存されている名前をまとめて引く。
+     *
+     * 返すマップのキーは要求された名前、値は保存されている綴り。
+     */
+    fun find(usernames: Set<String>): Map<String, String> =
+        usernames.mapNotNull { username ->
+            val found = find(username) ?: return@mapNotNull null
+            username to found
+        }.toMap()
 }

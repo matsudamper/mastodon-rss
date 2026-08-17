@@ -6,6 +6,7 @@ import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
 import net.matsudamper.mastodon.rss.actor.RemoteActors
+import net.matsudamper.mastodon.rss.actor.StoredActorNames
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
@@ -46,9 +47,18 @@ class AppDependencies(
     val actorUrls: ActorUrls = ActorUrls(domain = env.domain, username = env.actorUsername)
 
     // 毎回引き直す。持ち回すと、追加したアカウントが引けるようになるまで間が空く
-    val directory: ActorDirectory = ActorDirectory(fixed = actorUrls) { username ->
-        repositories.accounts.findByUsername(username)?.username
-    }
+    val directory: ActorDirectory = ActorDirectory(
+        fixed = actorUrls,
+        stored = object : StoredActorNames {
+            override fun find(username: String): String? {
+                return repositories.accounts.findByUsername(username)?.username
+            }
+
+            override fun find(usernames: Set<String>): Map<String, String> {
+                return repositories.accounts.findByUsernames(usernames).mapValues { it.value.username }
+            }
+        },
+    )
 
     /**
      * inbox が受け取ったアクティビティの検証と振り分け。

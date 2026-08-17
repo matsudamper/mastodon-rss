@@ -40,6 +40,37 @@ class ActorDirectory(
     }
 
     /**
+     * まとめて引く。
+     *
+     * 返すマップのキーは渡された名前、値は解決されたアクター
+     */
+    fun resolve(usernames: Set<String>): Map<String, ActorUrls> {
+        if (usernames.isEmpty()) return emptyMap()
+
+        val result = mutableMapOf<String, ActorUrls>()
+        val toQuery = mutableSetOf<String>()
+
+        for (username in usernames) {
+            if (username.isEmpty()) continue
+            if (username.equals(fixed.username, ignoreCase = true)) {
+                result[username] = fixed
+            } else if (ActorUsernameUtil.isValid(username)) {
+                toQuery.add(username)
+            }
+        }
+
+        if (toQuery.isNotEmpty()) {
+            val found = stored.find(toQuery)
+            for (username in toQuery) {
+                val name = found[username] ?: continue
+                result[username] = ActorUrls(domain = domain, username = name)
+            }
+        }
+
+        return result
+    }
+
+    /**
      * WebFinger の `resource` から引く。
      *
      * Mastodon は `acct:name@domain` で引いてくるが、実装によっては Actor の URL を

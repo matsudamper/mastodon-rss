@@ -27,6 +27,19 @@ class ActorDirectoryTest {
     }
 
     @Test
+    fun `複数アカウントをまとめて引ける`() {
+        val resolved = directory.resolve(setOf("admin", "ADMIN", "feed1", "gihyo", "other", "invalid/name"))
+
+        assertEquals(4, resolved.size)
+        assertEquals("https://example.com/users/admin", resolved["admin"]?.actorId)
+        assertEquals("https://example.com/users/admin", resolved["ADMIN"]?.actorId)
+        assertEquals("https://example.com/users/feed1", resolved["feed1"]?.actorId)
+        assertEquals("https://example.com/users/Gihyo", resolved["gihyo"]?.actorId)
+        assertNull(resolved["other"])
+        assertNull(resolved["invalid/name"])
+    }
+
+    @Test
     fun `保存されている綴りで返る`() {
         // 要求された綴りをそのまま返すと、同じアカウントが 2 つの ID で相手側にキャッシュされる
         assertEquals("https://example.com/users/Gihyo", directory.resolve("gihyo")?.actorId)
