@@ -2,7 +2,10 @@ package net.matsudamper.mastodon.rss.graphql
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import graphql.ExceptionWhileDataFetching
 import graphql.ExecutionInput
 import graphql.GraphQL
 import graphql.kickstart.tools.GraphQLResolver
@@ -10,6 +13,7 @@ import graphql.kickstart.tools.SchemaParser
 import graphql.schema.DataFetchingEnvironment
 import io.ktor.server.application.ApplicationCall
 import net.matsudamper.mastodon.rss.graphql.data.GraphQlRequest
+import org.slf4j.LoggerFactory
 
 /**
  * 結線は graphql-java-tools (kickstart) がリフレクションで行う。native-image 向けの
@@ -33,9 +37,24 @@ class GraphQlEngine private constructor(
             .build()
 
         return withContext(Dispatchers.IO) {
-            GraphQlValues.toJsonElement(
-                graphQl.execute(input).toSpecification(),
-            ) as JsonObject
+            val executionResult = graphQl.execute(input)
+            val response = GraphQlValues.toJsonElement(executionResult.toSpecification()) as JsonObject
+            if (executionResult.errors.isEmpty()) return@withContext response
+
+            executionResult.errors.forEach { error ->
+                logger.error(
+                    "GraphQL の実行に失敗した: {}",
+                    error.message,
+                    (error as? ExceptionWhileDataFetching)?.exception,
+                )
+            }
+            val genericErrors =
+                JsonArray(
+                    listOf(JsonObject(mapOf("message" to JsonPrimitive(GENERIC_ERROR_MESSAGE)))),
+                )
+            JsonObject(
+                response + ("errors" to genericErrors),
+            )
         }
     }
 
@@ -49,6 +68,9 @@ class GraphQlEngine private constructor(
     companion object {
         private val CONTEXT_KEY = Any()
         private val DI_CONTAINER_KEY = Any()
+        private val logger = LoggerFactory.getLogger(GraphQlEngine::class.java)
+
+        internal const val GENERIC_ERROR_MESSAGE = "GraphQL の実行に失敗した"
 
         fun create(
             resolvers: List<GraphQLResolver<*>>,
