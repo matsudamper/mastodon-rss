@@ -99,6 +99,8 @@ class FakeFollowerRepository : FollowerRepository {
 
     override fun count(username: String): Long = acceptedFollowers(username).size.toLong()
 
+    override fun counts(usernames: Set<String>): Map<String, Long> = usernames.associateWith { count(it) }
+
     override fun deliveryTargets(username: String): List<String> = stored
         .filter { it.username == username && (username to it.follower.actorUri) in accepted }
         .map { it.follower.sharedInbox ?: it.follower.inbox }

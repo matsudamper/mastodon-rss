@@ -232,6 +232,28 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `まとめて数えると渡した綴りで返る`() {
+        withRepository { followers ->
+            followers.record(incomingFollow(username = "Feed1"))
+            followers.markAccepted("feed1", "https://remote.example/users/alice", "https://remote.example/activities/1", now)
+            followers.record(
+                incomingFollow(
+                    username = "admin",
+                    actorUri = "https://remote.example/users/bob",
+                    followActivityUri = "https://remote.example/activities/2",
+                ),
+            )
+
+            assertEquals(
+                mapOf("FEED1" to 1L, "admin" to 0L, "other" to 0L),
+                // admin は Accept を返せていないので 0。数えない相手も鍵は返す
+                followers.counts(setOf("FEED1", "admin", "other")),
+            )
+            assertEquals(emptyMap(), followers.counts(emptySet()))
+        }
+    }
+
+    @Test
     fun `Accept を返せていないフォローも hasAny では数える`() {
         withRepository { followers ->
             assertFalse(followers.hasAny())

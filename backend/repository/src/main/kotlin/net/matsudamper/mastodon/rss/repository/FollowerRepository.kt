@@ -88,6 +88,13 @@ interface FollowerRepository {
     fun count(username: String): Long
 
     /**
+     * 名前でまとめて数える。
+     *
+     * 返すマップのキーは渡された名前。フォロワーがいない名前は 0 が入る
+     */
+    fun counts(usernames: Set<String>): Map<String, Long>
+
+    /**
      * 投稿を配る先の inbox を返す。
      *
      * `sharedInbox` を持つ相手はそちらにまとめる。同じインスタンスに 10 人いても

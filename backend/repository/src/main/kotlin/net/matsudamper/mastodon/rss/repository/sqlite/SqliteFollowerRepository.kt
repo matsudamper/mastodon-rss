@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
+import java.util.TreeMap
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
@@ -119,6 +120,29 @@ internal class SqliteFollowerRepository(
             .and(FOLLOWERS.STATE.eq(STATE_ACCEPTED))
             .fetchOne(0, Int::class.java)
             ?.toLong() ?: 0L
+    }
+
+    /**
+     * 列に COLLATE NOCASE が付いているので、返ってくる綴りは渡した名前と揃わない。
+     * 呼び出し側が渡した綴りで引けるよう、綴りの揺れを無視して詰め替える。
+     */
+    override fun counts(usernames: Set<String>): Map<String, Long> {
+        if (usernames.isEmpty()) return emptyMap()
+
+        return jooq.transaction { dsl ->
+            val counted = TreeMap<String, Long>(String.CASE_INSENSITIVE_ORDER)
+
+            dsl
+                .select(FOLLOWERS.USERNAME, DSL.count())
+                .from(FOLLOWERS)
+                .where(FOLLOWERS.USERNAME.`in`(usernames))
+                .and(FOLLOWERS.STATE.eq(STATE_ACCEPTED))
+                .groupBy(FOLLOWERS.USERNAME)
+                .fetch()
+                .forEach { counted[it.value1()] = it.value2().toLong() }
+
+            usernames.associateWith { counted[it] ?: 0L }
+        }
     }
 
     override fun deliveryTargets(username: String): List<String> = jooq.transaction { dsl ->
