@@ -2,14 +2,14 @@ package net.matsudamper.mastodon.rss.frontend.logic.account
 
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
-import net.matsudamper.mastodon.rss.frontend.graphql.AccountQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 
 class AccountApi(
     private val client: ApolloClient = GraphQlClient.apollo,
 ) {
     suspend fun account(username: String): AccountResult {
-        val response = client.query(AccountQuery(username)).execute()
+        val response = client.query(AccountScreenQuery(username)).execute()
 
         if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
             return AccountResult.Failure(response.failureMessage())
