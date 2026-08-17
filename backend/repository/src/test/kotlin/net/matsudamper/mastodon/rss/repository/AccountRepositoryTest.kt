@@ -42,6 +42,20 @@ class AccountRepositoryTest {
     }
 
     @Test
+    fun `複数アカウントをまとめて引ける`() {
+        withRepositories { repositories ->
+            repositories.accounts.add(username = "Feed1", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "gihyo", createdAt = CREATED_AT)
+
+            val result = repositories.accounts.findByUsernames(listOf("feed1", "GIHYO", "other"))
+            assertEquals(2, result.size)
+            assertEquals("Feed1", result["feed1"]?.username)
+            assertEquals("gihyo", result["GIHYO"]?.username)
+            assertNull(result["other"])
+        }
+    }
+
+    @Test
     fun `一覧は追加した順に返る`() {
         withRepositories { repositories ->
             listOf("gihyo", "feed1", "blog").forEach {

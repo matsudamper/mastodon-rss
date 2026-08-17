@@ -31,6 +31,12 @@ class FakeAccountRepository : AccountRepository {
 
     override fun findByUsername(username: String): Account? = stored.firstOrNull { it.username.equals(username, ignoreCase = true) }
 
+    override fun findByUsernames(usernames: Collection<String>): Map<String, Account> =
+        usernames.mapNotNull { username ->
+            val account = findByUsername(username) ?: return@mapNotNull null
+            username to account
+        }.toMap()
+
     override fun add(
         username: String,
         createdAt: Instant,
