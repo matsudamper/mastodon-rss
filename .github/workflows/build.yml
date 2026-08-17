@@ -11,19 +11,19 @@ env:
 
 jobs:
   ktlint:
-    name: コード整形の確認
+    name: ktlint
     runs-on: ubuntu-latest
     steps:
-      - name: チェックアウト
+      - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: JDK のセットアップ
+      - name: setup JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: "25"
 
-      - name: Gradle のセットアップ
+      - name: setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # 違反があればここで落とす。直し方は ./gradlew ktlintFormat
@@ -31,41 +31,41 @@ jobs:
         run: ./gradlew ktlintCheck
 
   backend:
-    name: backend テスト
+    name: backend test
     runs-on: ubuntu-latest
     steps:
-      - name: チェックアウト
+      - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: JDK のセットアップ
+      - name: setup JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: "25"
 
-      - name: Gradle のセットアップ
+      - name: setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # build ではなく test にしているのは、build に付いてくる ktlintCheck が
       # ktlint ジョブと重複し、application プラグインの distZip / distTar も
       # 作られるため。配布は native-image なのでアーカイブは使わない
-      - name: テスト
+      - name: test
         run: ./gradlew test
 
   frontend:
-    name: frontend ビルド
+    name: build frontend
     runs-on: ubuntu-latest
     steps:
-      - name: チェックアウト
+      - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: JDK のセットアップ
+      - name: setup JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: "25"
 
-      - name: Gradle のセットアップ
+      - name: setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Wasm バンドルのビルド
@@ -84,20 +84,20 @@ jobs:
           test -f "$DIST/$BUNDLE"
 
   native-test:
-    name: backend/crypto と backend/rss の native テスト
+    name: native backend test
     runs-on: ubuntu-latest
     steps:
-      - name: チェックアウト
+      - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: GraalVM のセットアップ
+      - name: setup GraalVM
         uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2 # v1.6.4
         with:
           java-version: "25"
           distribution: "graalvm"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Gradle のセットアップ
+      - name: setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # JCA と StAX が native-image 上で動くかは JVM のテストでは分からないので、
