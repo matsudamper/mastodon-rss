@@ -7,10 +7,6 @@ import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 
-/**
- * @param actorDirectory 名前からアクターを引く。応答する名前を決めているのはここなので、
- *   引き当てが要るものは自分で判定せずにこれを通す
- */
 class DiContainer(
     passwordHash: PasswordHash?,
     accountRepository: AccountRepository,
