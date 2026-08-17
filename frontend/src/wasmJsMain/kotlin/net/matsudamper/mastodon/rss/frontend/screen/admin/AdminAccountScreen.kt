@@ -200,9 +200,20 @@ private fun NotesCard(
     listener: AdminAccountScreenUiState.Listener,
 ) {
     SectionCard(title = "配信した投稿") {
-        if (content.notes.isEmpty()) {
+        if (content.notesError != null) {
+            Text(
+                text = content.notesError,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = { listener.onClickReloadNotes() }) {
+                    Text("もう一度試す")
+                }
+            }
+        } else if (content.notes.isEmpty()) {
             Text(text = "まだ何も配信していない。", style = MaterialTheme.typography.bodyMedium)
-            return@SectionCard
         }
 
         content.notes.forEach { note ->

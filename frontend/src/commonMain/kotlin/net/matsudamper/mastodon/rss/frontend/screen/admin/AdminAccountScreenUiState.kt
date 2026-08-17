@@ -24,12 +24,14 @@ data class AdminAccountScreenUiState(
          * @param account この画面が扱うアカウント
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
+         * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
          * @param canLoadMore さらに古い投稿があるか
          */
         data class Loaded(
             val account: Account,
             val post: Post,
             val notes: List<Note>,
+            val notesError: String?,
             val canLoadMore: Boolean,
             val loadingMore: Boolean,
         ) : Content
@@ -90,6 +92,11 @@ data class AdminAccountScreenUiState(
         fun onClickPost()
 
         fun onClickLoadMore()
+
+        /**
+         * 一覧だけ取り直す
+         */
+        fun onClickReloadNotes()
 
         fun onClickReload()
     }

@@ -41,6 +41,10 @@ class AdminAccountScreenViewModel(
                         loadMore()
                     }
 
+                    override fun onClickReloadNotes() {
+                        loadNotes()
+                    }
+
                     override fun onClickReload() {
                         reload()
                     }
@@ -92,13 +96,18 @@ class AdminAccountScreenViewModel(
                 is AdminNotesResult.Success -> {
                     if (viewModelStateFlow.value.loadGeneration != generation) return@launch
                     viewModelStateFlow.update {
-                        it.copy(notes = result.notes, cursor = result.cursor, loadingMore = false)
+                        it.copy(
+                            notes = result.notes,
+                            cursor = result.cursor,
+                            notesError = null,
+                            loadingMore = false,
+                        )
                     }
                 }
 
                 is AdminNotesResult.Failure -> {
                     if (viewModelStateFlow.value.loadGeneration != generation) return@launch
-                    viewModelStateFlow.update { it.copy(error = result.message, loadingMore = false) }
+                    viewModelStateFlow.update { it.copy(notesError = result.message, loadingMore = false) }
                 }
             }
         }
@@ -120,13 +129,18 @@ class AdminAccountScreenViewModel(
                 is AdminNotesResult.Success -> {
                     if (viewModelStateFlow.value.loadGeneration != generation) return@launch
                     viewModelStateFlow.update {
-                        it.copy(notes = it.notes + result.notes, cursor = result.cursor, loadingMore = false)
+                        it.copy(
+                            notes = it.notes + result.notes,
+                            cursor = result.cursor,
+                            notesError = null,
+                            loadingMore = false,
+                        )
                     }
                 }
 
                 is AdminNotesResult.Failure -> {
                     if (viewModelStateFlow.value.loadGeneration != generation) return@launch
-                    viewModelStateFlow.update { it.copy(error = result.message, loadingMore = false) }
+                    viewModelStateFlow.update { it.copy(notesError = result.message, loadingMore = false) }
                 }
             }
         }
@@ -200,6 +214,7 @@ class AdminAccountScreenViewModel(
                         error = state.error,
                     ),
                     notes = state.notes.map { it.toUiState() },
+                    notesError = state.notesError,
                     canLoadMore = state.cursor != null,
                     loadingMore = state.loadingMore,
                 )
@@ -241,6 +256,7 @@ class AdminAccountScreenViewModel(
         val result: AdminAccountScreenUiState.PostResult? = null,
         val error: String? = null,
         val notes: List<AdminNote> = emptyList(),
+        val notesError: String? = null,
         val cursor: String? = null,
         val loadingMore: Boolean = false,
         /**
