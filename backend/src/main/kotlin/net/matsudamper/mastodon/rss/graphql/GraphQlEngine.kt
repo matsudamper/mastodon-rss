@@ -12,6 +12,7 @@ import graphql.kickstart.tools.GraphQLResolver
 import graphql.kickstart.tools.SchemaParser
 import graphql.schema.DataFetchingEnvironment
 import io.ktor.server.application.ApplicationCall
+import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.data.GraphQlRequest
 import org.slf4j.LoggerFactory
 
@@ -42,11 +43,27 @@ class GraphQlEngine private constructor(
             if (executionResult.errors.isEmpty()) return@withContext response
 
             executionResult.errors.forEach { error ->
-                logger.error(
-                    "GraphQL の実行に失敗した: {}",
-                    error.message,
-                    (error as? ExceptionWhileDataFetching)?.exception,
-                )
+                val dataFetchingException = (error as? ExceptionWhileDataFetching)?.exception
+                when {
+                    // 構文エラーや検証エラーなど、DataFetcher に到達する前にクライアントの入力で弾かれたもの。
+                    // 未認証のクライアントが不正なクエリを送るだけで ERROR ログを埋められてしまうため記録しない
+                    error !is ExceptionWhileDataFetching -> {
+                        logger.debug("GraphQL の実行に失敗した(クライアント起因): {}", error.message)
+                    }
+
+                    // 未ログインなど、想定内の業務エラー
+                    dataFetchingException is GraphqlExceptions -> {
+                        logger.debug("GraphQL の実行に失敗した(既知のエラー): {}", error.message)
+                    }
+
+                    else -> {
+                        logger.error(
+                            "GraphQL の実行に失敗した: {}",
+                            error.message,
+                            dataFetchingException,
+                        )
+                    }
+                }
             }
             val genericErrors =
                 JsonArray(
