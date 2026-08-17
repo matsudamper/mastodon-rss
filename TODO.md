@@ -98,6 +98,9 @@ Mastodon --POST(署名)--> /users/{name}/inbox    (Follow / Undo / Delete)
 - Phase 0: native バイナリでサーバーを起動し、SQLite、RSA 署名、RSS 解析を利用できる土台を作った
 - Phase 1: WebFinger と Actor を公開し、Mastodon からアクターを発見できるようにした
 - Phase 2: inbox の HTTP Signature を検証し、`Follow` に `Accept` を返せるようにした
+  - [ ] `AUTHORIZED_FETCH` が有効な Mastodon からはまだフォローできない。無署名の GET を
+        拒否され、相手の鍵と inbox が取得できないため
+        （[送信 GET にも HTTP Signature を付ける #62](https://github.com/matsudamper/mastodon-rss/issues/62)）
 - Phase 3 の準備として jOOQ を採用し、`schema.sql` をスキーマの正にした
 
 ## Phase 3: フォロワーを永続化する
