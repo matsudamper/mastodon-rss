@@ -30,8 +30,6 @@ class GraphQlEngine private constructor(
         request: GraphQlRequest,
         call: ApplicationCall,
     ): JsonObject {
-        // DataLoader はリクエストごとに作る。使い回すと、前のリクエストで引いた結果が
-        // そのまま返る。アカウントを追加しても消えるまで見えない、という形になる
         val dataLoaderRegistryBuilder = DataLoaderRegistry.Builder()
         val dataLoaders = DataLoaders(
             diContainer = diContainer,
