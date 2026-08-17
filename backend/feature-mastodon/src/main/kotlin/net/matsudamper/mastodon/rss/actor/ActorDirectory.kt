@@ -39,11 +39,6 @@ class ActorDirectory(
         return ActorUrls(domain = domain, username = found)
     }
 
-    /**
-     * まとめて引く。
-     *
-     * 返すマップのキーは渡された名前、値は解決されたアクター
-     */
     fun resolve(usernames: Set<String>): Map<String, ActorUrls> {
         if (usernames.isEmpty()) return emptyMap()
 
