@@ -221,22 +221,11 @@ dev server はこの経路を通らないため、ハッシュの無い名前の
 
 ### DataLoader
 
-同じものを何度も引かないための仕組み。GraphQL はフィールドごとにリゾルバが動くので、
-1 つの問い合わせの中で同じ行を何度も取りに行く形になりやすい。ここも
-[kake-bo](https://github.com/matsudamper/kake-bo) と同じ構成にしてある。
+同じものを引き直さないために DataLoader を通す。構成は
+[kake-bo](https://github.com/matsudamper/kake-bo) と同じ。
 
-- DataLoader 1 つの定義は `dataloader/*DataLoaderDefine`（`DataLoaderDefine` の実装）
-- リクエストごとに `DataLoaders` を作り、そこで registry へ登録する
-- リゾルバが受け取るのは `DataLoaders.DataLoaderProvider` で、実体は
-  `DataFetchingEnvironment` から引く。実体を直接渡すと、いま実行しているリクエストの
-  registry に載っていない DataLoader を使えてしまい、まとめる先が分かれる
-
-registry はリクエストごとに作り直す。使い回すと前のリクエストで引いた結果がそのまま返り、
-アカウントを追加しても見えないという形になる。
-
-引き当てそのものは DataLoader には書かない。アカウントの引き当ては `ActorDirectory` を通す。
-WebFinger と Actor が応答する名前と、画面が「ある」と言う名前がずれると、
-検索には出るのに画面が開けない（逆も）という壊れ方をする。
+キャッシュはリクエストごとに分ける。跨いで持つと、アカウントを追加しても
+前のリクエストの結果が返る。
 
 ### native-image との組み合わせ
 
