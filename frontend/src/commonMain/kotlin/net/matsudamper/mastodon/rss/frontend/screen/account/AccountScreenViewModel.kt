@@ -50,10 +50,6 @@ class AccountScreenViewModel(
         reload()
     }
 
-    /**
-     * 走っている取得を止めてから始める。残しておくと、後から始めた方が先に返ったときに
-     * 古い結果で上書きされ、あるアカウントが無いことになる
-     */
     private fun reload() {
         loadingJob?.cancel()
         viewModelStateFlow.update { ViewModelState() }
