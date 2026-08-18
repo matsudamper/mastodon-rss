@@ -112,7 +112,6 @@ class HomeScreenViewModel(
                         HomeScreenUiState.Account(
                             username = account.username,
                             acct = account.acct,
-                            actorUrl = account.actorUrl,
                         )
                     },
                     hasMore = accounts.hasMore,
