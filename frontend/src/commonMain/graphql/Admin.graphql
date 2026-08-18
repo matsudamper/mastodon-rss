@@ -42,7 +42,7 @@ mutation AdminLogout {
 mutation AdminAddAccount($username: String!) {
     admin {
         addAccount(username: $username) {
-            account {
+            adminAccount {
                 account {
                     acct
                 }
