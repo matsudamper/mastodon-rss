@@ -195,7 +195,8 @@ class AdminGraphQlTest {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
 
-            val account = queryAccounts(token).accounts().single().jsonObject
+            val adminAccount = queryAccounts(token).accounts().single().jsonObject
+            val account = adminAccount.obj("account")
 
             assertEquals(TestServerEnv.USERNAME, account.string("username"))
             assertEquals("@${TestServerEnv.USERNAME}@${TestServerEnv.DOMAIN}", account.string("acct"))
@@ -204,8 +205,8 @@ class AdminGraphQlTest {
                 account.string("actorUrl"),
             )
             // 設定で決まるアカウントは管理画面から消せない。追加した時刻も持っていない
-            assertFalse(account.boolean("deletable"))
-            assertEquals(JsonNull, account.getValue("createdAt"))
+            assertFalse(adminAccount.boolean("deletable"))
+            assertEquals(JsonNull, adminAccount.getValue("createdAt"))
         }
 
     @Test
@@ -214,17 +215,18 @@ class AdminGraphQlTest {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
 
-            val added = assertNotNull(mutateAddAccount("feed1", token).addAccountResult().obj("account"))
+            val added = assertNotNull(mutateAddAccount("feed1", token).addAccountResult().obj("adminAccount"))
+            val account = added.obj("account")
 
-            assertEquals("feed1", added.string("username"))
-            assertEquals("@feed1@${TestServerEnv.DOMAIN}", added.string("acct"))
+            assertEquals("feed1", account.string("username"))
+            assertEquals("@feed1@${TestServerEnv.DOMAIN}", account.string("acct"))
             assertTrue(added.boolean("deletable"))
             // 時刻は文字列にせずエポックからの秒数で返す。書式の解釈を受け取る側に委ねない
             assertTrue(added.getValue("createdAt").jsonPrimitive.long > 0)
 
             assertEquals(
                 listOf(TestServerEnv.USERNAME, "feed1"),
-                queryAccounts(token).accounts().map { it.jsonObject.string("username") },
+                queryAccounts(token).accounts().map { it.jsonObject.obj("account").string("username") },
             )
         }
 
@@ -236,7 +238,7 @@ class AdminGraphQlTest {
 
             val result = mutateAddAccount("feed 1/あ", token).addAccountResult()
 
-            assertEquals(JsonNull, result.getValue("account"))
+            assertEquals(JsonNull, result.getValue("adminAccount"))
             // どの文字が駄目なのかを画面が自分で決めなくて済むようにする
             assertEquals(
                 listOf(" ", "/", "あ"),
@@ -383,7 +385,7 @@ class AdminGraphQlTest {
         graphQl("mutation { admin { logout { loggedIn passwordConfigured } } }", token = token)
 
     private suspend fun ApplicationTestBuilder.queryAccounts(token: String? = null): HttpResponse =
-        graphQl("query { admin { accounts { $ACCOUNT_FIELDS } } }", token = token)
+        graphQl("query { admin { adminAccounts { $ACCOUNT_FIELDS } } }", token = token)
 
     private suspend fun ApplicationTestBuilder.mutateAddAccount(
         username: String,
@@ -392,7 +394,7 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "mutation Add(${'$'}username: String!) { admin { " +
-                "addAccount(username: ${'$'}username) { account { $ACCOUNT_FIELDS } " +
+                "addAccount(username: ${'$'}username) { adminAccount { $ACCOUNT_FIELDS } " +
                 "failure { unusableCharacters maxLength minLength isDuplicated } } } }",
             token = token,
             variables = """{"username":${JsonPrimitive(username)}}""",
@@ -419,7 +421,7 @@ class AdminGraphQlTest {
     private companion object {
         const val PASSWORD = "とても長いパスワード"
 
-        const val ACCOUNT_FIELDS = "username acct actorUrl deletable createdAt"
+        const val ACCOUNT_FIELDS = "account { username acct actorUrl } deletable createdAt"
 
         /**
          * 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ
@@ -437,7 +439,7 @@ class AdminGraphQlTest {
 
         suspend fun HttpResponse.loginResult(): JsonObject = admin().obj("login")
 
-        suspend fun HttpResponse.accounts(): List<JsonElement> = admin().getValue("accounts").jsonArray
+        suspend fun HttpResponse.accounts(): List<JsonElement> = admin().getValue("adminAccounts").jsonArray
 
         suspend fun HttpResponse.addAccountResult(): JsonObject = admin().obj("addAccount")
 

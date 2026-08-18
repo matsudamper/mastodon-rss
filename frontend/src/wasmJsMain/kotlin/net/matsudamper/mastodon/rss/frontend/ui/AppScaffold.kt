@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 /**
- * どの画面にも共通の枠。ヘッダー、スクロール、横幅の上限をここでまとめる。
+ * どの画面にも共通の枠。ヘッダーと横幅の上限をここでまとめる。
  *
  * 画面の中身には、広い画面かどうかだけを渡す。判定の基準（[WideBreakpoint]）を
  * 画面ごとに持つと、同じ幅なのに片方だけ 2 カラムになる、といったずれ方をする。

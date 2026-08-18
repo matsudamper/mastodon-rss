@@ -2,7 +2,7 @@ type AdminQuery {
     session: AdminSession! @lazy
 
     "応答するアカウントの一覧"
-    accounts: [AdminAccount!]! @lazy
+    adminAccounts: [AdminAccount!]! @lazy
 }
 
 type AdminSession {
@@ -13,14 +13,7 @@ type AdminSession {
 }
 
 type AdminAccount {
-    "acct とパスに入る名前"
-    username: String!
-
-    "Mastodon の検索窓に貼る形"
-    acct: String!
-
-    "Actor の URL"
-    actorUrl: String!
+    account: Account!
 
     "管理画面から削除できるか。サーバーの設定で決まっているものは消せない"
     deletable: Boolean!

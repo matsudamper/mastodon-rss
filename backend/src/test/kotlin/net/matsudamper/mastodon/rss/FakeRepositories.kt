@@ -27,7 +27,20 @@ class FakeRepositories : Repositories {
 class FakeAccountRepository : AccountRepository {
     private val stored = mutableListOf<Account>()
 
+    @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
     override fun list(): List<Account> = stored.toList()
+
+    override fun list(afterUsername: String?, limit: Int): List<Account> {
+        if (limit <= 0) return emptyList()
+        val startIndex = if (afterUsername != null) {
+            val idx = stored.indexOfFirst { it.username.equals(afterUsername, ignoreCase = true) }
+            if (idx == -1) return emptyList()
+            idx + 1
+        } else {
+            0
+        }
+        return stored.drop(startIndex).take(limit)
+    }
 
     override fun findByUsername(username: String): Account? = stored.firstOrNull { it.username.equals(username, ignoreCase = true) }
 

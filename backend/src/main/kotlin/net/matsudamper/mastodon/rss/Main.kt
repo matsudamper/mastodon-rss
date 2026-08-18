@@ -66,6 +66,15 @@ fun Application.module(deps: AppDependencies) {
     // native バイナリでは SQLite のネイティブライブラリ周りで起きやすいので起動時に確かめる
     deps.repositories.verifyWritable()
 
+    // 設定で決まるアカウントと同じ名前が DB にあると、同じ acct を指すものが 2 つある状態になる。
+    // 一覧には同じアカウントが 2 回並び、名前で続きを切るページングは同じページを返し続ける。
+    // 管理画面からは追加できない組み合わせなので、ACTOR_USERNAME を後から変えたときだけ起きる
+    val fixedUsername = deps.actorUrls.username
+    check(deps.repositories.accounts.findByUsername(fixedUsername) == null) {
+        "ACTOR_USERNAME に指定された $fixedUsername と同じ名前のアカウントが DB にある。" +
+            "どちらかの名前を変えること"
+    }
+
     // ドメインはアクター ID に焼き込まれ、Mastodon 側にキャッシュされると後から変えられない。
     // 取り違えたまま気付かないのが一番まずいので、起動時に必ず見えるところに出す
     log.info("アクター: ${deps.actorUrls.acct} → ${deps.actorUrls.actorId}")

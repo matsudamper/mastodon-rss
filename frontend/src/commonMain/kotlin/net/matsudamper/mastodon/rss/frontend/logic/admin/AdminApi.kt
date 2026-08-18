@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
+import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 
 class AdminApi(
     private val client: ApolloClient = GraphQlClient.apollo,
@@ -46,11 +47,14 @@ class AdminApi(
         val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
 
         return AdminAccountsResult.Success(
-            data.admin.accounts.map { account ->
+            data.admin.adminAccounts.map { account ->
                 AdminAccount(
-                    username = account.username,
-                    acct = account.acct,
-                    actorUrl = account.actorUrl,
+                    account = Account(
+                        username = account.account.username,
+                        acct = account.account.acct,
+                        actorUrl = account.account.actorUrl,
+                    ),
+                    deletable = account.deletable,
                     createdAt = account.createdAt,
                 )
             },
@@ -63,7 +67,7 @@ class AdminApi(
 
         val failure = added.failure
             ?: return AdminAddAccountResult.Success(
-                added.account?.acct ?: return AdminAddAccountResult.Failure("追加できたが内容が返ってこない"),
+                added.adminAccount?.account?.acct ?: return AdminAddAccountResult.Failure("追加できたが内容が返ってこない"),
             )
 
         return AdminAddAccountResult.Rejected(

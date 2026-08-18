@@ -52,10 +52,14 @@ class ActorKeyLoaderTest {
 
         ActorKeyLoader.load(ActorPrivateKey.File(path))
 
-        assertEquals(
-            setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE),
-            Files.getPosixFilePermissions(path),
-        )
+        // POSIX でないファイルシステムでは権限を引いた時点で例外になる。
+        // 鍵を守れるかは動かす環境が決めるので、見られない環境では確かめない
+        if (path.fileSystem.supportedFileAttributeViews().contains("posix")) {
+            assertEquals(
+                setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE),
+                Files.getPosixFilePermissions(path),
+            )
+        }
     }
 
     @Test

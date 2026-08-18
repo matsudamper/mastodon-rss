@@ -81,6 +81,48 @@ class AccountRepositoryTest {
     }
 
     @Test
+    fun `カーソルを指定してページングで取得できる`() {
+        withRepositories { repositories ->
+            listOf("a", "b", "c", "d", "e").forEachIndexed { index, username ->
+                repositories.accounts.add(username = username, createdAt = CREATED_AT.plusSeconds(index.toLong()))
+            }
+
+            val page1 = repositories.accounts.list(afterUsername = null, limit = 2)
+            assertEquals(listOf("a", "b"), page1.map { it.username })
+
+            val page2 = repositories.accounts.list(afterUsername = page1.last().username, limit = 2)
+            assertEquals(listOf("c", "d"), page2.map { it.username })
+
+            val page3 = repositories.accounts.list(afterUsername = page2.last().username, limit = 2)
+            assertEquals(listOf("e"), page3.map { it.username })
+
+            val page4 = repositories.accounts.list(afterUsername = page3.last().username, limit = 2)
+            assertEquals(emptyList(), page4.map { it.username })
+        }
+    }
+
+    @Test
+    fun `時刻が同じでもページングで重複や取りこぼしが出ない`() {
+        withRepositories { repositories ->
+            listOf("a", "b", "c", "d", "e").forEach { username ->
+                repositories.accounts.add(username = username, createdAt = CREATED_AT)
+            }
+
+            val page1 = repositories.accounts.list(afterUsername = null, limit = 2)
+            assertEquals(listOf("a", "b"), page1.map { it.username })
+
+            val page2 = repositories.accounts.list(afterUsername = page1.last().username, limit = 2)
+            assertEquals(listOf("c", "d"), page2.map { it.username })
+
+            val page3 = repositories.accounts.list(afterUsername = page2.last().username, limit = 2)
+            assertEquals(listOf("e"), page3.map { it.username })
+
+            val page4 = repositories.accounts.list(afterUsername = page3.last().username, limit = 2)
+            assertEquals(emptyList(), page4.map { it.username })
+        }
+    }
+
+    @Test
     fun `開き直しても残っている`() {
         val dbPath = tempDir.resolve("test.db")
         TestSchema.applyTo(dbPath)
