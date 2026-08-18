@@ -52,10 +52,12 @@ class ActorKeyLoaderTest {
 
         ActorKeyLoader.load(ActorPrivateKey.File(path))
 
-        assertEquals(
-            setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE),
-            Files.getPosixFilePermissions(path),
-        )
+        if (path.fileSystem.supportedFileAttributeViews().contains("posix")) {
+            assertEquals(
+                setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE),
+                Files.getPosixFilePermissions(path),
+            )
+        }
     }
 
     @Test
