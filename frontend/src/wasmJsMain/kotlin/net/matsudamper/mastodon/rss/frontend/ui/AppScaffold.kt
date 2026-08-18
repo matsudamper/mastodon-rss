@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -25,7 +23,9 @@ import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 /**
- * どの画面にも共通の枠。ヘッダー、スクロール、横幅の上限をここでまとめる。
+ * どの画面にも共通の枠。ヘッダーと横幅の上限をここでまとめる。
+ *
+ * 縦に送れるようにするかは中身が決める。何をどう送るかは画面ごとに違う
  *
  * 画面の中身には、広い画面かどうかだけを渡す。判定の基準（[WideBreakpoint]）を
  * 画面ごとに持つと、同じ幅なのに片方だけ 2 カラムになる、といったずれ方をする。
@@ -52,7 +52,6 @@ fun AppScaffold(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
                         .padding(horizontal = outerPadding, vertical = outerPadding),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
