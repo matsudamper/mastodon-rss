@@ -112,6 +112,22 @@ class AccountGraphQlTest {
         }
 
     @Test
+    fun `1 件ずつでも設定のアカウントから順に辿れる`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            application { module(testDependencies(repositories = repositories)) }
+
+            val page1 = queryAccounts(limit = 1).accounts()
+            assertEquals(listOf(TestServerEnv.USERNAME), page1.nodes().map { it.string("username") })
+            assertEquals(true, page1.pageInfo().boolean("hasMore"))
+
+            val page2 = queryAccounts(cursor = page1.pageInfo().string("nextCursor"), limit = 1).accounts()
+            assertEquals(listOf("feed1"), page2.nodes().map { it.string("username") })
+            assertEquals(false, page2.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
     fun `limit が上限を超えていても一覧が返る`() =
         testApplication {
             val repositories = FakeRepositories()

@@ -37,66 +37,32 @@ class AccountService(
             return ManagedAccountsPage(accounts = emptyList(), hasMore = false, nextCursor = null)
         }
 
-        val fixedAccount = ManagedAccount(urls = fixed, deletable = false, createdAt = null)
-
-        if (cursor == null) {
-            if (limit == 1) {
-                val dbHasMore = accounts.list(cursor = null, limit = 1).isNotEmpty()
-                return ManagedAccountsPage(
-                    accounts = listOf(fixedAccount),
-                    hasMore = dbHasMore,
-                    nextCursor = if (dbHasMore) fixed.username else null,
-                )
-            }
-
-            val dbLimit = limit - 1
-            val dbAccounts = accounts.list(cursor = null, limit = dbLimit + 1)
-            val hasMore = dbAccounts.size > dbLimit
-            val takenDbAccounts = if (hasMore) dbAccounts.take(dbLimit) else dbAccounts
-            val managedList = buildList {
-                add(fixedAccount)
-                takenDbAccounts.mapTo(this) { account ->
-                    ManagedAccount(
-                        urls = ActorUrls(domain = fixed.domain, username = account.username),
-                        deletable = true,
-                        createdAt = account.createdAt,
-                    )
-                }
-            }
-            val nextCursor = if (hasMore) {
-                managedList.last().urls.username
-            } else {
-                null
-            }
-            return ManagedAccountsPage(
-                accounts = managedList,
-                hasMore = hasMore,
-                nextCursor = nextCursor,
-            )
+        // 設定で決まるアカウントは DB に無いので、先頭のページにだけ 1 件ぶん割り込ませる
+        val head = if (cursor == null) {
+            listOf(ManagedAccount(urls = fixed, deletable = false, createdAt = null))
+        } else {
+            emptyList()
         }
 
-        val isFixedCursor = cursor.equals(fixed.username, ignoreCase = true)
-        val dbCursor = if (isFixedCursor) null else cursor
+        // 設定で決まるアカウントを指すカーソルは、DB から見れば先頭と同じ
+        val dbCursor = cursor?.takeUnless { it.equals(fixed.username, ignoreCase = true) }
 
-        val dbAccounts = accounts.list(cursor = dbCursor, limit = limit + 1)
-        val hasMore = dbAccounts.size > limit
-        val takenDbAccounts = if (hasMore) dbAccounts.take(limit) else dbAccounts
-        val managedList = takenDbAccounts.map { account ->
+        val dbLimit = limit - head.size
+        val fetched = accounts.list(cursor = dbCursor, limit = dbLimit + 1)
+        val hasMore = fetched.size > dbLimit
+
+        val page = head + fetched.take(dbLimit).map { account ->
             ManagedAccount(
                 urls = ActorUrls(domain = fixed.domain, username = account.username),
                 deletable = true,
                 createdAt = account.createdAt,
             )
         }
-        val nextCursor = if (hasMore) {
-            managedList.last().urls.username
-        } else {
-            null
-        }
+
         return ManagedAccountsPage(
-            accounts = managedList,
+            accounts = page,
             hasMore = hasMore,
-            nextCursor = nextCursor,
+            nextCursor = if (hasMore) page.last().urls.username else null,
         )
     }
 
