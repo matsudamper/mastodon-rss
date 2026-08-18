@@ -8,7 +8,7 @@ query AdminSession {
 
 query AdminAccounts {
     admin {
-        accounts {
+        adminAccounts {
             account {
                 username
                 acct

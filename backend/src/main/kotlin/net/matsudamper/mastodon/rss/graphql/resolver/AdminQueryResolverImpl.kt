@@ -29,7 +29,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         )
     }
 
-    override fun accounts(
+    override fun adminAccounts(
         adminQuery: QlAdminQuery,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<List<QlAdminAccount>>> {

@@ -47,7 +47,7 @@ class AdminApi(
         val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
 
         return AdminAccountsResult.Success(
-            data.admin.accounts.map { account ->
+            data.admin.adminAccounts.map { account ->
                 AdminAccount(
                     account = Account(
                         username = account.account.username,

@@ -385,7 +385,7 @@ class AdminGraphQlTest {
         graphQl("mutation { admin { logout { loggedIn passwordConfigured } } }", token = token)
 
     private suspend fun ApplicationTestBuilder.queryAccounts(token: String? = null): HttpResponse =
-        graphQl("query { admin { accounts { $ACCOUNT_FIELDS } } }", token = token)
+        graphQl("query { admin { adminAccounts { $ACCOUNT_FIELDS } } }", token = token)
 
     private suspend fun ApplicationTestBuilder.mutateAddAccount(
         username: String,
@@ -439,7 +439,7 @@ class AdminGraphQlTest {
 
         suspend fun HttpResponse.loginResult(): JsonObject = admin().obj("login")
 
-        suspend fun HttpResponse.accounts(): List<JsonElement> = admin().getValue("accounts").jsonArray
+        suspend fun HttpResponse.accounts(): List<JsonElement> = admin().getValue("adminAccounts").jsonArray
 
         suspend fun HttpResponse.addAccountResult(): JsonObject = admin().obj("addAccount")
 

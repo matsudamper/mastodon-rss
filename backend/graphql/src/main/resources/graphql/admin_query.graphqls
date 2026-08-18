@@ -2,7 +2,7 @@ type AdminQuery {
     session: AdminSession! @lazy
 
     "応答するアカウントの一覧"
-    accounts: [AdminAccount!]! @lazy
+    adminAccounts: [AdminAccount!]! @lazy
 }
 
 type AdminSession {
