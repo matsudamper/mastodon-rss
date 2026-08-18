@@ -76,9 +76,9 @@ class AdminAccountsScreenViewModel(
                 AdminAccountsScreenUiState.Content.Loaded(
                     accounts = accounts.accounts.map { account ->
                         AdminAccountsScreenUiState.Account(
-                            username = account.username,
-                            acct = account.acct,
-                            actorUrl = account.actorUrl,
+                            username = account.account.username,
+                            acct = account.account.acct,
+                            actorUrl = account.account.actorUrl,
                             createdAt = account.createdAt?.let { UnixTimeUtil.format(it) },
                         )
                     },

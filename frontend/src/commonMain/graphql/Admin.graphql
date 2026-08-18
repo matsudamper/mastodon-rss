@@ -9,9 +9,12 @@ query AdminSession {
 query AdminAccounts {
     admin {
         accounts {
-            username
-            acct
-            actorUrl
+            account {
+                username
+                acct
+                actorUrl
+            }
+            deletable
             createdAt
         }
     }
@@ -40,7 +43,9 @@ mutation AdminAddAccount($username: String!) {
     admin {
         addAccount(username: $username) {
             account {
-                acct
+                account {
+                    acct
+                }
             }
             failure {
                 unusableCharacters

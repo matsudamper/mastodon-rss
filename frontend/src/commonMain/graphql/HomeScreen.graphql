@@ -1,0 +1,13 @@
+query HomeScreen($cursor: String, $limit: Int!) {
+    accounts(cursor: $cursor, limit: $limit) {
+        nodes {
+            username
+            acct
+            actorUrl
+        }
+        pageInfo {
+            hasMore
+            nextCursor
+        }
+    }
+}
