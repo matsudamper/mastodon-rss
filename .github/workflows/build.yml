@@ -267,6 +267,23 @@ jobs:
           cat /tmp/graphql-account.json
           grep -q '"acct":"@ci-feed@example.com"' /tmp/graphql-account.json
 
+          # ホーム画面が使う一覧。1 件だけ求めるとページが切れて続きのカーソルが返る
+          echo "--- GraphQL の公開アカウント一覧（ログイン不要） ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"query Accounts($limit: Int!) { accounts(limit: $limit) { nodes { username acct actorUrl } pageInfo { hasMore nextCursor } } }","variables":{"limit":1}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-accounts-public.json
+          cat /tmp/graphql-accounts-public.json
+          grep -q '"acct":"@admin@example.com"' /tmp/graphql-accounts-public.json
+          grep -q '"hasMore":true' /tmp/graphql-accounts-public.json
+
+          # limit は上限で丸める。Int の最大値でも加算があふれて空ページにならない
+          echo "--- GraphQL の公開アカウント一覧（limit が大きすぎる） ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"query Accounts($limit: Int!) { accounts(limit: $limit) { nodes { username } pageInfo { hasMore } } }","variables":{"limit":2147483647}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-accounts-max.json
+          cat /tmp/graphql-accounts-max.json
+          grep -q '"username":"ci-feed"' /tmp/graphql-accounts-max.json
+
           # 無い名前はエラーではなく null。画面はこれを見て見つからない表示にする
           echo "--- GraphQL の無い名前のアカウント ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
