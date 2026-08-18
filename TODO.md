@@ -246,7 +246,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
       - Phase 1 の鍵はファイル 1 本。ここで `actors.private_key` に移すかを決める
         （Phase 3 の「フォロワーがいるなら鍵の自動生成を拒否する」と合わせて判断する）
 - [ ] アクター作成 / 削除の API
-      - 作成は入れた（`Mutation.admin.addAccount`）。一覧は `Query.admin.accounts`。
+      - 作成は入れた（`Mutation.admin.addAccount`）。一覧は `Query.admin.adminAccounts`。
         どちらもログインが要る
       - 削除はまだ。`Delete{Actor}` を配信してから消す。黙って消すと相手側に残り続ける
 - [ ] アクター情報更新時に `Update{Actor}` を配信（アイコン・説明文の変更を伝播させる）
@@ -332,7 +332,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
       - 残っているのはハッシュ生成を画面から行えるようにすること（いまは
         `./gradlew --quiet :backend:crypto:passwordHash`）と、総当たり対策（Phase 7）
 - [ ] サーバー側に管理 API の残り（フィード CRUD、配信状況、手動再取得）
-      - アカウントの一覧 (`Query.admin.accounts`) と追加 (`Mutation.admin.addAccount`) は入れた
+      - アカウントの一覧 (`Query.admin.adminAccounts`) と追加 (`Mutation.admin.addAccount`) は入れた
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
