@@ -9,9 +9,6 @@ data class HomeScreenUiState(
 
         data class Error(val message: String) : Content
 
-        /**
-         * @param loadMoreErrorMessage 続きの取得だけが失敗した場合に入る。既に出ている一覧はそのまま残す
-         */
         data class Loaded(
             val accounts: List<Account>,
             val hasMore: Boolean,
