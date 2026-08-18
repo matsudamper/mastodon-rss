@@ -8,6 +8,7 @@ import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
 import org.jooq.DSLContext
 import org.jooq.Record2
+import org.jooq.impl.DSL
 
 internal class SqliteAccountRepository(
     private val jooq: SqliteJooq,
@@ -25,11 +26,9 @@ internal class SqliteAccountRepository(
     override fun list(cursor: String?, limit: Int): List<Account> = jooq.transaction { dsl ->
         if (limit <= 0) return@transaction emptyList()
 
-        val select = dsl
-            .select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
-            .from(ACCOUNTS)
-
-        if (cursor != null) {
+        val after = if (cursor == null) {
+            DSL.noCondition()
+        } else {
             val cursorRecord = dsl
                 .select(ACCOUNTS.ID, ACCOUNTS.CREATED_AT)
                 .from(ACCOUNTS)
@@ -39,13 +38,15 @@ internal class SqliteAccountRepository(
             val cursorId = cursorRecord.get(ACCOUNTS.ID)
             val cursorCreatedAt = cursorRecord.get(ACCOUNTS.CREATED_AT)
 
-            select.where(
-                ACCOUNTS.CREATED_AT.gt(cursorCreatedAt)
-                    .or(ACCOUNTS.CREATED_AT.eq(cursorCreatedAt).and(ACCOUNTS.ID.gt(cursorId))),
-            )
+            // 並び順と同じ組で比べる。時刻だけで切ると同時刻の行を飛ばすか二重に返す
+            ACCOUNTS.CREATED_AT.gt(cursorCreatedAt)
+                .or(ACCOUNTS.CREATED_AT.eq(cursorCreatedAt).and(ACCOUNTS.ID.gt(cursorId)))
         }
 
-        select
+        dsl
+            .select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+            .from(ACCOUNTS)
+            .where(after)
             .orderBy(ACCOUNTS.CREATED_AT.asc(), ACCOUNTS.ID.asc())
             .limit(limit)
             .fetch()
