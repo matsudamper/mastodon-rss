@@ -5,6 +5,7 @@ import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.data.AccountsCursor
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountsConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
@@ -21,18 +22,33 @@ class QueryResolverImpl : QueryResolver {
         limit: Int,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAccountsConnection>> {
-        // カーソルの中身は名前。外に出す形を決めるのはこの層で、下は名前しか知らない
-        val result = GraphQlEngine
-            .diContainer(env)
-            .accountService
-            .accounts(afterUsername = cursor, limit = limit.coerceIn(0, MAX_ACCOUNTS_LIMIT))
-        val connection = QlAccountsConnection(
-            nodes = result.accounts.map { it.urls.toGraphqlResponse() },
-            pageInfo = QlPageInfo(
-                hasMore = result.hasMore,
-                nextCursor = result.nextUsername,
-            ),
-        )
+        // カーソルを組み立てるのも解くのもこの層。下は名前しか知らない
+        val after = cursor?.let { AccountsCursor.decode(it) }
+
+        // 読めないカーソルは、消えたアカウントを指していたのと同じ扱いにする
+        val connection = if (cursor != null && after == null) {
+            QlAccountsConnection(
+                nodes = emptyList(),
+                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+            )
+        } else {
+            val result = GraphQlEngine
+                .diContainer(env)
+                .accountService
+                .accounts(
+                    afterUsername = after?.afterUsername,
+                    limit = limit.coerceIn(0, MAX_ACCOUNTS_LIMIT),
+                )
+
+            QlAccountsConnection(
+                nodes = result.accounts.map { it.urls.toGraphqlResponse() },
+                pageInfo = QlPageInfo(
+                    hasMore = result.hasMore,
+                    nextCursor = result.nextUsername?.let { AccountsCursor(afterUsername = it).encode() },
+                ),
+            )
+        }
+
         return CompletableFuture.completedFuture(
             DataFetcherResult.Builder(connection).build(),
         )

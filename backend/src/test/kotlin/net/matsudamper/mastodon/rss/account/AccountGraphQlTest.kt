@@ -101,7 +101,6 @@ class AccountGraphQlTest {
             assertEquals("https://${TestServerEnv.DOMAIN}/users/${TestServerEnv.USERNAME}", page1Nodes[0].string("actorUrl"))
             assertEquals("feed1", page1Nodes[1].string("username"))
             assertEquals(true, page1.pageInfo().boolean("hasMore"))
-            assertEquals("feed1", page1.pageInfo().string("nextCursor"))
 
             val page2 = queryAccounts(cursor = page1.pageInfo().string("nextCursor"), limit = 2).accounts()
             val page2Nodes = page2.nodes()
