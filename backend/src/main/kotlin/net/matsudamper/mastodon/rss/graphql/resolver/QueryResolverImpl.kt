@@ -21,15 +21,16 @@ class QueryResolverImpl : QueryResolver {
         limit: Int,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAccountsConnection>> {
+        // カーソルの中身は名前。外に出す形を決めるのはこの層で、下は名前しか知らない
         val result = GraphQlEngine
             .diContainer(env)
             .accountService
-            .accounts(cursor = cursor, limit = limit.coerceIn(0, MAX_ACCOUNTS_LIMIT))
+            .accounts(afterUsername = cursor, limit = limit.coerceIn(0, MAX_ACCOUNTS_LIMIT))
         val connection = QlAccountsConnection(
             nodes = result.accounts.map { it.urls.toGraphqlResponse() },
             pageInfo = QlPageInfo(
                 hasMore = result.hasMore,
-                nextCursor = result.nextCursor,
+                nextCursor = result.nextUsername,
             ),
         )
         return CompletableFuture.completedFuture(

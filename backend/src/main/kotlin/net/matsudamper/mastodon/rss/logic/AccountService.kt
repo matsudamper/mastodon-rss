@@ -30,28 +30,28 @@ class AccountService(
     }
 
     /**
-     * カーソルと件数を指定してアカウント一覧を取得する
+     * 追加した順で `afterUsername` の次から `limit` 件返す
      */
-    fun accounts(cursor: String?, limit: Int): ManagedAccountsPage {
+    fun accounts(afterUsername: String?, limit: Int): ManagedAccountsPage {
         if (limit <= 0) {
-            return ManagedAccountsPage(accounts = emptyList(), hasMore = false, nextCursor = null)
+            return ManagedAccountsPage(accounts = emptyList(), hasMore = false, nextUsername = null)
         }
 
         // 設定で決まるアカウントは DB に無いので、先頭のページにだけ 1 件ぶん割り込ませる
-        val head = if (cursor == null) {
+        val head = if (afterUsername == null) {
             listOf(ManagedAccount(urls = fixed, deletable = false, createdAt = null))
         } else {
             emptyList()
         }
 
-        // 設定で決まるアカウントを指すカーソルは、DB から見れば先頭と同じ
-        val dbCursor = cursor?.takeUnless { it.equals(fixed.username, ignoreCase = true) }
+        // 設定で決まるアカウントの次は、DB から見れば先頭
+        val afterStored = afterUsername?.takeUnless { it.equals(fixed.username, ignoreCase = true) }
 
-        val dbLimit = limit - head.size
-        val fetched = accounts.list(cursor = dbCursor, limit = dbLimit + 1)
-        val hasMore = fetched.size > dbLimit
+        val storedLimit = limit - head.size
+        val fetched = accounts.list(afterUsername = afterStored, limit = storedLimit + 1)
+        val hasMore = fetched.size > storedLimit
 
-        val page = head + fetched.take(dbLimit).map { account ->
+        val page = head + fetched.take(storedLimit).map { account ->
             ManagedAccount(
                 urls = ActorUrls(domain = fixed.domain, username = account.username),
                 deletable = true,
@@ -62,7 +62,7 @@ class AccountService(
         return ManagedAccountsPage(
             accounts = page,
             hasMore = hasMore,
-            nextCursor = if (hasMore) page.last().urls.username else null,
+            nextUsername = if (hasMore) page.last().urls.username else null,
         )
     }
 
@@ -118,10 +118,13 @@ class AccountService(
         val createdAt: Instant?,
     )
 
+    /**
+     * @param nextUsername 続きがある場合の、次に渡す `afterUsername`
+     */
     data class ManagedAccountsPage(
         val accounts: List<ManagedAccount>,
         val hasMore: Boolean,
-        val nextCursor: String?,
+        val nextUsername: String?,
     )
 
     sealed interface AddAccountResult {

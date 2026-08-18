@@ -27,12 +27,13 @@ class FakeRepositories : Repositories {
 class FakeAccountRepository : AccountRepository {
     private val stored = mutableListOf<Account>()
 
+    @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
     override fun list(): List<Account> = stored.toList()
 
-    override fun list(cursor: String?, limit: Int): List<Account> {
+    override fun list(afterUsername: String?, limit: Int): List<Account> {
         if (limit <= 0) return emptyList()
-        val startIndex = if (cursor != null) {
-            val idx = stored.indexOfFirst { it.username.equals(cursor, ignoreCase = true) }
+        val startIndex = if (afterUsername != null) {
+            val idx = stored.indexOfFirst { it.username.equals(afterUsername, ignoreCase = true) }
             if (idx == -1) return emptyList()
             idx + 1
         } else {

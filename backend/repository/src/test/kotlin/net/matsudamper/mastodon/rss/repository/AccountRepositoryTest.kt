@@ -87,16 +87,16 @@ class AccountRepositoryTest {
                 repositories.accounts.add(username = username, createdAt = CREATED_AT.plusSeconds(index.toLong()))
             }
 
-            val page1 = repositories.accounts.list(cursor = null, limit = 2)
+            val page1 = repositories.accounts.list(afterUsername = null, limit = 2)
             assertEquals(listOf("a", "b"), page1.map { it.username })
 
-            val page2 = repositories.accounts.list(cursor = page1.last().username, limit = 2)
+            val page2 = repositories.accounts.list(afterUsername = page1.last().username, limit = 2)
             assertEquals(listOf("c", "d"), page2.map { it.username })
 
-            val page3 = repositories.accounts.list(cursor = page2.last().username, limit = 2)
+            val page3 = repositories.accounts.list(afterUsername = page2.last().username, limit = 2)
             assertEquals(listOf("e"), page3.map { it.username })
 
-            val page4 = repositories.accounts.list(cursor = page3.last().username, limit = 2)
+            val page4 = repositories.accounts.list(afterUsername = page3.last().username, limit = 2)
             assertEquals(emptyList(), page4.map { it.username })
         }
     }

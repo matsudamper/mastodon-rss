@@ -13,6 +13,7 @@ import org.jooq.impl.DSL
 internal class SqliteAccountRepository(
     private val jooq: SqliteJooq,
 ) : AccountRepository {
+    @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
     override fun list(): List<Account> = jooq.transaction { dsl ->
         dsl
             .select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
@@ -23,24 +24,24 @@ internal class SqliteAccountRepository(
             .map { it.toAccount() }
     }
 
-    override fun list(cursor: String?, limit: Int): List<Account> = jooq.transaction { dsl ->
+    override fun list(afterUsername: String?, limit: Int): List<Account> = jooq.transaction { dsl ->
         if (limit <= 0) return@transaction emptyList()
 
-        val after = if (cursor == null) {
+        val after = if (afterUsername == null) {
             DSL.noCondition()
         } else {
-            val cursorRecord = dsl
+            val afterRecord = dsl
                 .select(ACCOUNTS.ID, ACCOUNTS.CREATED_AT)
                 .from(ACCOUNTS)
-                .where(ACCOUNTS.USERNAME.eq(cursor))
+                .where(ACCOUNTS.USERNAME.eq(afterUsername))
                 .fetchOne() ?: return@transaction emptyList()
 
-            val cursorId = cursorRecord.get(ACCOUNTS.ID)
-            val cursorCreatedAt = cursorRecord.get(ACCOUNTS.CREATED_AT)
+            val afterId = afterRecord.get(ACCOUNTS.ID)
+            val afterCreatedAt = afterRecord.get(ACCOUNTS.CREATED_AT)
 
             // 並び順と同じ組で比べる。時刻だけで切ると同時刻の行を飛ばすか二重に返す
-            ACCOUNTS.CREATED_AT.gt(cursorCreatedAt)
-                .or(ACCOUNTS.CREATED_AT.eq(cursorCreatedAt).and(ACCOUNTS.ID.gt(cursorId)))
+            ACCOUNTS.CREATED_AT.gt(afterCreatedAt)
+                .or(ACCOUNTS.CREATED_AT.eq(afterCreatedAt).and(ACCOUNTS.ID.gt(afterId)))
         }
 
         dsl

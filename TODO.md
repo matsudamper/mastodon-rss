@@ -333,6 +333,10 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
         `./gradlew --quiet :backend:crypto:passwordHash`）と、総当たり対策（Phase 7）
 - [ ] サーバー側に管理 API の残り（フィード CRUD、配信状況、手動再取得）
       - アカウントの一覧 (`Query.admin.accounts`) と追加 (`Mutation.admin.addAccount`) は入れた
+- [ ] 管理画面のアカウント一覧をページングにする
+      - 公開側の `Query.accounts` はカーソルで返すようにしたが、`Query.admin.accounts` は
+        全件のまま。`AccountRepository.list()` はこの経路のためだけに残していて
+        deprecated にしてある。呼び出しを移し切ったら消す
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
