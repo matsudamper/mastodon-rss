@@ -21,7 +21,10 @@ class QueryResolverImpl : QueryResolver {
         limit: Int,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAccountsConnection>> {
-        val result = GraphQlEngine.diContainer(env).accountService.accounts(cursor = cursor, limit = limit)
+        val result = GraphQlEngine
+            .diContainer(env)
+            .accountService
+            .accounts(cursor = cursor, limit = limit.coerceIn(0, MAX_ACCOUNTS_LIMIT))
         val connection = QlAccountsConnection(
             nodes = result.accounts.map { it.urls.toGraphqlResponse() },
             pageInfo = QlPageInfo(
@@ -46,5 +49,12 @@ class QueryResolverImpl : QueryResolver {
             .thenApply { urls ->
                 DataFetcherResult.Builder<QlAccount?>(urls?.toGraphqlResponse()).build()
             }
+    }
+
+    private companion object {
+        /**
+         * 1 回に返す上限。取得側が limit + 1 を数えるので、Int があふれる値を先に落とす
+         */
+        const val MAX_ACCOUNTS_LIMIT = 100
     }
 }

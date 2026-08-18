@@ -111,6 +111,22 @@ class AccountGraphQlTest {
             assertEquals(JsonNull, page2.pageInfo().getValue("nextCursor"))
         }
 
+    @Test
+    fun `limit が上限を超えていても一覧が返る`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            application { module(testDependencies(repositories = repositories)) }
+
+            val page = queryAccounts(limit = Int.MAX_VALUE).accounts()
+
+            assertEquals(
+                listOf(TestServerEnv.USERNAME, "feed1"),
+                page.nodes().map { it.string("username") },
+            )
+            assertEquals(false, page.pageInfo().boolean("hasMore"))
+        }
+
     private suspend fun ApplicationTestBuilder.queryAccounts(cursor: String? = null, limit: Int = 20): HttpResponse =
         client.post(GRAPHQL_PATH) {
             contentType(ContentType.Application.Json)

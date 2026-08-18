@@ -6,7 +6,7 @@ schema {
 type Query {
     admin: AdminQuery!
 
-    "公開アカウントの一覧"
+    "公開アカウントの一覧。limit は 100 までで、超えた指定は 100 に丸める"
     accounts(cursor: String, limit: Int!): AccountsConnection! @lazy
     account(username: String!): Account @lazy
 }
