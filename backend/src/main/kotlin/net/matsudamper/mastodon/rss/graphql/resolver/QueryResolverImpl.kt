@@ -6,12 +6,32 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAccountsConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
+import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
 import net.matsudamper.mastodon.rss.graphql.model.QueryResolver
 
 class QueryResolverImpl : QueryResolver {
     override fun admin(env: DataFetchingEnvironment): CompletionStage<DataFetcherResult<QlAdminQuery>> {
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(QlAdminQuery()).build())
+    }
+
+    override fun accounts(
+        cursor: String?,
+        limit: Int,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAccountsConnection>> {
+        val result = GraphQlEngine.diContainer(env).accountService.accounts(cursor = cursor, limit = limit)
+        val connection = QlAccountsConnection(
+            nodes = result.accounts.map { it.urls.toGraphqlResponse() },
+            pageInfo = QlPageInfo(
+                hasMore = result.hasMore,
+                nextCursor = result.nextCursor,
+            ),
+        )
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(connection).build(),
+        )
     }
 
     override fun account(

@@ -29,6 +29,18 @@ class FakeAccountRepository : AccountRepository {
 
     override fun list(): List<Account> = stored.toList()
 
+    override fun list(cursor: String?, limit: Int): List<Account> {
+        if (limit <= 0) return emptyList()
+        val startIndex = if (cursor != null) {
+            val idx = stored.indexOfFirst { it.username.equals(cursor, ignoreCase = true) }
+            if (idx == -1) return emptyList()
+            idx + 1
+        } else {
+            0
+        }
+        return stored.drop(startIndex).take(limit)
+    }
+
     override fun findByUsername(username: String): Account? = stored.firstOrNull { it.username.equals(username, ignoreCase = true) }
 
     override fun findByUsernames(usernames: Collection<String>): Map<String, Account> =

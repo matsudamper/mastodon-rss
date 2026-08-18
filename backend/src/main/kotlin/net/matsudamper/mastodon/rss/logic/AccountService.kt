@@ -29,6 +29,77 @@ class AccountService(
         }
     }
 
+    /**
+     * カーソルと件数を指定してアカウント一覧を取得する
+     */
+    fun accounts(cursor: String?, limit: Int): ManagedAccountsPage {
+        if (limit <= 0) {
+            return ManagedAccountsPage(accounts = emptyList(), hasMore = false, nextCursor = null)
+        }
+
+        val fixedAccount = ManagedAccount(urls = fixed, deletable = false, createdAt = null)
+
+        if (cursor == null) {
+            if (limit == 1) {
+                val dbHasMore = accounts.list(cursor = null, limit = 1).isNotEmpty()
+                return ManagedAccountsPage(
+                    accounts = listOf(fixedAccount),
+                    hasMore = dbHasMore,
+                    nextCursor = if (dbHasMore) fixed.username else null,
+                )
+            }
+
+            val dbLimit = limit - 1
+            val dbAccounts = accounts.list(cursor = null, limit = dbLimit + 1)
+            val hasMore = dbAccounts.size > dbLimit
+            val takenDbAccounts = if (hasMore) dbAccounts.take(dbLimit) else dbAccounts
+            val managedList = buildList {
+                add(fixedAccount)
+                takenDbAccounts.mapTo(this) { account ->
+                    ManagedAccount(
+                        urls = ActorUrls(domain = fixed.domain, username = account.username),
+                        deletable = true,
+                        createdAt = account.createdAt,
+                    )
+                }
+            }
+            val nextCursor = if (hasMore) {
+                managedList.last().urls.username
+            } else {
+                null
+            }
+            return ManagedAccountsPage(
+                accounts = managedList,
+                hasMore = hasMore,
+                nextCursor = nextCursor,
+            )
+        }
+
+        val isFixedCursor = cursor.equals(fixed.username, ignoreCase = true)
+        val dbCursor = if (isFixedCursor) null else cursor
+
+        val dbAccounts = accounts.list(cursor = dbCursor, limit = limit + 1)
+        val hasMore = dbAccounts.size > limit
+        val takenDbAccounts = if (hasMore) dbAccounts.take(limit) else dbAccounts
+        val managedList = takenDbAccounts.map { account ->
+            ManagedAccount(
+                urls = ActorUrls(domain = fixed.domain, username = account.username),
+                deletable = true,
+                createdAt = account.createdAt,
+            )
+        }
+        val nextCursor = if (hasMore) {
+            managedList.last().urls.username
+        } else {
+            null
+        }
+        return ManagedAccountsPage(
+            accounts = managedList,
+            hasMore = hasMore,
+            nextCursor = nextCursor,
+        )
+    }
+
     fun add(username: String): AddAccountResult {
         val trimmed = username.trim()
 
@@ -79,6 +150,12 @@ class AccountService(
         val urls: ActorUrls,
         val deletable: Boolean,
         val createdAt: Instant?,
+    )
+
+    data class ManagedAccountsPage(
+        val accounts: List<ManagedAccount>,
+        val hasMore: Boolean,
+        val nextCursor: String?,
     )
 
     sealed interface AddAccountResult {

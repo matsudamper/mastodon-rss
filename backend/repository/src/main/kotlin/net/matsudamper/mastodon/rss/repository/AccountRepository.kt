@@ -15,6 +15,11 @@ interface AccountRepository {
     fun list(): List<Account>
 
     /**
+     * カーソル以降のアカウントを追加した順に返す
+     */
+    fun list(cursor: String?, limit: Int): List<Account>
+
+    /**
      * 名前で引く。大文字小文字の違いは無視する
      */
     fun findByUsername(username: String): Account?

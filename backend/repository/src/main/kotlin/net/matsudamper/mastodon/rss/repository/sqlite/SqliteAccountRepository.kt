@@ -22,6 +22,36 @@ internal class SqliteAccountRepository(
             .map { it.toAccount() }
     }
 
+    override fun list(cursor: String?, limit: Int): List<Account> = jooq.transaction { dsl ->
+        if (limit <= 0) return@transaction emptyList()
+
+        val select = dsl
+            .select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+            .from(ACCOUNTS)
+
+        if (cursor != null) {
+            val cursorRecord = dsl
+                .select(ACCOUNTS.ID, ACCOUNTS.CREATED_AT)
+                .from(ACCOUNTS)
+                .where(ACCOUNTS.USERNAME.eq(cursor))
+                .fetchOne() ?: return@transaction emptyList()
+
+            val cursorId = cursorRecord.get(ACCOUNTS.ID)
+            val cursorCreatedAt = cursorRecord.get(ACCOUNTS.CREATED_AT)
+
+            select.where(
+                ACCOUNTS.CREATED_AT.gt(cursorCreatedAt)
+                    .or(ACCOUNTS.CREATED_AT.eq(cursorCreatedAt).and(ACCOUNTS.ID.gt(cursorId))),
+            )
+        }
+
+        select
+            .orderBy(ACCOUNTS.CREATED_AT.asc(), ACCOUNTS.ID.asc())
+            .limit(limit)
+            .fetch()
+            .map { it.toAccount() }
+    }
+
     override fun findByUsername(username: String): Account? = jooq.transaction { dsl -> dsl.selectByUsername(username) }
 
     override fun findByUsernames(usernames: Collection<String>): Map<String, Account> {
