@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -69,11 +70,13 @@ private fun HomeScreen(
 
         when (val content = uiState.content) {
             HomeScreenUiState.Content.Loading -> {
-                SectionCard(title = "読み込み中") {
-                    Text(
-                        text = "アカウント一覧を取得中...",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
                 }
             }
 
@@ -142,11 +145,7 @@ private fun HomeScreen(
                                 }
 
                                 if (content.isLoadingMore) {
-                                    Text(
-                                        text = "読み込み中...",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
                                 } else {
                                     Button(onClick = { uiState.listener.onClickLoadMore() }) {
                                         Text(if (content.loadMoreErrorMessage != null) "もう一度試す" else "もっと見る")
