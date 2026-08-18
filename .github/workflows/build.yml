@@ -300,7 +300,7 @@ jobs:
           echo "--- GraphQL のアカウント一覧 ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -H "Cookie: $SESSION_COOKIE" \
-            -d '{"query":"query { admin { accounts { username acct deletable createdAt } } }"}' \
+            -d '{"query":"query { admin { accounts { account { username acct } deletable createdAt } } }"}' \
             http://localhost:8080/graphql -o /tmp/graphql-accounts.json
           cat /tmp/graphql-accounts.json
           grep -q '"acct":"@admin@example.com"' /tmp/graphql-accounts.json
@@ -313,7 +313,7 @@ jobs:
           echo "--- GraphQL のアカウント追加 ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -H "Cookie: $SESSION_COOKIE" \
-            -d '{"query":"mutation Add($username: String!) { admin { addAccount(username: $username) { account { acct } failure { isDuplicated } } } }","variables":{"username":"ci-added"}}' \
+            -d '{"query":"mutation Add($username: String!) { admin { addAccount(username: $username) { account { account { acct } } failure { isDuplicated } } } }","variables":{"username":"ci-added"}}' \
             http://localhost:8080/graphql -o /tmp/graphql-add.json
           cat /tmp/graphql-add.json
           grep -q '"acct":"@ci-added@example.com"' /tmp/graphql-add.json
@@ -326,7 +326,7 @@ jobs:
           # ログインしていなければ触れない。開いていると誰でもアカウントを増やせる
           echo "--- ログインしていなければアカウントは触れない ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
-            -d '{"query":"query { admin { accounts { username } } }"}' \
+            -d '{"query":"query { admin { accounts { account { username } } } }"}' \
             http://localhost:8080/graphql -o /tmp/graphql-accounts-anon.json
           grep -q '"errors"' /tmp/graphql-accounts-anon.json
 
