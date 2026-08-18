@@ -330,7 +330,7 @@ jobs:
           echo "--- GraphQL のアカウント追加 ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -H "Cookie: $SESSION_COOKIE" \
-            -d '{"query":"mutation Add($username: String!) { admin { addAccount(username: $username) { account { account { acct } } failure { isDuplicated } } } }","variables":{"username":"ci-added"}}' \
+            -d '{"query":"mutation Add($username: String!) { admin { addAccount(username: $username) { adminAccount { account { acct } } failure { isDuplicated } } } }","variables":{"username":"ci-added"}}' \
             http://localhost:8080/graphql -o /tmp/graphql-add.json
           cat /tmp/graphql-add.json
           grep -q '"acct":"@ci-added@example.com"' /tmp/graphql-add.json

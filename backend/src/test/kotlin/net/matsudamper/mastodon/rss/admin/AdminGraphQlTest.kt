@@ -215,7 +215,7 @@ class AdminGraphQlTest {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
 
-            val added = assertNotNull(mutateAddAccount("feed1", token).addAccountResult().obj("account"))
+            val added = assertNotNull(mutateAddAccount("feed1", token).addAccountResult().obj("adminAccount"))
             val account = added.obj("account")
 
             assertEquals("feed1", account.string("username"))
@@ -238,7 +238,7 @@ class AdminGraphQlTest {
 
             val result = mutateAddAccount("feed 1/あ", token).addAccountResult()
 
-            assertEquals(JsonNull, result.getValue("account"))
+            assertEquals(JsonNull, result.getValue("adminAccount"))
             // どの文字が駄目なのかを画面が自分で決めなくて済むようにする
             assertEquals(
                 listOf(" ", "/", "あ"),
@@ -394,7 +394,7 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "mutation Add(${'$'}username: String!) { admin { " +
-                "addAccount(username: ${'$'}username) { account { $ACCOUNT_FIELDS } " +
+                "addAccount(username: ${'$'}username) { adminAccount { $ACCOUNT_FIELDS } " +
                 "failure { unusableCharacters maxLength minLength isDuplicated } } } }",
             token = token,
             variables = """{"username":${JsonPrimitive(username)}}""",
