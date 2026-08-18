@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.frontend.screen
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -127,10 +128,19 @@ private fun HomeScreen(
                         }
 
                         if (content.hasMore) {
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
+                                if (content.loadMoreErrorMessage != null) {
+                                    Text(
+                                        text = content.loadMoreErrorMessage,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+
                                 if (content.isLoadingMore) {
                                     Text(
                                         text = "読み込み中...",
@@ -139,7 +149,7 @@ private fun HomeScreen(
                                     )
                                 } else {
                                     Button(onClick = { uiState.listener.onClickLoadMore() }) {
-                                        Text("もっと見る")
+                                        Text(if (content.loadMoreErrorMessage != null) "もう一度試す" else "もっと見る")
                                     }
                                 }
                             }
@@ -164,7 +174,7 @@ private fun AccountCard(
             .clickable(onClick = onClick),
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

@@ -41,7 +41,8 @@ class HomeScreenViewModel(
         }.asStateFlow()
 
     fun onStart() {
-        if (viewModelStateFlow.value.accounts == null) {
+        val state = viewModelStateFlow.value
+        if (state.accounts == null && !state.isLoading) {
             reload()
         }
     }
@@ -65,34 +66,31 @@ class HomeScreenViewModel(
         if (!currentAccounts.hasMore || currentState.isLoadingMore) return
 
         val cursor = currentAccounts.nextCursor ?: return
-        viewModelStateFlow.update { it.copy(isLoadingMore = true) }
+        viewModelStateFlow.update { it.copy(isLoadingMore = true, loadMoreErrorMessage = null) }
 
         viewModelScope.launch {
             val result = api.accounts(cursor = cursor, limit = PAGE_SIZE)
             viewModelStateFlow.update { state ->
-                val prev = state.accounts as? AccountsResult.Success
-                val newResult =
-                    when (result) {
-                        is AccountsResult.Success -> {
-                            if (prev != null) {
-                                AccountsResult.Success(
-                                    accounts = prev.accounts + result.accounts,
-                                    hasMore = result.hasMore,
-                                    nextCursor = result.nextCursor,
-                                )
-                            } else {
-                                result
-                            }
+                when (result) {
+                    is AccountsResult.Success -> {
+                        val prev = state.accounts as? AccountsResult.Success
+                        val merged = if (prev == null) {
+                            result
+                        } else {
+                            AccountsResult.Success(
+                                accounts = prev.accounts + result.accounts,
+                                hasMore = result.hasMore,
+                                nextCursor = result.nextCursor,
+                            )
                         }
-
-                        is AccountsResult.Failure -> {
-                            prev ?: result
-                        }
+                        state.copy(isLoadingMore = false, accounts = merged, loadMoreErrorMessage = null)
                     }
-                state.copy(
-                    isLoadingMore = false,
-                    accounts = newResult,
-                )
+
+                    // 続きが取れなくても既に出ている一覧は消さない
+                    is AccountsResult.Failure -> {
+                        state.copy(isLoadingMore = false, loadMoreErrorMessage = result.message)
+                    }
+                }
             }
         }
     }
@@ -119,6 +117,7 @@ class HomeScreenViewModel(
                     },
                     hasMore = accounts.hasMore,
                     isLoadingMore = state.isLoadingMore,
+                    loadMoreErrorMessage = state.loadMoreErrorMessage,
                 )
             }
         }
@@ -128,6 +127,7 @@ class HomeScreenViewModel(
         val isLoading: Boolean = false,
         val isLoadingMore: Boolean = false,
         val accounts: AccountsResult? = null,
+        val loadMoreErrorMessage: String? = null,
     )
 
     private companion object {
