@@ -66,6 +66,23 @@ class AccountService(
         )
     }
 
+    /**
+     * 名前で 1 つ引く。応答しない名前なら null
+     */
+    fun account(username: String): ManagedAccount? {
+        if (username.equals(fixed.username, ignoreCase = true)) {
+            return ManagedAccount(urls = fixed, deletable = false, createdAt = null)
+        }
+
+        val account = accounts.findByUsername(username) ?: return null
+
+        return ManagedAccount(
+            urls = ActorUrls(domain = fixed.domain, username = account.username),
+            deletable = true,
+            createdAt = account.createdAt,
+        )
+    }
+
     fun add(username: String): AddAccountResult {
         val trimmed = username.trim()
 

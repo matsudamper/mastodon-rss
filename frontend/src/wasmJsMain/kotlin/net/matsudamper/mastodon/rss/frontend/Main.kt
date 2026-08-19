@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.frontend.screen.HomeScreen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundScreen
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountNewScreen
+import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountsScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreen
 import net.matsudamper.mastodon.rss.frontend.ui.AppTheme
@@ -51,6 +52,12 @@ fun App() {
                 }
                 entry<Screen.AdminAccountNew> {
                     AdminAccountNewScreen(onNavigate = navigator::navigateTo)
+                }
+                entry<Screen.AdminAccount> { screen ->
+                    AdminAccountScreen(
+                        username = screen.username,
+                        onNavigate = navigator::navigateTo,
+                    )
                 }
                 entry<Screen.Account> { screen ->
                     AccountScreen(

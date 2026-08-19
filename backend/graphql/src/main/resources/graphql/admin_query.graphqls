@@ -3,6 +3,9 @@ type AdminQuery {
 
     "応答するアカウントの一覧"
     adminAccounts: [AdminAccount!]! @lazy
+
+    "アカウント 1 つ。応答しない名前なら null"
+    adminAccount(username: String!): AdminAccount @lazy
 }
 
 type AdminSession {

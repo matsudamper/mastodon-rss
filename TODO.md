@@ -294,7 +294,8 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
 - [x] `:frontend` モジュール（Kotlin/Wasm + Compose）と画面の枠
       - `/` トップ / `/@ユーザー名` アカウント画面 / `/admin` 管理画面 / それ以外は見つからない。
         判定は `navigation/Screen.kt` の 1 箇所
-      - 管理画面の中も操作ごとにパスを分ける（`/admin/accounts`、`/admin/accounts/new`）。
+      - 管理画面の中も操作ごとにパスを分ける（`/admin/accounts`、`/admin/accounts/new`、
+        `/admin/accounts/@{name}`）。
         1 画面に並べると、開いた時点で必要のない問い合わせが走り、URL でその操作を指せない
       - 画面遷移は Navigation Compose 3（JetBrains 版）。履歴の持ち主はブラウザ側に一本化し、
         `popstate` を受けて URL からバックスタックを作り直す。両方で履歴を持つとずれる
@@ -332,7 +333,8 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
       - 残っているのはハッシュ生成を画面から行えるようにすること（いまは
         `./gradlew --quiet :backend:crypto:passwordHash`）と、総当たり対策（Phase 7）
 - [ ] サーバー側に管理 API の残り（フィード CRUD、配信状況、手動再取得）
-      - アカウントの一覧 (`Query.admin.adminAccounts`) と追加 (`Mutation.admin.addAccount`) は入れた
+      - アカウントの一覧 (`Query.admin.adminAccounts`)、1 件の参照 (`Query.admin.adminAccount`)、
+        追加 (`Mutation.admin.addAccount`) は入れた
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む

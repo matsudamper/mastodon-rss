@@ -56,6 +56,20 @@ sealed interface Screen : NavKey {
     }
 
     /**
+     * アカウント 1 つの管理画面。
+     *
+     * そのアカウントとしての操作はここに集める。いまはフォロワー数の表示だけ。
+     */
+    data class AdminAccount(
+        val username: String,
+    ) : Screen {
+        // 名前の前に `@` を置く。追加の画面と同じ階層に並ぶので、これが無いと
+        // `new` という名前のアカウントを開けない
+        override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$ACCOUNT_PREFIX$username"
+        override val title: String = "@$username の管理 | $SITE_NAME"
+    }
+
+    /**
      * アカウント画面。`/@feed1` のように `@` + ユーザー名で開く。
      *
      * ActivityPub の Actor JSON を返す `/users/{name}` とはパスを分ける。
@@ -98,16 +112,18 @@ sealed interface Screen : NavKey {
         const val ACCOUNT_PREFIX: String = "@"
 
         /**
-         * アクターのユーザー名に使える文字。
+         * `@name` の形のセグメントから名前を取り出す。名前が入っていなければ null。
          *
-         * `:backend` の `ActorUsername` と同じ規則。ここで通してもサーバーが
-         * 知らない名前なら中身は出ないが、`/@` だけや `/@a/b` のような
-         * そもそもアカウントを指していないパスは画面を出す前に落とす。
-         *
-         * サーバーと二重に持っているのは、モジュール間で共有する置き場
-         * （`:shared`）がまだ無いため。Phase 8 で作ったらそちらに寄せる。
+         * 名前として通るかどうかはここでは見ない。見るとサーバーの規則を画面側にも
+         * 持つことになり、片方だけ変えたときに API では引けるのに画面だけ見つからない、
+         * という食い違いが出る。実在するかどうかと同じく、開いた先の画面が
+         * サーバーに聞く。
          */
-        private val USERNAME_PATTERN = Regex("^[A-Za-z0-9_]([A-Za-z0-9_.-]*[A-Za-z0-9_])?$")
+        private fun accountNameOf(segment: String): String? {
+            if (!segment.startsWith(ACCOUNT_PREFIX)) return null
+
+            return segment.removePrefix(ACCOUNT_PREFIX).ifEmpty { null }
+        }
 
         /**
          * `window.location.pathname` から画面を決める。
@@ -122,17 +138,25 @@ sealed interface Screen : NavKey {
             if (first == ADMIN_SEGMENT) {
                 // 知らない下の階層は管理画面ではなく見つからない扱いにする。
                 // 綴りを間違えたリンクで管理画面が出ると、間違いに気付けない
-                return when (segments.drop(1)) {
-                    emptyList<String>() -> Admin
-                    listOf(ACCOUNTS_SEGMENT) -> AdminAccounts
-                    listOf(ACCOUNTS_SEGMENT, NEW_SEGMENT) -> AdminAccountNew
+                val rest = segments.drop(1)
+
+                return when {
+                    rest.isEmpty() -> Admin
+
+                    rest == listOf(ACCOUNTS_SEGMENT) -> AdminAccounts
+
+                    rest == listOf(ACCOUNTS_SEGMENT, NEW_SEGMENT) -> AdminAccountNew
+
+                    rest.size == 2 && rest[0] == ACCOUNTS_SEGMENT -> {
+                        accountNameOf(rest[1])?.let { AdminAccount(it) } ?: NotFound(path)
+                    }
+
                     else -> NotFound(path)
                 }
             }
 
-            if (segments.size == 1 && first.startsWith(ACCOUNT_PREFIX)) {
-                val username = first.removePrefix(ACCOUNT_PREFIX)
-                if (USERNAME_PATTERN.matches(username)) return Account(username)
+            if (segments.size == 1) {
+                accountNameOf(first)?.let { return Account(it) }
             }
 
             return NotFound(path)

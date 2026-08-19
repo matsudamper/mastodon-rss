@@ -2,7 +2,8 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.runtime.Immutable
 
-data class AdminAccountsScreenUiState(
+data class AdminAccountScreenUiState(
+    val acct: String,
     val content: Content,
     val listener: Listener,
 ) {
@@ -14,8 +15,13 @@ data class AdminAccountsScreenUiState(
          */
         data object RequireLogin : Content
 
+        /**
+         * その名前のアカウントが無い
+         */
+        data object NotFound : Content
+
         data class Loaded(
-            val accounts: List<Account>,
+            val account: Account,
         ) : Content
 
         data class Error(
@@ -23,13 +29,12 @@ data class AdminAccountsScreenUiState(
         ) : Content
     }
 
+    // TODO: フォロワー数は Phase 3 の永続化実装後にここへ足す
+    // TODO: 投稿の入力欄と、配信した投稿の一覧は Phase 4 でここに足す
+
     /**
-     * 一覧の 1 行。
-     *
-     * @param acct 行の見出しとして大きく出す
-     * @param actorUrl 見出しの下に小さく出す
+     * @param acct Mastodon の検索窓に貼る形
      * @param createdAt 「追加: <値>」の形で出す。null ならこの行を出さない
-     * @param username 行から開く画面のリンク先。文字としては出さない
      */
     data class Account(
         val username: String,
