@@ -112,6 +112,5 @@ class AdminApi(
         ),
         deletable = deletable,
         createdAt = createdAt,
-        followerCount = followerCount,
     )
 }

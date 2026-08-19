@@ -23,7 +23,4 @@ type AdminAccount {
 
     "管理画面から追加した時刻。追加したものにだけ入る"
     createdAt: UnixTime
-
-    "Accept を返せたフォロワーの数"
-    followerCount: Int! @lazy
 }

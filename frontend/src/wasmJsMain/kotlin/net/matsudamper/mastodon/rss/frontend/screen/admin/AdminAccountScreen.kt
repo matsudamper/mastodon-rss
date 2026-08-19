@@ -104,15 +104,11 @@ private fun AccountCard(
     onNavigate: (Screen) -> Unit,
 ) {
     SectionCard(title = "このアカウント") {
-        Text(
-            text = "フォロワー ${account.followerCount} 人",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
+        // TODO: フォロワー数は Phase 3 の永続化実装後にここへ足す
 
         Text(
             text = account.actorUrl,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 

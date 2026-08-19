@@ -13,14 +13,13 @@ import net.matsudamper.mastodon.rss.repository.sqlite.SqliteRepositories
  * 呼び出し側が触れるのはこの interface と [DatabaseConfig] だけで、
  * JDBC も jOOQ もモジュールの外に漏れないようにする。
  *
- * フィードの repository（[FeedRepository] と [FeedItemRepository]）は interface だけ
- * 置いてある。テーブルが無く、jOOQ の生成物も無いので実装はまだ無く、ここからも取れない。
- * Phase 5 で実装を入れるときにプロパティを足す。
+ * フィードとフォロワーの repository は、スキーマが決まる Phase 3 でここに生やす。
+ * [FeedRepository] と [FeedItemRepository] は interface だけ先に置いてある。
+ * テーブルが無く、jOOQ の生成物も無いので実装はまだ無く、ここからも取れない。
+ * 実装を入れるときに、取得するためのプロパティをここに足す。
  */
 interface Repositories : AutoCloseable {
     val accounts: AccountRepository
-
-    val followers: FollowerRepository
 
     /**
      * DB に書き込んで読み戻せることを確認する。書けない場合は例外を投げる。

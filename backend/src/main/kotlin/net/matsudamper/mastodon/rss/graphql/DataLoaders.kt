@@ -5,7 +5,6 @@ import kotlin.reflect.KProperty
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.dataloader.AccountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.DataLoaderDefine
-import net.matsudamper.mastodon.rss.dataloader.FollowerCountDataLoaderDefine
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderRegistry
 
@@ -21,8 +20,6 @@ class DataLoaders(
     private val dataLoaderRegistryBuilder: DataLoaderRegistry.Builder,
 ) {
     val accountDataLoader by register { AccountDataLoaderDefine(diContainer.actorDirectory) }
-
-    val followerCountDataLoader by register { FollowerCountDataLoaderDefine(diContainer.accountService) }
 
     private fun <K : Any, V : Any> register(initializer: () -> DataLoaderDefine<K, V>): DataLoaderRegister<K, V> {
         val define = initializer()

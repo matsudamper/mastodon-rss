@@ -9,5 +9,4 @@ data class AdminAccount(
     val account: Account,
     val deletable: Boolean,
     val createdAt: Long?,
-    val followerCount: Int,
 )

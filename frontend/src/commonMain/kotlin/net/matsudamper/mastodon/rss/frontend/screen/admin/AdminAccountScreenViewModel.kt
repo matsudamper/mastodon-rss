@@ -85,7 +85,6 @@ class AdminAccountScreenViewModel(
         acct = account.acct,
         actorUrl = account.actorUrl,
         createdAt = createdAt?.let { UnixTimeUtil.format(it) },
-        followerCount = followerCount,
     )
 
     // TODO: 投稿の送信と、配信した投稿の一覧の取得は Phase 4 でここに足す

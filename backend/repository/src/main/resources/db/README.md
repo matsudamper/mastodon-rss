@@ -68,9 +68,3 @@ jOOQ には SQL を直接読む `DDLDatabase` もあるが、そちらは jOOQ �
 | --- | --- |
 | `accounts` | 管理画面から追加したアカウント。`username` は大文字小文字を区別せず一意 |
 | `health_check` | 起動時の書き込み確認用。行は常に 1 件 |
-| `remote_actors` | 相手のサーバーのアクター。inbox と公開鍵 |
-| `followers` | 成立しているフォロー。アカウントの名前と `remote_actors` の関連 |
-
-`followers` がこちらのアカウントを名前で持ち、`accounts` への外部キーに
-していないのは、`ACTOR_USERNAME` で決まる組み込みアカウントが `accounts` に
-行を持たないため。引き当ての正は `ActorDirectory` にある。

@@ -30,7 +30,6 @@ fragment AdminAccountFields on AdminAccount {
     }
     deletable
     createdAt
-    followerCount
 }
 
 mutation AdminLogin($password: String!) {

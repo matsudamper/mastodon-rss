@@ -240,8 +240,6 @@ class AdminGraphQlTest {
             val adminAccount = assertNotNull(queryAccount("feed1", token).admin().getValue("adminAccount").jsonObject)
 
             assertEquals("feed1", adminAccount.obj("account").string("username"))
-            // フォロワーがいなくても 0 が返る。画面が「取れていない」と区別できるようにする
-            assertEquals(0, adminAccount.getValue("followerCount").jsonPrimitive.int)
         }
 
     @Test
@@ -428,7 +426,7 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "query Account(${'$'}username: String!) { admin { " +
-                "adminAccount(username: ${'$'}username) { $ACCOUNT_FIELDS followerCount } } }",
+                "adminAccount(username: ${'$'}username) { $ACCOUNT_FIELDS } } }",
             token = token,
             variables = """{"username":${JsonPrimitive(username)}}""",
         )

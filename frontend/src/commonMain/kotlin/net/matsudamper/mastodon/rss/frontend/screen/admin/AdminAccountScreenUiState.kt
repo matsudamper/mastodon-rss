@@ -29,6 +29,7 @@ data class AdminAccountScreenUiState(
         ) : Content
     }
 
+    // TODO: フォロワー数は Phase 3 の永続化実装後にここへ足す
     // TODO: 投稿の入力欄と、配信した投稿の一覧は Phase 4 でここに足す
 
     /**
@@ -40,7 +41,6 @@ data class AdminAccountScreenUiState(
         val acct: String,
         val actorUrl: String,
         val createdAt: String?,
-        val followerCount: Int,
     )
 
     @Immutable

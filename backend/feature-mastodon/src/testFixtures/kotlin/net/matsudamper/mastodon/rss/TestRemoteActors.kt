@@ -1,9 +1,7 @@
 package net.matsudamper.mastodon.rss
 
 import java.security.PublicKey
-import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.actor.RemoteActors
-import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 
 /**
@@ -14,7 +12,7 @@ import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
  */
 class TestRemoteActors(
     private val keys: Map<String, SignatureKey> = emptyMap(),
-    private val actors: Map<String, RemoteActor> = emptyMap(),
+    private val inboxes: Map<String, String> = emptyMap(),
 ) : RemoteActors {
     var findCallCount: Int = 0
         private set
@@ -24,7 +22,7 @@ class TestRemoteActors(
         return keys[keyId]
     }
 
-    override suspend fun findActor(actorId: String): RemoteActor? = actors[actorId]
+    override suspend fun findInbox(actorId: String): String? = inboxes[actorId]
 
     companion object {
         fun of(
@@ -35,18 +33,7 @@ class TestRemoteActors(
         ): TestRemoteActors =
             TestRemoteActors(
                 keys = mapOf(keyId to SignatureKey(keyId = keyId, owner = owner, publicKey = publicKey)),
-                actors = if (inbox == null) {
-                    emptyMap()
-                } else {
-                    mapOf(
-                        owner to RemoteActor(
-                            actorId = owner,
-                            inbox = inbox,
-                            sharedInbox = null,
-                            publicKeyPem = RsaKeys.encodeToPem(publicKey),
-                        ),
-                    )
-                },
+                inboxes = if (inbox == null) emptyMap() else mapOf(owner to inbox),
             )
     }
 }
