@@ -198,40 +198,62 @@ private fun NotesCard(
     listener: AdminAccountScreenUiState.Listener,
 ) {
     SectionCard(title = "配信した投稿") {
-        if (content.notesError != null) {
-            Text(
-                text = content.notesError,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
+        val notes = content.notes
+        val error = content.notesError
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = { listener.onClickReloadNotes() }) {
-                    Text("もう一度試す")
+        when {
+            notes.isEmpty() && error != null -> {
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = { listener.onClickReloadNotes() }) {
+                        Text("もう一度試す")
+                    }
                 }
             }
-        } else if (content.notes.isEmpty()) {
-            Text(text = "まだ何も配信していない。", style = MaterialTheme.typography.bodyMedium)
-        }
 
-        content.notes.forEach { note ->
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(text = note.text, style = MaterialTheme.typography.bodyMedium)
+            notes.isEmpty() -> {
                 Text(
-                    text = "${note.publishedAt} ${note.url}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = "まだ投稿していない。",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
-        }
 
-        if (content.canLoadMore) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(
-                    onClick = { listener.onClickLoadMore() },
-                    enabled = !content.loadingMore,
-                ) {
-                    Text(if (content.loadingMore) "読み込み中" else "もっと見る")
+            else -> {
+                notes.forEach { note ->
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = note.text,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = "${note.publishedAt}  ${note.url}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                if (error != null) {
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                if (content.canLoadMore) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(
+                            onClick = { listener.onClickLoadMore() },
+                            enabled = !content.loadingMore,
+                        ) {
+                            Text(if (content.loadingMore) "読み込み中" else "もっと見る")
+                        }
+                    }
                 }
             }
         }

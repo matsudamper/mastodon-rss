@@ -78,8 +78,8 @@ private fun AdminAccountsScreen(
             is AdminAccountsScreenUiState.Content.Loaded -> {
                 SectionCard(title = "応答するアカウント") {
                     Text(
-                        text = "この一覧にある名前が Mastodon から検索できる。名前を選ぶと、" +
-                            "そのアカウントとして投稿できる。",
+                        text = "この一覧にある名前が Mastodon から検索できる。" +
+                            "名前を選ぶと、そのアカウントの管理画面を開ける。",
                         style = MaterialTheme.typography.bodyMedium,
                     )
 

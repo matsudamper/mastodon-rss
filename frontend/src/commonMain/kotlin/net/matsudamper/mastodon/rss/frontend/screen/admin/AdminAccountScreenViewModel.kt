@@ -98,8 +98,8 @@ class AdminAccountScreenViewModel(
                     viewModelStateFlow.update {
                         it.copy(
                             notes = result.notes,
-                            cursor = result.cursor,
                             notesError = null,
+                            cursor = result.cursor,
                             loadingMore = false,
                         )
                     }
@@ -107,15 +107,17 @@ class AdminAccountScreenViewModel(
 
                 is AdminNotesResult.Failure -> {
                     if (viewModelStateFlow.value.loadGeneration != generation) return@launch
-                    viewModelStateFlow.update { it.copy(notesError = result.message, loadingMore = false) }
+                    viewModelStateFlow.update {
+                        it.copy(
+                            notesError = result.message,
+                            loadingMore = false,
+                        )
+                    }
                 }
             }
         }
     }
 
-    /**
-     * 続きを足す。cursor が無ければ最後まで出ている
-     */
     private fun loadMore() {
         val state = viewModelStateFlow.value
         val cursor = state.cursor ?: return
@@ -128,11 +130,11 @@ class AdminAccountScreenViewModel(
             when (val result = api.notes(username = username, cursor = cursor, limit = PAGE_SIZE)) {
                 is AdminNotesResult.Success -> {
                     if (viewModelStateFlow.value.loadGeneration != generation) return@launch
-                    viewModelStateFlow.update {
-                        it.copy(
-                            notes = it.notes + result.notes,
-                            cursor = result.cursor,
+                    viewModelStateFlow.update { current ->
+                        current.copy(
+                            notes = current.notes + result.notes,
                             notesError = null,
+                            cursor = result.cursor,
                             loadingMore = false,
                         )
                     }
@@ -140,7 +142,12 @@ class AdminAccountScreenViewModel(
 
                 is AdminNotesResult.Failure -> {
                     if (viewModelStateFlow.value.loadGeneration != generation) return@launch
-                    viewModelStateFlow.update { it.copy(notesError = result.message, loadingMore = false) }
+                    viewModelStateFlow.update {
+                        it.copy(
+                            notesError = result.message,
+                            loadingMore = false,
+                        )
+                    }
                 }
             }
         }
@@ -148,29 +155,36 @@ class AdminAccountScreenViewModel(
 
     private fun post() {
         val state = viewModelStateFlow.value
-        if (state.submitting || state.body.isBlank()) return
+        val body = state.body.trim()
+        if (body.isEmpty() || state.submitting) return
 
         viewModelStateFlow.update { it.copy(submitting = true, error = null, result = null) }
 
         viewModelScope.launch {
-            when (val result = api.postNote(username = username, body = state.body.trim())) {
+            when (val result = api.postNote(username = username, body = body)) {
                 is AdminPostNoteResult.Success -> {
                     viewModelStateFlow.update {
                         it.copy(
-                            submitting = false,
                             body = "",
+                            submitting = false,
                             result = AdminAccountScreenUiState.PostResult(
                                 url = result.note.url,
                                 targets = result.deliveryTargets,
                                 delivered = result.delivered,
                             ),
+                            error = null,
                         )
                     }
                     loadNotes()
                 }
 
                 is AdminPostNoteResult.Rejected -> {
-                    viewModelStateFlow.update { it.copy(submitting = false, error = rejectedMessage(result)) }
+                    viewModelStateFlow.update {
+                        it.copy(
+                            submitting = false,
+                            error = rejectedMessage(result),
+                        )
+                    }
                 }
 
                 is AdminPostNoteResult.Failure -> {
