@@ -159,7 +159,11 @@ private fun MenuCard(onNavigate: (Screen) -> Unit) {
             onClick = { onNavigate(Screen.AdminAccountNew) },
         )
         Text(
-            text = "フィードの登録・削除、フォロワー数と配信エラー、手動での再取得はこれから作る。",
+            text = "フォロワー数は、一覧からアカウントを選んだ先にある。",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            text = "フィードの登録・削除、配信エラーの確認、手動での再取得はこれから作る。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

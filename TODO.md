@@ -14,14 +14,15 @@ native-image で踏んだことは `META-INF/native-image/` の README にある
 
 ## 現在地と次の一手
 
-次の一手: Phase 3 のスキーマ設計とフォロワーの永続化。
+次の一手: チェックポイント 3 の実機確認。Mastodon からフォローし、再起動しても
+フォロワーが残ることを確かめる。その後は Phase 4 の投稿配信。
 
 - Phase 0（土台づくり）完了。`:backend` / `:backend:feature-mastodon` / `:backend:crypto` /
   `:backend:repository` / `:backend:rss` / `:backend:graphql` / `:frontend` のモジュール構成で、
   native バイナリが起動して SQLite に読み書きできる
 - Phase 1（アクターの発見）完了。`social-rss.matsudamper.net` で WebFinger と Actor を公開している
-- Phase 2（フォローの成立）完了。inbox の署名を検証し、`Follow` に `Accept` を返す。
-  フォロワーの記録はまだしないので、`Undo` が届いても何もしない（Phase 3）
+- Phase 2（フォローの成立）完了。inbox の署名を検証し、`Follow` に `Accept` を返す
+- Phase 3（フォロワーの永続化）実装済み。実機での確認は未実施
 - Phase 5 のうちフィードの解析（`:backend:rss`）だけ先に実装した。取得（HTTP）と保存（DB）は
   繋いでいないので、まだ何も流れない。ActivityPub 側と独立していて後戻りが出ないため前倒しした
 - Phase 6 と Phase 8 の一部（管理画面の枠、GraphQL の口とログイン、アカウントの追加と一覧）も
@@ -107,33 +108,25 @@ Mastodon --POST(署名)--> /users/{name}/inbox    (Follow / Undo / Delete)
 
 Phase 2 まではオンメモリでよい。ここで初めて DB が要る。
 
-- [ ] スキーマ設計（開発用 DB で形を決めて `dumpSchema` で `schema.sql` に書き出す）
-      - `actors`（ローカルアクター: name, display_name, private_key, public_key, created_at）
-      - `remote_actors`（inbox, shared_inbox, public_key, fetched_at）
-      - `followers`（actor_id, remote_actor_id, follow_activity_id, state, created_at）
-      - `deliveries`（配信キュー: target_inbox, payload, attempts, next_retry_at, state）
-- [ ] follow を INSERT / UPDATE（jOOQ の DSL で）
-- [ ] `Undo{Follow}` を処理してフォロー解除
-- [ ] `Delete{Actor}`（アカウント削除・引っ越し）を処理してフォロワーを掃除
-      - 削除済みアクターは鍵を取得できないので、署名検証に失敗しても握り潰す例外パスが要る
-- [ ] `GET /users/admin/followers`（OrderedCollection、ページング）
-- [ ] 冪等性: 同じ `Follow` を二重に受けても重複行を作らない（activity id で一意制約）
-- [ ] フォロワーがいるなら鍵の自動生成を拒否して起動を止める
-      - Phase 1 の鍵の生成条件は「ファイルが無い」だけなので、鍵を失った状態でも
-        新しい鍵を作って何事もなく起動する。このときアクターは相手から見て別人になり、
-        既存のフォロワーへの署名が全部通らなくなる。いまは警告ログを出すだけ
-      - 既定値のままなら実害は小さい。`DB_PATH` も `ACTOR_PRIVATE_KEY_PATH` も
-        `./data` 配下で、docker compose では同じボリュームなので、鍵を失うときは
-        フォロワーごと失っている。問題は 2 つが独立した環境変数で別々の場所を
-        指せることで、DB は残して鍵だけ失う構成が作れてしまう
-      - フォロワーを保存するまでは判定材料が無いのでここで入れる。
-        `followers` が空でなければ生成せずに落とす
-      - 上の `actors` テーブルは `private_key` を持つ設計になっている。鍵の置き場を
-        ファイルから DB に移すなら、この項目は「移行時に鍵を引き継ぐ」に変わる。
-        どちらにするかは Phase 6 の複数アクター化と合わせて決める
+- [x] スキーマ設計（`remote_actors` / `followers` を足す）
+- [x] `Follow` を記録してから `Accept` を返す
+      - [ ] `Accept` を返した後の記録に何度も失敗した場合は諦めてログに残すだけ。
+            相手にはフォロー中と見えるのに投稿が届かない状態が残る。
+            後から整合させる仕組みは配信キューと一緒に考える
+- [x] `Undo{Follow}` を処理してフォロー解除
+- [x] `Delete{Actor}`（アカウント削除・引っ越し）を処理してフォロワーを掃除
+      - [ ] 署名を検証できない `Delete` は 202 で受け流すだけで掃除しない。
+            相手のアクター文書がまだ引ける間に届いたものしか消せない
+- [x] `GET /users/{name}/followers`（OrderedCollection、cursor でページング）
+- [x] 冪等性: 同じ `Follow` を二重に受けても重複行を作らない
+- [x] フォロワーがいるなら鍵の自動生成を拒否して起動を止める
+      - [ ] 鍵を失った状態での起動は警告ログを出すだけ。鍵の置き場を DB に移すかは
+            Phase 6 の複数アクター化と合わせて決める
 
 ### ✅ チェックポイント 3
 プロセスを再起動してもフォロワー数が保持される。アンフォローすると減る。
+
+- [ ] 実機で確認する
 
 ---
 
@@ -294,7 +287,8 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
 - [x] `:frontend` モジュール（Kotlin/Wasm + Compose）と画面の枠
       - `/` トップ / `/@ユーザー名` アカウント画面 / `/admin` 管理画面 / それ以外は見つからない。
         判定は `navigation/Screen.kt` の 1 箇所
-      - 管理画面の中も操作ごとにパスを分ける（`/admin/accounts`、`/admin/accounts/new`）。
+      - 管理画面の中も操作ごとにパスを分ける（`/admin/accounts`、`/admin/accounts/new`、
+        `/admin/accounts/@{name}`）。
         1 画面に並べると、開いた時点で必要のない問い合わせが走り、URL でその操作を指せない
       - 画面遷移は Navigation Compose 3（JetBrains 版）。履歴の持ち主はブラウザ側に一本化し、
         `popstate` を受けて URL からバックスタックを作り直す。両方で履歴を持つとずれる
@@ -332,12 +326,14 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
       - 残っているのはハッシュ生成を画面から行えるようにすること（いまは
         `./gradlew --quiet :backend:crypto:passwordHash`）と、総当たり対策（Phase 7）
 - [ ] サーバー側に管理 API の残り（フィード CRUD、配信状況、手動再取得）
-      - アカウントの一覧 (`Query.admin.adminAccounts`) と追加 (`Mutation.admin.addAccount`) は入れた
+      - アカウントの一覧 (`Query.admin.adminAccounts`)、1 件の参照 (`Query.admin.adminAccount`)、
+        追加 (`Mutation.admin.addAccount`) は入れた。投稿を配る口は Phase 4 で足す
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
 - [ ] Compose でフィード一覧 / 追加 / 削除
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
+      - フォロワー数は `/admin/accounts/@{name}` に出している。最終投稿と配信エラーは未着手
 - [ ] フィードのプレビュー（投稿前にどう見えるか）
 - [ ] 手動投稿・再配信のトリガー
 

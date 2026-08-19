@@ -1,7 +1,6 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -20,47 +19,62 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
 @Composable
-fun AdminAccountsScreen(onNavigate: (Screen) -> Unit) {
+fun AdminAccountScreen(
+    username: String,
+    onNavigate: (Screen) -> Unit,
+) {
     val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope) { AdminAccountsScreenViewModel(viewModelScope) }
+    val viewModel = remember(username, viewModelScope) {
+        AdminAccountScreenViewModel(username = username, viewModelScope = viewModelScope)
+    }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
-    LifecycleStartEffect(Unit) {
+    LifecycleStartEffect(username) {
         viewModel.onStart()
         onStopOrDispose {}
     }
 
-    AdminAccountsScreen(uiState = uiState, onNavigate = onNavigate)
+    AdminAccountScreen(uiState = uiState, onNavigate = onNavigate)
 }
 
 @Composable
-private fun AdminAccountsScreen(
-    uiState: AdminAccountsScreenUiState,
+private fun AdminAccountScreen(
+    uiState: AdminAccountScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
     AppScaffold(onNavigate = onNavigate) { _ ->
         Text(
-            text = "アカウント",
+            text = uiState.acct,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
         )
 
         when (val content = uiState.content) {
-            AdminAccountsScreenUiState.Content.Loading -> {
+            AdminAccountScreenUiState.Content.Loading -> {
                 SectionCard(title = "読み込み中") {
+                    Text(text = "アカウントを取ってきている。", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            AdminAccountScreenUiState.Content.RequireLogin -> {
+                RequireLoginCard(onNavigate = onNavigate)
+            }
+
+            AdminAccountScreenUiState.Content.NotFound -> {
+                SectionCard(title = "このアカウントは無い") {
                     Text(
-                        text = "一覧を取ってきている。",
+                        text = "この名前では Mastodon からも見つからない。",
                         style = MaterialTheme.typography.bodyMedium,
+                    )
+                    TextLink(
+                        text = "アカウントの一覧に戻る",
+                        onClick = { onNavigate(Screen.AdminAccounts) },
                     )
                 }
             }
 
-            AdminAccountsScreenUiState.Content.RequireLogin -> {
-                RequireLoginCard(onNavigate = onNavigate)
-            }
-
-            is AdminAccountsScreenUiState.Content.Error -> {
-                SectionCard(title = "一覧を出せない") {
+            is AdminAccountScreenUiState.Content.Error -> {
+                SectionCard(title = "この画面を出せない") {
                     Text(
                         text = content.message,
                         style = MaterialTheme.typography.bodyMedium,
@@ -75,56 +89,29 @@ private fun AdminAccountsScreen(
                 }
             }
 
-            is AdminAccountsScreenUiState.Content.Loaded -> {
-                SectionCard(title = "応答するアカウント") {
-                    Text(
-                        text = "この一覧にある名前が Mastodon から検索できる。" +
-                            "名前を選ぶと、そのアカウントの管理画面を開ける。",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+            is AdminAccountScreenUiState.Content.Loaded -> {
+                AccountCard(account = content.account, onNavigate = onNavigate)
 
-                    content.accounts.forEach { account ->
-                        AccountRow(account = account, onNavigate = onNavigate)
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
-                            Text("更新")
-                        }
-                    }
-                }
-
-                SectionCard(title = "増やす") {
-                    TextLink(
-                        text = "アカウントを追加する",
-                        onClick = { onNavigate(Screen.AdminAccountNew) },
-                    )
-                }
+                // TODO: 新しい投稿の入力欄と、配信した投稿の一覧は Phase 4 でここに足す
             }
         }
     }
 }
 
 @Composable
-private fun AccountRow(
-    account: AdminAccountsScreenUiState.Account,
+private fun AccountCard(
+    account: AdminAccountScreenUiState.Account,
     onNavigate: (Screen) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    SectionCard(title = "このアカウント") {
         Text(
-            text = account.acct,
+            text = "フォロワー ${account.followerCount} 人",
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.SemiBold,
         )
 
         Text(
             text = account.actorUrl,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Text(
-            text = "フォロワー ${account.followerCount} 人",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -136,11 +123,6 @@ private fun AccountRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-
-        TextLink(
-            text = "このアカウントを管理する",
-            onClick = { onNavigate(Screen.AdminAccount(account.username)) },
-        )
 
         TextLink(
             text = "公開されているアカウント画面を開く",
