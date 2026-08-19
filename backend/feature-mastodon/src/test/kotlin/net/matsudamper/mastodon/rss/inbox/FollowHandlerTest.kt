@@ -79,6 +79,17 @@ class FollowHandlerTest {
     }
 
     @Test
+    fun `Accept の後の記録が一度失敗しても数える`() = runBlocking {
+        val followers = FakeFollowerStore(failMarkAcceptedTimes = 1)
+
+        handle(FollowHandler(TestRemoteActor.remoteActors(), TestDelivery(), followers), followJson())
+
+        // ここで諦めると、相手にはフォロー中と見えるのに投稿が届かない状態が残る
+        assertEquals(2, followers.markAcceptedAttempts)
+        assertTrue(followers.rows.single().accepted)
+    }
+
+    @Test
     fun `記録できなければ Accept を返さない`() = runBlocking {
         val delivery = TestDelivery()
 

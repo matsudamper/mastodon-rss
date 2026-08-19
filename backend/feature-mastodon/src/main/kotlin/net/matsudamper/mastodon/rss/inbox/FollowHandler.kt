@@ -2,6 +2,9 @@ package net.matsudamper.mastodon.rss.inbox
 
 import java.time.Instant
 import java.util.UUID
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activitypub.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
@@ -106,17 +109,7 @@ class FollowHandler(
 
         when (val result = delivery.deliver(inbox = follower.inbox, sender = recipient, body = body)) {
             is DeliveryResult.Delivered -> {
-                // ここまで来たものだけをフォロワーとして数える。記録に失敗しても
-                // 相手は既にフォローできたつもりなので、例外は投げずにログに残す
-                runCatching {
-                    followers.markAccepted(
-                        username = recipient.username,
-                        followerActorUri = signer,
-                        acceptedAt = Instant.now(),
-                    )
-                }.onFailure { failure ->
-                    logger.warn("Accept は返せたがフォロワーとして記録できなかった: ${recipient.acct} ← $signer", failure)
-                }
+                markAccepted(recipient = recipient, signer = signer)
 
                 logger.info("Follow に Accept を返した: ${recipient.acct} ← $signer")
             }
@@ -130,7 +123,54 @@ class FollowHandler(
         }
     }
 
+    /**
+     * `Accept` を返せたことを記録する。
+     *
+     * ここまで来た時点で相手はフォローできたつもりなので、`Follow` は送り直されない。
+     * 記録に失敗したまま終えると、相手の画面ではフォロー中なのに投稿が 1 つも
+     * 届かない状態が残り続ける。書き込みが一時的に通らないだけのこともあるので、
+     * 何度か試してから諦める。
+     *
+     * 諦めた場合に直す手立ては無いので、運用者が気付けるようにログに残す。
+     * 取りこぼしを溜めて後から流す仕組みは、配信キューを入れるときに一緒に考える。
+     */
+    private suspend fun markAccepted(
+        recipient: ActorUrls,
+        signer: String,
+    ) {
+        repeat(MARK_ACCEPTED_ATTEMPTS) { attempt ->
+            val recorded = runCatching {
+                followers.markAccepted(
+                    username = recipient.username,
+                    followerActorUri = signer,
+                    acceptedAt = Instant.now(),
+                )
+            }
+            if (recorded.isSuccess) return
+
+            if (attempt == MARK_ACCEPTED_ATTEMPTS - 1) {
+                logger.error(
+                    "Accept は返せたがフォロワーとして記録できなかった。" +
+                        "相手にはフォロー中と見えるが投稿は届かない: ${recipient.acct} ← $signer",
+                    recorded.exceptionOrNull(),
+                )
+            } else {
+                delay(MARK_ACCEPTED_RETRY_INTERVAL * (attempt + 1))
+            }
+        }
+    }
+
     private companion object {
+        /**
+         * 記録を試す回数
+         */
+        const val MARK_ACCEPTED_ATTEMPTS: Int = 3
+
+        /**
+         * 試す間隔。書き込みが詰まっているだけなら、待てば通る
+         */
+        val MARK_ACCEPTED_RETRY_INTERVAL: Duration = 200.milliseconds
+
         /**
          * `Accept` 自身の id。
          *
