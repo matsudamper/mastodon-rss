@@ -59,6 +59,14 @@ class AdminApi(
 
     suspend fun account(username: String): AdminAccountResult {
         val response = client.query(AdminAccountQuery(username)).execute()
+
+        // 失敗を先に見る。null は「そのアカウントが無い」の意味なので、
+        // エラーで返ってきた null と混ぜると、繋がらないだけの状態を
+        // アカウントが無いと表示してしまう
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminAccountResult.Failure(response.failureMessage())
+        }
+
         val data = response.data ?: return AdminAccountResult.Failure(response.failureMessage())
 
         return AdminAccountResult.Success(data.admin.adminAccount?.adminAccountFields?.toAdminAccount())
