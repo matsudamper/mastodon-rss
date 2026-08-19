@@ -16,7 +16,7 @@ interface ActivityDelivery {
      * @param inbox 宛先。https で、相手のアクターと同じホストであることを
      *   確認済みのものだけを渡すこと。相手が指定した URL をそのまま渡すと、
      *   こちらのサーバーから任意の宛先に POST させられる。確認は
-     *   [net.matsudamper.mastodon.rss.actor.RemoteActors.findInbox] で行っている
+     *   [net.matsudamper.mastodon.rss.actor.RemoteActors.findActor] で行っている
      * @param sender 送り主になるこちらのアクター。署名の `keyId` はここから決まる
      * @param body 署名対象になる JSON のバイト列。`Digest` はこれに対して計算される
      */

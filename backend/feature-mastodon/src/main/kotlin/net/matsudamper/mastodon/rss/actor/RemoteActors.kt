@@ -13,11 +13,30 @@ import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
  */
 interface RemoteActors : PublicKeys {
     /**
-     * 配信先の inbox を引く。引けなければ null。
+     * アクター文書から、配信と記録に要る部分を引く。引けなければ null。
      *
-     * 返す URL は https で、アクター id と同じホストのものに限る。
-     * ここを緩めると、相手が自分のアクター文書に他所の URL を書くだけで、
-     * こちらのサーバーから任意の宛先に POST させられる。
+     * 1 回の呼び出しで全部返すのは、これらが同じ 1 つの文書から読めるため。
+     * フォロワーとして記録するときに inbox と公開鍵を別々に取りに行くと、
+     * 相手のサーバーへの GET が増えるうえ、間に鍵が入れ替わると
+     * 記録した鍵と inbox が別の版のものになる。
      */
-    suspend fun findInbox(actorId: String): String?
+    suspend fun findActor(actorId: String): RemoteActor?
 }
+
+/**
+ * 相手のアクター文書のうち、こちらが使う部分。
+ *
+ * @param actorId 引いたアクターの id。呼び出しに使った URL がそのまま入る
+ * @param inbox 配信先。https で、[actorId] と同じホストのものに限る。
+ *   ここを緩めると、相手が自分のアクター文書に他所の URL を書くだけで、
+ *   こちらのサーバーから任意の宛先に POST させられる
+ * @param sharedInbox 同じインスタンス宛をまとめて送れる inbox。持たない実装もある。
+ *   [inbox] と同じ制限がかかる
+ * @param publicKeyPem 署名の検証に使う公開鍵の PEM
+ */
+data class RemoteActor(
+    val actorId: String,
+    val inbox: String,
+    val sharedInbox: String?,
+    val publicKeyPem: String,
+)

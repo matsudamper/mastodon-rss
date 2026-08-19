@@ -1,6 +1,10 @@
 package net.matsudamper.mastodon.rss.inbox
 
+import java.time.Instant
 import java.util.UUID
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activitypub.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
@@ -10,6 +14,7 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
+import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
 import org.slf4j.LoggerFactory
 
@@ -24,12 +29,14 @@ import org.slf4j.LoggerFactory
  * 送る機会が無い。相手のサーバーが応答しない場合に備えて、
  * HTTP クライアント側にタイムアウトを入れてある。
  *
- * フォロワーの記録はまだしない。オンメモリにも持たず、`Accept` を返すだけ。
- * 永続化は TODO.md の Phase 3。
+ * 記録してから `Accept` を返す。逆にすると、記録に失敗したときに相手だけが
+ * フォローできたつもりになり、こちらには送り先が残らない。記録できなければ
+ * `Accept` も返さないので、相手からは保留のまま見える。
  */
 class FollowHandler(
     private val remoteActors: RemoteActors,
     private val delivery: ActivityDelivery,
+    private val followers: FollowerStore,
 ) : InboxActivityHandler {
     override val type: String = "Follow"
 
@@ -59,9 +66,34 @@ class FollowHandler(
             return
         }
 
-        val inbox = remoteActors.findInbox(signer)
-        if (inbox == null) {
-            logger.warn("Follow に Accept を返せなかった: ${recipient.acct} ← $signer フォロワーの inbox を引けない")
+        // 相手が `id` を付けずに送ってくると、同じ `Follow` の送り直しと
+        // 新しい `Follow` を区別できない。区別できないものを記録すると、
+        // 送り直しのたびに行が増えるか、別のフォローを取り違えて消すことになる
+        val followActivityUri = activity.id
+        if (followActivityUri == null) {
+            logger.warn("Follow に id が無いので受け付けない: ${recipient.acct} ← $signer")
+            return
+        }
+
+        val follower = remoteActors.findActor(signer)
+        if (follower == null) {
+            logger.warn("Follow に Accept を返せなかった: ${recipient.acct} ← $signer フォロワーのアクターを引けない")
+            return
+        }
+
+        val recorded = runCatching {
+            followers.record(
+                username = recipient.username,
+                follower = follower,
+                followActivityUri = followActivityUri,
+                receivedAt = Instant.now(),
+            )
+        }
+        if (recorded.isFailure) {
+            logger.warn(
+                "Follow を記録できなかったので Accept を返さない: ${recipient.acct} ← $signer",
+                recorded.exceptionOrNull(),
+            )
             return
         }
 
@@ -75,20 +107,70 @@ class FollowHandler(
 
         val body = AppJson.encodeToString(OutgoingActivity.serializer(), accept).toByteArray()
 
-        when (val result = delivery.deliver(inbox = inbox, sender = recipient, body = body)) {
+        when (val result = delivery.deliver(inbox = follower.inbox, sender = recipient, body = body)) {
             is DeliveryResult.Delivered -> {
+                markAccepted(recipient = recipient, signer = signer)
+
                 logger.info("Follow に Accept を返した: ${recipient.acct} ← $signer")
             }
 
             is DeliveryResult.Failed -> {
                 // 相手から見るとフォローが保留のまま残る。再送はしないので、
-                // 何が起きたのかはここに残っているものが唯一の手がかりになる
+                // 何が起きたのかはここに残っているものが唯一の手がかりになる。
+                // 記録は残るが `Accept` 前の状態なのでフォロワーには数えない
                 logger.warn("Follow に Accept を返せなかった: ${recipient.acct} ← $signer ${result.reason}")
             }
         }
     }
 
+    /**
+     * `Accept` を返せたことを記録する。
+     *
+     * ここまで来た時点で相手はフォローできたつもりなので、`Follow` は送り直されない。
+     * 記録に失敗したまま終えると、相手の画面ではフォロー中なのに投稿が 1 つも
+     * 届かない状態が残り続ける。書き込みが一時的に通らないだけのこともあるので、
+     * 何度か試してから諦める。
+     *
+     * 諦めた場合に直す手立ては無いので、運用者が気付けるようにログに残す。
+     * 取りこぼしを溜めて後から流す仕組みは、配信キューを入れるときに一緒に考える。
+     */
+    private suspend fun markAccepted(
+        recipient: ActorUrls,
+        signer: String,
+    ) {
+        repeat(MARK_ACCEPTED_ATTEMPTS) { attempt ->
+            val recorded = runCatching {
+                followers.markAccepted(
+                    username = recipient.username,
+                    followerActorUri = signer,
+                    acceptedAt = Instant.now(),
+                )
+            }
+            if (recorded.isSuccess) return
+
+            if (attempt == MARK_ACCEPTED_ATTEMPTS - 1) {
+                logger.error(
+                    "Accept は返せたがフォロワーとして記録できなかった。" +
+                        "相手にはフォロー中と見えるが投稿は届かない: ${recipient.acct} ← $signer",
+                    recorded.exceptionOrNull(),
+                )
+            } else {
+                delay(MARK_ACCEPTED_RETRY_INTERVAL * (attempt + 1))
+            }
+        }
+    }
+
     private companion object {
+        /**
+         * 記録を試す回数
+         */
+        const val MARK_ACCEPTED_ATTEMPTS: Int = 3
+
+        /**
+         * 試す間隔。書き込みが詰まっているだけなら、待てば通る
+         */
+        val MARK_ACCEPTED_RETRY_INTERVAL: Duration = 200.milliseconds
+
         /**
          * `Accept` 自身の id。
          *

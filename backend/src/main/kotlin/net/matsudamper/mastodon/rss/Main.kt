@@ -9,10 +9,12 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.actorRoutes
+import net.matsudamper.mastodon.rss.follower.followerRoutes
 import net.matsudamper.mastodon.rss.graphql.DiContainer
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
+import net.matsudamper.mastodon.rss.graphql.resolver.AdminAccountResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminMutationResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminQueryResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.MutationResolverImpl
@@ -113,6 +115,7 @@ fun Application.module(deps: AppDependencies) {
             MutationResolverImpl(),
             AdminQueryResolverImpl(),
             AdminMutationResolverImpl(),
+            AdminAccountResolverImpl(),
         ),
         createContext = { call ->
             GraphQlContext(
@@ -124,6 +127,7 @@ fun Application.module(deps: AppDependencies) {
         diContainer = DiContainer(
             passwordHash = env.adminPasswordHash,
             accountRepository = deps.repositories.accounts,
+            followerRepository = deps.repositories.followers,
             fixedActor = deps.actorUrls,
             actorDirectory = deps.directory,
         ),
@@ -146,6 +150,10 @@ fun Application.module(deps: AppDependencies) {
         nodeInfoRoutes(env.domain)
 
         graphQlRoutes(graphQl)
+
+        followerRoutes(deps.directory, deps.followerStore)
+
+        // TODO: 投稿(outboxRoutes / noteRoutes)は Phase 4 で足す
 
         // 残り全部を受けるので最後に置く
         staticRoutes(staticFiles)

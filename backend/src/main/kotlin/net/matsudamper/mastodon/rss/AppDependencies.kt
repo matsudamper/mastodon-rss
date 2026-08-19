@@ -10,7 +10,9 @@ import net.matsudamper.mastodon.rss.actor.StoredActorNames
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
+import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
+import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
@@ -46,6 +48,8 @@ class AppDependencies(
      */
     val actorUrls: ActorUrls = ActorUrls(domain = env.domain, username = env.actorUsername)
 
+    val followerStore: FollowerStore = RepositoryFollowerStore(repositories.followers)
+
     // 毎回引き直す。持ち回すと、追加したアカウントが引けるようになるまで間が空く
     val directory: ActorDirectory = ActorDirectory(
         fixed = actorUrls,
@@ -67,7 +71,13 @@ class AppDependencies(
      * [InboxService.default] に任せる。ここで決めるのは、その材料になる
      * [remoteActors] と [delivery] を本番のものにするかフェイクにするかだけ。
      */
-    val inboxService: InboxService = InboxService.default(remoteActors = remoteActors, delivery = delivery)
+    val inboxService: InboxService = InboxService.default(
+        remoteActors = remoteActors,
+        delivery = delivery,
+        followers = followerStore,
+    )
+
+    // TODO: 投稿を配る NotePublisher / NoteStore は Phase 4 で足す
 
     /**
      * 抱えているものを作った順の逆に閉じる。
@@ -91,16 +101,25 @@ class AppDependencies(
         /**
          * 本番の組み立て。
          *
-         * 鍵は DB より先に読む。鍵を用意できないならサーバーを立てても意味が無いので、
-         * 先に落とすため。DB を開いた後に失敗した場合は、開いた分を閉じてから投げ直す。
+         * DB を先に開く。鍵のファイルが無いときに新しく作ってよいかどうかが、
+         * フォロワーが記録されているかどうかで決まるため。
+         * 開いた後に失敗した場合は、開いた分を閉じてから投げ直す。
          */
         fun create(env: ServerEnv): AppDependencies {
-            val actorKey = ActorKeyLoader.load(env.actorPrivateKey)
-
             val repositories = createRepositories(DatabaseConfig(path = env.dbPath))
 
             // ここから先で失敗すると、開いた DB が閉じられないまま起動が止まる
             return runCatching {
+                val actorKey = ActorKeyLoader.load(env.actorPrivateKey) {
+                    // 新しい鍵を作ると相手から見て別人になり、既存のフォロワーへの
+                    // 署名が通らなくなる。相手のキャッシュは直せない
+                    check(!repositories.followers.hasAny()) {
+                        "フォロワーが記録されているのにアクターの秘密鍵が無い。" +
+                            "鍵を失った状態で新しい鍵を作ると既存のフォロワーから見て別人になるため起動しない。" +
+                            "以前の鍵を ACTOR_PRIVATE_KEY_PATH に戻すこと"
+                    }
+                }
+
                 // 相手のアクターを引くのと、こちらから送るのとで外向きの HTTP を張る。
                 // どちらも接続を抱えるので、サーバーの外側で開いて確実に閉じる
                 val remoteActors = HttpRemoteActors()

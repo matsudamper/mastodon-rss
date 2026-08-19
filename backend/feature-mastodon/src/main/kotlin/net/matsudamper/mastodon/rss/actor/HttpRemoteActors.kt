@@ -66,19 +66,33 @@ class HttpRemoteActors(
         return SignatureKey(keyId = keyId, owner = owner, publicKey = parsed)
     }
 
-    override suspend fun findInbox(actorId: String): String? {
+    override suspend fun findActor(actorId: String): RemoteActor? {
         val url = parseHttpsUrl(actorId) ?: return null
         val document = fetch(actorId, url) ?: return null
 
-        val inbox = document.inbox ?: return null
-
         // 宛先はこちらが POST しに行く先になる。アクターと同じホストに限ることで、
         // 相手が自分の文書に書いた URL でこちらから他所へ POST させる形を塞ぐ
-        if (parseHttpsUrl(inbox) == null) return null
-        if (!isSameHost(inbox, url)) return null
+        val inbox = document.inbox?.takeIf { isDeliverable(it, url) } ?: return null
 
-        return inbox
+        val publicKeyPem = document.publicKey?.publicKeyPem ?: return null
+
+        return RemoteActor(
+            actorId = actorId,
+            inbox = inbox,
+            // 無いのが普通なので、条件を満たさないものは落として先へ進む。
+            // sharedInbox が無くても inbox に 1 通ずつ送れば配信自体はできる
+            sharedInbox = document.endpoints?.sharedInbox?.takeIf { isDeliverable(it, url) },
+            publicKeyPem = publicKeyPem,
+        )
     }
+
+    /**
+     * POST しに行ってよい宛先か。https で、取得先と同じホストであること
+     */
+    private fun isDeliverable(
+        raw: String,
+        actorUrl: Url,
+    ): Boolean = parseHttpsUrl(raw) != null && isSameHost(raw, actorUrl)
 
     override fun close() {
         client.close()
@@ -176,6 +190,7 @@ private data class RemoteActorDocument(
     val id: String? = null,
     val inbox: String? = null,
     val publicKey: RemoteActorPublicKey? = null,
+    val endpoints: RemoteActorEndpoints? = null,
 )
 
 @Serializable
@@ -183,4 +198,15 @@ private data class RemoteActorPublicKey(
     val id: String? = null,
     val owner: String? = null,
     val publicKeyPem: String,
+)
+
+/**
+ * `endpoints` の中身。`sharedInbox` はここにしか無い。
+ *
+ * 同じインスタンスに複数のフォロワーがいる場合、1 人ずつ inbox に送る代わりに
+ * ここへ 1 回送れば済む。
+ */
+@Serializable
+private data class RemoteActorEndpoints(
+    val sharedInbox: String? = null,
 )
