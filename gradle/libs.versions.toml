@@ -13,7 +13,7 @@ graalvmSdk = "25.2.4"
 sqliteJdbc = "3.53.2.1"
 jooq = "3.21.7"
 slf4j = "2.0.18"
-graalvmBuildtools = "1.1.9"
+graalvmBuildtools = "1.1.10"
 ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
 
