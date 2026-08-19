@@ -3,11 +3,13 @@ package net.matsudamper.mastodon.rss.frontend.logic.admin
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
@@ -46,19 +48,22 @@ class AdminApi(
         val response = client.query(AdminAccountsQuery()).execute()
         val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
 
-        return AdminAccountsResult.Success(
-            data.admin.adminAccounts.map { account ->
-                AdminAccount(
-                    account = Account(
-                        username = account.account.username,
-                        acct = account.account.acct,
-                        actorUrl = account.account.actorUrl,
-                    ),
-                    deletable = account.deletable,
-                    createdAt = account.createdAt,
-                )
-            },
-        )
+        return AdminAccountsResult.Success(data.admin.adminAccounts.map { it.adminAccountFields.toAdminAccount() })
+    }
+
+    suspend fun account(username: String): AdminAccountResult {
+        val response = client.query(AdminAccountQuery(username)).execute()
+
+        // 失敗を先に見る。null は「そのアカウントが無い」の意味なので、
+        // エラーで返ってきた null と混ぜると、繋がらないだけの状態を
+        // アカウントが無いと表示してしまう
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminAccountResult.Failure(response.failureMessage())
+        }
+
+        val data = response.data ?: return AdminAccountResult.Failure(response.failureMessage())
+
+        return AdminAccountResult.Success(data.admin.adminAccount?.adminAccountFields?.toAdminAccount())
     }
 
     suspend fun addAccount(username: String): AdminAddAccountResult {
@@ -98,4 +103,15 @@ class AdminApi(
             ?: errors?.joinToString("\n") { it.message }?.takeIf { it.isNotEmpty() }
             ?: "ネットワークエラー"
     }
+
+    private fun AdminAccountFields.toAdminAccount(): AdminAccount = AdminAccount(
+        account = Account(
+            username = account.username,
+            acct = account.acct,
+            actorUrl = account.actorUrl,
+        ),
+        deletable = deletable,
+        createdAt = createdAt,
+        followerCount = followerCount,
+    )
 }
