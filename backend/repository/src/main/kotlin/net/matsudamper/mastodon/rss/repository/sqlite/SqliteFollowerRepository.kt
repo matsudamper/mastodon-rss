@@ -46,7 +46,6 @@ internal class SqliteFollowerRepository(
     override fun markAccepted(
         username: String,
         followerActorUri: String,
-        followActivityUri: String,
         acceptedAt: Instant,
     ): Boolean = jooq.transaction { dsl ->
         dsl
@@ -54,7 +53,6 @@ internal class SqliteFollowerRepository(
             .set(FOLLOWERS.STATE, STATE_ACCEPTED)
             .set(FOLLOWERS.ACCEPTED_AT, StoredInstant.format(acceptedAt))
             .where(FOLLOWERS.ID.`in`(followerIds(username, followerActorUri)))
-            .and(FOLLOWERS.FOLLOW_ACTIVITY_URI.eq(followActivityUri))
             .execute() > 0
     }
 

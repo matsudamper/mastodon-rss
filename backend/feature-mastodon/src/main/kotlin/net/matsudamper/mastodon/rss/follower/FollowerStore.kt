@@ -32,14 +32,14 @@ interface FollowerStore {
     /**
      * `Accept` を返せたことを記録して、フォロワーとして数えられるようにする。
      *
-     * @param followActivityUri `Accept` を返した `Follow` の id。同じ相手から続けて
-     *   `Follow` が届くと、記録されている id は後から来た方に差し替わっている。
-     *   まだ `Accept` を返せていない方を数えてしまわないよう、id まで見て絞る
+     * どの `Follow` に対する `Accept` だったかは問わない。相手から見ると、
+     * 送った `Follow` のどれか 1 つに `Accept` が返れば関係は成立する。
+     * id で絞ると、同じ相手から続けて `Follow` が届いたときに、記録されている id が
+     * 後から来た方に差し替わっていて、成立した関係を保留のまま残してしまう。
      */
     fun markAccepted(
         username: String,
         followerActorUri: String,
-        followActivityUri: String,
         acceptedAt: Instant,
     )
 

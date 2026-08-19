@@ -112,7 +112,6 @@ class FollowHandler(
                     followers.markAccepted(
                         username = recipient.username,
                         followerActorUri = signer,
-                        followActivityUri = followActivityUri,
                         acceptedAt = Instant.now(),
                     )
                 }.onFailure { failure ->

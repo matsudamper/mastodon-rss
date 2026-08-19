@@ -39,13 +39,11 @@ class RepositoryFollowerStore(
     override fun markAccepted(
         username: String,
         followerActorUri: String,
-        followActivityUri: String,
         acceptedAt: Instant,
     ) {
         followers.markAccepted(
             username = username,
             followerActorUri = followerActorUri,
-            followActivityUri = followActivityUri,
             acceptedAt = acceptedAt,
         )
     }
