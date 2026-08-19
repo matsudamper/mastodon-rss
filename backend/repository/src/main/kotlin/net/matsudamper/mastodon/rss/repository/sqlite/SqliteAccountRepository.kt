@@ -6,16 +6,48 @@ import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
 import org.jooq.DSLContext
 import org.jooq.Record2
+import org.jooq.impl.DSL
 
 internal class SqliteAccountRepository(
     private val jooq: SqliteJooq,
 ) : AccountRepository {
+    @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
     override fun list(): List<Account> = jooq.transaction { dsl ->
         dsl
             .select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
             .from(ACCOUNTS)
             // 同じ時刻に入った 2 件は時刻だけでは順が決まらないので id で揃える
             .orderBy(ACCOUNTS.CREATED_AT, ACCOUNTS.ID)
+            .fetch()
+            .map { it.toAccount() }
+    }
+
+    override fun list(afterUsername: String?, limit: Int): List<Account> = jooq.transaction { dsl ->
+        if (limit <= 0) return@transaction emptyList()
+
+        val after = if (afterUsername == null) {
+            DSL.noCondition()
+        } else {
+            val afterRecord = dsl
+                .select(ACCOUNTS.ID, ACCOUNTS.CREATED_AT)
+                .from(ACCOUNTS)
+                .where(ACCOUNTS.USERNAME.eq(afterUsername))
+                .fetchOne() ?: return@transaction emptyList()
+
+            val afterId = afterRecord.get(ACCOUNTS.ID)
+            val afterCreatedAt = afterRecord.get(ACCOUNTS.CREATED_AT)
+
+            // 並び順と同じ組で比べる。時刻だけで切ると同時刻の行を飛ばすか二重に返す
+            ACCOUNTS.CREATED_AT.gt(afterCreatedAt)
+                .or(ACCOUNTS.CREATED_AT.eq(afterCreatedAt).and(ACCOUNTS.ID.gt(afterId)))
+        }
+
+        dsl
+            .select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+            .from(ACCOUNTS)
+            .where(after)
+            .orderBy(ACCOUNTS.CREATED_AT.asc(), ACCOUNTS.ID.asc())
+            .limit(limit)
             .fetch()
             .map { it.toAccount() }
     }

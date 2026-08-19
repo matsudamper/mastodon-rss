@@ -143,7 +143,7 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
         取りこぼしが見えてから
 - [x] `GET /users/{name}/outbox`（OrderedCollection、cursor でページング）
 - [x] `GET /notes/{id}` で単体の Note を返す
-- [x] 投稿を発火させる管理用画面（`/admin/accounts/{name}`）
+- [x] 投稿を発火させる管理用画面（`/admin/accounts/@{name}`）
 
 ### ✅ チェックポイント 4
 フォロワーのホームタイムラインに投稿が現れ、リンクをクリックできる。
@@ -240,7 +240,7 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
       - Phase 1 の鍵はファイル 1 本。ここで `actors.private_key` に移すかを決める
         （Phase 3 の「フォロワーがいるなら鍵の自動生成を拒否する」と合わせて判断する）
 - [ ] アクター作成 / 削除の API
-      - 作成は入れた（`Mutation.admin.addAccount`）。一覧は `Query.admin.accounts`。
+      - 作成は入れた（`Mutation.admin.addAccount`）。一覧は `Query.admin.adminAccounts`。
         どちらもログインが要る
       - 削除はまだ。`Delete{Actor}` を配信してから消す。黙って消すと相手側に残り続ける
 - [ ] アクター情報更新時に `Update{Actor}` を配信（アイコン・説明文の変更を伝播させる）
@@ -288,7 +288,8 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
 - [x] `:frontend` モジュール（Kotlin/Wasm + Compose）と画面の枠
       - `/` トップ / `/@ユーザー名` アカウント画面 / `/admin` 管理画面 / それ以外は見つからない。
         判定は `navigation/Screen.kt` の 1 箇所
-      - 管理画面の中も操作ごとにパスを分ける（`/admin/accounts`、`/admin/accounts/new`）。
+      - 管理画面の中も操作ごとにパスを分ける（`/admin/accounts`、`/admin/accounts/new`、
+        `/admin/accounts/@{name}`）。
         1 画面に並べると、開いた時点で必要のない問い合わせが走り、URL でその操作を指せない
       - 画面遷移は Navigation Compose 3（JetBrains 版）。履歴の持ち主はブラウザ側に一本化し、
         `popstate` を受けて URL からバックスタックを作り直す。両方で履歴を持つとずれる
@@ -326,12 +327,15 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
       - 残っているのはハッシュ生成を画面から行えるようにすること（いまは
         `./gradlew --quiet :backend:crypto:passwordHash`）と、総当たり対策（Phase 7）
 - [ ] サーバー側に管理 API の残り（フィード CRUD、配信状況、手動再取得）
-      - アカウントの一覧 (`Query.admin.accounts`) と追加 (`Mutation.admin.addAccount`) は入れた
+      - アカウントの一覧 (`Query.admin.adminAccounts`)、1 件の参照 (`Query.admin.adminAccount`)、
+        追加 (`Mutation.admin.addAccount`)、投稿 (`Mutation.admin.postNote`) と
+        その一覧 (`Query.admin.notes`) は入れた
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
 - [ ] Compose でフィード一覧 / 追加 / 削除
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
+      - フォロワー数は `/admin/accounts/@{name}` に出している。最終投稿と配信エラーは未着手
 - [ ] フィードのプレビュー（投稿前にどう見えるか）
 - [ ] 手動投稿・再配信のトリガー
 

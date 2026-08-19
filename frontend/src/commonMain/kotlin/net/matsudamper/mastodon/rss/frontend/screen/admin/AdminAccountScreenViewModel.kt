@@ -223,9 +223,9 @@ class AdminAccountScreenViewModel(
     }
 
     private fun AdminAccount.toUiState(): AdminAccountScreenUiState.Account = AdminAccountScreenUiState.Account(
-        username = username,
-        acct = acct,
-        actorUrl = actorUrl,
+        username = account.username,
+        acct = account.acct,
+        actorUrl = account.actorUrl,
         createdAt = createdAt?.let { UnixTimeUtil.format(it) },
         followerCount = followerCount,
     )

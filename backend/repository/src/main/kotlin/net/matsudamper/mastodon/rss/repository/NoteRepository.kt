@@ -34,7 +34,7 @@ interface NoteRepository {
      */
     fun list(
         username: String,
-        after: NoteCursor?,
+        after: NotePosition?,
         limit: Int,
     ): List<Note>
 
@@ -47,7 +47,7 @@ interface NoteRepository {
  * 並び順の鍵をそのまま持つ。`publishedAt` だけでは同じ時刻の投稿が並んだときに
  * 位置が決まらないので、`publicId` まで見て一意にする。
  */
-data class NoteCursor(
+data class NotePosition(
     val publishedAt: Instant,
     val publicId: String,
 )

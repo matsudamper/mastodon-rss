@@ -1,6 +1,6 @@
 package net.matsudamper.mastodon.rss.logic
 
-import net.matsudamper.mastodon.rss.note.NoteCursor
+import net.matsudamper.mastodon.rss.note.NotePosition
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.StoredNote
 import net.matsudamper.mastodon.rss.repository.NewNote
@@ -29,13 +29,13 @@ class RepositoryNoteStore(
 
     override fun list(
         username: String,
-        after: NoteCursor?,
+        after: NotePosition?,
         limit: Int,
     ): List<StoredNote> = notes
         .list(
             username = username,
             after = after?.let {
-                net.matsudamper.mastodon.rss.repository.NoteCursor(
+                net.matsudamper.mastodon.rss.repository.NotePosition(
                     publishedAt = it.publishedAt,
                     publicId = it.publicId,
                 )

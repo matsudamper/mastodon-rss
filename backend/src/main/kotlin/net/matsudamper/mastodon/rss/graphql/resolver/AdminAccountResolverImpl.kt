@@ -19,7 +19,7 @@ class AdminAccountResolverImpl : AdminAccountResolver {
             .dataLoaders(env)
             .followerCountDataLoader
             .get(env)
-            .load(adminAccount.username)
+            .load(adminAccount.account.username)
             .thenApply { count ->
                 DataFetcherResult.Builder(count ?: 0).build()
             }

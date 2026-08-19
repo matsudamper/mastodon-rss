@@ -10,9 +10,20 @@ import java.time.Instant
  */
 interface AccountRepository {
     /**
-     * 追加した順に返す
+     * 追加した順に全件返す。
+     *
+     * 呼び出しを `list(afterUsername, limit)` に移し切ったら消す。
+     * アカウントが増えるほど 1 回の応答が重くなり、上限も置けない
      */
+    @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
     fun list(): List<Account>
+
+    /**
+     * 追加した順で `afterUsername` の次から `limit` 件返す。
+     *
+     * @param afterUsername null なら先頭から。その名前が無ければ空を返す
+     */
+    fun list(afterUsername: String?, limit: Int): List<Account>
 
     /**
      * 名前で引く。大文字小文字の違いは無視する

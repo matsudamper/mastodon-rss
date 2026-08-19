@@ -7,7 +7,7 @@ import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.Note
-import net.matsudamper.mastodon.rss.repository.NoteCursor
+import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.Repositories
 
@@ -37,7 +37,20 @@ class FakeRepositories : Repositories {
 class FakeAccountRepository : AccountRepository {
     private val stored = mutableListOf<Account>()
 
+    @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
     override fun list(): List<Account> = stored.toList()
+
+    override fun list(afterUsername: String?, limit: Int): List<Account> {
+        if (limit <= 0) return emptyList()
+        val startIndex = if (afterUsername != null) {
+            val idx = stored.indexOfFirst { it.username.equals(afterUsername, ignoreCase = true) }
+            if (idx == -1) return emptyList()
+            idx + 1
+        } else {
+            0
+        }
+        return stored.drop(startIndex).take(limit)
+    }
 
     override fun findByUsername(username: String): Account? = stored.firstOrNull { it.username.equals(username, ignoreCase = true) }
 
@@ -134,7 +147,7 @@ class FakeNoteRepository : NoteRepository {
 
     override fun list(
         username: String,
-        after: NoteCursor?,
+        after: NotePosition?,
         limit: Int,
     ): List<Note> = stored
         .filter { it.username == username }

@@ -96,7 +96,7 @@ class NoteRepositoryTest {
         }
     }
 
-    private fun Note.cursor(): NoteCursor = NoteCursor(publishedAt = publishedAt, publicId = publicId)
+    private fun Note.cursor(): NotePosition = NotePosition(publishedAt = publishedAt, publicId = publicId)
 
     @Test
     fun `同じ時刻でも並びが決まる`() {

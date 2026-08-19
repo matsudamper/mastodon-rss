@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.note
 
+import java.time.Instant
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLParameter
@@ -89,7 +90,7 @@ fun Route.outboxRoutes(
             username = urls.username,
             // 読めない cursor は先頭に倒す。相手が辿るだけの値なので、
             // 壊れていることを教えても直しようが無い
-            after = cursor.ifEmpty { null }?.let { NoteCursor.decode(it) },
+            after = cursor.ifEmpty { null }?.let { decodeCursor(it) },
             limit = COLLECTION_PAGE_SIZE,
         )
 
@@ -108,12 +109,12 @@ fun Route.outboxRoutes(
         call.respondJson(
             serializer = OrderedCollectionPage.serializer(CreateNote.serializer()),
             value = OrderedCollectionPage(
-                id = pageUrl(urls, cursor.ifEmpty { null }?.let { NoteCursor.decode(it) }),
+                id = pageUrl(urls, cursor.ifEmpty { null }?.let { decodeCursor(it) }),
                 totalItems = total,
                 partOf = urls.outbox,
                 orderedItems = items,
                 // 総数ではなく取れた件数で判断する。読んでいる間に増えていることがある
-                next = if (page.size < COLLECTION_PAGE_SIZE) null else pageUrl(urls, page.last().cursor),
+                next = if (page.size < COLLECTION_PAGE_SIZE) null else pageUrl(urls, page.last().position),
             ),
             contentType = contentType,
         )
@@ -125,8 +126,31 @@ fun Route.outboxRoutes(
  */
 private fun pageUrl(
     urls: ActorUrls,
-    after: NoteCursor?,
-): String = "${urls.outbox}?$COLLECTION_CURSOR_PARAM=${after?.encode()?.encodeURLParameter().orEmpty()}"
+    after: NotePosition?,
+): String = "${urls.outbox}?$COLLECTION_CURSOR_PARAM=${after?.encodeCursor()?.encodeURLParameter().orEmpty()}"
+
+/**
+ * 相手が辿るだけの値なので、読める形にしておく必要は無い。
+ * 区切りは `_`。`publicId` は UUID なので混ざらない
+ */
+private fun NotePosition.encodeCursor(): String = "${publishedAt.epochSecond}_${publishedAt.nano}_$publicId"
+
+/**
+ * 読めない形なら null。壊れた cursor は先頭に倒す。
+ * 相手に教えても直しようが無いので、拒否はしない
+ */
+private fun decodeCursor(raw: String): NotePosition? {
+    val parts = raw.split('_', limit = 3)
+    if (parts.size != 3) return null
+
+    val epochSecond = parts[0].toLongOrNull() ?: return null
+    val nano = parts[1].toLongOrNull() ?: return null
+    if (parts[2].isEmpty()) return null
+
+    return runCatching {
+        NotePosition(publishedAt = Instant.ofEpochSecond(epochSecond, nano), publicId = parts[2])
+    }.getOrNull()
+}
 
 /**
  * 保存した投稿を返す形に直す。

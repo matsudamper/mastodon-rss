@@ -6,9 +6,21 @@ schema {
 type Query {
     admin: AdminQuery!
 
+    "公開アカウントの一覧"
+    accounts(cursor: String, limit: Int!): AccountsConnection! @lazy
     account(username: String!): Account @lazy
 }
 
 type Mutation {
     admin: AdminMutation!
+}
+
+type AccountsConnection {
+    nodes: [Account!]!
+    pageInfo: PageInfo!
+}
+
+type PageInfo {
+    hasMore: Boolean!
+    nextCursor: String
 }

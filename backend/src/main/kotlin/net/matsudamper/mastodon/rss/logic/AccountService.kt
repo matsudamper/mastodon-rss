@@ -53,6 +53,43 @@ class AccountService(
      */
     fun followerCounts(usernames: Set<String>): Map<String, Long> = followers.counts(usernames)
 
+    /**
+     * 追加した順で `afterUsername` の次から `limit` 件返す
+     */
+    fun accounts(afterUsername: String?, limit: Int): ManagedAccountsPage {
+        if (limit <= 0) {
+            return ManagedAccountsPage(accounts = emptyList(), hasMore = false, nextUsername = null)
+        }
+
+        // 設定で決まるアカウントは DB に無いので、先頭のページにだけ 1 件ぶん割り込ませる
+        val head = if (afterUsername == null) {
+            listOf(ManagedAccount(urls = fixed, deletable = false, createdAt = null))
+        } else {
+            emptyList()
+        }
+
+        // 設定で決まるアカウントの次は、DB から見れば先頭
+        val afterStored = afterUsername?.takeUnless { it.equals(fixed.username, ignoreCase = true) }
+
+        val storedLimit = limit - head.size
+        val fetched = accounts.list(afterUsername = afterStored, limit = storedLimit + 1)
+        val hasMore = fetched.size > storedLimit
+
+        val page = head + fetched.take(storedLimit).map { account ->
+            ManagedAccount(
+                urls = ActorUrls(domain = fixed.domain, username = account.username),
+                deletable = true,
+                createdAt = account.createdAt,
+            )
+        }
+
+        return ManagedAccountsPage(
+            accounts = page,
+            hasMore = hasMore,
+            nextUsername = if (hasMore) page.last().urls.username else null,
+        )
+    }
+
     fun add(username: String): AddAccountResult {
         val trimmed = username.trim()
 
@@ -103,6 +140,15 @@ class AccountService(
         val urls: ActorUrls,
         val deletable: Boolean,
         val createdAt: Instant?,
+    )
+
+    /**
+     * @param nextUsername 続きがある場合の、次に渡す `afterUsername`
+     */
+    data class ManagedAccountsPage(
+        val accounts: List<ManagedAccount>,
+        val hasMore: Boolean,
+        val nextUsername: String?,
     )
 
     sealed interface AddAccountResult {

@@ -1,6 +1,6 @@
 package net.matsudamper.mastodon.rss
 
-import net.matsudamper.mastodon.rss.note.NoteCursor
+import net.matsudamper.mastodon.rss.note.NotePosition
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.StoredNote
 
@@ -18,7 +18,7 @@ class FakeNoteStore : NoteStore {
 
     override fun list(
         username: String,
-        after: NoteCursor?,
+        after: NotePosition?,
         limit: Int,
     ): List<StoredNote> = added
         .filter { it.username == username }

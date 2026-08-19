@@ -59,6 +59,50 @@ class NoteServiceTest {
     }
 
     @Test
+    fun `続きがあるかは取れた件数で決まる`() = runBlocking {
+        repeat(3) { index ->
+            service().post(username = TestLocalActor.USERNAME, body = "本文 $index")
+        }
+
+        val first = service().notes(username = TestLocalActor.USERNAME, after = null, limit = 2)
+        assertEquals(2, first.notes.size)
+        assertEquals(true, first.hasMore)
+
+        val next = service().notes(
+            username = TestLocalActor.USERNAME,
+            after = assertNotNull(first.nextPosition),
+            limit = 2,
+        )
+        assertEquals(1, next.notes.size)
+        // ちょうど取り切ったので次は無い。総数と突き合わせない
+        assertEquals(false, next.hasMore)
+        assertNull(next.nextPosition)
+    }
+
+    @Test
+    fun `要求された件数が上限を超えても上限で切る`() = runBlocking {
+        repeat(2) { index ->
+            service().post(username = TestLocalActor.USERNAME, body = "本文 $index")
+        }
+
+        val page = service().notes(
+            username = TestLocalActor.USERNAME,
+            after = null,
+            limit = NoteService.MAX_LIST_LIMIT + 1000,
+        )
+
+        assertEquals(2, page.notes.size)
+    }
+
+    @Test
+    fun `知らないアカウントの一覧は空`() = runBlocking {
+        val page = service().notes(username = "nobody", after = null, limit = 10)
+
+        assertEquals(emptyList(), page.notes)
+        assertEquals(false, page.hasMore)
+    }
+
+    @Test
     fun `空の本文と長すぎる本文は弾く`() = runBlocking {
         val empty = service().post(username = TestLocalActor.USERNAME, body = "   ")
         assertIs<NoteService.PostResult.Failure>(empty)

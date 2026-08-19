@@ -2,7 +2,7 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.Note
-import net.matsudamper.mastodon.rss.repository.NoteCursor
+import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.NOTES
 import org.jooq.Condition
@@ -35,7 +35,7 @@ internal class SqliteNoteRepository(
 
     override fun list(
         username: String,
-        after: NoteCursor?,
+        after: NotePosition?,
         limit: Int,
     ): List<Note> = jooq.transaction { dsl ->
         dsl
@@ -56,7 +56,7 @@ internal class SqliteNoteRepository(
      *
      * 時刻だけで比べると、同じ時刻の投稿がページの境目に来たときに落ちるか重複する
      */
-    private fun olderThan(cursor: NoteCursor): Condition {
+    private fun olderThan(cursor: NotePosition): Condition {
         val publishedAt = StoredInstant.format(cursor.publishedAt)
 
         return NOTES.PUBLISHED_AT.lt(publishedAt)

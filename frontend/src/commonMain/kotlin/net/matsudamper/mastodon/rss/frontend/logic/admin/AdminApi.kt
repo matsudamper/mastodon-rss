@@ -17,6 +17,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
+import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 
 class AdminApi(
     private val client: ApolloClient = GraphQlClient.apollo,
@@ -52,7 +53,7 @@ class AdminApi(
         val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
 
         return AdminAccountsResult.Success(
-            data.admin.accounts.map { it.adminAccountFields.toAdminAccount() },
+            data.admin.adminAccounts.map { it.adminAccountFields.toAdminAccount() },
         )
     }
 
@@ -60,7 +61,7 @@ class AdminApi(
         val response = client.query(AdminAccountQuery(username)).execute()
         val data = response.data ?: return AdminAccountResult.Failure(response.failureMessage())
 
-        return AdminAccountResult.Success(data.admin.account?.adminAccountFields?.toAdminAccount())
+        return AdminAccountResult.Success(data.admin.adminAccount?.adminAccountFields?.toAdminAccount())
     }
 
     suspend fun addAccount(username: String): AdminAddAccountResult {
@@ -69,7 +70,7 @@ class AdminApi(
 
         val failure = added.failure
             ?: return AdminAddAccountResult.Success(
-                added.account?.acct ?: return AdminAddAccountResult.Failure("追加できたが内容が返ってこない"),
+                added.adminAccount?.account?.acct ?: return AdminAddAccountResult.Failure("追加できたが内容が返ってこない"),
             )
 
         return AdminAddAccountResult.Rejected(
@@ -87,21 +88,21 @@ class AdminApi(
     suspend fun notes(
         username: String,
         cursor: String? = null,
-        limit: Int? = null,
+        limit: Int,
     ): AdminNotesResult {
         val response = client
             .query(
                 AdminNotesQuery(
                     username = username,
                     cursor = Optional.presentIfNotNull(cursor),
-                    limit = Optional.presentIfNotNull(limit),
+                    limit = limit,
                 ),
             ).execute()
         val data = response.data ?: return AdminNotesResult.Failure(response.failureMessage())
 
         return AdminNotesResult.Success(
-            notes = data.admin.notes.items.map { it.adminNoteFields.toAdminNote() },
-            cursor = data.admin.notes.cursor,
+            notes = data.admin.notes.nodes.map { it.adminNoteFields.toAdminNote() },
+            cursor = data.admin.notes.pageInfo.nextCursor,
         )
     }
 
@@ -131,9 +132,11 @@ class AdminApi(
     }
 
     private fun AdminAccountFields.toAdminAccount(): AdminAccount = AdminAccount(
-        username = username,
-        acct = acct,
-        actorUrl = actorUrl,
+        account = Account(
+            username = account.username,
+            acct = account.acct,
+            actorUrl = account.actorUrl,
+        ),
         createdAt = createdAt,
         followerCount = followerCount,
     )

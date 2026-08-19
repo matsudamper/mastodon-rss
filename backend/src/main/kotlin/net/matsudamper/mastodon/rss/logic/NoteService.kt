@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.note.NoteCursor
+import net.matsudamper.mastodon.rss.note.NotePosition
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.PublishedNote
@@ -40,35 +40,39 @@ class NoteService(
     /**
      * 新しい順に返す。名前が引き当てられなければ空。
      *
-     * @param cursor 直前のページの最後を指す文字列。null と読めない値は先頭から
+     * @param after 直前のページの最後の位置。null なら先頭から
      * @param limit 要求された件数。[MAX_LIST_LIMIT] を超える指定は切り詰める
      */
     fun notes(
         username: String,
-        cursor: String?,
-        limit: Int?,
+        after: NotePosition?,
+        limit: Int,
     ): NotePage {
-        val urls = directory.resolve(username) ?: return NotePage(notes = emptyList(), cursor = null)
+        val urls = directory.resolve(username)
+            ?: return NotePage(notes = emptyList(), hasMore = false, nextPosition = null)
 
-        val size = (limit ?: DEFAULT_LIST_LIMIT).coerceIn(1, MAX_LIST_LIMIT)
-        val page = notes.list(
-            username = urls.username,
-            after = cursor?.let { NoteCursor.decode(it) },
-            limit = size,
-        )
+        val size = limit.coerceIn(0, MAX_LIST_LIMIT)
+        if (size == 0) return NotePage(notes = emptyList(), hasMore = false, nextPosition = null)
+
+        // 次があるかどうかを総数と突き合わせずに決めるため 1 件多く取る。
+        // 総数で見ると、読んでいる間に増えた分だけずれる
+        val fetched = notes.list(username = urls.username, after = after, limit = size + 1)
+        val page = fetched.take(size)
 
         return NotePage(
             notes = page,
-            cursor = if (page.size < size) null else page.last().cursor.encode(),
+            hasMore = fetched.size > size,
+            nextPosition = page.lastOrNull()?.position.takeIf { fetched.size > size },
         )
     }
 
     /**
-     * @param cursor 次のページを取るときに渡す値。null なら最後のページ
+     * @param nextPosition 次のページを取るときに渡す位置。null なら最後のページ
      */
     data class NotePage(
         val notes: List<StoredNote>,
-        val cursor: String?,
+        val hasMore: Boolean,
+        val nextPosition: NotePosition?,
     )
 
     sealed interface PostResult {
@@ -94,8 +98,6 @@ class NoteService(
          * ここで弾いておけば、切られたものが配られてから気付く形にならない。
          */
         const val MAX_LENGTH: Int = 500
-
-        const val DEFAULT_LIST_LIMIT: Int = 20
 
         /**
          * 1 回で返す件数の上限。画面から指定できる値をそのまま使わない

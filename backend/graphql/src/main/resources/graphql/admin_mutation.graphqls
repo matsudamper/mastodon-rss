@@ -50,7 +50,7 @@ enum AdminLoginFailure {
 }
 
 type AdminAddAccountResult {
-    account: AdminAccount
+    adminAccount: AdminAccount
 
     "追加できなかった場合だけ入る"
     failure: AdminAddAccountFailure

@@ -30,7 +30,7 @@ interface NoteStore {
      */
     fun list(
         username: String,
-        after: NoteCursor?,
+        after: NotePosition?,
         limit: Int,
     ): List<StoredNote>
 
@@ -38,41 +38,15 @@ interface NoteStore {
 }
 
 /**
- * ページの位置。
+ * 一覧の続きを指す位置。
  *
- * 並び順の鍵をそのまま持つ。`publishedAt` だけでは同じ時刻の投稿が並んだときに
- * 位置が決まらないので、`publicId` まで見て一意にする。
- *
- * 文字列にして外に出す。中身が読めても困らない（並び順の鍵でしかない）ので、
- * 暗号化も署名もしない。区切りは `_` にしてある。`publicId` は UUID なので混ざらない。
+ * `publishedAt` だけでは同じ時刻の投稿が並んだときに位置が決まらないので、
+ * `publicId` まで見て一意にする。外に出す形は口ごとに決める
  */
-data class NoteCursor(
+data class NotePosition(
     val publishedAt: Instant,
     val publicId: String,
-) {
-    fun encode(): String = "${publishedAt.epochSecond}_${publishedAt.nano}_$publicId"
-
-    companion object {
-        /**
-         * 読めない形なら null。壊れた cursor は「先頭から」に倒す
-         */
-        fun decode(raw: String): NoteCursor? {
-            val parts = raw.split('_', limit = 3)
-            if (parts.size != 3) return null
-
-            val epochSecond = parts[0].toLongOrNull() ?: return null
-            val nano = parts[1].toLongOrNull() ?: return null
-            if (parts[2].isEmpty()) return null
-
-            return runCatching {
-                NoteCursor(
-                    publishedAt = Instant.ofEpochSecond(epochSecond, nano),
-                    publicId = parts[2],
-                )
-            }.getOrNull()
-        }
-    }
-}
+)
 
 /**
  * 配信した投稿 1 件。
@@ -91,5 +65,5 @@ data class StoredNote(
     /**
      * この投稿を「直前のページの最後」として指す位置
      */
-    val cursor: NoteCursor get() = NoteCursor(publishedAt = publishedAt, publicId = publicId)
+    val position: NotePosition get() = NotePosition(publishedAt = publishedAt, publicId = publicId)
 }

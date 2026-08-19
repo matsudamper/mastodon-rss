@@ -2,25 +2,18 @@ type AdminQuery {
     session: AdminSession! @lazy
 
     "応答するアカウントの一覧"
-    accounts: [AdminAccount!]! @lazy
+    adminAccounts: [AdminAccount!]! @lazy
 
     "アカウント 1 つ。応答しない名前なら null"
-    account(username: String!): AdminAccount @lazy
+    adminAccount(username: String!): AdminAccount @lazy
 
-    """
-    アカウントが配信した投稿。新しい順。
-
-    位置は cursor で指す。件数で指すと、読んでいる間に投稿が増えたときに
-    同じものが 2 回出たり抜けたりする。
-    """
-    notes(username: String!, cursor: String, limit: Int): AdminNotes! @lazy
+    "アカウントが配信した投稿。新しい順"
+    notes(username: String!, cursor: String, limit: Int!): AdminNotesConnection! @lazy
 }
 
-type AdminNotes {
-    items: [AdminNote!]!
-
-    "次のページを取るときに渡す。null なら最後のページ"
-    cursor: String
+type AdminNotesConnection {
+    nodes: [AdminNote!]!
+    pageInfo: PageInfo!
 }
 
 "配信した投稿 1 件"
@@ -42,14 +35,7 @@ type AdminSession {
 }
 
 type AdminAccount {
-    "acct とパスに入る名前"
-    username: String!
-
-    "Mastodon の検索窓に貼る形"
-    acct: String!
-
-    "Actor の URL"
-    actorUrl: String!
+    account: Account!
 
     "管理画面から削除できるか。サーバーの設定で決まっているものは消せない"
     deletable: Boolean!

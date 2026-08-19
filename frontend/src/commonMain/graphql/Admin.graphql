@@ -8,7 +8,7 @@ query AdminSession {
 
 query AdminAccounts {
     admin {
-        accounts {
+        adminAccounts {
             ...AdminAccountFields
         }
     }
@@ -16,16 +16,18 @@ query AdminAccounts {
 
 query AdminAccount($username: String!) {
     admin {
-        account(username: $username) {
+        adminAccount(username: $username) {
             ...AdminAccountFields
         }
     }
 }
 
 fragment AdminAccountFields on AdminAccount {
-    username
-    acct
-    actorUrl
+    account {
+        username
+        acct
+        actorUrl
+    }
     createdAt
     followerCount
 }
@@ -52,8 +54,10 @@ mutation AdminLogout {
 mutation AdminAddAccount($username: String!) {
     admin {
         addAccount(username: $username) {
-            account {
-                acct
+            adminAccount {
+                account {
+                    acct
+                }
             }
             failure {
                 unusableCharacters
@@ -70,13 +74,16 @@ fragment AdminSessionFields on AdminSession {
     passwordConfigured
 }
 
-query AdminNotes($username: String!, $cursor: String, $limit: Int) {
+query AdminNotes($username: String!, $cursor: String, $limit: Int!) {
     admin {
         notes(username: $username, cursor: $cursor, limit: $limit) {
-            items {
+            nodes {
                 ...AdminNoteFields
             }
-            cursor
+            pageInfo {
+                hasMore
+                nextCursor
+            }
         }
     }
 }
