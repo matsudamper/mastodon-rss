@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
+import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
 import net.matsudamper.mastodon.rss.actor.RemoteActors
@@ -119,14 +120,17 @@ class AppDependencies(
 
             // ここから先で失敗すると、開いた DB が閉じられないまま起動が止まる
             return runCatching {
-                val actorKey = ActorKeyLoader.load(env.actorPrivateKey) {
-                    // 新しい鍵を作ると相手から見て別人になり、既存のフォロワーへの
-                    // 署名が通らなくなる。相手のキャッシュは直せない
-                    check(!repositories.followers.hasAny()) {
+                val loadActorKey = ActorKeyLoader.load(env.actorPrivateKey)
+                if (loadActorKey == null && repositories.followers.hasAny()) {
+                    throw IllegalStateException(
                         "フォロワーが記録されているのにアクターの秘密鍵が無い。" +
                             "鍵を失った状態で新しい鍵を作ると既存のフォロワーから見て別人になるため起動しない。" +
-                            "以前の鍵を ACTOR_PRIVATE_KEY_PATH に戻すこと"
-                    }
+                            "以前の鍵を ACTOR_PRIVATE_KEY_PATH に戻すこと",
+                    )
+                }
+                val actorKey = loadActorKey ?: when (env.actorPrivateKey) {
+                    is ActorPrivateKey.Pem -> throw IllegalStateException()
+                    is ActorPrivateKey.File -> ActorKeyLoader.create(env.actorPrivateKey)
                 }
 
                 // 相手のアクターを引くのと、こちらから送るのとで外向きの HTTP を張る。
