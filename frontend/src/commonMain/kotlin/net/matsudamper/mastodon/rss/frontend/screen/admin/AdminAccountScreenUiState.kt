@@ -66,12 +66,9 @@ data class AdminAccountScreenUiState(
         val canSubmit: Boolean get() = !submitting && body.isNotBlank()
     }
 
-    /**
-     * @param text 本文からタグを外したもの
-     */
     data class Note(
         val url: String,
-        val text: String,
+        val contentHtml: String,
         val publishedAt: String,
     )
 

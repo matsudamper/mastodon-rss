@@ -246,21 +246,9 @@ class AdminAccountScreenViewModel(
 
     private fun AdminNote.toUiState(): AdminAccountScreenUiState.Note = AdminAccountScreenUiState.Note(
         url = url,
-        text = contentHtml.toPlainText(),
+        contentHtml = contentHtml,
         publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
     )
-
-    /**
-     * 配信した HTML を画面に出す形に直す。段落と改行だけを改行に戻す
-     */
-    private fun String.toPlainText(): String = replace("</p>", "\n")
-        .replace("<br>", "\n")
-        .replace(Regex("<[^>]*>"), "")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&amp;", "&")
-        .trim()
 
     private data class ViewModelState(
         val session: AdminSessionResult? = null,
