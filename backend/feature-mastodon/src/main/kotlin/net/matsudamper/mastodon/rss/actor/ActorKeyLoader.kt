@@ -41,7 +41,7 @@ object ActorKeyLoader {
     }
 
     private fun loadFromFile(
-        path: Path
+        path: Path,
     ): ActorKey? {
         if (Files.exists(path)) {
             return ActorKey(
