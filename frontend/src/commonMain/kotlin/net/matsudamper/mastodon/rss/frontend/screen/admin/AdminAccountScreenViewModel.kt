@@ -247,7 +247,7 @@ class AdminAccountScreenViewModel(
     private fun AdminNote.toUiState(): AdminAccountScreenUiState.Note = AdminAccountScreenUiState.Note(
         url = url,
         text = contentHtml.toPlainText(),
-        publishedAt = UnixTimeUtil.format(publishedAt),
+        publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
     )
 
     /**

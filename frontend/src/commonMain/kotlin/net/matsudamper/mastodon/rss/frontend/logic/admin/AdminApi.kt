@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.frontend.logic.admin
 
+import kotlin.time.Instant
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
@@ -152,7 +153,7 @@ class AdminApi(
     private fun AdminNoteFields.toAdminNote(): AdminNote = AdminNote(
         url = url,
         contentHtml = contentHtml,
-        publishedAt = publishedAt,
+        publishedAt = Instant.fromEpochSeconds(publishedAt),
     )
 
     /**

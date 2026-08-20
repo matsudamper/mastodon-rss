@@ -1,12 +1,11 @@
 package net.matsudamper.mastodon.rss.frontend.logic.admin
 
-/**
- * @param publishedAt エポックからの秒数
- */
+import kotlin.time.Instant
+
 data class AdminNote(
     val url: String,
     val contentHtml: String,
-    val publishedAt: Long,
+    val publishedAt: Instant,
 )
 
 sealed interface AdminNotesResult {
