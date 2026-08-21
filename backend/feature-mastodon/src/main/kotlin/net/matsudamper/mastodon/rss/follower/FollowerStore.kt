@@ -36,12 +36,14 @@ interface FollowerStore {
      * 送った `Follow` のどれか 1 つに `Accept` が返れば関係は成立する。
      * id で絞ると、同じ相手から続けて `Follow` が届いたときに、記録されている id が
      * 後から来た方に差し替わっていて、成立した関係を保留のまま残してしまう。
+     *
+     * @return 更新できたら true
      */
     fun markAccepted(
         username: String,
         followerActorUri: String,
         acceptedAt: Instant,
-    )
+    ): Boolean
 
     /**
      * フォローを消す。

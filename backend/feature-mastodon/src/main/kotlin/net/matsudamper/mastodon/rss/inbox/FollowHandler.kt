@@ -139,20 +139,30 @@ class FollowHandler(
         signer: String,
     ) {
         repeat(MARK_ACCEPTED_ATTEMPTS) { attempt ->
-            val recorded = runCatching {
+            val accepted = try {
                 followers.markAccepted(
                     username = recipient.username,
                     followerActorUri = signer,
                     acceptedAt = Instant.now(),
                 )
+            } catch (e: Exception) {
+                if (attempt == MARK_ACCEPTED_ATTEMPTS - 1) {
+                    logger.error(
+                        "Accept は返せたがフォロワーとして記録できなかった。" +
+                            "相手にはフォロー中と見えるが投稿は届かない: ${recipient.acct} ← $signer",
+                        e,
+                    )
+                } else {
+                    delay(MARK_ACCEPTED_RETRY_INTERVAL * (attempt + 1))
+                }
+                return@repeat
             }
-            if (recorded.isSuccess) return
+            if (accepted) return
 
             if (attempt == MARK_ACCEPTED_ATTEMPTS - 1) {
                 logger.error(
                     "Accept は返せたがフォロワーとして記録できなかった。" +
                         "相手にはフォロー中と見えるが投稿は届かない: ${recipient.acct} ← $signer",
-                    recorded.exceptionOrNull(),
                 )
             } else {
                 delay(MARK_ACCEPTED_RETRY_INTERVAL * (attempt + 1))

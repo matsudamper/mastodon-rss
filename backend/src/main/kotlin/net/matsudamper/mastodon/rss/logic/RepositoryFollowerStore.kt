@@ -40,13 +40,11 @@ class RepositoryFollowerStore(
         username: String,
         followerActorUri: String,
         acceptedAt: Instant,
-    ) {
-        followers.markAccepted(
-            username = username,
-            followerActorUri = followerActorUri,
-            acceptedAt = acceptedAt,
-        )
-    }
+    ): Boolean = followers.markAccepted(
+        username = username,
+        followerActorUri = followerActorUri,
+        acceptedAt = acceptedAt,
+    )
 
     override fun remove(
         username: String,

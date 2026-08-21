@@ -90,6 +90,16 @@ class FollowHandlerTest {
     }
 
     @Test
+    fun `Accept の後の記録が false を返しても数える`() = runBlocking {
+        val followers = FakeFollowerStore(failMarkAcceptedReturnsFalseTimes = 1)
+
+        handle(FollowHandler(TestRemoteActor.remoteActors(), TestDelivery(), followers), followJson())
+
+        assertEquals(2, followers.markAcceptedAttempts)
+        assertTrue(followers.rows.single().accepted)
+    }
+
+    @Test
     fun `記録できなければ Accept を返さない`() = runBlocking {
         val delivery = TestDelivery()
 
