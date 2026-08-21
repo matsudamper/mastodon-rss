@@ -26,6 +26,10 @@ class AdminAccountsScreenViewModel(
                     override fun onClickReload() {
                         reload()
                     }
+
+                    override fun onClickLoadMore() {
+                        loadMore()
+                    }
                 },
             ),
         ).also { uiStateFlow ->
@@ -43,13 +47,48 @@ class AdminAccountsScreenViewModel(
     }
 
     private fun reload() {
-        viewModelStateFlow.update { ViewModelState() }
+        viewModelStateFlow.update { ViewModelState(isLoading = true) }
         viewModelScope.launch {
             val session = api.session()
-            viewModelStateFlow.update { it.copy(session = session) }
+            viewModelStateFlow.update { it.copy(session = session, isLoading = false) }
 
             if (session is AdminSessionResult.Success && session.loggedIn) {
                 viewModelStateFlow.update { it.copy(accounts = api.accounts()) }
+            }
+        }
+    }
+
+    private fun loadMore() {
+        val currentState = viewModelStateFlow.value
+        val currentAccounts = currentState.accounts as? AdminAccountsResult.Success ?: return
+        if (!currentAccounts.hasMore || currentState.isLoadingMore) return
+
+        val cursor = currentAccounts.nextCursor ?: return
+        viewModelStateFlow.update { it.copy(isLoadingMore = true, loadMoreErrorMessage = null) }
+
+        viewModelScope.launch {
+            val result = api.accounts(cursor = cursor)
+            viewModelStateFlow.update { state ->
+                when (result) {
+                    is AdminAccountsResult.Success -> {
+                        val prev = state.accounts as? AdminAccountsResult.Success
+                        val merged =
+                            if (prev == null) {
+                                result
+                            } else {
+                                AdminAccountsResult.Success(
+                                    accounts = prev.accounts + result.accounts,
+                                    hasMore = result.hasMore,
+                                    nextCursor = result.nextCursor,
+                                )
+                            }
+                        state.copy(isLoadingMore = false, accounts = merged, loadMoreErrorMessage = null)
+                    }
+
+                    is AdminAccountsResult.Failure -> {
+                        state.copy(isLoadingMore = false, loadMoreErrorMessage = result.message)
+                    }
+                }
             }
         }
     }
@@ -67,6 +106,10 @@ class AdminAccountsScreenViewModel(
             }
         }
 
+        if (state.isLoading && state.accounts == null) {
+            return AdminAccountsScreenUiState.Content.Loading
+        }
+
         return when (val accounts = state.accounts) {
             null -> AdminAccountsScreenUiState.Content.Loading
 
@@ -74,7 +117,8 @@ class AdminAccountsScreenViewModel(
 
             is AdminAccountsResult.Success -> {
                 AdminAccountsScreenUiState.Content.Loaded(
-                    accounts = accounts.accounts.map { account ->
+                    accounts =
+                    accounts.accounts.map { account ->
                         AdminAccountsScreenUiState.Account(
                             username = account.account.username,
                             acct = account.account.acct,
@@ -82,13 +126,19 @@ class AdminAccountsScreenViewModel(
                             createdAt = account.createdAt?.let { UnixTimeUtil.format(it) },
                         )
                     },
+                    hasMore = accounts.hasMore,
+                    isLoadingMore = state.isLoadingMore,
+                    loadMoreErrorMessage = state.loadMoreErrorMessage,
                 )
             }
         }
     }
 
     private data class ViewModelState(
+        val isLoading: Boolean = false,
+        val isLoadingMore: Boolean = false,
         val session: AdminSessionResult? = null,
         val accounts: AdminAccountsResult? = null,
+        val loadMoreErrorMessage: String? = null,
     )
 }

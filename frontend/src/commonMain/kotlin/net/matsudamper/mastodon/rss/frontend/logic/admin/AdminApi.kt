@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.frontend.logic.admin
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
+import com.apollographql.apollo.api.Optional
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
@@ -44,11 +45,29 @@ class AdminApi(
             .toSessionResult { it.admin.logout.adminSessionFields }
     }
 
-    suspend fun accounts(): AdminAccountsResult {
-        val response = client.query(AdminAccountsQuery()).execute()
-        val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
+    suspend fun accounts(cursor: String? = null, limit: Int = PAGE_SIZE): AdminAccountsResult {
+        val response =
+            client
+                .query(
+                    AdminAccountsQuery(
+                        cursor = Optional.presentIfNotNull(cursor),
+                        limit = Optional.presentIfNotNull(limit),
+                    ),
+                )
+                .execute()
 
-        return AdminAccountsResult.Success(data.admin.adminAccounts.map { it.adminAccountFields.toAdminAccount() })
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminAccountsResult.Failure(response.failureMessage())
+        }
+
+        val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
+        val connection = data.admin.adminAccounts
+
+        return AdminAccountsResult.Success(
+            accounts = connection.nodes.map { it.adminAccountFields.toAdminAccount() },
+            hasMore = connection.pageInfo.hasMore,
+            nextCursor = connection.pageInfo.nextCursor,
+        )
     }
 
     suspend fun account(username: String): AdminAccountResult {
@@ -113,4 +132,8 @@ class AdminApi(
         deletable = deletable,
         createdAt = createdAt,
     )
+
+    private companion object {
+        const val PAGE_SIZE = 20
+    }
 }
