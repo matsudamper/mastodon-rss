@@ -195,7 +195,7 @@ class AdminGraphQlTest {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
 
-            val adminAccount = queryAccounts(token).accounts().single().jsonObject
+            val adminAccount = queryAccounts(token).accounts().nodes().single()
             val account = adminAccount.obj("account")
 
             assertEquals(TestServerEnv.USERNAME, account.string("username"))
@@ -226,8 +226,63 @@ class AdminGraphQlTest {
 
             assertEquals(
                 listOf(TestServerEnv.USERNAME, "feed1"),
-                queryAccounts(token).accounts().map { it.jsonObject.obj("account").string("username") },
+                queryAccounts(token).accounts().nodes().map { it.obj("account").string("username") },
             )
+        }
+
+    @Test
+    fun `引数なしの列挙は 10 件まで`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            repeat(11) { index ->
+                mutateAddAccount("feed$index", token)
+            }
+
+            val page = queryAccounts(token).accounts()
+
+            assertEquals(10, page.nodes().size)
+            assertEquals(true, page.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `管理画面のアカウント一覧がページングで引ける`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            mutateAddAccount("feed2", token)
+
+            val page1 = queryAccounts(token, limit = 2).accounts()
+            val page1Nodes = page1.nodes()
+            assertEquals(2, page1Nodes.size)
+            assertEquals(TestServerEnv.USERNAME, page1Nodes[0].obj("account").string("username"))
+            assertEquals("feed1", page1Nodes[1].obj("account").string("username"))
+            assertEquals(true, page1.pageInfo().boolean("hasMore"))
+
+            val page2 = queryAccounts(token, cursor = page1.pageInfo().string("nextCursor"), limit = 2).accounts()
+            val page2Nodes = page2.nodes()
+            assertEquals(1, page2Nodes.size)
+            assertEquals("feed2", page2Nodes[0].obj("account").string("username"))
+            assertEquals(false, page2.pageInfo().boolean("hasMore"))
+            assertEquals(JsonNull, page2.pageInfo().getValue("nextCursor"))
+        }
+
+    @Test
+    fun `limit が上限を超えていても管理画面の一覧が返る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+
+            val page = queryAccounts(token, limit = Int.MAX_VALUE).accounts()
+
+            assertEquals(
+                listOf(TestServerEnv.USERNAME, "feed1"),
+                page.nodes().map { it.obj("account").string("username") },
+            )
+            assertEquals(false, page.pageInfo().boolean("hasMore"))
         }
 
     @Test
@@ -416,8 +471,52 @@ class AdminGraphQlTest {
     private suspend fun ApplicationTestBuilder.mutateLogout(token: String): HttpResponse =
         graphQl("mutation { admin { logout { loggedIn passwordConfigured } } }", token = token)
 
-    private suspend fun ApplicationTestBuilder.queryAccounts(token: String? = null): HttpResponse =
-        graphQl("query { admin { adminAccounts { $ACCOUNT_FIELDS } } }", token = token)
+    private suspend fun ApplicationTestBuilder.queryAccounts(
+        token: String? = null,
+        cursor: String? = null,
+        limit: Int? = null,
+    ): HttpResponse {
+        val query =
+            buildString {
+                append("query AdminAccounts")
+                if (cursor != null || limit != null) {
+                    append("(")
+                    val args = buildList {
+                        if (cursor != null) add("${'$'}cursor: String")
+                        if (limit != null) add("${'$'}limit: Int")
+                    }
+                    append(args.joinToString(", "))
+                    append(") ")
+                } else {
+                    append(" ")
+                }
+                append("{ admin { adminAccounts")
+                if (cursor != null || limit != null) {
+                    append("(")
+                    val fieldArgs = buildList {
+                        if (cursor != null) add("cursor: ${'$'}cursor")
+                        if (limit != null) add("limit: ${'$'}limit")
+                    }
+                    append(fieldArgs.joinToString(", "))
+                    append(")")
+                }
+                append(" { nodes { $ACCOUNT_FIELDS } pageInfo { hasMore nextCursor } } } }")
+            }
+
+        val variables =
+            if (cursor != null || limit != null) {
+                buildString {
+                    append("{")
+                    if (cursor != null) append(""""cursor":${JsonPrimitive(cursor)},""")
+                    if (limit != null) append(""""limit":${JsonPrimitive(limit)}""")
+                    append("}")
+                }
+            } else {
+                null
+            }
+
+        return graphQl(query = query, token = token, variables = variables)
+    }
 
     private suspend fun ApplicationTestBuilder.queryAccount(
         username: String,
@@ -483,7 +582,11 @@ class AdminGraphQlTest {
 
         suspend fun HttpResponse.loginResult(): JsonObject = admin().obj("login")
 
-        suspend fun HttpResponse.accounts(): List<JsonElement> = admin().getValue("adminAccounts").jsonArray
+        suspend fun HttpResponse.accounts(): JsonObject = admin().obj("adminAccounts")
+
+        fun JsonObject.nodes(): List<JsonObject> = getValue("nodes").jsonArray.map { it.jsonObject }
+
+        fun JsonObject.pageInfo(): JsonObject = obj("pageInfo")
 
         suspend fun HttpResponse.addAccountResult(): JsonObject = admin().obj("addAccount")
 

@@ -2,10 +2,15 @@ type AdminQuery {
     session: AdminSession! @lazy
 
     "応答するアカウントの一覧"
-    adminAccounts: [AdminAccount!]! @lazy
+    adminAccounts(cursor: String, limit: Int = 10): AdminAccountsConnection! @lazy
 
     "アカウント 1 つ。応答しない名前なら null"
     adminAccount(username: String!): AdminAccount @lazy
+}
+
+type AdminAccountsConnection {
+    nodes: [AdminAccount!]!
+    pageInfo: PageInfo!
 }
 
 type AdminSession {
