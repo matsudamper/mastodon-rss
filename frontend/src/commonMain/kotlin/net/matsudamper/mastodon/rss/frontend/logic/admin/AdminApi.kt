@@ -107,6 +107,11 @@ class AdminApi(
                     limit = limit,
                 ),
             ).execute()
+
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminNotesResult.Failure(response.failureMessage())
+        }
+
         val data = response.data ?: return AdminNotesResult.Failure(response.failureMessage())
 
         return AdminNotesResult.Success(
@@ -120,6 +125,11 @@ class AdminApi(
         body: String,
     ): AdminPostNoteResult {
         val response = client.mutation(AdminPostNoteMutation(username = username, body = body)).execute()
+
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminPostNoteResult.Failure(response.failureMessage())
+        }
+
         val posted = response.data?.admin?.postNote ?: return AdminPostNoteResult.Failure(response.failureMessage())
 
         val failure = posted.failure
