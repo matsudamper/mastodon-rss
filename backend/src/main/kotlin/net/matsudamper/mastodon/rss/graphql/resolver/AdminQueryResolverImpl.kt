@@ -10,6 +10,7 @@ import net.matsudamper.mastodon.rss.graphql.data.AccountsCursor
 import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountsConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountsInput
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
@@ -34,12 +35,12 @@ class AdminQueryResolverImpl : AdminQueryResolver {
 
     override fun adminAccounts(
         adminQuery: QlAdminQuery,
-        cursor: String?,
-        limit: Int?,
+        input: QlAdminAccountsInput?,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminAccountsConnection>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
+        val cursor = input?.cursor
         val after = cursor?.let { AccountsCursor.decode(it) }
 
         val connection = if (cursor != null && after == null) {
@@ -53,7 +54,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
                 .accountService
                 .accounts(
                     afterUsername = after?.afterUsername,
-                    limit = (limit ?: DEFAULT_LIMIT).coerceIn(0, MAX_ADMIN_ACCOUNTS_LIMIT),
+                    limit = (input?.limit ?: DEFAULT_LIMIT).coerceIn(0, MAX_ADMIN_ACCOUNTS_LIMIT),
                 )
 
             QlAdminAccountsConnection(

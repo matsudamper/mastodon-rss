@@ -6,9 +6,9 @@ query AdminSession {
     }
 }
 
-query AdminAccounts($cursor: String, $limit: Int) {
+query AdminAccounts($input: AdminAccountsInput) {
     admin {
-        adminAccounts(cursor: $cursor, limit: $limit) {
+        adminAccounts(input: $input) {
             nodes {
                 ...AdminAccountFields
             }

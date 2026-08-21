@@ -477,39 +477,20 @@ class AdminGraphQlTest {
         limit: Int? = null,
     ): HttpResponse {
         val query =
-            buildString {
-                append("query AdminAccounts")
-                if (cursor != null || limit != null) {
-                    append("(")
-                    val args = buildList {
-                        if (cursor != null) add("${'$'}cursor: String")
-                        if (limit != null) add("${'$'}limit: Int")
-                    }
-                    append(args.joinToString(", "))
-                    append(") ")
-                } else {
-                    append(" ")
-                }
-                append("{ admin { adminAccounts")
-                if (cursor != null || limit != null) {
-                    append("(")
-                    val fieldArgs = buildList {
-                        if (cursor != null) add("cursor: ${'$'}cursor")
-                        if (limit != null) add("limit: ${'$'}limit")
-                    }
-                    append(fieldArgs.joinToString(", "))
-                    append(")")
-                }
-                append(" { nodes { $ACCOUNT_FIELDS } pageInfo { hasMore nextCursor } } } }")
+            if (cursor != null || limit != null) {
+                "query AdminAccounts(${'$'}input: AdminAccountsInput) { admin { " +
+                    "adminAccounts(input: ${'$'}input) { nodes { $ACCOUNT_FIELDS } pageInfo { hasMore nextCursor } } } }"
+            } else {
+                "query AdminAccounts { admin { adminAccounts { nodes { $ACCOUNT_FIELDS } pageInfo { hasMore nextCursor } } } }"
             }
 
         val variables =
             if (cursor != null || limit != null) {
                 buildString {
-                    append("{")
+                    append("""{"input":{""")
                     if (cursor != null) append(""""cursor":${JsonPrimitive(cursor)},""")
                     if (limit != null) append(""""limit":${JsonPrimitive(limit)}""")
-                    append("}")
+                    append("}}")
                 }
             } else {
                 null

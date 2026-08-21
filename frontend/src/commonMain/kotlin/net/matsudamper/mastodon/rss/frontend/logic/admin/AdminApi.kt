@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminAccountsInput
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
@@ -50,8 +51,13 @@ class AdminApi(
             client
                 .query(
                     AdminAccountsQuery(
-                        cursor = Optional.presentIfNotNull(cursor),
-                        limit = Optional.presentIfNotNull(limit),
+                        input =
+                        Optional.present(
+                            AdminAccountsInput(
+                                cursor = Optional.presentIfNotNull(cursor),
+                                limit = Optional.present(limit),
+                            ),
+                        ),
                     ),
                 )
                 .execute()
