@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.updateAndGet
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
@@ -26,6 +26,7 @@ class AdminAccountScreenViewModel(
 
     private var reloadJob: Job? = null
     private var notesJob: Job? = null
+    private var loadMoreJob: Job? = null
     private var postJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
@@ -70,7 +71,7 @@ class AdminAccountScreenViewModel(
     private fun reload() {
         reloadJob?.cancel()
         postJob?.cancel()
-        notesJob?.cancel()
+        cancelNotesJobs()
 
         viewModelStateFlow.update { ViewModelState(body = it.body) }
 
@@ -91,79 +92,87 @@ class AdminAccountScreenViewModel(
 
     /**
      * 投稿の一覧を先頭から取り直す。
-     *
-     * 取得のたびに世代を上げ、最新の取得の結果だけを反映する。投稿した直後に
-     * 取り直すので、投稿前に始まった取得が後から届くと投稿が消えて見える。
      */
     private fun loadNotes() {
-        notesJob?.cancel()
-
-        val generation = viewModelStateFlow.updateAndGet {
-            it.copy(loadGeneration = it.loadGeneration + 1, notesLoading = true, notesError = null)
-        }.loadGeneration
+        cancelNotesJobs()
+        viewModelStateFlow.update { it.copy(notesLoading = true, notesError = null) }
 
         notesJob = viewModelScope.launch {
-            when (val result = api.notes(username = username, limit = PAGE_SIZE)) {
-                is AdminNotesResult.Success -> {
-                    if (viewModelStateFlow.value.loadGeneration != generation) return@launch
-                    viewModelStateFlow.update {
-                        it.copy(
-                            notes = result.notes,
-                            notesError = null,
-                            cursor = result.cursor,
-                            loadingMore = false,
-                            notesLoading = false,
-                        )
+            try {
+                when (val result = api.notes(username = username, limit = PAGE_SIZE)) {
+                    is AdminNotesResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                notes = result.notes,
+                                notesError = null,
+                                cursor = result.cursor,
+                                loadingMore = false,
+                                notesLoading = false,
+                            )
+                        }
+                    }
+
+                    is AdminNotesResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                notesError = result.message,
+                                loadingMore = false,
+                                notesLoading = false,
+                            )
+                        }
                     }
                 }
-
-                is AdminNotesResult.Failure -> {
-                    if (viewModelStateFlow.value.loadGeneration != generation) return@launch
-                    viewModelStateFlow.update {
-                        it.copy(
-                            notesError = result.message,
-                            loadingMore = false,
-                            notesLoading = false,
-                        )
-                    }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(notesLoading = false, loadingMore = false) }
                 }
             }
         }
     }
 
     private fun loadMore() {
-        val state = viewModelStateFlow.value
-        val cursor = state.cursor ?: return
-        if (state.loadingMore) return
+        val cursor = viewModelStateFlow.value.cursor ?: return
+        if (viewModelStateFlow.value.loadingMore) return
 
-        val generation = state.loadGeneration
+        loadMoreJob?.cancel()
         viewModelStateFlow.update { it.copy(loadingMore = true) }
 
-        viewModelScope.launch {
-            when (val result = api.notes(username = username, cursor = cursor, limit = PAGE_SIZE)) {
-                is AdminNotesResult.Success -> {
-                    if (viewModelStateFlow.value.loadGeneration != generation) return@launch
-                    viewModelStateFlow.update { current ->
-                        current.copy(
-                            notes = current.notes + result.notes,
-                            notesError = null,
-                            cursor = result.cursor,
-                            loadingMore = false,
-                        )
+        loadMoreJob = viewModelScope.launch {
+            try {
+                when (val result = api.notes(username = username, cursor = cursor, limit = PAGE_SIZE)) {
+                    is AdminNotesResult.Success -> {
+                        viewModelStateFlow.update { current ->
+                            current.copy(
+                                notes = current.notes + result.notes,
+                                notesError = null,
+                                cursor = result.cursor,
+                                loadingMore = false,
+                            )
+                        }
+                    }
+
+                    is AdminNotesResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                notesError = result.message,
+                                loadingMore = false,
+                            )
+                        }
                     }
                 }
-
-                is AdminNotesResult.Failure -> {
-                    if (viewModelStateFlow.value.loadGeneration != generation) return@launch
-                    viewModelStateFlow.update {
-                        it.copy(
-                            notesError = result.message,
-                            loadingMore = false,
-                        )
-                    }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(loadingMore = false) }
                 }
             }
         }
+    }
+
+    private fun cancelNotesJobs() {
+        notesJob?.cancel()
+        loadMoreJob?.cancel()
+        notesJob = null
+        loadMoreJob = null
     }
 
     private fun post() {
@@ -175,34 +184,40 @@ class AdminAccountScreenViewModel(
         viewModelStateFlow.update { it.copy(submitting = true, error = null, result = null) }
 
         postJob = viewModelScope.launch {
-            when (val result = api.postNote(username = username, body = body)) {
-                is AdminPostNoteResult.Success -> {
-                    viewModelStateFlow.update {
-                        it.copy(
-                            body = "",
-                            submitting = false,
-                            result = AdminAccountScreenUiState.PostResult(
-                                url = result.note.url,
-                                targets = result.deliveryTargets,
-                                delivered = result.delivered,
-                            ),
-                            error = null,
-                        )
+            try {
+                when (val result = api.postNote(username = username, body = body)) {
+                    is AdminPostNoteResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                body = "",
+                                submitting = false,
+                                result = AdminAccountScreenUiState.PostResult(
+                                    url = result.note.url,
+                                    targets = result.deliveryTargets,
+                                    delivered = result.delivered,
+                                ),
+                                error = null,
+                            )
+                        }
+                        loadNotes()
                     }
-                    loadNotes()
-                }
 
-                is AdminPostNoteResult.Rejected -> {
-                    viewModelStateFlow.update {
-                        it.copy(
-                            submitting = false,
-                            error = rejectedMessage(result),
-                        )
+                    is AdminPostNoteResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                submitting = false,
+                                error = rejectedMessage(result),
+                            )
+                        }
+                    }
+
+                    is AdminPostNoteResult.Failure -> {
+                        viewModelStateFlow.update { it.copy(submitting = false, error = result.message) }
                     }
                 }
-
-                is AdminPostNoteResult.Failure -> {
-                    viewModelStateFlow.update { it.copy(submitting = false, error = result.message) }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(submitting = false) }
                 }
             }
         }
@@ -277,10 +292,6 @@ class AdminAccountScreenViewModel(
         val notesLoading: Boolean = false,
         val cursor: String? = null,
         val loadingMore: Boolean = false,
-        /**
-         * 一覧の取得の世代。取り直すたびに上がる
-         */
-        val loadGeneration: Int = 0,
     )
 
     private companion object {
