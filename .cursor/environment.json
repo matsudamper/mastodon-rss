@@ -1,0 +1,21 @@
+{
+  "name": "mastodon-rss",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "bash .cursor/run-backend.sh",
+      "description": "Ktor バックエンド。http://localhost:8080 で待ち受け、:frontend の成果物も配信する"
+    },
+    {
+      "name": "frontend-dev",
+      "command": "bash .cursor/run-frontend.sh",
+      "description": "Compose/Wasm の開発サーバー。http://localhost:8081 でホットリロードする"
+    }
+  ],
+  "ports": [
+    { "name": "backend", "port": 8080 },
+    { "name": "frontend-dev", "port": 8081 }
+  ]
+}
