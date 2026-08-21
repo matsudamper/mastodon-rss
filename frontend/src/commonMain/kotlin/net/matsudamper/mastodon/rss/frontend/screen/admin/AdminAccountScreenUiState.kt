@@ -25,6 +25,7 @@ data class AdminAccountScreenUiState(
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
+         * @param notesLoading 一覧を取っている最中
          * @param canLoadMore さらに古い投稿があるか
          */
         data class Loaded(
@@ -32,6 +33,7 @@ data class AdminAccountScreenUiState(
             val post: Post,
             val notes: List<Note>,
             val notesError: String?,
+            val notesLoading: Boolean,
             val canLoadMore: Boolean,
             val loadingMore: Boolean,
         ) : Content

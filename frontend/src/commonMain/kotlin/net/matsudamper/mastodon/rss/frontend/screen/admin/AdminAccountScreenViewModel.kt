@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +23,10 @@ class AdminAccountScreenViewModel(
     private val api: AdminApi = AdminApi(),
 ) {
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+
+    private var reloadJob: Job? = null
+    private var notesJob: Job? = null
+    private var postJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
         MutableStateFlow(
@@ -63,9 +68,13 @@ class AdminAccountScreenViewModel(
     }
 
     private fun reload() {
+        reloadJob?.cancel()
+        postJob?.cancel()
+        notesJob?.cancel()
+
         viewModelStateFlow.update { ViewModelState(body = it.body) }
 
-        viewModelScope.launch {
+        reloadJob = viewModelScope.launch {
             val session = api.session()
             viewModelStateFlow.update { it.copy(session = session) }
 
@@ -87,11 +96,13 @@ class AdminAccountScreenViewModel(
      * 取り直すので、投稿前に始まった取得が後から届くと投稿が消えて見える。
      */
     private fun loadNotes() {
+        notesJob?.cancel()
+
         val generation = viewModelStateFlow.updateAndGet {
-            it.copy(loadGeneration = it.loadGeneration + 1)
+            it.copy(loadGeneration = it.loadGeneration + 1, notesLoading = true, notesError = null)
         }.loadGeneration
 
-        viewModelScope.launch {
+        notesJob = viewModelScope.launch {
             when (val result = api.notes(username = username, limit = PAGE_SIZE)) {
                 is AdminNotesResult.Success -> {
                     if (viewModelStateFlow.value.loadGeneration != generation) return@launch
@@ -101,6 +112,7 @@ class AdminAccountScreenViewModel(
                             notesError = null,
                             cursor = result.cursor,
                             loadingMore = false,
+                            notesLoading = false,
                         )
                     }
                 }
@@ -111,6 +123,7 @@ class AdminAccountScreenViewModel(
                         it.copy(
                             notesError = result.message,
                             loadingMore = false,
+                            notesLoading = false,
                         )
                     }
                 }
@@ -158,9 +171,10 @@ class AdminAccountScreenViewModel(
         val body = state.body.trim()
         if (body.isEmpty() || state.submitting) return
 
+        postJob?.cancel()
         viewModelStateFlow.update { it.copy(submitting = true, error = null, result = null) }
 
-        viewModelScope.launch {
+        postJob = viewModelScope.launch {
             when (val result = api.postNote(username = username, body = body)) {
                 is AdminPostNoteResult.Success -> {
                     viewModelStateFlow.update {
@@ -229,6 +243,7 @@ class AdminAccountScreenViewModel(
                     ),
                     notes = state.notes.map { it.toUiState() },
                     notesError = state.notesError,
+                    notesLoading = state.notesLoading,
                     canLoadMore = state.cursor != null,
                     loadingMore = state.loadingMore,
                 )
@@ -259,6 +274,7 @@ class AdminAccountScreenViewModel(
         val error: String? = null,
         val notes: List<AdminNote> = emptyList(),
         val notesError: String? = null,
+        val notesLoading: Boolean = false,
         val cursor: String? = null,
         val loadingMore: Boolean = false,
         /**

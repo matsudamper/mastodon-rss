@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -207,6 +208,13 @@ private fun NotesCard(
         val error = content.notesError
 
         when {
+            content.notesLoading && notes.isEmpty() -> {
+                Text(
+                    text = "配信した投稿を取ってきている。",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
             notes.isEmpty() && error != null -> {
                 Text(
                     text = error,
@@ -229,16 +237,18 @@ private fun NotesCard(
 
             else -> {
                 notes.forEach { note ->
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        HtmlElementView(
-                            factory = { document.createElement("div") as HTMLDivElement },
-                            update = { it.innerHTML = note.contentHtml },
-                        )
-                        Text(
-                            text = "${note.publishedAt}  ${note.url}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    key(note.url) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            HtmlElementView(
+                                factory = { document.createElement("div") as HTMLDivElement },
+                                update = { it.innerHTML = note.contentHtml },
+                            )
+                            Text(
+                                text = "${note.publishedAt}  ${note.url}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
 
@@ -248,6 +258,11 @@ private fun NotesCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(onClick = { listener.onClickReloadNotes() }) {
+                            Text("もう一度試す")
+                        }
+                    }
                 }
 
                 if (content.canLoadMore) {
