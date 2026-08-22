@@ -29,6 +29,7 @@ dependencies {
     implementation(libs.opentelemetry.ktor)
     implementation(libs.opentelemetry.graphql.java)
     implementation(libs.opentelemetry.runtime.telemetry)
+    implementation(libs.opentelemetry.extension.kotlin)
 
     implementation(libs.kotlinx.serialization.json)
 
