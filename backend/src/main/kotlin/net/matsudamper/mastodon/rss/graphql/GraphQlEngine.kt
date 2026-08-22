@@ -12,6 +12,7 @@ import graphql.kickstart.tools.SchemaParser
 import graphql.schema.DataFetchingEnvironment
 import io.ktor.server.application.ApplicationCall
 import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.context.Context
 import io.opentelemetry.instrumentation.graphql.v20_0.GraphQLTelemetry
 import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.data.GraphQlRequest
@@ -27,28 +28,31 @@ class GraphQlEngine private constructor(
     private val graphQl: GraphQL,
     private val createContext: (ApplicationCall) -> GraphQlContext,
     private val diContainer: DiContainer,
+    private val openTelemetry: OpenTelemetry?,
 ) {
     suspend fun execute(
         request: GraphQlRequest,
         call: ApplicationCall,
     ): JsonObject {
-        val dataLoaderRegistryBuilder = DataLoaderRegistry.Builder()
-        val dataLoaders = DataLoaders(
-            diContainer = diContainer,
-            dataLoaderRegistryBuilder = dataLoaderRegistryBuilder,
-        )
-
-        val input = ExecutionInput
-            .newExecutionInput(request.query)
-            .operationName(request.operationName)
-            .variables(variablesOf(request))
-            .dataLoaderRegistry(dataLoaderRegistryBuilder.build())
-            .graphQLContext(mapOf(CONTEXT_KEY to createContext(call)))
-            .graphQLContext(mapOf(DI_CONTAINER_KEY to diContainer))
-            .graphQLContext(mapOf(DATA_LOADERS_KEY to dataLoaders))
-            .build()
-
         return withOpenTelemetryContext {
+            val dataLoaderRegistryBuilder = DataLoaderRegistry.Builder()
+            val dataLoaders = DataLoaders(
+                diContainer = diContainer,
+                dataLoaderRegistryBuilder = dataLoaderRegistryBuilder,
+                otelContext = Context.current(),
+                openTelemetry = openTelemetry,
+            )
+
+            val input = ExecutionInput
+                .newExecutionInput(request.query)
+                .operationName(request.operationName)
+                .variables(variablesOf(request))
+                .dataLoaderRegistry(dataLoaderRegistryBuilder.build())
+                .graphQLContext(mapOf(CONTEXT_KEY to createContext(call)))
+                .graphQLContext(mapOf(DI_CONTAINER_KEY to diContainer))
+                .graphQLContext(mapOf(DATA_LOADERS_KEY to dataLoaders))
+                .build()
+
             val executionResult = graphQl.execute(input)
             val response = GraphQlValues.toJsonElement(executionResult.toSpecification()) as JsonObject
             if (executionResult.errors.isEmpty()) return@withOpenTelemetryContext response
@@ -122,6 +126,7 @@ class GraphQlEngine private constructor(
                     GraphQLTelemetry
                         .builder(openTelemetry)
                         .setOperationNameInSpanNameEnabled(true)
+                        .setDataFetcherInstrumentationEnabled(true)
                         .build()
                 graphQlBuilder.instrumentation(
                     ChainedInstrumentation(telemetry.createInstrumentation()),
@@ -132,6 +137,7 @@ class GraphQlEngine private constructor(
                 graphQl = graphQlBuilder.build(),
                 createContext = createContext,
                 diContainer = diContainer,
+                openTelemetry = openTelemetry,
             )
         }
 
