@@ -6,10 +6,13 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
 
 class AdminQueryResolverImpl : AdminQueryResolver {
     override fun session(
@@ -29,19 +32,6 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         )
     }
 
-    override fun adminAccounts(
-        adminQuery: QlAdminQuery,
-        env: DataFetchingEnvironment,
-    ): CompletionStage<DataFetcherResult<List<QlAdminAccount>>> {
-        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
-
-        val accounts = GraphQlEngine.diContainer(env).accountService.accounts()
-
-        return CompletableFuture.completedFuture(
-            DataFetcherResult.Builder(accounts.map { it.toGraphqlResponse() }).build(),
-        )
-    }
-
     override fun adminAccount(
         adminQuery: QlAdminQuery,
         username: String,
@@ -53,6 +43,59 @@ class AdminQueryResolverImpl : AdminQueryResolver {
 
         return CompletableFuture.completedFuture(
             DataFetcherResult.Builder<QlAdminAccount?>(account?.toGraphqlResponse()).build(),
+        )
+    }
+
+    override fun notes(
+        adminQuery: QlAdminQuery,
+        username: String,
+        cursor: String?,
+        limit: Int,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminNotesConnection>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        // カーソルを組み立てるのも解くのもこの層。下は位置しか知らない
+        val after = cursor?.let { NotesCursor.decode(it) }
+
+        // 読めないカーソルは、消えた投稿を指していたのと同じ扱いにする
+        val connection = if (cursor != null && after == null) {
+            QlAdminNotesConnection(
+                nodes = emptyList(),
+                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+            )
+        } else {
+            val diContainer = GraphQlEngine.diContainer(env)
+            val page = diContainer.noteService.notes(
+                username = username,
+                after = after?.toPosition(),
+                limit = limit,
+            )
+
+            QlAdminNotesConnection(
+                nodes = page.notes.map { it.toGraphqlResponse(domain = diContainer.domain) },
+                pageInfo = QlPageInfo(
+                    hasMore = page.hasMore,
+                    nextCursor = page.nextPosition?.let { NotesCursor.of(it).encode() },
+                ),
+            )
+        }
+
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(connection).build(),
+        )
+    }
+
+    override fun adminAccounts(
+        adminQuery: QlAdminQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<List<QlAdminAccount>>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val accounts = GraphQlEngine.diContainer(env).accountService.accounts()
+
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(accounts.map { it.toGraphqlResponse() }).build(),
         )
     }
 }

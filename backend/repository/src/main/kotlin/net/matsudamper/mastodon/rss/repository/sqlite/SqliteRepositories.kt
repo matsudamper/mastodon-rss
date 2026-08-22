@@ -3,6 +3,8 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
+import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.HEALTH_CHECK
 
@@ -16,6 +18,10 @@ internal class SqliteRepositories(
     private val jooq = SqliteJooq(connectionManager)
 
     override val accounts: AccountRepository = SqliteAccountRepository(jooq)
+
+    override val followers: FollowerRepository = SqliteFollowerRepository(jooq)
+
+    override val notes: NoteRepository = SqliteNoteRepository(jooq)
 
     override fun verifyWritable() {
         val writtenAt = Instant.now().toString()

@@ -36,6 +36,7 @@ data class AdminAccountsScreenUiState(
         val acct: String,
         val actorUrl: String,
         val createdAt: String?,
+        val followerCount: Int,
     )
 
     @Immutable

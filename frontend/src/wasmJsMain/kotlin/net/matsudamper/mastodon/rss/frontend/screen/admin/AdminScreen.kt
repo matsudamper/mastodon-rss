@@ -2,13 +2,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -17,12 +13,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.ui.AdminLoginPasswordField
 import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
@@ -110,21 +104,12 @@ private fun LoginCard(
             }
         }
 
-        OutlinedTextField(
-            value = content.password,
-            onValueChange = { listener.onPasswordChanged(it) },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("パスワード") },
-            singleLine = true,
+        AdminLoginPasswordField(
+            password = content.password,
+            onPasswordChange = { listener.onPasswordChanged(it) },
+            onSubmit = { listener.onClickLogin() },
             enabled = content.inputEnabled && !content.submitting,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions =
-            KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done,
-            ),
-            keyboardActions = KeyboardActions(onDone = { listener.onClickLogin() }),
-            isError = content.error != null,
+            hasError = content.error != null,
         )
 
         if (content.error != null) {
@@ -163,7 +148,11 @@ private fun MenuCard(onNavigate: (Screen) -> Unit) {
             onClick = { onNavigate(Screen.AdminAccountNew) },
         )
         Text(
-            text = "フィードの登録・削除、フォロワー数と配信エラー、手動での再取得はこれから作る。",
+            text = "投稿とフォロワー数は、一覧からアカウントを選んだ先にある。",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            text = "フィードの登録・削除、配信エラーの確認、手動での再取得はこれから作る。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
