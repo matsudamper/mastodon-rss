@@ -27,6 +27,8 @@ dependencies {
     implementation(libs.opentelemetry.sdk.autoconfigure)
     implementation(libs.opentelemetry.exporter.otlp)
     implementation(libs.opentelemetry.ktor)
+    implementation(libs.opentelemetry.graphql.java)
+    implementation(libs.opentelemetry.runtime.telemetry)
 
     implementation(libs.kotlinx.serialization.json)
 
