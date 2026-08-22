@@ -40,23 +40,6 @@ fun AdminLoginPasswordField(
             form.id = FORM_ID
             form.setAttribute("autocomplete", "on")
 
-            val usernameInput = document.createElement("input") as HTMLInputElement
-            usernameInput.id = USERNAME_INPUT_ID
-            usernameInput.name = "username"
-            usernameInput.type = "text"
-            usernameInput.autocomplete = "username"
-            usernameInput.value = USERNAME_VALUE
-            usernameInput.tabIndex = -1
-            usernameInput.setAttribute("aria-hidden", "true")
-            usernameInput.style.apply {
-                position = "absolute"
-                opacity = "0"
-                height = "0px"
-                width = "0px"
-                padding = "0px"
-                border = "0px"
-            }
-
             val label = document.createElement("label") as HTMLLabelElement
             label.htmlFor = PASSWORD_INPUT_ID
             label.textContent = "パスワード"
@@ -68,7 +51,7 @@ fun AdminLoginPasswordField(
             passwordInput.autocomplete = "current-password"
             passwordInput.required = true
 
-            form.append(usernameInput, label, passwordInput)
+            form.append(label, passwordInput)
             form
         },
         update = { form ->
@@ -138,6 +121,4 @@ private fun Color.toCssColor(): String {
 }
 
 private const val FORM_ID = "admin-login-form"
-private const val USERNAME_INPUT_ID = "admin-login-username"
 private const val PASSWORD_INPUT_ID = "admin-login-password"
-private const val USERNAME_VALUE = "admin"
