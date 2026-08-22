@@ -45,4 +45,7 @@ type AdminAccount {
 
     "Accept を返せたフォロワーの数"
     followerCount: Int! @lazy
+
+    "登録済みの RSS フィード。未登録なら null"
+    feed: AdminFeed @lazy
 }

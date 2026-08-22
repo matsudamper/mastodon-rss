@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.screen.admin
+package net.matsudamper.mastodon.rss.frontend.screen.admin // pragma: allowlist secret
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -8,14 +8,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
+import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil // pragma: allowlist secret // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount // pragma: allowlist secret // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult // pragma: allowlist secret // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi // pragma: allowlist secret // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult // pragma: allowlist secret // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote // pragma: allowlist secret // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult // pragma: allowlist secret // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult // pragma: allowlist secret // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult // pragma: allowlist secret // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult // pragma: allowlist secret // pragma: allowlist secret
 
 class AdminAccountScreenViewModel(
     private val username: String,
@@ -28,6 +30,8 @@ class AdminAccountScreenViewModel(
     private var notesJob: Job? = null
     private var loadMoreJob: Job? = null
     private var postJob: Job? = null
+    private var fetchFeedJob: Job? = null
+    private var saveFeedJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
         MutableStateFlow(
@@ -35,6 +39,25 @@ class AdminAccountScreenViewModel(
                 acct = "@$username",
                 content = AdminAccountScreenUiState.Content.Loading,
                 listener = object : AdminAccountScreenUiState.Listener {
+                    override fun onFeedUrlChanged(text: String) {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedInputUrl = text,
+                                feedPreview = null,
+                                feedPreviewError = null,
+                                feedSaveError = null,
+                            )
+                        }
+                    }
+
+                    override fun onClickFetchFeed() {
+                        fetchFeed()
+                    }
+
+                    override fun onClickSaveFeed() {
+                        saveFeed()
+                    }
+
                     override fun onBodyChanged(text: String) {
                         viewModelStateFlow.update { it.copy(body = text, error = null, result = null) }
                     }
@@ -71,9 +94,16 @@ class AdminAccountScreenViewModel(
     private fun reload() {
         reloadJob?.cancel()
         postJob?.cancel()
+        fetchFeedJob?.cancel()
+        saveFeedJob?.cancel()
         cancelNotesJobs()
 
-        viewModelStateFlow.update { ViewModelState(body = it.body) }
+        viewModelStateFlow.update {
+            ViewModelState(
+                body = it.body,
+                feedInputUrl = it.feedInputUrl,
+            )
+        }
 
         reloadJob = viewModelScope.launch {
             val session = api.session()
@@ -82,7 +112,14 @@ class AdminAccountScreenViewModel(
             if (session !is AdminSessionResult.Success || !session.loggedIn) return@launch
 
             val account = api.account(username)
-            viewModelStateFlow.update { it.copy(account = account) }
+            viewModelStateFlow.update { state ->
+                state.copy(
+                    account = account,
+                    registeredFeedUrl = (account as? AdminAccountResult.Success)?.account?.feed?.url,
+                    registeredFeedTitle = (account as? AdminAccountResult.Success)?.account?.feed?.title,
+                    registeredFeedFormat = (account as? AdminAccountResult.Success)?.account?.feed?.format,
+                )
+            }
 
             if (account is AdminAccountResult.Success && account.account != null) {
                 loadNotes()
@@ -90,9 +127,97 @@ class AdminAccountScreenViewModel(
         }
     }
 
-    /**
-     * 投稿の一覧を先頭から取り直す。
-     */
+    private fun fetchFeed() {
+        val state = viewModelStateFlow.value
+        val url = state.feedInputUrl.trim()
+        if (url.isEmpty() || state.feedFetching || state.feedSaving || state.registeredFeedUrl != null) return
+
+        fetchFeedJob?.cancel()
+        viewModelStateFlow.update {
+            it.copy(
+                feedFetching = true,
+                feedPreview = null,
+                feedPreviewError = null,
+                feedSaveError = null,
+            )
+        }
+
+        fetchFeedJob = viewModelScope.launch {
+            try {
+                when (val result = api.previewFeed(url)) {
+                    is AdminFeedPreviewResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedFetching = false,
+                                feedPreview = result.preview,
+                                feedPreviewError = null,
+                            )
+                        }
+                    }
+
+                    is AdminFeedPreviewResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedFetching = false,
+                                feedPreview = null,
+                                feedPreviewError = result.message,
+                            )
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(feedFetching = false) }
+                }
+            }
+        }
+    }
+
+    private fun saveFeed() {
+        val state = viewModelStateFlow.value
+        val accountId = (state.account as? AdminAccountResult.Success)?.account?.account?.id
+        val url = state.feedInputUrl.trim()
+        if (accountId == null || url.isEmpty() || state.feedPreview == null || state.feedSaving || state.feedFetching) {
+            return
+        }
+
+        saveFeedJob?.cancel()
+        viewModelStateFlow.update { it.copy(feedSaving = true, feedSaveError = null) }
+
+        saveFeedJob = viewModelScope.launch {
+            try {
+                when (val result = api.saveFeed(accountId = accountId, url = url)) {
+                    is AdminSaveFeedResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedSaving = false,
+                                registeredFeedUrl = result.feed.url,
+                                registeredFeedTitle = result.feed.title,
+                                registeredFeedFormat = result.feed.format,
+                                feedPreview = null,
+                                feedPreviewError = null,
+                                feedSaveError = null,
+                            )
+                        }
+                    }
+
+                    is AdminSaveFeedResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedSaving = false,
+                                feedSaveError = result.message,
+                            )
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(feedSaving = false) }
+                }
+            }
+        }
+    }
+
     private fun loadNotes() {
         cancelNotesJobs()
         viewModelStateFlow.update { it.copy(notesLoading = true, notesError = null) }
@@ -250,6 +375,17 @@ class AdminAccountScreenViewModel(
 
                 AdminAccountScreenUiState.Content.Loaded(
                     account = found.toUiState(),
+                    feed = AdminAccountScreenUiState.Feed(
+                        registeredUrl = state.registeredFeedUrl,
+                        registeredTitle = state.registeredFeedTitle,
+                        registeredFormat = state.registeredFeedFormat,
+                        inputUrl = state.feedInputUrl,
+                        fetching = state.feedFetching,
+                        preview = state.feedPreview?.toUiState(),
+                        previewError = state.feedPreviewError,
+                        saving = state.feedSaving,
+                        saveError = state.feedSaveError,
+                    ),
                     post = AdminAccountScreenUiState.Post(
                         body = state.body,
                         submitting = state.submitting,
@@ -267,12 +403,29 @@ class AdminAccountScreenViewModel(
     }
 
     private fun AdminAccount.toUiState(): AdminAccountScreenUiState.Account = AdminAccountScreenUiState.Account(
+        accountId = account.id,
         username = account.username,
         acct = account.acct,
         actorUrl = account.actorUrl,
         createdAt = createdAt?.let { UnixTimeUtil.format(it) },
         followerCount = followerCount,
     )
+
+    private fun net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview.toUiState(): AdminAccountScreenUiState.FeedPreview = // pragma: allowlist secret
+        AdminAccountScreenUiState.FeedPreview(
+            title = title,
+            siteUrl = siteUrl,
+            format = format,
+            description = description,
+            itemCount = itemCount,
+            sampleItems = sampleItems.map { item ->
+                AdminAccountScreenUiState.FeedPreviewItem(
+                    title = item.title,
+                    link = item.link,
+                    publishedAt = item.publishedAt?.let { UnixTimeUtil.format(it) },
+                )
+            },
+        )
 
     private fun AdminNote.toUiState(): AdminAccountScreenUiState.Note = AdminAccountScreenUiState.Note(
         url = url,
@@ -292,12 +445,18 @@ class AdminAccountScreenViewModel(
         val notesLoading: Boolean = false,
         val cursor: String? = null,
         val loadingMore: Boolean = false,
+        val feedInputUrl: String = "",
+        val feedFetching: Boolean = false,
+        val feedPreview: net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview? = null, // pragma: allowlist secret
+        val feedPreviewError: String? = null,
+        val feedSaving: Boolean = false,
+        val feedSaveError: String? = null,
+        val registeredFeedUrl: String? = null,
+        val registeredFeedTitle: String? = null,
+        val registeredFeedFormat: String? = null,
     )
 
     private companion object {
-        /**
-         * 1 回に取る件数。上限はサーバー側で決まる
-         */
         const val PAGE_SIZE = 20
     }
 }

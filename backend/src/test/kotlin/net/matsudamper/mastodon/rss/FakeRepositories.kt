@@ -1,15 +1,22 @@
 package net.matsudamper.mastodon.rss
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.repository.Account
-import net.matsudamper.mastodon.rss.repository.AccountRepository
-import net.matsudamper.mastodon.rss.repository.FollowerRepository
-import net.matsudamper.mastodon.rss.repository.IncomingFollow
-import net.matsudamper.mastodon.rss.repository.NewNote
-import net.matsudamper.mastodon.rss.repository.Note
-import net.matsudamper.mastodon.rss.repository.NotePosition
-import net.matsudamper.mastodon.rss.repository.NoteRepository
-import net.matsudamper.mastodon.rss.repository.Repositories
+import net.matsudamper.mastodon.rss.repository.Account // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.AccountRepository // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.Feed // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.FeedFetchStatus // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.FeedFetchValidators // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.FeedId // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.FeedRepository // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.FollowerRepository // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.IncomingFollow // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.NewFeed // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.NewNote // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.Note // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.NotePosition // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.NoteRepository // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.Repositories // pragma: allowlist secret
 
 // ルーティングのテストで使う Repositories の差し替え。
 // 保存はメモリ上だけで、DB には一切触らない。
@@ -25,6 +32,8 @@ class FakeRepositories : Repositories {
 
     override val notes: NoteRepository = FakeNoteRepository()
 
+    override val feeds: FakeFeedRepository = FakeFeedRepository()
+
     override fun verifyWritable() {
         verifyWritableCallCount++
     }
@@ -36,6 +45,7 @@ class FakeRepositories : Repositories {
 
 class FakeAccountRepository : AccountRepository {
     private val stored = mutableListOf<Account>()
+    private var nextId = 1L
 
     @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
     override fun list(): List<Account> = stored.toList()
@@ -52,6 +62,8 @@ class FakeAccountRepository : AccountRepository {
         return stored.drop(startIndex).take(limit)
     }
 
+    override fun findById(id: AccountId): Account? = stored.firstOrNull { it.id == id }
+
     override fun findByUsername(username: String): Account? = stored.firstOrNull { it.username.equals(username, ignoreCase = true) }
 
     override fun findByUsernames(usernames: Collection<String>): Map<String, Account> =
@@ -66,7 +78,7 @@ class FakeAccountRepository : AccountRepository {
     ): Account? {
         if (findByUsername(username) != null) return null
 
-        return Account(username = username, createdAt = createdAt).also { stored += it }
+        return Account(id = AccountId(nextId++), username = username, createdAt = createdAt).also { stored += it }
     }
 }
 
@@ -159,4 +171,76 @@ class FakeNoteRepository : NoteRepository {
         .take(limit)
 
     override fun count(username: String): Long = stored.count { it.username == username }.toLong()
+}
+
+class FakeFeedRepository : FeedRepository {
+    private val stored = mutableListOf<Feed>()
+    private var nextId = 1L
+
+    override fun list(): List<Feed> = stored.toList()
+
+    override fun find(id: FeedId): Feed? = stored.firstOrNull { it.id == id }
+
+    override fun findByAccountId(accountId: AccountId): Feed? = stored.firstOrNull { it.accountId == accountId }
+
+    override fun findByUrl(url: String): Feed? = stored.firstOrNull { it.url == url }
+
+    override fun findDue(
+        now: Instant,
+        limit: Int,
+    ): List<Feed> = stored.take(limit)
+
+    override fun add(feed: NewFeed): Feed {
+        val createdAt = Instant.now()
+        return Feed(
+            id = FeedId(nextId++),
+            accountId = feed.accountId,
+            url = feed.url,
+            title = feed.title,
+            siteUrl = feed.siteUrl,
+            format = feed.format,
+            pollIntervalSeconds = feed.pollIntervalSeconds,
+            fetch = FeedFetchStatus(
+                validators = FeedFetchValidators.NONE,
+                lastFetchedAt = null,
+                lastSucceededAt = null,
+                lastError = null,
+            ),
+            initialImportDone = false,
+            createdAt = createdAt,
+        ).also { stored += it }
+    }
+
+    override fun updateMetadata(
+        id: FeedId,
+        title: String?,
+        siteUrl: String?,
+        format: String?,
+    ) {
+        val index = stored.indexOfFirst { it.id == id }
+        if (index == -1) return
+        val current = stored[index]
+        stored[index] = current.copy(title = title, siteUrl = siteUrl, format = format)
+    }
+
+    override fun recordFetchSuccess(
+        id: FeedId,
+        fetchedAt: Instant,
+        validators: FeedFetchValidators,
+    ) {
+    }
+
+    override fun recordFetchFailure(
+        id: FeedId,
+        fetchedAt: Instant,
+        error: String,
+    ) {
+    }
+
+    override fun markInitialImportDone(id: FeedId) {
+    }
+
+    override fun delete(id: FeedId) {
+        stored.removeAll { it.id == id }
+    }
 }

@@ -24,12 +24,56 @@ query AdminAccount($username: String!) {
 
 fragment AdminAccountFields on AdminAccount {
     account {
+        id
         username
         acct
         actorUrl
     }
     createdAt
     followerCount
+    feed {
+        ...AdminFeedFields
+    }
+}
+
+fragment AdminFeedFields on AdminFeed {
+    id
+    url
+    title
+    siteUrl
+    format
+    createdAt
+}
+
+mutation AdminPreviewFeed($url: String!) {
+    admin {
+        previewFeed(url: $url) {
+            preview {
+                title
+                siteUrl
+                format
+                description
+                itemCount
+                sampleItems {
+                    title
+                    link
+                    publishedAt
+                }
+            }
+            failure
+        }
+    }
+}
+
+mutation AdminSaveFeed($accountId: ID!, $url: String!) {
+    admin {
+        saveFeed(accountId: $accountId, url: $url) {
+            feed {
+                ...AdminFeedFields
+            }
+            failure
+        }
+    }
 }
 
 mutation AdminLogin($password: String!) {

@@ -1,12 +1,13 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.repository.AccountRepository
-import net.matsudamper.mastodon.rss.repository.DatabaseConfig
-import net.matsudamper.mastodon.rss.repository.FollowerRepository
-import net.matsudamper.mastodon.rss.repository.NoteRepository
-import net.matsudamper.mastodon.rss.repository.Repositories
-import net.matsudamper.mastodon.rss.repository.jooq.Tables.HEALTH_CHECK
+import net.matsudamper.mastodon.rss.repository.AccountRepository // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.DatabaseConfig // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.FeedRepository // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.FollowerRepository // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.NoteRepository // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.Repositories // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.jooq.Tables.HEALTH_CHECK // pragma: allowlist secret
 
 internal class SqliteRepositories(
     config: DatabaseConfig,
@@ -22,6 +23,8 @@ internal class SqliteRepositories(
     override val followers: FollowerRepository = SqliteFollowerRepository(jooq)
 
     override val notes: NoteRepository = SqliteNoteRepository(jooq)
+
+    override val feeds: FeedRepository = SqliteFeedRepository(jooq)
 
     override fun verifyWritable() {
         val writtenAt = Instant.now().toString()
