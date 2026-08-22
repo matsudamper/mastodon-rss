@@ -1,7 +1,5 @@
 package net.matsudamper.mastodon.rss.graphql
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -16,6 +14,7 @@ import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.instrumentation.graphql.v20_0.GraphQLTelemetry
 import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.data.GraphQlRequest
+import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 import org.dataloader.DataLoaderRegistry
 import org.slf4j.LoggerFactory
 
@@ -48,10 +47,10 @@ class GraphQlEngine private constructor(
             .graphQLContext(mapOf(DATA_LOADERS_KEY to dataLoaders))
             .build()
 
-        return withContext(Dispatchers.IO) {
+        return withOpenTelemetryContext {
             val executionResult = graphQl.execute(input)
             val response = GraphQlValues.toJsonElement(executionResult.toSpecification()) as JsonObject
-            if (executionResult.errors.isEmpty()) return@withContext response
+            if (executionResult.errors.isEmpty()) return@withOpenTelemetryContext response
 
             executionResult.errors.forEach { error ->
                 val dataFetchingException = (error as? ExceptionWhileDataFetching)?.exception
