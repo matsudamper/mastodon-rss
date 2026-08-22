@@ -18,10 +18,13 @@ dependencies {
     implementation(project(":backend:crypto"))
 
     implementation(project(":backend:graphql"))
+    implementation(project(":backend:rss"))
     implementation(project(":shared"))
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
 
     implementation(libs.kotlinx.serialization.json)
 
@@ -141,6 +144,7 @@ graalvmNative {
             // イメージを作る JVM に渡す
             buildArgs.add("-Dorg.jooq.no-logo=true")
             buildArgs.add("-Dorg.jooq.no-tips=true")
+            buildArgs.add("-H:+AddAllCharsets")
         }
     }
 }

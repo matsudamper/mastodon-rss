@@ -20,6 +20,8 @@ interface FeedRepository {
 
     fun find(id: FeedId): Feed?
 
+    fun findByAccountId(accountId: AccountId): Feed?
+
     /** URL で引く。同じ URL の二重登録を弾くために使う */
     fun findByUrl(url: String): Feed?
 
@@ -41,6 +43,7 @@ interface FeedRepository {
         id: FeedId,
         title: String?,
         siteUrl: String?,
+        format: String?,
     )
 
     /**
@@ -95,9 +98,11 @@ value class FeedId(
  */
 data class Feed(
     val id: FeedId,
+    val accountId: AccountId,
     val url: String,
     val title: String?,
     val siteUrl: String?,
+    val format: String?,
     val pollIntervalSeconds: Long,
     val fetch: FeedFetchStatus,
     val initialImportDone: Boolean,
@@ -106,7 +111,11 @@ data class Feed(
 
 /** 登録するフィード。id と取得状況はまだ無い */
 data class NewFeed(
+    val accountId: AccountId,
     val url: String,
+    val title: String?,
+    val siteUrl: String?,
+    val format: String?,
     val pollIntervalSeconds: Long,
 )
 

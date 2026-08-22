@@ -130,6 +130,8 @@ fun Application.module(deps: AppDependencies) {
             passwordHash = env.adminPasswordHash,
             accountRepository = deps.repositories.accounts,
             followerRepository = deps.repositories.followers,
+            feedRepository = deps.repositories.feeds,
+            feedFetcher = deps.feedFetcher,
             fixedActor = deps.actorUrls,
             actorDirectory = deps.directory,
             notePublisher = deps.notePublisher,

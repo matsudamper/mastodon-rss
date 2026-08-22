@@ -7,23 +7,27 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.future.future
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
-import net.matsudamper.mastodon.rss.GraphqlExceptions
-import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
-import net.matsudamper.mastodon.rss.graphql.GraphQlContext
-import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
-import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
-import net.matsudamper.mastodon.rss.logic.AccountService
-import net.matsudamper.mastodon.rss.logic.AdminLoginService
-import net.matsudamper.mastodon.rss.logic.NoteService
+import net.matsudamper.mastodon.rss.GraphqlExceptions // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.GraphQlContext // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.GraphQlEngine // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.logic.AccountService // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.logic.AdminLoginService // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.logic.FeedService // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.logic.NoteService // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
 
 class AdminMutationResolverImpl : AdminMutationResolver {
     override fun login(
@@ -153,6 +157,44 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                 }
             }
 
+            DataFetcherResult.Builder(result).build()
+        }
+    }
+
+    override fun previewFeed(
+        adminMutation: QlAdminMutation,
+        url: String,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminFeedPreviewResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO).future {
+            val result = diContainer.feedService.preview(url).toGraphqlResponse()
+            DataFetcherResult.Builder(result).build()
+        }
+    }
+
+    override fun saveFeed(
+        adminMutation: QlAdminMutation,
+        accountId: String,
+        url: String,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminSaveFeedResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val parsedAccountId = accountId.toLongOrNull()?.let(::AccountId)
+            ?: return CompletableFuture.completedFuture(
+                DataFetcherResult.Builder(
+                    FeedService.SaveResult.Failure(FeedService.SaveFailure.UNKNOWN_ACCOUNT).toGraphqlResponse(),
+                ).build(),
+            )
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO).future {
+            val result = diContainer.feedService.save(parsedAccountId, url).toGraphqlResponse()
             DataFetcherResult.Builder(result).build()
         }
     }

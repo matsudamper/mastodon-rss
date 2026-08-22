@@ -1,25 +1,26 @@
 package net.matsudamper.mastodon.rss
 
-import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.actor.ActorKey
-import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
-import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
-import net.matsudamper.mastodon.rss.actor.ActorUrls
-import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
-import net.matsudamper.mastodon.rss.actor.RemoteActors
-import net.matsudamper.mastodon.rss.actor.StoredActorNames
-import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
-import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
-import net.matsudamper.mastodon.rss.follower.FollowerStore
-import net.matsudamper.mastodon.rss.inbox.InboxService
-import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
-import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
-import net.matsudamper.mastodon.rss.note.NotePublisher
-import net.matsudamper.mastodon.rss.note.NoteStore
-import net.matsudamper.mastodon.rss.repository.DatabaseConfig
-import net.matsudamper.mastodon.rss.repository.Repositories
-import net.matsudamper.mastodon.rss.repository.createRepositories
+import net.matsudamper.mastodon.rss.actor.ActorDirectory // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.actor.ActorKey // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.actor.ActorKeyLoader // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.actor.ActorPrivateKey // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.actor.ActorUrls // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.actor.HttpRemoteActors // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.actor.RemoteActors // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.actor.StoredActorNames // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.delivery.ActivityDelivery // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.feed.FeedFetchService // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.follower.FollowerStore // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.inbox.InboxService // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.note.NotePublisher // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.note.NoteStore // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.DatabaseConfig // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.Repositories // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.createRepositories // pragma: allowlist secret
 
 /**
  * アプリが使うものを作って配る場所。
@@ -44,6 +45,7 @@ class AppDependencies(
     val env: ServerEnv,
     val remoteActors: RemoteActors,
     val delivery: ActivityDelivery,
+    val feedFetcher: FeedFetchService = FeedFetchService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
 ) : AutoCloseable {
     /**
@@ -97,12 +99,16 @@ class AppDependencies(
      */
     override fun close() {
         try {
-            (delivery as? AutoCloseable)?.close()
+            feedFetcher.close()
         } finally {
             try {
-                (remoteActors as? AutoCloseable)?.close()
+                (delivery as? AutoCloseable)?.close()
             } finally {
-                repositories.close()
+                try {
+                    (remoteActors as? AutoCloseable)?.close()
+                } finally {
+                    repositories.close()
+                }
             }
         }
     }

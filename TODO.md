@@ -172,7 +172,10 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
               フィードを読んだ時点で `UnsupportedCharsetException` になる
             - `:backend:rss` の `nativeTest` には指定済み。これが無いと Shift_JIS の
               テストが native でだけ落ちることを確認している（そうやって見つけた）
-- [ ] `feeds` / `feed_items` テーブル
+- [x] `feeds` / `feed_items` テーブル
+      - `feeds` は実装済み（`account_id` で `accounts.id` と 1:1）。
+        管理画面から URL のプレビューと保存まで対応
+      - `feed_items` は未実装
       - この時点ではアクターが 1 つしか無いので、検証はフィード 1 本で行う。
         `ACTOR_USERNAME` にそのフィード用の名前を入れて動かす
       - `admin` から記事を流さないこと。`admin` は運用者のアカウントで、
@@ -182,9 +185,8 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
       - 複数フィードを同時に動かせるようになるのは Phase 6。
         `feeds.actor_id` を足してフィードごとのアクターに振り分ける
       - `FeedRepository` と `FeedItemRepository` を interface だけ先に置いた
-        （`:backend:repository`）。テーブルがまだ `schema.sql` に無く、
-        テーブルが無ければ jOOQ の生成物も無いので実装は書けない。
-        `Repositories` からも取れない
+        （`:backend:repository`）。`FeedRepository` は SQLite 実装済み。
+        `feed_items` はテーブルがまだ無い
 - [x] 差分検出: `guid` / `id` / `link` を主キーに、なければ URL + タイトルのハッシュ
       - `FeedItemKey`。優先順は `id`（`guid` / Atom の `id` / `rdf:about`）→ `link` → ハッシュ
       - 保存側の突き合わせは `FeedItemRepository.findExistingKeys` に置いた（実装は未定）

@@ -10,26 +10,13 @@ data class AdminAccountScreenUiState(
     sealed interface Content {
         data object Loading : Content
 
-        /**
-         * ログインしていない。管理画面のトップに送る
-         */
         data object RequireLogin : Content
 
-        /**
-         * その名前のアカウントが無い
-         */
         data object NotFound : Content
 
-        /**
-         * @param account この画面が扱うアカウント
-         * @param post 投稿の入力欄
-         * @param notes 配信した投稿。新しい順
-         * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
-         * @param notesLoading 一覧を取っている最中
-         * @param canLoadMore さらに古い投稿があるか
-         */
         data class Loaded(
             val account: Account,
+            val feed: Feed,
             val post: Post,
             val notes: List<Note>,
             val notesError: String?,
@@ -43,11 +30,8 @@ data class AdminAccountScreenUiState(
         ) : Content
     }
 
-    /**
-     * @param acct Mastodon の検索窓に貼る形
-     * @param createdAt 「追加: <値>」の形で出す。null ならこの行を出さない
-     */
     data class Account(
+        val accountId: String?,
         val username: String,
         val acct: String,
         val actorUrl: String,
@@ -55,10 +39,37 @@ data class AdminAccountScreenUiState(
         val followerCount: Int,
     )
 
-    /**
-     * @param submitting true の間は入力欄とボタンを押せなくする
-     * @param result 直前の投稿の結果。次の入力を始めたら消す
-     */
+    data class Feed(
+        val registeredUrl: String?,
+        val registeredTitle: String?,
+        val registeredFormat: String?,
+        val inputUrl: String,
+        val fetching: Boolean,
+        val preview: FeedPreview?,
+        val previewError: String?,
+        val saving: Boolean,
+        val saveError: String?,
+    ) {
+        val canFetch: Boolean get() = !fetching && !saving && registeredUrl == null && inputUrl.isNotBlank()
+
+        val canSave: Boolean get() = !fetching && !saving && registeredUrl == null && preview != null
+    }
+
+    data class FeedPreview(
+        val title: String?,
+        val siteUrl: String?,
+        val format: String,
+        val description: String?,
+        val itemCount: Int,
+        val sampleItems: List<FeedPreviewItem>,
+    )
+
+    data class FeedPreviewItem(
+        val title: String?,
+        val link: String?,
+        val publishedAt: String?,
+    )
+
     data class Post(
         val body: String,
         val submitting: Boolean,
@@ -74,10 +85,6 @@ data class AdminAccountScreenUiState(
         val publishedAt: String,
     )
 
-    /**
-     * @param targets 送った宛先の数
-     * @param delivered そのうち届いた数
-     */
     data class PostResult(
         val url: String,
         val targets: Int,
@@ -86,15 +93,18 @@ data class AdminAccountScreenUiState(
 
     @Immutable
     interface Listener {
+        fun onFeedUrlChanged(text: String)
+
+        fun onClickFetchFeed()
+
+        fun onClickSaveFeed()
+
         fun onBodyChanged(text: String)
 
         fun onClickPost()
 
         fun onClickLoadMore()
 
-        /**
-         * 一覧だけ取り直す
-         */
         fun onClickReloadNotes()
 
         fun onClickReload()

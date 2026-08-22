@@ -1,4 +1,7 @@
 type Account {
+    "DB にあるアカウントだけ入る。設定で決まるアカウントは null"
+    id: ID
+
     username: String!
 
     "Mastodon の検索窓に貼る形"
