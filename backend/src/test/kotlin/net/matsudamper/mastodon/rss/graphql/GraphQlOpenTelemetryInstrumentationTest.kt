@@ -6,57 +6,50 @@ import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.execution.ExecutionContextBuilder
 import graphql.execution.ExecutionId
-import graphql.execution.instrumentation.InstrumentationContext
+import graphql.execution.instrumentation.ChainedInstrumentation
 import graphql.execution.instrumentation.SimpleInstrumentation
+import graphql.execution.instrumentation.SimpleInstrumentationContext
+import graphql.execution.instrumentation.parameters.InstrumentationCreateStateParameters
 import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters
 import graphql.language.OperationDefinition
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLTypeReference
-import io.opentelemetry.api.OpenTelemetry
-import io.opentelemetry.instrumentation.graphql.v20_0.GraphQLTelemetry
 
 class GraphQlOpenTelemetryInstrumentationTest {
     @Test
-    fun `state が null でも beginExecuteOperation が落ちない`() {
-        val openTelemetry = OpenTelemetry.noop()
-        val telemetry = GraphQLTelemetry.builder(openTelemetry).build()
-        val instrumentation = GraphQlOpenTelemetryInstrumentation(telemetry.createInstrumentation())
-
-        val context =
-            instrumentation.beginExecuteOperation(
-                parameters = parameters(operationName = "AdminSession"),
-                state = null,
-            )
-
-        assertNotNull(context)
-        context.onCompleted(ExecutionResult.newExecutionResult().build(), null)
-    }
-
-    @Test
-    fun `delegate が null を返しても beginExecuteOperation が落ちない`() {
+    fun `ChainedInstrumentation で beginExecuteOperation を合成できる`() {
         val instrumentation =
-            GraphQlOpenTelemetryInstrumentation(
+            ChainedInstrumentation(
                 object : SimpleInstrumentation() {
                     override fun beginExecuteOperation(
                         parameters: InstrumentationExecuteOperationParameters,
                         state: graphql.execution.instrumentation.InstrumentationState?,
-                    ): InstrumentationContext<ExecutionResult>? = null
+                    ) = SimpleInstrumentationContext.noOp<ExecutionResult>()
                 },
             )
 
+        val executionContext = executionContext(operationName = "AdminSession")
+        val state =
+            instrumentation
+                .createStateAsync(
+                    InstrumentationCreateStateParameters(
+                        executionContext.graphQLSchema,
+                        executionContext.executionInput,
+                    ),
+                ).get()
         val context =
             instrumentation.beginExecuteOperation(
-                parameters = parameters(operationName = "AdminSession"),
-                state = null,
+                InstrumentationExecuteOperationParameters(executionContext),
+                state,
             )
 
         assertNotNull(context)
         context.onCompleted(ExecutionResult.newExecutionResult().build(), null)
     }
 
-    private fun parameters(operationName: String): InstrumentationExecuteOperationParameters {
+    private fun executionContext(operationName: String): graphql.execution.ExecutionContext {
         val operationDefinition =
             OperationDefinition
                 .newOperationDefinition()
@@ -81,14 +74,12 @@ class GraphQlOpenTelemetryInstrumentationTest {
                         .build(),
                 ).build()
         val schema = GraphQLSchema.newSchema().query(queryType).build()
-        val executionContext =
-            ExecutionContextBuilder
-                .newExecutionContextBuilder()
-                .executionId(ExecutionId.generate())
-                .graphQLSchema(schema)
-                .operationDefinition(operationDefinition)
-                .executionInput(executionInput)
-                .build()
-        return InstrumentationExecuteOperationParameters(executionContext)
+        return ExecutionContextBuilder
+            .newExecutionContextBuilder()
+            .executionId(ExecutionId.generate())
+            .graphQLSchema(schema)
+            .operationDefinition(operationDefinition)
+            .executionInput(executionInput)
+            .build()
     }
 }

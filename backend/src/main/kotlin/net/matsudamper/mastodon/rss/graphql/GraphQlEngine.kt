@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import graphql.ExceptionWhileDataFetching
 import graphql.ExecutionInput
 import graphql.GraphQL
+import graphql.execution.instrumentation.ChainedInstrumentation
 import graphql.kickstart.tools.GraphQLResolver
 import graphql.kickstart.tools.SchemaParser
 import graphql.schema.DataFetchingEnvironment
@@ -117,9 +118,13 @@ class GraphQlEngine private constructor(
 
             val graphQlBuilder = GraphQL.newGraphQL(schema)
             if (openTelemetry != null) {
-                val telemetry = GraphQLTelemetry.builder(openTelemetry).build()
+                val telemetry =
+                    GraphQLTelemetry
+                        .builder(openTelemetry)
+                        .setOperationNameInSpanNameEnabled(true)
+                        .build()
                 graphQlBuilder.instrumentation(
-                    GraphQlOpenTelemetryInstrumentation(telemetry.createInstrumentation()),
+                    ChainedInstrumentation(telemetry.createInstrumentation()),
                 )
             }
 

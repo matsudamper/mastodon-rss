@@ -28,7 +28,6 @@ dependencies {
     implementation(libs.opentelemetry.exporter.otlp)
     implementation(libs.opentelemetry.ktor)
     implementation(libs.opentelemetry.graphql.java)
-    implementation(libs.opentelemetry.graphql.java.common)
     implementation(libs.opentelemetry.runtime.telemetry)
     implementation(libs.opentelemetry.extension.kotlin)
 
