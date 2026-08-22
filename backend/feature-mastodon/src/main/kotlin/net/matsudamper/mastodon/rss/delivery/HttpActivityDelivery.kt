@@ -10,6 +10,8 @@ import io.ktor.client.request.setBody
 import io.ktor.http.HttpHeaders
 import io.ktor.http.Url
 import io.ktor.http.isSuccess
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.instrumentation.ktor.v3_0.KtorClientTelemetry
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorUrls
@@ -28,7 +30,8 @@ import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureSigner
 class HttpActivityDelivery(
     private val actorKey: ActorKey,
     private val signer: HttpSignatureSigner = HttpSignatureSigner(),
-    private val client: HttpClient = defaultClient(),
+    openTelemetry: OpenTelemetry? = null,
+    private val client: HttpClient = defaultClient(openTelemetry),
 ) : ActivityDelivery,
     Closeable {
     override suspend fun deliver(
@@ -90,8 +93,13 @@ class HttpActivityDelivery(
                 "${url.host}:${url.port}"
             }
 
-        fun defaultClient(): HttpClient =
+        fun defaultClient(openTelemetry: OpenTelemetry? = null): HttpClient =
             HttpClient(CIO) {
+                if (openTelemetry != null) {
+                    install(KtorClientTelemetry) {
+                        setOpenTelemetry(openTelemetry)
+                    }
+                }
                 install(HttpTimeout) {
                     connectTimeoutMillis = 5_000
                     requestTimeoutMillis = 10_000
