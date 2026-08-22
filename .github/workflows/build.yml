@@ -326,6 +326,26 @@ jobs:
           # UnixTime の scalar は登録漏れがあると実行時に落ちる。事前に入れた行の時刻を見る
           grep -q '"createdAt":1767225600' /tmp/graphql-accounts.json
 
+          # 1 件引く口と、DataLoader で数えるフォロワー数。結線の漏れは native でだけ出る
+          echo "--- GraphQL のアカウント 1 件 ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"query Account($username: String!) { admin { adminAccount(username: $username) { account { acct } followerCount } } }","variables":{"username":"ci-feed"}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-admin-account.json
+          cat /tmp/graphql-admin-account.json
+          grep -q '"acct":"@ci-feed@example.com"' /tmp/graphql-admin-account.json
+          grep -q '"followerCount":0' /tmp/graphql-admin-account.json
+
+          # 投稿の一覧は Connection の型を通る。まだ何も配っていないので空で返る
+          echo "--- GraphQL の投稿一覧 ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"query Notes($username: String!) { admin { notes(username: $username, limit: 10) { nodes { url } pageInfo { hasMore nextCursor } } } }","variables":{"username":"ci-feed"}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-notes.json
+          cat /tmp/graphql-notes.json
+          grep -q '"nodes":\[\]' /tmp/graphql-notes.json
+          grep -q '"hasMore":false' /tmp/graphql-notes.json
+
           # 追加は DB への書き込みを通る。入れた名前がそのまま WebFinger から引ける
           echo "--- GraphQL のアカウント追加 ---"
           curl -sf -X POST -H 'Content-Type: application/json' \

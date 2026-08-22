@@ -7,6 +7,34 @@ type AdminMutation {
 
     "アカウントを追加する"
     addAccount(username: String!): AdminAddAccountResult! @lazy
+
+    "アカウントとして投稿し、フォロワーに配る"
+    postNote(username: String!, body: String!): AdminPostNoteResult! @lazy
+}
+
+type AdminPostNoteResult {
+    "配信できたかに関わらず、記録できていれば入る"
+    note: AdminNote
+
+    "送った宛先の数。sharedInbox でまとまるのでフォロワーの数とは一致しない"
+    deliveryTargets: Int
+
+    "そのうち相手が受け取った数。宛先より少なければ届かなかったものがある"
+    delivered: Int
+
+    "投稿できなかった場合だけ入る"
+    failure: AdminPostNoteFailure
+}
+
+type AdminPostNoteFailure {
+    "その名前のアカウントが無い"
+    unknownAccount: Boolean!
+
+    "本文が空"
+    isEmpty: Boolean!
+
+    "文字数の上限を超えている場合の上限"
+    maxLength: Int
 }
 
 type AdminLoginResult {

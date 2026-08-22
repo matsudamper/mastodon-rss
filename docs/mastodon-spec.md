@@ -14,6 +14,9 @@
 | `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
 | `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
 | `POST /users/{name}/inbox` | アクティビティの受け口。HTTP Signatures を検証する |
+| `GET /users/{name}/followers` | フォロワーの OrderedCollection。`?cursor=` で中身 |
+| `GET /users/{name}/outbox` | 配信した `Create` の OrderedCollection。`?cursor=` で中身 |
+| `GET /notes/{id}` | 配信した投稿。相手がパーマリンクとして引きに来る |
 | `GET /.well-known/nodeinfo` | NodeInfo の discovery document |
 | `GET /nodeinfo/2.1` | サーバーの実装と規模。調査用 |
 
@@ -31,10 +34,37 @@ inbox は署名が通れば 202、通らなければ 401 を返す。検証の�
 [HttpSignatureVerifier.kt](../backend/feature-mastodon/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
 の KDoc にある。
 
-届いたアクティビティのうち処理するのは `Follow` だけで、相手の inbox に `Accept` を
-返してフォローを成立させる。フォロワーはまだ保存しないので、再起動すると
-こちらには何も残らない（相手側にはフォローが残る）。それ以外の種類は
-種類と送り主をログに出すだけ。
+届いたアクティビティのうち処理するのは `Follow` と `Undo` と `Delete` の 3 つ。
+`Follow` はフォロワーとして記録してから相手の inbox に `Accept` を返し、
+`Undo` はその記録を消す。`Delete` は送り主自身の削除のときだけ、その相手の
+フォローを全部消す。それ以外の種類は種類と送り主をログに出すだけ。
+
+記録は DB に残るので、再起動してもフォロワーは残る。`Accept` を返せなかった
+フォローは記録には残るがフォロワーには数えない。相手から見て成立していないため。
+
+アカウントを削除した相手からの `Delete` は、そのとき既に相手の公開鍵を取りに行けず
+署名を検証できない。この 1 つだけは検証できなくても 202 を返す。401 を返すと
+相手が同じものを送り直し続けるため。検証していないので中身は信用せず、
+受け流すだけでフォロワーは消さない。
+
+コレクションは 2 段構え。パラメータが無ければ総数と最初のページへの入口だけを返し、
+`?cursor=` を付けるとページの中身を返す。空の `?cursor=` が先頭のページで、続きは
+応答の `next` に入っている URL をそのまま辿る。何件目かで指さないのは、読んでいる間に
+増減があると同じものが 2 回出たり抜けたりするため。
+
+## 投稿を配る
+
+`Note` を `Create` に包んで、フォロワーの inbox に署名付きで POST する。
+`sharedInbox` を持つ相手はそちらにまとめるので、同じインスタンスに何人いても 1 通で済む。
+
+送る前に投稿を記録する。相手は受け取った直後に `object.id` をパーマリンクとして
+引きに来ることがあり、配信が先だとそこで 404 を返してしまう。
+
+再送はしない。届かなかった宛先はログに残るだけ。
+
+発火させるのは管理画面の投稿画面で、GraphQL の `admin.postNote` を叩く。
+本文はプレーンテキストで受けて段落と改行だけの HTML に組み立てる。
+HTML をそのまま受けると、管理画面を通して任意のタグをフォロワーに配ることになる。
 
 ```sh
 curl "http://localhost:8080/.well-known/webfinger?resource=acct:admin@example.com"

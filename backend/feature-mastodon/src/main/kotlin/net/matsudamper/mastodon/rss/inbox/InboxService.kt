@@ -2,9 +2,11 @@ package net.matsudamper.mastodon.rss.inbox
 
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activitypub.InboxActivity
+import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
@@ -48,6 +50,14 @@ class InboxService(
         val owner =
             when (val verification = verifier.verify(request)) {
                 is HttpSignatureResult.Rejected -> {
+                    // 消えたアクターからの Delete だけは、検証できないことを理由に
+                    // 落とすと相手が送り直し続ける。削除の通知は本人が消えた後に届き、
+                    // そのとき鍵はもう取りに行けないので、通しようがない
+                    if (isSelfDelete(request.body)) {
+                        logger.info("消えたアクターからの Delete として受け流す: ${recipient.acct} ${verification.reason}")
+                        return InboxResult.Accepted
+                    }
+
                     logger.warn("inbox の署名を拒否した: ${recipient.acct} ${verification.reason}")
                     return InboxResult.Unauthorized
                 }
@@ -87,17 +97,46 @@ class InboxService(
 
         // 引き当てられない type は何もしない。未対応のアクティビティに 5xx を返すと
         // 相手は同じものを送り直し続けることになる
-        handlersByType[activity.type]?.handle(
-            recipient = recipient,
-            signer = owner,
-            activity = activity,
-            raw = json,
-        )
+        val handled = runCatching {
+            handlersByType[activity.type]?.handle(
+                recipient = recipient,
+                signer = owner,
+                activity = activity,
+                raw = json,
+            )
+        }
+
+        // 処理に失敗しても 202 で返す。5xx にすると相手は同じものを送り直し続けるので、
+        // こちらが書き込めない間ずっと同じ失敗を繰り返すことになる。
+        // 何が起きたかはここに残っているものが唯一の手がかりになる
+        handled.onFailure { failure ->
+            logger.warn("inbox の処理に失敗した: ${recipient.acct} type=${activity.type} actor=$owner", failure)
+        }
 
         return InboxResult.Accepted
     }
 
+    /**
+     * 署名を検証できなかったボディが、送り主自身の削除の通知かどうか。
+     *
+     * 検証を通っていないので中身は信用できない。ここで見るのは
+     * 「202 を返して黙らせてよいか」だけで、これを見てフォロワーを消すことはしない。
+     * 消すのは [DeleteActorHandler] で、そちらには検証を通ったものしか届かない。
+     */
+    private fun isSelfDelete(body: ByteArray): Boolean {
+        val activity = runCatching {
+            AppJson.decodeFromString(InboxActivity.serializer(), body.decodeToString())
+        }.getOrNull() ?: return false
+
+        if (activity.type != DELETE_TYPE) return false
+
+        val actorId = activity.actorId ?: return false
+        return activity.target?.id == actorId
+    }
+
     companion object {
+        private const val DELETE_TYPE = "Delete"
+
         /**
          * 既定の組み合わせで作る。
          *
@@ -114,10 +153,15 @@ class InboxService(
         fun default(
             remoteActors: RemoteActors,
             delivery: ActivityDelivery,
+            followers: FollowerStore,
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(remoteActors),
-                handlers = listOf(FollowHandler(remoteActors, delivery)),
+                handlers = listOf(
+                    FollowHandler(remoteActors, delivery, followers),
+                    UndoFollowHandler(followers),
+                    DeleteActorHandler(followers),
+                ),
             )
     }
 }

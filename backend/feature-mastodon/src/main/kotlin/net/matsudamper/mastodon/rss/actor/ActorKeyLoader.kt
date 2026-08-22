@@ -12,7 +12,9 @@ import net.matsudamper.mastodon.rss.crypto.RsaKeys
  * ファイル指定で中身が無い場合だけ新しく生成する。既にあるファイルを書き換えることはしない。
  */
 object ActorKeyLoader {
-    fun load(config: ActorPrivateKey): ActorKey =
+    fun load(
+        config: ActorPrivateKey,
+    ): ActorKey? =
         when (config) {
             is ActorPrivateKey.Pem -> {
                 ActorKey(
@@ -26,7 +28,21 @@ object ActorKeyLoader {
             }
         }
 
-    private fun loadFromFile(path: Path): ActorKey {
+    fun create(
+        file: ActorPrivateKey.File,
+    ): ActorKey {
+        val path = file.path.toAbsolutePath().normalize()
+        val keyPair = RsaKeys.generateKeyPair()
+        write(path, RsaKeys.encodeToPem(keyPair.private))
+        return ActorKey(
+            privateKey = keyPair.private,
+            origin = ActorKey.Origin.GeneratedFile(path),
+        )
+    }
+
+    private fun loadFromFile(
+        path: Path,
+    ): ActorKey? {
         if (Files.exists(path)) {
             return ActorKey(
                 privateKey = decode(Files.readString(path)) { "$path の PEM を読めなかった" },
@@ -34,12 +50,7 @@ object ActorKeyLoader {
             )
         }
 
-        val keyPair = RsaKeys.generateKeyPair()
-        write(path, RsaKeys.encodeToPem(keyPair.private))
-        return ActorKey(
-            privateKey = keyPair.private,
-            origin = ActorKey.Origin.GeneratedFile(path),
-        )
+        return null
     }
 
     /**

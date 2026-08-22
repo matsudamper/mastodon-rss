@@ -9,10 +9,12 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.actorRoutes
+import net.matsudamper.mastodon.rss.follower.followerRoutes
 import net.matsudamper.mastodon.rss.graphql.DiContainer
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
+import net.matsudamper.mastodon.rss.graphql.resolver.AdminAccountResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminMutationResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminQueryResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.MutationResolverImpl
@@ -20,6 +22,8 @@ import net.matsudamper.mastodon.rss.graphql.resolver.QueryResolverImpl
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
+import net.matsudamper.mastodon.rss.note.noteRoutes
+import net.matsudamper.mastodon.rss.note.outboxRoutes
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
@@ -112,6 +116,7 @@ fun Application.module(deps: AppDependencies) {
             QueryResolverImpl(),
             MutationResolverImpl(),
             AdminQueryResolverImpl(),
+            AdminAccountResolverImpl(),
             AdminMutationResolverImpl(),
         ),
         createContext = { call ->
@@ -124,8 +129,11 @@ fun Application.module(deps: AppDependencies) {
         diContainer = DiContainer(
             passwordHash = env.adminPasswordHash,
             accountRepository = deps.repositories.accounts,
+            followerRepository = deps.repositories.followers,
             fixedActor = deps.actorUrls,
             actorDirectory = deps.directory,
+            notePublisher = deps.notePublisher,
+            noteStore = deps.noteStore,
         ),
     )
 
@@ -142,6 +150,10 @@ fun Application.module(deps: AppDependencies) {
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)
+
+        followerRoutes(deps.directory, deps.followerStore)
+        outboxRoutes(deps.directory, deps.noteStore)
+        noteRoutes(env.domain, deps.noteStore)
 
         nodeInfoRoutes(env.domain)
 
