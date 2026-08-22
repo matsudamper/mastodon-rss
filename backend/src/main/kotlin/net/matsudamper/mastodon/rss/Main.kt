@@ -2,11 +2,13 @@ package net.matsudamper.mastodon.rss
 
 import java.nio.file.Path
 import io.ktor.server.application.Application
+import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.actorRoutes
 import net.matsudamper.mastodon.rss.follower.followerRoutes
@@ -26,6 +28,7 @@ import net.matsudamper.mastodon.rss.note.noteRoutes
 import net.matsudamper.mastodon.rss.note.outboxRoutes
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
+import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryBootstrap // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
 
 fun main() {
@@ -33,7 +36,8 @@ fun main() {
     // DOMAIN が無ければこの時点で落ちる。サーバーを立てる前に止めたいので順番を変えないこと
     val env = ServerEnv()
 
-    val deps = AppDependencies.create(env)
+    val telemetry = OpenTelemetryBootstrap.start()
+    val deps = AppDependencies.create(env, telemetry = telemetry)
     val server =
         embeddedServer(CIO, port = env.port, host = env.host) {
             module(deps)
@@ -139,6 +143,12 @@ fun Application.module(deps: AppDependencies) {
 
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
     // native-image で解決できず 500 になる。詳細は json/JsonResponse.kt を参照
+    deps.openTelemetry?.let { openTelemetry ->
+        install(KtorServerTelemetry) {
+            setOpenTelemetry(openTelemetry)
+        }
+    }
+
     routing {
         get("/healthz") {
             call.respondJson(HealthResponse.serializer(), HealthResponse(status = "ok"))
