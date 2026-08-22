@@ -82,7 +82,7 @@ object OpenTelemetryBootstrap {
     }
 
     private fun isDisabled(env: Map<String, String>): Boolean =
-        env["OTEL_SDK_DISABLED"]?.trim()?.lowercase() == "true"
+        env["ENABLE_OTEL"]?.trim()?.lowercase() == "true"
 
     private fun isExportEnabled(env: Map<String, String>): Boolean {
         if (!env["OTEL_EXPORTER_OTLP_ENDPOINT"].isNullOrBlank()) return true

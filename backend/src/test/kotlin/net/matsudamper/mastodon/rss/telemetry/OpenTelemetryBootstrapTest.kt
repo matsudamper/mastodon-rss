@@ -11,11 +11,11 @@ class OpenTelemetryBootstrapTest {
     }
 
     @Test
-    fun `OTEL_SDK_DISABLEDがtrueのときは起動しない`() {
+    fun `ENABLE_OTELがtrueのときは起動しない`() {
         assertNull(
             OpenTelemetryBootstrap.start(
                 mapOf(
-                    "OTEL_SDK_DISABLED" to "true",
+                    "ENABLE_OTEL" to "true",
                     "OTEL_TRACES_EXPORTER" to "otlp",
                 ),
             ),
