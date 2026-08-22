@@ -24,6 +24,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.NoteService
+import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminMutationResolverImpl : AdminMutationResolver {
     override fun login(
@@ -124,7 +125,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         // 配信は相手のサーバーへの POST を伴うので中断できる形で呼ぶ。
         // GraphQL のリゾルバは CompletionStage を返す約束なので、そこに繋ぎ直す
-        return CoroutineScope(Dispatchers.IO).future {
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val result = when (val posted = diContainer.noteService.post(username = username, body = body)) {
                 is NoteService.PostResult.Success -> {
                     QlAdminPostNoteResult(

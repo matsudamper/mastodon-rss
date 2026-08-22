@@ -127,7 +127,7 @@ class AppDependencies(
             env: ServerEnv,
             telemetry: OpenTelemetryInitializer.Handler? = null,
         ): AppDependencies {
-            val repositories = createRepositories(DatabaseConfig(path = env.dbPath))
+            val repositories = createRepositories(DatabaseConfig(path = env.dbPath), openTelemetry = telemetry?.openTelemetry)
             val openTelemetry = telemetry?.openTelemetry
 
             // ここから先で失敗すると、開いた DB が閉じられないまま起動が止まる

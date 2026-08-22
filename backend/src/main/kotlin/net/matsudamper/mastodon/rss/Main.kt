@@ -138,6 +138,7 @@ fun Application.module(deps: AppDependencies) {
             notePublisher = deps.notePublisher,
             noteStore = deps.noteStore,
         ),
+        openTelemetry = deps.openTelemetry,
     )
 
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
