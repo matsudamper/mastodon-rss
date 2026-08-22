@@ -8,6 +8,7 @@ dependencies {
     // :backend からは repository パッケージの interface だけが見える状態を保つ
     implementation(libs.sqlite.jdbc)
     implementation(libs.jooq)
+    implementation(libs.opentelemetry.jdbc)
 
     jooqCodegen(libs.jooq.codegen)
     jooqCodegen(libs.sqlite.jdbc)

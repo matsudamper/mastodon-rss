@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.telemetry
 
 import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.instrumentation.runtimetelemetry.RuntimeTelemetry
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
 
@@ -21,11 +22,14 @@ object OpenTelemetryInitializer {
                     oldResource
                 }
 
-        val sdk = builder.build()
+        val configured = builder.build()
+        val sdk = configured.getOpenTelemetrySdk()
+        val runtimeTelemetry = RuntimeTelemetry.create(sdk)
 
         return Handler(
-            openTelemetry = sdk.openTelemetrySdk,
-            sdk = sdk.openTelemetrySdk,
+            openTelemetry = sdk,
+            sdk = sdk,
+            runtimeTelemetry = runtimeTelemetry,
         )
     }
 
@@ -39,8 +43,10 @@ object OpenTelemetryInitializer {
     class Handler(
         val openTelemetry: OpenTelemetry,
         private val sdk: OpenTelemetrySdk,
+        private val runtimeTelemetry: RuntimeTelemetry,
     ) : AutoCloseable {
         override fun close() {
+            runtimeTelemetry.close()
             sdk.close()
         }
     }

@@ -3,7 +3,10 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 import java.nio.file.Files
 import java.sql.Connection
 import java.util.concurrent.locks.ReentrantLock
+import javax.sql.DataSource
 import kotlin.concurrent.withLock
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.instrumentation.jdbc.datasource.JdbcTelemetry
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import org.sqlite.SQLiteDataSource
 
@@ -17,6 +20,7 @@ import org.sqlite.SQLiteDataSource
  */
 internal class SqliteConnectionManager(
     config: DatabaseConfig,
+    openTelemetry: OpenTelemetry? = null,
 ) : AutoCloseable {
     private val lock = ReentrantLock()
     private val connection: Connection
@@ -28,11 +32,13 @@ internal class SqliteConnectionManager(
 
         // DriverManager 経由だと ServiceLoader でドライバを探すことになる。
         // native-image では解決に追加設定が要ることがあるため、直接 DataSource を使う
-        val dataSource =
+        val dataSource: DataSource =
             SQLiteDataSource().apply {
                 url = "jdbc:sqlite:$path"
             }
-        connection = dataSource.connection
+        val instrumentedDataSource =
+            openTelemetry?.let { JdbcTelemetry.create(it).wrap(dataSource) } ?: dataSource
+        connection = instrumentedDataSource.connection
         try {
             applyPragmas(connection)
         } catch (e: Throwable) {
