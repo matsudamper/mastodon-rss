@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.repository
 
+import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.repository.sqlite.SqliteRepositories
 
 /**
@@ -48,4 +49,7 @@ interface Repositories : AutoCloseable {
  *
  * 接続に失敗した場合は例外を投げる。使い終わったら [Repositories.close] を呼ぶこと。
  */
-fun createRepositories(config: DatabaseConfig): Repositories = SqliteRepositories(config)
+fun createRepositories(
+    config: DatabaseConfig,
+    openTelemetry: OpenTelemetry? = null,
+): Repositories = SqliteRepositories(config, openTelemetry)
