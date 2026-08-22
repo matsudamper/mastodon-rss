@@ -12,6 +12,8 @@ import graphql.kickstart.tools.GraphQLResolver
 import graphql.kickstart.tools.SchemaParser
 import graphql.schema.DataFetchingEnvironment
 import io.ktor.server.application.ApplicationCall
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.instrumentation.graphql.v20_0.GraphQLTelemetry
 import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.data.GraphQlRequest
 import org.dataloader.DataLoaderRegistry
@@ -104,6 +106,7 @@ class GraphQlEngine private constructor(
             resolvers: List<GraphQLResolver<*>>,
             createContext: (ApplicationCall) -> GraphQlContext,
             diContainer: DiContainer,
+            openTelemetry: OpenTelemetry? = null,
         ): GraphQlEngine {
             val schema = SchemaParser
                 .newParser()
@@ -113,8 +116,14 @@ class GraphQlEngine private constructor(
                 .build()
                 .makeExecutableSchema()
 
+            val graphQlBuilder = GraphQL.newGraphQL(schema)
+            if (openTelemetry != null) {
+                val telemetry = GraphQLTelemetry.builder(openTelemetry).build()
+                graphQlBuilder.instrumentation(telemetry.createInstrumentation())
+            }
+
             return GraphQlEngine(
-                graphQl = GraphQL.newGraphQL(schema).build(),
+                graphQl = graphQlBuilder.build(),
                 createContext = createContext,
                 diContainer = diContainer,
             )
