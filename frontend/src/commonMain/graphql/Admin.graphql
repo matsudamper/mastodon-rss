@@ -6,10 +6,16 @@ query AdminSession {
     }
 }
 
-query AdminAccounts {
+query AdminAccounts($input: AdminAccountsInput) {
     admin {
-        adminAccounts {
-            ...AdminAccountFields
+        adminAccounts(input: $input) {
+            nodes {
+                ...AdminAccountFields
+            }
+            pageInfo {
+                hasMore
+                nextCursor
+            }
         }
     }
 }

@@ -16,6 +16,9 @@ data class AdminAccountsScreenUiState(
 
         data class Loaded(
             val accounts: List<Account>,
+            val hasMore: Boolean,
+            val isLoadingMore: Boolean,
+            val loadMoreErrorMessage: String?,
         ) : Content
 
         data class Error(
@@ -42,5 +45,6 @@ data class AdminAccountsScreenUiState(
     @Immutable
     interface Listener {
         fun onClickReload()
+        fun onClickLoadMore()
     }
 }
