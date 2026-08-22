@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -464,33 +466,40 @@ private fun FollowSection(
 }
 
 /**
- * 配信した投稿。
+ * 配信した投稿。1 件ずつカードに分け、続きはページングで取る。
  */
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun NotesSection(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
 ) {
-    SectionCard(title = "配信した投稿") {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(
+            text = "配信した投稿",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+
         val notes = content.notes
         val error = content.notesError
 
         when {
             content.notesLoading && notes.isEmpty() -> {
-                Text(
-                    text = "配信した投稿を取ってきている。",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                NoteListPlaceholder {
+                    Text(
+                        text = "配信した投稿を取ってきている。",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
 
             notes.isEmpty() && error != null -> {
-                Text(
-                    text = error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                NoteListPlaceholder {
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                     OutlinedButton(onClick = { listener.onClickReloadNotes() }) {
                         Text("もう一度試す")
                     }
@@ -498,56 +507,108 @@ private fun NotesSection(
             }
 
             notes.isEmpty() -> {
-                Text(
-                    text = "まだ投稿していない",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                NoteListPlaceholder {
+                    Text(
+                        text = "まだ投稿していない",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             else -> {
-                notes.forEachIndexed { index, note ->
-                    if (index > 0) {
-                        HorizontalDivider(color = dividerColor())
-                    }
-
+                notes.forEach { note ->
                     key(note.url) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            HtmlElementView(
-                                factory = { document.createElement("div") as HTMLDivElement },
-                                update = { it.innerHTML = note.contentHtml },
-                            )
-                            Text(
-                                text = note.publishedAt,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        NoteCard(note = note)
                     }
                 }
+            }
+        }
 
-                if (error != null) {
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedButton(onClick = { listener.onClickReloadNotes() }) {
-                            Text("もう一度試す")
-                        }
-                    }
-                }
+        if (notes.isNotEmpty()) {
+            NotesPagingFooter(content = content, listener = listener)
+        }
+    }
+}
 
-                if (content.canLoadMore) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedButton(
-                            onClick = { listener.onClickLoadMore() },
-                            enabled = !content.loadingMore,
-                        ) {
-                            Text(if (content.loadingMore) "読み込み中" else "もっと見る")
-                        }
-                    }
+@Composable
+private fun NoteListPlaceholder(content: @Composable () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = { content() },
+        )
+    }
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun NoteCard(note: NoteUiState) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            HtmlElementView(
+                factory = { document.createElement("div") as HTMLDivElement },
+                update = { it.innerHTML = note.contentHtml },
+            )
+
+            Text(
+                text = note.publishedAt,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            TextLink(
+                text = note.url,
+                onClick = { openExternalLink(note.url) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun NotesPagingFooter(
+    content: AccountScreenUiState.Content.Loaded,
+    listener: AccountScreenUiState.Listener,
+) {
+    if (!content.canLoadMore && content.notesError == null) return
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        val error = content.notesError
+        if (error != null) {
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+            OutlinedButton(onClick = { listener.onClickReloadNotes() }) {
+                Text("もう一度試す")
+            }
+        }
+
+        if (content.canLoadMore) {
+            if (content.loadingMore) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                Button(onClick = { listener.onClickLoadMore() }) {
+                    Text("もっと見る")
                 }
             }
         }

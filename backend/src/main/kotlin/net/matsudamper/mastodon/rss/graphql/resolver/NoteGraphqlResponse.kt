@@ -1,9 +1,9 @@
-package net.[REDACTED].mastodon.rss.graphql.resolver
+package net.matsudamper.mastodon.rss.graphql.resolver
 
-import net.[REDACTED].mastodon.rss.graphql.model.QlAdminNote
-import net.[REDACTED].mastodon.rss.graphql.model.QlNote
-import net.[REDACTED].mastodon.rss.note.NoteUrls
-import net.[REDACTED].mastodon.rss.note.StoredNote
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
+import net.matsudamper.mastodon.rss.graphql.model.QlNote
+import net.matsudamper.mastodon.rss.note.NoteUrls
+import net.matsudamper.mastodon.rss.note.StoredNote
 
 internal fun StoredNote.toGraphqlResponse(domain: String): QlAdminNote = QlAdminNote(
     url = NoteUrls(domain = domain, publicId = publicId).noteId,

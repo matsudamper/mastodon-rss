@@ -1,4 +1,4 @@
-package net.[REDACTED].mastodon.rss.frontend.logic.account
+package net.matsudamper.mastodon.rss.frontend.logic.account
 
 import kotlin.time.Instant
 

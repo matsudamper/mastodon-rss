@@ -1,4 +1,4 @@
-package net.[REDACTED].mastodon.rss.frontend.screen.account
+package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.runtime.Immutable
 

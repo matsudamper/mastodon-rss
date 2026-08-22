@@ -1,15 +1,15 @@
-package net.[REDACTED].mastodon.rss.graphql.resolver
+package net.matsudamper.mastodon.rss.graphql.resolver
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
-import net.[REDACTED].mastodon.rss.graphql.GraphQlEngine
-import net.[REDACTED].mastodon.rss.graphql.data.NotesCursor
-import net.[REDACTED].mastodon.rss.graphql.model.AccountResolver
-import net.[REDACTED].mastodon.rss.graphql.model.QlAccount
-import net.[REDACTED].mastodon.rss.graphql.model.QlNotesConnection
-import net.[REDACTED].mastodon.rss.graphql.model.QlPageInfo
+import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
+import net.matsudamper.mastodon.rss.graphql.model.AccountResolver
+import net.matsudamper.mastodon.rss.graphql.model.QlAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlNotesConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
 
 class AccountResolverImpl : AccountResolver {
     override fun notes(

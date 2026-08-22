@@ -1,4 +1,4 @@
-package net.[REDACTED].mastodon.rss.frontend.screen.account
+package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -8,11 +8,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import net.[REDACTED].mastodon.rss.frontend.format.UnixTimeUtil
-import net.[REDACTED].mastodon.rss.frontend.logic.account.AccountApi
-import net.[REDACTED].mastodon.rss.frontend.logic.account.AccountNote
-import net.[REDACTED].mastodon.rss.frontend.logic.account.AccountNotesResult
-import net.[REDACTED].mastodon.rss.frontend.logic.account.AccountResult
+import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
+import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
+import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
+import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
+import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
 
 /**
  * @param username URL に入っていた名前。綴りが違っていても引けるので、

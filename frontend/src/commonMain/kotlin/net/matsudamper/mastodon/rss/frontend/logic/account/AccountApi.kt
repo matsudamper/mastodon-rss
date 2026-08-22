@@ -1,14 +1,14 @@
-package net.[REDACTED].mastodon.rss.frontend.logic.account
+package net.matsudamper.mastodon.rss.frontend.logic.account
 
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Optional
 import kotlin.time.Instant
-import net.[REDACTED].mastodon.rss.frontend.graphql.AccountNotesQuery
-import net.[REDACTED].mastodon.rss.frontend.graphql.AccountScreenQuery
-import net.[REDACTED].mastodon.rss.frontend.graphql.HomeScreenQuery
-import net.[REDACTED].mastodon.rss.frontend.graphql.fragment.AccountNoteFields
-import net.[REDACTED].mastodon.rss.frontend.logic.GraphQlClient
+import net.matsudamper.mastodon.rss.frontend.graphql.AccountNotesQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AccountScreenQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.HomeScreenQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AccountNoteFields
+import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 
 class AccountApi(
     private val client: ApolloClient = GraphQlClient.apollo,
