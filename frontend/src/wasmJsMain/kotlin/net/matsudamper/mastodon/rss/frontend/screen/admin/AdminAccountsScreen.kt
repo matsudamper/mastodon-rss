@@ -118,6 +118,12 @@ private fun AccountRow(
         )
 
         Text(
+            text = "フォロワー ${account.followerCount} 人",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Text(
             text = account.actorUrl,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

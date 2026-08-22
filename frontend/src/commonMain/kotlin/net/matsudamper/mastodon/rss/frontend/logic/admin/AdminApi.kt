@@ -1,15 +1,20 @@
 package net.matsudamper.mastodon.rss.frontend.logic.admin
 
+import kotlin.time.Instant
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
+import com.apollographql.apollo.api.Optional
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
@@ -48,7 +53,9 @@ class AdminApi(
         val response = client.query(AdminAccountsQuery()).execute()
         val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
 
-        return AdminAccountsResult.Success(data.admin.adminAccounts.map { it.adminAccountFields.toAdminAccount() })
+        return AdminAccountsResult.Success(
+            data.admin.adminAccounts.map { it.adminAccountFields.toAdminAccount() },
+        )
     }
 
     suspend fun account(username: String): AdminAccountResult {
@@ -84,6 +91,82 @@ class AdminApi(
     }
 
     /**
+     * @param cursor 直前のページの続きから取る。null なら先頭から
+     * @param limit 要求する件数。上限はサーバー側で決まる
+     */
+    suspend fun notes(
+        username: String,
+        cursor: String? = null,
+        limit: Int,
+    ): AdminNotesResult {
+        val response = client
+            .query(
+                AdminNotesQuery(
+                    username = username,
+                    cursor = Optional.presentIfNotNull(cursor),
+                    limit = limit,
+                ),
+            ).execute()
+
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminNotesResult.Failure(response.failureMessage())
+        }
+
+        val data = response.data ?: return AdminNotesResult.Failure(response.failureMessage())
+
+        return AdminNotesResult.Success(
+            notes = data.admin.notes.nodes.map { it.adminNoteFields.toAdminNote() },
+            cursor = data.admin.notes.pageInfo.nextCursor,
+        )
+    }
+
+    suspend fun postNote(
+        username: String,
+        body: String,
+    ): AdminPostNoteResult {
+        val response = client.mutation(AdminPostNoteMutation(username = username, body = body)).execute()
+
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminPostNoteResult.Failure(response.failureMessage())
+        }
+
+        val posted = response.data?.admin?.postNote ?: return AdminPostNoteResult.Failure(response.failureMessage())
+
+        val failure = posted.failure
+        if (failure != null) {
+            return AdminPostNoteResult.Rejected(
+                unknownAccount = failure.unknownAccount,
+                isEmpty = failure.isEmpty,
+                maxLength = failure.maxLength,
+            )
+        }
+
+        val note = posted.note ?: return AdminPostNoteResult.Failure("投稿できたが内容が返ってこない")
+
+        return AdminPostNoteResult.Success(
+            note = note.adminNoteFields.toAdminNote(),
+            deliveryTargets = posted.deliveryTargets ?: 0,
+            delivered = posted.delivered ?: 0,
+        )
+    }
+
+    private fun AdminAccountFields.toAdminAccount(): AdminAccount = AdminAccount(
+        account = Account(
+            username = account.username,
+            acct = account.acct,
+            actorUrl = account.actorUrl,
+        ),
+        createdAt = createdAt,
+        followerCount = followerCount,
+    )
+
+    private fun AdminNoteFields.toAdminNote(): AdminNote = AdminNote(
+        url = url,
+        contentHtml = contentHtml,
+        publishedAt = Instant.fromEpochSeconds(publishedAt),
+    )
+
+    /**
      * `data` が無いのは失敗。ログインしていない状態と混ぜない
      */
     private fun <D : Operation.Data> ApolloResponse<D>.toSessionResult(
@@ -103,14 +186,4 @@ class AdminApi(
             ?: errors?.joinToString("\n") { it.message }?.takeIf { it.isNotEmpty() }
             ?: "ネットワークエラー"
     }
-
-    private fun AdminAccountFields.toAdminAccount(): AdminAccount = AdminAccount(
-        account = Account(
-            username = account.username,
-            acct = account.acct,
-            actorUrl = account.actorUrl,
-        ),
-        deletable = deletable,
-        createdAt = createdAt,
-    )
 }

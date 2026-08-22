@@ -20,17 +20,28 @@ data class AdminAccountScreenUiState(
          */
         data object NotFound : Content
 
+        /**
+         * @param account この画面が扱うアカウント
+         * @param post 投稿の入力欄
+         * @param notes 配信した投稿。新しい順
+         * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
+         * @param notesLoading 一覧を取っている最中
+         * @param canLoadMore さらに古い投稿があるか
+         */
         data class Loaded(
             val account: Account,
+            val post: Post,
+            val notes: List<Note>,
+            val notesError: String?,
+            val notesLoading: Boolean,
+            val canLoadMore: Boolean,
+            val loadingMore: Boolean,
         ) : Content
 
         data class Error(
             val message: String,
         ) : Content
     }
-
-    // TODO: フォロワー数は Phase 3 の永続化実装後にここへ足す
-    // TODO: 投稿の入力欄と、配信した投稿の一覧は Phase 4 でここに足す
 
     /**
      * @param acct Mastodon の検索窓に貼る形
@@ -41,10 +52,51 @@ data class AdminAccountScreenUiState(
         val acct: String,
         val actorUrl: String,
         val createdAt: String?,
+        val followerCount: Int,
+    )
+
+    /**
+     * @param submitting true の間は入力欄とボタンを押せなくする
+     * @param result 直前の投稿の結果。次の入力を始めたら消す
+     */
+    data class Post(
+        val body: String,
+        val submitting: Boolean,
+        val result: PostResult?,
+        val error: String?,
+    ) {
+        val canSubmit: Boolean get() = !submitting && body.isNotBlank()
+    }
+
+    data class Note(
+        val url: String,
+        val contentHtml: String,
+        val publishedAt: String,
+    )
+
+    /**
+     * @param targets 送った宛先の数
+     * @param delivered そのうち届いた数
+     */
+    data class PostResult(
+        val url: String,
+        val targets: Int,
+        val delivered: Int,
     )
 
     @Immutable
     interface Listener {
+        fun onBodyChanged(text: String)
+
+        fun onClickPost()
+
+        fun onClickLoadMore()
+
+        /**
+         * 一覧だけ取り直す
+         */
+        fun onClickReloadNotes()
+
         fun onClickReload()
     }
 }

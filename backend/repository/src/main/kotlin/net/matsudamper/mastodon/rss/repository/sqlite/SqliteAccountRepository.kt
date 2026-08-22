@@ -1,8 +1,6 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeFormatterBuilder
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
@@ -86,7 +84,7 @@ internal class SqliteAccountRepository(
         dsl
             .insertInto(ACCOUNTS)
             .set(ACCOUNTS.USERNAME, username)
-            .set(ACCOUNTS.CREATED_AT, STORED_FORMAT.format(createdAt))
+            .set(ACCOUNTS.CREATED_AT, StoredInstant.format(createdAt))
             .execute()
 
         Account(username = username, createdAt = createdAt)
@@ -103,15 +101,6 @@ internal class SqliteAccountRepository(
 
     private fun Record2<String, String>.toAccount(): Account = Account(
         username = get(ACCOUNTS.USERNAME),
-        createdAt = Instant.parse(get(ACCOUNTS.CREATED_AT)),
+        createdAt = StoredInstant.parse(get(ACCOUNTS.CREATED_AT)),
     )
-
-    private companion object {
-        /**
-         * 秒未満の桁を固定して書く。`Instant.toString()` は末尾の 0 を落とすので、
-         * そのまま入れると文字列の並びが時刻の並びと一致しない
-         * （`00:00:00Z` が `00:00:00.5Z` より後ろに来る）
-         */
-        val STORED_FORMAT: DateTimeFormatter = DateTimeFormatterBuilder().appendInstant(9).toFormatter()
-    }
 }

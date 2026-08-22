@@ -28,8 +28,8 @@ fragment AdminAccountFields on AdminAccount {
         acct
         actorUrl
     }
-    deletable
     createdAt
+    followerCount
 }
 
 mutation AdminLogin($password: String!) {
@@ -72,4 +72,41 @@ mutation AdminAddAccount($username: String!) {
 fragment AdminSessionFields on AdminSession {
     loggedIn
     passwordConfigured
+}
+
+query AdminNotes($username: String!, $cursor: String, $limit: Int!) {
+    admin {
+        notes(username: $username, cursor: $cursor, limit: $limit) {
+            nodes {
+                ...AdminNoteFields
+            }
+            pageInfo {
+                hasMore
+                nextCursor
+            }
+        }
+    }
+}
+
+mutation AdminPostNote($username: String!, $body: String!) {
+    admin {
+        postNote(username: $username, body: $body) {
+            note {
+                ...AdminNoteFields
+            }
+            deliveryTargets
+            delivered
+            failure {
+                unknownAccount
+                isEmpty
+                maxLength
+            }
+        }
+    }
+}
+
+fragment AdminNoteFields on AdminNote {
+    url
+    contentHtml
+    publishedAt
 }

@@ -58,7 +58,7 @@ sealed interface Screen : NavKey {
     /**
      * アカウント 1 つの管理画面。
      *
-     * そのアカウントとしての操作はここに集める。いまはフォロワー数の表示だけ。
+     * そのアカウントとしての操作はここに集める。いまは投稿と、配信した投稿の一覧。
      */
     data class AdminAccount(
         val username: String,
