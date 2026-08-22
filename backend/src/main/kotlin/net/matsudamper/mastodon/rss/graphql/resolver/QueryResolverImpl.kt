@@ -6,7 +6,10 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.data.AccountsCursor
+import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAccountNotesConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAccountNotesQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountsConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
@@ -22,10 +25,8 @@ class QueryResolverImpl : QueryResolver {
         limit: Int,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAccountsConnection>> {
-        // カーソルを組み立てるのも解くのもこの層。下は名前しか知らない
         val after = cursor?.let { AccountsCursor.decode(it) }
 
-        // 読めないカーソルは、消えたアカウントを指していたのと同じ扱いにする
         val connection = if (cursor != null && after == null) {
             QlAccountsConnection(
                 nodes = emptyList(),
@@ -68,10 +69,40 @@ class QueryResolverImpl : QueryResolver {
             }
     }
 
+    override fun notes(
+        query: QlAccountNotesQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAccountNotesConnection>> {
+        val after = query.cursor?.let { NotesCursor.decode(it) }
+
+        val connection = if (query.cursor != null && after == null) {
+            QlAccountNotesConnection(
+                nodes = emptyList(),
+                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+            )
+        } else {
+            val diContainer = GraphQlEngine.diContainer(env)
+            val page = diContainer.noteService.notes(
+                username = query.username,
+                after = after?.toPosition(),
+                limit = query.limit,
+            )
+
+            QlAccountNotesConnection(
+                nodes = page.notes.map { it.toAccountNoteGraphqlResponse(domain = diContainer.domain) },
+                pageInfo = QlPageInfo(
+                    hasMore = page.hasMore,
+                    nextCursor = page.nextPosition?.let { NotesCursor.of(it).encode() },
+                ),
+            )
+        }
+
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(connection).build(),
+        )
+    }
+
     private companion object {
-        /**
-         * 1 回に返す上限。取得側が limit + 1 を数えるので、Int があふれる値を先に落とす
-         */
         const val MAX_ACCOUNTS_LIMIT = 100
     }
 }

@@ -233,9 +233,9 @@ class AccountGraphQlTest {
             contentType(ContentType.Application.Json)
 
             val query =
-                "query AccountNotes(${'$'}username: String!, ${'$'}cursor: String, ${'$'}limit: Int!) { " +
-                    "account(username: ${'$'}username) { notes(cursor: ${'$'}cursor, limit: ${'$'}limit) { " +
-                    "nodes { url contentHtml publishedAt } pageInfo { hasMore nextCursor } } } }"
+                "query AccountNotesQuery(${'$'}username: String!, ${'$'}cursor: String, ${'$'}limit: Int!) { " +
+                    "notes(query: { username: ${'$'}username, cursor: ${'$'}cursor, limit: ${'$'}limit }) { " +
+                    "nodes { url contentHtml publishedAt } pageInfo { hasMore nextCursor } } }"
 
             val variables = buildString {
                 append("{")
@@ -292,7 +292,7 @@ class AccountGraphQlTest {
          */
         suspend fun HttpResponse.account(): JsonObject = body().obj("data").obj("account")
 
-        suspend fun HttpResponse.accountNotes(): JsonObject = account().obj("notes")
+        suspend fun HttpResponse.accountNotes(): JsonObject = body().obj("data").obj("notes")
 
         /**
          * `data.accounts` まで降りる。errors が入っていたらここで落ちる
