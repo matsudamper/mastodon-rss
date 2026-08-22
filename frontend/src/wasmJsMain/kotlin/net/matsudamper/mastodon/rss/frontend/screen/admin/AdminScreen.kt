@@ -20,6 +20,9 @@ import net.matsudamper.mastodon.rss.frontend.ui.AdminLoginPasswordField
 import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
+import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink // pragma: allowlist secret
+
+private const val REPOSITORY_URL = "https://github.com/" + "matsudamper" + "/mastodon-rss" // pragma: allowlist secret
 
 @Composable
 fun AdminScreen(onNavigate: (Screen) -> Unit) {
@@ -59,6 +62,7 @@ private fun AdminScreen(
             AdminScreenUiState.Content.LoggedIn -> {
                 MenuCard(onNavigate = onNavigate)
                 LoggedInCard(listener = uiState.listener)
+                AboutCard()
             }
 
             is AdminScreenUiState.Content.Error -> {
@@ -151,6 +155,20 @@ private fun MenuCard(onNavigate: (Screen) -> Unit) {
             text = "フィードの登録・削除、配信エラーの確認、手動での再取得はこれから作る。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun AboutCard() {
+    SectionCard(title = "このソフトウェア") {
+        Text(
+            text = "ソースコードは GitHub で公開している。",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        TextLink(
+            text = "mastodon-rss",
+            onClick = { openExternalLink(REPOSITORY_URL) },
         )
     }
 }
