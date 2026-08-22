@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.screen.account
+package net.[REDACTED].mastodon.rss.frontend.screen.account
 
 import androidx.compose.runtime.Immutable
 
@@ -16,6 +16,11 @@ data class AccountScreenUiState(
 
         data class Loaded(
             val account: AccountUiState,
+            val notes: List<NoteUiState>,
+            val notesError: String?,
+            val notesLoading: Boolean,
+            val canLoadMore: Boolean,
+            val loadingMore: Boolean,
         ) : Content
 
         data class Error(
@@ -26,5 +31,9 @@ data class AccountScreenUiState(
     @Immutable
     interface Listener {
         fun onClickReload()
+
+        fun onClickReloadNotes()
+
+        fun onClickLoadMore()
     }
 }

@@ -21,9 +21,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -32,6 +34,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
+import kotlinx.browser.document
 import kotlinx.browser.window
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
@@ -44,6 +47,8 @@ import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
 import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink
+import androidx.compose.ui.viewinterop.HtmlElementView
+import org.w3c.dom.HTMLDivElement
 
 /**
  * アカウント画面。`/@feed1` のような URL で開く。
@@ -123,9 +128,10 @@ private fun AccountScreen(
 
             is AccountScreenUiState.Content.Loaded -> {
                 AccountContent(
-                    state = content.account,
+                    content = content,
                     wide = wide,
                     onNavigate = onNavigate,
+                    listener = uiState.listener,
                 )
             }
         }
@@ -134,10 +140,13 @@ private fun AccountScreen(
 
 @Composable
 private fun AccountContent(
-    state: AccountUiState,
+    content: AccountScreenUiState.Content.Loaded,
     wide: Boolean,
     onNavigate: (Screen) -> Unit,
+    listener: AccountScreenUiState.Listener,
 ) {
+    val state = content.account
+
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -156,7 +165,7 @@ private fun AccountContent(
                     modifier = Modifier.weight(1.5f),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    ArticlesSection(state = state)
+                    NotesSection(content = content, listener = listener)
                 }
                 Column(
                     modifier = Modifier.weight(1f),
@@ -170,7 +179,7 @@ private fun AccountContent(
         } else {
             FeedSection(state = state)
             FollowSection(state = state, onNavigate = onNavigate)
-            ArticlesSection(state = state)
+            NotesSection(content = content, listener = listener)
             DeliverySection(state = state)
         }
     }
@@ -195,14 +204,14 @@ private fun PlaceholderNotice() {
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = "この画面の数値と記事は仮のもの",
+                text = "この画面の数値とフィード情報は仮のもの",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text =
                 "実際の値になるのは、フィードの取り込み（Phase 5）と管理 API（Phase 8）を繋いでから。" +
-                    "ユーザー名と acct は URL から決まるので、こちらは本物。",
+                    "ユーザー名と acct と配信した投稿は本物。",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -455,35 +464,91 @@ private fun FollowSection(
 }
 
 /**
- * 配信した記事。
+ * 配信した投稿。
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun ArticlesSection(state: AccountUiState) {
-    SectionCard(title = "配信した記事") {
-        if (state.articles.isEmpty()) {
-            Text(
-                text = "まだ記事を配信していない",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            return@SectionCard
-        }
+private fun NotesSection(
+    content: AccountScreenUiState.Content.Loaded,
+    listener: AccountScreenUiState.Listener,
+) {
+    SectionCard(title = "配信した投稿") {
+        val notes = content.notes
+        val error = content.notesError
 
-        state.articles.forEachIndexed { index, article ->
-            if (index > 0) {
-                HorizontalDivider(color = dividerColor())
+        when {
+            content.notesLoading && notes.isEmpty() -> {
+                Text(
+                    text = "配信した投稿を取ってきている。",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextLink(
-                    text = article.title,
-                    onClick = { openExternalLink(article.url) },
-                )
+            notes.isEmpty() && error != null -> {
                 Text(
-                    text = article.publishedAt,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = { listener.onClickReloadNotes() }) {
+                        Text("もう一度試す")
+                    }
+                }
+            }
+
+            notes.isEmpty() -> {
+                Text(
+                    text = "まだ投稿していない",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+
+            else -> {
+                notes.forEachIndexed { index, note ->
+                    if (index > 0) {
+                        HorizontalDivider(color = dividerColor())
+                    }
+
+                    key(note.url) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            HtmlElementView(
+                                factory = { document.createElement("div") as HTMLDivElement },
+                                update = { it.innerHTML = note.contentHtml },
+                            )
+                            Text(
+                                text = note.publishedAt,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                if (error != null) {
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(onClick = { listener.onClickReloadNotes() }) {
+                            Text("もう一度試す")
+                        }
+                    }
+                }
+
+                if (content.canLoadMore) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(
+                            onClick = { listener.onClickLoadMore() },
+                            enabled = !content.loadingMore,
+                        ) {
+                            Text(if (content.loadingMore) "読み込み中" else "もっと見る")
+                        }
+                    }
+                }
             }
         }
     }

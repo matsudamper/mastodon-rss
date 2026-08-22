@@ -1,0 +1,13 @@
+query AccountNotes($username: String!, $cursor: String, $limit: Int!) {
+    account(username: $username) {
+        notes(cursor: $cursor, limit: $limit) {
+            nodes {
+                ...AccountNoteFields
+            }
+            pageInfo {
+                hasMore
+                nextCursor
+            }
+        }
+    }
+}
