@@ -38,10 +38,9 @@ fun main() {
 
     val telemetry = OpenTelemetryInitializer.start()
     val deps = AppDependencies.create(env, telemetry = telemetry)
-    val server =
-        embeddedServer(CIO, port = env.port, host = env.host) {
-            module(deps)
-        }
+    val server = embeddedServer(CIO, port = env.port, host = env.host) {
+        module(deps)
+    }
 
     // 終了処理を `use` に任せない。docker stop で来る SIGTERM では main が返らないまま
     // JVM が終わるので finally まで届かず、閉じずに終わると書き込みが DB のファイルに
