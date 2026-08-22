@@ -10,6 +10,13 @@ type AdminMutation {
 
     "アカウントとして投稿し、フォロワーに配る"
     postNote(username: String!, body: String!): AdminPostNoteResult! @lazy
+
+    "アカウントの表示名と説明文を更新する"
+    updateAccountProfile(
+        username: String!
+        displayName: String!
+        summary: String!
+    ): AdminUpdateAccountProfileResult! @lazy
 }
 
 type AdminPostNoteResult {
@@ -68,4 +75,25 @@ type AdminAddAccountFailure {
 
     "同じ名前のアカウントが既にある"
     isDuplicated: Boolean!
+}
+
+type AdminUpdateAccountProfileResult {
+    adminAccount: AdminAccount
+
+    "更新できなかった場合だけ入る"
+    failure: AdminUpdateAccountProfileFailure
+}
+
+type AdminUpdateAccountProfileFailure {
+    "その名前のアカウントが無い"
+    unknownAccount: Boolean!
+
+    "表示名が空"
+    emptyDisplayName: Boolean!
+
+    "表示名の文字数上限を超えている場合の上限"
+    displayNameMaxLength: Int
+
+    "説明文の文字数上限を超えている場合の上限"
+    summaryMaxLength: Int
 }

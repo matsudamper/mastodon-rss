@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminUpdateAccountProfileMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
@@ -150,11 +151,50 @@ class AdminApi(
         )
     }
 
+    suspend fun updateAccountProfile(
+        username: String,
+        displayName: String,
+        summary: String,
+    ): AdminUpdateAccountProfileResult {
+        val response = client
+            .mutation(
+                AdminUpdateAccountProfileMutation(
+                    username = username,
+                    displayName = displayName,
+                    summary = summary,
+                ),
+            ).execute()
+
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminUpdateAccountProfileResult.Failure(response.failureMessage())
+        }
+
+        val updated = response.data?.admin?.updateAccountProfile
+            ?: return AdminUpdateAccountProfileResult.Failure(response.failureMessage())
+
+        val failure = updated.failure
+        if (failure != null) {
+            return AdminUpdateAccountProfileResult.Rejected(
+                unknownAccount = failure.unknownAccount,
+                emptyDisplayName = failure.emptyDisplayName,
+                displayNameMaxLength = failure.displayNameMaxLength,
+                summaryMaxLength = failure.summaryMaxLength,
+            )
+        }
+
+        val adminAccount = updated.adminAccount?.adminAccountFields?.toAdminAccount()
+            ?: return AdminUpdateAccountProfileResult.Failure("更新できたが内容が返ってこない")
+
+        return AdminUpdateAccountProfileResult.Success(adminAccount = adminAccount)
+    }
+
     private fun AdminAccountFields.toAdminAccount(): AdminAccount = AdminAccount(
         account = Account(
             username = account.username,
             acct = account.acct,
             actorUrl = account.actorUrl,
+            displayName = account.displayName,
+            summary = account.summary,
         ),
         createdAt = createdAt,
         followerCount = followerCount,

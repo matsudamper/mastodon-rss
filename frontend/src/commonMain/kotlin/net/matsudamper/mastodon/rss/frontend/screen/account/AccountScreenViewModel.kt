@@ -75,6 +75,8 @@ class AccountScreenViewModel(
                         acct = account.account.acct,
                         actorUrl = account.account.actorUrl,
                         host = host,
+                        displayName = account.account.displayName,
+                        summary = account.account.summary,
                     ),
                 )
             }

@@ -4,7 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -16,6 +20,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -101,6 +106,7 @@ private fun AdminAccountScreen(
 
             is AdminAccountScreenUiState.Content.Loaded -> {
                 AccountCard(account = content.account, onNavigate = onNavigate)
+                ProfileCard(profile = content.profile, listener = uiState.listener)
                 PostCard(post = content.post, listener = uiState.listener)
                 NotesCard(content = content, listener = uiState.listener)
             }
@@ -138,6 +144,89 @@ private fun AccountCard(
             text = "公開されているアカウント画面を開く",
             onClick = { onNavigate(Screen.Account(account.username)) },
         )
+    }
+}
+
+@Composable
+private fun ProfileCard(
+    profile: AdminAccountScreenUiState.Profile,
+    listener: AdminAccountScreenUiState.Listener,
+) {
+    SectionCard(title = "プロフィール") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "表示名と説明文",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+
+            if (!profile.editing) {
+                IconButton(onClick = { listener.onClickEditProfile() }) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "編集",
+                    )
+                }
+            }
+        }
+
+        if (profile.editing) {
+            OutlinedTextField(
+                value = profile.editDisplayName,
+                onValueChange = { listener.onProfileDisplayNameChanged(it) },
+                enabled = !profile.saving,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("表示名") },
+                singleLine = true,
+            )
+
+            OutlinedTextField(
+                value = profile.editSummary,
+                onValueChange = { listener.onProfileSummaryChanged(it) },
+                enabled = !profile.saving,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("説明文") },
+                minLines = 3,
+            )
+
+            if (profile.error != null) {
+                Text(
+                    text = profile.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = { listener.onClickSaveProfile() },
+                    enabled = profile.canSave,
+                ) {
+                    Text(if (profile.saving) "保存中" else "保存")
+                }
+
+                OutlinedButton(
+                    onClick = { listener.onClickCancelProfileEdit() },
+                    enabled = !profile.saving,
+                ) {
+                    Text("キャンセル")
+                }
+            }
+        } else {
+            Text(
+                text = profile.displayName,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Text(
+                text = profile.summary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
 
