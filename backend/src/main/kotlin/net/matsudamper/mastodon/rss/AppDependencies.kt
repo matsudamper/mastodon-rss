@@ -21,7 +21,7 @@ import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
-import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryHandle
+import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
 
 /**
  * アプリが使うものを作って配る場所。
@@ -48,7 +48,7 @@ class AppDependencies(
     val delivery: ActivityDelivery,
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
     val openTelemetry: OpenTelemetry? = null,
-    private val telemetry: OpenTelemetryHandle? = null,
+    private val telemetry: OpenTelemetryInitializer.Handler? = null,
 ) : AutoCloseable {
     /**
      * ドメインはアクター ID に焼き込まれ、Mastodon 側にキャッシュされると後から変えられない。
@@ -125,7 +125,7 @@ class AppDependencies(
          */
         fun create(
             env: ServerEnv,
-            telemetry: OpenTelemetryHandle? = null,
+            telemetry: OpenTelemetryInitializer.Handler? = null,
         ): AppDependencies {
             val repositories = createRepositories(DatabaseConfig(path = env.dbPath))
             val openTelemetry = telemetry?.openTelemetry
