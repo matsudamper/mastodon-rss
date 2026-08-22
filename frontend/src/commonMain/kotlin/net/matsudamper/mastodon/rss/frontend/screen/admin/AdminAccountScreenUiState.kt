@@ -30,6 +30,7 @@ data class AdminAccountScreenUiState(
          */
         data class Loaded(
             val account: Account,
+            val profile: Profile,
             val post: Post,
             val notes: List<Note>,
             val notesError: String?,
@@ -53,7 +54,26 @@ data class AdminAccountScreenUiState(
         val actorUrl: String,
         val createdAt: String?,
         val followerCount: Int,
+        val displayName: String,
+        val summary: String,
     )
+
+    /**
+     * @param editing true のとき入力欄を出す
+     * @param editDisplayName 編集中の表示名
+     * @param editSummary 編集中の説明文
+     */
+    data class Profile(
+        val displayName: String,
+        val summary: String,
+        val editing: Boolean,
+        val editDisplayName: String,
+        val editSummary: String,
+        val saving: Boolean,
+        val error: String?,
+    ) {
+        val canSave: Boolean get() = !saving && editDisplayName.isNotBlank()
+    }
 
     /**
      * @param submitting true の間は入力欄とボタンを押せなくする
@@ -86,6 +106,16 @@ data class AdminAccountScreenUiState(
 
     @Immutable
     interface Listener {
+        fun onClickEditProfile()
+
+        fun onClickCancelProfileEdit()
+
+        fun onProfileDisplayNameChanged(text: String)
+
+        fun onProfileSummaryChanged(text: String)
+
+        fun onClickSaveProfile()
+
         fun onBodyChanged(text: String)
 
         fun onClickPost()

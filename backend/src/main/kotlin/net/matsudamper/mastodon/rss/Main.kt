@@ -8,12 +8,14 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.actor.ActorKey
+import net.matsudamper.mastodon.rss.actor.ActorProfile
 import net.matsudamper.mastodon.rss.actor.actorRoutes
 import net.matsudamper.mastodon.rss.follower.followerRoutes
 import net.matsudamper.mastodon.rss.graphql.DiContainer
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
+import net.matsudamper.mastodon.rss.graphql.resolver.AccountResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminAccountResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminMutationResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminQueryResolverImpl
@@ -24,6 +26,7 @@ import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
 import net.matsudamper.mastodon.rss.note.noteRoutes
 import net.matsudamper.mastodon.rss.note.outboxRoutes
+import net.matsudamper.mastodon.rss.logic.AccountProfileDefaults
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
@@ -111,12 +114,24 @@ fun Application.module(deps: AppDependencies) {
 
     logAdminLogin(env)
 
+    val diContainer = DiContainer(
+        passwordHash = env.adminPasswordHash,
+        accountRepository = deps.repositories.accounts,
+        accountProfileRepository = deps.repositories.accountProfiles,
+        followerRepository = deps.repositories.followers,
+        fixedActor = deps.actorUrls,
+        actorDirectory = deps.directory,
+        notePublisher = deps.notePublisher,
+        noteStore = deps.noteStore,
+    )
+
     val graphQl = GraphQlEngine.create(
         resolvers = listOf(
             QueryResolverImpl(),
             MutationResolverImpl(),
             AdminQueryResolverImpl(),
             AdminAccountResolverImpl(),
+            AccountResolverImpl(),
             AdminMutationResolverImpl(),
         ),
         createContext = { call ->
@@ -126,15 +141,7 @@ fun Application.module(deps: AppDependencies) {
                 cookieSecure = env.adminCookieSecure,
             )
         },
-        diContainer = DiContainer(
-            passwordHash = env.adminPasswordHash,
-            accountRepository = deps.repositories.accounts,
-            followerRepository = deps.repositories.followers,
-            fixedActor = deps.actorUrls,
-            actorDirectory = deps.directory,
-            notePublisher = deps.notePublisher,
-            noteStore = deps.noteStore,
-        ),
+        diContainer = diContainer,
     )
 
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
@@ -146,7 +153,13 @@ fun Application.module(deps: AppDependencies) {
 
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
         webFingerRoutes(deps.directory)
-        actorRoutes(deps.directory, actorKey)
+        actorRoutes(deps.directory, actorKey) { username ->
+            val resolved = diContainer.accountService.profile(username)
+            ActorProfile(
+                name = resolved?.displayName ?: username,
+                summary = resolved?.summary ?: AccountProfileDefaults.SUMMARY,
+            )
+        }
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)

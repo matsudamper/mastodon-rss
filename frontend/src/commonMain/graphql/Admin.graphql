@@ -27,6 +27,8 @@ fragment AdminAccountFields on AdminAccount {
         username
         acct
         actorUrl
+        displayName
+        summary
     }
     createdAt
     followerCount
@@ -100,6 +102,22 @@ mutation AdminPostNote($username: String!, $body: String!) {
                 unknownAccount
                 isEmpty
                 maxLength
+            }
+        }
+    }
+}
+
+mutation AdminUpdateAccountProfile($username: String!, $displayName: String!, $summary: String!) {
+    admin {
+        updateAccountProfile(username: $username, displayName: $displayName, summary: $summary) {
+            adminAccount {
+                ...AdminAccountFields
+            }
+            failure {
+                unknownAccount
+                emptyDisplayName
+                displayNameMaxLength
+                summaryMaxLength
             }
         }
     }

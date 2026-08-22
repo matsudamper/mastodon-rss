@@ -4,6 +4,7 @@ import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.AccountProfileRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
 /**
@@ -13,6 +14,7 @@ import net.matsudamper.mastodon.rss.repository.FollowerRepository
  */
 class AccountService(
     private val accounts: AccountRepository,
+    private val accountProfiles: AccountProfileRepository,
     private val followers: FollowerRepository,
     private val fixed: ActorUrls,
 ) {
@@ -133,6 +135,94 @@ class AccountService(
     }
 
     /**
+     * 表示名と説明文を返す。アカウントが無ければ null
+     */
+    fun profile(username: String): ResolvedProfile? {
+        val managed = account(username) ?: return null
+        val stored = accountProfiles.findByUsername(managed.urls.username)
+
+        return ResolvedProfile(
+            displayName = AccountProfileDefaults.displayName(managed.urls.username, stored),
+            summary = AccountProfileDefaults.summary(stored),
+        )
+    }
+
+    /**
+     * 複数アカウントのプロフィールをまとめて返す。存在しない名前は含めない
+     */
+    fun profiles(usernames: Set<String>): Map<String, ResolvedProfile> {
+        val urls = actorDirectoryUrls(usernames)
+        if (urls.isEmpty()) return emptyMap()
+
+        val stored = accountProfiles.findByUsernames(urls.keys)
+
+        return urls.mapValues { (username, actorUrls) ->
+            ResolvedProfile(
+                displayName = AccountProfileDefaults.displayName(actorUrls.username, stored[username]),
+                summary = AccountProfileDefaults.summary(stored[username]),
+            )
+        }
+    }
+
+    fun updateProfile(
+        username: String,
+        displayName: String,
+        summary: String,
+    ): UpdateProfileResult {
+        val managed = account(username) ?: return UpdateProfileResult.Failure(
+            unknownAccount = true,
+            emptyDisplayName = false,
+            displayNameTooLong = false,
+            summaryTooLong = false,
+        )
+
+        val trimmedDisplayName = displayName.trim()
+        val trimmedSummary = summary.trim()
+
+        if (trimmedDisplayName.isEmpty()) {
+            return UpdateProfileResult.Failure(
+                unknownAccount = false,
+                emptyDisplayName = true,
+                displayNameTooLong = false,
+                summaryTooLong = false,
+            )
+        }
+
+        if (trimmedDisplayName.length > AccountProfileDefaults.DISPLAY_NAME_MAX_LENGTH) {
+            return UpdateProfileResult.Failure(
+                unknownAccount = false,
+                emptyDisplayName = false,
+                displayNameTooLong = true,
+                summaryTooLong = false,
+            )
+        }
+
+        if (trimmedSummary.length > AccountProfileDefaults.SUMMARY_MAX_LENGTH) {
+            return UpdateProfileResult.Failure(
+                unknownAccount = false,
+                emptyDisplayName = false,
+                displayNameTooLong = false,
+                summaryTooLong = true,
+            )
+        }
+
+        accountProfiles.upsert(
+            username = managed.urls.username,
+            displayName = trimmedDisplayName,
+            summary = trimmedSummary,
+        )
+
+        return UpdateProfileResult.Success(managed)
+    }
+
+    private fun actorDirectoryUrls(usernames: Set<String>): Map<String, ActorUrls> = buildMap {
+        for (username in usernames) {
+            val managed = account(username) ?: continue
+            put(username, managed.urls)
+        }
+    }
+
+    /**
      * @param deletable 管理画面から消せるか。設定で決まるアカウントは消せない
      * @param createdAt 追加した時刻。設定で決まるアカウントには無い
      */
@@ -150,6 +240,24 @@ class AccountService(
         val hasMore: Boolean,
         val nextUsername: String?,
     )
+
+    data class ResolvedProfile(
+        val displayName: String,
+        val summary: String,
+    )
+
+    sealed interface UpdateProfileResult {
+        data class Success(
+            val account: ManagedAccount,
+        ) : UpdateProfileResult
+
+        data class Failure(
+            val unknownAccount: Boolean,
+            val emptyDisplayName: Boolean,
+            val displayNameTooLong: Boolean,
+            val summaryTooLong: Boolean,
+        ) : UpdateProfileResult
+    }
 
     sealed interface AddAccountResult {
         data class Success(

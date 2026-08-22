@@ -20,7 +20,10 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminUpdateAccountProfileFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminUpdateAccountProfileResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.logic.AccountProfileDefaults
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.NoteService
@@ -156,6 +159,51 @@ class AdminMutationResolverImpl : AdminMutationResolver {
             DataFetcherResult.Builder(result).build()
         }
     }
+
+    override fun updateAccountProfile(
+        adminMutation: QlAdminMutation,
+        username: String,
+        displayName: String,
+        summary: String,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminUpdateAccountProfileResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val result = when (
+            val updated = GraphQlEngine.diContainer(env).accountService.updateProfile(
+                username = username,
+                displayName = displayName,
+                summary = summary,
+            )
+        ) {
+            is AccountService.UpdateProfileResult.Success -> {
+                QlAdminUpdateAccountProfileResult(
+                    adminAccount = updated.account.toGraphqlResponse(),
+                    failure = null,
+                )
+            }
+
+            is AccountService.UpdateProfileResult.Failure -> {
+                QlAdminUpdateAccountProfileResult(
+                    adminAccount = null,
+                    failure = updated.toGraphqlResponse(),
+                )
+            }
+        }
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
+    }
+
+    /**
+     * 当てはまらない理由は null にする。入っているものだけが理由になる
+     */
+    private fun AccountService.UpdateProfileResult.Failure.toGraphqlResponse(): QlAdminUpdateAccountProfileFailure =
+        QlAdminUpdateAccountProfileFailure(
+            unknownAccount = unknownAccount,
+            emptyDisplayName = emptyDisplayName,
+            displayNameMaxLength = AccountProfileDefaults.DISPLAY_NAME_MAX_LENGTH.takeIf { displayNameTooLong },
+            summaryMaxLength = AccountProfileDefaults.SUMMARY_MAX_LENGTH.takeIf { summaryTooLong },
+        )
 
     /**
      * 当てはまらない理由は null にする。入っているものだけが理由になる

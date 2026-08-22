@@ -8,4 +8,6 @@ data class Account(
     val username: String,
     val acct: String,
     val actorUrl: String,
+    val displayName: String,
+    val summary: String,
 )

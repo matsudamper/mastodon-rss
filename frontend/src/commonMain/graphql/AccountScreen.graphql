@@ -3,5 +3,7 @@ query AccountScreen($username: String!) {
         username
         acct
         actorUrl
+        displayName
+        summary
     }
 }

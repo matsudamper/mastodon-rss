@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.repository.AccountProfileRepository
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
@@ -18,6 +19,8 @@ internal class SqliteRepositories(
     private val jooq = SqliteJooq(connectionManager)
 
     override val accounts: AccountRepository = SqliteAccountRepository(jooq)
+
+    override val accountProfiles: AccountProfileRepository = SqliteAccountProfileRepository(jooq)
 
     override val followers: FollowerRepository = SqliteFollowerRepository(jooq)
 

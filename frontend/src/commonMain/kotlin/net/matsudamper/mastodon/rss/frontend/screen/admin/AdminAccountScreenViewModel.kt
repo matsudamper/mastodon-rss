@@ -16,6 +16,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUpdateAccountProfileResult
 
 class AdminAccountScreenViewModel(
     private val username: String,
@@ -28,6 +29,7 @@ class AdminAccountScreenViewModel(
     private var notesJob: Job? = null
     private var loadMoreJob: Job? = null
     private var postJob: Job? = null
+    private var profileJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
         MutableStateFlow(
@@ -35,6 +37,30 @@ class AdminAccountScreenViewModel(
                 acct = "@$username",
                 content = AdminAccountScreenUiState.Content.Loading,
                 listener = object : AdminAccountScreenUiState.Listener {
+                    override fun onClickEditProfile() {
+                        startProfileEdit()
+                    }
+
+                    override fun onClickCancelProfileEdit() {
+                        cancelProfileEdit()
+                    }
+
+                    override fun onProfileDisplayNameChanged(text: String) {
+                        viewModelStateFlow.update {
+                            it.copy(profileEditDisplayName = text, profileError = null)
+                        }
+                    }
+
+                    override fun onProfileSummaryChanged(text: String) {
+                        viewModelStateFlow.update {
+                            it.copy(profileEditSummary = text, profileError = null)
+                        }
+                    }
+
+                    override fun onClickSaveProfile() {
+                        saveProfile()
+                    }
+
                     override fun onBodyChanged(text: String) {
                         viewModelStateFlow.update { it.copy(body = text, error = null, result = null) }
                     }
@@ -71,6 +97,7 @@ class AdminAccountScreenViewModel(
     private fun reload() {
         reloadJob?.cancel()
         postJob?.cancel()
+        profileJob?.cancel()
         cancelNotesJobs()
 
         viewModelStateFlow.update { ViewModelState(body = it.body) }
@@ -175,6 +202,92 @@ class AdminAccountScreenViewModel(
         loadMoreJob = null
     }
 
+    private fun startProfileEdit() {
+        val account = (viewModelStateFlow.value.account as? AdminAccountResult.Success)?.account ?: return
+
+        viewModelStateFlow.update {
+            it.copy(
+                profileEditing = true,
+                profileEditDisplayName = account.account.displayName,
+                profileEditSummary = account.account.summary,
+                profileError = null,
+            )
+        }
+    }
+
+    private fun cancelProfileEdit() {
+        profileJob?.cancel()
+        viewModelStateFlow.update {
+            it.copy(
+                profileEditing = false,
+                profileSaving = false,
+                profileError = null,
+            )
+        }
+    }
+
+    private fun saveProfile() {
+        val state = viewModelStateFlow.value
+        val displayName = state.profileEditDisplayName.trim()
+        val summary = state.profileEditSummary.trim()
+        if (displayName.isEmpty() || state.profileSaving) return
+
+        profileJob?.cancel()
+        viewModelStateFlow.update { it.copy(profileSaving = true, profileError = null) }
+
+        profileJob = viewModelScope.launch {
+            try {
+                when (
+                    val result = api.updateAccountProfile(
+                        username = username,
+                        displayName = displayName,
+                        summary = summary,
+                    )
+                ) {
+                    is AdminUpdateAccountProfileResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                account = AdminAccountResult.Success(result.adminAccount),
+                                profileEditing = false,
+                                profileSaving = false,
+                                profileError = null,
+                            )
+                        }
+                    }
+
+                    is AdminUpdateAccountProfileResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                profileSaving = false,
+                                profileError = profileRejectedMessage(result),
+                            )
+                        }
+                    }
+
+                    is AdminUpdateAccountProfileResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                profileSaving = false,
+                                profileError = result.message,
+                            )
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(profileSaving = false) }
+                }
+            }
+        }
+    }
+
+    private fun profileRejectedMessage(rejected: AdminUpdateAccountProfileResult.Rejected): String = buildList {
+        if (rejected.unknownAccount) add("このアカウントは応答しない")
+        if (rejected.emptyDisplayName) add("表示名が空")
+        if (rejected.displayNameMaxLength != null) add("表示名は ${rejected.displayNameMaxLength} 文字まで")
+        if (rejected.summaryMaxLength != null) add("説明文は ${rejected.summaryMaxLength} 文字まで")
+    }.joinToString("\n").ifEmpty { "保存できなかった" }
+
     private fun post() {
         val state = viewModelStateFlow.value
         val body = state.body.trim()
@@ -250,6 +363,7 @@ class AdminAccountScreenViewModel(
 
                 AdminAccountScreenUiState.Content.Loaded(
                     account = found.toUiState(),
+                    profile = state.toProfileUiState(found.account),
                     post = AdminAccountScreenUiState.Post(
                         body = state.body,
                         submitting = state.submitting,
@@ -272,7 +386,20 @@ class AdminAccountScreenViewModel(
         actorUrl = account.actorUrl,
         createdAt = createdAt?.let { UnixTimeUtil.format(it) },
         followerCount = followerCount,
+        displayName = account.displayName,
+        summary = account.summary,
     )
+
+    private fun ViewModelState.toProfileUiState(account: net.matsudamper.mastodon.rss.frontend.logic.account.Account): AdminAccountScreenUiState.Profile =
+        AdminAccountScreenUiState.Profile(
+            displayName = account.displayName,
+            summary = account.summary,
+            editing = profileEditing,
+            editDisplayName = if (profileEditing) profileEditDisplayName else account.displayName,
+            editSummary = if (profileEditing) profileEditSummary else account.summary,
+            saving = profileSaving,
+            error = profileError,
+        )
 
     private fun AdminNote.toUiState(): AdminAccountScreenUiState.Note = AdminAccountScreenUiState.Note(
         url = url,
@@ -292,6 +419,11 @@ class AdminAccountScreenViewModel(
         val notesLoading: Boolean = false,
         val cursor: String? = null,
         val loadingMore: Boolean = false,
+        val profileEditing: Boolean = false,
+        val profileEditDisplayName: String = "",
+        val profileEditSummary: String = "",
+        val profileSaving: Boolean = false,
+        val profileError: String? = null,
     )
 
     private companion object {

@@ -2,6 +2,8 @@ package net.matsudamper.mastodon.rss
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountProfile
+import net.matsudamper.mastodon.rss.repository.AccountProfileRepository
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
@@ -20,6 +22,8 @@ class FakeRepositories : Repositories {
         private set
 
     override val accounts: FakeAccountRepository = FakeAccountRepository()
+
+    override val accountProfiles: FakeAccountProfileRepository = FakeAccountProfileRepository()
 
     override val followers: FollowerRepository = FakeFollowerRepository()
 
@@ -68,6 +72,28 @@ class FakeAccountRepository : AccountRepository {
 
         return Account(username = username, createdAt = createdAt).also { stored += it }
     }
+}
+
+class FakeAccountProfileRepository : AccountProfileRepository {
+    private val stored = mutableMapOf<String, AccountProfile>()
+
+    override fun findByUsername(username: String): AccountProfile? = stored[username.lowercase()]
+
+    override fun findByUsernames(usernames: Collection<String>): Map<String, AccountProfile> =
+        usernames.mapNotNull { username ->
+            val profile = findByUsername(username) ?: return@mapNotNull null
+            username to profile
+        }.toMap()
+
+    override fun upsert(
+        username: String,
+        displayName: String,
+        summary: String,
+    ): AccountProfile = AccountProfile(
+        username = username,
+        displayName = displayName,
+        summary = summary,
+    ).also { stored[username.lowercase()] = it }
 }
 
 /**
