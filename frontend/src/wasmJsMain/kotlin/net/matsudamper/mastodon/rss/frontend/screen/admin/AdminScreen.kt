@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -107,7 +106,6 @@ private fun LoginCard(
             onSubmit = { listener.onClickLogin() },
             enabled = content.inputEnabled && !content.submitting,
             hasError = content.error != null,
-            modifier = Modifier.fillMaxWidth(),
         )
 
         if (content.error != null) {

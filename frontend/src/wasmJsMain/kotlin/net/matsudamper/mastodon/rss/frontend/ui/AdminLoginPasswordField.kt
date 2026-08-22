@@ -1,11 +1,14 @@
 package net.matsudamper.mastodon.rss.frontend.ui
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.HtmlElementView
 import kotlinx.browser.document
 import org.w3c.dom.HTMLFormElement
@@ -34,11 +37,20 @@ fun AdminLoginPasswordField(
     val inputStyle = MaterialTheme.typography.bodyLarge
 
     HtmlElementView(
-        modifier = modifier,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(FIELD_HEIGHT),
         factory = {
             val form = document.createElement("form") as HTMLFormElement
             form.id = FORM_ID
             form.setAttribute("autocomplete", "on")
+            form.style.apply {
+                width = "100%"
+                height = "100%"
+                margin = "0"
+                padding = "0"
+                border = "none"
+            }
 
             val label = document.createElement("label") as HTMLLabelElement
             label.htmlFor = PASSWORD_INPUT_ID
@@ -50,6 +62,7 @@ fun AdminLoginPasswordField(
             passwordInput.type = "password"
             passwordInput.autocomplete = "current-password"
             passwordInput.required = true
+            passwordInput.style.display = "block"
 
             form.append(label, passwordInput)
             form
@@ -122,3 +135,4 @@ private fun Color.toCssColor(): String {
 
 private const val FORM_ID = "admin-login-form"
 private const val PASSWORD_INPUT_ID = "admin-login-password"
+private val FIELD_HEIGHT = 80.dp
