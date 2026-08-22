@@ -1,13 +1,17 @@
-query AccountNotes($username: String!, $cursor: String, $limit: Int!) {
-    account(username: $username) {
-        notes(cursor: $cursor, limit: $limit) {
-            nodes {
-                ...AccountNoteFields
-            }
-            pageInfo {
-                hasMore
-                nextCursor
-            }
+query AccountNotesQuery($username: String!, $cursor: String, $limit: Int!) {
+    notes(query: { username: $username, cursor: $cursor, limit: $limit }) {
+        nodes {
+            ...AccountNoteFields
+        }
+        pageInfo {
+            hasMore
+            nextCursor
         }
     }
+}
+
+fragment AccountNoteFields on AccountNote {
+    url
+    contentHtml
+    publishedAt
 }

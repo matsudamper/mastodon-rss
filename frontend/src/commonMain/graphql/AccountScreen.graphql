@@ -3,20 +3,14 @@ query AccountScreen($username: String!, $notesCursor: String, $notesLimit: Int!)
         username
         acct
         actorUrl
-        notes(cursor: $notesCursor, limit: $notesLimit) {
-            nodes {
-                ...AccountNoteFields
-            }
-            pageInfo {
-                hasMore
-                nextCursor
-            }
+    }
+    notes(query: { username: $username, cursor: $notesCursor, limit: $notesLimit }) {
+        nodes {
+            ...AccountNoteFields
+        }
+        pageInfo {
+            hasMore
+            nextCursor
         }
     }
-}
-
-fragment AccountNoteFields on Note {
-    url
-    contentHtml
-    publishedAt
 }

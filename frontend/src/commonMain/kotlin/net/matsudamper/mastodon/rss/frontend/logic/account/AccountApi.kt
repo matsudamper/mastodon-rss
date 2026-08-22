@@ -52,7 +52,7 @@ class AccountApi(
 
         val data = response.data ?: return AccountResult.Failure(response.failureMessage())
         val account = data.account ?: return AccountResult.NotFound
-        val notes = account.notes
+        val notes = data.notes
 
         return AccountResult.Success(
             account = Account(
@@ -84,7 +84,7 @@ class AccountApi(
         }
 
         val data = response.data ?: return AccountNotesResult.Failure(response.failureMessage())
-        val notes = data.account?.notes ?: return AccountNotesResult.Failure("投稿を取れなかった")
+        val notes = data.notes
 
         return AccountNotesResult.Success(
             notes = notes.nodes.map { it.accountNoteFields.toAccountNote() },
