@@ -118,7 +118,9 @@ class GraphQlEngine private constructor(
             val graphQlBuilder = GraphQL.newGraphQL(schema)
             if (openTelemetry != null) {
                 val telemetry = GraphQLTelemetry.builder(openTelemetry).build()
-                graphQlBuilder.instrumentation(telemetry.createInstrumentation())
+                graphQlBuilder.instrumentation(
+                    GraphQlOpenTelemetryInstrumentation(telemetry.createInstrumentation()),
+                )
             }
 
             return GraphQlEngine(
