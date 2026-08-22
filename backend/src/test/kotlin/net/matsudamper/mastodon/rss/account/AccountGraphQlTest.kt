@@ -205,7 +205,7 @@ class AccountGraphQlTest {
                         username = TestServerEnv.USERNAME,
                         publicId = "note$index",
                         contentHtml = "<p>$index</p>",
-                        publishedAt = Instant.parse("2026-08-09T1${index}:00:00Z"),
+                        publishedAt = Instant.parse("2026-08-09T1$index:00:00Z"),
                     ),
                 )
             }

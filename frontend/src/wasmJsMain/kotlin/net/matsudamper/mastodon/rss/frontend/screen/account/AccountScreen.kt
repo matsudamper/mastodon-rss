@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.HtmlElementView
 import androidx.lifecycle.compose.LifecycleStartEffect
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -54,7 +55,6 @@ import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.copyToClipboard // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
 import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink
-import androidx.compose.ui.viewinterop.HtmlElementView
 import org.w3c.dom.HTMLDivElement
 
 /**

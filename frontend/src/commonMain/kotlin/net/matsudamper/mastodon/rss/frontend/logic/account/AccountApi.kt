@@ -1,9 +1,9 @@
 package net.matsudamper.mastodon.rss.frontend.logic.account
 
+import kotlin.time.Instant
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Optional
-import kotlin.time.Instant
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.HomeScreenQuery
