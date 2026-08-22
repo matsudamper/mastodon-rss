@@ -28,6 +28,7 @@ import net.matsudamper.mastodon.rss.note.noteRoutes
 import net.matsudamper.mastodon.rss.note.outboxRoutes
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
+import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryBootstrap
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
 
 fun main() {
