@@ -5,4 +5,23 @@ type Account {
     acct: String!
 
     actorUrl: String!
+
+    "配信した投稿。新しい順"
+    notes(cursor: String, limit: Int!): NotesConnection! @lazy
+}
+
+type NotesConnection {
+    nodes: [Note!]!
+    pageInfo: PageInfo!
+}
+
+"配信した投稿 1 件"
+type Note {
+    "投稿の URL。相手はここをパーマリンクとして開く"
+    url: String!
+
+    "配信した本文の HTML"
+    contentHtml: String!
+
+    publishedAt: UnixTime!
 }

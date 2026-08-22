@@ -23,6 +23,7 @@ import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
 import net.matsudamper.mastodon.rss.testDependencies
 
@@ -142,6 +143,113 @@ class AccountGraphQlTest {
             assertEquals(false, page.pageInfo().boolean("hasMore"))
         }
 
+    @Test
+    fun `配信した投稿はログインなしで引ける`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            val publishedAt = Instant.parse("2026-08-09T11:02:00Z")
+            repositories.notes.add(
+                NewNote(
+                    username = TestServerEnv.USERNAME,
+                    publicId = "abc123",
+                    contentHtml = "<p>本文</p>",
+                    publishedAt = publishedAt,
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val notes = queryAccountNotes(TestServerEnv.USERNAME, limit = 10).accountNotes()
+            val nodes = notes.nodes()
+
+            assertEquals(1, nodes.size)
+            assertEquals("https://${TestServerEnv.DOMAIN}/notes/abc123", nodes[0].string("url"))
+            assertEquals("<p>本文</p>", nodes[0].string("contentHtml"))
+            assertEquals(publishedAt.epochSecond, nodes[0].long("publishedAt"))
+            assertEquals(false, notes.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `投稿は新しい順に返る`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.notes.add(
+                NewNote(
+                    username = TestServerEnv.USERNAME,
+                    publicId = "older",
+                    contentHtml = "<p>古い</p>",
+                    publishedAt = Instant.parse("2026-08-08T10:00:00Z"),
+                ),
+            )
+            repositories.notes.add(
+                NewNote(
+                    username = TestServerEnv.USERNAME,
+                    publicId = "newer",
+                    contentHtml = "<p>新しい</p>",
+                    publishedAt = Instant.parse("2026-08-09T11:00:00Z"),
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val nodes = queryAccountNotes(TestServerEnv.USERNAME, limit = 10).accountNotes().nodes()
+
+            assertEquals(listOf("newer", "older"), nodes.map { it.string("url").substringAfterLast('/') })
+        }
+
+    @Test
+    fun `投稿の続きはカーソルで引ける`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repeat(3) { index ->
+                repositories.notes.add(
+                    NewNote(
+                        username = TestServerEnv.USERNAME,
+                        publicId = "note$index",
+                        contentHtml = "<p>$index</p>",
+                        publishedAt = Instant.parse("2026-08-09T1${index}:00:00Z"),
+                    ),
+                )
+            }
+            application { module(testDependencies(repositories = repositories)) }
+
+            val page1 = queryAccountNotes(TestServerEnv.USERNAME, limit = 2).accountNotes()
+            assertEquals(2, page1.nodes().size)
+            assertEquals(true, page1.pageInfo().boolean("hasMore"))
+
+            val page2 = queryAccountNotes(
+                TestServerEnv.USERNAME,
+                cursor = page1.pageInfo().string("nextCursor"),
+                limit = 2,
+            ).accountNotes()
+            assertEquals(1, page2.nodes().size)
+            assertEquals(false, page2.pageInfo().boolean("hasMore"))
+        }
+
+    private suspend fun ApplicationTestBuilder.queryAccountNotes(
+        username: String,
+        cursor: String? = null,
+        limit: Int = 20,
+    ): HttpResponse =
+        client.post(GRAPHQL_PATH) {
+            contentType(ContentType.Application.Json)
+
+            val query =
+                "query AccountNotes(${'$'}username: String!, ${'$'}cursor: String, ${'$'}limit: Int!) { " +
+                    "account(username: ${'$'}username) { notes(cursor: ${'$'}cursor, limit: ${'$'}limit) { " +
+                    "nodes { url contentHtml publishedAt } pageInfo { hasMore nextCursor } } } }"
+
+            val variables = buildString {
+                append("{")
+                append(""""username":${JsonPrimitive(username)},""")
+                if (cursor != null) {
+                    append(""""cursor":${JsonPrimitive(cursor)},""")
+                }
+                append(""""limit":${JsonPrimitive(limit)}""")
+                append("}")
+            }
+
+            setBody("""{"query":${JsonPrimitive(query)},"variables":$variables}""")
+        }
+
     private suspend fun ApplicationTestBuilder.queryAccounts(cursor: String? = null, limit: Int = 20): HttpResponse =
         client.post(GRAPHQL_PATH) {
             contentType(ContentType.Application.Json)
@@ -184,6 +292,8 @@ class AccountGraphQlTest {
          */
         suspend fun HttpResponse.account(): JsonObject = body().obj("data").obj("account")
 
+        suspend fun HttpResponse.accountNotes(): JsonObject = account().obj("notes")
+
         /**
          * `data.accounts` まで降りる。errors が入っていたらここで落ちる
          */
@@ -198,5 +308,7 @@ class AccountGraphQlTest {
         fun JsonObject.string(name: String): String = getValue(name).jsonPrimitive.content
 
         fun JsonObject.boolean(name: String): Boolean = getValue(name).jsonPrimitive.boolean
+
+        fun JsonObject.long(name: String): Long = getValue(name).jsonPrimitive.content.toLong()
     }
 }
