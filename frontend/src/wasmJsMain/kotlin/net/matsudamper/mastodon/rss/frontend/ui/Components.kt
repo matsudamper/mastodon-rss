@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalWasmJsInterop::class)
+
 package net.matsudamper.mastodon.rss.frontend.ui
 
 import androidx.compose.foundation.background
@@ -23,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import kotlin.js.ExperimentalWasmJsInterop
 import kotlinx.browser.window
 
 /** 画面の中身の最大幅。これ以上広い画面では左右に余白を作って中央に寄せる */
@@ -179,6 +182,10 @@ fun StatusDot(
  */
 fun openExternalLink(url: String) {
     window.open(url, "_blank", "noopener,noreferrer")
+}
+
+fun copyToClipboard(text: String) {
+    window.navigator.clipboard.writeText(text)
 }
 
 /** 枠線 1 本ぶんの色。区切り線に使う */
