@@ -2,9 +2,11 @@ package net.matsudamper.mastodon.rss.graphql.resolver
 
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreview
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailureReason
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewItem
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedFailureReason
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlFeed
 import net.matsudamper.mastodon.rss.logic.FeedService
@@ -36,21 +38,25 @@ internal fun FeedService.FeedPreview.toGraphqlResponse(): QlAdminFeedPreview = Q
 )
 
 internal fun FeedService.PreviewFailure.toGraphqlResponse(): QlAdminFeedPreviewFailure =
-    when (this) {
-        FeedService.PreviewFailure.INVALID_URL -> QlAdminFeedPreviewFailure.INVALID_URL
-        FeedService.PreviewFailure.FETCH_FAILED -> QlAdminFeedPreviewFailure.FETCH_FAILED
-        FeedService.PreviewFailure.PARSE_FAILED -> QlAdminFeedPreviewFailure.PARSE_FAILED
-    }
+    QlAdminFeedPreviewFailure(
+        reason = when (this) {
+            FeedService.PreviewFailure.INVALID_URL -> QlAdminFeedPreviewFailureReason.INVALID_URL
+            FeedService.PreviewFailure.FETCH_FAILED -> QlAdminFeedPreviewFailureReason.FETCH_FAILED
+            FeedService.PreviewFailure.PARSE_FAILED -> QlAdminFeedPreviewFailureReason.PARSE_FAILED
+        },
+    )
 
 internal fun FeedService.SaveFailure.toGraphqlResponse(): QlAdminSaveFeedFailure =
-    when (this) {
-        FeedService.SaveFailure.UNKNOWN_ACCOUNT -> QlAdminSaveFeedFailure.UNKNOWN_ACCOUNT
-        FeedService.SaveFailure.DUPLICATE_URL -> QlAdminSaveFeedFailure.DUPLICATE_URL
-        FeedService.SaveFailure.ALREADY_HAS_FEED -> QlAdminSaveFeedFailure.ALREADY_HAS_FEED
-        FeedService.SaveFailure.INVALID_URL -> QlAdminSaveFeedFailure.INVALID_URL
-        FeedService.SaveFailure.FETCH_FAILED -> QlAdminSaveFeedFailure.FETCH_FAILED
-        FeedService.SaveFailure.PARSE_FAILED -> QlAdminSaveFeedFailure.PARSE_FAILED
-    }
+    QlAdminSaveFeedFailure(
+        reason = when (this) {
+            FeedService.SaveFailure.UNKNOWN_ACCOUNT -> QlAdminSaveFeedFailureReason.UNKNOWN_ACCOUNT
+            FeedService.SaveFailure.DUPLICATE_URL -> QlAdminSaveFeedFailureReason.DUPLICATE_URL
+            FeedService.SaveFailure.ALREADY_HAS_FEED -> QlAdminSaveFeedFailureReason.ALREADY_HAS_FEED
+            FeedService.SaveFailure.INVALID_URL -> QlAdminSaveFeedFailureReason.INVALID_URL
+            FeedService.SaveFailure.FETCH_FAILED -> QlAdminSaveFeedFailureReason.FETCH_FAILED
+            FeedService.SaveFailure.PARSE_FAILED -> QlAdminSaveFeedFailureReason.PARSE_FAILED
+        },
+    )
 
 internal fun FeedService.PreviewResult.toGraphqlResponse(): QlAdminFeedPreviewResult =
     when (this) {

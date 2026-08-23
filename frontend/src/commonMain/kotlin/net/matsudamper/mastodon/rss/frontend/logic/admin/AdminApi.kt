@@ -18,9 +18,9 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
-import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailure
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
-import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailure
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailureReason
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 
@@ -149,9 +149,10 @@ class AdminApi(
             )
         }
 
+        val reason = result.failure?.reason
         return AdminFeedPreviewResult.Failure(
-            reason = result.failure?.toPreviewFailure() ?: AdminFeedPreviewResult.PreviewFailure.UNKNOWN,
-            message = previewFailureMessage(result.failure),
+            reason = reason?.toPreviewFailure() ?: AdminFeedPreviewResult.PreviewFailure.UNKNOWN,
+            message = previewFailureMessage(reason),
         )
     }
 
@@ -168,9 +169,10 @@ class AdminApi(
             return AdminSaveFeedResult.Success(feed.feedFields.toAdminFeed())
         }
 
+        val reason = result.failure?.reason
         return AdminSaveFeedResult.Failure(
-            reason = result.failure?.toSaveFailure() ?: AdminSaveFeedResult.SaveFailure.UNKNOWN,
-            message = saveFailureMessage(result.failure),
+            reason = reason?.toSaveFailure() ?: AdminSaveFeedResult.SaveFailure.UNKNOWN,
+            message = saveFailureMessage(reason),
         )
     }
 
@@ -224,42 +226,42 @@ class AdminApi(
         format = format,
     )
 
-    private fun AdminFeedPreviewFailure.toPreviewFailure(): AdminFeedPreviewResult.PreviewFailure =
+    private fun AdminFeedPreviewFailureReason.toPreviewFailure(): AdminFeedPreviewResult.PreviewFailure =
         when (this) {
-            AdminFeedPreviewFailure.INVALID_URL -> AdminFeedPreviewResult.PreviewFailure.INVALID_URL
-            AdminFeedPreviewFailure.FETCH_FAILED -> AdminFeedPreviewResult.PreviewFailure.FETCH_FAILED
-            AdminFeedPreviewFailure.PARSE_FAILED -> AdminFeedPreviewResult.PreviewFailure.PARSE_FAILED
-            AdminFeedPreviewFailure.UNKNOWN__ -> AdminFeedPreviewResult.PreviewFailure.UNKNOWN
+            AdminFeedPreviewFailureReason.INVALID_URL -> AdminFeedPreviewResult.PreviewFailure.INVALID_URL
+            AdminFeedPreviewFailureReason.FETCH_FAILED -> AdminFeedPreviewResult.PreviewFailure.FETCH_FAILED
+            AdminFeedPreviewFailureReason.PARSE_FAILED -> AdminFeedPreviewResult.PreviewFailure.PARSE_FAILED
+            AdminFeedPreviewFailureReason.UNKNOWN__ -> AdminFeedPreviewResult.PreviewFailure.UNKNOWN
         }
 
-    private fun AdminSaveFeedFailure.toSaveFailure(): AdminSaveFeedResult.SaveFailure =
+    private fun AdminSaveFeedFailureReason.toSaveFailure(): AdminSaveFeedResult.SaveFailure =
         when (this) {
-            AdminSaveFeedFailure.UNKNOWN_ACCOUNT -> AdminSaveFeedResult.SaveFailure.UNKNOWN_ACCOUNT
-            AdminSaveFeedFailure.DUPLICATE_URL -> AdminSaveFeedResult.SaveFailure.DUPLICATE_URL
-            AdminSaveFeedFailure.ALREADY_HAS_FEED -> AdminSaveFeedResult.SaveFailure.ALREADY_HAS_FEED
-            AdminSaveFeedFailure.INVALID_URL -> AdminSaveFeedResult.SaveFailure.INVALID_URL
-            AdminSaveFeedFailure.FETCH_FAILED -> AdminSaveFeedResult.SaveFailure.FETCH_FAILED
-            AdminSaveFeedFailure.PARSE_FAILED -> AdminSaveFeedResult.SaveFailure.PARSE_FAILED
-            AdminSaveFeedFailure.UNKNOWN__ -> AdminSaveFeedResult.SaveFailure.UNKNOWN
+            AdminSaveFeedFailureReason.UNKNOWN_ACCOUNT -> AdminSaveFeedResult.SaveFailure.UNKNOWN_ACCOUNT
+            AdminSaveFeedFailureReason.DUPLICATE_URL -> AdminSaveFeedResult.SaveFailure.DUPLICATE_URL
+            AdminSaveFeedFailureReason.ALREADY_HAS_FEED -> AdminSaveFeedResult.SaveFailure.ALREADY_HAS_FEED
+            AdminSaveFeedFailureReason.INVALID_URL -> AdminSaveFeedResult.SaveFailure.INVALID_URL
+            AdminSaveFeedFailureReason.FETCH_FAILED -> AdminSaveFeedResult.SaveFailure.FETCH_FAILED
+            AdminSaveFeedFailureReason.PARSE_FAILED -> AdminSaveFeedResult.SaveFailure.PARSE_FAILED
+            AdminSaveFeedFailureReason.UNKNOWN__ -> AdminSaveFeedResult.SaveFailure.UNKNOWN
         }
 
-    private fun previewFailureMessage(failure: AdminFeedPreviewFailure?): String =
-        when (failure) {
-            AdminFeedPreviewFailure.INVALID_URL -> "URL の形式が正しくない"
-            AdminFeedPreviewFailure.FETCH_FAILED -> "フィードを取得できなかった"
-            AdminFeedPreviewFailure.PARSE_FAILED -> "フィードを読み取れなかった"
-            AdminFeedPreviewFailure.UNKNOWN__, null -> "プレビューできなかった"
+    private fun previewFailureMessage(reason: AdminFeedPreviewFailureReason?): String =
+        when (reason) {
+            AdminFeedPreviewFailureReason.INVALID_URL -> "URL の形式が正しくない"
+            AdminFeedPreviewFailureReason.FETCH_FAILED -> "フィードを取得できなかった"
+            AdminFeedPreviewFailureReason.PARSE_FAILED -> "フィードを読み取れなかった"
+            AdminFeedPreviewFailureReason.UNKNOWN__, null -> "プレビューできなかった"
         }
 
-    private fun saveFailureMessage(failure: AdminSaveFeedFailure?): String =
-        when (failure) {
-            AdminSaveFeedFailure.UNKNOWN_ACCOUNT -> "このアカウントには登録できない"
-            AdminSaveFeedFailure.DUPLICATE_URL -> "同じ URL は既に登録されている"
-            AdminSaveFeedFailure.ALREADY_HAS_FEED -> "このアカウントには既にフィードがある"
-            AdminSaveFeedFailure.INVALID_URL -> "URL の形式が正しくない"
-            AdminSaveFeedFailure.FETCH_FAILED -> "フィードを取得できなかった"
-            AdminSaveFeedFailure.PARSE_FAILED -> "フィードを読み取れなかった"
-            AdminSaveFeedFailure.UNKNOWN__, null -> "保存できなかった"
+    private fun saveFailureMessage(reason: AdminSaveFeedFailureReason?): String =
+        when (reason) {
+            AdminSaveFeedFailureReason.UNKNOWN_ACCOUNT -> "このアカウントには登録できない"
+            AdminSaveFeedFailureReason.DUPLICATE_URL -> "同じ URL は既に登録されている"
+            AdminSaveFeedFailureReason.ALREADY_HAS_FEED -> "このアカウントには既にフィードがある"
+            AdminSaveFeedFailureReason.INVALID_URL -> "URL の形式が正しくない"
+            AdminSaveFeedFailureReason.FETCH_FAILED -> "フィードを取得できなかった"
+            AdminSaveFeedFailureReason.PARSE_FAILED -> "フィードを読み取れなかった"
+            AdminSaveFeedFailureReason.UNKNOWN__, null -> "保存できなかった"
         }
 
     private fun AdminNoteFields.toAdminNote(): AdminNote = AdminNote(

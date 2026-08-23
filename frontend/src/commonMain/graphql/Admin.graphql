@@ -60,7 +60,9 @@ query AdminPreviewFeed($url: String!) {
                     publishedAt
                 }
             }
-            failure
+            failure {
+                reason
+            }
         }
     }
 }
@@ -71,7 +73,9 @@ mutation AdminSaveFeed($accountId: AccountId!, $url: String!) {
             feed {
                 ...FeedFields
             }
-            failure
+            failure {
+                reason
+            }
         }
     }
 }

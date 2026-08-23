@@ -498,7 +498,7 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "query Preview(${'$'}url: String!) { admin { " +
-                "previewFeed(url: ${'$'}url) { preview { title format itemCount } failure } } }",
+                "previewFeed(url: ${'$'}url) { preview { title format itemCount } failure { reason } } } }",
             token = token,
             variables = """{"url":${JsonPrimitive(url)}}""",
         )
@@ -511,7 +511,7 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!) { admin { " +
-                "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url) { feed { $FEED_FIELDS } failure } } }",
+                "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url) { feed { $FEED_FIELDS } failure { reason } } } }",
             token = token,
             variables = """{"accountId":${JsonPrimitive(accountId)},"url":${JsonPrimitive(url)}}""",
         )

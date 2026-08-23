@@ -18,7 +18,11 @@ type AdminFeedPreviewResult {
     failure: AdminFeedPreviewFailure
 }
 
-enum AdminFeedPreviewFailure {
+type AdminFeedPreviewFailure {
+    reason: AdminFeedPreviewFailureReason!
+}
+
+enum AdminFeedPreviewFailureReason {
     INVALID_URL
     FETCH_FAILED
     PARSE_FAILED
@@ -29,7 +33,11 @@ type AdminSaveFeedResult {
     failure: AdminSaveFeedFailure
 }
 
-enum AdminSaveFeedFailure {
+type AdminSaveFeedFailure {
+    reason: AdminSaveFeedFailureReason!
+}
+
+enum AdminSaveFeedFailureReason {
     UNKNOWN_ACCOUNT
     DUPLICATE_URL
     ALREADY_HAS_FEED
