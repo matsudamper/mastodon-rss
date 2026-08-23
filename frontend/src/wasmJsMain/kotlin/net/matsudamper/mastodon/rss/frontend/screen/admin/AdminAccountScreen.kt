@@ -49,7 +49,7 @@ private fun AdminAccountScreen(
     uiState: AdminAccountScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { _ ->
+    AppScaffold(onNavigate = onNavigate) { wide ->
         Text(
             text = uiState.acct,
             style = MaterialTheme.typography.headlineSmall,
@@ -98,7 +98,7 @@ private fun AdminAccountScreen(
 
             is AdminAccountScreenUiState.Content.Loaded -> {
                 AccountCard(account = content.account, onNavigate = onNavigate)
-                FeedCard(feed = content.feed, listener = uiState.listener)
+                FeedCard(feed = content.feed, listener = uiState.listener, wide = wide)
                 PostCard(post = content.post, listener = uiState.listener)
                 NotesCard(content = content, listener = uiState.listener)
             }
@@ -143,6 +143,7 @@ private fun AccountCard(
 private fun FeedCard(
     feed: AdminAccountScreenUiState.Feed,
     listener: AdminAccountScreenUiState.Listener,
+    wide: Boolean,
 ) {
     SectionCard(title = "RSS フィード") {
         if (!feed.registrable) {
@@ -177,67 +178,81 @@ private fun FeedCard(
                     )
                 }
             }
-        } else {
+        } else if (wide) {
+            // 入力欄とプレビューを見比べられる幅がある時だけ横に並べる
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        text = "RSS/Atom の URL を入れて取得する。問題なければ保存する。",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-
-                    OutlinedTextField(
-                        value = feed.inputUrl,
-                        onValueChange = { listener.onFeedUrlChanged(it) },
-                        enabled = !feed.fetching && !feed.saving,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("フィード URL") },
-                        singleLine = true,
-                    )
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            onClick = { listener.onClickFetchFeed() },
-                            enabled = feed.canFetch,
-                        ) {
-                            Text(if (feed.fetching) "取得中" else "取得")
-                        }
-
-                        Button(
-                            onClick = { listener.onClickSaveFeed() },
-                            enabled = feed.canSave,
-                        ) {
-                            Text(if (feed.saving) "保存中" else "保存")
-                        }
-                    }
-
-                    if (feed.previewError != null) {
-                        Text(
-                            text = feed.previewError,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-
-                    if (feed.saveError != null) {
-                        Text(
-                            text = feed.saveError,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
-
-                FeedPreviewPanel(
-                    modifier = Modifier.weight(1f),
-                    feed = feed,
-                )
+                FeedInputPanel(modifier = Modifier.weight(1f), feed = feed, listener = listener)
+                FeedPreviewPanel(modifier = Modifier.weight(1f), feed = feed)
             }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                FeedInputPanel(modifier = Modifier.fillMaxWidth(), feed = feed, listener = listener)
+                FeedPreviewPanel(modifier = Modifier.fillMaxWidth(), feed = feed)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedInputPanel(
+    feed: AdminAccountScreenUiState.Feed,
+    listener: AdminAccountScreenUiState.Listener,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = "RSS/Atom の URL を入れて取得する。問題なければ保存する。",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
+        OutlinedTextField(
+            value = feed.inputUrl,
+            onValueChange = { listener.onFeedUrlChanged(it) },
+            enabled = !feed.fetching && !feed.saving,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("フィード URL") },
+            singleLine = true,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+                onClick = { listener.onClickFetchFeed() },
+                enabled = feed.canFetch,
+            ) {
+                Text(if (feed.fetching) "取得中" else "取得")
+            }
+
+            Button(
+                onClick = { listener.onClickSaveFeed() },
+                enabled = feed.canSave,
+            ) {
+                Text(if (feed.saving) "保存中" else "保存")
+            }
+        }
+
+        if (feed.previewError != null) {
+            Text(
+                text = feed.previewError,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+
+        if (feed.saveError != null) {
+            Text(
+                text = feed.saveError,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }
