@@ -10,10 +10,25 @@ data class AdminAccountScreenUiState(
     sealed interface Content {
         data object Loading : Content
 
+        /**
+         * ログインしていない。管理画面のトップに送る
+         */
         data object RequireLogin : Content
 
+        /**
+         * その名前のアカウントが無い
+         */
         data object NotFound : Content
 
+        /**
+         * @param account この画面が扱うアカウント
+         * @param feed RSS フィードの登録状況と入力欄
+         * @param post 投稿の入力欄
+         * @param notes 配信した投稿。新しい順
+         * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
+         * @param notesLoading 一覧を取っている最中
+         * @param canLoadMore さらに古い投稿があるか
+         */
         data class Loaded(
             val account: Account,
             val feed: Feed,
@@ -30,6 +45,10 @@ data class AdminAccountScreenUiState(
         ) : Content
     }
 
+    /**
+     * @param acct Mastodon の検索窓に貼る形
+     * @param createdAt 「追加: <値>」の形で出す。null ならこの行を出さない
+     */
     data class Account(
         val accountId: String?,
         val username: String,
@@ -70,6 +89,10 @@ data class AdminAccountScreenUiState(
         val publishedAt: String?,
     )
 
+    /**
+     * @param submitting true の間は入力欄とボタンを押せなくする
+     * @param result 直前の投稿の結果。次の入力を始めたら消す
+     */
     data class Post(
         val body: String,
         val submitting: Boolean,
@@ -85,6 +108,10 @@ data class AdminAccountScreenUiState(
         val publishedAt: String,
     )
 
+    /**
+     * @param targets 送った宛先の数
+     * @param delivered そのうち届いた数
+     */
     data class PostResult(
         val url: String,
         val targets: Int,
@@ -105,6 +132,9 @@ data class AdminAccountScreenUiState(
 
         fun onClickLoadMore()
 
+        /**
+         * 一覧だけ取り直す
+         */
         fun onClickReloadNotes()
 
         fun onClickReload()

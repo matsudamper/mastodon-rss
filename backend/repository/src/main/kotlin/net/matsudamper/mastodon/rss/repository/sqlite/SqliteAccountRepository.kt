@@ -17,6 +17,7 @@ internal class SqliteAccountRepository(
         dsl
             .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
             .from(ACCOUNTS)
+            // 同じ時刻に入った 2 件は時刻だけでは順が決まらないので id で揃える
             .orderBy(ACCOUNTS.CREATED_AT, ACCOUNTS.ID)
             .fetch()
             .map { it.toAccount() }
@@ -37,6 +38,7 @@ internal class SqliteAccountRepository(
             val afterId = afterRecord.get(ACCOUNTS.ID)
             val afterCreatedAt = afterRecord.get(ACCOUNTS.CREATED_AT)
 
+            // 並び順と同じ組で比べる。時刻だけで切ると同時刻の行を飛ばすか二重に返す
             ACCOUNTS.CREATED_AT.gt(afterCreatedAt)
                 .or(ACCOUNTS.CREATED_AT.eq(afterCreatedAt).and(ACCOUNTS.ID.gt(afterId)))
         }
@@ -84,6 +86,9 @@ internal class SqliteAccountRepository(
         username: String,
         createdAt: Instant,
     ): Account? = jooq.transaction { dsl ->
+        // UNIQUE 制約違反を捕まえる形にすると、他の理由で落ちたときと区別が付かない。
+        // 書き込みは接続 1 本に直列化されているので、同じトランザクションで
+        // 見てから入れれば取りこぼさない
         if (dsl.selectByUsername(username) != null) return@transaction null
 
         val id = dsl
@@ -98,6 +103,9 @@ internal class SqliteAccountRepository(
         Account(id = AccountId(id.toLong()), username = username, createdAt = createdAt)
     }
 
+    /**
+     * 列に COLLATE NOCASE が付いているので、綴りの揺れは SQLite 側で吸収される
+     */
     private fun DSLContext.selectByUsername(username: String): Account? = select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
         .from(ACCOUNTS)
         .where(ACCOUNTS.USERNAME.eq(username))

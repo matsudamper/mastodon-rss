@@ -218,6 +218,9 @@ class AdminAccountScreenViewModel(
         }
     }
 
+    /**
+     * 投稿の一覧を先頭から取り直す。
+     */
     private fun loadNotes() {
         cancelNotesJobs()
         viewModelStateFlow.update { it.copy(notesLoading = true, notesError = null) }
@@ -457,6 +460,9 @@ class AdminAccountScreenViewModel(
     )
 
     private companion object {
+        /**
+         * 1 回に取る件数。上限はサーバー側で決まる
+         */
         const val PAGE_SIZE = 20
     }
 }
