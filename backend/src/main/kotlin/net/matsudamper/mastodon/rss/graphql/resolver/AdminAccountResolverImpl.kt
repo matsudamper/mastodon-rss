@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.graphql.resolver
+package net.matsudamper.mastodon.rss.graphql.resolver // pragma: allowlist secret
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
@@ -8,7 +8,7 @@ import net.matsudamper.mastodon.rss.GraphqlExceptions // pragma: allowlist secre
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.graphql.model.AdminAccountResolver // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeed // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlFeed // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
 
 class AdminAccountResolverImpl : AdminAccountResolver {
@@ -31,16 +31,16 @@ class AdminAccountResolverImpl : AdminAccountResolver {
     override fun feed(
         adminAccount: QlAdminAccount,
         env: DataFetchingEnvironment,
-    ): CompletionStage<DataFetcherResult<QlAdminFeed?>> {
+    ): CompletionStage<DataFetcherResult<QlFeed?>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val accountId = adminAccount.account.id?.toLongOrNull()?.let(::AccountId)
-            ?: return CompletableFuture.completedFuture(DataFetcherResult.Builder<QlAdminFeed?>(null).build())
+        val accountId = adminAccount.account.id?.value?.toLongOrNull()?.let(::AccountId)
+            ?: return CompletableFuture.completedFuture(DataFetcherResult.Builder<QlFeed?>(null).build())
 
         val feed = GraphQlEngine.diContainer(env).feedService.findByAccountId(accountId)
 
         return CompletableFuture.completedFuture(
-            DataFetcherResult.Builder<QlAdminFeed?>(feed?.toGraphqlResponse()).build(),
+            DataFetcherResult.Builder<QlFeed?>(feed?.toGraphqlResponse()).build(),
         )
     }
 }

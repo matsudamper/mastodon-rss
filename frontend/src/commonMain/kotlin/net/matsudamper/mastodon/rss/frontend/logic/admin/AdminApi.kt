@@ -5,24 +5,24 @@ import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
 import com.apollographql.apollo.api.Optional
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedMutation // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailure // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailure // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.account.Account // pragma: allowlist secret // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailure // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailure // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.logic.account.Account // pragma: allowlist secret
 
 class AdminApi(
     private val client: ApolloClient = GraphQlClient.apollo,
@@ -125,7 +125,7 @@ class AdminApi(
     }
 
     suspend fun previewFeed(url: String): AdminFeedPreviewResult {
-        val response = client.mutation(AdminPreviewFeedMutation(url)).execute()
+        val response = client.query(AdminPreviewFeedQuery(url)).execute()
         val result = response.data?.admin?.previewFeed
             ?: return AdminFeedPreviewResult.Failure(AdminFeedPreviewResult.PreviewFailure.UNKNOWN, response.failureMessage())
 
@@ -165,7 +165,7 @@ class AdminApi(
 
         val feed = result.feed
         if (feed != null) {
-            return AdminSaveFeedResult.Success(feed.adminFeedFields.toAdminFeed())
+            return AdminSaveFeedResult.Success(feed.feedFields.toAdminFeed())
         }
 
         return AdminSaveFeedResult.Failure(
@@ -213,10 +213,10 @@ class AdminApi(
         ),
         createdAt = createdAt,
         followerCount = followerCount,
-        feed = feed?.adminFeedFields?.toAdminFeed(),
+        feed = feed?.feedFields?.toAdminFeed(),
     )
 
-    private fun net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminFeedFields.toAdminFeed(): AdminFeed = AdminFeed( // pragma: allowlist secret
+    private fun net.matsudamper.mastodon.rss.frontend.graphql.fragment.FeedFields.toAdminFeed(): AdminFeed = AdminFeed( // pragma: allowlist secret
         id = id,
         url = url,
         title = title,

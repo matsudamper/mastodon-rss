@@ -247,7 +247,7 @@ class AdminGraphQlTest {
         testApplication {
             applicationWith(passwordConfigured = true)
 
-            val errors = mutatePreviewFeed("https://example.com/feed.xml").body().getValue("errors").jsonArray
+            val errors = queryPreviewFeed("https://example.com/feed.xml").body().getValue("errors").jsonArray
             assertTrue(errors.isNotEmpty())
         }
 
@@ -491,6 +491,18 @@ class AdminGraphQlTest {
             variables = """{"username":${JsonPrimitive(username)}}""",
         )
 
+    private suspend fun ApplicationTestBuilder.queryPreviewFeed(
+        url: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "query Preview(${'$'}url: String!) { admin { " +
+                "previewFeed(url: ${'$'}url) { preview { title format itemCount } failure } } }",
+            token = token,
+            variables = """{"url":${JsonPrimitive(url)}}""",
+        )
+
     private suspend fun ApplicationTestBuilder.mutateSaveFeed(
         accountId: String,
         url: String,
@@ -498,22 +510,10 @@ class AdminGraphQlTest {
     ): HttpResponse =
         graphQl(
             query =
-            "mutation Save(${'$'}accountId: ID!, ${'$'}url: String!) { admin { " +
+            "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!) { admin { " +
                 "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url) { feed { $FEED_FIELDS } failure } } }",
             token = token,
             variables = """{"accountId":${JsonPrimitive(accountId)},"url":${JsonPrimitive(url)}}""",
-        )
-
-    private suspend fun ApplicationTestBuilder.mutatePreviewFeed(
-        url: String,
-        token: String? = null,
-    ): HttpResponse =
-        graphQl(
-            query =
-            "mutation Preview(${'$'}url: String!) { admin { " +
-                "previewFeed(url: ${'$'}url) { preview { title format itemCount } failure } } }",
-            token = token,
-            variables = """{"url":${JsonPrimitive(url)}}""",
         )
 
     private suspend fun ApplicationTestBuilder.graphQl(

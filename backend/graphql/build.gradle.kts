@@ -41,6 +41,8 @@ tasks.named<GraphQLCodegenGradleTask>("graphqlCodegen") {
     customTypesMapping = mutableMapOf(
         "UnixTime" to "kotlin.Long",
         "NoteId" to "net.matsudamper.mastodon.rss.shared.NoteId",
+        "AccountId" to "net.matsudamper.mastodon.rss.shared.AccountId", // pragma: allowlist secret
+        "FeedId" to "net.matsudamper.mastodon.rss.shared.FeedId", // pragma: allowlist secret
     )
 
     modelNamePrefix = "Ql"

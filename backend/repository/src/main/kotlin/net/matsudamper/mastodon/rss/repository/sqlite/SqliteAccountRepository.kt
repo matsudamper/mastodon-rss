@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.repository.sqlite
+package net.matsudamper.mastodon.rss.repository.sqlite // pragma: allowlist secret
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.Account // pragma: allowlist secret

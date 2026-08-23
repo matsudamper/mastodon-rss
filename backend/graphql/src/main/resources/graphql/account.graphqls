@@ -1,6 +1,5 @@
 type Account {
-    "DB にあるアカウントだけ入る。設定で決まるアカウントは null"
-    id: ID
+    id: AccountId
 
     username: String!
 

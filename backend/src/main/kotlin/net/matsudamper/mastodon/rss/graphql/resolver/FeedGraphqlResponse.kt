@@ -1,17 +1,18 @@
-package net.matsudamper.mastodon.rss.graphql.resolver // pragma: allowlist secret // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.graphql.resolver // pragma: allowlist secret
 
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeed // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreview // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewItem // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedFailure // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlFeed // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.logic.FeedService // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.repository.Feed // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.shared.FeedId // pragma: allowlist secret
 
-internal fun Feed.toGraphqlResponse(): QlAdminFeed = QlAdminFeed(
-    id = id.value.toString(),
+internal fun Feed.toGraphqlResponse(): QlFeed = QlFeed(
+    id = FeedId(id.value.toString()),
     url = url,
     title = title,
     siteUrl = siteUrl,

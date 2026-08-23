@@ -9,6 +9,9 @@ type AdminQuery {
 
     "アカウントが配信した投稿。新しい順"
     notes(username: String!, cursor: String, limit: Int!): AdminNotesConnection! @lazy
+
+    "RSS フィードを取得してパース結果を返す。DB には書かない"
+    previewFeed(url: String!): AdminFeedPreviewResult! @lazy
 }
 
 type AdminNotesConnection {
@@ -47,5 +50,5 @@ type AdminAccount {
     followerCount: Int! @lazy
 
     "登録済みの RSS フィード。未登録なら null"
-    feed: AdminFeed @lazy
+    feed: Feed @lazy
 }

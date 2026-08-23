@@ -11,11 +11,8 @@ type AdminMutation {
     "アカウントとして投稿し、フォロワーに配る"
     postNote(username: String!, body: String!): AdminPostNoteResult! @lazy
 
-    "RSS フィードを取得してパース結果を返す。DB には書かない"
-    previewFeed(url: String!): AdminFeedPreviewResult! @lazy
-
     "RSS フィードを登録する"
-    saveFeed(accountId: ID!, url: String!): AdminSaveFeedResult! @lazy
+    saveFeed(accountId: AccountId!, url: String!): AdminSaveFeedResult! @lazy
 }
 
 type AdminPostNoteResult {
