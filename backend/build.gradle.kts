@@ -46,6 +46,7 @@ dependencies {
     runtimeOnly(libs.slf4j.simple)
 
     testImplementation(libs.ktor.server.test.host)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.kotlin.test)
 
     // 相手のアクターと送信先のフェイク。ActivityPub の組み立てを差し替えるものなので、
