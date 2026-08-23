@@ -4,7 +4,7 @@ import java.time.Instant
 import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
-import net.matsudamper.mastodon.rss.repository.FeedRepository // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.Repositories

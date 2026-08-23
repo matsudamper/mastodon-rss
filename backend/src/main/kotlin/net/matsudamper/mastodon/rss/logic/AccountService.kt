@@ -1,11 +1,11 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.actor.ActorUrls // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FollowerRepository // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
+import net.matsudamper.mastodon.rss.repository.AccountId
+import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
 /**
  * 管理画面から見たアカウントの操作。

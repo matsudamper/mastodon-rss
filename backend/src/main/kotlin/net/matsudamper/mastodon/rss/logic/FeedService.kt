@@ -1,17 +1,17 @@
-package net.matsudamper.mastodon.rss.logic // pragma: allowlist secret // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.feed.FeedFetchService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.feed.FeedFormat // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.feed.FeedText // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.feed.ParsedFeed // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.feed.ParsedFeedItem // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.feed.toDisplayName // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.Feed // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FeedRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.NewFeed // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.feed.FeedFetchService
+import net.matsudamper.mastodon.rss.feed.FeedFormat
+import net.matsudamper.mastodon.rss.feed.FeedText
+import net.matsudamper.mastodon.rss.feed.ParsedFeed
+import net.matsudamper.mastodon.rss.feed.ParsedFeedItem
+import net.matsudamper.mastodon.rss.feed.toDisplayName
+import net.matsudamper.mastodon.rss.repository.AccountId
+import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedRepository
+import net.matsudamper.mastodon.rss.repository.NewFeed
 
 class FeedService(
     private val accounts: AccountRepository,

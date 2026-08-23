@@ -1,15 +1,15 @@
-package net.matsudamper.mastodon.rss.graphql.resolver // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.graphql.resolver
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
-import net.matsudamper.mastodon.rss.GraphqlExceptions // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.GraphQlEngine // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.AdminAccountResolver // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlFeed // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.GraphqlExceptions
+import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.model.AdminAccountResolver
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlFeed
+import net.matsudamper.mastodon.rss.repository.AccountId
 
 class AdminAccountResolverImpl : AdminAccountResolver {
     override fun followerCount(

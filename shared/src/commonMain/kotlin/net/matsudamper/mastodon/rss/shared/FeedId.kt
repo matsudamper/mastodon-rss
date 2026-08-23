@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.shared // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.shared
 
 data class FeedId(
     val value: String,

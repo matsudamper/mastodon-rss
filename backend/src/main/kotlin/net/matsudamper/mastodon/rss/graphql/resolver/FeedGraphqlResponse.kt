@@ -1,15 +1,15 @@
-package net.matsudamper.mastodon.rss.graphql.resolver // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.graphql.resolver
 
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreview // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewItem // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedFailure // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlFeed // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.FeedService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.Feed // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.shared.FeedId // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreview
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewItem
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
+import net.matsudamper.mastodon.rss.graphql.model.QlFeed
+import net.matsudamper.mastodon.rss.logic.FeedService
+import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.shared.FeedId
 
 internal fun Feed.toGraphqlResponse(): QlFeed = QlFeed(
     id = FeedId(id.value.toString()),

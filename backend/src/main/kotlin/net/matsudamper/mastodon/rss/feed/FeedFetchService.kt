@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.feed // pragma: allowlist secret // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.feed
 
 import java.io.Closeable
 import java.net.URI
@@ -12,8 +12,8 @@ import io.ktor.client.statement.request
 import io.ktor.http.HttpHeaders
 import io.ktor.http.URLProtocol
 import io.ktor.http.isSuccess
-import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.channelIdFromPageHtml // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.resolve // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.channelIdFromPageHtml
+import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.resolve
 
 class FeedFetchService(
     private val client: HttpClient = defaultClient(),

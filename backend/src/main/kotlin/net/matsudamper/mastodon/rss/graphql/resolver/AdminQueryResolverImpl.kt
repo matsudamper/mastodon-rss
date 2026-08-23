@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.graphql.resolver // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.graphql.resolver
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
@@ -7,17 +7,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.future.future
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
-import net.matsudamper.mastodon.rss.GraphqlExceptions // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.GraphQlEngine // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.data.NotesCursor // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.GraphqlExceptions
+import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
+import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
+import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminQueryResolverImpl : AdminQueryResolver {
     override fun session(

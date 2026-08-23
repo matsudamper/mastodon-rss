@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.graphql.resolver // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.graphql.resolver
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
@@ -7,28 +7,28 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.future.future
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
-import net.matsudamper.mastodon.rss.GraphqlExceptions // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.GraphQlContext // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.GraphQlEngine // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.AccountService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.AdminLoginService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.FeedService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.NoteService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.shared.AccountId as GraphQlAccountId // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.GraphqlExceptions
+import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
+import net.matsudamper.mastodon.rss.graphql.GraphQlContext
+import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.logic.AccountService
+import net.matsudamper.mastodon.rss.logic.AdminLoginService
+import net.matsudamper.mastodon.rss.logic.FeedService
+import net.matsudamper.mastodon.rss.logic.NoteService
+import net.matsudamper.mastodon.rss.repository.AccountId
+import net.matsudamper.mastodon.rss.shared.AccountId as GraphQlAccountId
+import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminMutationResolverImpl : AdminMutationResolver {
     override fun login(

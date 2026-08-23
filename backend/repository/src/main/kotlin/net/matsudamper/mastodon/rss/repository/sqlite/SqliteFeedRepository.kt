@@ -1,15 +1,15 @@
-package net.matsudamper.mastodon.rss.repository.sqlite // pragma: allowlist secret // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.Feed // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FeedFetchStatus // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FeedFetchValidators // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FeedId // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FeedRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.NewFeed // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEEDS // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.jooq.tables.records.FeedsRecord // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.AccountId
+import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedFetchStatus
+import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
+import net.matsudamper.mastodon.rss.repository.FeedId
+import net.matsudamper.mastodon.rss.repository.FeedRepository
+import net.matsudamper.mastodon.rss.repository.NewFeed
+import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEEDS
+import net.matsudamper.mastodon.rss.repository.jooq.tables.records.FeedsRecord
 
 internal class SqliteFeedRepository(
     private val jooq: SqliteJooq,

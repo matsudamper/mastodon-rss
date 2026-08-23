@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.graphql // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.graphql
 
 import java.util.Locale
 import graphql.GraphQLContext
@@ -10,7 +10,7 @@ import graphql.schema.CoercingParseLiteralException
 import graphql.schema.CoercingParseValueException
 import graphql.schema.CoercingSerializeException
 import graphql.schema.GraphQLScalarType
-import net.matsudamper.mastodon.rss.shared.FeedId // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.shared.FeedId
 
 object FeedIdScalar {
     val value: GraphQLScalarType = GraphQLScalarType

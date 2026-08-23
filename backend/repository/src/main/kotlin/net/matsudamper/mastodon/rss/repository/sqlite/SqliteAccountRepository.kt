@@ -1,10 +1,10 @@
-package net.matsudamper.mastodon.rss.repository.sqlite // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.repository.Account // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountId
+import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
 import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.impl.DSL

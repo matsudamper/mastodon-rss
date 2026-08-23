@@ -1,18 +1,18 @@
 package net.matsudamper.mastodon.rss.graphql
 
-import net.matsudamper.mastodon.rss.actor.ActorDirectory // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.actor.ActorUrls // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.crypto.PasswordHash // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.feed.FeedFetchService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.AccountService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.AdminLoginService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.FeedService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.NoteService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.note.NotePublisher // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.note.NoteStore // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FeedRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FollowerRepository // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.crypto.PasswordHash
+import net.matsudamper.mastodon.rss.feed.FeedFetchService
+import net.matsudamper.mastodon.rss.logic.AccountService
+import net.matsudamper.mastodon.rss.logic.AdminLoginService
+import net.matsudamper.mastodon.rss.logic.FeedService
+import net.matsudamper.mastodon.rss.logic.NoteService
+import net.matsudamper.mastodon.rss.note.NotePublisher
+import net.matsudamper.mastodon.rss.note.NoteStore
+import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.FeedRepository
+import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
 class DiContainer(
     passwordHash: PasswordHash?,

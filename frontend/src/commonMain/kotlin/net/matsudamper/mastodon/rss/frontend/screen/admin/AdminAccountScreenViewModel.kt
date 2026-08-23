@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.screen.admin // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -8,16 +8,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult // pragma: allowlist secret // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult // pragma: allowlist secret // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 
 class AdminAccountScreenViewModel(
     private val username: String,
@@ -411,7 +411,7 @@ class AdminAccountScreenViewModel(
         followerCount = followerCount,
     )
 
-    private fun net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview.toUiState(): AdminAccountScreenUiState.FeedPreview = // pragma: allowlist secret
+    private fun net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview.toUiState(): AdminAccountScreenUiState.FeedPreview =
         AdminAccountScreenUiState.FeedPreview(
             title = title,
             siteUrl = siteUrl,
@@ -447,7 +447,7 @@ class AdminAccountScreenViewModel(
         val loadingMore: Boolean = false,
         val feedInputUrl: String = "",
         val feedFetching: Boolean = false,
-        val feedPreview: net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview? = null, // pragma: allowlist secret
+        val feedPreview: net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview? = null,
         val feedPreviewError: String? = null,
         val feedSaving: Boolean = false,
         val feedSaveError: String? = null,

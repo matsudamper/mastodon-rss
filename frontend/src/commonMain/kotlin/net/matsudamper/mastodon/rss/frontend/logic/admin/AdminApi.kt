@@ -1,28 +1,28 @@
-package net.matsudamper.mastodon.rss.frontend.logic.admin // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.frontend.logic.admin
 
 import kotlin.time.Instant
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
 import com.apollographql.apollo.api.Optional
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailure // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailure // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.frontend.logic.account.Account // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailure
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailure
+import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
+import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 
 class AdminApi(
     private val client: ApolloClient = GraphQlClient.apollo,
@@ -216,7 +216,7 @@ class AdminApi(
         feed = feed?.feedFields?.toAdminFeed(),
     )
 
-    private fun net.matsudamper.mastodon.rss.frontend.graphql.fragment.FeedFields.toAdminFeed(): AdminFeed = AdminFeed( // pragma: allowlist secret
+    private fun net.matsudamper.mastodon.rss.frontend.graphql.fragment.FeedFields.toAdminFeed(): AdminFeed = AdminFeed(
         id = id,
         url = url,
         title = title,

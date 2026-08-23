@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.repository // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.repository
 
 import java.nio.file.Path
 import java.time.Instant

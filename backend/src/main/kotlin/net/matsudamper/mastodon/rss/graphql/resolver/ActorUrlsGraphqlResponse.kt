@@ -1,9 +1,9 @@
-package net.matsudamper.mastodon.rss.graphql.resolver // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.graphql.resolver
 
-import net.matsudamper.mastodon.rss.actor.ActorUrls // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAccount // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.shared.AccountId as GraphQlAccountId // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.graphql.model.QlAccount
+import net.matsudamper.mastodon.rss.repository.AccountId
+import net.matsudamper.mastodon.rss.shared.AccountId as GraphQlAccountId
 
 internal fun ActorUrls.toGraphqlResponse(accountId: AccountId? = null): QlAccount = QlAccount(
     id = accountId?.let { GraphQlAccountId(it.value.toString()) },

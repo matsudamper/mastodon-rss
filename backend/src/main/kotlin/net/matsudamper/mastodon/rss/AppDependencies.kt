@@ -12,7 +12,7 @@ import net.matsudamper.mastodon.rss.actor.StoredActorNames
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
-import net.matsudamper.mastodon.rss.feed.FeedFetchService // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore

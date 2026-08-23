@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.logic.admin // pragma: allowlist secret
+package net.matsudamper.mastodon.rss.frontend.logic.admin
 
 data class AdminFeed(
     val id: String,

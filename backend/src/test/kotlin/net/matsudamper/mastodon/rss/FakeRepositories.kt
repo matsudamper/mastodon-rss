@@ -1,22 +1,22 @@
 package net.matsudamper.mastodon.rss
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.repository.Account // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.AccountRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.Feed // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FeedFetchStatus // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FeedFetchValidators // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FeedId // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FeedRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FollowerRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.IncomingFollow // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.NewFeed // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.NewNote // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.Note // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.NotePosition // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.NoteRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.Repositories // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountId
+import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedFetchStatus
+import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
+import net.matsudamper.mastodon.rss.repository.FeedId
+import net.matsudamper.mastodon.rss.repository.FeedRepository
+import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.IncomingFollow
+import net.matsudamper.mastodon.rss.repository.NewFeed
+import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.Note
+import net.matsudamper.mastodon.rss.repository.NotePosition
+import net.matsudamper.mastodon.rss.repository.NoteRepository
+import net.matsudamper.mastodon.rss.repository.Repositories
 
 // ルーティングのテストで使う Repositories の差し替え。
 // 保存はメモリ上だけで、DB には一切触らない。
