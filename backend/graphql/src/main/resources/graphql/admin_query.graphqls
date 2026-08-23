@@ -10,7 +10,7 @@ type AdminQuery {
     "アカウントが配信した投稿。新しい順"
     notes(username: String!, cursor: String, limit: Int!): AdminNotesConnection! @lazy
 
-    "RSS フィードを取得してパース結果を返す。DB には書かない"
+    "RSS フィードを取得してパース結果を返す。"
     previewFeed(url: String!): AdminFeedPreviewResult! @lazy
 }
 
