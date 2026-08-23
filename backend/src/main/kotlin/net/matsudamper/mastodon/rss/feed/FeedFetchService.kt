@@ -33,6 +33,8 @@ class FeedFetchService(
                 return FetchResult.HttpError(response.status.value)
             }
 
+            // 配信元が /feed から /feed/ へ、http から https へ飛ばすのは普通にある。
+            // 保存するのは飛んだ先の URL で、次からはそこを直接取りに行く
             val finalUrl = response.request.url.toString()
             val bytes = response.bodyAsBytes()
             if (bytes.size > MAX_BODY_BYTES) {
@@ -113,8 +115,6 @@ class FeedFetchService(
                     connectTimeoutMillis = 10_000
                     socketTimeoutMillis = 30_000
                 }
-
-                followRedirects = false
 
                 expectSuccess = false
             }
