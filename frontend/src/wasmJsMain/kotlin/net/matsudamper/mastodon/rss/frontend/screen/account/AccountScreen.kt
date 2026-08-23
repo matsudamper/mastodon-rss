@@ -31,7 +31,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -39,15 +38,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.HtmlElementView
 import androidx.lifecycle.compose.LifecycleStartEffect
-import kotlinx.browser.document
 import kotlinx.browser.window
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
+import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
@@ -55,7 +53,6 @@ import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.copyToClipboard // pragma: allowlist secret
 import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
 import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink
-import org.w3c.dom.HTMLDivElement
 
 /**
  * アカウント画面。`/@feed1` のような URL で開く。
@@ -564,7 +561,6 @@ private fun NoteListPlaceholder(content: @Composable () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun NoteCard(note: NoteUiState) {
     Surface(
@@ -577,9 +573,9 @@ private fun NoteCard(note: NoteUiState) {
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            HtmlElementView(
-                factory = { document.createElement("div") as HTMLDivElement },
-                update = { it.innerHTML = note.contentHtml },
+            NoteContent(
+                contentHtml = note.contentHtml,
+                modifier = Modifier.fillMaxWidth(),
             )
 
             Text(
