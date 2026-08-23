@@ -22,7 +22,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink
 
-private const val REPOSITORY_URL = "https://github.com/" + "matsudamper" + "/mastodon-rss"
+private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 
 @Composable
 fun AdminScreen(onNavigate: (Screen) -> Unit) {
