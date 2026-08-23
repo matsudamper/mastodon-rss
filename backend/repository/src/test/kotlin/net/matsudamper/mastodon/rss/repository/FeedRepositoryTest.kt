@@ -106,6 +106,43 @@ class FeedRepositoryTest {
     }
 
     @Test
+    fun `findDue は取得間隔を過ぎたものだけ返す`() {
+        withRepositories { repositories ->
+            val notFetched = repositories.addFeed(username = "feed1", url = "https://example.com/1.xml")
+            val due = repositories.addFeed(username = "feed2", url = "https://example.com/2.xml")
+            val notDue = repositories.addFeed(username = "feed3", url = "https://example.com/3.xml")
+
+            val now = Instant.parse("2026-08-16T12:00:00Z")
+            repositories.feeds.recordFetchSuccess(
+                id = due.id,
+                fetchedAt = now.minusSeconds(901),
+                validators = FeedFetchValidators.NONE,
+            )
+            repositories.feeds.recordFetchSuccess(
+                id = notDue.id,
+                fetchedAt = now.minusSeconds(899),
+                validators = FeedFetchValidators.NONE,
+            )
+
+            val found = repositories.feeds.findDue(now = now, limit = 10)
+
+            // 一度も取っていないものが先。次に取得予定を過ぎたものが古い順
+            assertEquals(listOf(notFetched.id, due.id), found.map { it.id })
+        }
+    }
+
+    @Test
+    fun `findDue は limit で件数を抑える`() {
+        withRepositories { repositories ->
+            repositories.addFeed(username = "feed1", url = "https://example.com/1.xml")
+            repositories.addFeed(username = "feed2", url = "https://example.com/2.xml")
+
+            assertEquals(1, repositories.feeds.findDue(now = CREATED_AT, limit = 1).size)
+            assertEquals(0, repositories.feeds.findDue(now = CREATED_AT, limit = 0).size)
+        }
+    }
+
+    @Test
     fun `開き直しても残っている`() {
         val dbPath = tempDir.resolve("test.db")
         TestSchema.applyTo(dbPath)
@@ -131,6 +168,23 @@ class FeedRepositoryTest {
             assertEquals("https://example.com/feed.xml", feed.url)
             assertEquals("タイトル", feed.title)
         }
+    }
+
+    private fun Repositories.addFeed(
+        username: String,
+        url: String,
+    ): Feed {
+        val account = assertNotNull(accounts.add(username = username, createdAt = CREATED_AT))
+        return feeds.add(
+            NewFeed(
+                accountId = account.id,
+                url = url,
+                title = null,
+                siteUrl = null,
+                format = null,
+                pollIntervalSeconds = 900,
+            ),
+        )
     }
 
     private fun withRepositories(block: (Repositories) -> Unit) {

@@ -52,12 +52,15 @@ internal class SqliteFeedRepository(
     ): List<Feed> = jooq.transaction { dsl ->
         if (limit <= 0) return@transaction emptyList()
 
+        // 次の取得予定は last_fetched_at に poll_interval_seconds を足した時刻。
+        // TEXT で持っている時刻に秒を足す比較は SQLite に任せられないので、読んでから絞る
         dsl
             .selectFrom(FEEDS)
-            .orderBy(FEEDS.CREATED_AT, FEEDS.ID)
-            .limit(limit)
             .fetch()
             .map { it.toFeed() }
+            .filter { it.isDue(now) }
+            .sortedBy { it.fetch.lastFetchedAt ?: Instant.MIN }
+            .take(limit)
     }
 
     override fun add(feed: NewFeed): Feed = jooq.transaction { dsl ->
@@ -171,6 +174,11 @@ internal class SqliteFeedRepository(
                 .where(FEEDS.ID.eq(id.value.toInt()))
                 .execute()
         }
+    }
+
+    private fun Feed.isDue(now: Instant): Boolean {
+        val lastFetchedAt = fetch.lastFetchedAt ?: return true
+        return lastFetchedAt.plusSeconds(pollIntervalSeconds) <= now
     }
 
     private fun org.jooq.DSLContext.findByAccountId(accountId: AccountId): Feed? = selectFrom(FEEDS)
