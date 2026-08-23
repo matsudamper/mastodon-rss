@@ -2,16 +2,19 @@ package net.matsudamper.mastodon.rss.feed
 
 import java.io.Closeable
 import java.net.URI
+import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
-import io.ktor.client.statement.bodyAsBytes
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.request
 import io.ktor.http.HttpHeaders
 import io.ktor.http.URLProtocol
 import io.ktor.http.isSuccess
+import io.ktor.utils.io.readRemaining
 import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.channelIdFromPageHtml
 import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.resolve
 
@@ -36,10 +39,7 @@ class FeedFetchService(
             // 配信元が /feed から /feed/ へ、http から https へ飛ばすのは普通にある。
             // 保存するのは飛んだ先の URL で、次からはそこを直接取りに行く
             val finalUrl = response.request.url.toString()
-            val bytes = response.bodyAsBytes()
-            if (bytes.size > MAX_BODY_BYTES) {
-                return FetchResult.TooLarge
-            }
+            val bytes = response.readBodyUpTo(MAX_BODY_BYTES) ?: return FetchResult.TooLarge
 
             val parsed = FeedParser.parse(bytes)
             FetchResult.Success(
@@ -71,11 +71,20 @@ class FeedFetchService(
                 }
                 if (!response.status.isSuccess()) return null
 
-                val html = response.bodyAsBytes().decodeToString().take(MAX_PAGE_BYTES)
+                val html = response.readBodyUpTo(MAX_PAGE_BYTES)?.decodeToString() ?: return null
                 val channelId = channelIdFromPageHtml(html) ?: return null
                 YouTubeFeedResolver.feedUrlForChannel(channelId) ?: return null
             }
         }
+    }
+
+    /**
+     * 上限を超えたら null を返す。超えた時点で読むのをやめるので、
+     * 大きすぎる応答を最後まで受け取らない
+     */
+    private suspend fun HttpResponse.readBodyUpTo(limit: Int): ByteArray? {
+        val bytes = bodyAsChannel().readRemaining((limit + 1).toLong()).readByteArray()
+        return bytes.takeIf { it.size <= limit }
     }
 
     override fun close() {
