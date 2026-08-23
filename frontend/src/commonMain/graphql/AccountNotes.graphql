@@ -11,6 +11,7 @@ query AccountNotesQuery($query: AccountNotesQuery!) {
 }
 
 fragment AccountNoteFields on AccountNote {
+    id
     url
     contentHtml
     publishedAt
