@@ -152,6 +152,9 @@ graalvmNative {
             // イメージを作る JVM に渡す
             buildArgs.add("-Dorg.jooq.no-logo=true")
             buildArgs.add("-Dorg.jooq.no-tips=true")
+
+            // native バイナリには既定で一部の文字コードしか入らない。これが無いと
+            // Shift_JIS のフィードを読んだ時点で UnsupportedCharsetException になる
             buildArgs.add("-H:+AddAllCharsets")
         }
     }
