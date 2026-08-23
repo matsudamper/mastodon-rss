@@ -9,6 +9,9 @@ type Query {
     "公開アカウントの一覧"
     accounts(cursor: String, limit: Int!): AccountsConnection! @lazy
     account(username: String!): Account @lazy
+
+    "アカウントが配信した投稿。新しい順"
+    notes(query: AccountNotesQuery!): AccountNotesConnection! @lazy
 }
 
 type Mutation {

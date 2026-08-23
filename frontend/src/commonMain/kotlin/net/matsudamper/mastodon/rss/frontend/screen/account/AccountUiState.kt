@@ -4,9 +4,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
  * アカウント画面に出す内容。
  *
  * 実際の値になっているのは、名前と貼り付ける文字列と Actor の URL だけ。
- * フィードと記事を持つのは Phase 5、数値は管理 API を繋いでからなので、
+ * フィードは Phase 5、数値は管理 API を繋いでからなので、
  * それまでは [placeholder] が組み立てた固定値を出している。
- * 画面の上に仮の値である旨を出しているのはこのため。
+ * 投稿は API から取ってくる。
  */
 data class AccountUiState(
     val username: String,
@@ -25,7 +25,6 @@ data class AccountUiState(
     val lastDeliveredAt: String,
     val feed: FeedUiState,
     val delivery: DeliveryUiState,
-    val articles: List<ArticleUiState>,
     /**
      * 問い合わせ先になる運用者アカウントのユーザー名
      */
@@ -87,24 +86,6 @@ data class AccountUiState(
                     failed = "0",
                     lastError = null,
                 ),
-                articles =
-                listOf(
-                    ArticleUiState(
-                        title = "フィードを ActivityPub で配信する",
-                        publishedAt = "2026-08-09 11:02",
-                        url = "https://example.com/blog/3",
-                    ),
-                    ArticleUiState(
-                        title = "HTTP Signatures の検証でつまずいたところ",
-                        publishedAt = "2026-08-08 20:15",
-                        url = "https://example.com/blog/2",
-                    ),
-                    ArticleUiState(
-                        title = "はじめての記事",
-                        publishedAt = "2026-08-07 09:30",
-                        url = "https://example.com/blog/1",
-                    ),
-                ),
                 operatorUsername = OPERATOR_USERNAME,
                 operatorAcct = "@$OPERATOR_USERNAME@$host",
                 placeholder = true,
@@ -156,10 +137,10 @@ data class DeliveryUiState(
 )
 
 /**
- * 配信した記事 1 件
+ * 配信した投稿 1 件
  */
-data class ArticleUiState(
-    val title: String,
-    val publishedAt: String,
+data class NoteUiState(
     val url: String,
+    val contentHtml: String,
+    val publishedAt: String,
 )

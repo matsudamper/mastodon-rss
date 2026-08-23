@@ -15,18 +15,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.HtmlElementView
 import androidx.lifecycle.compose.LifecycleStartEffect
-import kotlinx.browser.document
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
-import org.w3c.dom.HTMLDivElement
 
 @Composable
 fun AdminAccountScreen(
@@ -197,7 +194,6 @@ private fun PostCard(
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun NotesCard(
     content: AdminAccountScreenUiState.Content.Loaded,
@@ -239,9 +235,9 @@ private fun NotesCard(
                 notes.forEach { note ->
                     key(note.url) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            HtmlElementView(
-                                factory = { document.createElement("div") as HTMLDivElement },
-                                update = { it.innerHTML = note.contentHtml },
+                            NoteContent(
+                                contentHtml = note.contentHtml,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                             Text(
                                 text = "${note.publishedAt}  ${note.url}",

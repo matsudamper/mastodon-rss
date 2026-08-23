@@ -19,6 +19,8 @@ interface NoteStore {
 
     fun find(publicId: String): StoredNote?
 
+    fun findByPublicIds(publicIds: Set<String>): Map<String, StoredNote>
+
     /**
      * 新しい順に返す。
      *
@@ -33,6 +35,15 @@ interface NoteStore {
         after: NotePosition?,
         limit: Int,
     ): List<StoredNote>
+
+    /**
+     * 新しい順に位置だけ返す。本文は取らない
+     */
+    fun listPositions(
+        username: String,
+        after: NotePosition?,
+        limit: Int,
+    ): List<NotePosition>
 
     fun count(username: String): Long
 }

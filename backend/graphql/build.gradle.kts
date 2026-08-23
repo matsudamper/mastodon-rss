@@ -11,6 +11,7 @@ plugins {
 dependencies {
     api(libs.graphql.kickstart.tools)
     api(libs.graphql.java)
+    implementation(project(":shared"))
 }
 
 val generatedSourcesDirectory = layout.buildDirectory.dir("generated/codegen")
@@ -37,7 +38,10 @@ tasks.named<GraphQLCodegenGradleTask>("graphqlCodegen") {
     outputDir = generatedSourcesDirectory.get().asFile
     packageName = "net.matsudamper.mastodon.rss.graphql.model"
 
-    customTypesMapping = mutableMapOf("UnixTime" to "kotlin.Long")
+    customTypesMapping = mutableMapOf(
+        "UnixTime" to "kotlin.Long",
+        "NoteId" to "net.matsudamper.mastodon.rss.shared.NoteId",
+    )
 
     modelNamePrefix = "Ql"
     generateImmutableModels = true
