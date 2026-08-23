@@ -106,10 +106,10 @@ class AppDependencies(
             feedFetcher.close()
         } finally {
             try {
-                (delivery as? AutoCloseable)?.close()
+                delivery.close()
             } finally {
                 try {
-                    (remoteActors as? AutoCloseable)?.close()
+                    remoteActors.close()
                 } finally {
                     try {
                         repositories.close()
