@@ -10,6 +10,7 @@ import graphql.schema.CoercingParseLiteralException
 import graphql.schema.CoercingParseValueException
 import graphql.schema.CoercingSerializeException
 import graphql.schema.GraphQLScalarType
+import net.matsudamper.mastodon.rss.shared.NoteId
 
 object NoteIdScalar {
     val value: GraphQLScalarType = GraphQLScalarType
@@ -19,13 +20,13 @@ object NoteIdScalar {
         .coercing(NoteIdCoercing)
         .build()
 
-    private object NoteIdCoercing : Coercing<String, String> {
+    private object NoteIdCoercing : Coercing<NoteId, String> {
         override fun serialize(
             dataFetcherResult: Any,
             graphQLContext: GraphQLContext,
             locale: Locale,
         ): String {
-            return dataFetcherResult as? String
+            return (dataFetcherResult as? NoteId)?.value
                 ?: throw CoercingSerializeException("NoteId にできない型: ${dataFetcherResult::class.qualifiedName}")
         }
 
@@ -33,9 +34,12 @@ object NoteIdScalar {
             input: Any,
             graphQLContext: GraphQLContext,
             locale: Locale,
-        ): String {
-            return input as? String
-                ?: throw CoercingParseValueException("NoteId として読めない: $input")
+        ): NoteId {
+            return when (input) {
+                is NoteId -> input
+                is String -> NoteId(input)
+                else -> throw CoercingParseValueException("NoteId として読めない: $input")
+            }
         }
 
         override fun parseLiteral(
@@ -43,9 +47,10 @@ object NoteIdScalar {
             variables: CoercedVariables,
             graphQLContext: GraphQLContext,
             locale: Locale,
-        ): String {
-            return (input as? StringValue)?.value
+        ): NoteId {
+            val raw = (input as? StringValue)?.value
                 ?: throw CoercingParseLiteralException("NoteId は文字列で書く")
+            return NoteId(raw)
         }
     }
 }

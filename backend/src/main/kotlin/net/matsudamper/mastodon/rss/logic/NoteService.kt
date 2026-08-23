@@ -6,6 +6,7 @@ import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.PublishedNote
 import net.matsudamper.mastodon.rss.note.StoredNote
+import net.matsudamper.mastodon.rss.shared.NoteId
 
 /**
  * 管理画面から見た投稿の操作。
@@ -82,7 +83,7 @@ class NoteService(
         val page = fetched.take(size)
 
         return NoteIdPage(
-            ids = page.map { it.publicId },
+            ids = page.map { NoteId(it.publicId) },
             hasMore = fetched.size > size,
             nextPosition = page.lastOrNull().takeIf { fetched.size > size },
         )
@@ -98,7 +99,7 @@ class NoteService(
     )
 
     data class NoteIdPage(
-        val ids: List<String>,
+        val ids: List<NoteId>,
         val hasMore: Boolean,
         val nextPosition: NotePosition?,
     )
