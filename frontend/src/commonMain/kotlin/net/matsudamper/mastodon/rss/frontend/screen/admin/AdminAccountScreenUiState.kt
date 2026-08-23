@@ -50,7 +50,6 @@ data class AdminAccountScreenUiState(
      * @param createdAt 「追加: <値>」の形で出す。null ならこの行を出さない
      */
     data class Account(
-        val accountId: Long?,
         val username: String,
         val acct: String,
         val actorUrl: String,
@@ -58,24 +57,33 @@ data class AdminAccountScreenUiState(
         val followerCount: Int,
     )
 
-    /**
-     * @param registrable 登録先に指定できるアカウントか。指定できないなら入力欄を出さない
-     */
-    data class Feed(
-        val registrable: Boolean,
-        val registeredUrl: String?,
-        val registeredTitle: String?,
-        val registeredFormat: String?,
-        val inputUrl: String,
-        val fetching: Boolean,
-        val preview: FeedPreview?,
-        val previewError: String?,
-        val saving: Boolean,
-        val saveError: String?,
-    ) {
-        val canFetch: Boolean get() = registrable && !fetching && !saving && registeredUrl == null && inputUrl.isNotBlank()
+    sealed interface Feed {
+        /**
+         * このアカウントではフィードを扱わない。何も出さない
+         */
+        data object None : Feed
 
-        val canSave: Boolean get() = registrable && !fetching && !saving && registeredUrl == null && preview != null
+        data class Registered(
+            val url: String,
+            val title: String?,
+            val format: String?,
+        ) : Feed
+
+        /**
+         * @param fetching 取得中。ボタンの文字が変わる
+         * @param canFetch false の間は取得のボタンを押せなくする
+         * @param canSave false の間は保存のボタンを押せなくする
+         */
+        data class Input(
+            val url: String,
+            val fetching: Boolean,
+            val canFetch: Boolean,
+            val saving: Boolean,
+            val canSave: Boolean,
+            val preview: FeedPreview?,
+            val previewError: String?,
+            val saveError: String?,
+        ) : Feed
     }
 
     data class FeedPreview(

@@ -145,55 +145,59 @@ private fun FeedCard(
     listener: AdminAccountScreenUiState.Listener,
     wide: Boolean,
 ) {
-    SectionCard(title = "RSS フィード") {
-        if (!feed.registrable) {
-            Text(
-                text = "このアカウントにはフィードを登録できない。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else if (feed.registeredUrl != null) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "登録済み",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = feed.registeredUrl,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (feed.registeredTitle != null) {
+    when (feed) {
+        AdminAccountScreenUiState.Feed.None -> Unit
+
+        is AdminAccountScreenUiState.Feed.Registered -> {
+            SectionCard(title = "RSS フィード") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = feed.registeredTitle,
+                        text = "登録済み",
                         style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
                     )
-                }
-                if (feed.registeredFormat != null) {
                     Text(
-                        text = feed.registeredFormat,
+                        text = feed.url,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (feed.title != null) {
+                        Text(
+                            text = feed.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                    if (feed.format != null) {
+                        Text(
+                            text = feed.format,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
-        } else if (wide) {
-            // 入力欄とプレビューを見比べられる幅がある時だけ横に並べる
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                FeedInputPanel(modifier = Modifier.weight(1f), feed = feed, listener = listener)
-                FeedPreviewPanel(modifier = Modifier.weight(1f), feed = feed)
-            }
-        } else {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                FeedInputPanel(modifier = Modifier.fillMaxWidth(), feed = feed, listener = listener)
-                FeedPreviewPanel(modifier = Modifier.fillMaxWidth(), feed = feed)
+        }
+
+        is AdminAccountScreenUiState.Feed.Input -> {
+            SectionCard(title = "RSS フィード") {
+                if (wide) {
+                    // 入力欄とプレビューを見比べられる幅がある時だけ横に並べる
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        FeedInputPanel(modifier = Modifier.weight(1f), feed = feed, listener = listener)
+                        FeedPreviewPanel(modifier = Modifier.weight(1f), feed = feed)
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        FeedInputPanel(modifier = Modifier.fillMaxWidth(), feed = feed, listener = listener)
+                        FeedPreviewPanel(modifier = Modifier.fillMaxWidth(), feed = feed)
+                    }
+                }
             }
         }
     }
@@ -201,7 +205,7 @@ private fun FeedCard(
 
 @Composable
 private fun FeedInputPanel(
-    feed: AdminAccountScreenUiState.Feed,
+    feed: AdminAccountScreenUiState.Feed.Input,
     listener: AdminAccountScreenUiState.Listener,
     modifier: Modifier = Modifier,
 ) {
@@ -215,7 +219,7 @@ private fun FeedInputPanel(
         )
 
         OutlinedTextField(
-            value = feed.inputUrl,
+            value = feed.url,
             onValueChange = { listener.onFeedUrlChanged(it) },
             enabled = !feed.fetching && !feed.saving,
             modifier = Modifier.fillMaxWidth(),
@@ -259,7 +263,7 @@ private fun FeedInputPanel(
 
 @Composable
 private fun FeedPreviewPanel(
-    feed: AdminAccountScreenUiState.Feed,
+    feed: AdminAccountScreenUiState.Feed.Input,
     modifier: Modifier = Modifier,
 ) {
     Column(

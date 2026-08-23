@@ -372,18 +372,7 @@ class AdminAccountScreenViewModel(
 
                 AdminAccountScreenUiState.Content.Loaded(
                     account = found.toUiState(),
-                    feed = AdminAccountScreenUiState.Feed(
-                        registrable = found.account.id != null,
-                        registeredUrl = found.feed?.url,
-                        registeredTitle = found.feed?.title,
-                        registeredFormat = found.feed?.format,
-                        inputUrl = state.feedInputUrl,
-                        fetching = state.feedFetching,
-                        preview = state.feedPreview?.toUiState(),
-                        previewError = state.feedPreviewError,
-                        saving = state.feedSaving,
-                        saveError = state.feedSaveError,
-                    ),
+                    feed = state.feedUiState(found),
                     post = AdminAccountScreenUiState.Post(
                         body = state.body,
                         submitting = state.submitting,
@@ -400,8 +389,34 @@ class AdminAccountScreenViewModel(
         }
     }
 
+    private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {
+        val feed = account.feed
+        return when {
+            account.account.id == null -> AdminAccountScreenUiState.Feed.None
+
+            feed != null -> AdminAccountScreenUiState.Feed.Registered(
+                url = feed.url,
+                title = feed.title,
+                format = feed.format,
+            )
+
+            else -> {
+                val busy = feedFetching || feedSaving
+                AdminAccountScreenUiState.Feed.Input(
+                    url = feedInputUrl,
+                    fetching = feedFetching,
+                    canFetch = !busy && feedInputUrl.isNotBlank(),
+                    saving = feedSaving,
+                    canSave = !busy && feedPreview != null,
+                    preview = feedPreview?.toUiState(),
+                    previewError = feedPreviewError,
+                    saveError = feedSaveError,
+                )
+            }
+        }
+    }
+
     private fun AdminAccount.toUiState(): AdminAccountScreenUiState.Account = AdminAccountScreenUiState.Account(
-        accountId = account.id,
         username = account.username,
         acct = account.acct,
         actorUrl = account.actorUrl,
