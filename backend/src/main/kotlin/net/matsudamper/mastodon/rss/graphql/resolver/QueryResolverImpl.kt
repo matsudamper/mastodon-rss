@@ -8,6 +8,7 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.data.AccountsCursor
 import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAccountNote
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNotesQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountsConnection
@@ -73,23 +74,22 @@ class QueryResolverImpl : QueryResolver {
         query: QlAccountNotesQuery,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAccountNotesConnection>> {
-        val after = query.cursor?.let { NotesCursor.decode(it) }
+        val cursor = query.cursor?.let { NotesCursor.decode(it) }
 
-        val connection = if (query.cursor != null && after == null) {
+        val connection = if (query.cursor != null && cursor == null) {
             QlAccountNotesConnection(
                 nodes = emptyList(),
                 pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
             )
         } else {
-            val diContainer = GraphQlEngine.diContainer(env)
-            val page = diContainer.noteService.notes(
+            val page = GraphQlEngine.diContainer(env).noteService.noteIds(
                 username = query.username,
-                after = after?.toPosition(),
+                after = cursor?.toPosition(),
                 limit = query.limit,
             )
 
             QlAccountNotesConnection(
-                nodes = page.notes.map { it.toAccountNoteGraphqlResponse(domain = diContainer.domain) },
+                nodes = page.ids.map { QlAccountNote(id = it) },
                 pageInfo = QlPageInfo(
                     hasMore = page.hasMore,
                     nextCursor = page.nextPosition?.let { NotesCursor.of(it).encode() },

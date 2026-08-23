@@ -37,7 +37,10 @@ tasks.named<GraphQLCodegenGradleTask>("graphqlCodegen") {
     outputDir = generatedSourcesDirectory.get().asFile
     packageName = "net.matsudamper.mastodon.rss.graphql.model"
 
-    customTypesMapping = mutableMapOf("UnixTime" to "kotlin.Long")
+    customTypesMapping = mutableMapOf(
+        "UnixTime" to "kotlin.Long",
+        "NoteId" to "kotlin.String",
+    )
 
     modelNamePrefix = "Ql"
     generateImmutableModels = true

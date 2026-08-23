@@ -162,6 +162,7 @@ class AccountGraphQlTest {
             val nodes = notes.nodes()
 
             assertEquals(1, nodes.size)
+            assertEquals("abc123", nodes[0].string("id"))
             assertEquals("https://${TestServerEnv.DOMAIN}/notes/abc123", nodes[0].string("url"))
             assertEquals("<p>本文</p>", nodes[0].string("contentHtml"))
             assertEquals(publishedAt.epochSecond, nodes[0].long("publishedAt"))
@@ -235,7 +236,7 @@ class AccountGraphQlTest {
             val query =
                 "query AccountNotesQuery(${'$'}username: String!, ${'$'}cursor: String, ${'$'}limit: Int!) { " +
                     "notes(query: { username: ${'$'}username, cursor: ${'$'}cursor, limit: ${'$'}limit }) { " +
-                    "nodes { url contentHtml publishedAt } pageInfo { hasMore nextCursor } } }"
+                    "nodes { id url contentHtml publishedAt } pageInfo { hasMore nextCursor } } }"
 
             val variables = buildString {
                 append("{")

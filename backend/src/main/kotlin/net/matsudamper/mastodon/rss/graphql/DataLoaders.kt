@@ -6,6 +6,7 @@ import graphql.schema.DataFetchingEnvironment
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.context.Context
 import net.matsudamper.mastodon.rss.dataloader.AccountDataLoaderDefine
+import net.matsudamper.mastodon.rss.dataloader.AccountNoteDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.DataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.FollowerCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.OtelBatchLoaderScheduler
@@ -28,6 +29,8 @@ class DataLoaders(
     val accountDataLoader by register { AccountDataLoaderDefine(diContainer.actorDirectory) }
 
     val followerCountDataLoader by register { FollowerCountDataLoaderDefine(diContainer.accountService) }
+
+    val accountNoteDataLoader by register { AccountNoteDataLoaderDefine(diContainer.noteStore) }
 
     private fun <K : Any, V : Any> register(initializer: () -> DataLoaderDefine<K, V>): DataLoaderRegister<K, V> {
         val define = initializer()

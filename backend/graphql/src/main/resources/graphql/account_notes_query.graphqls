@@ -11,11 +11,13 @@ type AccountNotesConnection {
 
 "配信した投稿 1 件"
 type AccountNote {
+    id: NoteId!
+
     "投稿の URL。相手はここをパーマリンクとして開く"
-    url: String!
+    url: String! @lazy
 
     "配信した本文の HTML"
-    contentHtml: String!
+    contentHtml: String! @lazy
 
-    publishedAt: UnixTime!
+    publishedAt: UnixTime! @lazy
 }

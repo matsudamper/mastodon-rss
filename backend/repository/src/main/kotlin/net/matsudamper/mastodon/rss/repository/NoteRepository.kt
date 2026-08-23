@@ -23,6 +23,8 @@ interface NoteRepository {
      */
     fun find(publicId: String): Note?
 
+    fun findByPublicIds(publicIds: Set<String>): Map<String, Note>
+
     /**
      * 新しい順に返す。`outbox` と管理画面の一覧に使う。
      *
@@ -37,6 +39,15 @@ interface NoteRepository {
         after: NotePosition?,
         limit: Int,
     ): List<Note>
+
+    /**
+     * 新しい順に公開 id だけ返す。本文は取らない
+     */
+    fun listPositions(
+        username: String,
+        after: NotePosition?,
+        limit: Int,
+    ): List<NotePosition>
 
     fun count(username: String): Long
 }
