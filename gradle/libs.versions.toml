@@ -9,6 +9,7 @@ graphqlJava = "26.0"
 graphqlKickstartTools = "14.0.1"
 graphqlCodegen = "5.10.1-BUILD-2dd014e63d18dcb3c0fcd704b1f3b6db2ac18b1e"
 apollo = "5.1.0"
+apollo-cache = "1.0.7"
 graalvmSdk = "25.2.4"
 sqliteJdbc = "3.53.2.1"
 jooq = "3.21.7"
@@ -33,6 +34,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 graphql-java = { module = "com.graphql-java:graphql-java", version.ref = "graphqlJava" }
 graphql-kickstart-tools = { module = "com.graphql-java-kickstart:graphql-java-tools", version.ref = "graphqlKickstartTools" }
 apollo-runtime = { module = "com.apollographql.apollo:apollo-runtime", version.ref = "apollo" }
+apollo-normalized-cache = { module = "com.apollographql.cache:normalized-cache", version.ref = "apollo-cache" }
 graalvm-nativeimage = { module = "org.graalvm.sdk:nativeimage", version.ref = "graalvmSdk" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
 jooq = { module = "org.jooq:jooq", version.ref = "jooq" }
