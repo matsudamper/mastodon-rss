@@ -6,6 +6,7 @@ import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.PublishedNote
 import net.matsudamper.mastodon.rss.note.StoredNote
+import net.matsudamper.mastodon.rss.shared.NoteId
 
 /**
  * 管理画面から見た投稿の操作。
@@ -54,8 +55,6 @@ class NoteService(
         val size = limit.coerceIn(0, MAX_LIST_LIMIT)
         if (size == 0) return NotePage(notes = emptyList(), hasMore = false, nextPosition = null)
 
-        // 次があるかどうかを総数と突き合わせずに決めるため 1 件多く取る。
-        // 総数で見ると、読んでいる間に増えた分だけずれる
         val fetched = notes.list(username = urls.username, after = after, limit = size + 1)
         val page = fetched.take(size)
 
@@ -67,10 +66,40 @@ class NoteService(
     }
 
     /**
+     * 公開 id だけを新しい順に返す。本文は取らない
+     */
+    fun noteIds(
+        username: String,
+        after: NotePosition?,
+        limit: Int,
+    ): NoteIdPage {
+        val urls = directory.resolve(username)
+            ?: return NoteIdPage(ids = emptyList(), hasMore = false, nextPosition = null)
+
+        val size = limit.coerceIn(0, MAX_LIST_LIMIT)
+        if (size == 0) return NoteIdPage(ids = emptyList(), hasMore = false, nextPosition = null)
+
+        val fetched = notes.listPositions(username = urls.username, after = after, limit = size + 1)
+        val page = fetched.take(size)
+
+        return NoteIdPage(
+            ids = page.map { NoteId(it.publicId) },
+            hasMore = fetched.size > size,
+            nextPosition = page.lastOrNull().takeIf { fetched.size > size },
+        )
+    }
+
+    /**
      * @param nextPosition 次のページを取るときに渡す位置。null なら最後のページ
      */
     data class NotePage(
         val notes: List<StoredNote>,
+        val hasMore: Boolean,
+        val nextPosition: NotePosition?,
+    )
+
+    data class NoteIdPage(
+        val ids: List<NoteId>,
         val hasMore: Boolean,
         val nextPosition: NotePosition?,
     )

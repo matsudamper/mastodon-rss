@@ -2,11 +2,13 @@ package net.matsudamper.mastodon.rss
 
 import java.nio.file.Path
 import io.ktor.server.application.Application
+import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.actorRoutes
 import net.matsudamper.mastodon.rss.follower.followerRoutes
@@ -14,6 +16,7 @@ import net.matsudamper.mastodon.rss.graphql.DiContainer
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
+import net.matsudamper.mastodon.rss.graphql.resolver.AccountNoteResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminAccountResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminMutationResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminQueryResolverImpl
@@ -26,6 +29,7 @@ import net.matsudamper.mastodon.rss.note.noteRoutes
 import net.matsudamper.mastodon.rss.note.outboxRoutes
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
+import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
 
 fun main() {
@@ -33,11 +37,11 @@ fun main() {
     // DOMAIN が無ければこの時点で落ちる。サーバーを立てる前に止めたいので順番を変えないこと
     val env = ServerEnv()
 
-    val deps = AppDependencies.create(env)
-    val server =
-        embeddedServer(CIO, port = env.port, host = env.host) {
-            module(deps)
-        }
+    val telemetry = OpenTelemetryInitializer.start()
+    val deps = AppDependencies.create(env, telemetry = telemetry)
+    val server = embeddedServer(CIO, port = env.port, host = env.host) {
+        module(deps)
+    }
 
     // 終了処理を `use` に任せない。docker stop で来る SIGTERM では main が返らないまま
     // JVM が終わるので finally まで届かず、閉じずに終わると書き込みが DB のファイルに
@@ -114,6 +118,7 @@ fun Application.module(deps: AppDependencies) {
     val graphQl = GraphQlEngine.create(
         resolvers = listOf(
             QueryResolverImpl(),
+            AccountNoteResolverImpl(),
             MutationResolverImpl(),
             AdminQueryResolverImpl(),
             AdminAccountResolverImpl(),
@@ -137,10 +142,17 @@ fun Application.module(deps: AppDependencies) {
             notePublisher = deps.notePublisher,
             noteStore = deps.noteStore,
         ),
+        openTelemetry = deps.openTelemetry,
     )
 
     // ContentNegotiation は入れていない。serializer をリフレクションで引く実装のため
     // native-image で解決できず 500 になる。詳細は json/JsonResponse.kt を参照
+    deps.openTelemetry?.let { openTelemetry ->
+        install(KtorServerTelemetry) {
+            setOpenTelemetry(openTelemetry)
+        }
+    }
+
     routing {
         get("/healthz") {
             call.respondJson(HealthResponse.serializer(), HealthResponse(status = "ok"))

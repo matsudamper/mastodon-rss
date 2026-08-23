@@ -26,6 +26,14 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
 
+    implementation(libs.opentelemetry.sdk)
+    implementation(libs.opentelemetry.sdk.autoconfigure)
+    implementation(libs.opentelemetry.exporter.otlp)
+    implementation(libs.opentelemetry.ktor)
+    implementation(libs.opentelemetry.graphql.java)
+    implementation(libs.opentelemetry.runtime.telemetry)
+    implementation(libs.opentelemetry.extension.kotlin)
+
     implementation(libs.kotlinx.serialization.json)
 
     // GraphQlReflectionFeature を書くための API

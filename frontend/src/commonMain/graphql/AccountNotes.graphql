@@ -1,9 +1,4 @@
-query AccountScreen($username: String!, $query: AccountNotesQuery!) {
-    account(username: $username) {
-        username
-        acct
-        actorUrl
-    }
+query AccountNotesQuery($query: AccountNotesQuery!) {
     notes(query: $query) {
         nodes {
             ...AccountNoteFields
@@ -13,4 +8,11 @@ query AccountScreen($username: String!, $query: AccountNotesQuery!) {
             nextCursor
         }
     }
+}
+
+fragment AccountNoteFields on AccountNote {
+    id
+    url
+    contentHtml
+    publishedAt
 }

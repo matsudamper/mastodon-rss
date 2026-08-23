@@ -30,6 +30,7 @@ kotlin {
             dependencies {
                 implementation(project(":shared"))
                 implementation(libs.apollo.runtime)
+                implementation(libs.apollo.normalized.cache)
                 implementation(compose.runtime)
             }
         }
@@ -42,6 +43,7 @@ kotlin {
                 // 1.12 系が安定したら直接座標へ移行する。
                 implementation(compose.foundation)
                 implementation(compose.material3)
+                implementation(compose.materialIconsExtended)
                 implementation(compose.ui)
                 // 画面遷移。JetBrains 版の Navigation 3（wasmJs 向けの成果物がある）。
                 // runtime は推移的に androidx.navigation3 から入る
@@ -67,5 +69,8 @@ apollo {
         )
 
         mapScalarToKotlinLong("UnixTime")
+
+        plugin("com.apollographql.cache:normalized-cache-apollo-compiler-plugin:${libs.versions.apollo.cache.get()}")
+        pluginArgument("com.apollographql.cache.packageName", packageName.get())
     }
 }

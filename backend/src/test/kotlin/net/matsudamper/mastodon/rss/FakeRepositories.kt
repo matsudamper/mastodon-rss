@@ -156,6 +156,10 @@ class FakeNoteRepository : NoteRepository {
 
     override fun find(publicId: String): Note? = stored.firstOrNull { it.publicId == publicId }
 
+    override fun findByPublicIds(publicIds: Set<String>): Map<String, Note> = stored
+        .filter { it.publicId in publicIds }
+        .associateBy { it.publicId }
+
     override fun list(
         username: String,
         after: NotePosition?,
@@ -169,6 +173,13 @@ class FakeNoteRepository : NoteRepository {
                 (note.publishedAt == after.publishedAt && note.publicId < after.publicId)
         }
         .take(limit)
+
+    override fun listPositions(
+        username: String,
+        after: NotePosition?,
+        limit: Int,
+    ): List<NotePosition> = list(username = username, after = after, limit = limit)
+        .map { NotePosition(publishedAt = it.publishedAt, publicId = it.publicId) }
 
     override fun count(username: String): Long = stored.count { it.username == username }.toLong()
 }

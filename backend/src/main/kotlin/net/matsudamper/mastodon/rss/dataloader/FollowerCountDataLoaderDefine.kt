@@ -1,6 +1,6 @@
 package net.matsudamper.mastodon.rss.dataloader
 
-import java.util.concurrent.CompletableFuture
+import net.matsudamper.mastodon.rss.graphql.otelSupplyAsync
 import net.matsudamper.mastodon.rss.logic.AccountService
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderFactory
@@ -17,7 +17,7 @@ class FollowerCountDataLoaderDefine(
 
     override fun getDataLoader(): DataLoader<String, Int> {
         return DataLoaderFactory.newMappedDataLoader { keys, _ ->
-            CompletableFuture.supplyAsync {
+            otelSupplyAsync {
                 accountService.followerCounts(keys).mapValues { it.value.toInt() }
             }
         }

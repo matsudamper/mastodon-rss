@@ -1,21 +1,23 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.repository.AccountRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.DatabaseConfig // pragma: allowlist secret
+import io.opentelemetry.api.OpenTelemetry
+import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.FeedRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.FollowerRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.NoteRepository // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.Repositories // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.jooq.Tables.HEALTH_CHECK // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.NoteRepository
+import net.matsudamper.mastodon.rss.repository.Repositories
+import net.matsudamper.mastodon.rss.repository.jooq.Tables.HEALTH_CHECK
 
 internal class SqliteRepositories(
     config: DatabaseConfig,
+    openTelemetry: OpenTelemetry? = null,
 ) : Repositories {
     // スキーマの適用はしない。実 DB へは sqlite3def で手適用する運用
     // （db/schema.sql と同じ場所の README を参照）。空の DB で起動した場合は
     // verifyWritable() が no such table で落ちるので、適用忘れはそこで分かる
-    private val connectionManager = SqliteConnectionManager(config)
+    private val connectionManager = SqliteConnectionManager(config, openTelemetry)
     private val jooq = SqliteJooq(connectionManager)
 
     override val accounts: AccountRepository = SqliteAccountRepository(jooq)

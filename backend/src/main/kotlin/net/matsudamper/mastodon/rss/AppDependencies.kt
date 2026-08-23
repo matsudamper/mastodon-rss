@@ -1,26 +1,28 @@
 package net.matsudamper.mastodon.rss
 
-import net.matsudamper.mastodon.rss.actor.ActorDirectory // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.actor.ActorKey // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.actor.ActorKeyLoader // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.actor.ActorPrivateKey // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.actor.ActorUrls // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.actor.HttpRemoteActors // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.actor.RemoteActors // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.actor.StoredActorNames // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery // pragma: allowlist secret
+import io.opentelemetry.api.OpenTelemetry
+import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorKey
+import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
+import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
+import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
+import net.matsudamper.mastodon.rss.actor.RemoteActors
+import net.matsudamper.mastodon.rss.actor.StoredActorNames
+import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
+import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.feed.FeedFetchService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.follower.FollowerStore // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.inbox.InboxService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.note.NotePublisher // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.note.NoteStore // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.DatabaseConfig // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.Repositories // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.repository.createRepositories // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.follower.FollowerStore
+import net.matsudamper.mastodon.rss.inbox.InboxService
+import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
+import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
+import net.matsudamper.mastodon.rss.note.NotePublisher
+import net.matsudamper.mastodon.rss.note.NoteStore
+import net.matsudamper.mastodon.rss.repository.DatabaseConfig
+import net.matsudamper.mastodon.rss.repository.Repositories
+import net.matsudamper.mastodon.rss.repository.createRepositories
+import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
 
 /**
  * アプリが使うものを作って配る場所。
@@ -47,6 +49,8 @@ class AppDependencies(
     val delivery: ActivityDelivery,
     val feedFetcher: FeedFetchService = FeedFetchService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
+    val openTelemetry: OpenTelemetry? = null,
+    private val telemetry: OpenTelemetryInitializer.Handler? = null,
 ) : AutoCloseable {
     /**
      * ドメインはアクター ID に焼き込まれ、Mastodon 側にキャッシュされると後から変えられない。
@@ -107,7 +111,11 @@ class AppDependencies(
                 try {
                     (remoteActors as? AutoCloseable)?.close()
                 } finally {
-                    repositories.close()
+                    try {
+                        repositories.close()
+                    } finally {
+                        telemetry?.close()
+                    }
                 }
             }
         }
@@ -121,8 +129,12 @@ class AppDependencies(
          * フォロワーが記録されているかどうかで決まるため。
          * 開いた後に失敗した場合は、開いた分を閉じてから投げ直す。
          */
-        fun create(env: ServerEnv): AppDependencies {
-            val repositories = createRepositories(DatabaseConfig(path = env.dbPath))
+        fun create(
+            env: ServerEnv,
+            telemetry: OpenTelemetryInitializer.Handler? = null,
+        ): AppDependencies {
+            val repositories = createRepositories(DatabaseConfig(path = env.dbPath), openTelemetry = telemetry?.openTelemetry)
+            val openTelemetry = telemetry?.openTelemetry
 
             // ここから先で失敗すると、開いた DB が閉じられないまま起動が止まる
             return runCatching {
@@ -141,10 +153,10 @@ class AppDependencies(
 
                 // 相手のアクターを引くのと、こちらから送るのとで外向きの HTTP を張る。
                 // どちらも接続を抱えるので、サーバーの外側で開いて確実に閉じる
-                val remoteActors = HttpRemoteActors()
+                val remoteActors = HttpRemoteActors(openTelemetry = openTelemetry)
 
                 val delivery =
-                    runCatching { HttpActivityDelivery(actorKey) }
+                    runCatching { HttpActivityDelivery(actorKey, openTelemetry = openTelemetry) }
                         .getOrElse { failure ->
                             remoteActors.close()
                             throw failure
@@ -156,6 +168,8 @@ class AppDependencies(
                     env = env,
                     remoteActors = remoteActors,
                     delivery = delivery,
+                    openTelemetry = openTelemetry,
+                    telemetry = telemetry,
                 )
             }.getOrElse { failure ->
                 repositories.close()

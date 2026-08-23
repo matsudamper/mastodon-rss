@@ -21,6 +21,7 @@ dependencies {
     // engine はサーバー側と揃えて CIO にする
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
+    implementation(libs.opentelemetry.ktor)
 
     // InboxService のように Ktor のルーティングから切り離したクラスは
     // Application.log を持たないので、SLF4J のロガーを直接引く

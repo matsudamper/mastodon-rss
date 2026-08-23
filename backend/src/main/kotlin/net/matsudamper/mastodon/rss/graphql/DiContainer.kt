@@ -23,7 +23,7 @@ class DiContainer(
     fixedActor: ActorUrls,
     val actorDirectory: ActorDirectory,
     notePublisher: NotePublisher,
-    noteStore: NoteStore,
+    val noteStore: NoteStore,
 ) {
     /**
      * 投稿の URL を組み立てるのに要る。アカウントの URL と同じドメイン

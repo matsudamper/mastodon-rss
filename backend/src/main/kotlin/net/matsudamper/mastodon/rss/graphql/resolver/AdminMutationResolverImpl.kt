@@ -7,27 +7,28 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.future.future
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
-import net.matsudamper.mastodon.rss.GraphqlExceptions // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.GraphQlContext // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.GraphQlEngine // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.GraphqlExceptions
+import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
+import net.matsudamper.mastodon.rss.graphql.GraphQlContext
+import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.AccountService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.AdminLoginService // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.logic.AccountService
+import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.FeedService // pragma: allowlist secret
-import net.matsudamper.mastodon.rss.logic.NoteService // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.logic.NoteService
 import net.matsudamper.mastodon.rss.repository.AccountId // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminMutationResolverImpl : AdminMutationResolver {
     override fun login(
@@ -128,7 +129,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         // 配信は相手のサーバーへの POST を伴うので中断できる形で呼ぶ。
         // GraphQL のリゾルバは CompletionStage を返す約束なので、そこに繋ぎ直す
-        return CoroutineScope(Dispatchers.IO).future {
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val result = when (val posted = diContainer.noteService.post(username = username, body = body)) {
                 is NoteService.PostResult.Success -> {
                     QlAdminPostNoteResult(
@@ -170,7 +171,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         val diContainer = GraphQlEngine.diContainer(env)
 
-        return CoroutineScope(Dispatchers.IO).future {
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val result = diContainer.feedService.preview(url).toGraphqlResponse()
             DataFetcherResult.Builder(result).build()
         }
@@ -193,7 +194,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         val diContainer = GraphQlEngine.diContainer(env)
 
-        return CoroutineScope(Dispatchers.IO).future {
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val result = diContainer.feedService.save(parsedAccountId, url).toGraphqlResponse()
             DataFetcherResult.Builder(result).build()
         }

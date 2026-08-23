@@ -13,6 +13,8 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.http.isSuccess
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.instrumentation.ktor.v3_0.KtorClientTelemetry
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
@@ -40,7 +42,8 @@ import net.matsudamper.mastodon.rss.json.AppJson
  * 相手のサーバーが一時的に落ちているだけなら、次の呼び出しで取り直せるようにする。
  */
 class HttpRemoteActors(
-    private val client: HttpClient = defaultClient(),
+    openTelemetry: OpenTelemetry? = null,
+    private val client: HttpClient = defaultClient(openTelemetry),
 ) : RemoteActors,
     Closeable {
     /**
@@ -163,8 +166,13 @@ class HttpRemoteActors(
          */
         const val CACHE_TTL_MILLIS = 60 * 60 * 1000L
 
-        fun defaultClient(): HttpClient =
+        fun defaultClient(openTelemetry: OpenTelemetry? = null): HttpClient =
             HttpClient(CIO) {
+                if (openTelemetry != null) {
+                    install(KtorClientTelemetry) {
+                        setOpenTelemetry(openTelemetry)
+                    }
+                }
                 // 相手のサーバーが応答しないままだと inbox の処理が詰まる。
                 // フォロー 1 件のために長く待つ意味は無いので短く切る
                 install(HttpTimeout) {

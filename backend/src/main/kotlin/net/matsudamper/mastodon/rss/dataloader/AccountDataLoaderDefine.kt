@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss.dataloader
 
-import java.util.concurrent.CompletableFuture
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.graphql.otelSupplyAsync
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderFactory
 
@@ -18,7 +18,7 @@ class AccountDataLoaderDefine(
 
     override fun getDataLoader(): DataLoader<String, ActorUrls> {
         return DataLoaderFactory.newMappedDataLoader { keys, _ ->
-            CompletableFuture.supplyAsync {
+            otelSupplyAsync {
                 directory.resolve(keys)
             }
         }
