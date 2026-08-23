@@ -32,17 +32,12 @@ fragment AdminAccountFields on AdminAccount {
     createdAt
     followerCount
     feed {
-        ...FeedFields
+        id
+        url
+        title
+        siteUrl
+        format
     }
-}
-
-fragment FeedFields on Feed {
-    id
-    url
-    title
-    siteUrl
-    format
-    createdAt
 }
 
 query AdminPreviewFeed($url: String!) {
@@ -71,7 +66,11 @@ mutation AdminSaveFeed($accountId: AccountId!, $url: String!) {
     admin {
         saveFeed(accountId: $accountId, url: $url) {
             feed {
-                ...FeedFields
+                id
+                url
+                title
+                siteUrl
+                format
             }
             failure {
                 reason

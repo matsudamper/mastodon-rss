@@ -166,7 +166,15 @@ class AdminApi(
 
         val feed = result.feed
         if (feed != null) {
-            return AdminSaveFeedResult.Success(feed.feedFields.toAdminFeed())
+            return AdminSaveFeedResult.Success(
+                AdminFeed(
+                    id = feed.id,
+                    url = feed.url,
+                    title = feed.title,
+                    siteUrl = feed.siteUrl,
+                    format = feed.format,
+                ),
+            )
         }
 
         val reason = result.failure?.reason
@@ -215,15 +223,15 @@ class AdminApi(
         ),
         createdAt = createdAt,
         followerCount = followerCount,
-        feed = feed?.feedFields?.toAdminFeed(),
-    )
-
-    private fun net.matsudamper.mastodon.rss.frontend.graphql.fragment.FeedFields.toAdminFeed(): AdminFeed = AdminFeed(
-        id = id,
-        url = url,
-        title = title,
-        siteUrl = siteUrl,
-        format = format,
+        feed = feed?.let {
+            AdminFeed(
+                id = it.id,
+                url = it.url,
+                title = it.title,
+                siteUrl = it.siteUrl,
+                format = it.format,
+            )
+        },
     )
 
     private fun AdminFeedPreviewFailureReason.toPreviewFailure(): AdminFeedPreviewResult.PreviewFailure =
