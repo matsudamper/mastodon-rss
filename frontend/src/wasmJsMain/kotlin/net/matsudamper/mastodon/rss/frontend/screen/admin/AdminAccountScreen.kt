@@ -145,7 +145,13 @@ private fun FeedCard(
     listener: AdminAccountScreenUiState.Listener,
 ) {
     SectionCard(title = "RSS フィード") {
-        if (feed.registeredUrl != null) {
+        if (!feed.registrable) {
+            Text(
+                text = "このアカウントにはフィードを登録できない。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else if (feed.registeredUrl != null) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "登録済み",

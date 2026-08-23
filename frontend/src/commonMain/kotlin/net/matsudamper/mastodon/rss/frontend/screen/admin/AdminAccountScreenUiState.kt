@@ -58,7 +58,11 @@ data class AdminAccountScreenUiState(
         val followerCount: Int,
     )
 
+    /**
+     * @param registrable 登録先に指定できるアカウントか。指定できないなら入力欄を出さない
+     */
     data class Feed(
+        val registrable: Boolean,
         val registeredUrl: String?,
         val registeredTitle: String?,
         val registeredFormat: String?,
@@ -69,9 +73,9 @@ data class AdminAccountScreenUiState(
         val saving: Boolean,
         val saveError: String?,
     ) {
-        val canFetch: Boolean get() = !fetching && !saving && registeredUrl == null && inputUrl.isNotBlank()
+        val canFetch: Boolean get() = registrable && !fetching && !saving && registeredUrl == null && inputUrl.isNotBlank()
 
-        val canSave: Boolean get() = !fetching && !saving && registeredUrl == null && preview != null
+        val canSave: Boolean get() = registrable && !fetching && !saving && registeredUrl == null && preview != null
     }
 
     data class FeedPreview(

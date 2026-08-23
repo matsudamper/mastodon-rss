@@ -125,6 +125,7 @@ class AdminAccountScreenViewModel(
     private fun fetchFeed() {
         val state = viewModelStateFlow.value
         val url = state.feedInputUrl.trim()
+        if (state.loadedAccount?.account?.id == null) return
         if (url.isEmpty() || state.feedFetching || state.feedSaving || state.savedFeed != null) return
 
         fetchFeedJob?.cancel()
@@ -372,6 +373,7 @@ class AdminAccountScreenViewModel(
                 AdminAccountScreenUiState.Content.Loaded(
                     account = found.toUiState(),
                     feed = AdminAccountScreenUiState.Feed(
+                        registrable = found.account.id != null,
                         registeredUrl = found.feed?.url,
                         registeredTitle = found.feed?.title,
                         registeredFormat = found.feed?.format,
