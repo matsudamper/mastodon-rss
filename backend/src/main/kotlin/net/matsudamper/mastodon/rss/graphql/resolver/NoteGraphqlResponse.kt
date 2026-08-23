@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNote
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
 import net.matsudamper.mastodon.rss.note.NoteUrls
 import net.matsudamper.mastodon.rss.note.StoredNote
 
