@@ -34,7 +34,7 @@ class AdminAccountResolverImpl : AdminAccountResolver {
     ): CompletionStage<DataFetcherResult<QlFeed?>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val accountId = adminAccount.account.id?.value?.toLongOrNull()?.let(::AccountId)
+        val accountId = adminAccount.account.id?.value?.let(::AccountId)
             ?: return CompletableFuture.completedFuture(DataFetcherResult.Builder<QlFeed?>(null).build())
 
         val feed = GraphQlEngine.diContainer(env).feedService.findByAccountId(accountId)

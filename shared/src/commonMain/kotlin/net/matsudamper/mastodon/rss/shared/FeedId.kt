@@ -1,5 +1,5 @@
 package net.matsudamper.mastodon.rss.shared
 
 data class FeedId(
-    val value: String,
+    val value: Long,
 )

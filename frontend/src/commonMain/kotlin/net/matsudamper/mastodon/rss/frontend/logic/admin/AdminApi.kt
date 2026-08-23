@@ -157,7 +157,7 @@ class AdminApi(
     }
 
     suspend fun saveFeed(
-        accountId: String,
+        accountId: Long,
         url: String,
     ): AdminSaveFeedResult {
         val response = client.mutation(AdminSaveFeedMutation(accountId = accountId, url = url)).execute()

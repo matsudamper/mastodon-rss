@@ -50,7 +50,7 @@ data class AdminAccountScreenUiState(
      * @param createdAt 「追加: <値>」の形で出す。null ならこの行を出さない
      */
     data class Account(
-        val accountId: String?,
+        val accountId: Long?,
         val username: String,
         val acct: String,
         val actorUrl: String,

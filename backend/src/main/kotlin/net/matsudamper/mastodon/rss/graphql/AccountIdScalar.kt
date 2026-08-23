@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.graphql
 import java.util.Locale
 import graphql.GraphQLContext
 import graphql.execution.CoercedVariables
+import graphql.language.IntValue
 import graphql.language.StringValue
 import graphql.language.Value
 import graphql.schema.Coercing
@@ -20,12 +21,12 @@ object AccountIdScalar {
         .coercing(AccountIdCoercing)
         .build()
 
-    private object AccountIdCoercing : Coercing<AccountId, String> {
+    private object AccountIdCoercing : Coercing<AccountId, Long> {
         override fun serialize(
             dataFetcherResult: Any,
             graphQLContext: GraphQLContext,
             locale: Locale,
-        ): String {
+        ): Long {
             return (dataFetcherResult as? AccountId)?.value
                 ?: throw CoercingSerializeException("AccountId にできない型: ${dataFetcherResult::class.qualifiedName}")
         }
@@ -37,9 +38,10 @@ object AccountIdScalar {
         ): AccountId {
             return when (input) {
                 is AccountId -> input
-                is String -> AccountId(input)
-                else -> throw CoercingParseValueException("AccountId として読めない: $input")
-            }
+                is Number -> AccountId(input.toLong())
+                is String -> input.toLongOrNull()?.let(::AccountId)
+                else -> null
+            } ?: throw CoercingParseValueException("AccountId として読めない: $input")
         }
 
         override fun parseLiteral(
@@ -48,9 +50,13 @@ object AccountIdScalar {
             graphQLContext: GraphQLContext,
             locale: Locale,
         ): AccountId {
-            val raw = (input as? StringValue)?.value
-                ?: throw CoercingParseLiteralException("AccountId は文字列で書く")
-            return AccountId(raw)
+            val raw = when (input) {
+                is IntValue -> input.value.toLong()
+                is StringValue -> input.value?.toLongOrNull()
+                else -> null
+            }
+            return raw?.let(::AccountId)
+                ?: throw CoercingParseLiteralException("AccountId は整数で書く")
         }
     }
 }

@@ -14,7 +14,7 @@ import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.shared.FeedId
 
 internal fun Feed.toGraphqlResponse(): QlFeed = QlFeed(
-    id = FeedId(id.value.toString()),
+    id = FeedId(id.value),
     url = url,
     title = title,
     siteUrl = siteUrl,

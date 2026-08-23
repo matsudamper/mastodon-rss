@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.graphql
 import java.util.Locale
 import graphql.GraphQLContext
 import graphql.execution.CoercedVariables
+import graphql.language.IntValue
 import graphql.language.StringValue
 import graphql.language.Value
 import graphql.schema.Coercing
@@ -20,12 +21,12 @@ object FeedIdScalar {
         .coercing(FeedIdCoercing)
         .build()
 
-    private object FeedIdCoercing : Coercing<FeedId, String> {
+    private object FeedIdCoercing : Coercing<FeedId, Long> {
         override fun serialize(
             dataFetcherResult: Any,
             graphQLContext: GraphQLContext,
             locale: Locale,
-        ): String {
+        ): Long {
             return (dataFetcherResult as? FeedId)?.value
                 ?: throw CoercingSerializeException("FeedId にできない型: ${dataFetcherResult::class.qualifiedName}")
         }
@@ -37,9 +38,10 @@ object FeedIdScalar {
         ): FeedId {
             return when (input) {
                 is FeedId -> input
-                is String -> FeedId(input)
-                else -> throw CoercingParseValueException("FeedId として読めない: $input")
-            }
+                is Number -> FeedId(input.toLong())
+                is String -> input.toLongOrNull()?.let(::FeedId)
+                else -> null
+            } ?: throw CoercingParseValueException("FeedId として読めない: $input")
         }
 
         override fun parseLiteral(
@@ -48,9 +50,13 @@ object FeedIdScalar {
             graphQLContext: GraphQLContext,
             locale: Locale,
         ): FeedId {
-            val raw = (input as? StringValue)?.value
-                ?: throw CoercingParseLiteralException("FeedId は文字列で書く")
-            return FeedId(raw)
+            val raw = when (input) {
+                is IntValue -> input.value.toLong()
+                is StringValue -> input.value?.toLongOrNull()
+                else -> null
+            }
+            return raw?.let(::FeedId)
+                ?: throw CoercingParseLiteralException("FeedId は整数で書く")
         }
     }
 }

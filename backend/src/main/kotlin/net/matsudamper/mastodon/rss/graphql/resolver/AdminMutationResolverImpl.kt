@@ -170,17 +170,10 @@ class AdminMutationResolverImpl : AdminMutationResolver {
     ): CompletionStage<DataFetcherResult<QlAdminSaveFeedResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val parsedAccountId = accountId.value.toLongOrNull()?.let(::AccountId)
-            ?: return CompletableFuture.completedFuture(
-                DataFetcherResult.Builder(
-                    FeedService.SaveResult.Failure(FeedService.SaveFailure.UNKNOWN_ACCOUNT).toGraphqlResponse(),
-                ).build(),
-            )
-
         val diContainer = GraphQlEngine.diContainer(env)
 
         return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
-            val result = diContainer.feedService.save(parsedAccountId, url).toGraphqlResponse()
+            val result = diContainer.feedService.save(AccountId(accountId.value), url).toGraphqlResponse()
             DataFetcherResult.Builder(result).build()
         }
     }

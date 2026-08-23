@@ -238,8 +238,8 @@ class AdminGraphQlTest {
 
             mutateAddAccount("feed1", token)
 
-            val account = queryAccount("feed1", token).admin().obj("adminAccount")!!.obj("account")
-            assertNotNull(account.getValue("id").jsonPrimitive.content.toLongOrNull())
+            val account = queryAccount("feed1", token).admin().obj("adminAccount").obj("account")
+            assertNotNull(account.getValue("id").jsonPrimitive.long)
         }
 
     @Test
@@ -256,7 +256,7 @@ class AdminGraphQlTest {
         testApplication {
             applicationWith(passwordConfigured = true)
 
-            val errors = mutateSaveFeed(accountId = "1", url = "https://example.com/feed.xml")
+            val errors = mutateSaveFeed(accountId = 1, url = "https://example.com/feed.xml")
                 .body()
                 .getValue("errors")
                 .jsonArray
@@ -271,7 +271,7 @@ class AdminGraphQlTest {
 
             mutateAddAccount("feed1", token)
 
-            val adminAccount = queryAccount("feed1", token).admin().obj("adminAccount")!!
+            val adminAccount = queryAccount("feed1", token).admin().obj("adminAccount")
             assertEquals(JsonNull, adminAccount.getValue("feed"))
         }
 
@@ -504,7 +504,7 @@ class AdminGraphQlTest {
         )
 
     private suspend fun ApplicationTestBuilder.mutateSaveFeed(
-        accountId: String,
+        accountId: Long,
         url: String,
         token: String? = null,
     ): HttpResponse =

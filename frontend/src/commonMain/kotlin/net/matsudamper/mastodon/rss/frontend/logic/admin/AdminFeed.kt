@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.logic.admin
 
 data class AdminFeed(
-    val id: String,
+    val id: Long,
     val url: String,
     val title: String?,
     val siteUrl: String?,
