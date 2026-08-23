@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
@@ -414,7 +415,7 @@ class AdminAccountScreenViewModel(
         followerCount = followerCount,
     )
 
-    private fun net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview.toUiState(): AdminAccountScreenUiState.FeedPreview =
+    private fun AdminFeedPreview.toUiState(): AdminAccountScreenUiState.FeedPreview =
         AdminAccountScreenUiState.FeedPreview(
             title = title,
             siteUrl = siteUrl,
@@ -450,7 +451,7 @@ class AdminAccountScreenViewModel(
         val loadingMore: Boolean = false,
         val feedInputUrl: String = "",
         val feedFetching: Boolean = false,
-        val feedPreview: net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview? = null,
+        val feedPreview: AdminFeedPreview? = null,
         val feedPreviewError: String? = null,
         val feedSaving: Boolean = false,
         val feedSaveError: String? = null,
