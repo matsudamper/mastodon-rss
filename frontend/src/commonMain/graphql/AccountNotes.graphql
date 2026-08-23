@@ -1,5 +1,5 @@
-query AccountNotesQuery($username: String!, $cursor: String, $limit: Int!) {
-    notes(query: { username: $username, cursor: $cursor, limit: $limit }) {
+query AccountNotesQuery($query: AccountNotesQuery!) {
+    notes(query: $query) {
         nodes {
             ...AccountNoteFields
         }

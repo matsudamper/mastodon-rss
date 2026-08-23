@@ -1,10 +1,10 @@
-query AccountScreen($username: String!, $notesCursor: String, $notesLimit: Int!) {
+query AccountScreen($username: String!, $query: AccountNotesQuery!) {
     account(username: $username) {
         username
         acct
         actorUrl
     }
-    notes(query: { username: $username, cursor: $notesCursor, limit: $notesLimit }) {
+    notes(query: $query) {
         nodes {
             ...AccountNoteFields
         }

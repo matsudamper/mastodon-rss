@@ -8,6 +8,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AccountNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.HomeScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AccountNoteFields
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountNotesQuery as AccountNotesQueryInput
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 
 class AccountApi(
@@ -41,8 +42,11 @@ class AccountApi(
             .query(
                 AccountScreenQuery(
                     username = username,
-                    notesCursor = Optional.absent(),
-                    notesLimit = notesLimit,
+                    query = AccountNotesQueryInput(
+                        username = username,
+                        cursor = Optional.absent(),
+                        limit = notesLimit,
+                    ),
                 ),
             ).execute()
 
@@ -73,9 +77,11 @@ class AccountApi(
         val response = client
             .query(
                 AccountNotesQuery(
-                    username = username,
-                    cursor = Optional.presentIfNotNull(cursor),
-                    limit = limit,
+                    query = AccountNotesQueryInput(
+                        username = username,
+                        cursor = Optional.presentIfNotNull(cursor),
+                        limit = limit,
+                    ),
                 ),
             ).execute()
 
