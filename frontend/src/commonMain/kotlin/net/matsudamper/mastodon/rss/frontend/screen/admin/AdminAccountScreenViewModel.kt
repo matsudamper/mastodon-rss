@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeed
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
@@ -113,14 +114,7 @@ class AdminAccountScreenViewModel(
             if (session !is AdminSessionResult.Success || !session.loggedIn) return@launch
 
             val account = api.account(username)
-            viewModelStateFlow.update { state ->
-                state.copy(
-                    account = account,
-                    registeredFeedUrl = (account as? AdminAccountResult.Success)?.account?.feed?.url,
-                    registeredFeedTitle = (account as? AdminAccountResult.Success)?.account?.feed?.title,
-                    registeredFeedFormat = (account as? AdminAccountResult.Success)?.account?.feed?.format,
-                )
-            }
+            viewModelStateFlow.update { it.copy(account = account) }
 
             if (account is AdminAccountResult.Success && account.account != null) {
                 loadNotes()
@@ -131,7 +125,7 @@ class AdminAccountScreenViewModel(
     private fun fetchFeed() {
         val state = viewModelStateFlow.value
         val url = state.feedInputUrl.trim()
-        if (url.isEmpty() || state.feedFetching || state.feedSaving || state.registeredFeedUrl != null) return
+        if (url.isEmpty() || state.feedFetching || state.feedSaving || state.savedFeed != null) return
 
         fetchFeedJob?.cancel()
         viewModelStateFlow.update {
@@ -176,7 +170,7 @@ class AdminAccountScreenViewModel(
 
     private fun saveFeed() {
         val state = viewModelStateFlow.value
-        val accountId = (state.account as? AdminAccountResult.Success)?.account?.account?.id
+        val accountId = state.loadedAccount?.account?.id
         val url = state.feedInputUrl.trim()
         if (accountId == null || url.isEmpty() || state.feedPreview == null || state.feedSaving || state.feedFetching) {
             return
@@ -189,12 +183,10 @@ class AdminAccountScreenViewModel(
             try {
                 when (val result = api.saveFeed(accountId = accountId, url = url)) {
                     is AdminSaveFeedResult.Success -> {
-                        viewModelStateFlow.update {
-                            it.copy(
+                        viewModelStateFlow.update { state ->
+                            state.copy(
                                 feedSaving = false,
-                                registeredFeedUrl = result.feed.url,
-                                registeredFeedTitle = result.feed.title,
-                                registeredFeedFormat = result.feed.format,
+                                account = state.withSavedFeed(result.feed),
                                 feedPreview = null,
                                 feedPreviewError = null,
                                 feedSaveError = null,
@@ -380,9 +372,9 @@ class AdminAccountScreenViewModel(
                 AdminAccountScreenUiState.Content.Loaded(
                     account = found.toUiState(),
                     feed = AdminAccountScreenUiState.Feed(
-                        registeredUrl = state.registeredFeedUrl,
-                        registeredTitle = state.registeredFeedTitle,
-                        registeredFormat = state.registeredFeedFormat,
+                        registeredUrl = found.feed?.url,
+                        registeredTitle = found.feed?.title,
+                        registeredFormat = found.feed?.format,
                         inputUrl = state.feedInputUrl,
                         fetching = state.feedFetching,
                         preview = state.feedPreview?.toUiState(),
@@ -455,10 +447,16 @@ class AdminAccountScreenViewModel(
         val feedPreviewError: String? = null,
         val feedSaving: Boolean = false,
         val feedSaveError: String? = null,
-        val registeredFeedUrl: String? = null,
-        val registeredFeedTitle: String? = null,
-        val registeredFeedFormat: String? = null,
-    )
+    ) {
+        val loadedAccount: AdminAccount? get() = (account as? AdminAccountResult.Success)?.account
+
+        val savedFeed: AdminFeed? get() = loadedAccount?.feed
+
+        fun withSavedFeed(feed: AdminFeed): AdminAccountResult? {
+            val loaded = loadedAccount ?: return account
+            return AdminAccountResult.Success(loaded.copy(feed = feed))
+        }
+    }
 
     private companion object {
         /**
