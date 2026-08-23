@@ -151,6 +151,16 @@ class AdminAccountScreenViewModel(
                         }
                     }
 
+                    is AdminFeedPreviewResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedFetching = false,
+                                feedPreview = null,
+                                feedPreviewError = result.reason.toMessage(),
+                            )
+                        }
+                    }
+
                     is AdminFeedPreviewResult.Failure -> {
                         viewModelStateFlow.update {
                             it.copy(
@@ -191,6 +201,15 @@ class AdminAccountScreenViewModel(
                                 feedPreview = null,
                                 feedPreviewError = null,
                                 feedSaveError = null,
+                            )
+                        }
+                    }
+
+                    is AdminSaveFeedResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedSaving = false,
+                                feedSaveError = result.reason.toMessage(),
                             )
                         }
                     }
@@ -388,6 +407,25 @@ class AdminAccountScreenViewModel(
             }
         }
     }
+
+    private fun AdminFeedPreviewResult.PreviewFailure.toMessage(): String =
+        when (this) {
+            AdminFeedPreviewResult.PreviewFailure.INVALID_URL -> "URL の形式が正しくない"
+            AdminFeedPreviewResult.PreviewFailure.FETCH_FAILED -> "フィードを取得できなかった"
+            AdminFeedPreviewResult.PreviewFailure.PARSE_FAILED -> "フィードを読み取れなかった"
+            AdminFeedPreviewResult.PreviewFailure.UNKNOWN -> "プレビューできなかった"
+        }
+
+    private fun AdminSaveFeedResult.SaveFailure.toMessage(): String =
+        when (this) {
+            AdminSaveFeedResult.SaveFailure.UNKNOWN_ACCOUNT -> "このアカウントには登録できない"
+            AdminSaveFeedResult.SaveFailure.DUPLICATE_URL -> "同じ URL は既に登録されている"
+            AdminSaveFeedResult.SaveFailure.ALREADY_HAS_FEED -> "このアカウントには既にフィードがある"
+            AdminSaveFeedResult.SaveFailure.INVALID_URL -> "URL の形式が正しくない"
+            AdminSaveFeedResult.SaveFailure.FETCH_FAILED -> "フィードを取得できなかった"
+            AdminSaveFeedResult.SaveFailure.PARSE_FAILED -> "フィードを読み取れなかった"
+            AdminSaveFeedResult.SaveFailure.UNKNOWN -> "保存できなかった"
+        }
 
     private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {
         val feed = account.feed

@@ -28,8 +28,17 @@ sealed interface AdminFeedPreviewResult {
         val preview: AdminFeedPreview,
     ) : AdminFeedPreviewResult
 
-    data class Failure(
+    /**
+     * サーバーがプレビューを断った
+     */
+    data class Rejected(
         val reason: PreviewFailure,
+    ) : AdminFeedPreviewResult
+
+    /**
+     * 応答自体が返ってこなかった
+     */
+    data class Failure(
         val message: String,
     ) : AdminFeedPreviewResult
 
@@ -46,8 +55,17 @@ sealed interface AdminSaveFeedResult {
         val feed: AdminFeed,
     ) : AdminSaveFeedResult
 
-    data class Failure(
+    /**
+     * サーバーが保存を断った
+     */
+    data class Rejected(
         val reason: SaveFailure,
+    ) : AdminSaveFeedResult
+
+    /**
+     * 応答自体が返ってこなかった
+     */
+    data class Failure(
         val message: String,
     ) : AdminSaveFeedResult
 

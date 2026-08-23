@@ -127,7 +127,7 @@ class AdminApi(
     suspend fun previewFeed(url: String): AdminFeedPreviewResult {
         val response = client.query(AdminPreviewFeedQuery(url)).execute()
         val result = response.data?.admin?.previewFeed
-            ?: return AdminFeedPreviewResult.Failure(AdminFeedPreviewResult.PreviewFailure.UNKNOWN, response.failureMessage())
+            ?: return AdminFeedPreviewResult.Failure(response.failureMessage())
 
         val preview = result.preview
         if (preview != null) {
@@ -149,10 +149,8 @@ class AdminApi(
             )
         }
 
-        val reason = result.failure?.reason
-        return AdminFeedPreviewResult.Failure(
-            reason = reason?.toPreviewFailure() ?: AdminFeedPreviewResult.PreviewFailure.UNKNOWN,
-            message = previewFailureMessage(reason),
+        return AdminFeedPreviewResult.Rejected(
+            reason = result.failure?.reason?.toPreviewFailure() ?: AdminFeedPreviewResult.PreviewFailure.UNKNOWN,
         )
     }
 
@@ -162,7 +160,7 @@ class AdminApi(
     ): AdminSaveFeedResult {
         val response = client.mutation(AdminSaveFeedMutation(accountId = accountId, url = url)).execute()
         val result = response.data?.admin?.saveFeed
-            ?: return AdminSaveFeedResult.Failure(AdminSaveFeedResult.SaveFailure.UNKNOWN, response.failureMessage())
+            ?: return AdminSaveFeedResult.Failure(response.failureMessage())
 
         val feed = result.feed
         if (feed != null) {
@@ -177,10 +175,8 @@ class AdminApi(
             )
         }
 
-        val reason = result.failure?.reason
-        return AdminSaveFeedResult.Failure(
-            reason = reason?.toSaveFailure() ?: AdminSaveFeedResult.SaveFailure.UNKNOWN,
-            message = saveFailureMessage(reason),
+        return AdminSaveFeedResult.Rejected(
+            reason = result.failure?.reason?.toSaveFailure() ?: AdminSaveFeedResult.SaveFailure.UNKNOWN,
         )
     }
 
@@ -251,25 +247,6 @@ class AdminApi(
             AdminSaveFeedFailureReason.FETCH_FAILED -> AdminSaveFeedResult.SaveFailure.FETCH_FAILED
             AdminSaveFeedFailureReason.PARSE_FAILED -> AdminSaveFeedResult.SaveFailure.PARSE_FAILED
             AdminSaveFeedFailureReason.UNKNOWN__ -> AdminSaveFeedResult.SaveFailure.UNKNOWN
-        }
-
-    private fun previewFailureMessage(reason: AdminFeedPreviewFailureReason?): String =
-        when (reason) {
-            AdminFeedPreviewFailureReason.INVALID_URL -> "URL の形式が正しくない"
-            AdminFeedPreviewFailureReason.FETCH_FAILED -> "フィードを取得できなかった"
-            AdminFeedPreviewFailureReason.PARSE_FAILED -> "フィードを読み取れなかった"
-            AdminFeedPreviewFailureReason.UNKNOWN__, null -> "プレビューできなかった"
-        }
-
-    private fun saveFailureMessage(reason: AdminSaveFeedFailureReason?): String =
-        when (reason) {
-            AdminSaveFeedFailureReason.UNKNOWN_ACCOUNT -> "このアカウントには登録できない"
-            AdminSaveFeedFailureReason.DUPLICATE_URL -> "同じ URL は既に登録されている"
-            AdminSaveFeedFailureReason.ALREADY_HAS_FEED -> "このアカウントには既にフィードがある"
-            AdminSaveFeedFailureReason.INVALID_URL -> "URL の形式が正しくない"
-            AdminSaveFeedFailureReason.FETCH_FAILED -> "フィードを取得できなかった"
-            AdminSaveFeedFailureReason.PARSE_FAILED -> "フィードを読み取れなかった"
-            AdminSaveFeedFailureReason.UNKNOWN__, null -> "保存できなかった"
         }
 
     private fun AdminNoteFields.toAdminNote(): AdminNote = AdminNote(
