@@ -55,6 +55,12 @@ class FeedService(
                         format = fetched.parsed.format.toDisplayName(),
                         pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS,
                     ),
+                ) ?: return SaveResult.Failure(
+                    if (feeds.findByAccountId(accountId) != null) {
+                        SaveFailure.ALREADY_HAS_FEED
+                    } else {
+                        SaveFailure.DUPLICATE_URL
+                    },
                 )
                 SaveResult.Success(feed)
             }

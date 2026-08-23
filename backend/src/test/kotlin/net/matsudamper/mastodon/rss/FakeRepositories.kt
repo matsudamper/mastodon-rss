@@ -201,7 +201,10 @@ class FakeFeedRepository : FeedRepository {
         limit: Int,
     ): List<Feed> = stored.take(limit)
 
-    override fun add(feed: NewFeed): Feed {
+    override fun add(feed: NewFeed): Feed? {
+        if (findByAccountId(feed.accountId) != null) return null
+        if (findByUrl(feed.url) != null) return null
+
         val createdAt = Instant.now()
         return Feed(
             id = FeedId(nextId++),

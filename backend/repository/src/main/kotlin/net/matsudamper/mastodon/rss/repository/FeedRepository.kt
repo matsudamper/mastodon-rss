@@ -30,8 +30,8 @@ interface FeedRepository {
         limit: Int,
     ): List<Feed>
 
-    /** 登録する。採番した id を含めて返す */
-    fun add(feed: NewFeed): Feed
+    /** 登録する。採番した id を含めて返す。同じアカウントか同じ URL が既にあれば null */
+    fun add(feed: NewFeed): Feed?
 
     /** フィードから読めた題名とサイトの URL を反映する */
     fun updateMetadata(

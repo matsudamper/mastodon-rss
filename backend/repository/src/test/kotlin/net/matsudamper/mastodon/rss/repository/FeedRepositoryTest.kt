@@ -7,7 +7,6 @@ import kotlin.io.path.deleteRecursively
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
@@ -25,14 +24,16 @@ class FeedRepositoryTest {
         withRepositories { repositories ->
             val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
 
-            val added = repositories.feeds.add(
-                NewFeed(
-                    accountId = account.id,
-                    url = "https://example.com/feed.xml",
-                    title = "サンプル",
-                    siteUrl = "https://example.com/",
-                    format = "Atom 1.0",
-                    pollIntervalSeconds = 900,
+            val added = assertNotNull(
+                repositories.feeds.add(
+                    NewFeed(
+                        accountId = account.id,
+                        url = "https://example.com/feed.xml",
+                        title = "サンプル",
+                        siteUrl = "https://example.com/",
+                        format = "Atom 1.0",
+                        pollIntervalSeconds = 900,
+                    ),
                 ),
             )
 
@@ -59,7 +60,7 @@ class FeedRepositoryTest {
                 ),
             )
 
-            assertFailsWith<IllegalStateException> {
+            assertNull(
                 repositories.feeds.add(
                     NewFeed(
                         accountId = account2.id,
@@ -69,8 +70,8 @@ class FeedRepositoryTest {
                         format = null,
                         pollIntervalSeconds = 900,
                     ),
-                )
-            }
+                ),
+            )
         }
     }
 
@@ -90,7 +91,7 @@ class FeedRepositoryTest {
                 ),
             )
 
-            assertFailsWith<IllegalStateException> {
+            assertNull(
                 repositories.feeds.add(
                     NewFeed(
                         accountId = account.id,
@@ -100,8 +101,8 @@ class FeedRepositoryTest {
                         format = null,
                         pollIntervalSeconds = 900,
                     ),
-                )
-            }
+                ),
+            )
         }
     }
 
@@ -175,14 +176,16 @@ class FeedRepositoryTest {
         url: String,
     ): Feed {
         val account = assertNotNull(accounts.add(username = username, createdAt = CREATED_AT))
-        return feeds.add(
-            NewFeed(
-                accountId = account.id,
-                url = url,
-                title = null,
-                siteUrl = null,
-                format = null,
-                pollIntervalSeconds = 900,
+        return assertNotNull(
+            feeds.add(
+                NewFeed(
+                    accountId = account.id,
+                    url = url,
+                    title = null,
+                    siteUrl = null,
+                    format = null,
+                    pollIntervalSeconds = 900,
+                ),
             ),
         )
     }

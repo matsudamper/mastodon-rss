@@ -63,13 +63,12 @@ internal class SqliteFeedRepository(
             .take(limit)
     }
 
-    override fun add(feed: NewFeed): Feed = jooq.transaction { dsl ->
-        check(dsl.findByAccountId(feed.accountId) == null) {
-            "同じアカウントにフィードが既にある: accountId=${feed.accountId.value}"
-        }
-        check(dsl.findByUrl(feed.url) == null) {
-            "同じ URL のフィードが既にある: url=${feed.url}"
-        }
+    override fun add(feed: NewFeed): Feed? = jooq.transaction { dsl ->
+        // UNIQUE 制約違反を捕まえる形にすると、他の理由で落ちたときと区別が付かない。
+        // 書き込みは接続 1 本に直列化されているので、同じトランザクションで
+        // 見てから入れれば取りこぼさない
+        if (dsl.findByAccountId(feed.accountId) != null) return@transaction null
+        if (dsl.findByUrl(feed.url) != null) return@transaction null
 
         val createdAt = Instant.now()
         val id = dsl
