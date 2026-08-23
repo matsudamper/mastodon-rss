@@ -17,7 +17,7 @@ slf4j = "2.0.18"
 graalvmBuildtools = "1.1.10"
 ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
-opentelemetry = "1.64.0"
+opentelemetry = "1.65.0"
 opentelemetryInstrumentation = "2.30.0-alpha"
 
 [libraries]
