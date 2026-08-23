@@ -25,8 +25,9 @@ native-image で踏んだことは `META-INF/native-image/` の README にある
 - Phase 2（フォローの成立）完了。inbox の署名を検証し、`Follow` に `Accept` を返す
 - Phase 3（フォロワーの永続化）実装済み。実機での確認は未実施
 - Phase 4（投稿の配信）実装済み。実機での確認は未実施
-- Phase 5 のうちフィードの解析（`:backend:rss`）だけ先に実装した。取得（HTTP）と保存（DB）は
-  繋いでいないので、まだ何も流れない。ActivityPub 側と独立していて後戻りが出ないため前倒しした
+- Phase 5 のうち、フィードの解析（`:backend:rss`）と、管理画面から URL を取得して
+  `feeds` に保存するところまで実装した。記事の取り込みと定期ポーリングは未実装なので、
+  まだ投稿は流れない。ActivityPub 側と独立していて後戻りが出ないため前倒しした
 - Phase 6 と Phase 8 の一部（管理画面の枠、GraphQL の口とログイン、アカウントの追加と一覧）も
   先に入っている。どこまで入っているかは各フェーズの項目を参照
 
@@ -159,23 +160,23 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 
 ここでようやく本来の機能。ActivityPub 側はもう触らない。
 
-フィードを読む部分（`:backend:rss`）だけ先に実装した。取得と保存は繋いでいないので、
-まだ何も流れない。どこまでやったかは各項目の下に書いた。
+フィードを読む部分（`:backend:rss`）と、管理画面からフィードを登録するところまで実装した。
+記事の取り込みは未実装なので、まだ投稿は流れない。どこまでやったかは各項目の下に書いた。
 
 - [x] RSS 2.0 / RSS 1.0 (RDF) / Atom 1.0 のパーサを自作（StAX。`FeedParser`）
       - 外部エンティティと DTD は切ってある。入口はバイト列で、文字コードは XML 宣言と
         BOM から判定させる（先に String にすると Shift_JIS の配信元で文字が壊れる）
       - 日時は RFC 822 と RFC 3339 に加えて崩れた形も読む（`FeedDates`）。
         読めなければ null にして記事は捨てない
-      - [ ] 繋ぐときに `:backend` の native-image へ `-H:+AddAllCharsets` を足す
+      - [x] 繋ぐときに `:backend` の native-image へ `-H:+AddAllCharsets` を足す
             - native バイナリには既定で一部の文字コードしか入らず、Shift_JIS の
               フィードを読んだ時点で `UnsupportedCharsetException` になる
             - `:backend:rss` の `nativeTest` には指定済み。これが無いと Shift_JIS の
               テストが native でだけ落ちることを確認している（そうやって見つけた）
-- [x] `feeds` / `feed_items` テーブル
+- [ ] `feeds` / `feed_items` テーブル
       - `feeds` は実装済み（`account_id` で `accounts.id` と 1:1）。
         管理画面から URL のプレビューと保存まで対応
-      - `feed_items` は未実装
+      - `feed_items` はまだ無い
       - この時点ではアクターが 1 つしか無いので、検証はフィード 1 本で行う。
         `ACTOR_USERNAME` にそのフィード用の名前を入れて動かす
       - `admin` から記事を流さないこと。`admin` は運用者のアカウントで、
@@ -184,9 +185,8 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
         `Move` では表現できず、引っ越しを通知する手段が無い）
       - 複数フィードを同時に動かせるようになるのは Phase 6。
         `feeds.actor_id` を足してフィードごとのアクターに振り分ける
-      - `FeedRepository` と `FeedItemRepository` を interface だけ先に置いた
-        （`:backend:repository`）。`FeedRepository` は SQLite 実装済み。
-        `feed_items` はテーブルがまだ無い
+      - `FeedRepository` は SQLite 実装済み。`FeedItemRepository` は
+        テーブルが無いので interface だけ（`:backend:repository`）
 - [x] 差分検出: `guid` / `id` / `link` を主キーに、なければ URL + タイトルのハッシュ
       - `FeedItemKey`。優先順は `id`（`guid` / Atom の `id` / `rdf:about`）→ `link` → ハッシュ
       - 保存側の突き合わせは `FeedItemRepository.findExistingKeys` に置いた（実装は未定）

@@ -54,7 +54,7 @@ JVM のテストが全部通ったまま実バイナリだけが落ちる。
 保存する形の型（`FeedRepository` / `FeedItemRepository` とその周りのデータクラス）は
 `:backend:repository` に置いていて、`ParsedFeed` とは別物にしてある。同じ型を
 使い回すと、DB のスキーマを変えるたびにパーサを触ることになるため。詰め替えは
-両方を知っている取り込み処理（Phase 5 で `:backend` に置く）の仕事にする。
+両方を知っている取り込み処理（`:backend` の `FeedService`）の仕事にする。
 
 `:backend:graphql` は管理 API のスキーマと、そこから生成したモデル・リゾルバの
 インタフェースを持つ。生成物を使うのはサーバーだけなので `backend/` の下に置く。
