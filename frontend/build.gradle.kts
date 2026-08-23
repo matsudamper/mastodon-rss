@@ -30,6 +30,7 @@ kotlin {
             dependencies {
                 implementation(project(":shared"))
                 implementation(libs.apollo.runtime)
+                implementation(libs.apollo.normalized.cache)
                 implementation(compose.runtime)
             }
         }
@@ -68,5 +69,8 @@ apollo {
         )
 
         mapScalarToKotlinLong("UnixTime")
+
+        plugin("com.apollographql.cache:normalized-cache-apollo-compiler-plugin:${libs.versions.apollo.cache.get()}")
+        pluginArgument("com.apollographql.cache.packageName", packageName.get())
     }
 }
