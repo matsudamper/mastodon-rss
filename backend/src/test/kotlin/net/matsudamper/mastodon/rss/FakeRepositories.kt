@@ -199,14 +199,17 @@ class FakeFeedRepository : FeedRepository {
     override fun findDue(
         now: Instant,
         limit: Int,
-    ): List<Feed> =
-        stored
+    ): List<Feed> {
+        if (limit <= 0) return emptyList()
+
+        return stored
             .filter {
                 val lastFetchedAt = it.fetch.lastFetchedAt
                 lastFetchedAt == null || lastFetchedAt.plusSeconds(it.pollIntervalSeconds) <= now
             }
             .sortedBy { it.fetch.lastFetchedAt ?: Instant.MIN }
             .take(limit)
+    }
 
     override fun add(feed: NewFeed): Feed? {
         if (findByAccountId(feed.accountId) != null) return null
