@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.feed
 
 import java.io.Closeable
 import java.net.URI
+import kotlinx.coroutines.CancellationException
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -52,7 +53,12 @@ class FeedFetchService(
             )
         }.getOrElse { error ->
             when (error) {
+                // runCatching は Throwable を拾うので、呼び出し元が消えた合図まで
+                // 取得の失敗に化ける。化けると保存まで進んでしまう
+                is CancellationException -> throw error
+
                 is FeedParseException -> FetchResult.ParseError(error.message ?: "パースに失敗した")
+
                 else -> FetchResult.HttpError(message = error.message ?: "取得に失敗した")
             }
         }
