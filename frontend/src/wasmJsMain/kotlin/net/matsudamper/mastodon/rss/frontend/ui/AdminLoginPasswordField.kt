@@ -149,20 +149,15 @@ private fun HtmlCredentialField(
                             input = input,
                             interactionSource = interactionSource,
                             focusInteractionHolder = focusInteractionHolder,
+                            onValueChange = onValueChange,
                         )
                         bindClipboardHandlers(input = input)
                         syncInputValue(input = input, value = value)
                         input.oninput = { event ->
-                            val newValue = readInputValue(event)
-                            if (newValue != value) {
-                                onValueChange(newValue)
-                            }
+                            onValueChange(readInputValue(event))
                         }
                         input.onchange = { event ->
-                            val newValue = readInputValue(event)
-                            if (newValue != value) {
-                                onValueChange(newValue)
-                            }
+                            onValueChange(readInputValue(event))
                         }
                     },
                 )
@@ -232,6 +227,7 @@ private fun bindFocusHandlers(
     input: HTMLInputElement,
     interactionSource: MutableInteractionSource,
     focusInteractionHolder: FocusInteractionHolder,
+    onValueChange: (String) -> Unit,
 ) {
     input.onfocus = {
         if (focusInteractionHolder.focus == null) {
@@ -246,6 +242,7 @@ private fun bindFocusHandlers(
             interactionSource.tryEmit(FocusInteraction.Unfocus(focus))
             focusInteractionHolder.focus = null
         }
+        onValueChange(input.value)
     }
 }
 
