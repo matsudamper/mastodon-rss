@@ -267,6 +267,31 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `相対リンクはフィード URL を基準に絶対化して投稿する`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xml = RELATIVE_LINK_XML,
+                noteStore = noteStore,
+            )
+
+            val result = service.save(accountId = account.id, url = FEED_URL, postExistingItems = true)
+
+            val success = assertIs<FeedService.SaveResult.Success>(result)
+            assertEquals(1, success.postedCount)
+            assertEquals(0, success.skippedCount)
+            assertEquals(
+                listOf("https://example.com/posts/1"),
+                noteStore.added.map { html ->
+                    Regex("""href="([^"]+)"""").find(html.contentHtml)?.groupValues?.get(1)
+                },
+            )
+        }
+
+    @Test
     fun `題名もリンクも無い記事は投稿するを選んでも SKIPPED になる`() =
         runTest {
             val repositories = FakeRepositories()
@@ -352,6 +377,18 @@ class FeedServiceTest {
                 <item><title>2 本目</title><link>https://example.com/2</link></item>
               </channel>
             </rss>
+        """.trimIndent()
+        val RELATIVE_LINK_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <title>サンプル</title>
+              <link href="https://example.com/"/>
+              <entry>
+                <title>1 本目</title>
+                <id>urn:uuid:1</id>
+                <link href="/posts/1"/>
+              </entry>
+            </feed>
         """.trimIndent()
         val EMPTY_ITEM_XML = """
             <?xml version="1.0" encoding="UTF-8"?>

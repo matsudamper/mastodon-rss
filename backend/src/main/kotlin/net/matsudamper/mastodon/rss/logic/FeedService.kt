@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.logic
 
+import java.net.URI
 import java.time.Instant
 import kotlinx.coroutines.CancellationException
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
@@ -186,7 +187,7 @@ class FeedService(
         val now = Instant.now()
         var skippedCount = 0
         items.forEach { item ->
-            val contentHtml = composeItemHtml(item)
+            val contentHtml = composeItemHtml(item, feed.url)
             val state = when {
                 contentHtml == null -> FeedItemState.SKIPPED
                 !postExistingItems -> FeedItemState.SKIPPED
@@ -229,8 +230,11 @@ class FeedService(
         return ImportedCounts(postedCount = postedCount, skippedCount = skippedCount)
     }
 
-    private fun composeItemHtml(item: ParsedFeedItem): String? {
-        val link = item.link?.trim().orEmpty()
+    private fun composeItemHtml(
+        item: ParsedFeedItem,
+        feedUrl: String,
+    ): String? {
+        val link = resolveItemLink(item.link, feedUrl)
         val title = FeedText.singleLine(item.title.orEmpty()).ifBlank { link }
         if (title.isBlank()) {
             return null
@@ -243,6 +247,24 @@ class FeedService(
         }
         val sanitized = HtmlSanitizer.sanitize(html)
         return sanitized.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * 記事の `link` をフィードの最終 URL 基準で絶対化する。
+     *
+     * Atom などは相対 IRI を許す。相対のまま `href` に入れると、受信した
+     * Mastodon のホストを基準に解決され、配信元ではない場所へ飛ぶ。
+     * `xml:base` はまだ見ていない。文書の取得先 URL だけを基準にする。
+     */
+    private fun resolveItemLink(
+        link: String?,
+        feedUrl: String,
+    ): String {
+        val trimmed = link?.trim().orEmpty()
+        if (trimmed.isEmpty()) {
+            return ""
+        }
+        return runCatching { URI(feedUrl).resolve(trimmed).toString() }.getOrDefault(trimmed)
     }
 
     private companion object {
