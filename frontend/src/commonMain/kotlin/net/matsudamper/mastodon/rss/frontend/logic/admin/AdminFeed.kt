@@ -53,6 +53,8 @@ sealed interface AdminFeedPreviewResult {
 sealed interface AdminSaveFeedResult {
     data class Success(
         val feed: AdminFeed,
+        val postedCount: Int,
+        val skippedCount: Int,
     ) : AdminSaveFeedResult
 
     /**

@@ -157,21 +157,30 @@ class AdminApi(
     suspend fun saveFeed(
         accountId: Long,
         url: String,
+        postExistingItems: Boolean,
     ): AdminSaveFeedResult {
-        val response = client.mutation(AdminSaveFeedMutation(accountId = accountId, url = url)).execute()
+        val response = client.mutation(
+            AdminSaveFeedMutation(
+                accountId = accountId,
+                url = url,
+                postExistingItems = postExistingItems,
+            ),
+        ).execute()
         val result = response.data?.admin?.saveFeed
             ?: return AdminSaveFeedResult.Failure(response.failureMessage())
 
         val feed = result.feed
         if (feed != null) {
             return AdminSaveFeedResult.Success(
-                AdminFeed(
+                feed = AdminFeed(
                     id = feed.id,
                     url = feed.url,
                     title = feed.title,
                     siteUrl = feed.siteUrl,
                     format = feed.format,
                 ),
+                postedCount = result.postedCount ?: 0,
+                skippedCount = result.skippedCount ?: 0,
             )
         }
 

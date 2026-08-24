@@ -215,7 +215,7 @@ private fun FeedInputPanel(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            text = "RSS/Atom の URL を入れて取得する。問題なければ保存する。",
+            text = "RSS/Atom の URL を入れて取得する。記事があれば、まとめて投稿するか選んで登録する。",
             style = MaterialTheme.typography.bodyMedium,
         )
 
@@ -235,12 +235,44 @@ private fun FeedInputPanel(
             ) {
                 Text(if (feed.fetching) "取得中" else "取得")
             }
+        }
 
-            Button(
-                onClick = { listener.onClickSaveFeed() },
-                enabled = feed.canSave,
-            ) {
-                Text(if (feed.saving) "保存中" else "保存")
+        val preview = feed.preview
+        if (preview != null) {
+            if (preview.itemCount > 0) {
+                Text(
+                    text = "このフィードには記事が ${preview.itemCount} 件ある。登録時にまとめて投稿できる。",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { listener.onClickSaveFeed(postExistingItems = false) },
+                        enabled = feed.canSave,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(if (feed.saving) "登録中" else "投稿せずに登録")
+                    }
+                    Button(
+                        onClick = { listener.onClickSaveFeed(postExistingItems = true) },
+                        enabled = feed.canSave,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            if (feed.saving) {
+                                "登録中"
+                            } else {
+                                "既存の ${preview.itemCount} 件も投稿して登録"
+                            },
+                        )
+                    }
+                }
+            } else {
+                Button(
+                    onClick = { listener.onClickSaveFeed(postExistingItems = false) },
+                    enabled = feed.canSave,
+                ) {
+                    Text(if (feed.saving) "登録中" else "登録する")
+                }
             }
         }
 

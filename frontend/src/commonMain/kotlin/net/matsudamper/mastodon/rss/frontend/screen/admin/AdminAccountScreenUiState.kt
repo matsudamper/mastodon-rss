@@ -67,7 +67,7 @@ data class AdminAccountScreenUiState(
         /**
          * @param fetching 取得中。ボタンの文字が変わる
          * @param canFetch false の間は取得のボタンを押せなくする
-         * @param canSave false の間は保存のボタンを押せなくする
+         * @param canSave false の間は登録のボタンを押せなくする
          */
         data class Input(
             val url: String,
@@ -131,7 +131,7 @@ data class AdminAccountScreenUiState(
 
         fun onClickFetchFeed()
 
-        fun onClickSaveFeed()
+        fun onClickSaveFeed(postExistingItems: Boolean)
 
         fun onBodyChanged(text: String)
 

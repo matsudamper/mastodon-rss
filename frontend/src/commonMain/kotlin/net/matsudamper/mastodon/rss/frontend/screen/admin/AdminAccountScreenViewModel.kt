@@ -56,8 +56,8 @@ class AdminAccountScreenViewModel(
                         fetchFeed()
                     }
 
-                    override fun onClickSaveFeed() {
-                        saveFeed()
+                    override fun onClickSaveFeed(postExistingItems: Boolean) {
+                        saveFeed(postExistingItems)
                     }
 
                     override fun onBodyChanged(text: String) {
@@ -179,7 +179,7 @@ class AdminAccountScreenViewModel(
         }
     }
 
-    private fun saveFeed() {
+    private fun saveFeed(postExistingItems: Boolean) {
         val state = viewModelStateFlow.value
         val loaded = state.loadedAccount ?: return
         val accountId = loaded.account.id
@@ -193,7 +193,7 @@ class AdminAccountScreenViewModel(
 
         saveFeedJob = viewModelScope.launch {
             try {
-                when (val result = api.saveFeed(accountId = accountId, url = url)) {
+                when (val result = api.saveFeed(accountId = accountId, url = url, postExistingItems = postExistingItems)) {
                     is AdminSaveFeedResult.Success -> {
                         viewModelStateFlow.update { state ->
                             state.copy(
@@ -203,6 +203,9 @@ class AdminAccountScreenViewModel(
                                 feedPreviewError = null,
                                 feedSaveError = null,
                             )
+                        }
+                        if (result.postedCount > 0) {
+                            loadNotes()
                         }
                     }
 

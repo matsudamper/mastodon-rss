@@ -62,9 +62,9 @@ query AdminPreviewFeed($url: String!) {
     }
 }
 
-mutation AdminSaveFeed($accountId: AccountId!, $url: String!) {
+mutation AdminSaveFeed($accountId: AccountId!, $url: String!, $postExistingItems: Boolean!) {
     admin {
-        saveFeed(accountId: $accountId, url: $url) {
+        saveFeed(accountId: $accountId, url: $url, postExistingItems: $postExistingItems) {
             feed {
                 id
                 url
@@ -72,6 +72,8 @@ mutation AdminSaveFeed($accountId: AccountId!, $url: String!) {
                 siteUrl
                 format
             }
+            postedCount
+            skippedCount
             failure {
                 reason
             }
