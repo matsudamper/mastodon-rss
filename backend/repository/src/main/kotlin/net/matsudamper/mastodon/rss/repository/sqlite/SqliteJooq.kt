@@ -21,6 +21,13 @@ internal class SqliteJooq(
      * [DSLContext] は接続に紐付くので毎回作る。作るのは設定を包む薄いオブジェクトで、
      * 重いのは [SETTINGS] を持つ側なのでそちらだけ使い回す。
      */
+    fun <T> withConnection(block: (DSLContext) -> T): T = connectionManager.withConnection { connection ->
+        block(DSL.using(connection, SQLDialect.SQLITE, SETTINGS))
+    }
+
+    /**
+     * 複数文を 1 トランザクションに束ねるときに使う。単発の読み取りは [withConnection]。
+     */
     fun <T> transaction(block: (DSLContext) -> T): T = connectionManager.transaction { connection ->
         block(DSL.using(connection, SQLDialect.SQLITE, SETTINGS))
     }

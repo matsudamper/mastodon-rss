@@ -14,7 +14,7 @@ import net.matsudamper.mastodon.rss.repository.jooq.tables.records.FeedsRecord
 internal class SqliteFeedRepository(
     private val jooq: SqliteJooq,
 ) : FeedRepository {
-    override fun list(): List<Feed> = jooq.transaction { dsl ->
+    override fun list(): List<Feed> = jooq.withConnection { dsl ->
         dsl
             .selectFrom(FEEDS)
             .orderBy(FEEDS.CREATED_AT, FEEDS.ID)
@@ -22,7 +22,7 @@ internal class SqliteFeedRepository(
             .map { it.toFeed() }
     }
 
-    override fun find(id: FeedId): Feed? = jooq.transaction { dsl ->
+    override fun find(id: FeedId): Feed? = jooq.withConnection { dsl ->
 
         dsl
             .selectFrom(FEEDS)
@@ -31,11 +31,11 @@ internal class SqliteFeedRepository(
             ?.toFeed()
     }
 
-    override fun findByAccountId(accountId: AccountId): Feed? = jooq.transaction { dsl ->
+    override fun findByAccountId(accountId: AccountId): Feed? = jooq.withConnection { dsl ->
         dsl.findByAccountId(accountId)
     }
 
-    override fun findByUrl(url: String): Feed? = jooq.transaction { dsl ->
+    override fun findByUrl(url: String): Feed? = jooq.withConnection { dsl ->
         dsl
             .selectFrom(FEEDS)
             .where(FEEDS.URL.eq(url))
@@ -46,8 +46,8 @@ internal class SqliteFeedRepository(
     override fun findDue(
         now: Instant,
         limit: Int,
-    ): List<Feed> = jooq.transaction { dsl ->
-        if (limit <= 0) return@transaction emptyList()
+    ): List<Feed> = jooq.withConnection { dsl ->
+        if (limit <= 0) return@withConnection emptyList()
 
         // 次の取得予定は last_fetched_at に poll_interval_seconds を足した時刻。
         // TEXT で持っている時刻に秒を足す比較は SQLite に任せられないので、読んでから絞る
