@@ -43,9 +43,15 @@ class FeedFetchService(
 
             // 配信元が /feed から /feed/ へ、http から https へ飛ばすのは普通にある。
             // 保存するのは飛んだ先の URL で、次からはそこを直接取りに行く。
-            // フラグメントは相手に送られず同じリソースを指すので、
-            // 残すと #a と #b が別のフィードとして登録できてしまう
-            val finalUrl = URLBuilder(response.request.url).apply { fragment = "" }.buildString()
+            // フラグメントは相手に送られず同じリソースを指すので、残すと
+            // #a と #b が別のフィードとして登録できてしまう。ホスト名も
+            // 大文字小文字を区別しないので、綴りの違いで二重登録できてしまう
+            val finalUrl = URLBuilder(response.request.url)
+                .apply {
+                    fragment = ""
+                    host = host.lowercase()
+                }
+                .buildString()
             val bytes = response.readBodyUpTo(MAX_BODY_BYTES) ?: return FetchResult.TooLarge
 
             val parsed = FeedParser.parse(bytes)
