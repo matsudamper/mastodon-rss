@@ -14,7 +14,7 @@ native-image で踏んだことは `META-INF/native-image/` の README にある
 
 ## 現在地と次の一手
 
-次の一手: Phase 5 の RSS の取り込み（取得と保存を繋ぎ、新着記事を自動投稿する）。
+次の一手: Phase 5 の定期ポーリング（新着記事を自動投稿する）。
 
 - Phase 0（土台づくり）完了。`:backend` / `:backend:feature-mastodon` / `:backend:crypto` /
   `:backend:repository` / `:backend:rss` / `:backend:graphql` / `:frontend` のモジュール構成で、
@@ -24,8 +24,8 @@ native-image で踏んだことは `META-INF/native-image/` の README にある
 - Phase 3（フォロワーの永続化）完了。実機で再起動後もフォロワーが保持されることを確認した
 - Phase 4（投稿の配信）完了。実機で管理画面からの投稿がタイムラインに出ることを確認した
 - Phase 5 のうち、フィードの解析（`:backend:rss`）と、管理画面から URL を取得して
-  `feeds` に保存するところまで実装し、実機で登録できることを確認した。
-  記事の取り込みと定期ポーリングは未実装なので、まだ投稿は流れない。
+  `feeds` に保存し、登録時に既存記事を取り込むところまで入れた。
+  定期ポーリングは未実装なので、新着の自動投稿はまだ流れない。
   ActivityPub 側と独立していて後戻りが出ないため前倒しした
 - Phase 6 と Phase 8 の一部（管理画面の枠、GraphQL の口とログイン、アカウントの追加と一覧）も
   先に入っている。どこまで入っているかは各フェーズの項目を参照
@@ -159,7 +159,8 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 ここでようやく本来の機能。ActivityPub 側はもう触らない。
 
 フィードを読む部分（`:backend:rss`）と、管理画面からフィードを登録するところまで実装し、
-実機で登録できることを確認した。記事の取り込みは未実装なので、まだ投稿は流れない。
+実機で登録できることを確認した。登録時の既存記事の取り込みは入れた。
+定期ポーリングは未実装なので、新着の自動投稿はまだ流れない。
 どこまでやったかは各項目の下に書いた。
 
 - [x] RSS 2.0 / RSS 1.0 (RDF) / Atom 1.0 のパーサを自作（StAX。`FeedParser`）
@@ -172,36 +173,33 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
               フィードを読んだ時点で `UnsupportedCharsetException` になる
             - `:backend:rss` の `nativeTest` には指定済み。これが無いと Shift_JIS の
               テストが native でだけ落ちることを確認している（そうやって見つけた）
-- [ ] `feeds` / `feed_items` テーブル
-      - `feeds` は実装済み（`account_id` で `accounts.id` と 1:1）。
+- [x] `feeds` / `feed_items` テーブル
+      - `feeds` は `account_id` で `accounts.id` と 1:1。
         管理画面から URL のプレビューと保存まで対応し、実機で確認済み
-      - `feed_items` はまだ無い
+      - `feed_items` は登録時の取り込みで使う
       - この時点ではフィード 1 本で検証する。管理画面からフィード用のアカウントを
         追加して動かす
       - 運用者用のアカウントから記事を流さないこと。フィード用と混ぜると
         フォロワーが付き、後から分けたときにその人たちには何も届かなくなる
         （1 アカウントから複数への分割は `Move` では表現できず、引っ越しを
         通知する手段が無い）
-      - `FeedRepository` は SQLite 実装済み。`FeedItemRepository` は
-        テーブルが無いので interface だけ（`:backend:repository`）
 - [x] 差分検出: `guid` / `id` / `link` を主キーに、なければ URL + タイトルのハッシュ
       - `FeedItemKey`。優先順は `id`（`guid` / Atom の `id` / `rdf:about`）→ `link` → ハッシュ
-      - 保存側の突き合わせは `FeedItemRepository.findExistingKeys` に置いた（実装は未定）
+      - 保存側の突き合わせは `FeedItemRepository.findExistingKeys`
 - [ ] 条件付き GET（`ETag` / `If-Modified-Since`）でフィード配信元に優しくする
       - 保存する値の形（`FeedFetchValidators`）と、記録する口だけ interface に置いた。
         送るのは HTTP クライアントを持つ `:backend` 側の仕事なので未実装
 - [ ] スケジューラ（定期ポーリング）。フィードごとに間隔を設定可能に
       - 間隔を持つ場所（`Feed.pollIntervalSeconds`）と、対象を引く
         `FeedRepository.findDue` は実装済み。回す部分は未実装
-- [ ] 初回登録時の暴発防止 — 既存記事を全部投稿しない。初回は「取り込み済み」としてマークするだけ
-      - 記録する場所（`Feed.initialImportDone` と `FeedItemState.SKIPPED`）だけ用意した。
-        判断する処理は取り込みを書くときに入れる
+- [x] 初回登録時に既存記事を確認し、まとめて投稿するか選べる
 - [x] HTML サニタイズ（Mastodon が許可するタグに絞る）
       - `HtmlSanitizer`。許可したタグと属性以外を落とし、`href` はスキームも見る。
         閉じられていないタグは末尾で閉じる（壊れた入れ子をそのまま流すと受信側の表示が崩れる）
 - [ ] 本文の長さ調整（インスタンスによっては 500 文字制限。タイトル + リンクを基本形に）
       - 切り詰め（`FeedText.truncate`。コードポイント単位で切り、単語の途中なら空白まで戻す）
-        は用意した。投稿の本文をどう組み立てるかは Phase 4 の `Note` を書くときに決める
+        は用意した。登録時の投稿は題名とリンクにする。新着の本文の組み立ては
+        定期ポーリングを書くときに決める
 - [ ] 取得失敗・パース失敗時のエラーハンドリングとログ
       - パースの失敗は `FeedParseException` にした。取得の失敗と、失敗をどう記録して
         どこに出すかは未実装（記録する口は `FeedRepository.recordFetchFailure`）
