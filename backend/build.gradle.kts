@@ -26,6 +26,7 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
 
+    implementation(libs.opentelemetry.api.incubator)
     implementation(libs.opentelemetry.sdk)
     implementation(libs.opentelemetry.sdk.autoconfigure)
     implementation(libs.opentelemetry.exporter.otlp)
