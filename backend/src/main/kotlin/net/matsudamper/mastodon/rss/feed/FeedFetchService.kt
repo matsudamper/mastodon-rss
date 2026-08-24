@@ -85,11 +85,19 @@ class FeedFetchService(
 
     /**
      * 上限を超えたら null を返す。超えた時点で読むのをやめるので、
-     * 大きすぎる応答を最後まで受け取らない
+     * 大きすぎる応答を最後まで受け取らない。
+     *
+     * 途中でやめた場合は残りを読む相手がいなくなるので、channel を閉じて
+     * 接続を返す。閉じないと繰り返すうちに接続が尽きる
      */
     private suspend fun HttpResponse.readBodyUpTo(limit: Int): ByteArray? {
-        val bytes = bodyAsChannel().readRemaining((limit + 1).toLong()).readByteArray()
-        return bytes.takeIf { it.size <= limit }
+        val channel = bodyAsChannel()
+        val bytes = channel.readRemaining((limit + 1).toLong()).readByteArray()
+        if (bytes.size > limit) {
+            channel.cancel(null)
+            return null
+        }
+        return bytes
     }
 
     override fun close() {
