@@ -51,8 +51,11 @@ object AccountIdScalar {
             locale: Locale,
         ): AccountId {
             val raw = when (input) {
-                is IntValue -> input.value.toLong()
+                // toLong() は桁が溢れると別の値に化ける
+                is IntValue -> runCatching { input.value.longValueExact() }.getOrNull()
+
                 is StringValue -> input.value?.toLongOrNull()
+
                 else -> null
             }
             return raw?.let(::AccountId)

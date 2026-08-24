@@ -54,10 +54,12 @@ internal class SqliteAccountRepository(
     }
 
     override fun findById(id: AccountId): Account? = jooq.transaction { dsl ->
+        val storedId = id.value.toStoredId() ?: return@transaction null
+
         dsl
             .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
             .from(ACCOUNTS)
-            .where(ACCOUNTS.ID.eq(id.value.toInt()))
+            .where(ACCOUNTS.ID.eq(storedId))
             .fetchOne()
             ?.toAccount()
     }

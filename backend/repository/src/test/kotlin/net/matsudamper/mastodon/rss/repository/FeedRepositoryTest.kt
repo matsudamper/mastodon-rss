@@ -133,6 +133,19 @@ class FeedRepositoryTest {
     }
 
     @Test
+    fun `列の範囲に収まらない id では引けない`() {
+        withRepositories { repositories ->
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            repositories.addFeed(username = "feed2", url = "https://example.com/1.xml")
+
+            val outOfRange = AccountId(account.id.value + Int.MAX_VALUE.toLong() + 1)
+
+            assertNull(repositories.accounts.findById(outOfRange))
+            assertNull(repositories.feeds.findByAccountId(outOfRange))
+        }
+    }
+
+    @Test
     fun `findDue は limit で件数を抑える`() {
         withRepositories { repositories ->
             repositories.addFeed(username = "feed1", url = "https://example.com/1.xml")

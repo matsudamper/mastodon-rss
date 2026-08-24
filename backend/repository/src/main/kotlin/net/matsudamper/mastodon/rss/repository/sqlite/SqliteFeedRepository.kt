@@ -23,19 +23,17 @@ internal class SqliteFeedRepository(
     }
 
     override fun find(id: FeedId): Feed? = jooq.transaction { dsl ->
+        val storedId = id.value.toStoredId() ?: return@transaction null
+
         dsl
             .selectFrom(FEEDS)
-            .where(FEEDS.ID.eq(id.value.toInt()))
+            .where(FEEDS.ID.eq(storedId))
             .fetchOne()
             ?.toFeed()
     }
 
     override fun findByAccountId(accountId: AccountId): Feed? = jooq.transaction { dsl ->
-        dsl
-            .selectFrom(FEEDS)
-            .where(FEEDS.ACCOUNT_ID.eq(accountId.value.toInt()))
-            .fetchOne()
-            ?.toFeed()
+        dsl.findByAccountId(accountId)
     }
 
     override fun findByUrl(url: String): Feed? = jooq.transaction { dsl ->
@@ -67,13 +65,14 @@ internal class SqliteFeedRepository(
         // UNIQUE 制約違反を捕まえる形にすると、他の理由で落ちたときと区別が付かない。
         // 書き込みは接続 1 本に直列化されているので、同じトランザクションで
         // 見てから入れれば取りこぼさない
+        val storedAccountId = feed.accountId.value.toStoredId() ?: return@transaction null
         if (dsl.findByAccountId(feed.accountId) != null) return@transaction null
         if (dsl.findByUrl(feed.url) != null) return@transaction null
 
         val createdAt = Instant.now()
         val id = dsl
             .insertInto(FEEDS)
-            .set(FEEDS.ACCOUNT_ID, feed.accountId.value.toInt())
+            .set(FEEDS.ACCOUNT_ID, storedAccountId)
             .set(FEEDS.URL, feed.url)
             .set(FEEDS.TITLE, feed.title)
             .set(FEEDS.SITE_URL, feed.siteUrl)
@@ -180,10 +179,14 @@ internal class SqliteFeedRepository(
         return lastFetchedAt.plusSeconds(pollIntervalSeconds) <= now
     }
 
-    private fun org.jooq.DSLContext.findByAccountId(accountId: AccountId): Feed? = selectFrom(FEEDS)
-        .where(FEEDS.ACCOUNT_ID.eq(accountId.value.toInt()))
-        .fetchOne()
-        ?.toFeed()
+    private fun org.jooq.DSLContext.findByAccountId(accountId: AccountId): Feed? {
+        val storedId = accountId.value.toStoredId() ?: return null
+
+        return selectFrom(FEEDS)
+            .where(FEEDS.ACCOUNT_ID.eq(storedId))
+            .fetchOne()
+            ?.toFeed()
+    }
 
     private fun org.jooq.DSLContext.findByUrl(url: String): Feed? = selectFrom(FEEDS)
         .where(FEEDS.URL.eq(url))
