@@ -12,6 +12,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.request
 import io.ktor.http.HttpHeaders
+import io.ktor.http.URLBuilder
 import io.ktor.http.URLProtocol
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readRemaining
@@ -37,8 +38,10 @@ class FeedFetchService(
             }
 
             // 配信元が /feed から /feed/ へ、http から https へ飛ばすのは普通にある。
-            // 保存するのは飛んだ先の URL で、次からはそこを直接取りに行く
-            val finalUrl = response.request.url.toString()
+            // 保存するのは飛んだ先の URL で、次からはそこを直接取りに行く。
+            // フラグメントは相手に送られず同じリソースを指すので、
+            // 残すと #a と #b が別のフィードとして登録できてしまう
+            val finalUrl = URLBuilder(response.request.url).apply { fragment = "" }.buildString()
             val bytes = response.readBodyUpTo(MAX_BODY_BYTES) ?: return FetchResult.TooLarge
 
             val parsed = FeedParser.parse(bytes)

@@ -47,6 +47,23 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `フラグメント違いは同じ URL として扱う`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account1 = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val account2 = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = account1.id, url = "$FEED_URL#a")
+
+            assertEquals(FEED_URL, assertNotNull(repositories.feeds.findByAccountId(account1.id)).url)
+
+            val result = service.save(accountId = account2.id, url = "$FEED_URL#b")
+
+            val failure = assertIs<FeedService.SaveResult.Failure>(result)
+            assertEquals(FeedService.SaveFailure.DUPLICATE_URL, failure.reason)
+        }
+
+    @Test
     fun `同じ URL は別のアカウントにも登録できない`() =
         runTest {
             val repositories = FakeRepositories()
