@@ -230,7 +230,9 @@ class FeedRepositoryTest {
     }
 
     private companion object {
-        /** Int に詰めると元の値に戻る幅。これを足した id は列の範囲外になる */
+        /**
+         * Int に詰めると元の値に戻る幅。これを足した id は列の範囲外になる
+         */
         const val WRAP = 1L shl 32
 
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03.123456Z")

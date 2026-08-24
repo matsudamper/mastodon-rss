@@ -14,7 +14,9 @@ import graphql.schema.GraphQLScalarType
 import net.matsudamper.mastodon.rss.shared.FeedId
 
 object FeedIdScalar {
-    /** Double が整数を取りこぼさずに表せる幅 */
+    /**
+     * Double が整数を取りこぼさずに表せる幅
+     */
     private val WHOLE_RANGE = -(1L shl 53).toDouble()..(1L shl 53).toDouble()
 
     val value: GraphQLScalarType = GraphQLScalarType
