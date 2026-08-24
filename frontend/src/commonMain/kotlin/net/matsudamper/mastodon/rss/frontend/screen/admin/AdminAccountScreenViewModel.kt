@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
+import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
@@ -21,7 +22,6 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUpdateAccountProfileResult
-import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 
 class AdminAccountScreenViewModel(
     private val username: String,

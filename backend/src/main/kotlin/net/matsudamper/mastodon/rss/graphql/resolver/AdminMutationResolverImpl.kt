@@ -21,9 +21,9 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUpdateAccountProfileFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUpdateAccountProfileResult
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.logic.AccountProfileDefaults
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService

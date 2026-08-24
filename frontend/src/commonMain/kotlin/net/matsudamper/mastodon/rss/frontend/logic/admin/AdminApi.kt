@@ -14,8 +14,8 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminUpdateAccountProfileMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminUpdateAccountProfileMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
