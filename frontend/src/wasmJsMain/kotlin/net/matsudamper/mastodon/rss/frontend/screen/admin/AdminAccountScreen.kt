@@ -20,7 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
@@ -41,15 +41,20 @@ fun AdminAccountScreen(
         onStopOrDispose {}
     }
 
-    AdminAccountScreen(uiState = uiState, onNavigate = onNavigate)
+    AdminAccountScreen(
+        username = username,
+        uiState = uiState,
+        onNavigate = onNavigate,
+    )
 }
 
 @Composable
 private fun AdminAccountScreen(
+    username: String,
     uiState: AdminAccountScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { wide ->
+    AdminScaffold(title = "@$username の管理", onNavigate = onNavigate) { wide ->
         Text(
             text = uiState.acct,
             style = MaterialTheme.typography.headlineSmall,

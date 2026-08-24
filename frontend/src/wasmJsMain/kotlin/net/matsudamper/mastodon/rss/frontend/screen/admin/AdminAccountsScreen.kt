@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
-import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
@@ -56,7 +56,7 @@ private fun AdminAccountsScreen(
     uiState: AdminAccountsScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { wide ->
+    AdminScaffold(title = "アカウント", onNavigate = onNavigate) { wide ->
         Row(
             verticalAlignment = Alignment.CenterVertically,
         ) {
