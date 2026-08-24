@@ -430,8 +430,6 @@ class AdminAccountScreenViewModel(
     private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {
         val feed = account.feed
         return when {
-            account.account.id == null -> AdminAccountScreenUiState.Feed.None
-
             feed != null -> AdminAccountScreenUiState.Feed.Registered(
                 url = feed.url,
                 title = feed.title,
@@ -458,7 +456,7 @@ class AdminAccountScreenViewModel(
         username = account.username,
         acct = account.acct,
         actorUrl = account.actorUrl,
-        createdAt = createdAt?.let { UnixTimeUtil.format(it) },
+        createdAt = UnixTimeUtil.format(createdAt),
         followerCount = followerCount,
     )
 

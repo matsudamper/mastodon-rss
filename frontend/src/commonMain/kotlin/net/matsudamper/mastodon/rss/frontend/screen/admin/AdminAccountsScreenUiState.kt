@@ -28,14 +28,14 @@ data class AdminAccountsScreenUiState(
      *
      * @param acct 行の見出しとして大きく出す
      * @param actorUrl 見出しの下に小さく出す
-     * @param createdAt 「追加: <値>」の形で出す。null ならこの行を出さない
+     * @param createdAt 「追加: <値>」の形で出す
      * @param username 行から開く画面のリンク先。文字としては出さない
      */
     data class Account(
         val username: String,
         val acct: String,
         val actorUrl: String,
-        val createdAt: String?,
+        val createdAt: String,
         val followerCount: Int,
     )
 

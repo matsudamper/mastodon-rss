@@ -95,7 +95,6 @@ data class AccountUiState(
         /**
          * 運用者アカウントの既定のユーザー名。
          *
-         * サーバー側は `ACTOR_USERNAME` で変えられるので、本当はこちらで決められない。
          * 仮データの間だけの表示で、API を繋いだらサーバーが返した名前に置き換える。
          */
         private const val OPERATOR_USERNAME = "admin"

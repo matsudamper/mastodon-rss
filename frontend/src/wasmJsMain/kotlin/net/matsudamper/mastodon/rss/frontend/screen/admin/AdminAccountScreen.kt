@@ -129,13 +129,11 @@ private fun AccountCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        if (account.createdAt != null) {
-            Text(
-                text = "追加: ${account.createdAt}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        Text(
+            text = "追加: ${account.createdAt}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
         TextLink(
             text = "公開されているアカウント画面を開く",
@@ -151,8 +149,6 @@ private fun FeedCard(
     wide: Boolean,
 ) {
     when (feed) {
-        AdminAccountScreenUiState.Feed.None -> Unit
-
         is AdminAccountScreenUiState.Feed.Registered -> {
             SectionCard(title = "RSS フィード") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
