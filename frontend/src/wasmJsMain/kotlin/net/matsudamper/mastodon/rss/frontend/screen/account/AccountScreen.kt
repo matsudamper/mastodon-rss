@@ -86,7 +86,6 @@ fun AccountScreen(
     }
 
     AccountScreen(
-        screen = Screen.Account(username),
         username = username,
         uiState = uiState,
         onNavigate = onNavigate,
@@ -95,12 +94,11 @@ fun AccountScreen(
 
 @Composable
 private fun AccountScreen(
-    screen: Screen.Account,
     username: String,
     uiState: AccountScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(screen = screen, onNavigate = onNavigate) { wide ->
+    AppScaffold(onNavigate = onNavigate) { wide ->
         when (val content = uiState.content) {
             AccountScreenUiState.Content.Loading -> {
                 SectionCard(title = "読み込み中") {
