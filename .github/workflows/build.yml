@@ -398,3 +398,11 @@ jobs:
 
           # 何が足りないのか分からないまま落ちるのでは調べようがない
           grep -q "DOMAIN" /tmp/no-domain.log
+
+  build-all-success:
+    name: build-all-success
+    needs: [ktlint, backend, frontend, native-test, native-image]
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ failure() || cancelled() }}
+        run: exit 1
