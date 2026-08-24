@@ -16,6 +16,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminAccountsInput
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
@@ -49,12 +50,33 @@ class AdminApi(
             .toSessionResult { it.admin.logout.adminSessionFields }
     }
 
-    suspend fun accounts(): AdminAccountsResult {
-        val response = client.query(AdminAccountsQuery()).execute()
+    suspend fun accounts(cursor: String? = null, limit: Int = PAGE_SIZE): AdminAccountsResult {
+        val response =
+            client
+                .query(
+                    AdminAccountsQuery(
+                        input =
+                        Optional.present(
+                            AdminAccountsInput(
+                                cursor = Optional.presentIfNotNull(cursor),
+                                limit = Optional.present(limit),
+                            ),
+                        ),
+                    ),
+                )
+                .execute()
+
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminAccountsResult.Failure(response.failureMessage())
+        }
+
         val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
+        val connection = data.admin.adminAccounts
 
         return AdminAccountsResult.Success(
-            data.admin.adminAccounts.map { it.adminAccountFields.toAdminAccount() },
+            accounts = connection.nodes.map { it.adminAccountFields.toAdminAccount() },
+            hasMore = connection.pageInfo.hasMore,
+            nextCursor = connection.pageInfo.nextCursor,
         )
     }
 
@@ -185,5 +207,9 @@ class AdminApi(
         return exception?.message
             ?: errors?.joinToString("\n") { it.message }?.takeIf { it.isNotEmpty() }
             ?: "ネットワークエラー"
+    }
+
+    private companion object {
+        const val PAGE_SIZE = 20
     }
 }

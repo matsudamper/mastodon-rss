@@ -16,6 +16,8 @@ sealed interface AdminAccountResult {
 sealed interface AdminAccountsResult {
     data class Success(
         val accounts: List<AdminAccount>,
+        val hasMore: Boolean,
+        val nextCursor: String?,
     ) : AdminAccountsResult
 
     data class Failure(

@@ -6,9 +6,12 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.data.AccountsCursor
 import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountsConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountsInput
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
@@ -29,6 +32,44 @@ class AdminQueryResolverImpl : AdminQueryResolver {
                     passwordConfigured = adminLoginService.adminPasswordConfigured,
                 ),
             ).build(),
+        )
+    }
+
+    override fun adminAccounts(
+        adminQuery: QlAdminQuery,
+        input: QlAdminAccountsInput?,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminAccountsConnection>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val cursor = input?.cursor
+        val after = cursor?.let { AccountsCursor.decode(it) }
+
+        val connection = if (cursor != null && after == null) {
+            QlAdminAccountsConnection(
+                nodes = emptyList(),
+                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+            )
+        } else {
+            val result = GraphQlEngine
+                .diContainer(env)
+                .accountService
+                .accounts(
+                    afterUsername = after?.afterUsername,
+                    limit = (input?.limit ?: DEFAULT_LIMIT).coerceIn(0, MAX_ADMIN_ACCOUNTS_LIMIT),
+                )
+
+            QlAdminAccountsConnection(
+                nodes = result.accounts.map { it.toGraphqlResponse() },
+                pageInfo = QlPageInfo(
+                    hasMore = result.hasMore,
+                    nextCursor = result.nextUsername?.let { AccountsCursor(afterUsername = it).encode() },
+                ),
+            )
+        }
+
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(connection).build(),
         )
     }
 
@@ -86,16 +127,8 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         )
     }
 
-    override fun adminAccounts(
-        adminQuery: QlAdminQuery,
-        env: DataFetchingEnvironment,
-    ): CompletionStage<DataFetcherResult<List<QlAdminAccount>>> {
-        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
-
-        val accounts = GraphQlEngine.diContainer(env).accountService.accounts()
-
-        return CompletableFuture.completedFuture(
-            DataFetcherResult.Builder(accounts.map { it.toGraphqlResponse() }).build(),
-        )
+    private companion object {
+        const val DEFAULT_LIMIT = 10
+        const val MAX_ADMIN_ACCOUNTS_LIMIT = 50
     }
 }

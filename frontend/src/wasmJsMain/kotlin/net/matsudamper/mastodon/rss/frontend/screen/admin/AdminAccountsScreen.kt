@@ -3,6 +3,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -11,6 +14,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
@@ -85,6 +89,18 @@ private fun AdminAccountsScreen(
 
                     content.accounts.forEach { account ->
                         AccountRow(account = account, onNavigate = onNavigate)
+                    }
+
+                    if (content.hasMore) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (content.isLoadingMore) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            } else {
+                                Button(onClick = { uiState.listener.onClickLoadMore() }) {
+                                    Text(if (content.loadMoreErrorMessage != null) "もう一度試す" else "もっと見る")
+                                }
+                            }
+                        }
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
