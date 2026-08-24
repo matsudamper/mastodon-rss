@@ -57,11 +57,25 @@ private fun AdminAccountsScreen(
     onNavigate: (Screen) -> Unit,
 ) {
     AppScaffold(onNavigate = onNavigate) { wide ->
-        Text(
-            text = "アカウント",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                modifier = Modifier.weight(1f),
+                text = "アカウント一覧",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+
+            OutlinedButton(
+                modifier = Modifier,
+                onClick = { onNavigate(Screen.AdminAccountNew) },
+            ) {
+                Text(
+                    text = "追加",
+                )
+            }
+        }
 
         when (val content = uiState.content) {
             AdminAccountsScreenUiState.Content.Loading -> {
@@ -94,13 +108,6 @@ private fun AdminAccountsScreen(
             }
 
             is AdminAccountsScreenUiState.Content.Loaded -> {
-                Text(
-                    text = "この一覧にある名前が Mastodon から検索できる。" +
-                        "カードを選ぶと、そのアカウントの管理画面を開ける。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
                 if (content.accounts.isEmpty()) {
                     SectionCard(title = "アカウント") {
                         Text(
@@ -139,22 +146,6 @@ private fun AdminAccountsScreen(
                             }
                         }
                     }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
-                        Text("更新")
-                    }
-                }
-
-                SectionCard(title = "増やす") {
-                    TextLink(
-                        text = "アカウントを追加する",
-                        onClick = { onNavigate(Screen.AdminAccountNew) },
-                    )
                 }
             }
         }
@@ -237,7 +228,7 @@ private fun AdminAccountCard(
                 Button(
                     onClick = { onNavigate(Screen.AdminAccount(account.username)) },
                 ) {
-                    Text("管理する")
+                    Text("管理画面")
                 }
             }
         }
