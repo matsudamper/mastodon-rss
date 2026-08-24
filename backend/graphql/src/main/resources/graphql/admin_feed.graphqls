@@ -1,0 +1,47 @@
+type AdminFeedPreview {
+    title: String
+    siteUrl: String
+    format: String!
+    description: String
+    itemCount: Int!
+    sampleItems: [AdminFeedPreviewItem!]!
+}
+
+type AdminFeedPreviewItem {
+    title: String
+    link: String
+    publishedAt: UnixTime
+}
+
+type AdminFeedPreviewResult {
+    preview: AdminFeedPreview
+    failure: AdminFeedPreviewFailure
+}
+
+type AdminFeedPreviewFailure {
+    reason: AdminFeedPreviewFailureReason!
+}
+
+enum AdminFeedPreviewFailureReason {
+    INVALID_URL
+    FETCH_FAILED
+    PARSE_FAILED
+}
+
+type AdminSaveFeedResult {
+    feed: Feed
+    failure: AdminSaveFeedFailure
+}
+
+type AdminSaveFeedFailure {
+    reason: AdminSaveFeedFailureReason!
+}
+
+enum AdminSaveFeedFailureReason {
+    UNKNOWN_ACCOUNT
+    DUPLICATE_URL
+    ALREADY_HAS_FEED
+    INVALID_URL
+    FETCH_FAILED
+    PARSE_FAILED
+}

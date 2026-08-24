@@ -2,3 +2,7 @@
 scalar UnixTime
 
 scalar NoteId
+
+scalar AccountId
+
+scalar FeedId

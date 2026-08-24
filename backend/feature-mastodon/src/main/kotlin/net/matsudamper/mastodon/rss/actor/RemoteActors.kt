@@ -11,7 +11,9 @@ import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
  * 署名の検証だけを見る側からは [PublicKeys] として渡す。検証は
  * 「鍵をどこから持ってくるか」と関係が無いので、そちらの口は狭いままにしておく。
  */
-interface RemoteActors : PublicKeys {
+interface RemoteActors :
+    PublicKeys,
+    AutoCloseable {
     /**
      * アクター文書から、配信と記録に要る部分を引く。引けなければ null。
      *

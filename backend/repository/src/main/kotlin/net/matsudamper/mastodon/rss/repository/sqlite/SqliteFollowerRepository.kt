@@ -116,8 +116,8 @@ internal class SqliteFollowerRepository(
             .from(FOLLOWERS)
             .where(FOLLOWERS.USERNAME.eq(username))
             .and(FOLLOWERS.STATE.eq(STATE_ACCEPTED))
-            .fetchOne(0, Int::class.java)
-            ?.toLong() ?: 0L
+            .fetchOne(0, Long::class.java)
+            ?: 0L
     }
 
     /**
@@ -165,7 +165,7 @@ internal class SqliteFollowerRepository(
         dsl: DSLContext,
         actor: NewRemoteActor,
         now: Instant,
-    ): Int {
+    ): Long {
         val fetchedAt = StoredInstant.format(now)
 
         dsl
@@ -199,7 +199,7 @@ internal class SqliteFollowerRepository(
     private fun followerIds(
         username: String,
         followerActorUri: String,
-    ): Select<Record1<Int>> = DSL
+    ): Select<Record1<Long>> = DSL
         .select(FOLLOWERS.ID)
         .from(FOLLOWERS)
         .join(REMOTE_ACTORS)
@@ -207,7 +207,7 @@ internal class SqliteFollowerRepository(
         .where(FOLLOWERS.USERNAME.eq(username))
         .and(REMOTE_ACTORS.ACTOR_URI.eq(followerActorUri))
 
-    private fun remoteActorId(actorUri: String): Select<Record1<Int>> = DSL
+    private fun remoteActorId(actorUri: String): Select<Record1<Long>> = DSL
         .select(REMOTE_ACTORS.ID)
         .from(REMOTE_ACTORS)
         .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))

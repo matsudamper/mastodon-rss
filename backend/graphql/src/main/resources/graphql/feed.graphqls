@@ -1,0 +1,8 @@
+type Feed {
+    id: FeedId!
+    url: String!
+    title: String
+    siteUrl: String
+    format: String
+    createdAt: UnixTime!
+}
