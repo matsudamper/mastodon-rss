@@ -111,7 +111,7 @@ jobs:
         run: ./gradlew :backend:rss:nativeTest
 
   native-image:
-    name: native-image ビルド
+    name: native-image build
     runs-on: ubuntu-latest
     steps:
       - name: チェックアウト
