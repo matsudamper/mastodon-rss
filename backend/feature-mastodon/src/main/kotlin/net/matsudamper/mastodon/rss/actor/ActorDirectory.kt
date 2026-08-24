@@ -3,32 +3,23 @@ package net.matsudamper.mastodon.rss.actor
 /**
  * リクエストで指定された名前から、どのアクターを指しているかを決める。
  *
- * 引き当てる先は、
- *
- * - 設定で決めた固定アクター（既定 `admin`）
- * - [StoredActorNames] が持っているアクター
- *
- * の 2 つ。どちらでもなければ存在しない。
+ * 引き当てる先は [StoredActorNames] だけ。無ければ存在しない。
  *
  * WebFinger の `resource` とパスの `{username}` で判定がずれると、
  * 「検索には出るが開けない」という分かりにくい壊れ方をするので、
  * 両方の入口をここに通す。
  */
 class ActorDirectory(
-    private val fixed: ActorUrls,
+    private val domain: String,
     private val stored: StoredActorNames,
 ) {
-    private val domain: String = fixed.domain
-
     /**
      * パスの `{username}` から引く。
      *
-     * 固定アクターは大文字小文字を区別しない（Mastodon 側の扱いに合わせる）。
+     * 大文字小文字は保存側で吸収する。返すのは保存されている綴り。
      */
     fun resolve(username: String?): ActorUrls? {
         if (username.isNullOrEmpty()) return null
-
-        if (username.equals(fixed.username, ignoreCase = true)) return fixed
 
         // 保存されている名前は必ずこの形式なので、引く前に落とせる。
         // `test-1/inbox` のようにパスを含んだものが保存先まで届かなくなる
@@ -41,26 +32,14 @@ class ActorDirectory(
 
     fun resolve(usernames: Set<String>): Map<String, ActorUrls> {
         if (usernames.isEmpty()) return emptyMap()
-        val usernames = usernames
-            .filter { it.isNotEmpty() }
-            .filter { ActorUsernameUtil.isValid(it) }
+        val candidates = usernames.filter { it.isNotEmpty() && ActorUsernameUtil.isValid(it) }
+        if (candidates.isEmpty()) return emptyMap()
 
-        val foundFixedUser = mutableMapOf<String, ActorUrls>()
-        val findUserNames = usernames.filter { username ->
-            val isFixedUser = username.equals(fixed.username, ignoreCase = true)
-            if (isFixedUser) {
-                foundFixedUser[username] = fixed
-            }
-            isFixedUser.not()
-        }.toSet()
-        if (findUserNames.isEmpty()) return foundFixedUser
-
-        val found = stored.finds(findUserNames)
+        val found = stored.finds(candidates.toSet())
         return buildMap {
-            putAll(foundFixedUser)
-            for (findUserName in findUserNames) {
-                val foundUser = found[findUserName] ?: continue
-                put(findUserName, ActorUrls(domain = domain, username = foundUser))
+            for (name in candidates) {
+                val foundUser = found[name] ?: continue
+                put(name, ActorUrls(domain = domain, username = foundUser))
             }
         }
     }
