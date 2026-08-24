@@ -133,38 +133,6 @@ class FeedRepositoryTest {
     }
 
     @Test
-    fun `列の範囲に収まらない id では引けない`() {
-        withRepositories { repositories ->
-            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
-            repositories.addFeed(username = "feed2", url = "https://example.com/1.xml")
-
-            val outOfRange = AccountId(account.id.value + WRAP)
-
-            assertNull(repositories.accounts.findById(outOfRange))
-            assertNull(repositories.feeds.findByAccountId(outOfRange))
-        }
-    }
-
-    @Test
-    fun `範囲に収まらない id では書き換えも削除もできない`() {
-        withRepositories { repositories ->
-            val feed = repositories.addFeed(username = "feed1", url = "https://example.com/1.xml")
-            val outOfRange = FeedId(feed.id.value + WRAP)
-
-            repositories.feeds.updateMetadata(
-                id = outOfRange,
-                title = "書き換わってはいけない",
-                siteUrl = null,
-                format = null,
-            )
-            repositories.feeds.markInitialImportDone(outOfRange)
-            repositories.feeds.delete(outOfRange)
-
-            assertEquals(feed, repositories.feeds.find(feed.id))
-        }
-    }
-
-    @Test
     fun `findDue は limit で件数を抑える`() {
         withRepositories { repositories ->
             repositories.addFeed(username = "feed1", url = "https://example.com/1.xml")
@@ -230,11 +198,6 @@ class FeedRepositoryTest {
     }
 
     private companion object {
-        /**
-         * Int に詰めると元の値に戻る幅。これを足した id は列の範囲外になる
-         */
-        const val WRAP = 1L shl 32
-
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03.123456Z")
     }
 }

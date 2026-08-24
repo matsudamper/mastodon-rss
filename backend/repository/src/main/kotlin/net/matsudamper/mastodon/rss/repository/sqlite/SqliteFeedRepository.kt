@@ -23,11 +23,10 @@ internal class SqliteFeedRepository(
     }
 
     override fun find(id: FeedId): Feed? = jooq.transaction { dsl ->
-        val storedId = id.value.toStoredId() ?: return@transaction null
 
         dsl
             .selectFrom(FEEDS)
-            .where(FEEDS.ID.eq(storedId))
+            .where(FEEDS.ID.eq(id.value))
             .fetchOne()
             ?.toFeed()
     }
@@ -65,25 +64,23 @@ internal class SqliteFeedRepository(
         // UNIQUE 制約違反を捕まえる形にすると、他の理由で落ちたときと区別が付かない。
         // 書き込みは接続 1 本に直列化されているので、同じトランザクションで
         // 見てから入れれば取りこぼさない
-        val storedAccountId = feed.accountId.value.toStoredId() ?: return@transaction null
         if (dsl.findByAccountId(feed.accountId) != null) return@transaction null
         if (dsl.findByUrl(feed.url) != null) return@transaction null
 
         val createdAt = Instant.now()
         val id = dsl
             .insertInto(FEEDS)
-            .set(FEEDS.ACCOUNT_ID, storedAccountId)
+            .set(FEEDS.ACCOUNT_ID, feed.accountId.value)
             .set(FEEDS.URL, feed.url)
             .set(FEEDS.TITLE, feed.title)
             .set(FEEDS.SITE_URL, feed.siteUrl)
             .set(FEEDS.FORMAT, feed.format)
-            .set(FEEDS.POLL_INTERVAL_SECONDS, feed.pollIntervalSeconds.toInt())
-            .set(FEEDS.INITIAL_IMPORT_DONE, 0)
+            .set(FEEDS.POLL_INTERVAL_SECONDS, feed.pollIntervalSeconds)
+            .set(FEEDS.INITIAL_IMPORT_DONE, 0L)
             .set(FEEDS.CREATED_AT, StoredInstant.format(createdAt))
             .returning(FEEDS.ID)
             .fetchOne()
             ?.id
-            ?.toLong()
             ?: error("フィードの追加に失敗した")
 
         Feed(
@@ -112,14 +109,13 @@ internal class SqliteFeedRepository(
         format: String?,
     ) {
         jooq.transaction { dsl ->
-            val storedId = id.value.toStoredId() ?: return@transaction
 
             dsl
                 .update(FEEDS)
                 .set(FEEDS.TITLE, title)
                 .set(FEEDS.SITE_URL, siteUrl)
                 .set(FEEDS.FORMAT, format)
-                .where(FEEDS.ID.eq(storedId))
+                .where(FEEDS.ID.eq(id.value))
                 .execute()
         }
     }
@@ -130,7 +126,6 @@ internal class SqliteFeedRepository(
         validators: FeedFetchValidators,
     ) {
         jooq.transaction { dsl ->
-            val storedId = id.value.toStoredId() ?: return@transaction
 
             dsl
                 .update(FEEDS)
@@ -139,7 +134,7 @@ internal class SqliteFeedRepository(
                 .set(FEEDS.LAST_ERROR, null as String?)
                 .set(FEEDS.ETAG, validators.etag)
                 .set(FEEDS.LAST_MODIFIED, validators.lastModified)
-                .where(FEEDS.ID.eq(storedId))
+                .where(FEEDS.ID.eq(id.value))
                 .execute()
         }
     }
@@ -150,36 +145,33 @@ internal class SqliteFeedRepository(
         error: String,
     ) {
         jooq.transaction { dsl ->
-            val storedId = id.value.toStoredId() ?: return@transaction
 
             dsl
                 .update(FEEDS)
                 .set(FEEDS.LAST_FETCHED_AT, StoredInstant.format(fetchedAt))
                 .set(FEEDS.LAST_ERROR, error)
-                .where(FEEDS.ID.eq(storedId))
+                .where(FEEDS.ID.eq(id.value))
                 .execute()
         }
     }
 
     override fun markInitialImportDone(id: FeedId) {
         jooq.transaction { dsl ->
-            val storedId = id.value.toStoredId() ?: return@transaction
 
             dsl
                 .update(FEEDS)
-                .set(FEEDS.INITIAL_IMPORT_DONE, 1)
-                .where(FEEDS.ID.eq(storedId))
+                .set(FEEDS.INITIAL_IMPORT_DONE, 1L)
+                .where(FEEDS.ID.eq(id.value))
                 .execute()
         }
     }
 
     override fun delete(id: FeedId) {
         jooq.transaction { dsl ->
-            val storedId = id.value.toStoredId() ?: return@transaction
 
             dsl
                 .deleteFrom(FEEDS)
-                .where(FEEDS.ID.eq(storedId))
+                .where(FEEDS.ID.eq(id.value))
                 .execute()
         }
     }
@@ -190,10 +182,8 @@ internal class SqliteFeedRepository(
     }
 
     private fun org.jooq.DSLContext.findByAccountId(accountId: AccountId): Feed? {
-        val storedId = accountId.value.toStoredId() ?: return null
-
         return selectFrom(FEEDS)
-            .where(FEEDS.ACCOUNT_ID.eq(storedId))
+            .where(FEEDS.ACCOUNT_ID.eq(accountId.value))
             .fetchOne()
             ?.toFeed()
     }
@@ -204,13 +194,13 @@ internal class SqliteFeedRepository(
         ?.toFeed()
 
     private fun FeedsRecord.toFeed(): Feed = Feed(
-        id = FeedId(id!!.toLong()),
-        accountId = AccountId(accountId!!.toLong()),
+        id = FeedId(id!!),
+        accountId = AccountId(accountId!!),
         url = url!!,
         title = title,
         siteUrl = siteUrl,
         format = format,
-        pollIntervalSeconds = pollIntervalSeconds!!.toLong(),
+        pollIntervalSeconds = pollIntervalSeconds!!,
         fetch = FeedFetchStatus(
             validators = FeedFetchValidators(
                 etag = etag,
@@ -220,7 +210,7 @@ internal class SqliteFeedRepository(
             lastSucceededAt = lastSucceededAt?.let(StoredInstant::parse),
             lastError = lastError,
         ),
-        initialImportDone = initialImportDone != 0,
+        initialImportDone = initialImportDone != 0L,
         createdAt = StoredInstant.parse(createdAt!!),
     )
 }
