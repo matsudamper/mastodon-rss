@@ -15,6 +15,7 @@ import io.ktor.client.statement.request
 import io.ktor.http.HttpHeaders
 import io.ktor.http.URLBuilder
 import io.ktor.http.URLProtocol
+import io.ktor.http.Url
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readRemaining
 import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.channelIdFromPageHtml
@@ -42,16 +43,8 @@ class FeedFetchService(
             }
 
             // 配信元が /feed から /feed/ へ、http から https へ飛ばすのは普通にある。
-            // 保存するのは飛んだ先の URL で、次からはそこを直接取りに行く。
-            // フラグメントは相手に送られず同じリソースを指すので、残すと
-            // #a と #b が別のフィードとして登録できてしまう。ホスト名も
-            // 大文字小文字を区別しないので、綴りの違いで二重登録できてしまう
-            val finalUrl = URLBuilder(response.request.url)
-                .apply {
-                    fragment = ""
-                    host = host.lowercase()
-                }
-                .buildString()
+            // 保存するのは飛んだ先の URL で、次からはそこを直接取りに行く
+            val finalUrl = response.request.url.normalize()
             val bytes = response.readBodyUpTo(MAX_BODY_BYTES) ?: return FetchResult.TooLarge
 
             val parsed = FeedParser.parse(bytes)
@@ -123,6 +116,26 @@ class FeedFetchService(
         }
         return bytes
     }
+
+    /**
+     * 保存と重複の判定に使う形に揃える。
+     *
+     * 同じリソースを指す綴りの違いをここで吸収しないと、`findByUrl` の
+     * 完全一致をすり抜けて同じフィードを何本も登録できてしまう。
+     *
+     * - フラグメントは取得先に送られず、同じリソースを指す
+     * - ホスト名は大文字小文字を区別しない
+     * - ホスト名の末尾の `.` はルートラベルで、付けても同じホストを指す
+     *
+     * パスとクエリは大文字小文字も末尾の形も意味を持つので触らない
+     */
+    private fun Url.normalize(): String =
+        URLBuilder(this)
+            .apply {
+                fragment = ""
+                host = host.lowercase().trimEnd('.')
+            }
+            .buildString()
 
     /**
      * 読まずに捨てる。読む相手がいないまま置くと接続が返らず、
