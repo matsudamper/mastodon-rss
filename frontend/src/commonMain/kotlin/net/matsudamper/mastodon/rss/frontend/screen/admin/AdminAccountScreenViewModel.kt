@@ -189,7 +189,7 @@ class AdminAccountScreenViewModel(
     private fun fetchFeed() {
         val state = viewModelStateFlow.value
         val url = state.feedInputUrl.trim()
-        if (state.loadedAccount?.account?.id == null) return
+        if (state.loadedAccount == null) return
         if (url.isEmpty() || state.feedFetching || state.feedSaving || state.savedFeed != null) return
 
         fetchFeedJob?.cancel()
@@ -280,9 +280,10 @@ class AdminAccountScreenViewModel(
 
     private fun performSaveFeed(updateProfile: Boolean) {
         val state = viewModelStateFlow.value
-        val accountId = state.loadedAccount?.account?.id
+        val loaded = state.loadedAccount ?: return
+        val accountId = loaded.account.id
         val url = state.feedInputUrl.trim()
-        if (accountId == null || url.isEmpty() || state.feedPreview == null || state.feedSaving || state.feedFetching) {
+        if (url.isEmpty() || state.feedPreview == null || state.feedSaving || state.feedFetching) {
             return
         }
 
@@ -701,8 +702,6 @@ class AdminAccountScreenViewModel(
     private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {
         val feed = account.feed
         return when {
-            account.account.id == null -> AdminAccountScreenUiState.Feed.None
-
             feed != null -> AdminAccountScreenUiState.Feed.Registered(
                 url = feed.url,
                 title = feed.title,
@@ -746,7 +745,7 @@ class AdminAccountScreenViewModel(
         username = account.username,
         acct = account.acct,
         actorUrl = account.actorUrl,
-        createdAt = createdAt?.let { UnixTimeUtil.format(it) },
+        createdAt = UnixTimeUtil.format(createdAt),
         followerCount = followerCount,
         displayName = account.displayName,
         summary = account.summary,

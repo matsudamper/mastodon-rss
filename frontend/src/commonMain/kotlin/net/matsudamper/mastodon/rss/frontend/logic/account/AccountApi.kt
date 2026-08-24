@@ -24,7 +24,7 @@ class AccountApi(
         val data = response.data ?: return AccountsResult.Failure(response.failureMessage())
         val accounts = data.accounts.nodes.map { account ->
             Account(
-                id = null,
+                id = account.id,
                 username = account.username,
                 acct = account.acct,
                 actorUrl = account.actorUrl,
@@ -63,7 +63,7 @@ class AccountApi(
 
         return AccountResult.Success(
             account = Account(
-                id = null,
+                id = account.id,
                 username = account.username,
                 acct = account.acct,
                 actorUrl = account.actorUrl,

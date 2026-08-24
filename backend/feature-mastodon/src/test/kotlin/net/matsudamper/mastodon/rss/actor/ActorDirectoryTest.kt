@@ -1,8 +1,6 @@
 package net.matsudamper.mastodon.rss.actor
 
 import kotlin.test.Test
-import kotlin.test.assertContains
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import net.matsudamper.mastodon.rss.FakeStoredActorNames
@@ -10,23 +8,19 @@ import net.matsudamper.mastodon.rss.FakeStoredActorNames
 // WebFinger とパスで判定がずれると「検索には出るが開けない」という
 // 分かりにくい壊れ方をするので、両方の入口を同じだけ確かめる。
 class ActorDirectoryTest {
-    private val stored = mutableListOf("feed1", "Gihyo")
+    private val stored = mutableListOf("admin", "feed1", "Gihyo")
 
     private val directory = ActorDirectory(
-        fixed = ActorUrls(domain = "example.com", username = "admin"),
+        domain = "example.com",
         stored = FakeStoredActorNames(stored),
     )
 
     @Test
-    fun `固定アクターを引ける`() {
+    fun `保存されているアカウントを引ける`() {
         assertEquals("https://example.com/users/admin", directory.resolve("admin")?.actorId)
+        assertEquals("https://example.com/users/feed1", directory.resolve("feed1")?.actorId)
         // Mastodon 側の扱いに合わせて大文字小文字は区別しない
         assertEquals("https://example.com/users/admin", directory.resolve("ADMIN")?.actorId)
-    }
-
-    @Test
-    fun `保存されているアカウントを引ける`() {
-        assertEquals("https://example.com/users/feed1", directory.resolve("feed1")?.actorId)
     }
 
     @Test

@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.logic
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
+import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountId
 import net.matsudamper.mastodon.rss.repository.AccountProfileRepository
 import net.matsudamper.mastodon.rss.repository.AccountRepository
@@ -10,47 +11,29 @@ import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
 /**
  * 管理画面から見たアカウントの操作。
- *
- * @param fixed DBに無い組み込みアカウント
  */
 class AccountService(
     private val accounts: AccountRepository,
     private val accountProfiles: AccountProfileRepository,
     private val followers: FollowerRepository,
-    private val fixed: ActorUrls,
+    private val domain: String,
 ) {
     /**
-     * 設定で決まるアカウントを先頭に、追加した順で返す
+     * 追加した順で返す
      */
-    fun accounts(): List<ManagedAccount> = buildList {
-        add(ManagedAccount(urls = fixed, accountId = null, deletable = false, createdAt = null))
-
-        accounts.list().mapTo(this) { account ->
-            ManagedAccount(
-                urls = ActorUrls(domain = fixed.domain, username = account.username),
-                accountId = account.id,
-                deletable = true,
-                createdAt = account.createdAt,
-            )
-        }
-    }
+    fun accounts(): List<ManagedAccount> = accounts.list().map { it.toManaged() }
 
     /**
      * 名前で 1 つ引く。応答しない名前なら null
      */
-    fun account(username: String): ManagedAccount? {
-        if (username.equals(fixed.username, ignoreCase = true)) {
-            return ManagedAccount(urls = fixed, accountId = null, deletable = false, createdAt = null)
-        }
+    fun account(username: String): ManagedAccount? = accounts.findByUsername(username)?.toManaged()
 
-        val account = accounts.findByUsername(username) ?: return null
-
-        return ManagedAccount(
-            urls = ActorUrls(domain = fixed.domain, username = account.username),
-            accountId = account.id,
-            deletable = true,
-            createdAt = account.createdAt,
-        )
+    /**
+     * 名前でまとめて引く。返すマップのキーは渡された名前
+     */
+    fun accountsByUsernames(usernames: Set<String>): Map<String, ManagedAccount> {
+        if (usernames.isEmpty()) return emptyMap()
+        return accounts.findByUsernames(usernames).mapValues { it.value.toManaged() }
     }
 
     /**
@@ -66,28 +49,9 @@ class AccountService(
             return ManagedAccountsPage(accounts = emptyList(), hasMore = false, nextUsername = null)
         }
 
-        // 設定で決まるアカウントは DB に無いので、先頭のページにだけ 1 件ぶん割り込ませる
-        val head = if (afterUsername == null) {
-            listOf(ManagedAccount(urls = fixed, accountId = null, deletable = false, createdAt = null))
-        } else {
-            emptyList()
-        }
-
-        // 設定で決まるアカウントの次は、DB から見れば先頭
-        val afterStored = afterUsername?.takeUnless { it.equals(fixed.username, ignoreCase = true) }
-
-        val storedLimit = limit - head.size
-        val fetched = accounts.list(afterUsername = afterStored, limit = storedLimit + 1)
-        val hasMore = fetched.size > storedLimit
-
-        val page = head + fetched.take(storedLimit).map { account ->
-            ManagedAccount(
-                urls = ActorUrls(domain = fixed.domain, username = account.username),
-                accountId = account.id,
-                deletable = true,
-                createdAt = account.createdAt,
-            )
-        }
+        val fetched = accounts.list(afterUsername = afterUsername, limit = limit + 1)
+        val hasMore = fetched.size > limit
+        val page = fetched.take(limit).map { it.toManaged() }
 
         return ManagedAccountsPage(
             accounts = page,
@@ -113,12 +77,7 @@ class AccountService(
             )
         }
 
-        // 設定で決まるアカウントも引き当ての対象なので、名前が埋まっていることに変わりはない
-        val added = if (trimmed.equals(fixed.username, ignoreCase = true)) {
-            null
-        } else {
-            accounts.add(username = trimmed, createdAt = Instant.now())
-        }
+        val added = accounts.add(username = trimmed, createdAt = Instant.now())
 
         if (added == null) {
             return AddAccountResult.Failure(
@@ -129,14 +88,7 @@ class AccountService(
             )
         }
 
-        return AddAccountResult.Success(
-            ManagedAccount(
-                urls = ActorUrls(domain = fixed.domain, username = added.username),
-                accountId = added.id,
-                deletable = true,
-                createdAt = added.createdAt,
-            ),
-        )
+        return AddAccountResult.Success(added.toManaged())
     }
 
     /**
@@ -157,14 +109,14 @@ class AccountService(
      * 複数アカウントのプロフィールをまとめて返す。存在しない名前は含めない
      */
     fun profiles(usernames: Set<String>): Map<String, ResolvedProfile> {
-        val urls = actorDirectoryUrls(usernames)
-        if (urls.isEmpty()) return emptyMap()
+        val managed = accountsByUsernames(usernames)
+        if (managed.isEmpty()) return emptyMap()
 
-        val stored = accountProfiles.findByUsernames(urls.keys)
+        val stored = accountProfiles.findByUsernames(managed.keys)
 
-        return urls.mapValues { (username, actorUrls) ->
+        return managed.mapValues { (username, account) ->
             ResolvedProfile(
-                displayName = AccountProfileDefaults.displayName(actorUrls.username, stored[username]),
+                displayName = AccountProfileDefaults.displayName(account.urls.username, stored[username]),
                 summary = AccountProfileDefaults.summary(stored[username]),
                 stored = stored[username] != null,
             )
@@ -222,22 +174,16 @@ class AccountService(
         return UpdateProfileResult.Success(managed)
     }
 
-    private fun actorDirectoryUrls(usernames: Set<String>): Map<String, ActorUrls> = buildMap {
-        for (username in usernames) {
-            val managed = account(username) ?: continue
-            put(username, managed.urls)
-        }
-    }
+    private fun Account.toManaged(): ManagedAccount = ManagedAccount(
+        urls = ActorUrls(domain = domain, username = username),
+        accountId = id,
+        createdAt = createdAt,
+    )
 
-    /**
-     * @param deletable 管理画面から消せるか。設定で決まるアカウントは消せない
-     * @param createdAt 追加した時刻。設定で決まるアカウントには無い
-     */
     data class ManagedAccount(
         val urls: ActorUrls,
-        val accountId: AccountId?,
-        val deletable: Boolean,
-        val createdAt: Instant?,
+        val accountId: AccountId,
+        val createdAt: Instant,
     )
 
     /**

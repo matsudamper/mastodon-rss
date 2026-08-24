@@ -12,7 +12,7 @@ import java.time.Instant
  * 境界もそちらに漏れる。
  *
  * こちらのアカウントは名前で指す。引き当ての正は `ActorDirectory` で、
- * `ACTOR_USERNAME` で決まる組み込みアカウントは `accounts` に行を持たない。
+ * アクター ID は名前から決まるので保存も名前で持つ。
  *
  * 状態（`pending` / `accepted`）は外に出さない。`Follow` を受けただけの相手は
  * まだフォロワーではないので、[list] と [count] と [deliveryTargets] は

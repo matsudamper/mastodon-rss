@@ -27,7 +27,7 @@ class DataLoaders(
     private val otelContext: Context,
     private val openTelemetry: OpenTelemetry?,
 ) {
-    val accountDataLoader by register { AccountDataLoaderDefine(diContainer.actorDirectory) }
+    val accountDataLoader by register { AccountDataLoaderDefine(diContainer.accountService) }
 
     val accountProfileDataLoader by register { AccountProfileDataLoaderDefine(diContainer.accountService) }
 

@@ -3,9 +3,9 @@ package net.matsudamper.mastodon.rss.actor
 /**
  * アクターのユーザー名の決まり。
  *
- * 設定から来る固定アクターの名前も、管理画面から追加される名前も、リクエストのパスや
- * WebFinger の `acct:` から来る名前も、同じ規則で検証する。URL のパスと `acct:` の
- * 両方に入るので、区切り文字が混ざると別のものを指してしまう。
+ * 保存する名前と、リクエストのパスや WebFinger の `acct:` から来る名前は、
+ * 同じ規則で検証する。URL のパスと `acct:` の両方に入るので、区切り文字が混ざると
+ * 別のものを指してしまう。
  */
 object ActorUsernameUtil {
     /**

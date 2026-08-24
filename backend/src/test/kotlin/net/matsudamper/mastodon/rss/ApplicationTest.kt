@@ -3,7 +3,6 @@ package net.matsudamper.mastodon.rss
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
@@ -33,8 +32,10 @@ class ApplicationTest {
     @Test
     fun `ActivityPub のエンドポイントが組み込まれている`() =
         testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = TestServerEnv.USERNAME, createdAt = Instant.now())
             application {
-                module(testDependencies())
+                module(testDependencies(repositories = repositories))
             }
 
             // 返す中身は :backend:feature-mastodon 側で確かめる。
@@ -48,19 +49,6 @@ class ApplicationTest {
 
             // 署名が無いので inbox は 401。ルートが無ければ 404 になる
             assertEquals(HttpStatusCode.Unauthorized, client.post("/users/admin/inbox").status)
-        }
-
-    @Test
-    fun `設定で決まる名前と同じアカウントがDBにあると起動しない`() =
-        testApplication {
-            val repositories = FakeRepositories()
-            repositories.accounts.add(username = TestServerEnv.USERNAME, createdAt = Instant.now())
-            application {
-                module(testDependencies(repositories = repositories))
-            }
-
-            // testApplication は最初のリクエストまでアプリケーションを起動しない
-            assertFailsWith<IllegalStateException> { client.get("/healthz") }
         }
 
     @Test

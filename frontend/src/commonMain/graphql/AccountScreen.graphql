@@ -1,5 +1,6 @@
 query AccountScreen($username: String!, $query: AccountNotesQuery!) {
     account(username: $username) {
+        id
         username
         acct
         actorUrl

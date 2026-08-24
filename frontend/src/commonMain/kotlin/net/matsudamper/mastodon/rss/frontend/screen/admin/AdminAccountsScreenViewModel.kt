@@ -78,7 +78,7 @@ class AdminAccountsScreenViewModel(
                             username = account.account.username,
                             acct = account.account.acct,
                             actorUrl = account.account.actorUrl,
-                            createdAt = account.createdAt?.let { UnixTimeUtil.format(it) },
+                            createdAt = UnixTimeUtil.format(account.createdAt),
                             followerCount = account.followerCount,
                         )
                     },
