@@ -47,22 +47,17 @@ data class AdminAccountScreenUiState(
 
     /**
      * @param acct Mastodon の検索窓に貼る形
-     * @param createdAt 「追加: <値>」の形で出す。null ならこの行を出さない
+     * @param createdAt 「追加: <値>」の形で出す
      */
     data class Account(
         val username: String,
         val acct: String,
         val actorUrl: String,
-        val createdAt: String?,
+        val createdAt: String,
         val followerCount: Int,
     )
 
     sealed interface Feed {
-        /**
-         * このアカウントではフィードを扱わない。何も出さない
-         */
-        data object None : Feed
-
         data class Registered(
             val url: String,
             val title: String?,

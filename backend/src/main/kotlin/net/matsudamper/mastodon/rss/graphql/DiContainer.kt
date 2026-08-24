@@ -1,7 +1,6 @@
 package net.matsudamper.mastodon.rss.graphql
 
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.logic.AccountService
@@ -20,22 +19,17 @@ class DiContainer(
     followerRepository: FollowerRepository,
     feedRepository: FeedRepository,
     feedFetcher: FeedFetchService,
-    fixedActor: ActorUrls,
+    val domain: String,
     val actorDirectory: ActorDirectory,
     notePublisher: NotePublisher,
     val noteStore: NoteStore,
 ) {
-    /**
-     * 投稿の URL を組み立てるのに要る。アカウントの URL と同じドメイン
-     */
-    val domain: String = fixedActor.domain
-
     val adminLoginService: AdminLoginService = AdminLoginService(passwordHash)
 
     val accountService: AccountService = AccountService(
         accounts = accountRepository,
         followers = followerRepository,
-        fixed = fixedActor,
+        domain = domain,
     )
 
     val noteService: NoteService = NoteService(

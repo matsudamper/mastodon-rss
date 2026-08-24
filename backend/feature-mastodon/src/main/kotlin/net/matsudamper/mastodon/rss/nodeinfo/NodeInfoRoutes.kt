@@ -45,7 +45,6 @@ fun Route.nodeInfoRoutes(domain: String) {
                     version = "0.1.0",
                     repository = "https://github.com/matsudamper/mastodon-rss",
                 ),
-                // 固定アクター1つだけなので常にこの値
                 usage = NodeInfoUsage(users = NodeInfoUsers(total = 1)),
             ),
         )

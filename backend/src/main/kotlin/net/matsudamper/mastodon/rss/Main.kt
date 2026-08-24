@@ -74,21 +74,12 @@ fun Application.module(deps: AppDependencies) {
     // native バイナリでは SQLite のネイティブライブラリ周りで起きやすいので起動時に確かめる
     deps.repositories.verifyWritable()
 
-    // 設定で決まるアカウントと同じ名前が DB にあると、同じ acct を指すものが 2 つある状態になる。
-    // 一覧には同じアカウントが 2 回並び、名前で続きを切るページングは同じページを返し続ける。
-    // 管理画面からは追加できない組み合わせなので、ACTOR_USERNAME を後から変えたときだけ起きる
-    val fixedUsername = deps.actorUrls.username
-    check(deps.repositories.accounts.findByUsername(fixedUsername) == null) {
-        "ACTOR_USERNAME に指定された $fixedUsername と同じ名前のアカウントが DB にある。" +
-            "どちらかの名前を変えること"
-    }
-
     // ドメインはアクター ID に焼き込まれ、Mastodon 側にキャッシュされると後から変えられない。
     // 取り違えたまま気付かないのが一番まずいので、起動時に必ず見えるところに出す
-    log.info("アクター: ${deps.actorUrls.acct} → ${deps.actorUrls.actorId}")
+    log.info("ドメイン: ${env.domain}")
 
     // 追加したはずのアカウントに応答しないとき、DB を見ているかどうかがここで切り分けられる
-    log.info("管理画面から追加されたアカウント: ${deps.repositories.accounts.list().size} 件")
+    log.info("アカウント: ${deps.repositories.accounts.list().size} 件")
 
     // 鍵が入れ替わると相手側は署名検証に失敗し続ける。
     // どこから読んだ鍵なのかが後から追えるよう、取得元を必ず出す
@@ -137,7 +128,7 @@ fun Application.module(deps: AppDependencies) {
             followerRepository = deps.repositories.followers,
             feedRepository = deps.repositories.feeds,
             feedFetcher = deps.feedFetcher,
-            fixedActor = deps.actorUrls,
+            domain = env.domain,
             actorDirectory = deps.directory,
             notePublisher = deps.notePublisher,
             noteStore = deps.noteStore,

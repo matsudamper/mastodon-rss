@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.actor
 
 /**
- * 固定アクターの識別子と URL。
+ * アクターの識別子と URL。
  *
  * WebFinger の `subject`、Actor の `id`、`publicKey.id`、inbox の宛先はすべて
  * ドメインとユーザー名から機械的に決まる。組み立てを散らすと 1 箇所だけ
