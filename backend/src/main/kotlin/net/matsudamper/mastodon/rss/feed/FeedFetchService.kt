@@ -66,13 +66,11 @@ class FeedFetchService(
     }
 
     private suspend fun resolveFeedUrl(url: String): String? {
-        val parsed = runCatching { URI(url) }.getOrNull() ?: return null
-        // スキームは大文字小文字を区別しない。貼り付けた URL が HTTPS でも通す
-        val scheme = parsed.scheme?.lowercase()
-        if (scheme != "http" && scheme != "https") return null
-        if (parsed.host.isNullOrBlank()) return null
-
-        return when (val source = resolve(url)) {
+        // YouTube はスキームの無い形も受けるので、先に解決してから確かめる。
+        // 逆にすると YouTubeFeedResolver が対応している形を弾いてしまう。
+        // ページを引く先は YouTubeFeedResolver が組み立てた YouTube の URL で、
+        // 入力をそのまま取りに行くわけではない
+        val resolved = when (val source = resolve(url)) {
             null -> url
 
             is YouTubeFeedSource.Feed -> source.url
@@ -91,6 +89,14 @@ class FeedFetchService(
                 YouTubeFeedResolver.feedUrlForChannel(channelId) ?: return null
             }
         }
+
+        val parsed = runCatching { URI(resolved) }.getOrNull() ?: return null
+        // スキームは大文字小文字を区別しない。貼り付けた URL が HTTPS でも通す
+        val scheme = parsed.scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") return null
+        if (parsed.host.isNullOrBlank()) return null
+
+        return resolved
     }
 
     /**

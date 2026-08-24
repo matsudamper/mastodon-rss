@@ -117,6 +117,16 @@ class FeedServiceTest {
             assertEquals(listOf("1 本目", "2 本目"), success.preview.sampleItems.map { it.title })
         }
 
+    @Test
+    fun `スキームの無い YouTube の URL もプレビューできる`() =
+        runTest {
+            val service = serviceOf(FakeRepositories())
+
+            val result = service.preview("youtube.com/channel/UCabcdefghijklmnopqrstuv")
+
+            assertIs<FeedService.PreviewResult.Success>(result)
+        }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         status: HttpStatusCode = HttpStatusCode.OK,
