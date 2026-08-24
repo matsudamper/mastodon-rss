@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.actor.StoredActorNames
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
+import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
@@ -46,6 +47,7 @@ class AppDependencies(
     val env: ServerEnv,
     val remoteActors: RemoteActors,
     val delivery: ActivityDelivery,
+    val feedFetcher: FeedFetchService = FeedFetchService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
     val openTelemetry: OpenTelemetry? = null,
     private val telemetry: OpenTelemetryInitializer.Handler? = null,
@@ -101,15 +103,19 @@ class AppDependencies(
      */
     override fun close() {
         try {
-            (delivery as? AutoCloseable)?.close()
+            feedFetcher.close()
         } finally {
             try {
-                (remoteActors as? AutoCloseable)?.close()
+                delivery.close()
             } finally {
                 try {
-                    repositories.close()
+                    remoteActors.close()
                 } finally {
-                    telemetry?.close()
+                    try {
+                        repositories.close()
+                    } finally {
+                        telemetry?.close()
+                    }
                 }
             }
         }

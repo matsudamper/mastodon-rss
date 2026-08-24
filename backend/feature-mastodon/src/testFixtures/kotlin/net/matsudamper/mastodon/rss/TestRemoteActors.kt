@@ -26,6 +26,9 @@ class TestRemoteActors(
 
     override suspend fun findActor(actorId: String): RemoteActor? = actors[actorId]
 
+    override fun close() {
+    }
+
     companion object {
         fun of(
             keyId: String,

@@ -102,6 +102,17 @@ abstract class GenerateJooqSourcesTask : DefaultTask() {
               <name>org.jooq.meta.sqlite.SQLiteDatabase</name>
               <includes>.*</includes>
               <excludes>${excludes.get()}</excludes>
+              <forcedTypes>
+                <!--
+                  SQLite の INTEGER は最大 8 バイトで、rowid も int64 まで入る。
+                  jOOQ は宣言名を SQL 標準の INTEGER（4 バイト）として読むので、
+                  そのままだと 2^31 を超えた値が黙って別の値になる
+                -->
+                <forcedType>
+                  <name>BIGINT</name>
+                  <includeTypes>INTEGER</includeTypes>
+                </forcedType>
+              </forcedTypes>
             </database>
             <generate>
               <!-- TEXT に入れた ISO 8601 を java.time で受けたい -->

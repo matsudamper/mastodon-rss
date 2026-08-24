@@ -20,9 +20,9 @@ import net.matsudamper.mastodon.rss.frontend.ui.AdminLoginPasswordField
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
-import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink
 
-private const val REPOSITORY_URL = "https://github.com/" + "matsudamper" + "/mastodon-rss" // pragma: allowlist secret
+private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 
 @Composable
 fun AdminScreen(onNavigate: (Screen) -> Unit) {
@@ -43,7 +43,7 @@ private fun AdminScreen(
     uiState: AdminScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AdminScaffold(title = "管理画面", onNavigate = onNavigate) { _ ->
+    AdminScaffold(title = null, onNavigate = onNavigate) { _ ->
         Text(
             text = "管理画面",
             style = MaterialTheme.typography.headlineSmall,

@@ -18,10 +18,13 @@ dependencies {
     implementation(project(":backend:crypto"))
 
     implementation(project(":backend:graphql"))
+    implementation(project(":backend:rss"))
     implementation(project(":shared"))
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
 
     implementation(libs.opentelemetry.api.incubator)
     implementation(libs.opentelemetry.sdk)
@@ -44,6 +47,7 @@ dependencies {
     runtimeOnly(libs.slf4j.simple)
 
     testImplementation(libs.ktor.server.test.host)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.kotlin.test)
 
     // 相手のアクターと送信先のフェイク。ActivityPub の組み立てを差し替えるものなので、
@@ -150,6 +154,10 @@ graalvmNative {
             // イメージを作る JVM に渡す
             buildArgs.add("-Dorg.jooq.no-logo=true")
             buildArgs.add("-Dorg.jooq.no-tips=true")
+
+            // native バイナリには既定で一部の文字コードしか入らない。これが無いと
+            // Shift_JIS のフィードを読んだ時点で UnsupportedCharsetException になる
+            buildArgs.add("-H:+AddAllCharsets")
         }
     }
 }

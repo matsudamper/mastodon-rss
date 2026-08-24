@@ -25,6 +25,8 @@ interface AccountRepository {
      */
     fun list(afterUsername: String?, limit: Int): List<Account>
 
+    fun findById(id: AccountId): Account?
+
     /**
      * 名前で引く。大文字小文字の違いは無視する
      */
@@ -49,12 +51,18 @@ interface AccountRepository {
     ): Account?
 }
 
+@JvmInline
+value class AccountId(
+    val value: Long,
+)
+
 /**
  * 応答するアカウント 1 つ。
  *
  * @param username `acct:<username>@<domain>` と `/users/<username>` に入る名前
  */
 data class Account(
+    val id: AccountId,
     val username: String,
     val createdAt: Instant,
 )
