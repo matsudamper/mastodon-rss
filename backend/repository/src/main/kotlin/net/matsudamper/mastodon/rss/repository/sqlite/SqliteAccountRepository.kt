@@ -13,7 +13,7 @@ internal class SqliteAccountRepository(
     private val jooq: SqliteJooq,
 ) : AccountRepository {
     @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
-    override fun list(): List<Account> = jooq.transaction { dsl ->
+    override fun list(): List<Account> = jooq.withConnection { dsl ->
         dsl
             .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
             .from(ACCOUNTS)
@@ -53,7 +53,7 @@ internal class SqliteAccountRepository(
             .map { it.toAccount() }
     }
 
-    override fun findById(id: AccountId): Account? = jooq.transaction { dsl ->
+    override fun findById(id: AccountId): Account? = jooq.withConnection { dsl ->
         dsl
             .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
             .from(ACCOUNTS)
@@ -62,11 +62,11 @@ internal class SqliteAccountRepository(
             ?.toAccount()
     }
 
-    override fun findByUsername(username: String): Account? = jooq.transaction { dsl -> dsl.selectByUsername(username) }
+    override fun findByUsername(username: String): Account? = jooq.withConnection { dsl -> dsl.selectByUsername(username) }
 
     override fun findByUsernames(usernames: Collection<String>): Map<String, Account> {
         if (usernames.isEmpty()) return emptyMap()
-        return jooq.transaction { dsl ->
+        return jooq.withConnection { dsl ->
             val records = dsl
                 .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
                 .from(ACCOUNTS)

@@ -24,7 +24,7 @@ internal class SqliteNoteRepository(
         }
     }
 
-    override fun find(publicId: String): Note? = jooq.transaction { dsl ->
+    override fun find(publicId: String): Note? = jooq.withConnection { dsl ->
         dsl
             .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT)
             .from(NOTES)
@@ -36,7 +36,7 @@ internal class SqliteNoteRepository(
     override fun findByPublicIds(publicIds: Set<String>): Map<String, Note> {
         if (publicIds.isEmpty()) return emptyMap()
 
-        return jooq.transaction { dsl ->
+        return jooq.withConnection { dsl ->
             dsl
                 .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT)
                 .from(NOTES)
@@ -51,7 +51,7 @@ internal class SqliteNoteRepository(
         username: String,
         after: NotePosition?,
         limit: Int,
-    ): List<Note> = jooq.transaction { dsl ->
+    ): List<Note> = jooq.withConnection { dsl ->
         dsl
             .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT)
             .from(NOTES)
@@ -69,7 +69,7 @@ internal class SqliteNoteRepository(
         username: String,
         after: NotePosition?,
         limit: Int,
-    ): List<NotePosition> = jooq.transaction { dsl ->
+    ): List<NotePosition> = jooq.withConnection { dsl ->
         dsl
             .select(NOTES.PUBLIC_ID, NOTES.PUBLISHED_AT)
             .from(NOTES)
@@ -98,7 +98,7 @@ internal class SqliteNoteRepository(
             .or(NOTES.PUBLISHED_AT.eq(publishedAt).and(NOTES.PUBLIC_ID.lt(cursor.publicId)))
     }
 
-    override fun count(username: String): Long = jooq.transaction { dsl ->
+    override fun count(username: String): Long = jooq.withConnection { dsl ->
         dsl
             .selectCount()
             .from(NOTES)
