@@ -35,6 +35,7 @@ class FeedFetchService(
             }
 
             if (!response.status.isSuccess()) {
+                response.discardBody()
                 return FetchResult.HttpError(response.status.value)
             }
 
@@ -80,7 +81,10 @@ class FeedFetchService(
                 val response = client.get(source.pageUrl) {
                     header(HttpHeaders.UserAgent, USER_AGENT)
                 }
-                if (!response.status.isSuccess()) return null
+                if (!response.status.isSuccess()) {
+                    response.discardBody()
+                    return null
+                }
 
                 val html = response.readBodyUpTo(MAX_PAGE_BYTES)?.decodeToString() ?: return null
                 val channelId = channelIdFromPageHtml(html) ?: return null
@@ -104,6 +108,14 @@ class FeedFetchService(
             return null
         }
         return bytes
+    }
+
+    /**
+     * 読まずに捨てる。読む相手がいないまま置くと接続が返らず、
+     * 繰り返すうちに接続が尽きる
+     */
+    private suspend fun HttpResponse.discardBody() {
+        bodyAsChannel().cancel(null)
     }
 
     override fun close() {
