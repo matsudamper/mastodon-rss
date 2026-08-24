@@ -199,7 +199,14 @@ class FakeFeedRepository : FeedRepository {
     override fun findDue(
         now: Instant,
         limit: Int,
-    ): List<Feed> = stored.take(limit)
+    ): List<Feed> =
+        stored
+            .filter {
+                val lastFetchedAt = it.fetch.lastFetchedAt
+                lastFetchedAt == null || lastFetchedAt.plusSeconds(it.pollIntervalSeconds) <= now
+            }
+            .sortedBy { it.fetch.lastFetchedAt ?: Instant.MIN }
+            .take(limit)
 
     override fun add(feed: NewFeed): Feed? {
         if (findByAccountId(feed.accountId) != null) return null
@@ -231,10 +238,7 @@ class FakeFeedRepository : FeedRepository {
         siteUrl: String?,
         format: String?,
     ) {
-        val index = stored.indexOfFirst { it.id == id }
-        if (index == -1) return
-        val current = stored[index]
-        stored[index] = current.copy(title = title, siteUrl = siteUrl, format = format)
+        update(id) { it.copy(title = title, siteUrl = siteUrl, format = format) }
     }
 
     override fun recordFetchSuccess(
@@ -242,6 +246,16 @@ class FakeFeedRepository : FeedRepository {
         fetchedAt: Instant,
         validators: FeedFetchValidators,
     ) {
+        update(id) {
+            it.copy(
+                fetch = FeedFetchStatus(
+                    validators = validators,
+                    lastFetchedAt = fetchedAt,
+                    lastSucceededAt = fetchedAt,
+                    lastError = null,
+                ),
+            )
+        }
     }
 
     override fun recordFetchFailure(
@@ -249,12 +263,30 @@ class FakeFeedRepository : FeedRepository {
         fetchedAt: Instant,
         error: String,
     ) {
+        update(id) {
+            it.copy(
+                fetch = it.fetch.copy(
+                    lastFetchedAt = fetchedAt,
+                    lastError = error,
+                ),
+            )
+        }
     }
 
     override fun markInitialImportDone(id: FeedId) {
+        update(id) { it.copy(initialImportDone = true) }
     }
 
     override fun delete(id: FeedId) {
         stored.removeAll { it.id == id }
+    }
+
+    private fun update(
+        id: FeedId,
+        block: (Feed) -> Feed,
+    ) {
+        val index = stored.indexOfFirst { it.id == id }
+        if (index == -1) return
+        stored[index] = block(stored[index])
     }
 }
