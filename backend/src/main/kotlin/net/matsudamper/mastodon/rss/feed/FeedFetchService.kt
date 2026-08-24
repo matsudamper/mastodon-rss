@@ -27,9 +27,11 @@ class FeedFetchService(
         val trimmed = url.trim()
         if (trimmed.isEmpty()) return FetchResult.InvalidUrl
 
-        val resolvedUrl = resolveFeedUrl(trimmed) ?: return FetchResult.InvalidUrl
-
         return runCatching {
+            // 解決も同じ中に置く。/@handle のような形はここで YouTube のページを
+            // 取りに行くので、外に出すと DNS の失敗やタイムアウトが素通りする
+            val resolvedUrl = resolveFeedUrl(trimmed) ?: return FetchResult.InvalidUrl
+
             val response = client.get(resolvedUrl) {
                 header(HttpHeaders.UserAgent, USER_AGENT)
             }
