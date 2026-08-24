@@ -19,7 +19,7 @@ ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
 opentelemetry = "1.65.0"
 opentelemetryApiIncubator = "1.65.0-alpha"
-opentelemetryInstrumentation = "2.30.0-alpha"
+opentelemetryInstrumentation = "2.31.1-alpha"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
