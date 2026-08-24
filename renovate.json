@@ -2,5 +2,26 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "OpenTelemetry SDK・incubator・instrumentation を同一 PR で更新する",
+      "groupName": "opentelemetry",
+      "matchManagers": ["gradle"],
+      "matchPackageNames": [
+        "/^io\\.opentelemetry/",
+        "/^io\\.opentelemetry\\.instrumentation/"
+      ]
+    },
+    {
+      "description": "libs.versions.toml の OpenTelemetry 用 version ref を同一 PR で更新する",
+      "groupName": "opentelemetry",
+      "matchManagers": ["gradle"],
+      "matchDepNames": [
+        "opentelemetry",
+        "opentelemetryApiIncubator",
+        "opentelemetryInstrumentation"
+      ]
+    }
   ]
 }
