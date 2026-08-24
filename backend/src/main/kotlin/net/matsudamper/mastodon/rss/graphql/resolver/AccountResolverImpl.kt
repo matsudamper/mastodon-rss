@@ -24,6 +24,14 @@ class AccountResolverImpl : AccountResolver {
             DataFetcherResult.Builder(profile.summary).build()
         }
 
+    override fun profileStored(
+        account: QlAccount,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<Boolean>> =
+        loadProfile(account, env) { profile ->
+            DataFetcherResult.Builder(profile.stored).build()
+        }
+
     private fun <T> loadProfile(
         account: QlAccount,
         env: DataFetchingEnvironment,

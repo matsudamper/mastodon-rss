@@ -2,11 +2,18 @@ package net.matsudamper.mastodon.rss
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountId
 import net.matsudamper.mastodon.rss.repository.AccountProfile
 import net.matsudamper.mastodon.rss.repository.AccountProfileRepository
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedFetchStatus
+import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
+import net.matsudamper.mastodon.rss.repository.FeedId
+import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
+import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NotePosition
@@ -29,6 +36,8 @@ class FakeRepositories : Repositories {
 
     override val notes: NoteRepository = FakeNoteRepository()
 
+    override val feeds: FakeFeedRepository = FakeFeedRepository()
+
     override fun verifyWritable() {
         verifyWritableCallCount++
     }
@@ -40,6 +49,7 @@ class FakeRepositories : Repositories {
 
 class FakeAccountRepository : AccountRepository {
     private val stored = mutableListOf<Account>()
+    private var nextId = 1L
 
     @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
     override fun list(): List<Account> = stored.toList()
@@ -56,6 +66,8 @@ class FakeAccountRepository : AccountRepository {
         return stored.drop(startIndex).take(limit)
     }
 
+    override fun findById(id: AccountId): Account? = stored.firstOrNull { it.id == id }
+
     override fun findByUsername(username: String): Account? = stored.firstOrNull { it.username.equals(username, ignoreCase = true) }
 
     override fun findByUsernames(usernames: Collection<String>): Map<String, Account> =
@@ -70,7 +82,7 @@ class FakeAccountRepository : AccountRepository {
     ): Account? {
         if (findByUsername(username) != null) return null
 
-        return Account(username = username, createdAt = createdAt).also { stored += it }
+        return Account(id = AccountId(nextId++), username = username, createdAt = createdAt).also { stored += it }
     }
 }
 
@@ -170,6 +182,10 @@ class FakeNoteRepository : NoteRepository {
 
     override fun find(publicId: String): Note? = stored.firstOrNull { it.publicId == publicId }
 
+    override fun findByPublicIds(publicIds: Set<String>): Map<String, Note> = stored
+        .filter { it.publicId in publicIds }
+        .associateBy { it.publicId }
+
     override fun list(
         username: String,
         after: NotePosition?,
@@ -184,5 +200,119 @@ class FakeNoteRepository : NoteRepository {
         }
         .take(limit)
 
+    override fun listPositions(
+        username: String,
+        after: NotePosition?,
+        limit: Int,
+    ): List<NotePosition> = list(username = username, after = after, limit = limit)
+        .map { NotePosition(publishedAt = it.publishedAt, publicId = it.publicId) }
+
     override fun count(username: String): Long = stored.count { it.username == username }.toLong()
+}
+
+class FakeFeedRepository : FeedRepository {
+    private val stored = mutableListOf<Feed>()
+    private var nextId = 1L
+
+    override fun list(): List<Feed> = stored.toList()
+
+    override fun find(id: FeedId): Feed? = stored.firstOrNull { it.id == id }
+
+    override fun findByAccountId(accountId: AccountId): Feed? = stored.firstOrNull { it.accountId == accountId }
+
+    override fun findByUrl(url: String): Feed? = stored.firstOrNull { it.url == url }
+
+    override fun findDue(
+        now: Instant,
+        limit: Int,
+    ): List<Feed> =
+        stored
+            .filter {
+                val lastFetchedAt = it.fetch.lastFetchedAt
+                lastFetchedAt == null || lastFetchedAt.plusSeconds(it.pollIntervalSeconds) <= now
+            }
+            .sortedBy { it.fetch.lastFetchedAt ?: Instant.MIN }
+            .take(limit)
+
+    override fun add(feed: NewFeed): Feed? {
+        if (findByAccountId(feed.accountId) != null) return null
+        if (findByUrl(feed.url) != null) return null
+
+        val createdAt = Instant.now()
+        return Feed(
+            id = FeedId(nextId++),
+            accountId = feed.accountId,
+            url = feed.url,
+            title = feed.title,
+            siteUrl = feed.siteUrl,
+            format = feed.format,
+            pollIntervalSeconds = feed.pollIntervalSeconds,
+            fetch = FeedFetchStatus(
+                validators = FeedFetchValidators.NONE,
+                lastFetchedAt = null,
+                lastSucceededAt = null,
+                lastError = null,
+            ),
+            initialImportDone = false,
+            createdAt = createdAt,
+        ).also { stored += it }
+    }
+
+    override fun updateMetadata(
+        id: FeedId,
+        title: String?,
+        siteUrl: String?,
+        format: String?,
+    ) {
+        update(id) { it.copy(title = title, siteUrl = siteUrl, format = format) }
+    }
+
+    override fun recordFetchSuccess(
+        id: FeedId,
+        fetchedAt: Instant,
+        validators: FeedFetchValidators,
+    ) {
+        update(id) {
+            it.copy(
+                fetch = FeedFetchStatus(
+                    validators = validators,
+                    lastFetchedAt = fetchedAt,
+                    lastSucceededAt = fetchedAt,
+                    lastError = null,
+                ),
+            )
+        }
+    }
+
+    override fun recordFetchFailure(
+        id: FeedId,
+        fetchedAt: Instant,
+        error: String,
+    ) {
+        update(id) {
+            it.copy(
+                fetch = it.fetch.copy(
+                    lastFetchedAt = fetchedAt,
+                    lastError = error,
+                ),
+            )
+        }
+    }
+
+    override fun markInitialImportDone(id: FeedId) {
+        update(id) { it.copy(initialImportDone = true) }
+    }
+
+    override fun delete(id: FeedId) {
+        stored.removeAll { it.id == id }
+    }
+
+    private fun update(
+        id: FeedId,
+        block: (Feed) -> Feed,
+    ) {
+        val index = stored.indexOfFirst { it.id == id }
+        if (index == -1) return
+        stored[index] = block(stored[index])
+    }
 }

@@ -25,8 +25,10 @@ native-image で踏んだことは `META-INF/native-image/` の README にある
 - Phase 2（フォローの成立）完了。inbox の署名を検証し、`Follow` に `Accept` を返す
 - Phase 3（フォロワーの永続化）実装済み。実機での確認は未実施
 - Phase 4（投稿の配信）実装済み。実機での確認は未実施
-- Phase 5 のうちフィードの解析（`:backend:rss`）だけ先に実装した。取得（HTTP）と保存（DB）は
-  繋いでいないので、まだ何も流れない。ActivityPub 側と独立していて後戻りが出ないため前倒しした
+- Phase 5 のうち、フィードの解析（`:backend:rss`）と、管理画面から URL を取得して
+  `feeds` に保存するところまで実装し、実機で登録できることを確認した。
+  記事の取り込みと定期ポーリングは未実装なので、まだ投稿は流れない。
+  ActivityPub 側と独立していて後戻りが出ないため前倒しした
 - Phase 6 と Phase 8 の一部（管理画面の枠、GraphQL の口とログイン、アカウントの追加と一覧）も
   先に入っている。どこまで入っているかは各フェーズの項目を参照
 
@@ -159,20 +161,24 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 
 ここでようやく本来の機能。ActivityPub 側はもう触らない。
 
-フィードを読む部分（`:backend:rss`）だけ先に実装した。取得と保存は繋いでいないので、
-まだ何も流れない。どこまでやったかは各項目の下に書いた。
+フィードを読む部分（`:backend:rss`）と、管理画面からフィードを登録するところまで実装し、
+実機で登録できることを確認した。記事の取り込みは未実装なので、まだ投稿は流れない。
+どこまでやったかは各項目の下に書いた。
 
 - [x] RSS 2.0 / RSS 1.0 (RDF) / Atom 1.0 のパーサを自作（StAX。`FeedParser`）
       - 外部エンティティと DTD は切ってある。入口はバイト列で、文字コードは XML 宣言と
         BOM から判定させる（先に String にすると Shift_JIS の配信元で文字が壊れる）
       - 日時は RFC 822 と RFC 3339 に加えて崩れた形も読む（`FeedDates`）。
         読めなければ null にして記事は捨てない
-      - [ ] 繋ぐときに `:backend` の native-image へ `-H:+AddAllCharsets` を足す
+      - [x] 繋ぐときに `:backend` の native-image へ `-H:+AddAllCharsets` を足す
             - native バイナリには既定で一部の文字コードしか入らず、Shift_JIS の
               フィードを読んだ時点で `UnsupportedCharsetException` になる
             - `:backend:rss` の `nativeTest` には指定済み。これが無いと Shift_JIS の
               テストが native でだけ落ちることを確認している（そうやって見つけた）
 - [ ] `feeds` / `feed_items` テーブル
+      - `feeds` は実装済み（`account_id` で `accounts.id` と 1:1）。
+        管理画面から URL のプレビューと保存まで対応し、実機で確認済み
+      - `feed_items` はまだ無い
       - この時点ではアクターが 1 つしか無いので、検証はフィード 1 本で行う。
         `ACTOR_USERNAME` にそのフィード用の名前を入れて動かす
       - `admin` から記事を流さないこと。`admin` は運用者のアカウントで、
@@ -181,10 +187,8 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
         `Move` では表現できず、引っ越しを通知する手段が無い）
       - 複数フィードを同時に動かせるようになるのは Phase 6。
         `feeds.actor_id` を足してフィードごとのアクターに振り分ける
-      - `FeedRepository` と `FeedItemRepository` を interface だけ先に置いた
-        （`:backend:repository`）。テーブルがまだ `schema.sql` に無く、
-        テーブルが無ければ jOOQ の生成物も無いので実装は書けない。
-        `Repositories` からも取れない
+      - `FeedRepository` は SQLite 実装済み。`FeedItemRepository` は
+        テーブルが無いので interface だけ（`:backend:repository`）
 - [x] 差分検出: `guid` / `id` / `link` を主キーに、なければ URL + タイトルのハッシュ
       - `FeedItemKey`。優先順は `id`（`guid` / Atom の `id` / `rdf:about`）→ `link` → ハッシュ
       - 保存側の突き合わせは `FeedItemRepository.findExistingKeys` に置いた（実装は未定）
@@ -192,8 +196,8 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
       - 保存する値の形（`FeedFetchValidators`）と、記録する口だけ interface に置いた。
         送るのは HTTP クライアントを持つ `:backend` 側の仕事なので未実装
 - [ ] スケジューラ（定期ポーリング）。フィードごとに間隔を設定可能に
-      - 間隔を持つ場所（`Feed.pollIntervalSeconds`）と、対象を引く口
-        （`FeedRepository.findDue`）は interface に置いた。回す部分は未実装
+      - 間隔を持つ場所（`Feed.pollIntervalSeconds`）と、対象を引く
+        `FeedRepository.findDue` は実装済み。回す部分は未実装
 - [ ] 初回登録時の暴発防止 — 既存記事を全部投稿しない。初回は「取り込み済み」としてマークするだけ
       - 記録する場所（`Feed.initialImportDone` と `FeedItemState.SKIPPED`）だけ用意した。
         判断する処理は取り込みを書くときに入れる
@@ -296,10 +300,11 @@ Phase 1〜5 で作った `admin` はフィード用ではなく、運用者の�
         1 画面に並べると、開いた時点で必要のない問い合わせが走り、URL でその操作を指せない
       - 画面遷移は Navigation Compose 3（JetBrains 版）。履歴の持ち主はブラウザ側に一本化し、
         `popstate` を受けて URL からバックスタックを作り直す。両方で履歴を持つとずれる
-      - [ ] アカウント画面の中身を実データにする。フィードと記事は Phase 5、
+      - [ ] アカウント画面の中身を実データにする。フィードは Phase 5、
             数値は管理 API を繋いでから。画面には仮の値である旨を出している
-            - 存在しないアカウントは見つからない表示にした。残っているのは
-              フィードと記事と数値
+            - 存在しないアカウントは見つからない表示にした
+            - 投稿は公開 API から表示するようにした。残っているのは
+              フィードと数値
 - [x] 日本語のフォントを配信して読み込む
       - canvas に描いているので、何もしないと日本語が豆腐になる。`index.html` の
         `@font-face` も効かない。静的ファイルと一緒に配信し、起動後に取ってきて

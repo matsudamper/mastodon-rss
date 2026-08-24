@@ -1,0 +1,18 @@
+query AccountNotesQuery($query: AccountNotesQuery!) {
+    notes(query: $query) {
+        nodes {
+            ...AccountNoteFields
+        }
+        pageInfo {
+            hasMore
+            nextCursor
+        }
+    }
+}
+
+fragment AccountNoteFields on AccountNote {
+    id
+    url
+    contentHtml
+    publishedAt
+}

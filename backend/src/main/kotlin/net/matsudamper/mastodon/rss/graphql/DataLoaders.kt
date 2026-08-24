@@ -3,10 +3,14 @@ package net.matsudamper.mastodon.rss.graphql
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 import graphql.schema.DataFetchingEnvironment
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.context.Context
 import net.matsudamper.mastodon.rss.dataloader.AccountDataLoaderDefine
+import net.matsudamper.mastodon.rss.dataloader.AccountNoteDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.AccountProfileDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.DataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.FollowerCountDataLoaderDefine
+import net.matsudamper.mastodon.rss.dataloader.OtelBatchLoaderScheduler
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderRegistry
 
@@ -20,6 +24,8 @@ import org.dataloader.DataLoaderRegistry
 class DataLoaders(
     diContainer: DiContainer,
     private val dataLoaderRegistryBuilder: DataLoaderRegistry.Builder,
+    private val otelContext: Context,
+    private val openTelemetry: OpenTelemetry?,
 ) {
     val accountDataLoader by register { AccountDataLoaderDefine(diContainer.actorDirectory) }
 
@@ -27,9 +33,21 @@ class DataLoaders(
 
     val followerCountDataLoader by register { FollowerCountDataLoaderDefine(diContainer.accountService) }
 
+    val accountNoteDataLoader by register { AccountNoteDataLoaderDefine(diContainer.noteStore) }
+
     private fun <K : Any, V : Any> register(initializer: () -> DataLoaderDefine<K, V>): DataLoaderRegister<K, V> {
         val define = initializer()
-        dataLoaderRegistryBuilder.register(define.key, define.getDataLoader())
+        val dataLoader = define.getDataLoader()
+        if (openTelemetry != null) {
+            val scheduler = OtelBatchLoaderScheduler(openTelemetry, otelContext, "DataLoader.${define.key}")
+            val otelOptions =
+                dataLoader.options.transform {
+                    it.setBatchLoaderScheduler(scheduler)
+                }
+            dataLoaderRegistryBuilder.register(define.key, dataLoader.transform { it.options(otelOptions) })
+        } else {
+            dataLoaderRegistryBuilder.register(define.key, dataLoader)
+        }
 
         return DataLoaderRegister(define.key)
     }

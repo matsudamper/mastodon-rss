@@ -1,4 +1,6 @@
 type Account {
+    id: AccountId
+
     username: String!
 
     "Mastodon の検索窓に貼る形"
@@ -11,4 +13,7 @@ type Account {
 
     "プロフィールに出す説明文"
     summary: String! @lazy
+
+    "DB に保存されたプロフィールがある"
+    profileStored: Boolean! @lazy
 }

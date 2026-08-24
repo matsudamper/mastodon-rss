@@ -17,6 +17,9 @@ type AdminMutation {
         displayName: String!
         summary: String!
     ): AdminUpdateAccountProfileResult! @lazy
+
+    "RSS フィードを登録する"
+    saveFeed(accountId: AccountId!, url: String!): AdminSaveFeedResult! @lazy
 }
 
 type AdminPostNoteResult {

@@ -19,19 +19,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.HtmlElementView
 import androidx.lifecycle.compose.LifecycleStartEffect
-import kotlinx.browser.document
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
-import org.w3c.dom.HTMLDivElement
 
 @Composable
 fun AdminAccountScreen(
@@ -49,15 +46,20 @@ fun AdminAccountScreen(
         onStopOrDispose {}
     }
 
-    AdminAccountScreen(uiState = uiState, onNavigate = onNavigate)
+    AdminAccountScreen(
+        username = username,
+        uiState = uiState,
+        onNavigate = onNavigate,
+    )
 }
 
 @Composable
 private fun AdminAccountScreen(
+    username: String,
     uiState: AdminAccountScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { _ ->
+    AdminScaffold(title = "@$username の管理", onNavigate = onNavigate) { wide ->
         Text(
             text = uiState.acct,
             style = MaterialTheme.typography.headlineSmall,
@@ -106,7 +108,10 @@ private fun AdminAccountScreen(
 
             is AdminAccountScreenUiState.Content.Loaded -> {
                 AccountCard(account = content.account, onNavigate = onNavigate)
-                ProfileCard(profile = content.profile, listener = uiState.listener)
+                FeedCard(feed = content.feed, listener = uiState.listener, wide = wide)
+                content.profile?.let { profile ->
+                    ProfileCard(profile = profile, listener = uiState.listener)
+                }
                 PostCard(post = content.post, listener = uiState.listener)
                 NotesCard(content = content, listener = uiState.listener)
             }
@@ -144,6 +149,253 @@ private fun AccountCard(
             text = "公開されているアカウント画面を開く",
             onClick = { onNavigate(Screen.Account(account.username)) },
         )
+    }
+}
+
+@Composable
+private fun FeedCard(
+    feed: AdminAccountScreenUiState.Feed,
+    listener: AdminAccountScreenUiState.Listener,
+    wide: Boolean,
+) {
+    when (feed) {
+        AdminAccountScreenUiState.Feed.None -> Unit
+
+        is AdminAccountScreenUiState.Feed.Registered -> {
+            SectionCard(title = "RSS フィード") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "登録済み",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = feed.url,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (feed.title != null) {
+                        Text(
+                            text = feed.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                    if (feed.format != null) {
+                        Text(
+                            text = feed.format,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        is AdminAccountScreenUiState.Feed.Input -> {
+            SectionCard(title = "RSS フィード") {
+                if (wide) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        FeedInputPanel(modifier = Modifier.weight(1f), feed = feed, listener = listener)
+                        FeedPreviewPanel(modifier = Modifier.weight(1f), feed = feed)
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        FeedInputPanel(modifier = Modifier.fillMaxWidth(), feed = feed, listener = listener)
+                        FeedPreviewPanel(modifier = Modifier.fillMaxWidth(), feed = feed)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedInputPanel(
+    feed: AdminAccountScreenUiState.Feed.Input,
+    listener: AdminAccountScreenUiState.Listener,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = "RSS/Atom の URL を入れて取得する。問題なければ保存する。",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
+        OutlinedTextField(
+            value = feed.url,
+            onValueChange = { listener.onFeedUrlChanged(it) },
+            enabled = feed.canEditProfile,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("フィード URL") },
+            singleLine = true,
+        )
+
+        Text(
+            text = "プロフィール",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        OutlinedTextField(
+            value = feed.displayName,
+            onValueChange = { listener.onFeedProfileDisplayNameChanged(it) },
+            enabled = feed.canEditProfile,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("表示名") },
+            singleLine = true,
+        )
+
+        OutlinedTextField(
+            value = feed.summary,
+            onValueChange = { listener.onFeedProfileSummaryChanged(it) },
+            enabled = feed.canEditProfile,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("説明文") },
+            minLines = 3,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+                onClick = { listener.onClickFetchFeed() },
+                enabled = feed.canFetch,
+            ) {
+                Text(if (feed.fetching) "取得中" else "取得")
+            }
+
+            Button(
+                onClick = { listener.onClickSaveFeed() },
+                enabled = feed.canSave,
+            ) {
+                Text(if (feed.saving) "保存中" else "保存")
+            }
+        }
+
+        if (feed.previewError != null) {
+            Text(
+                text = feed.previewError,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+
+        if (feed.saveError != null) {
+            Text(
+                text = feed.saveError,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+
+        feed.overwriteConfirm?.let { confirm ->
+            ProfileOverwriteConfirmCard(confirm = confirm, listener = listener)
+        }
+    }
+}
+
+@Composable
+private fun ProfileOverwriteConfirmCard(
+    confirm: AdminAccountScreenUiState.ProfileOverwriteConfirm,
+    listener: AdminAccountScreenUiState.Listener,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "プロフィールを上書きするか確認する",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        Text(text = "現在", style = MaterialTheme.typography.bodySmall)
+        Text(text = confirm.beforeDisplayName, style = MaterialTheme.typography.bodyMedium)
+        Text(text = confirm.beforeSummary, style = MaterialTheme.typography.bodyMedium)
+
+        Text(text = "変更後", style = MaterialTheme.typography.bodySmall)
+        Text(text = confirm.afterDisplayName, style = MaterialTheme.typography.bodyMedium)
+        Text(text = confirm.afterSummary, style = MaterialTheme.typography.bodyMedium)
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = { listener.onClickConfirmProfileOverwrite() }) {
+                Text("上書きする")
+            }
+
+            OutlinedButton(onClick = { listener.onClickSkipProfileOverwrite() }) {
+                Text("プロフィールはそのまま")
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedPreviewPanel(
+    feed: AdminAccountScreenUiState.Feed.Input,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "プレビュー",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        when {
+            feed.fetching -> {
+                Text(text = "フィードを取ってきている。", style = MaterialTheme.typography.bodyMedium)
+            }
+
+            feed.preview != null -> {
+                val preview = feed.preview
+                preview.title?.let {
+                    Text(text = it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                }
+                Text(text = preview.format, style = MaterialTheme.typography.bodySmall)
+                preview.siteUrl?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                preview.description?.let {
+                    Text(text = it, style = MaterialTheme.typography.bodyMedium)
+                }
+                Text(text = "記事 ${preview.itemCount} 件", style = MaterialTheme.typography.bodyMedium)
+                preview.sampleItems.forEach { item ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = item.title ?: "(題名なし)",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        val meta = listOfNotNull(item.publishedAt, item.link).joinToString("  ")
+                        if (meta.isNotEmpty()) {
+                            Text(
+                                text = meta,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
+            else -> {
+                Text(
+                    text = "取得ボタンを押すとここに表示される。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -275,7 +527,6 @@ private fun PostCard(
                     text = "投稿した。宛先 ${result.targets} 件のうち ${result.delivered} 件に届いた。",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                // 外部リンクを開く口がまだ無いので URL は文字として出す
                 Text(
                     text = result.url,
                     style = MaterialTheme.typography.bodySmall,
@@ -286,7 +537,6 @@ private fun PostCard(
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun NotesCard(
     content: AdminAccountScreenUiState.Content.Loaded,
@@ -328,9 +578,9 @@ private fun NotesCard(
                 notes.forEach { note ->
                     key(note.url) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            HtmlElementView(
-                                factory = { document.createElement("div") as HTMLDivElement },
-                                update = { it.innerHTML = note.contentHtml },
+                            NoteContent(
+                                contentHtml = note.contentHtml,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                             Text(
                                 text = "${note.publishedAt}  ${note.url}",

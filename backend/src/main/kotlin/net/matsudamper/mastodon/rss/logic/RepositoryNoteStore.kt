@@ -27,6 +27,10 @@ class RepositoryNoteStore(
 
     override fun find(publicId: String): StoredNote? = notes.find(publicId)?.toStored()
 
+    override fun findByPublicIds(publicIds: Set<String>): Map<String, StoredNote> = notes
+        .findByPublicIds(publicIds)
+        .mapValues { (_, note) -> note.toStored() }
+
     override fun list(
         username: String,
         after: NotePosition?,
@@ -43,6 +47,28 @@ class RepositoryNoteStore(
             limit = limit,
         )
         .map { it.toStored() }
+
+    override fun listPositions(
+        username: String,
+        after: NotePosition?,
+        limit: Int,
+    ): List<NotePosition> = notes
+        .listPositions(
+            username = username,
+            after = after?.let {
+                net.matsudamper.mastodon.rss.repository.NotePosition(
+                    publishedAt = it.publishedAt,
+                    publicId = it.publicId,
+                )
+            },
+            limit = limit,
+        )
+        .map {
+            NotePosition(
+                publishedAt = it.publishedAt,
+                publicId = it.publicId,
+            )
+        }
 
     override fun count(username: String): Long = notes.count(username)
 

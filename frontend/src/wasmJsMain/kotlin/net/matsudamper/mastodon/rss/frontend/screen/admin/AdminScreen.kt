@@ -2,13 +2,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -17,15 +13,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.AdminLoginPasswordField
+import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
+import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink
+
+private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 
 @Composable
 fun AdminScreen(onNavigate: (Screen) -> Unit) {
@@ -46,7 +43,7 @@ private fun AdminScreen(
     uiState: AdminScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { _ ->
+    AdminScaffold(title = null, onNavigate = onNavigate) { _ ->
         Text(
             text = "管理画面",
             style = MaterialTheme.typography.headlineSmall,
@@ -65,6 +62,7 @@ private fun AdminScreen(
             AdminScreenUiState.Content.LoggedIn -> {
                 MenuCard(onNavigate = onNavigate)
                 LoggedInCard(listener = uiState.listener)
+                AboutCard()
             }
 
             is AdminScreenUiState.Content.Error -> {
@@ -106,21 +104,12 @@ private fun LoginCard(
             }
         }
 
-        OutlinedTextField(
-            value = content.password,
-            onValueChange = { listener.onPasswordChanged(it) },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("パスワード") },
-            singleLine = true,
+        AdminLoginPasswordField(
+            password = content.password,
+            onPasswordChange = { listener.onPasswordChanged(it) },
+            onSubmit = { listener.onClickLogin() },
             enabled = content.inputEnabled && !content.submitting,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions =
-            KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done,
-            ),
-            keyboardActions = KeyboardActions(onDone = { listener.onClickLogin() }),
-            isError = content.error != null,
+            hasError = content.error != null,
         )
 
         if (content.error != null) {
@@ -166,6 +155,20 @@ private fun MenuCard(onNavigate: (Screen) -> Unit) {
             text = "フィードの登録・削除、配信エラーの確認、手動での再取得はこれから作る。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun AboutCard() {
+    SectionCard(title = "このソフトウェア") {
+        Text(
+            text = "ソースコードは GitHub で公開している。",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        TextLink(
+            text = "mastodon-rss",
+            onClick = { openExternalLink(REPOSITORY_URL) },
         )
     }
 }

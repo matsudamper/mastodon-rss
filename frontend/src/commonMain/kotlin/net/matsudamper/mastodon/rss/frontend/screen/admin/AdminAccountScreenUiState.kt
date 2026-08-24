@@ -22,6 +22,8 @@ data class AdminAccountScreenUiState(
 
         /**
          * @param account この画面が扱うアカウント
+         * @param feed RSS フィードの登録状況と入力欄
+         * @param profile 登録済みフィードがあるときのプロフィール編集
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
@@ -30,7 +32,8 @@ data class AdminAccountScreenUiState(
          */
         data class Loaded(
             val account: Account,
-            val profile: Profile,
+            val feed: Feed,
+            val profile: Profile?,
             val post: Post,
             val notes: List<Note>,
             val notesError: String?,
@@ -56,6 +59,69 @@ data class AdminAccountScreenUiState(
         val followerCount: Int,
         val displayName: String,
         val summary: String,
+    )
+
+    sealed interface Feed {
+        /**
+         * このアカウントではフィードを扱わない。何も出さない
+         */
+        data object None : Feed
+
+        data class Registered(
+            val url: String,
+            val title: String?,
+            val format: String?,
+        ) : Feed
+
+        /**
+         * @param fetching 取得中。ボタンの文字が変わる
+         * @param canFetch false の間は取得のボタンを押せなくする
+         * @param canSave false の間は保存のボタンを押せなくする
+         * @param overwriteConfirm 既存プロフィールを上書きするか確認する
+         */
+        data class Input(
+            val url: String,
+            val displayName: String,
+            val summary: String,
+            val fetching: Boolean,
+            val canFetch: Boolean,
+            val saving: Boolean,
+            val canSave: Boolean,
+            val preview: FeedPreview?,
+            val previewError: String?,
+            val saveError: String?,
+            val overwriteConfirm: ProfileOverwriteConfirm?,
+        ) : Feed {
+            val canEditProfile: Boolean get() = !fetching && !saving && overwriteConfirm == null
+        }
+    }
+
+    data class FeedPreview(
+        val title: String?,
+        val siteUrl: String?,
+        val format: String,
+        val description: String?,
+        val itemCount: Int,
+        val sampleItems: List<FeedPreviewItem>,
+    )
+
+    data class FeedPreviewItem(
+        val title: String?,
+        val link: String?,
+        val publishedAt: String?,
+    )
+
+    /**
+     * @param beforeDisplayName 上書き前の表示名
+     * @param beforeSummary 上書き前の説明文
+     * @param afterDisplayName 保存しようとしている表示名
+     * @param afterSummary 保存しようとしている説明文
+     */
+    data class ProfileOverwriteConfirm(
+        val beforeDisplayName: String,
+        val beforeSummary: String,
+        val afterDisplayName: String,
+        val afterSummary: String,
     )
 
     /**
@@ -106,6 +172,20 @@ data class AdminAccountScreenUiState(
 
     @Immutable
     interface Listener {
+        fun onFeedUrlChanged(text: String)
+
+        fun onFeedProfileDisplayNameChanged(text: String)
+
+        fun onFeedProfileSummaryChanged(text: String)
+
+        fun onClickFetchFeed()
+
+        fun onClickSaveFeed()
+
+        fun onClickConfirmProfileOverwrite()
+
+        fun onClickSkipProfileOverwrite()
+
         fun onClickEditProfile()
 
         fun onClickCancelProfileEdit()

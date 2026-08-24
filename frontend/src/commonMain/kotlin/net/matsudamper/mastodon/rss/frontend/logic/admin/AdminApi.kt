@@ -12,12 +12,16 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUpdateAccountProfileMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailureReason
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 
@@ -121,6 +125,62 @@ class AdminApi(
         )
     }
 
+    suspend fun previewFeed(url: String): AdminFeedPreviewResult {
+        val response = client.query(AdminPreviewFeedQuery(url)).execute()
+        val result = response.data?.admin?.previewFeed
+            ?: return AdminFeedPreviewResult.Failure(response.failureMessage())
+
+        val preview = result.preview
+        if (preview != null) {
+            return AdminFeedPreviewResult.Success(
+                AdminFeedPreview(
+                    title = preview.title,
+                    siteUrl = preview.siteUrl,
+                    format = preview.format,
+                    description = preview.description,
+                    itemCount = preview.itemCount,
+                    sampleItems = preview.sampleItems.map { item ->
+                        AdminFeedPreviewItem(
+                            title = item.title,
+                            link = item.link,
+                            publishedAt = item.publishedAt,
+                        )
+                    },
+                ),
+            )
+        }
+
+        return AdminFeedPreviewResult.Rejected(
+            reason = result.failure?.reason?.toPreviewFailure() ?: AdminFeedPreviewResult.PreviewFailure.UNKNOWN,
+        )
+    }
+
+    suspend fun saveFeed(
+        accountId: Long,
+        url: String,
+    ): AdminSaveFeedResult {
+        val response = client.mutation(AdminSaveFeedMutation(accountId = accountId, url = url)).execute()
+        val result = response.data?.admin?.saveFeed
+            ?: return AdminSaveFeedResult.Failure(response.failureMessage())
+
+        val feed = result.feed
+        if (feed != null) {
+            return AdminSaveFeedResult.Success(
+                AdminFeed(
+                    id = feed.id,
+                    url = feed.url,
+                    title = feed.title,
+                    siteUrl = feed.siteUrl,
+                    format = feed.format,
+                ),
+            )
+        }
+
+        return AdminSaveFeedResult.Rejected(
+            reason = result.failure?.reason?.toSaveFailure() ?: AdminSaveFeedResult.SaveFailure.UNKNOWN,
+        )
+    }
+
     suspend fun postNote(
         username: String,
         body: String,
@@ -190,15 +250,45 @@ class AdminApi(
 
     private fun AdminAccountFields.toAdminAccount(): AdminAccount = AdminAccount(
         account = Account(
+            id = account.id,
             username = account.username,
             acct = account.acct,
             actorUrl = account.actorUrl,
             displayName = account.displayName,
             summary = account.summary,
+            profileStored = account.profileStored,
         ),
         createdAt = createdAt,
         followerCount = followerCount,
+        feed = feed?.let {
+            AdminFeed(
+                id = it.id,
+                url = it.url,
+                title = it.title,
+                siteUrl = it.siteUrl,
+                format = it.format,
+            )
+        },
     )
+
+    private fun AdminFeedPreviewFailureReason.toPreviewFailure(): AdminFeedPreviewResult.PreviewFailure =
+        when (this) {
+            AdminFeedPreviewFailureReason.INVALID_URL -> AdminFeedPreviewResult.PreviewFailure.INVALID_URL
+            AdminFeedPreviewFailureReason.FETCH_FAILED -> AdminFeedPreviewResult.PreviewFailure.FETCH_FAILED
+            AdminFeedPreviewFailureReason.PARSE_FAILED -> AdminFeedPreviewResult.PreviewFailure.PARSE_FAILED
+            AdminFeedPreviewFailureReason.UNKNOWN__ -> AdminFeedPreviewResult.PreviewFailure.UNKNOWN
+        }
+
+    private fun AdminSaveFeedFailureReason.toSaveFailure(): AdminSaveFeedResult.SaveFailure =
+        when (this) {
+            AdminSaveFeedFailureReason.UNKNOWN_ACCOUNT -> AdminSaveFeedResult.SaveFailure.UNKNOWN_ACCOUNT
+            AdminSaveFeedFailureReason.DUPLICATE_URL -> AdminSaveFeedResult.SaveFailure.DUPLICATE_URL
+            AdminSaveFeedFailureReason.ALREADY_HAS_FEED -> AdminSaveFeedResult.SaveFailure.ALREADY_HAS_FEED
+            AdminSaveFeedFailureReason.INVALID_URL -> AdminSaveFeedResult.SaveFailure.INVALID_URL
+            AdminSaveFeedFailureReason.FETCH_FAILED -> AdminSaveFeedResult.SaveFailure.FETCH_FAILED
+            AdminSaveFeedFailureReason.PARSE_FAILED -> AdminSaveFeedResult.SaveFailure.PARSE_FAILED
+            AdminSaveFeedFailureReason.UNKNOWN__ -> AdminSaveFeedResult.SaveFailure.UNKNOWN
+        }
 
     private fun AdminNoteFields.toAdminNote(): AdminNote = AdminNote(
         url = url,

@@ -20,13 +20,18 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUpdateAccountProfileFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUpdateAccountProfileResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.logic.AccountProfileDefaults
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
+import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteService
+import net.matsudamper.mastodon.rss.repository.AccountId
+import net.matsudamper.mastodon.rss.shared.AccountId as GraphQlAccountId
+import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminMutationResolverImpl : AdminMutationResolver {
     override fun login(
@@ -127,7 +132,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         // 配信は相手のサーバーへの POST を伴うので中断できる形で呼ぶ。
         // GraphQL のリゾルバは CompletionStage を返す約束なので、そこに繋ぎ直す
-        return CoroutineScope(Dispatchers.IO).future {
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val result = when (val posted = diContainer.noteService.post(username = username, body = body)) {
                 is NoteService.PostResult.Success -> {
                     QlAdminPostNoteResult(
@@ -194,9 +199,22 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
-    /**
-     * 当てはまらない理由は null にする。入っているものだけが理由になる
-     */
+    override fun saveFeed(
+        adminMutation: QlAdminMutation,
+        accountId: GraphQlAccountId,
+        url: String,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminSaveFeedResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val result = diContainer.feedService.save(AccountId(accountId.value), url).toGraphqlResponse()
+            DataFetcherResult.Builder(result).build()
+        }
+    }
+
     private fun AccountService.UpdateProfileResult.Failure.toGraphqlResponse(): QlAdminUpdateAccountProfileFailure =
         QlAdminUpdateAccountProfileFailure(
             unknownAccount = unknownAccount,

@@ -76,3 +76,20 @@ CREATE TABLE remote_actors (
 );
 
 CREATE INDEX notes_username_published_at ON notes (username, published_at);
+
+CREATE TABLE feeds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL UNIQUE REFERENCES accounts (id) ON DELETE CASCADE,
+    url TEXT NOT NULL UNIQUE,
+    title TEXT,
+    site_url TEXT,
+    format TEXT,
+    poll_interval_seconds INTEGER NOT NULL,
+    etag TEXT,
+    last_modified TEXT,
+    last_fetched_at TEXT,
+    last_succeeded_at TEXT,
+    last_error TEXT,
+    initial_import_done INTEGER NOT NULL DEFAULT 0 CHECK (initial_import_done IN (0, 1)),
+    created_at TEXT NOT NULL
+);

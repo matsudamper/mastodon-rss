@@ -1,0 +1,23 @@
+input AccountNotesQuery {
+    username: String!
+    cursor: String
+    limit: Int!
+}
+
+type AccountNotesConnection {
+    nodes: [AccountNote!]!
+    pageInfo: PageInfo!
+}
+
+"配信した投稿 1 件"
+type AccountNote {
+    id: NoteId!
+
+    "投稿の URL。相手はここをパーマリンクとして開く"
+    url: String! @lazy
+
+    "配信した本文の HTML"
+    contentHtml: String! @lazy
+
+    publishedAt: UnixTime! @lazy
+}

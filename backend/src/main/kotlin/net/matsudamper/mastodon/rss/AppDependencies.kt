@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss
 
+import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
@@ -11,6 +12,7 @@ import net.matsudamper.mastodon.rss.actor.StoredActorNames
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
+import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
@@ -20,6 +22,7 @@ import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
+import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
 
 /**
  * アプリが使うものを作って配る場所。
@@ -44,7 +47,10 @@ class AppDependencies(
     val env: ServerEnv,
     val remoteActors: RemoteActors,
     val delivery: ActivityDelivery,
+    val feedFetcher: FeedFetchService = FeedFetchService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
+    val openTelemetry: OpenTelemetry? = null,
+    private val telemetry: OpenTelemetryInitializer.Handler? = null,
 ) : AutoCloseable {
     /**
      * ドメインはアクター ID に焼き込まれ、Mastodon 側にキャッシュされると後から変えられない。
@@ -97,12 +103,20 @@ class AppDependencies(
      */
     override fun close() {
         try {
-            (delivery as? AutoCloseable)?.close()
+            feedFetcher.close()
         } finally {
             try {
-                (remoteActors as? AutoCloseable)?.close()
+                delivery.close()
             } finally {
-                repositories.close()
+                try {
+                    remoteActors.close()
+                } finally {
+                    try {
+                        repositories.close()
+                    } finally {
+                        telemetry?.close()
+                    }
+                }
             }
         }
     }
@@ -115,8 +129,12 @@ class AppDependencies(
          * フォロワーが記録されているかどうかで決まるため。
          * 開いた後に失敗した場合は、開いた分を閉じてから投げ直す。
          */
-        fun create(env: ServerEnv): AppDependencies {
-            val repositories = createRepositories(DatabaseConfig(path = env.dbPath))
+        fun create(
+            env: ServerEnv,
+            telemetry: OpenTelemetryInitializer.Handler? = null,
+        ): AppDependencies {
+            val repositories = createRepositories(DatabaseConfig(path = env.dbPath), openTelemetry = telemetry?.openTelemetry)
+            val openTelemetry = telemetry?.openTelemetry
 
             // ここから先で失敗すると、開いた DB が閉じられないまま起動が止まる
             return runCatching {
@@ -135,10 +153,10 @@ class AppDependencies(
 
                 // 相手のアクターを引くのと、こちらから送るのとで外向きの HTTP を張る。
                 // どちらも接続を抱えるので、サーバーの外側で開いて確実に閉じる
-                val remoteActors = HttpRemoteActors()
+                val remoteActors = HttpRemoteActors(openTelemetry = openTelemetry)
 
                 val delivery =
-                    runCatching { HttpActivityDelivery(actorKey) }
+                    runCatching { HttpActivityDelivery(actorKey, openTelemetry = openTelemetry) }
                         .getOrElse { failure ->
                             remoteActors.close()
                             throw failure
@@ -150,6 +168,8 @@ class AppDependencies(
                     env = env,
                     remoteActors = remoteActors,
                     delivery = delivery,
+                    openTelemetry = openTelemetry,
+                    telemetry = telemetry,
                 )
             }.getOrElse { failure ->
                 repositories.close()

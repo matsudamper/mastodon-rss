@@ -33,6 +33,20 @@ internal class SqliteNoteRepository(
             ?.toNote()
     }
 
+    override fun findByPublicIds(publicIds: Set<String>): Map<String, Note> {
+        if (publicIds.isEmpty()) return emptyMap()
+
+        return jooq.transaction { dsl ->
+            dsl
+                .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT)
+                .from(NOTES)
+                .where(NOTES.PUBLIC_ID.`in`(publicIds))
+                .fetch()
+                .map { it.toNote() }
+                .associateBy { it.publicId }
+        }
+    }
+
     override fun list(
         username: String,
         after: NotePosition?,
@@ -49,6 +63,27 @@ internal class SqliteNoteRepository(
             .limit(limit)
             .fetch()
             .map { it.toNote() }
+    }
+
+    override fun listPositions(
+        username: String,
+        after: NotePosition?,
+        limit: Int,
+    ): List<NotePosition> = jooq.transaction { dsl ->
+        dsl
+            .select(NOTES.PUBLIC_ID, NOTES.PUBLISHED_AT)
+            .from(NOTES)
+            .where(NOTES.USERNAME.eq(username))
+            .and(after?.let { olderThan(it) } ?: DSL.noCondition())
+            .orderBy(NOTES.PUBLISHED_AT.desc(), NOTES.PUBLIC_ID.desc())
+            .limit(limit)
+            .fetch()
+            .map {
+                NotePosition(
+                    publishedAt = StoredInstant.parse(it.get(NOTES.PUBLISHED_AT)),
+                    publicId = it.get(NOTES.PUBLIC_ID),
+                )
+            }
     }
 
     /**

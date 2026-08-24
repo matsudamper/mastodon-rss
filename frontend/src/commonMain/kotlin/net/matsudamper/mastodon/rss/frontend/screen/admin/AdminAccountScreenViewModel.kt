@@ -12,11 +12,16 @@ import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeed
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUpdateAccountProfileResult
+import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 
 class AdminAccountScreenViewModel(
     private val username: String,
@@ -30,6 +35,8 @@ class AdminAccountScreenViewModel(
     private var loadMoreJob: Job? = null
     private var postJob: Job? = null
     private var profileJob: Job? = null
+    private var fetchFeedJob: Job? = null
+    private var saveFeedJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
         MutableStateFlow(
@@ -37,6 +44,54 @@ class AdminAccountScreenViewModel(
                 acct = "@$username",
                 content = AdminAccountScreenUiState.Content.Loading,
                 listener = object : AdminAccountScreenUiState.Listener {
+                    override fun onFeedUrlChanged(text: String) {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedInputUrl = text,
+                                feedPreview = null,
+                                feedPreviewError = null,
+                                feedSaveError = null,
+                                feedProfileOverwriteConfirm = null,
+                            )
+                        }
+                    }
+
+                    override fun onFeedProfileDisplayNameChanged(text: String) {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedProfileDisplayName = text,
+                                feedSaveError = null,
+                                feedProfileOverwriteConfirm = null,
+                            )
+                        }
+                    }
+
+                    override fun onFeedProfileSummaryChanged(text: String) {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedProfileSummary = text,
+                                feedSaveError = null,
+                                feedProfileOverwriteConfirm = null,
+                            )
+                        }
+                    }
+
+                    override fun onClickFetchFeed() {
+                        fetchFeed()
+                    }
+
+                    override fun onClickSaveFeed() {
+                        requestSaveFeed()
+                    }
+
+                    override fun onClickConfirmProfileOverwrite() {
+                        performSaveFeed(updateProfile = true)
+                    }
+
+                    override fun onClickSkipProfileOverwrite() {
+                        performSaveFeed(updateProfile = false)
+                    }
+
                     override fun onClickEditProfile() {
                         startProfileEdit()
                     }
@@ -98,9 +153,16 @@ class AdminAccountScreenViewModel(
         reloadJob?.cancel()
         postJob?.cancel()
         profileJob?.cancel()
+        fetchFeedJob?.cancel()
+        saveFeedJob?.cancel()
         cancelNotesJobs()
 
-        viewModelStateFlow.update { ViewModelState(body = it.body) }
+        viewModelStateFlow.update {
+            ViewModelState(
+                body = it.body,
+                feedInputUrl = it.feedInputUrl,
+            )
+        }
 
         reloadJob = viewModelScope.launch {
             val session = api.session()
@@ -109,12 +171,248 @@ class AdminAccountScreenViewModel(
             if (session !is AdminSessionResult.Success || !session.loggedIn) return@launch
 
             val account = api.account(username)
-            viewModelStateFlow.update { it.copy(account = account) }
+            viewModelStateFlow.update { state ->
+                val next = state.copy(account = account)
+                if (account is AdminAccountResult.Success && account.account != null) {
+                    next.withFeedProfileFrom(account.account.account)
+                } else {
+                    next
+                }
+            }
 
             if (account is AdminAccountResult.Success && account.account != null) {
                 loadNotes()
             }
         }
+    }
+
+    private fun fetchFeed() {
+        val state = viewModelStateFlow.value
+        val url = state.feedInputUrl.trim()
+        if (state.loadedAccount?.account?.id == null) return
+        if (url.isEmpty() || state.feedFetching || state.feedSaving || state.savedFeed != null) return
+
+        fetchFeedJob?.cancel()
+        viewModelStateFlow.update {
+            it.copy(
+                feedFetching = true,
+                feedPreview = null,
+                feedPreviewError = null,
+                feedSaveError = null,
+                feedProfileOverwriteConfirm = null,
+            )
+        }
+
+        fetchFeedJob = viewModelScope.launch {
+            try {
+                when (val result = api.previewFeed(url)) {
+                    is AdminFeedPreviewResult.Success -> {
+                        viewModelStateFlow.update { current ->
+                            val preview = result.preview
+                            var displayName = current.feedProfileDisplayName
+                            var summary = current.feedProfileSummary
+
+                            if (displayName == current.feedProfileInitialDisplayName && preview.title != null) {
+                                displayName = preview.title
+                            }
+                            if (summary == current.feedProfileInitialSummary && preview.description != null) {
+                                summary = preview.description
+                            }
+
+                            current.copy(
+                                feedFetching = false,
+                                feedPreview = preview,
+                                feedPreviewError = null,
+                                feedProfileDisplayName = displayName,
+                                feedProfileSummary = summary,
+                            )
+                        }
+                    }
+
+                    is AdminFeedPreviewResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedFetching = false,
+                                feedPreview = null,
+                                feedPreviewError = result.reason.toMessage(),
+                            )
+                        }
+                    }
+
+                    is AdminFeedPreviewResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedFetching = false,
+                                feedPreview = null,
+                                feedPreviewError = result.message,
+                            )
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(feedFetching = false) }
+                }
+            }
+        }
+    }
+
+    private fun requestSaveFeed() {
+        val state = viewModelStateFlow.value
+        if (!canSaveFeed(state)) return
+
+        if (needsProfileOverwriteConfirm(state)) {
+            viewModelStateFlow.update {
+                it.copy(
+                    feedProfileOverwriteConfirm = ProfileOverwriteConfirmState(
+                        beforeDisplayName = it.feedProfileInitialDisplayName,
+                        beforeSummary = it.feedProfileInitialSummary,
+                        afterDisplayName = it.feedProfileDisplayName.trim(),
+                        afterSummary = it.feedProfileSummary.trim(),
+                    ),
+                )
+            }
+            return
+        }
+
+        performSaveFeed(updateProfile = shouldUpdateProfileOnSave(state))
+    }
+
+    private fun performSaveFeed(updateProfile: Boolean) {
+        val state = viewModelStateFlow.value
+        val accountId = state.loadedAccount?.account?.id
+        val url = state.feedInputUrl.trim()
+        if (accountId == null || url.isEmpty() || state.feedPreview == null || state.feedSaving || state.feedFetching) {
+            return
+        }
+
+        saveFeedJob?.cancel()
+        viewModelStateFlow.update {
+            it.copy(
+                feedSaving = true,
+                feedSaveError = null,
+                feedProfileOverwriteConfirm = null,
+            )
+        }
+
+        saveFeedJob = viewModelScope.launch {
+            try {
+                when (val result = api.saveFeed(accountId = accountId, url = url)) {
+                    is AdminSaveFeedResult.Success -> {
+                        if (updateProfile) {
+                            updateProfileAfterFeedSave(
+                                displayName = state.feedProfileDisplayName.trim(),
+                                summary = state.feedProfileSummary.trim(),
+                                feed = result.feed,
+                            )
+                        } else {
+                            viewModelStateFlow.update { current ->
+                                current.copy(
+                                    feedSaving = false,
+                                    account = current.withSavedFeed(result.feed),
+                                    feedPreview = null,
+                                    feedPreviewError = null,
+                                    feedSaveError = null,
+                                )
+                            }
+                        }
+                    }
+
+                    is AdminSaveFeedResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedSaving = false,
+                                feedSaveError = result.reason.toMessage(),
+                            )
+                        }
+                    }
+
+                    is AdminSaveFeedResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedSaving = false,
+                                feedSaveError = result.message,
+                            )
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(feedSaving = false) }
+                }
+            }
+        }
+    }
+
+    private suspend fun updateProfileAfterFeedSave(
+        displayName: String,
+        summary: String,
+        feed: AdminFeed,
+    ) {
+        when (
+            val result = api.updateAccountProfile(
+                username = username,
+                displayName = displayName,
+                summary = summary,
+            )
+        ) {
+            is AdminUpdateAccountProfileResult.Success -> {
+                viewModelStateFlow.update { state ->
+                    state.copy(
+                        feedSaving = false,
+                        account = AdminAccountResult.Success(result.adminAccount),
+                        feedPreview = null,
+                        feedPreviewError = null,
+                        feedSaveError = null,
+                    ).withFeedProfileFrom(result.adminAccount.account)
+                }
+            }
+
+            is AdminUpdateAccountProfileResult.Rejected -> {
+                viewModelStateFlow.update { state ->
+                    state.copy(
+                        feedSaving = false,
+                        account = state.withSavedFeed(feed),
+                        feedSaveError = profileRejectedMessage(result),
+                    )
+                }
+            }
+
+            is AdminUpdateAccountProfileResult.Failure -> {
+                viewModelStateFlow.update { state ->
+                    state.copy(
+                        feedSaving = false,
+                        account = state.withSavedFeed(feed),
+                        feedSaveError = result.message,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun canSaveFeed(state: ViewModelState): Boolean {
+        val busy = state.feedFetching || state.feedSaving
+        return !busy &&
+            state.feedPreview != null &&
+            state.feedProfileDisplayName.trim().isNotEmpty()
+    }
+
+    private fun needsProfileOverwriteConfirm(state: ViewModelState): Boolean {
+        if (!state.feedProfileStored) return false
+
+        val displayName = state.feedProfileDisplayName.trim()
+        val summary = state.feedProfileSummary.trim()
+        return displayName != state.feedProfileInitialDisplayName.trim() ||
+            summary != state.feedProfileInitialSummary.trim()
+    }
+
+    private fun shouldUpdateProfileOnSave(state: ViewModelState): Boolean {
+        if (!state.feedProfileStored) return true
+
+        val displayName = state.feedProfileDisplayName.trim()
+        val summary = state.feedProfileSummary.trim()
+        return displayName != state.feedProfileInitialDisplayName.trim() ||
+            summary != state.feedProfileInitialSummary.trim()
     }
 
     /**
@@ -251,7 +549,7 @@ class AdminAccountScreenViewModel(
                                 profileEditing = false,
                                 profileSaving = false,
                                 profileError = null,
-                            )
+                            ).withFeedProfileFrom(result.adminAccount.account)
                         }
                     }
 
@@ -363,7 +661,8 @@ class AdminAccountScreenViewModel(
 
                 AdminAccountScreenUiState.Content.Loaded(
                     account = found.toUiState(),
-                    profile = state.toProfileUiState(found.account),
+                    feed = state.feedUiState(found),
+                    profile = state.profileUiState(found.account),
                     post = AdminAccountScreenUiState.Post(
                         body = state.body,
                         submitting = state.submitting,
@@ -380,6 +679,69 @@ class AdminAccountScreenViewModel(
         }
     }
 
+    private fun AdminFeedPreviewResult.PreviewFailure.toMessage(): String =
+        when (this) {
+            AdminFeedPreviewResult.PreviewFailure.INVALID_URL -> "URL の形式が正しくない"
+            AdminFeedPreviewResult.PreviewFailure.FETCH_FAILED -> "フィードを取得できなかった"
+            AdminFeedPreviewResult.PreviewFailure.PARSE_FAILED -> "フィードを読み取れなかった"
+            AdminFeedPreviewResult.PreviewFailure.UNKNOWN -> "プレビューできなかった"
+        }
+
+    private fun AdminSaveFeedResult.SaveFailure.toMessage(): String =
+        when (this) {
+            AdminSaveFeedResult.SaveFailure.UNKNOWN_ACCOUNT -> "このアカウントには登録できない"
+            AdminSaveFeedResult.SaveFailure.DUPLICATE_URL -> "同じ URL は既に登録されている"
+            AdminSaveFeedResult.SaveFailure.ALREADY_HAS_FEED -> "このアカウントには既にフィードがある"
+            AdminSaveFeedResult.SaveFailure.INVALID_URL -> "URL の形式が正しくない"
+            AdminSaveFeedResult.SaveFailure.FETCH_FAILED -> "フィードを取得できなかった"
+            AdminSaveFeedResult.SaveFailure.PARSE_FAILED -> "フィードを読み取れなかった"
+            AdminSaveFeedResult.SaveFailure.UNKNOWN -> "保存できなかった"
+        }
+
+    private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {
+        val feed = account.feed
+        return when {
+            account.account.id == null -> AdminAccountScreenUiState.Feed.None
+
+            feed != null -> AdminAccountScreenUiState.Feed.Registered(
+                url = feed.url,
+                title = feed.title,
+                format = feed.format,
+            )
+
+            else -> {
+                val busy = feedFetching || feedSaving
+                AdminAccountScreenUiState.Feed.Input(
+                    url = feedInputUrl,
+                    displayName = feedProfileDisplayName,
+                    summary = feedProfileSummary,
+                    fetching = feedFetching,
+                    canFetch = !busy && feedInputUrl.isNotBlank() && feedProfileOverwriteConfirm == null,
+                    saving = feedSaving,
+                    canSave = canSaveFeed(this) && feedProfileOverwriteConfirm == null,
+                    preview = feedPreview?.toUiState(),
+                    previewError = feedPreviewError,
+                    saveError = feedSaveError,
+                    overwriteConfirm = feedProfileOverwriteConfirm?.toUiState(),
+                )
+            }
+        }
+    }
+
+    private fun ViewModelState.profileUiState(account: Account): AdminAccountScreenUiState.Profile? {
+        if (savedFeed == null || account.id == null) return null
+
+        return AdminAccountScreenUiState.Profile(
+            displayName = account.displayName,
+            summary = account.summary,
+            editing = profileEditing,
+            editDisplayName = if (profileEditing) profileEditDisplayName else account.displayName,
+            editSummary = if (profileEditing) profileEditSummary else account.summary,
+            saving = profileSaving,
+            error = profileError,
+        )
+    }
+
     private fun AdminAccount.toUiState(): AdminAccountScreenUiState.Account = AdminAccountScreenUiState.Account(
         username = account.username,
         acct = account.acct,
@@ -390,21 +752,41 @@ class AdminAccountScreenViewModel(
         summary = account.summary,
     )
 
-    private fun ViewModelState.toProfileUiState(account: net.matsudamper.mastodon.rss.frontend.logic.account.Account): AdminAccountScreenUiState.Profile =
-        AdminAccountScreenUiState.Profile(
-            displayName = account.displayName,
-            summary = account.summary,
-            editing = profileEditing,
-            editDisplayName = if (profileEditing) profileEditDisplayName else account.displayName,
-            editSummary = if (profileEditing) profileEditSummary else account.summary,
-            saving = profileSaving,
-            error = profileError,
+    private fun AdminFeedPreview.toUiState(): AdminAccountScreenUiState.FeedPreview =
+        AdminAccountScreenUiState.FeedPreview(
+            title = title,
+            siteUrl = siteUrl,
+            format = format,
+            description = description,
+            itemCount = itemCount,
+            sampleItems = sampleItems.map { item ->
+                AdminAccountScreenUiState.FeedPreviewItem(
+                    title = item.title,
+                    link = item.link,
+                    publishedAt = item.publishedAt?.let { UnixTimeUtil.format(it) },
+                )
+            },
+        )
+
+    private fun ProfileOverwriteConfirmState.toUiState(): AdminAccountScreenUiState.ProfileOverwriteConfirm =
+        AdminAccountScreenUiState.ProfileOverwriteConfirm(
+            beforeDisplayName = beforeDisplayName,
+            beforeSummary = beforeSummary,
+            afterDisplayName = afterDisplayName,
+            afterSummary = afterSummary,
         )
 
     private fun AdminNote.toUiState(): AdminAccountScreenUiState.Note = AdminAccountScreenUiState.Note(
         url = url,
         contentHtml = contentHtml,
         publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
+    )
+
+    private data class ProfileOverwriteConfirmState(
+        val beforeDisplayName: String,
+        val beforeSummary: String,
+        val afterDisplayName: String,
+        val afterSummary: String,
     )
 
     private data class ViewModelState(
@@ -424,7 +806,37 @@ class AdminAccountScreenViewModel(
         val profileEditSummary: String = "",
         val profileSaving: Boolean = false,
         val profileError: String? = null,
-    )
+        val feedInputUrl: String = "",
+        val feedProfileDisplayName: String = "",
+        val feedProfileSummary: String = "",
+        val feedProfileStored: Boolean = false,
+        val feedProfileInitialDisplayName: String = "",
+        val feedProfileInitialSummary: String = "",
+        val feedProfileOverwriteConfirm: ProfileOverwriteConfirmState? = null,
+        val feedFetching: Boolean = false,
+        val feedPreview: AdminFeedPreview? = null,
+        val feedPreviewError: String? = null,
+        val feedSaving: Boolean = false,
+        val feedSaveError: String? = null,
+    ) {
+        val loadedAccount: AdminAccount? get() = (account as? AdminAccountResult.Success)?.account
+
+        val savedFeed: AdminFeed? get() = loadedAccount?.feed
+
+        fun withSavedFeed(feed: AdminFeed): AdminAccountResult? {
+            val loaded = loadedAccount ?: return account
+            return AdminAccountResult.Success(loaded.copy(feed = feed))
+        }
+
+        fun withFeedProfileFrom(account: Account): ViewModelState = copy(
+            feedProfileDisplayName = account.displayName,
+            feedProfileSummary = account.summary,
+            feedProfileStored = account.profileStored,
+            feedProfileInitialDisplayName = account.displayName,
+            feedProfileInitialSummary = account.summary,
+            feedProfileOverwriteConfirm = null,
+        )
+    }
 
     private companion object {
         /**

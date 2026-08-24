@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.logic
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
+import net.matsudamper.mastodon.rss.repository.AccountId
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.AccountProfileRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
@@ -22,11 +23,12 @@ class AccountService(
      * 設定で決まるアカウントを先頭に、追加した順で返す
      */
     fun accounts(): List<ManagedAccount> = buildList {
-        add(ManagedAccount(urls = fixed, deletable = false, createdAt = null))
+        add(ManagedAccount(urls = fixed, accountId = null, deletable = false, createdAt = null))
 
         accounts.list().mapTo(this) { account ->
             ManagedAccount(
                 urls = ActorUrls(domain = fixed.domain, username = account.username),
+                accountId = account.id,
                 deletable = true,
                 createdAt = account.createdAt,
             )
@@ -38,13 +40,14 @@ class AccountService(
      */
     fun account(username: String): ManagedAccount? {
         if (username.equals(fixed.username, ignoreCase = true)) {
-            return ManagedAccount(urls = fixed, deletable = false, createdAt = null)
+            return ManagedAccount(urls = fixed, accountId = null, deletable = false, createdAt = null)
         }
 
         val account = accounts.findByUsername(username) ?: return null
 
         return ManagedAccount(
             urls = ActorUrls(domain = fixed.domain, username = account.username),
+            accountId = account.id,
             deletable = true,
             createdAt = account.createdAt,
         )
@@ -65,7 +68,7 @@ class AccountService(
 
         // 設定で決まるアカウントは DB に無いので、先頭のページにだけ 1 件ぶん割り込ませる
         val head = if (afterUsername == null) {
-            listOf(ManagedAccount(urls = fixed, deletable = false, createdAt = null))
+            listOf(ManagedAccount(urls = fixed, accountId = null, deletable = false, createdAt = null))
         } else {
             emptyList()
         }
@@ -80,6 +83,7 @@ class AccountService(
         val page = head + fetched.take(storedLimit).map { account ->
             ManagedAccount(
                 urls = ActorUrls(domain = fixed.domain, username = account.username),
+                accountId = account.id,
                 deletable = true,
                 createdAt = account.createdAt,
             )
@@ -128,6 +132,7 @@ class AccountService(
         return AddAccountResult.Success(
             ManagedAccount(
                 urls = ActorUrls(domain = fixed.domain, username = added.username),
+                accountId = added.id,
                 deletable = true,
                 createdAt = added.createdAt,
             ),
@@ -144,6 +149,7 @@ class AccountService(
         return ResolvedProfile(
             displayName = AccountProfileDefaults.displayName(managed.urls.username, stored),
             summary = AccountProfileDefaults.summary(stored),
+            stored = stored != null,
         )
     }
 
@@ -160,6 +166,7 @@ class AccountService(
             ResolvedProfile(
                 displayName = AccountProfileDefaults.displayName(actorUrls.username, stored[username]),
                 summary = AccountProfileDefaults.summary(stored[username]),
+                stored = stored[username] != null,
             )
         }
     }
@@ -228,6 +235,7 @@ class AccountService(
      */
     data class ManagedAccount(
         val urls: ActorUrls,
+        val accountId: AccountId?,
         val deletable: Boolean,
         val createdAt: Instant?,
     )
@@ -244,6 +252,7 @@ class AccountService(
     data class ResolvedProfile(
         val displayName: String,
         val summary: String,
+        val stored: Boolean,
     )
 
     sealed interface UpdateProfileResult {
