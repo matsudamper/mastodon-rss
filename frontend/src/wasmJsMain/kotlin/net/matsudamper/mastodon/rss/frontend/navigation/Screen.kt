@@ -18,6 +18,35 @@ sealed interface Screen : NavKey {
     /** `document.title` に入れる文字列 */
     val title: String
 
+    /** 管理画面のパスかどうか */
+    val isAdmin: Boolean
+        get() =
+            when (this) {
+                is Admin, is AdminAccounts, is AdminAccountNew, is AdminAccount -> true
+                else -> false
+            }
+
+    /**
+     * 画面上部のタイトル。
+     *
+     * 管理画面では末尾に「管理画面」を付ける。[title] とは分ける。
+     */
+    val appBarTitle: String
+        get() =
+            if (isAdmin) {
+                val base =
+                    when (this) {
+                        is Admin -> null
+                        is AdminAccounts -> "アカウント"
+                        is AdminAccountNew -> "アカウントの追加"
+                        is AdminAccount -> "@$username の管理"
+                        else -> error("unreachable")
+                    }
+                if (base == null) "管理画面" else "$base 管理画面"
+            } else {
+                SITE_NAME
+            }
+
     /** トップ。何をするサーバーなのかと、各画面への入口だけを置く */
     data object Home : Screen {
         override val path: String = "/"

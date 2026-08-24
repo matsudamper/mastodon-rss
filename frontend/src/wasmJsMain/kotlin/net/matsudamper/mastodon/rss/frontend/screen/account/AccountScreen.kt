@@ -43,7 +43,7 @@ import kotlinx.browser.window
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
-import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
@@ -86,6 +86,7 @@ fun AccountScreen(
     }
 
     AccountScreen(
+        screen = Screen.Account(username),
         username = username,
         uiState = uiState,
         onNavigate = onNavigate,
@@ -94,11 +95,12 @@ fun AccountScreen(
 
 @Composable
 private fun AccountScreen(
+    screen: Screen.Account,
     username: String,
     uiState: AccountScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { wide ->
+    PublicScaffold(onNavigate = onNavigate) { wide ->
         when (val content = uiState.content) {
             AccountScreenUiState.Content.Loading -> {
                 SectionCard(title = "読み込み中") {

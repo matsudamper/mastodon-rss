@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AdminLoginPasswordField
-import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink // pragma: allowlist secret
@@ -43,7 +43,7 @@ private fun AdminScreen(
     uiState: AdminScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { _ ->
+    AdminScaffold(screen = Screen.Admin, onNavigate = onNavigate) { _ ->
         Text(
             text = "管理画面",
             style = MaterialTheme.typography.headlineSmall,

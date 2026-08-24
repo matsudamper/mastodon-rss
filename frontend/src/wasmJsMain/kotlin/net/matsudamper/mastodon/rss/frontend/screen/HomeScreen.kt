@@ -35,7 +35,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.home.HomeScreenUiState
 import net.matsudamper.mastodon.rss.frontend.screen.home.HomeScreenViewModel
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
-import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
@@ -60,7 +60,7 @@ private fun HomeScreen(
     uiState: HomeScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { wide ->
+    PublicScaffold(onNavigate = onNavigate) { wide ->
         Text(
             text = "RSS/AtomをActivityPubで配信中",
             style = MaterialTheme.typography.headlineSmall,
