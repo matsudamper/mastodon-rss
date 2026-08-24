@@ -30,6 +30,10 @@ enum AdminFeedPreviewFailureReason {
 
 type AdminSaveFeedResult {
     feed: Feed
+    "投稿できた件数。選ばなければ 0"
+    postedCount: Int
+    "投稿しなかった件数"
+    skippedCount: Int
     failure: AdminSaveFeedFailure
 }
 

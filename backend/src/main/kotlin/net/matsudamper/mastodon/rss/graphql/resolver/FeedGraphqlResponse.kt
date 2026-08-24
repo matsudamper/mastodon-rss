@@ -75,11 +75,15 @@ internal fun FeedService.SaveResult.toGraphqlResponse(): QlAdminSaveFeedResult =
     when (this) {
         is FeedService.SaveResult.Success -> QlAdminSaveFeedResult(
             feed = feed.toGraphqlResponse(),
+            postedCount = postedCount,
+            skippedCount = skippedCount,
             failure = null,
         )
 
         is FeedService.SaveResult.Failure -> QlAdminSaveFeedResult(
             feed = null,
+            postedCount = null,
+            skippedCount = null,
             failure = reason.toGraphqlResponse(),
         )
     }

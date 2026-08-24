@@ -30,8 +30,14 @@ import io.ktor.http.contentType
 import io.ktor.http.setCookie
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
+import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
@@ -269,6 +275,65 @@ class AdminGraphQlTest {
         }
 
     @Test
+    fun `saveFeed の既定では既存記事を投稿しない`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(
+                passwordConfigured = true,
+                repositories = repositories,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+
+            val result = mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token).admin().obj("saveFeed")
+
+            assertEquals(JsonNull, result.getValue("failure"))
+            assertEquals(0, result.getValue("postedCount").jsonPrimitive.int)
+            assertEquals(2, result.getValue("skippedCount").jsonPrimitive.int)
+            assertEquals(0, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
+        }
+
+    @Test
+    fun `postExistingItems が true なら既存記事を投稿する`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(
+                passwordConfigured = true,
+                repositories = repositories,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+
+            val result = mutateSaveFeed(
+                accountId = accountId,
+                url = FEED_URL,
+                token = token,
+                postExistingItems = true,
+            ).admin().obj("saveFeed")
+
+            assertEquals(JsonNull, result.getValue("failure"))
+            assertEquals(2, result.getValue("postedCount").jsonPrimitive.int)
+            assertEquals(0, result.getValue("skippedCount").jsonPrimitive.int)
+            assertEquals(2, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
+        }
+
+    @Test
     fun `フィード未登録なら feed は null`() =
         testApplication {
             applicationWith(passwordConfigured = true)
@@ -430,6 +495,8 @@ class AdminGraphQlTest {
     private fun ApplicationTestBuilder.applicationWith(
         passwordConfigured: Boolean,
         cookieSecure: Boolean = true,
+        repositories: FakeRepositories = FakeRepositories(),
+        feedFetcher: FeedFetchService = FeedFetchService(),
     ) {
         val values =
             buildList {
@@ -438,7 +505,13 @@ class AdminGraphQlTest {
             }
 
         application {
-            module(testDependencies(env = TestServerEnv.of(*values.toTypedArray())))
+            module(
+                testDependencies(
+                    repositories = repositories,
+                    env = TestServerEnv.of(*values.toTypedArray()),
+                    feedFetcher = feedFetcher,
+                ),
+            )
         }
     }
 
@@ -500,13 +573,16 @@ class AdminGraphQlTest {
         accountId: Long,
         url: String,
         token: String? = null,
+        postExistingItems: Boolean = false,
     ): HttpResponse =
         graphQl(
             query =
-            "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!) { admin { " +
-                "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url) { feed { $FEED_FIELDS } failure { reason } } } }",
+            "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!, ${'$'}postExistingItems: Boolean!) { admin { " +
+                "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url, postExistingItems: ${'$'}postExistingItems) { " +
+                "feed { $FEED_FIELDS } postedCount skippedCount failure { reason } } } }",
             token = token,
-            variables = """{"accountId":${JsonPrimitive(accountId)},"url":${JsonPrimitive(url)}}""",
+            variables =
+            """{"accountId":${JsonPrimitive(accountId)},"url":${JsonPrimitive(url)},"postExistingItems":$postExistingItems}""",
         )
 
     private suspend fun ApplicationTestBuilder.graphQl(
@@ -529,6 +605,31 @@ class AdminGraphQlTest {
 
     private companion object {
         const val PASSWORD = "とても長いパスワード"
+
+        const val FEED_URL = "https://example.com/feed.xml"
+
+        val FEED_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <item><title>1 本目</title><link>https://example.com/1</link></item>
+                <item><title>2 本目</title><link>https://example.com/2</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+
+        fun feedFetcherOf(xml: String): FeedFetchService {
+            val engine = MockEngine {
+                respond(
+                    content = xml,
+                    status = HttpStatusCode.OK,
+                    headers = headersOf("Content-Type", "application/rss+xml"),
+                )
+            }
+            return FeedFetchService(HttpClient(engine))
+        }
 
         const val FEED_FIELDS = "id url title siteUrl format createdAt"
 
