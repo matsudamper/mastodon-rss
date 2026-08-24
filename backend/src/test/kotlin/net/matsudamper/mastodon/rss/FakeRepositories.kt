@@ -348,6 +348,8 @@ class FakeFeedItemRepository : FeedItemRepository {
 
     override fun countByFeed(feedId: FeedId): Long = stored.count { it.feedId == feedId }.toLong()
 
+    fun items(): List<FeedItem> = stored.toList()
+
     private fun pendingSorted(): List<FeedItem> =
         stored
             .filter { it.state == FeedItemState.PENDING }

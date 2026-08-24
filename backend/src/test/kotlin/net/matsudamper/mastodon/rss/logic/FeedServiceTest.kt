@@ -11,9 +11,16 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.FakeFollowerStore
+import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
+import net.matsudamper.mastodon.rss.TestDelivery
+import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
+import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.AccountId
+import net.matsudamper.mastodon.rss.repository.FeedItemState
 
 class FeedServiceTest {
     @Test
@@ -29,7 +36,14 @@ class FeedServiceTest {
             assertEquals(FEED_URL, success.feed.url)
             assertEquals("サンプル", success.feed.title)
             assertEquals("RSS 2.0", success.feed.format)
+            assertEquals(true, success.feed.initialImportDone)
+            assertEquals(0, success.postedCount)
+            assertEquals(2, success.skippedCount)
             assertEquals(success.feed, repositories.feeds.findByAccountId(account.id))
+            assertEquals(
+                listOf(FeedItemState.SKIPPED, FeedItemState.SKIPPED),
+                repositories.feedItems.items().map { it.state },
+            )
         }
 
     @Test
@@ -198,13 +212,114 @@ class FeedServiceTest {
             assertIs<FeedService.PreviewResult.Success>(result)
         }
 
+    @Test
+    fun `登録時に投稿しないと選ぶと記事は SKIPPED になる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+
+            val result = service.save(accountId = account.id, url = FEED_URL, postExistingItems = false)
+
+            val success = assertIs<FeedService.SaveResult.Success>(result)
+            assertEquals(0, success.postedCount)
+            assertEquals(2, success.skippedCount)
+            assertEquals(true, success.feed.initialImportDone)
+            assertEquals(
+                listOf(FeedItemState.SKIPPED, FeedItemState.SKIPPED),
+                repositories.feedItems.items().map { it.state },
+            )
+        }
+
+    @Test
+    fun `登録時に既存記事も投稿すると notes に残る`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = noteStore)
+
+            val result = service.save(accountId = account.id, url = FEED_URL, postExistingItems = true)
+
+            val success = assertIs<FeedService.SaveResult.Success>(result)
+            assertEquals(2, success.postedCount)
+            assertEquals(0, success.skippedCount)
+            assertEquals(
+                listOf(FeedItemState.POSTED, FeedItemState.POSTED),
+                repositories.feedItems.items().map { it.state },
+            )
+            assertEquals(
+                listOf(TestLocalActor.STORED_USERNAME, TestLocalActor.STORED_USERNAME),
+                noteStore.added.map { it.username },
+            )
+            assertEquals(
+                listOf("https://example.com/1", "https://example.com/2"),
+                noteStore.added.map { html ->
+                    Regex("""href="([^"]+)"""").find(html.contentHtml)?.groupValues?.get(1)
+                },
+            )
+            assertEquals(
+                listOf("1 本目", "2 本目"),
+                noteStore.added.map { html ->
+                    Regex(""">([^<]+)</a>""").find(html.contentHtml)?.groupValues?.get(1)
+                },
+            )
+        }
+
+    @Test
+    fun `題名もリンクも無い記事は投稿するを選んでも SKIPPED になる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xml = EMPTY_ITEM_XML,
+                noteStore = noteStore,
+            )
+
+            val result = service.save(accountId = account.id, url = FEED_URL, postExistingItems = true)
+
+            val success = assertIs<FeedService.SaveResult.Success>(result)
+            assertEquals(1, success.postedCount)
+            assertEquals(1, success.skippedCount)
+            assertEquals(
+                listOf(FeedItemState.SKIPPED, FeedItemState.POSTED),
+                repositories.feedItems.items().map { it.state },
+            )
+            assertEquals(1, noteStore.added.size)
+        }
+
+    @Test
+    fun `アクターを引けなければ PENDING のまま残す`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = noteStore)
+
+            val result = service.save(accountId = account.id, url = FEED_URL, postExistingItems = true)
+
+            val success = assertIs<FeedService.SaveResult.Success>(result)
+            assertEquals(0, success.postedCount)
+            assertEquals(0, success.skippedCount)
+            assertEquals(
+                listOf(FeedItemState.PENDING, FeedItemState.PENDING),
+                repositories.feedItems.items().map { it.state },
+            )
+            assertEquals(0, noteStore.added.size)
+        }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         status: HttpStatusCode = HttpStatusCode.OK,
+        xml: String = FEED_XML,
+        noteStore: FakeNoteStore = FakeNoteStore(),
+        actorDirectory: ActorDirectory = TestLocalActor.directory,
     ): FeedService {
         val engine = MockEngine {
             respond(
-                content = if (status == HttpStatusCode.OK) FEED_XML else "",
+                content = if (status == HttpStatusCode.OK) xml else "",
                 status = status,
                 headers = headersOf("Content-Type", "application/rss+xml"),
             )
@@ -213,7 +328,14 @@ class FeedServiceTest {
         return FeedService(
             accounts = repositories.accounts,
             feeds = repositories.feeds,
+            feedItems = repositories.feedItems,
             fetcher = FeedFetchService(HttpClient(engine)),
+            actorDirectory = actorDirectory,
+            notePublisher = NotePublisher(
+                notes = noteStore,
+                followers = FakeFollowerStore(),
+                delivery = TestDelivery(),
+            ),
         )
     }
 
@@ -228,6 +350,17 @@ class FeedServiceTest {
                 <link>https://example.com/</link>
                 <item><title>1 本目</title><link>https://example.com/1</link></item>
                 <item><title>2 本目</title><link>https://example.com/2</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val EMPTY_ITEM_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <item></item>
+                <item><title>1 本目</title><link>https://example.com/1</link></item>
               </channel>
             </rss>
         """.trimIndent()

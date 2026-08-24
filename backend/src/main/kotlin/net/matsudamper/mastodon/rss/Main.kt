@@ -127,6 +127,7 @@ fun Application.module(deps: AppDependencies) {
             accountRepository = deps.repositories.accounts,
             followerRepository = deps.repositories.followers,
             feedRepository = deps.repositories.feeds,
+            feedItemRepository = deps.repositories.feedItems,
             feedFetcher = deps.feedFetcher,
             domain = env.domain,
             actorDirectory = deps.directory,
