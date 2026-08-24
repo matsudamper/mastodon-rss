@@ -81,6 +81,23 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `予約文字でない文字の percent-encoding は元に戻して扱う`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account1 = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val account2 = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = account1.id, url = "https://example.com/%66eed.xml")
+
+            assertEquals(FEED_URL, assertNotNull(repositories.feeds.findByAccountId(account1.id)).url)
+
+            val result = service.save(accountId = account2.id, url = FEED_URL)
+
+            val failure = assertIs<FeedService.SaveResult.Failure>(result)
+            assertEquals(FeedService.SaveFailure.DUPLICATE_URL, failure.reason)
+        }
+
+    @Test
     fun `ホスト名の綴りが違っても同じ URL として扱う`() =
         runTest {
             val repositories = FakeRepositories()

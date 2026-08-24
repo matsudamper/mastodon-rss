@@ -126,16 +126,33 @@ class FeedFetchService(
      * - フラグメントは取得先に送られず、同じリソースを指す
      * - ホスト名は大文字小文字を区別しない
      * - ホスト名の末尾の `.` はルートラベルで、付けても同じホストを指す
+     * - パスの `%XX` は、中身が予約文字でなければ書かないのと同じ意味になる
      *
-     * パスとクエリは大文字小文字も末尾の形も意味を持つので触らない
+     * パスの大文字小文字と末尾の形は意味を持つので触らない
      */
     private fun Url.normalize(): String =
         URLBuilder(this)
             .apply {
                 fragment = ""
                 host = host.lowercase().trimEnd('.')
+                encodedPathSegments = encodedPathSegments.map { it.decodeUnreserved() }
             }
             .buildString()
+
+    /**
+     * 予約文字でない文字の `%XX` だけを元に戻す。
+     *
+     * 予約文字は書き方で意味が変わる（`%2F` はパスの区切りではない）ので触らない。
+     * 多バイト文字の `%XX` は 0x80 以上で予約文字でもないため、ここには入らない
+     */
+    private fun String.decodeUnreserved(): String =
+        PERCENT_ENCODED.replace(this) { match ->
+            val decoded = match.value.substring(1).toInt(16).toChar()
+            if (decoded.isUnreserved()) decoded.toString() else match.value
+        }
+
+    private fun Char.isUnreserved(): Boolean =
+        this in 'A'..'Z' || this in 'a'..'z' || this in '0'..'9' || this in "-._~"
 
     /**
      * 読まずに捨てる。読む相手がいないまま置くと接続が返らず、
@@ -171,6 +188,7 @@ class FeedFetchService(
     }
 
     companion object {
+        private val PERCENT_ENCODED = Regex("%[0-9A-Fa-f]{2}")
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val MAX_BODY_BYTES = 5 * 1024 * 1024
         private const val MAX_PAGE_BYTES = 2 * 1024 * 1024
