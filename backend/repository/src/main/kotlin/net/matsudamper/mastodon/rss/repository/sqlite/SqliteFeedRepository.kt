@@ -112,12 +112,14 @@ internal class SqliteFeedRepository(
         format: String?,
     ) {
         jooq.transaction { dsl ->
+            val storedId = id.value.toStoredId() ?: return@transaction
+
             dsl
                 .update(FEEDS)
                 .set(FEEDS.TITLE, title)
                 .set(FEEDS.SITE_URL, siteUrl)
                 .set(FEEDS.FORMAT, format)
-                .where(FEEDS.ID.eq(id.value.toInt()))
+                .where(FEEDS.ID.eq(storedId))
                 .execute()
         }
     }
@@ -128,6 +130,8 @@ internal class SqliteFeedRepository(
         validators: FeedFetchValidators,
     ) {
         jooq.transaction { dsl ->
+            val storedId = id.value.toStoredId() ?: return@transaction
+
             dsl
                 .update(FEEDS)
                 .set(FEEDS.LAST_FETCHED_AT, StoredInstant.format(fetchedAt))
@@ -135,7 +139,7 @@ internal class SqliteFeedRepository(
                 .set(FEEDS.LAST_ERROR, null as String?)
                 .set(FEEDS.ETAG, validators.etag)
                 .set(FEEDS.LAST_MODIFIED, validators.lastModified)
-                .where(FEEDS.ID.eq(id.value.toInt()))
+                .where(FEEDS.ID.eq(storedId))
                 .execute()
         }
     }
@@ -146,30 +150,36 @@ internal class SqliteFeedRepository(
         error: String,
     ) {
         jooq.transaction { dsl ->
+            val storedId = id.value.toStoredId() ?: return@transaction
+
             dsl
                 .update(FEEDS)
                 .set(FEEDS.LAST_FETCHED_AT, StoredInstant.format(fetchedAt))
                 .set(FEEDS.LAST_ERROR, error)
-                .where(FEEDS.ID.eq(id.value.toInt()))
+                .where(FEEDS.ID.eq(storedId))
                 .execute()
         }
     }
 
     override fun markInitialImportDone(id: FeedId) {
         jooq.transaction { dsl ->
+            val storedId = id.value.toStoredId() ?: return@transaction
+
             dsl
                 .update(FEEDS)
                 .set(FEEDS.INITIAL_IMPORT_DONE, 1)
-                .where(FEEDS.ID.eq(id.value.toInt()))
+                .where(FEEDS.ID.eq(storedId))
                 .execute()
         }
     }
 
     override fun delete(id: FeedId) {
         jooq.transaction { dsl ->
+            val storedId = id.value.toStoredId() ?: return@transaction
+
             dsl
                 .deleteFrom(FEEDS)
-                .where(FEEDS.ID.eq(id.value.toInt()))
+                .where(FEEDS.ID.eq(storedId))
                 .execute()
         }
     }
