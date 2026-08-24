@@ -41,15 +41,20 @@ fun AdminAccountScreen(
         onStopOrDispose {}
     }
 
-    AdminAccountScreen(uiState = uiState, onNavigate = onNavigate)
+    AdminAccountScreen(
+        screen = Screen.AdminAccount(username),
+        uiState = uiState,
+        onNavigate = onNavigate,
+    )
 }
 
 @Composable
 private fun AdminAccountScreen(
+    screen: Screen.AdminAccount,
     uiState: AdminAccountScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { _ ->
+    AppScaffold(screen = screen, onNavigate = onNavigate) { _ ->
         Text(
             text = uiState.acct,
             style = MaterialTheme.typography.headlineSmall,

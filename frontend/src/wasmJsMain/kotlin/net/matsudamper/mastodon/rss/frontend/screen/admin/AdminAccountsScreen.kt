@@ -38,7 +38,7 @@ private fun AdminAccountsScreen(
     uiState: AdminAccountsScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { _ ->
+    AppScaffold(screen = Screen.AdminAccounts, onNavigate = onNavigate) { _ ->
         Text(
             text = "アカウント",
             style = MaterialTheme.typography.headlineSmall,
