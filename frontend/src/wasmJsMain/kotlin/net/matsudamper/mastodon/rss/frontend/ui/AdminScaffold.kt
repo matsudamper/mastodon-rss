@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
-private const val ADMIN_ROOT_TITLE = "管理画面"
 
 /**
  * 管理画面用の枠。タイトル末尾に「管理画面」を付けた TopAppBar を出す。
@@ -30,7 +29,12 @@ fun AdminScaffold(
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
     AppScaffoldLayout(
-        topBar = { AdminTopAppBar(title = title, onNavigate = onNavigate) },
+        topBar = {
+            AdminTopAppBar(
+                title = title,
+                onNavigate = onNavigate,
+            )
+        },
         content = content,
     )
 }
@@ -41,21 +45,13 @@ private fun AdminTopAppBar(
     title: String,
     onNavigate: (Screen) -> Unit,
 ) {
-    val appBarTitle = if (title == ADMIN_ROOT_TITLE) title else "$title $ADMIN_ROOT_TITLE"
-    val navigateToAdminOnTitleClick = title != ADMIN_ROOT_TITLE
-
     Surface(color = MaterialTheme.colorScheme.primaryContainer) {
         Column {
             TopAppBar(
                 title = {
                     Text(
-                        text = appBarTitle,
-                        modifier =
-                        if (navigateToAdminOnTitleClick) {
-                            Modifier.clickable { onNavigate(Screen.Admin) }
-                        } else {
-                            Modifier
-                        },
+                        text = "管理画面/$title",
+                        modifier = Modifier.clickable { onNavigate(Screen.Admin) },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
