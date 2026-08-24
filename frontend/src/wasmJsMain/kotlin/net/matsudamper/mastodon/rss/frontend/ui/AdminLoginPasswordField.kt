@@ -24,6 +24,7 @@ import androidx.compose.material3.TextFieldDefaults as MaterialTextFieldDefaults
 import org.w3c.dom.HTMLFormElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
+import org.w3c.dom.events.KeyboardEvent
 
 /**
  * 管理画面ログイン用のパスワード入力。
@@ -149,9 +150,8 @@ private fun HtmlCredentialField(
                             interactionSource = interactionSource,
                             focusInteractionHolder = focusInteractionHolder,
                         )
-                        if (input.value != value) {
-                            input.value = value
-                        }
+                        bindClipboardHandlers(input = input)
+                        syncInputValue(input = input, value = value)
                         input.oninput = { event ->
                             val newValue = readInputValue(event)
                             if (newValue != value) {
@@ -199,6 +199,33 @@ private fun HtmlCredentialField(
 
 private class FocusInteractionHolder {
     var focus: FocusInteraction.Focus? = null
+}
+
+private fun bindClipboardHandlers(input: HTMLInputElement) {
+    input.onkeydown = { event ->
+        if (event.isClipboardShortcutKey()) {
+            event.stopPropagation()
+        }
+    }
+}
+
+private fun syncInputValue(
+    input: HTMLInputElement,
+    value: String,
+) {
+    if (document.activeElement == input) return
+    if (input.value != value) {
+        input.value = value
+    }
+}
+
+private fun KeyboardEvent.isClipboardShortcutKey(): Boolean {
+    if (type != "keydown") return false
+    if (!ctrlKey && !metaKey) return false
+    return when (key.lowercase()) {
+        "x", "c", "v", "a" -> true
+        else -> false
+    }
 }
 
 private fun bindFocusHandlers(
