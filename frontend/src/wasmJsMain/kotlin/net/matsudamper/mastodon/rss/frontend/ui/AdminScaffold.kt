@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
-
 /**
  * 管理画面用の枠。タイトル末尾に「管理画面」を付けた TopAppBar を出す。
  *
