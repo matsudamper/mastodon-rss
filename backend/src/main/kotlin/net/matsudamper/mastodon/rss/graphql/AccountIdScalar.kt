@@ -14,12 +14,24 @@ import graphql.schema.GraphQLScalarType
 import net.matsudamper.mastodon.rss.shared.AccountId
 
 object AccountIdScalar {
+    /** Double が整数を取りこぼさずに表せる幅 */
+    private val WHOLE_RANGE = -(1L shl 53).toDouble()..(1L shl 53).toDouble()
+
     val value: GraphQLScalarType = GraphQLScalarType
         .newScalar()
         .name("AccountId")
         .description("DB 上のアカウント id")
         .coercing(AccountIdCoercing)
         .build()
+
+    /**
+     * 整数をちょうど表している値だけ Long にする
+     */
+    private fun Number.toWholeLong(): Long? =
+        when (this) {
+            is Int, is Long, is Short, is Byte -> toLong()
+            else -> toDouble().takeIf { it % 1.0 == 0.0 && it in WHOLE_RANGE }?.toLong()
+        }
 
     private object AccountIdCoercing : Coercing<AccountId, Long> {
         override fun serialize(
@@ -38,8 +50,12 @@ object AccountIdScalar {
         ): AccountId {
             return when (input) {
                 is AccountId -> input
-                is Number -> AccountId(input.toLong())
+
+                // toLong() は小数を切り捨てるので、1.9 が 1 として通ってしまう
+                is Number -> input.toWholeLong()?.let(::AccountId)
+
                 is String -> input.toLongOrNull()?.let(::AccountId)
+
                 else -> null
             } ?: throw CoercingParseValueException("AccountId として読めない: $input")
         }

@@ -264,6 +264,23 @@ class AdminGraphQlTest {
         }
 
     @Test
+    fun `小数の accountId は saveFeed に渡せない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val response = graphQl(
+                query =
+                "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!) { admin { " +
+                    "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url) { failure { reason } } } }",
+                token = token,
+                variables = """{"accountId":1.9,"url":"https://example.com/feed.xml"}""",
+            )
+
+            assertTrue(response.body().containsKey("errors"))
+        }
+
+    @Test
     fun `フィード未登録なら feed は null`() =
         testApplication {
             applicationWith(passwordConfigured = true)

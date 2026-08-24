@@ -14,12 +14,24 @@ import graphql.schema.GraphQLScalarType
 import net.matsudamper.mastodon.rss.shared.FeedId
 
 object FeedIdScalar {
+    /** Double が整数を取りこぼさずに表せる幅 */
+    private val WHOLE_RANGE = -(1L shl 53).toDouble()..(1L shl 53).toDouble()
+
     val value: GraphQLScalarType = GraphQLScalarType
         .newScalar()
         .name("FeedId")
         .description("DB 上のフィード id")
         .coercing(FeedIdCoercing)
         .build()
+
+    /**
+     * 整数をちょうど表している値だけ Long にする
+     */
+    private fun Number.toWholeLong(): Long? =
+        when (this) {
+            is Int, is Long, is Short, is Byte -> toLong()
+            else -> toDouble().takeIf { it % 1.0 == 0.0 && it in WHOLE_RANGE }?.toLong()
+        }
 
     private object FeedIdCoercing : Coercing<FeedId, Long> {
         override fun serialize(
@@ -38,8 +50,12 @@ object FeedIdScalar {
         ): FeedId {
             return when (input) {
                 is FeedId -> input
-                is Number -> FeedId(input.toLong())
+
+                // toLong() は小数を切り捨てるので、1.9 が 1 として通ってしまう
+                is Number -> input.toWholeLong()?.let(::FeedId)
+
                 is String -> input.toLongOrNull()?.let(::FeedId)
+
                 else -> null
             } ?: throw CoercingParseValueException("FeedId として読めない: $input")
         }
