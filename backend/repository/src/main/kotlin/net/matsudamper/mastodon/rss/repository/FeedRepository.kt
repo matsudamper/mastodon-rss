@@ -5,11 +5,6 @@ import java.time.Instant
 /**
  * 購読しているフィードの読み書き。
  *
- * 実装はまだ無い。テーブルを作るマイグレーションが無く、jOOQ の生成物も無いため、
- * 先に「取り込み処理から何ができれば足りるのか」だけを固めてある。
- * 実装を入れるときは [Repositories] からこの interface を取れるようにして、
- * クエリは `:backend:repository` の中に閉じる。
- *
  * ここに置く型は保存する形であって、XML を読んだ結果ではない。
  * パーサ側の型（`:backend:rss` の `ParsedFeed`）とは別に定義してある。
  * 同じ型を使い回すと、スキーマを変えるたびにパーサを触ることになる。
@@ -19,6 +14,8 @@ interface FeedRepository {
     fun list(): List<Feed>
 
     fun find(id: FeedId): Feed?
+
+    fun findByAccountId(accountId: AccountId): Feed?
 
     /** URL で引く。同じ URL の二重登録を弾くために使う */
     fun findByUrl(url: String): Feed?
@@ -33,14 +30,19 @@ interface FeedRepository {
         limit: Int,
     ): List<Feed>
 
-    /** 登録する。採番した id を含めて返す */
-    fun add(feed: NewFeed): Feed
+    /**
+     * 登録する。採番した id を含めて返す。同じアカウントか同じ URL が既にあれば null
+     */
+    fun add(feed: NewFeed): Feed?
 
-    /** フィードから読めた題名とサイトの URL を反映する */
+    /**
+     * フィードから読めた題名とサイトの URL と形式を反映する
+     */
     fun updateMetadata(
         id: FeedId,
         title: String?,
         siteUrl: String?,
+        format: String?,
     )
 
     /**
@@ -95,9 +97,11 @@ value class FeedId(
  */
 data class Feed(
     val id: FeedId,
+    val accountId: AccountId,
     val url: String,
     val title: String?,
     val siteUrl: String?,
+    val format: String?,
     val pollIntervalSeconds: Long,
     val fetch: FeedFetchStatus,
     val initialImportDone: Boolean,
@@ -106,7 +110,11 @@ data class Feed(
 
 /** 登録するフィード。id と取得状況はまだ無い */
 data class NewFeed(
+    val accountId: AccountId,
     val url: String,
+    val title: String?,
+    val siteUrl: String?,
+    val format: String?,
     val pollIntervalSeconds: Long,
 )
 

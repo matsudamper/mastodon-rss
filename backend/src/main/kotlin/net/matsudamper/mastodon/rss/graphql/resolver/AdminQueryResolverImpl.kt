@@ -2,6 +2,9 @@ package net.matsudamper.mastodon.rss.graphql.resolver
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.future.future
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.GraphqlExceptions
@@ -9,10 +12,12 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
+import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminQueryResolverImpl : AdminQueryResolver {
     override fun session(
@@ -97,5 +102,20 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         return CompletableFuture.completedFuture(
             DataFetcherResult.Builder(accounts.map { it.toGraphqlResponse() }).build(),
         )
+    }
+
+    override fun previewFeed(
+        adminQuery: QlAdminQuery,
+        url: String,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminFeedPreviewResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val result = diContainer.feedService.preview(url).toGraphqlResponse()
+            DataFetcherResult.Builder(result).build()
+        }
     }
 }

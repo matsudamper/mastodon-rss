@@ -22,6 +22,7 @@ data class AdminAccountScreenUiState(
 
         /**
          * @param account この画面が扱うアカウント
+         * @param feed RSS フィードの登録状況と入力欄
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
@@ -30,6 +31,7 @@ data class AdminAccountScreenUiState(
          */
         data class Loaded(
             val account: Account,
+            val feed: Feed,
             val post: Post,
             val notes: List<Note>,
             val notesError: String?,
@@ -53,6 +55,50 @@ data class AdminAccountScreenUiState(
         val actorUrl: String,
         val createdAt: String?,
         val followerCount: Int,
+    )
+
+    sealed interface Feed {
+        /**
+         * このアカウントではフィードを扱わない。何も出さない
+         */
+        data object None : Feed
+
+        data class Registered(
+            val url: String,
+            val title: String?,
+            val format: String?,
+        ) : Feed
+
+        /**
+         * @param fetching 取得中。ボタンの文字が変わる
+         * @param canFetch false の間は取得のボタンを押せなくする
+         * @param canSave false の間は保存のボタンを押せなくする
+         */
+        data class Input(
+            val url: String,
+            val fetching: Boolean,
+            val canFetch: Boolean,
+            val saving: Boolean,
+            val canSave: Boolean,
+            val preview: FeedPreview?,
+            val previewError: String?,
+            val saveError: String?,
+        ) : Feed
+    }
+
+    data class FeedPreview(
+        val title: String?,
+        val siteUrl: String?,
+        val format: String,
+        val description: String?,
+        val itemCount: Int,
+        val sampleItems: List<FeedPreviewItem>,
+    )
+
+    data class FeedPreviewItem(
+        val title: String?,
+        val link: String?,
+        val publishedAt: String?,
     )
 
     /**
@@ -86,6 +132,12 @@ data class AdminAccountScreenUiState(
 
     @Immutable
     interface Listener {
+        fun onFeedUrlChanged(text: String)
+
+        fun onClickFetchFeed()
+
+        fun onClickSaveFeed()
+
         fun onBodyChanged(text: String)
 
         fun onClickPost()
