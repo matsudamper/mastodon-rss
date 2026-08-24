@@ -14,8 +14,8 @@ import net.matsudamper.mastodon.rss.repository.sqlite.SqliteRepositories
  * 呼び出し側が触れるのはこの interface と [DatabaseConfig] だけで、
  * JDBC も jOOQ もモジュールの外に漏れないようにする。
  *
- * フィードの repository は [FeedRepository] を [Repositories] から取れる。
- * [FeedItemRepository] は interface だけ。テーブルが無い
+ * フィードの repository は [FeedRepository] と [FeedItemRepository] を
+ * [Repositories] から取れる。
  */
 interface Repositories : AutoCloseable {
     val accounts: AccountRepository
@@ -25,6 +25,8 @@ interface Repositories : AutoCloseable {
     val notes: NoteRepository
 
     val feeds: FeedRepository
+
+    val feedItems: FeedItemRepository
 
     /**
      * DB に書き込んで読み戻せることを確認する。書けない場合は例外を投げる。

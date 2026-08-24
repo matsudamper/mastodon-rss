@@ -5,8 +5,6 @@ import java.time.Instant
 /**
  * 取り込んだ記事の読み書き。
  *
- * [FeedRepository] と同じく、実装は DB アクセスの方法が決まってから入れる。
- *
  * この repository が担うのは差分検出と投稿状態の管理の 2 つ。
  *
  * 差分検出は、取り込みのたびにフィード全体が返ってくることへの対処。
@@ -44,6 +42,14 @@ interface FeedItemRepository {
      */
     fun findPending(limit: Int): List<FeedItem>
 
+    /**
+     * 指定したフィードのうち、まだ投稿していない記事を古い順に返す。
+     */
+    fun findPending(
+        feedId: FeedId,
+        limit: Int,
+    ): List<FeedItem>
+
     /** 投稿し終わったことを記録する */
     fun markPosted(
         id: FeedItemId,
@@ -53,7 +59,7 @@ interface FeedItemRepository {
     /**
      * 投稿の対象にしないことを記録する。
      *
-     * 初回の取り込みで、既にある記事を投稿せずに取り込み済みにする場合に使う。
+     * 登録時に投稿しないと選んだ場合と、題名もリンクも無い場合に使う。
      */
     fun markSkipped(id: FeedItemId)
 
@@ -112,8 +118,8 @@ enum class FeedItemState {
     /**
      * 投稿しない。
      *
-     * 初回の取り込みで既存の記事を流さないようにする場合と、運用で個別に
-     * 止める場合。消さずに残すのは、消すと次の取得で新着として戻ってくるため
+     * 登録時に投稿しないと選んだ場合と、題名もリンクも無い場合。
+     * 消さずに残すのは、消すと次の取得で新着として戻ってくるため
      */
     SKIPPED,
 }
