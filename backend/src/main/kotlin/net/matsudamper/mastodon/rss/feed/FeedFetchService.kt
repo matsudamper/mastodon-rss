@@ -60,7 +60,9 @@ class FeedFetchService(
 
     private suspend fun resolveFeedUrl(url: String): String? {
         val parsed = runCatching { URI(url) }.getOrNull() ?: return null
-        if (parsed.scheme != "http" && parsed.scheme != "https") return null
+        // スキームは大文字小文字を区別しない。貼り付けた URL が HTTPS でも通す
+        val scheme = parsed.scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") return null
         if (parsed.host.isNullOrBlank()) return null
 
         return when (val source = resolve(url)) {
