@@ -12,6 +12,41 @@ CREATE TABLE accounts (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE feed_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    feed_id INTEGER NOT NULL REFERENCES feeds (id) ON DELETE CASCADE,
+    -- 記事を区別する鍵。`:backend:rss` の FeedItemKey.value。
+    -- フィードの中で一意。フィードをまたぐと重なりうるので、一意制約は (feed_id, item_key)
+    item_key TEXT NOT NULL,
+    title TEXT,
+    link TEXT,
+    -- 投稿する本文。サニタイズ済みの HTML を取り込みの時点で作って持つ
+    content_html TEXT,
+    published_at TEXT,
+    imported_at TEXT NOT NULL,
+    -- pending: 投稿待ち / posted: 投稿済み / skipped: 投稿しない
+    state TEXT NOT NULL CHECK (state IN ('pending', 'posted', 'skipped')),
+    posted_at TEXT,
+    UNIQUE (feed_id, item_key)
+);
+
+CREATE TABLE feeds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL UNIQUE REFERENCES accounts (id) ON DELETE CASCADE,
+    url TEXT NOT NULL UNIQUE,
+    title TEXT,
+    site_url TEXT,
+    format TEXT,
+    poll_interval_seconds INTEGER NOT NULL,
+    etag TEXT,
+    last_modified TEXT,
+    last_fetched_at TEXT,
+    last_succeeded_at TEXT,
+    last_error TEXT,
+    initial_import_done INTEGER NOT NULL DEFAULT 0 CHECK (initial_import_done IN (0, 1)),
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE followers (
     -- 1 行が「username のアカウントを remote_actor_id がフォローしている」ことを表す
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,21 +102,6 @@ CREATE TABLE remote_actors (
     fetched_at TEXT NOT NULL
 );
 
-CREATE INDEX notes_username_published_at ON notes (username, published_at);
+CREATE INDEX feed_items_feed_id_state_published_at_id ON feed_items (feed_id, state, published_at, id);
 
-CREATE TABLE feeds (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    account_id INTEGER NOT NULL UNIQUE REFERENCES accounts (id) ON DELETE CASCADE,
-    url TEXT NOT NULL UNIQUE,
-    title TEXT,
-    site_url TEXT,
-    format TEXT,
-    poll_interval_seconds INTEGER NOT NULL,
-    etag TEXT,
-    last_modified TEXT,
-    last_fetched_at TEXT,
-    last_succeeded_at TEXT,
-    last_error TEXT,
-    initial_import_done INTEGER NOT NULL DEFAULT 0 CHECK (initial_import_done IN (0, 1)),
-    created_at TEXT NOT NULL
-);
+CREATE INDEX notes_username_published_at ON notes (username, published_at);
