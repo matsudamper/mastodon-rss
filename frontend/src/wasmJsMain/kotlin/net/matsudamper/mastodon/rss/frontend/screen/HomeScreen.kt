@@ -60,7 +60,7 @@ private fun HomeScreen(
     uiState: HomeScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { wide ->
+    AppScaffold(screen = Screen.Home, onNavigate = onNavigate) { wide ->
         Text(
             text = "RSS/AtomをActivityPubで配信中",
             style = MaterialTheme.typography.headlineSmall,

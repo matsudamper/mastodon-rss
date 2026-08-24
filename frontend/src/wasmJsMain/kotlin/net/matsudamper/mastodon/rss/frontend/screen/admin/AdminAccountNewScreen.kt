@@ -44,7 +44,7 @@ private fun AdminAccountNewScreen(
     uiState: AdminAccountNewScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { _ ->
+    AppScaffold(screen = Screen.AdminAccountNew, onNavigate = onNavigate) { _ ->
         Text(
             text = "アカウントの追加",
             style = MaterialTheme.typography.headlineSmall,

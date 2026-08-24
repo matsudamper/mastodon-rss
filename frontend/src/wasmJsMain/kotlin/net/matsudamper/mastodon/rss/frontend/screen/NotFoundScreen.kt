@@ -20,7 +20,7 @@ fun NotFoundScreen(
     requestedPath: String,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { _ ->
+    AppScaffold(screen = Screen.NotFound(requestedPath), onNavigate = onNavigate) { _ ->
         NotFoundContent(requestedPath = requestedPath)
     }
 }
