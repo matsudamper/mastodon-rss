@@ -24,7 +24,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
  */
 @Composable
 fun AdminScaffold(
-    title: String,
+    title: String?,
     onNavigate: (Screen) -> Unit,
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
@@ -42,7 +42,7 @@ fun AdminScaffold(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AdminTopAppBar(
-    title: String,
+    title: String?,
     onNavigate: (Screen) -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.primaryContainer) {
@@ -50,7 +50,10 @@ private fun AdminTopAppBar(
             TopAppBar(
                 title = {
                     Text(
-                        text = "管理画面/$title",
+                        text = "管理画面"
+                            .plus(
+                                if (title != null) "/$title" else "",
+                            ),
                         modifier = Modifier.clickable { onNavigate(Screen.Admin) },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,

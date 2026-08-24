@@ -43,7 +43,7 @@ private fun AdminScreen(
     uiState: AdminScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AdminScaffold(title = "管理画面", onNavigate = onNavigate) { _ ->
+    AdminScaffold(title = null, onNavigate = onNavigate) { _ ->
         Text(
             text = "管理画面",
             style = MaterialTheme.typography.headlineSmall,
