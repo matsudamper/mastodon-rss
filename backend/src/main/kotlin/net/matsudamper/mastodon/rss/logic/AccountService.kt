@@ -27,6 +27,14 @@ class AccountService(
     fun account(username: String): ManagedAccount? = accounts.findByUsername(username)?.toManaged()
 
     /**
+     * 名前でまとめて引く。返すマップのキーは渡された名前
+     */
+    fun accountsByUsernames(usernames: Set<String>): Map<String, ManagedAccount> {
+        if (usernames.isEmpty()) return emptyMap()
+        return accounts.findByUsernames(usernames).mapValues { it.value.toManaged() }
+    }
+
+    /**
      * フォロワーの数をまとめて数える。一覧に並べる分を 1 回で引くために口を分けている
      */
     fun followerCounts(usernames: Set<String>): Map<String, Long> = followers.counts(usernames)

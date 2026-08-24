@@ -125,7 +125,7 @@ class AdminAccountScreenViewModel(
     private fun fetchFeed() {
         val state = viewModelStateFlow.value
         val url = state.feedInputUrl.trim()
-        if (state.loadedAccount?.account?.id == null) return
+        if (state.loadedAccount == null) return
         if (url.isEmpty() || state.feedFetching || state.feedSaving || state.savedFeed != null) return
 
         fetchFeedJob?.cancel()
@@ -181,9 +181,10 @@ class AdminAccountScreenViewModel(
 
     private fun saveFeed() {
         val state = viewModelStateFlow.value
-        val accountId = state.loadedAccount?.account?.id
+        val loaded = state.loadedAccount ?: return
+        val accountId = loaded.account.id
         val url = state.feedInputUrl.trim()
-        if (accountId == null || url.isEmpty() || state.feedPreview == null || state.feedSaving || state.feedFetching) {
+        if (url.isEmpty() || state.feedPreview == null || state.feedSaving || state.feedFetching) {
             return
         }
 

@@ -4,6 +4,7 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -38,6 +39,7 @@ class AccountGraphQlTest {
 
             val account = queryAccount(TestServerEnv.USERNAME).account()
 
+            assertTrue(account.long("id") > 0)
             assertEquals(TestServerEnv.USERNAME, account.string("username"))
             assertEquals("@${TestServerEnv.USERNAME}@${TestServerEnv.DOMAIN}", account.string("acct"))
             assertEquals(
@@ -99,6 +101,7 @@ class AccountGraphQlTest {
             val page1 = queryAccounts(limit = 2).accounts()
             val page1Nodes = page1.nodes()
             assertEquals(2, page1Nodes.size)
+            assertTrue(page1Nodes[0].long("id") > 0)
             assertEquals("feed1", page1Nodes[0].string("username"))
             assertEquals("@feed1@${TestServerEnv.DOMAIN}", page1Nodes[0].string("acct"))
             assertEquals("https://${TestServerEnv.DOMAIN}/users/feed1", page1Nodes[0].string("actorUrl"))
@@ -257,7 +260,7 @@ class AccountGraphQlTest {
             val query =
                 "query Accounts(${'$'}cursor: String, ${'$'}limit: Int!) { " +
                     "accounts(cursor: ${'$'}cursor, limit: ${'$'}limit) { " +
-                    "nodes { username acct actorUrl } pageInfo { hasMore nextCursor } } }"
+                    "nodes { id username acct actorUrl } pageInfo { hasMore nextCursor } } }"
 
             val variables = buildString {
                 append("{")
@@ -277,7 +280,7 @@ class AccountGraphQlTest {
 
             val query =
                 "query Account(${'$'}username: String!) { " +
-                    "account(username: ${'$'}username) { username acct actorUrl } }"
+                    "account(username: ${'$'}username) { id username acct actorUrl } }"
 
             setBody(
                 """{"query":${JsonPrimitive(query)},"variables":{"username":${JsonPrimitive(username)}}}""",
