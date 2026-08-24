@@ -43,7 +43,7 @@ class QueryResolverImpl : QueryResolver {
                 )
 
             QlAccountsConnection(
-                nodes = result.accounts.map { it.urls.toGraphqlResponse() },
+                nodes = result.accounts.map { it.urls.toGraphqlResponse(accountId = it.accountId) },
                 pageInfo = QlPageInfo(
                     hasMore = result.hasMore,
                     nextCursor = result.nextUsername?.let { AccountsCursor(afterUsername = it).encode() },

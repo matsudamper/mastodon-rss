@@ -30,9 +30,11 @@ import net.matsudamper.mastodon.rss.testDependencies
 // アカウント画面が引く口。ログインが要らないので、管理画面のものとは別に見る。
 class AccountGraphQlTest {
     @Test
-    fun `設定で決まるアカウントは引ける`() =
+    fun `保存されているアカウントは引ける`() =
         testApplication {
-            application { module(testDependencies()) }
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = TestServerEnv.USERNAME, createdAt = Instant.now())
+            application { module(testDependencies(repositories = repositories)) }
 
             val account = queryAccount(TestServerEnv.USERNAME).account()
 
@@ -97,33 +99,27 @@ class AccountGraphQlTest {
             val page1 = queryAccounts(limit = 2).accounts()
             val page1Nodes = page1.nodes()
             assertEquals(2, page1Nodes.size)
-            assertEquals(TestServerEnv.USERNAME, page1Nodes[0].string("username"))
-            assertEquals("@${TestServerEnv.USERNAME}@${TestServerEnv.DOMAIN}", page1Nodes[0].string("acct"))
-            assertEquals("https://${TestServerEnv.DOMAIN}/users/${TestServerEnv.USERNAME}", page1Nodes[0].string("actorUrl"))
-            assertEquals("feed1", page1Nodes[1].string("username"))
-            assertEquals(true, page1.pageInfo().boolean("hasMore"))
-
-            val page2 = queryAccounts(cursor = page1.pageInfo().string("nextCursor"), limit = 2).accounts()
-            val page2Nodes = page2.nodes()
-            assertEquals(1, page2Nodes.size)
-            assertEquals("feed2", page2Nodes[0].string("username"))
-            assertEquals(false, page2.pageInfo().boolean("hasMore"))
-            assertEquals(JsonNull, page2.pageInfo().getValue("nextCursor"))
+            assertEquals("feed1", page1Nodes[0].string("username"))
+            assertEquals("@feed1@${TestServerEnv.DOMAIN}", page1Nodes[0].string("acct"))
+            assertEquals("https://${TestServerEnv.DOMAIN}/users/feed1", page1Nodes[0].string("actorUrl"))
+            assertEquals("feed2", page1Nodes[1].string("username"))
+            assertEquals(false, page1.pageInfo().boolean("hasMore"))
         }
 
     @Test
-    fun `1 件ずつでも設定のアカウントから順に辿れる`() =
+    fun `1 件ずつでも追加した順に辿れる`() =
         testApplication {
             val repositories = FakeRepositories()
             repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            repositories.accounts.add(username = "feed2", createdAt = Instant.now())
             application { module(testDependencies(repositories = repositories)) }
 
             val page1 = queryAccounts(limit = 1).accounts()
-            assertEquals(listOf(TestServerEnv.USERNAME), page1.nodes().map { it.string("username") })
+            assertEquals(listOf("feed1"), page1.nodes().map { it.string("username") })
             assertEquals(true, page1.pageInfo().boolean("hasMore"))
 
             val page2 = queryAccounts(cursor = page1.pageInfo().string("nextCursor"), limit = 1).accounts()
-            assertEquals(listOf("feed1"), page2.nodes().map { it.string("username") })
+            assertEquals(listOf("feed2"), page2.nodes().map { it.string("username") })
             assertEquals(false, page2.pageInfo().boolean("hasMore"))
         }
 
@@ -137,7 +133,7 @@ class AccountGraphQlTest {
             val page = queryAccounts(limit = Int.MAX_VALUE).accounts()
 
             assertEquals(
-                listOf(TestServerEnv.USERNAME, "feed1"),
+                listOf("feed1"),
                 page.nodes().map { it.string("username") },
             )
             assertEquals(false, page.pageInfo().boolean("hasMore"))
@@ -147,6 +143,7 @@ class AccountGraphQlTest {
     fun `配信した投稿はログインなしで引ける`() =
         testApplication {
             val repositories = FakeRepositories()
+            repositories.accounts.add(username = TestServerEnv.USERNAME, createdAt = Instant.parse("2026-01-01T00:00:00Z"))
             val publishedAt = Instant.parse("2026-08-09T11:02:00Z")
             repositories.notes.add(
                 NewNote(
@@ -173,6 +170,7 @@ class AccountGraphQlTest {
     fun `投稿は新しい順に返る`() =
         testApplication {
             val repositories = FakeRepositories()
+            repositories.accounts.add(username = TestServerEnv.USERNAME, createdAt = Instant.parse("2026-01-01T00:00:00Z"))
             repositories.notes.add(
                 NewNote(
                     username = TestServerEnv.USERNAME,
@@ -200,6 +198,7 @@ class AccountGraphQlTest {
     fun `投稿の続きはカーソルで引ける`() =
         testApplication {
             val repositories = FakeRepositories()
+            repositories.accounts.add(username = TestServerEnv.USERNAME, createdAt = Instant.parse("2026-01-01T00:00:00Z"))
             repeat(3) { index ->
                 repositories.notes.add(
                     NewNote(

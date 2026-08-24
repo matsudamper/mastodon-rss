@@ -8,6 +8,10 @@ package net.matsudamper.mastodon.rss
  */
 object TestServerEnv {
     const val DOMAIN: String = "example.com"
+
+    /**
+     * テストでよく使うアカウント名。環境変数ではなく、DB に入れるときに使う
+     */
     const val USERNAME: String = "admin"
 
     val value: ServerEnv = of()
