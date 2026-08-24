@@ -42,7 +42,7 @@ fun AdminAccountScreen(
     }
 
     AdminAccountScreen(
-        screen = Screen.AdminAccount(username),
+        username = username,
         uiState = uiState,
         onNavigate = onNavigate,
     )
@@ -50,11 +50,11 @@ fun AdminAccountScreen(
 
 @Composable
 private fun AdminAccountScreen(
-    screen: Screen.AdminAccount,
+    username: String,
     uiState: AdminAccountScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AdminScaffold(screen = screen, onNavigate = onNavigate) { _ ->
+    AdminScaffold(title = "@$username の管理", onNavigate = onNavigate) { _ ->
         Text(
             text = uiState.acct,
             style = MaterialTheme.typography.headlineSmall,

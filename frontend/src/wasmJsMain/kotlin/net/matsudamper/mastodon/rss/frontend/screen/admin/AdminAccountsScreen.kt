@@ -56,7 +56,7 @@ private fun AdminAccountsScreen(
     uiState: AdminAccountsScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AdminScaffold(screen = Screen.AdminAccounts, onNavigate = onNavigate) { wide ->
+    AdminScaffold(title = "アカウント", onNavigate = onNavigate) { wide ->
         Row(
             verticalAlignment = Alignment.CenterVertically,
         ) {
