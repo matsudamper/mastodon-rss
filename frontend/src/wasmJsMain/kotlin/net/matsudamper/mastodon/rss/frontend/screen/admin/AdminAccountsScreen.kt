@@ -1,20 +1,38 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AppScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
@@ -38,20 +56,36 @@ private fun AdminAccountsScreen(
     uiState: AdminAccountsScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AppScaffold(onNavigate = onNavigate) { _ ->
-        Text(
-            text = "アカウント",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
+    AppScaffold(onNavigate = onNavigate) { wide ->
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                modifier = Modifier.weight(1f),
+                text = "アカウント一覧",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+
+            OutlinedButton(
+                modifier = Modifier,
+                onClick = { onNavigate(Screen.AdminAccountNew) },
+            ) {
+                Text(
+                    text = "追加",
+                )
+            }
+        }
 
         when (val content = uiState.content) {
             AdminAccountsScreenUiState.Content.Loading -> {
-                SectionCard(title = "読み込み中") {
-                    Text(
-                        text = "一覧を取ってきている。",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
                 }
             }
 
@@ -67,38 +101,51 @@ private fun AdminAccountsScreen(
                         color = MaterialTheme.colorScheme.error,
                     )
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
-                            Text("もう一度試す")
-                        }
+                    OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
+                        Text("もう一度試す")
                     }
                 }
             }
 
             is AdminAccountsScreenUiState.Content.Loaded -> {
-                SectionCard(title = "応答するアカウント") {
-                    Text(
-                        text = "この一覧にある名前が Mastodon から検索できる。" +
-                            "名前を選ぶと、そのアカウントの管理画面を開ける。",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-
-                    content.accounts.forEach { account ->
-                        AccountRow(account = account, onNavigate = onNavigate)
+                if (content.accounts.isEmpty()) {
+                    SectionCard(title = "アカウント") {
+                        Text(
+                            text = "まだアカウントはありません。下のリンクから追加できます。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
+                } else {
+                    val columnCount = if (wide) 2 else 1
+                    val rows = content.accounts.chunked(columnCount)
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
-                            Text("更新")
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        rows.forEach { rowAccounts ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                rowAccounts.forEach { account ->
+                                    AdminAccountCard(
+                                        account = account,
+                                        onNavigate = onNavigate,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                                if (rowAccounts.size < columnCount) {
+                                    repeat(columnCount - rowAccounts.size) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
                         }
                     }
-                }
-
-                SectionCard(title = "増やす") {
-                    TextLink(
-                        text = "アカウントを追加する",
-                        onClick = { onNavigate(Screen.AdminAccountNew) },
-                    )
                 }
             }
         }
@@ -106,45 +153,84 @@ private fun AdminAccountsScreen(
 }
 
 @Composable
-private fun AccountRow(
+private fun AdminAccountCard(
     account: AdminAccountsScreenUiState.Account,
     onNavigate: (Screen) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = account.acct,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AccountAvatar(username = account.username)
 
-        Text(
-            text = "フォロワー ${account.followerCount} 人",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    SelectionContainer {
+                        Text(
+                            text = account.acct,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
 
-        Text(
-            text = account.actorUrl,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+                    Text(
+                        text = "フォロワー ${account.followerCount} 人",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
-        if (account.createdAt != null) {
-            Text(
-                text = "追加: ${account.createdAt}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                SelectionContainer {
+                    Text(
+                        text = account.actorUrl,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                if (account.createdAt != null) {
+                    Text(
+                        text = "追加: ${account.createdAt}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            ) {
+                OutlinedButton(
+                    onClick = { onNavigate(Screen.Account(account.username)) },
+                ) {
+                    Text("公開画面")
+                }
+
+                Button(
+                    onClick = { onNavigate(Screen.AdminAccount(account.username)) },
+                ) {
+                    Text("管理画面")
+                }
+            }
         }
-
-        TextLink(
-            text = "このアカウントを管理する",
-            onClick = { onNavigate(Screen.AdminAccount(account.username)) },
-        )
-
-        TextLink(
-            text = "公開されているアカウント画面を開く",
-            onClick = { onNavigate(Screen.Account(account.username)) },
-        )
     }
 }
