@@ -13,10 +13,10 @@ import net.matsudamper.mastodon.rss.repository.FeedItemId
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
-import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
+import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NotePosition
