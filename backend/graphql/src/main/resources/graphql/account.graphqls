@@ -1,4 +1,6 @@
 type Account {
+    id: AccountId!
+
     username: String!
 
     "Mastodon の検索窓に貼る形"

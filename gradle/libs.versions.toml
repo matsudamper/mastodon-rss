@@ -18,7 +18,8 @@ graalvmBuildtools = "1.1.10"
 ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
 opentelemetry = "1.65.0"
-opentelemetryInstrumentation = "2.30.0-alpha"
+opentelemetryApiIncubator = "1.65.0-alpha"
+opentelemetryInstrumentation = "2.31.1-alpha"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
@@ -27,6 +28,7 @@ ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinxBrowser" }
 navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
@@ -42,6 +44,7 @@ jooq-codegen = { module = "org.jooq:jooq-codegen", version.ref = "jooq" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 graalvm-native-plugin = { module = "org.graalvm.buildtools:native-gradle-plugin", version.ref = "graalvmBuildtools" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+opentelemetry-api-incubator = { module = "io.opentelemetry:opentelemetry-api-incubator", version.ref = "opentelemetryApiIncubator" }
 opentelemetry-sdk = { module = "io.opentelemetry:opentelemetry-sdk", version.ref = "opentelemetry" }
 opentelemetry-sdk-autoconfigure = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure", version.ref = "opentelemetry" }
 opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "opentelemetry" }

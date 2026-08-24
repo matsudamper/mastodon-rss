@@ -50,7 +50,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
-import net.matsudamper.mastodon.rss.frontend.ui.copyToClipboard // pragma: allowlist secret
+import net.matsudamper.mastodon.rss.frontend.ui.copyToClipboard
 import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
 import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink
 

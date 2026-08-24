@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.actor
 
 /**
- * 固定アクター以外に応答するアクターの名前の引き先。
+ * 応答するアクターの名前の引き先。
  *
  * どこに保存されているかは [ActorDirectory] の関心ではないので、
  * 名前を渡して引けることだけを決めておく。

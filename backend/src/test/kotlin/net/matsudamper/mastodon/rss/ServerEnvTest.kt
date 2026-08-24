@@ -23,7 +23,6 @@ class ServerEnvTest {
 
         assertEquals("0.0.0.0", env.host)
         assertEquals(8080, env.port)
-        assertEquals("admin", env.actorUsername)
         assertEquals(Path.of("./data/mastodon-rss.db"), env.dbPath)
         assertEquals(ActorPrivateKey.File(Path.of("./data/actor-private-key.pem")), env.actorPrivateKey)
         assertNull(env.staticSrcDir)
@@ -35,7 +34,6 @@ class ServerEnvTest {
             env(
                 "HOST" to "127.0.0.1",
                 "PORT" to "9000",
-                "ACTOR_USERNAME" to "feed1",
                 "DB_PATH" to "/data/rss.db",
                 "ACTOR_PRIVATE_KEY_PATH" to "/data/actor.pem",
                 "STATIC_SRC_DIR" to "/srv/static",
@@ -43,7 +41,6 @@ class ServerEnvTest {
 
         assertEquals("127.0.0.1", env.host)
         assertEquals(9000, env.port)
-        assertEquals("feed1", env.actorUsername)
         assertEquals(Path.of("/data/rss.db"), env.dbPath)
         assertEquals(ActorPrivateKey.File(Path.of("/data/actor.pem")), env.actorPrivateKey)
         assertEquals(Path.of("/srv/static"), env.staticSrcDir)
@@ -60,14 +57,12 @@ class ServerEnvTest {
             env(
                 "HOST" to "",
                 "PORT" to "",
-                "ACTOR_USERNAME" to "   ",
                 "DB_PATH" to " ",
                 "STATIC_SRC_DIR" to "  ",
             )
 
         assertEquals("0.0.0.0", env.host)
         assertEquals(8080, env.port)
-        assertEquals("admin", env.actorUsername)
         assertEquals(Path.of("./data/mastodon-rss.db"), env.dbPath)
         assertNull(env.staticSrcDir)
     }
@@ -88,23 +83,6 @@ class ServerEnvTest {
         assertFailsWith<IllegalArgumentException> { ServerEnv(emptyMap()) }
         assertFailsWith<IllegalArgumentException> { ServerEnv(mapOf("DOMAIN" to "   ")) }
         assertFailsWith<IllegalArgumentException> { ServerEnv(mapOf("DOMAIN" to "https://")) }
-    }
-
-    // URL のパスと acct の両方に入るので、区切り文字が混ざると別のものを指してしまう
-    @Test
-    fun `ユーザー名に使えない文字があれば落ちる`() {
-        assertFailsWith<IllegalArgumentException> { env("ACTOR_USERNAME" to "ad/min") }
-        assertFailsWith<IllegalArgumentException> { env("ACTOR_USERNAME" to "ad min") }
-        assertFailsWith<IllegalArgumentException> { env("ACTOR_USERNAME" to "admin@example.com") }
-        assertFailsWith<IllegalArgumentException> { env("ACTOR_USERNAME" to "管理者") }
-        assertFailsWith<IllegalArgumentException> { env("ACTOR_USERNAME" to ".admin") }
-    }
-
-    @Test
-    fun `ユーザー名に使える文字は通る`() {
-        assertEquals("feed_1", env("ACTOR_USERNAME" to "feed_1").actorUsername)
-        assertEquals("feed.1", env("ACTOR_USERNAME" to "feed.1").actorUsername)
-        assertEquals("feed-1", env("ACTOR_USERNAME" to "feed-1").actorUsername)
     }
 
     @Test

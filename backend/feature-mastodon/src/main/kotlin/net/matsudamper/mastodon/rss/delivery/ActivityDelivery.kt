@@ -11,7 +11,7 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
  * リトライは持たない。失敗したらその場で諦めて [DeliveryResult.Failed] を返す。
  * 配信キューは投稿を配る Phase 4 で作る。TODO.md に項目がある。
  */
-interface ActivityDelivery {
+interface ActivityDelivery : AutoCloseable {
     /**
      * @param inbox 宛先。https で、相手のアクターと同じホストであることを
      *   確認済みのものだけを渡すこと。相手が指定した URL をそのまま渡すと、

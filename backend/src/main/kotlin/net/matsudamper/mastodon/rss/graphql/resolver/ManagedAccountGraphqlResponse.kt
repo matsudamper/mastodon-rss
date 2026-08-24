@@ -4,7 +4,6 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
 import net.matsudamper.mastodon.rss.logic.AccountService
 
 internal fun AccountService.ManagedAccount.toGraphqlResponse(): QlAdminAccount = QlAdminAccount(
-    account = urls.toGraphqlResponse(),
-    deletable = deletable,
-    createdAt = createdAt?.epochSecond,
+    account = urls.toGraphqlResponse(accountId = accountId),
+    createdAt = createdAt.epochSecond,
 )

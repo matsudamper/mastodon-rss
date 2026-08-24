@@ -54,7 +54,7 @@ private fun AdminAccountScreen(
     uiState: AdminAccountScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AdminScaffold(title = "@$username の管理", onNavigate = onNavigate) { _ ->
+    AdminScaffold(title = "@$username の管理", onNavigate = onNavigate) { wide ->
         Text(
             text = uiState.acct,
             style = MaterialTheme.typography.headlineSmall,
@@ -103,6 +103,7 @@ private fun AdminAccountScreen(
 
             is AdminAccountScreenUiState.Content.Loaded -> {
                 AccountCard(account = content.account, onNavigate = onNavigate)
+                FeedCard(feed = content.feed, listener = uiState.listener, wide = wide)
                 PostCard(post = content.post, listener = uiState.listener)
                 NotesCard(content = content, listener = uiState.listener)
             }
@@ -128,18 +129,202 @@ private fun AccountCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        if (account.createdAt != null) {
-            Text(
-                text = "追加: ${account.createdAt}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        Text(
+            text = "追加: ${account.createdAt}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
         TextLink(
             text = "公開されているアカウント画面を開く",
             onClick = { onNavigate(Screen.Account(account.username)) },
         )
+    }
+}
+
+@Composable
+private fun FeedCard(
+    feed: AdminAccountScreenUiState.Feed,
+    listener: AdminAccountScreenUiState.Listener,
+    wide: Boolean,
+) {
+    when (feed) {
+        is AdminAccountScreenUiState.Feed.Registered -> {
+            SectionCard(title = "RSS フィード") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "登録済み",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = feed.url,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (feed.title != null) {
+                        Text(
+                            text = feed.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                    if (feed.format != null) {
+                        Text(
+                            text = feed.format,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        is AdminAccountScreenUiState.Feed.Input -> {
+            SectionCard(title = "RSS フィード") {
+                if (wide) {
+                    // 入力欄とプレビューを見比べられる幅がある時だけ横に並べる
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        FeedInputPanel(modifier = Modifier.weight(1f), feed = feed, listener = listener)
+                        FeedPreviewPanel(modifier = Modifier.weight(1f), feed = feed)
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        FeedInputPanel(modifier = Modifier.fillMaxWidth(), feed = feed, listener = listener)
+                        FeedPreviewPanel(modifier = Modifier.fillMaxWidth(), feed = feed)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedInputPanel(
+    feed: AdminAccountScreenUiState.Feed.Input,
+    listener: AdminAccountScreenUiState.Listener,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = "RSS/Atom の URL を入れて取得する。問題なければ保存する。",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
+        OutlinedTextField(
+            value = feed.url,
+            onValueChange = { listener.onFeedUrlChanged(it) },
+            enabled = !feed.fetching && !feed.saving,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("フィード URL") },
+            singleLine = true,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+                onClick = { listener.onClickFetchFeed() },
+                enabled = feed.canFetch,
+            ) {
+                Text(if (feed.fetching) "取得中" else "取得")
+            }
+
+            Button(
+                onClick = { listener.onClickSaveFeed() },
+                enabled = feed.canSave,
+            ) {
+                Text(if (feed.saving) "保存中" else "保存")
+            }
+        }
+
+        if (feed.previewError != null) {
+            Text(
+                text = feed.previewError,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+
+        if (feed.saveError != null) {
+            Text(
+                text = feed.saveError,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FeedPreviewPanel(
+    feed: AdminAccountScreenUiState.Feed.Input,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "プレビュー",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        when {
+            feed.fetching -> {
+                Text(text = "フィードを取ってきている。", style = MaterialTheme.typography.bodyMedium)
+            }
+
+            feed.preview != null -> {
+                val preview = feed.preview
+                preview.title?.let {
+                    Text(text = it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                }
+                Text(text = preview.format, style = MaterialTheme.typography.bodySmall)
+                preview.siteUrl?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                preview.description?.let {
+                    Text(text = it, style = MaterialTheme.typography.bodyMedium)
+                }
+                Text(text = "記事 ${preview.itemCount} 件", style = MaterialTheme.typography.bodyMedium)
+                preview.sampleItems.forEach { item ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = item.title ?: "(題名なし)",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        val meta = listOfNotNull(item.publishedAt, item.link).joinToString("  ")
+                        if (meta.isNotEmpty()) {
+                            Text(
+                                text = meta,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
+            else -> {
+                Text(
+                    text = "取得ボタンを押すとここに表示される。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

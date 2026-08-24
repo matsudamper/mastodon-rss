@@ -206,13 +206,11 @@ private fun AdminAccountCard(
                     )
                 }
 
-                if (account.createdAt != null) {
-                    Text(
-                        text = "追加: ${account.createdAt}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    text = "追加: ${account.createdAt}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             Row(

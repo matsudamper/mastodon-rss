@@ -22,6 +22,7 @@ data class AdminAccountScreenUiState(
 
         /**
          * @param account この画面が扱うアカウント
+         * @param feed RSS フィードの登録状況と入力欄
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
@@ -30,6 +31,7 @@ data class AdminAccountScreenUiState(
          */
         data class Loaded(
             val account: Account,
+            val feed: Feed,
             val post: Post,
             val notes: List<Note>,
             val notesError: String?,
@@ -45,14 +47,53 @@ data class AdminAccountScreenUiState(
 
     /**
      * @param acct Mastodon の検索窓に貼る形
-     * @param createdAt 「追加: <値>」の形で出す。null ならこの行を出さない
+     * @param createdAt 「追加: <値>」の形で出す
      */
     data class Account(
         val username: String,
         val acct: String,
         val actorUrl: String,
-        val createdAt: String?,
+        val createdAt: String,
         val followerCount: Int,
+    )
+
+    sealed interface Feed {
+        data class Registered(
+            val url: String,
+            val title: String?,
+            val format: String?,
+        ) : Feed
+
+        /**
+         * @param fetching 取得中。ボタンの文字が変わる
+         * @param canFetch false の間は取得のボタンを押せなくする
+         * @param canSave false の間は保存のボタンを押せなくする
+         */
+        data class Input(
+            val url: String,
+            val fetching: Boolean,
+            val canFetch: Boolean,
+            val saving: Boolean,
+            val canSave: Boolean,
+            val preview: FeedPreview?,
+            val previewError: String?,
+            val saveError: String?,
+        ) : Feed
+    }
+
+    data class FeedPreview(
+        val title: String?,
+        val siteUrl: String?,
+        val format: String,
+        val description: String?,
+        val itemCount: Int,
+        val sampleItems: List<FeedPreviewItem>,
+    )
+
+    data class FeedPreviewItem(
+        val title: String?,
+        val link: String?,
+        val publishedAt: String?,
     )
 
     /**
@@ -86,6 +127,12 @@ data class AdminAccountScreenUiState(
 
     @Immutable
     interface Listener {
+        fun onFeedUrlChanged(text: String)
+
+        fun onClickFetchFeed()
+
+        fun onClickSaveFeed()
+
         fun onBodyChanged(text: String)
 
         fun onClickPost()

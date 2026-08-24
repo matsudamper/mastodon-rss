@@ -24,6 +24,9 @@ class TestDelivery(
         return result
     }
 
+    override fun close() {
+    }
+
     data class Delivered(
         val inbox: String,
         val sender: ActorUrls,

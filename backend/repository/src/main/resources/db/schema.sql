@@ -15,9 +15,8 @@ CREATE TABLE accounts (
 CREATE TABLE followers (
     -- 1 行が「username のアカウントを remote_actor_id がフォローしている」ことを表す
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- フォローされたこちらのアカウントの名前。accounts への外部キーにしないのは、
-    -- ACTOR_USERNAME で決まる組み込みアカウントが accounts に行を持たないため。
-    -- 引き当ての正は ActorDirectory で、こちらはその結果を名前で受ける
+    -- フォローされたこちらのアカウントの名前。引き当ての正は ActorDirectory で、
+    -- こちらはその結果を名前で受ける。アクター ID は名前から決まる。
     username TEXT COLLATE NOCASE NOT NULL,
     remote_actor_id INTEGER NOT NULL REFERENCES remote_actors (id) ON DELETE CASCADE,
     -- 受け取った Follow の id。Accept を返し損ねると相手は同じ id で送り直してくるので、
@@ -69,3 +68,20 @@ CREATE TABLE remote_actors (
 );
 
 CREATE INDEX notes_username_published_at ON notes (username, published_at);
+
+CREATE TABLE feeds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL UNIQUE REFERENCES accounts (id) ON DELETE CASCADE,
+    url TEXT NOT NULL UNIQUE,
+    title TEXT,
+    site_url TEXT,
+    format TEXT,
+    poll_interval_seconds INTEGER NOT NULL,
+    etag TEXT,
+    last_modified TEXT,
+    last_fetched_at TEXT,
+    last_succeeded_at TEXT,
+    last_error TEXT,
+    initial_import_done INTEGER NOT NULL DEFAULT 0 CHECK (initial_import_done IN (0, 1)),
+    created_at TEXT NOT NULL
+);

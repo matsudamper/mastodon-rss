@@ -95,7 +95,7 @@ internal class SqliteFollowerRepository(
         username: String,
         after: String?,
         limit: Int,
-    ): List<String> = jooq.transaction { dsl ->
+    ): List<String> = jooq.withConnection { dsl ->
         dsl
             .select(REMOTE_ACTORS.ACTOR_URI)
             .from(FOLLOWERS)
@@ -110,14 +110,14 @@ internal class SqliteFollowerRepository(
             .fetch(REMOTE_ACTORS.ACTOR_URI)
     }
 
-    override fun count(username: String): Long = jooq.transaction { dsl ->
+    override fun count(username: String): Long = jooq.withConnection { dsl ->
         dsl
             .selectCount()
             .from(FOLLOWERS)
             .where(FOLLOWERS.USERNAME.eq(username))
             .and(FOLLOWERS.STATE.eq(STATE_ACCEPTED))
-            .fetchOne(0, Int::class.java)
-            ?.toLong() ?: 0L
+            .fetchOne(0, Long::class.java)
+            ?: 0L
     }
 
     /**
@@ -127,7 +127,7 @@ internal class SqliteFollowerRepository(
     override fun counts(usernames: Set<String>): Map<String, Long> {
         if (usernames.isEmpty()) return emptyMap()
 
-        return jooq.transaction { dsl ->
+        return jooq.withConnection { dsl ->
             val counted = TreeMap<String, Long>(String.CASE_INSENSITIVE_ORDER)
 
             dsl
@@ -143,7 +143,7 @@ internal class SqliteFollowerRepository(
         }
     }
 
-    override fun deliveryTargets(username: String): List<String> = jooq.transaction { dsl ->
+    override fun deliveryTargets(username: String): List<String> = jooq.withConnection { dsl ->
         dsl
             .selectDistinct(DSL.coalesce(REMOTE_ACTORS.SHARED_INBOX, REMOTE_ACTORS.INBOX))
             .from(FOLLOWERS)
@@ -155,7 +155,7 @@ internal class SqliteFollowerRepository(
             .map { it.value1() }
     }
 
-    override fun hasAny(): Boolean = jooq.transaction { dsl -> dsl.fetchExists(DSL.selectOne().from(FOLLOWERS)) }
+    override fun hasAny(): Boolean = jooq.withConnection { dsl -> dsl.fetchExists(DSL.selectOne().from(FOLLOWERS)) }
 
     /**
      * 相手のアクターは毎回上書きする。inbox も鍵も相手の都合で変わるので、
@@ -165,7 +165,7 @@ internal class SqliteFollowerRepository(
         dsl: DSLContext,
         actor: NewRemoteActor,
         now: Instant,
-    ): Int {
+    ): Long {
         val fetchedAt = StoredInstant.format(now)
 
         dsl
@@ -199,7 +199,7 @@ internal class SqliteFollowerRepository(
     private fun followerIds(
         username: String,
         followerActorUri: String,
-    ): Select<Record1<Int>> = DSL
+    ): Select<Record1<Long>> = DSL
         .select(FOLLOWERS.ID)
         .from(FOLLOWERS)
         .join(REMOTE_ACTORS)
@@ -207,7 +207,7 @@ internal class SqliteFollowerRepository(
         .where(FOLLOWERS.USERNAME.eq(username))
         .and(REMOTE_ACTORS.ACTOR_URI.eq(followerActorUri))
 
-    private fun remoteActorId(actorUri: String): Select<Record1<Int>> = DSL
+    private fun remoteActorId(actorUri: String): Select<Record1<Long>> = DSL
         .select(REMOTE_ACTORS.ID)
         .from(REMOTE_ACTORS)
         .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))

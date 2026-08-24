@@ -1,6 +1,7 @@
 query HomeScreen($cursor: String, $limit: Int!) {
     accounts(cursor: $cursor, limit: $limit) {
         nodes {
+            id
             username
             acct
             actorUrl

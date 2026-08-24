@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss
 
 import java.nio.file.Path
 import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
-import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
 /**
@@ -61,24 +60,6 @@ class ServerEnv(
                 "DOMAIN が未設定。WebFinger の acct とアクターの id に使うので必ず指定すること"
             }
             normalized
-        }
-
-    /**
-     * 設定で決まるアクターのユーザー名。`acct:<name>@<domain>` と `/users/<name>` の両方に入る。
-     * これ以外のアカウントは管理画面から追加する。
-     */
-    val actorUsername: String =
-        run {
-            val raw = env["ACTOR_USERNAME"]?.trim()
-            val username = if (raw.isNullOrEmpty()) "admin" else raw
-
-            // URL のパスと acct の両方に入るので、区切り文字が混ざると別のものを指してしまう
-            require(ActorUsernameUtil.isValid(username)) {
-                "ACTOR_USERNAME が使えない形式: $username。" +
-                    "英数字と _ . - のみ、先頭と末尾は英数字か _、" +
-                    "長さは ${ActorUsernameUtil.MAX_LENGTH} 文字までにすること"
-            }
-            username
         }
 
     /**

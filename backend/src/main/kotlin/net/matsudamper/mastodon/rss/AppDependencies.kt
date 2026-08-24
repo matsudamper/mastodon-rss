@@ -5,13 +5,13 @@ import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
-import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.actor.StoredActorNames
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
+import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
@@ -46,23 +46,18 @@ class AppDependencies(
     val env: ServerEnv,
     val remoteActors: RemoteActors,
     val delivery: ActivityDelivery,
+    val feedFetcher: FeedFetchService = FeedFetchService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
     val openTelemetry: OpenTelemetry? = null,
     private val telemetry: OpenTelemetryInitializer.Handler? = null,
 ) : AutoCloseable {
-    /**
-     * ドメインはアクター ID に焼き込まれ、Mastodon 側にキャッシュされると後から変えられない。
-     * 綴りが 1 か所だけ違う状態を作らないよう、組み立てはここに通す。
-     */
-    val actorUrls: ActorUrls = ActorUrls(domain = env.domain, username = env.actorUsername)
-
     val followerStore: FollowerStore = RepositoryFollowerStore(repositories.followers)
 
     val noteStore: NoteStore = RepositoryNoteStore(repositories.notes)
 
     // 毎回引き直す。持ち回すと、追加したアカウントが引けるようになるまで間が空く
     val directory: ActorDirectory = ActorDirectory(
-        fixed = actorUrls,
+        domain = env.domain,
         stored = object : StoredActorNames {
             override fun find(username: String): String? {
                 return repositories.accounts.findByUsername(username)?.username
@@ -101,15 +96,19 @@ class AppDependencies(
      */
     override fun close() {
         try {
-            (delivery as? AutoCloseable)?.close()
+            feedFetcher.close()
         } finally {
             try {
-                (remoteActors as? AutoCloseable)?.close()
+                delivery.close()
             } finally {
                 try {
-                    repositories.close()
+                    remoteActors.close()
                 } finally {
-                    telemetry?.close()
+                    try {
+                        repositories.close()
+                    } finally {
+                        telemetry?.close()
+                    }
                 }
             }
         }

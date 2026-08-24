@@ -136,23 +136,22 @@ ADMIN_COOKIE_SECURE=false \
 `ADMIN_PASSWORD_HASH` が未設定でも起動する。最初のハッシュを作る前に起動できないと
 先に進めないため。この場合はログインできず、画面と起動ログにその旨が出る。
 
-ログインすると `/admin` に各画面への入口が出る。いまあるのはアカウントの一覧と追加で、
-フィードの登録や配信状況はこれから作る。ログインしていない状態で下の画面を直接開いた場合は、
+ログインすると `/admin` に各画面への入口が出る。いまあるのはアカウントの一覧と追加、
+アカウントごとのフィード登録と投稿で、配信状況はこれから作る。ログインしていない状態で下の画面を直接開いた場合は、
 そこにフォームを出さず `/admin` に案内する。パスワードを入れる場所を 1 つに寄せるため。
 セッションの持ち方と Cookie の扱いは [docs/architecture.md](docs/architecture.md) を参照。
 
 ### アカウントの追加
 
 追加は `/admin/accounts/new`、一覧は `/admin/accounts`。
-Mastodon から検索できる名前は 2 通りある。`ACTOR_USERNAME` で決まるものと、
-管理画面から追加したもの。追加したものは `accounts` テーブルに入る。
+Mastodon から検索できる名前は、管理画面から追加して `accounts` テーブルに入ったもの。
 
 名前は後から変えられない。Mastodon はリモートのアカウントを永続キャッシュするので、
 アクターの ID が変わると相手には別のアカウントとして見える。別の名前にしたい場合は
 作り直すことになる。
 
-使える文字は `ACTOR_USERNAME` と同じで、長さは 30 文字まで。
-`ACTOR_USERNAME` と同じ名前と、既にある名前は追加できない。
+使える文字は英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`、長さは 30 文字まで。
+既にある名前は追加できない。
 
 ### API
 graphqlを使用している `POST /graphql`
@@ -184,7 +183,6 @@ Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み
 | `PORT` | `8080` | 待ち受けポート |
 | `DB_PATH` | `./data/mastodon-rss.db` | SQLite の DB ファイル。親ディレクトリは起動時に作られる |
 | `DOMAIN` | **必須** | 外部に公開するドメイン。WebFinger の `acct:` とアクターの `id` に使う |
-| `ACTOR_USERNAME` | `admin` | 設定で決まるアカウントの名前。`acct:<name>@<DOMAIN>` と `/users/<name>` に入る |
 | `ACTOR_PRIVATE_KEY_PATH` | `./data/actor-private-key.pem` | アクターの秘密鍵 (PEM)。無ければ起動時に生成して書き出す |
 | `ACTOR_PRIVATE_KEY_PEM` | なし | 秘密鍵の PEM を直接渡す場合に使う。`ACTOR_PRIVATE_KEY_PATH` とは併用できない |
 | `STATIC_SRC_DIR` | なし | 配信する静的ファイルのディレクトリ。未設定なら何も配信しない |
@@ -192,13 +190,13 @@ Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み
 | `ADMIN_COOKIE_SECURE` | `true` | セッション Cookie に `Secure` を付けるか。手元で http で試すときだけ `false` にする |
 
 `DOMAIN` は scheme と末尾の `/` を書いても落として扱う。未設定だと起動しない。
-`ACTOR_USERNAME` に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`、
+アカウント名に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`、
 長さは 30 文字まで。
 
-どちらもアクターの ID に焼き込まれ、変えると相手からは別人のアカウントに見える。
+`DOMAIN` はアクターの ID に焼き込まれ、変えると相手からは別人のアカウントに見える。
 理由は `ServerEnv.kt` と `ActorUsernameUtil.kt` の KDoc にある。
 
-`ACTOR_USERNAME` のアカウントは設定でしか変えられない。それ以外は管理画面から追加する。
+アカウントは管理画面から追加する。
 
 エンドポイント、アカウントの引き当て、アクターの鍵の扱いなど、
 ビルド以外の仕様は [docs/mastodon-spec.md](docs/mastodon-spec.md) にまとめてある。

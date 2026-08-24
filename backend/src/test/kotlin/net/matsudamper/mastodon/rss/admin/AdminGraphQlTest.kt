@@ -190,23 +190,12 @@ class AdminGraphQlTest {
         }
 
     @Test
-    fun `列挙には設定で決まるアカウントが必ず入る`() =
+    fun `アカウントが無ければ列挙は空`() =
         testApplication {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
 
-            val adminAccount = queryAccounts(token).accounts().single().jsonObject
-            val account = adminAccount.obj("account")
-
-            assertEquals(TestServerEnv.USERNAME, account.string("username"))
-            assertEquals("@${TestServerEnv.USERNAME}@${TestServerEnv.DOMAIN}", account.string("acct"))
-            assertEquals(
-                "https://${TestServerEnv.DOMAIN}/users/${TestServerEnv.USERNAME}",
-                account.string("actorUrl"),
-            )
-            // 設定で決まるアカウントは管理画面から消せない。追加した時刻も持っていない
-            assertFalse(adminAccount.boolean("deletable"))
-            assertEquals(JsonNull, adminAccount.getValue("createdAt"))
+            assertEquals(emptyList(), queryAccounts(token).accounts())
         }
 
     @Test
@@ -220,14 +209,75 @@ class AdminGraphQlTest {
 
             assertEquals("feed1", account.string("username"))
             assertEquals("@feed1@${TestServerEnv.DOMAIN}", account.string("acct"))
-            assertTrue(added.boolean("deletable"))
             // 時刻は文字列にせずエポックからの秒数で返す。書式の解釈を受け取る側に委ねない
             assertTrue(added.getValue("createdAt").jsonPrimitive.long > 0)
 
             assertEquals(
-                listOf(TestServerEnv.USERNAME, "feed1"),
+                listOf("feed1"),
                 queryAccounts(token).accounts().map { it.jsonObject.obj("account").string("username") },
             )
+        }
+
+    @Test
+    fun `追加したアカウントには id が入る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            mutateAddAccount("feed1", token)
+
+            val account = queryAccount("feed1", token).admin().obj("adminAccount").obj("account")
+            assertNotNull(account.getValue("id").jsonPrimitive.long)
+        }
+
+    @Test
+    fun `ログインしていなければ previewFeed は拒否される`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            val errors = queryPreviewFeed("https://example.com/feed.xml").body().getValue("errors").jsonArray
+            assertTrue(errors.isNotEmpty())
+        }
+
+    @Test
+    fun `ログインしていなければ saveFeed は拒否される`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            val errors = mutateSaveFeed(accountId = 1, url = "https://example.com/feed.xml")
+                .body()
+                .getValue("errors")
+                .jsonArray
+            assertTrue(errors.isNotEmpty())
+        }
+
+    @Test
+    fun `小数の accountId は saveFeed に渡せない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val response = graphQl(
+                query =
+                "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!) { admin { " +
+                    "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url) { failure { reason } } } }",
+                token = token,
+                variables = """{"accountId":1.9,"url":"https://example.com/feed.xml"}""",
+            )
+
+            assertTrue(response.body().containsKey("errors"))
+        }
+
+    @Test
+    fun `フィード未登録なら feed は null`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            mutateAddAccount("feed1", token)
+
+            val adminAccount = queryAccount("feed1", token).admin().obj("adminAccount")
+            assertEquals(JsonNull, adminAccount.getValue("feed"))
         }
 
     @Test
@@ -329,18 +379,6 @@ class AdminGraphQlTest {
 
             assertEquals(listOf("あ"), failure.getValue("unusableCharacters").jsonArray.map { it.jsonPrimitive.content })
             assertEquals(30, failure.getValue("maxLength").jsonPrimitive.int)
-        }
-
-    @Test
-    fun `設定で決まるアカウントと同じ名前は追加できない`() =
-        testApplication {
-            applicationWith(passwordConfigured = true)
-            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
-
-            // 設定で決まるアカウントも引き当ての対象なので、名前は埋まっている
-            val result = mutateAddAccount(TestServerEnv.USERNAME.uppercase(), token).addAccountResult()
-
-            assertTrue(result.failure().boolean("isDuplicated"))
         }
 
     @Test
@@ -446,6 +484,31 @@ class AdminGraphQlTest {
             variables = """{"username":${JsonPrimitive(username)}}""",
         )
 
+    private suspend fun ApplicationTestBuilder.queryPreviewFeed(
+        url: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "query Preview(${'$'}url: String!) { admin { " +
+                "previewFeed(url: ${'$'}url) { preview { title format itemCount } failure { reason } } } }",
+            token = token,
+            variables = """{"url":${JsonPrimitive(url)}}""",
+        )
+
+    private suspend fun ApplicationTestBuilder.mutateSaveFeed(
+        accountId: Long,
+        url: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!) { admin { " +
+                "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url) { feed { $FEED_FIELDS } failure { reason } } } }",
+            token = token,
+            variables = """{"accountId":${JsonPrimitive(accountId)},"url":${JsonPrimitive(url)}}""",
+        )
+
     private suspend fun ApplicationTestBuilder.graphQl(
         query: String,
         token: String? = null,
@@ -467,7 +530,9 @@ class AdminGraphQlTest {
     private companion object {
         const val PASSWORD = "とても長いパスワード"
 
-        const val ACCOUNT_FIELDS = "account { username acct actorUrl } deletable createdAt"
+        const val FEED_FIELDS = "id url title siteUrl format createdAt"
+
+        const val ACCOUNT_FIELDS = "account { id username acct actorUrl } createdAt feed { $FEED_FIELDS }"
 
         /**
          * 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ

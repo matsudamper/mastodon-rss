@@ -9,6 +9,9 @@ type AdminQuery {
 
     "アカウントが配信した投稿。新しい順"
     notes(username: String!, cursor: String, limit: Int!): AdminNotesConnection! @lazy
+
+    "RSS フィードを取得してパース結果を返す。"
+    previewFeed(url: String!): AdminFeedPreviewResult! @lazy
 }
 
 type AdminNotesConnection {
@@ -37,12 +40,12 @@ type AdminSession {
 type AdminAccount {
     account: Account!
 
-    "管理画面から削除できるか。サーバーの設定で決まっているものは消せない"
-    deletable: Boolean!
-
-    "管理画面から追加した時刻。追加したものにだけ入る"
-    createdAt: UnixTime
+    "管理画面から追加した時刻"
+    createdAt: UnixTime!
 
     "Accept を返せたフォロワーの数"
     followerCount: Int! @lazy
+
+    "登録済みの RSS フィード。未登録なら null"
+    feed: Feed @lazy
 }
