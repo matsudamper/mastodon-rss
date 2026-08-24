@@ -21,8 +21,7 @@ class AdminAccountsScreenViewModel(
         MutableStateFlow(
             AdminAccountsScreenUiState(
                 content = AdminAccountsScreenUiState.Content.Loading,
-                listener =
-                object : AdminAccountsScreenUiState.Listener {
+                listener = object : AdminAccountsScreenUiState.Listener {
                     override fun onClickReload() {
                         reload()
                     }
