@@ -5,6 +5,7 @@ package net.matsudamper.mastodon.rss.frontend.logic.account
  * @param actorUrl ActivityPub の Actor の URL
  */
 data class Account(
+    val id: Long?,
     val username: String,
     val acct: String,
     val actorUrl: String,

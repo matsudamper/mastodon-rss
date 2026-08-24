@@ -2,10 +2,11 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountId
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
 import org.jooq.DSLContext
-import org.jooq.Record2
+import org.jooq.Record
 import org.jooq.impl.DSL
 
 internal class SqliteAccountRepository(
@@ -14,7 +15,7 @@ internal class SqliteAccountRepository(
     @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
     override fun list(): List<Account> = jooq.withConnection { dsl ->
         dsl
-            .select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+            .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
             .from(ACCOUNTS)
             // 同じ時刻に入った 2 件は時刻だけでは順が決まらないので id で揃える
             .orderBy(ACCOUNTS.CREATED_AT, ACCOUNTS.ID)
@@ -43,7 +44,7 @@ internal class SqliteAccountRepository(
         }
 
         dsl
-            .select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+            .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
             .from(ACCOUNTS)
             .where(after)
             .orderBy(ACCOUNTS.CREATED_AT.asc(), ACCOUNTS.ID.asc())
@@ -52,13 +53,22 @@ internal class SqliteAccountRepository(
             .map { it.toAccount() }
     }
 
+    override fun findById(id: AccountId): Account? = jooq.withConnection { dsl ->
+        dsl
+            .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+            .from(ACCOUNTS)
+            .where(ACCOUNTS.ID.eq(id.value))
+            .fetchOne()
+            ?.toAccount()
+    }
+
     override fun findByUsername(username: String): Account? = jooq.withConnection { dsl -> dsl.selectByUsername(username) }
 
     override fun findByUsernames(usernames: Collection<String>): Map<String, Account> {
         if (usernames.isEmpty()) return emptyMap()
         return jooq.withConnection { dsl ->
             val records = dsl
-                .select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+                .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
                 .from(ACCOUNTS)
                 .where(ACCOUNTS.USERNAME.`in`(usernames))
                 .fetch()
@@ -81,25 +91,29 @@ internal class SqliteAccountRepository(
         // 見てから入れれば取りこぼさない
         if (dsl.selectByUsername(username) != null) return@transaction null
 
-        dsl
+        val id = dsl
             .insertInto(ACCOUNTS)
             .set(ACCOUNTS.USERNAME, username)
             .set(ACCOUNTS.CREATED_AT, StoredInstant.format(createdAt))
-            .execute()
+            .returning(ACCOUNTS.ID)
+            .fetchOne()
+            ?.get(ACCOUNTS.ID)
+            ?: return@transaction null
 
-        Account(username = username, createdAt = createdAt)
+        Account(id = AccountId(id), username = username, createdAt = createdAt)
     }
 
     /**
      * 列に COLLATE NOCASE が付いているので、綴りの揺れは SQLite 側で吸収される
      */
-    private fun DSLContext.selectByUsername(username: String): Account? = select(ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+    private fun DSLContext.selectByUsername(username: String): Account? = select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
         .from(ACCOUNTS)
         .where(ACCOUNTS.USERNAME.eq(username))
         .fetchOne()
         ?.toAccount()
 
-    private fun Record2<String, String>.toAccount(): Account = Account(
+    private fun Record.toAccount(): Account = Account(
+        id = AccountId(get(ACCOUNTS.ID)),
         username = get(ACCOUNTS.USERNAME),
         createdAt = StoredInstant.parse(get(ACCOUNTS.CREATED_AT)),
     )
