@@ -126,7 +126,8 @@ class FeedFetchService(
      * - フラグメントは取得先に送られず、同じリソースを指す
      * - ホスト名は大文字小文字を区別しない
      * - ホスト名の末尾の `.` はルートラベルで、付けても同じホストを指す
-     * - パスの `%XX` は、中身が予約文字でなければ書かないのと同じ意味になる
+     * - パスの `%XX` は、中身が予約文字でなければ書かないのと同じ意味になる。
+     *   予約文字で残す分も、16 進数の綴りでは意味が変わらない
      *
      * パスの大文字小文字と末尾の形は意味を持つので触らない
      */
@@ -135,20 +136,21 @@ class FeedFetchService(
             .apply {
                 fragment = ""
                 host = host.lowercase().trimEnd('.')
-                encodedPathSegments = encodedPathSegments.map { it.decodeUnreserved() }
+                encodedPathSegments = encodedPathSegments.map { it.normalizePercentEncoding() }
             }
             .buildString()
 
     /**
-     * 予約文字でない文字の `%XX` だけを元に戻す。
+     * 予約文字でない文字の `%XX` を元に戻し、残った `%XX` は大文字に揃える。
      *
-     * 予約文字は書き方で意味が変わる（`%2F` はパスの区切りではない）ので触らない。
-     * 多バイト文字の `%XX` は 0x80 以上で予約文字でもないため、ここには入らない
+     * 予約文字は書き方で意味が変わる（`%2F` はパスの区切りではない）ので戻さない。
+     * ただし `%2F` と `%2f` は同じ文字を指すので、綴りだけ揃える。
+     * 多バイト文字の `%XX` は 0x80 以上で予約文字でもないため、戻す方には入らない
      */
-    private fun String.decodeUnreserved(): String =
+    private fun String.normalizePercentEncoding(): String =
         PERCENT_ENCODED.replace(this) { match ->
             val decoded = match.value.substring(1).toInt(16).toChar()
-            if (decoded.isUnreserved()) decoded.toString() else match.value
+            if (decoded.isUnreserved()) decoded.toString() else match.value.uppercase()
         }
 
     private fun Char.isUnreserved(): Boolean =
