@@ -30,7 +30,7 @@ import org.w3c.dom.events.KeyboardEvent
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
 @Composable
-actual fun HtmlInputField(
+internal actual fun HtmlInputField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
@@ -137,7 +137,7 @@ actual fun HtmlInputField(
 }
 
 @Composable
-actual fun HiddenHtmlForm(
+internal actual fun HiddenHtmlForm(
     formId: String,
     onSubmit: () -> Unit,
     enabled: Boolean,

@@ -5,7 +5,7 @@ package net.matsudamper.mastodon.rss.frontend.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
-enum class HtmlInputType(val value: String) {
+internal enum class HtmlInputType(val value: String) {
     Text("text"),
     Password("password"),
     Email("email"),
@@ -21,7 +21,7 @@ enum class HtmlInputType(val value: String) {
  * ブラウザに任せる。Android では [androidx.compose.material3.OutlinedTextField] を使う。
  */
 @Composable
-expect fun HtmlInputField(
+internal expect fun HtmlInputField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
@@ -42,7 +42,7 @@ expect fun HtmlInputField(
  * Web 以外では何もしない。[HtmlInputField] の `formId` と同じ id を渡す。
  */
 @Composable
-expect fun HiddenHtmlForm(
+internal expect fun HiddenHtmlForm(
     formId: String,
     onSubmit: () -> Unit,
     enabled: Boolean,
