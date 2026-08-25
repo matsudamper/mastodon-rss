@@ -37,11 +37,9 @@ class FeedServiceTest {
             assertEquals("サンプル", success.feed.title)
             assertEquals("RSS 2.0", success.feed.format)
             assertEquals(true, success.feed.initialImportDone)
-            assertEquals(0, success.postedCount)
-            assertEquals(2, success.skippedCount)
             assertEquals(success.feed, repositories.feeds.findByAccountId(account.id))
             assertEquals(
-                listOf(FeedItemState.SKIPPED, FeedItemState.SKIPPED),
+                listOf(FeedItemState.PENDING, FeedItemState.PENDING),
                 repositories.feedItems.items().map { it.state },
             )
         }
@@ -213,37 +211,37 @@ class FeedServiceTest {
         }
 
     @Test
-    fun `登録時に投稿しないと選ぶと記事は SKIPPED になる`() =
-        runTest {
-            val repositories = FakeRepositories()
-            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(repositories)
-
-            val result = service.save(accountId = account.id, url = FEED_URL, postExistingItems = false)
-
-            val success = assertIs<FeedService.SaveResult.Success>(result)
-            assertEquals(0, success.postedCount)
-            assertEquals(2, success.skippedCount)
-            assertEquals(true, success.feed.initialImportDone)
-            assertEquals(
-                listOf(FeedItemState.SKIPPED, FeedItemState.SKIPPED),
-                repositories.feedItems.items().map { it.state },
-            )
-        }
-
-    @Test
-    fun `登録時に既存記事も投稿すると notes に残る`() =
+    fun `登録した記事は未投稿のまま残る`() =
         runTest {
             val repositories = FakeRepositories()
             val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(repositories, noteStore = noteStore)
 
-            val result = service.save(accountId = account.id, url = FEED_URL, postExistingItems = true)
+            val result = service.save(accountId = account.id, url = FEED_URL)
 
             val success = assertIs<FeedService.SaveResult.Success>(result)
+            assertEquals(true, success.feed.initialImportDone)
+            assertEquals(
+                listOf(FeedItemState.PENDING, FeedItemState.PENDING),
+                repositories.feedItems.items().map { it.state },
+            )
+            assertEquals(0, noteStore.added.size)
+        }
+
+    @Test
+    fun `未投稿の記事を投稿すると notes に残る`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = noteStore)
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val result = service.postUnpublished(account.id)
+
+            val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
             assertEquals(2, success.postedCount)
-            assertEquals(0, success.skippedCount)
             assertEquals(
                 listOf(FeedItemState.POSTED, FeedItemState.POSTED),
                 repositories.feedItems.items().map { it.state },
@@ -267,6 +265,21 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `未投稿の記事を取得できる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val result = service.unpublishedItems(account.id)
+
+            val success = assertIs<FeedService.UnpublishedResult.Success>(result)
+            assertEquals(listOf("1 本目", "2 本目"), success.items.map { it.title })
+            assertEquals(listOf("https://example.com/1", "https://example.com/2"), success.items.map { it.link })
+        }
+
+    @Test
     fun `相対リンクはフィード URL を基準に絶対化して投稿する`() =
         runTest {
             val repositories = FakeRepositories()
@@ -277,12 +290,12 @@ class FeedServiceTest {
                 xml = RELATIVE_LINK_XML,
                 noteStore = noteStore,
             )
+            service.save(accountId = account.id, url = FEED_URL)
 
-            val result = service.save(accountId = account.id, url = FEED_URL, postExistingItems = true)
+            val result = service.postUnpublished(account.id)
 
-            val success = assertIs<FeedService.SaveResult.Success>(result)
+            val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
             assertEquals(1, success.postedCount)
-            assertEquals(0, success.skippedCount)
             assertEquals(
                 listOf("https://example.com/posts/1"),
                 noteStore.added.map { html ->
@@ -292,7 +305,7 @@ class FeedServiceTest {
         }
 
     @Test
-    fun `題名もリンクも無い記事は投稿するを選んでも SKIPPED になる`() =
+    fun `題名もリンクも無い記事は未投稿に入らない`() =
         runTest {
             val repositories = FakeRepositories()
             val noteStore = FakeNoteStore()
@@ -302,12 +315,15 @@ class FeedServiceTest {
                 xml = EMPTY_ITEM_XML,
                 noteStore = noteStore,
             )
+            service.save(accountId = account.id, url = FEED_URL)
 
-            val result = service.save(accountId = account.id, url = FEED_URL, postExistingItems = true)
+            val unpublished = assertIs<FeedService.UnpublishedResult.Success>(service.unpublishedItems(account.id))
+            assertEquals(listOf("1 本目"), unpublished.items.map { it.title })
 
-            val success = assertIs<FeedService.SaveResult.Success>(result)
+            val result = service.postUnpublished(account.id)
+
+            val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
             assertEquals(1, success.postedCount)
-            assertEquals(1, success.skippedCount)
             assertEquals(
                 listOf(FeedItemState.SKIPPED, FeedItemState.POSTED),
                 repositories.feedItems.items().map { it.state },
@@ -322,12 +338,12 @@ class FeedServiceTest {
             val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
             val service = serviceOf(repositories, noteStore = noteStore)
+            service.save(accountId = account.id, url = FEED_URL)
 
-            val result = service.save(accountId = account.id, url = FEED_URL, postExistingItems = true)
+            val result = service.postUnpublished(account.id)
 
-            val success = assertIs<FeedService.SaveResult.Success>(result)
+            val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
             assertEquals(0, success.postedCount)
-            assertEquals(0, success.skippedCount)
             assertEquals(
                 listOf(FeedItemState.PENDING, FeedItemState.PENDING),
                 repositories.feedItems.items().map { it.state },

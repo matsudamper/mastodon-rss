@@ -41,9 +41,8 @@ class FeedService(
     suspend fun save(
         accountId: AccountId,
         url: String,
-        postExistingItems: Boolean = false,
     ): SaveResult {
-        val account = accounts.findById(accountId)
+        accounts.findById(accountId)
             ?: return SaveResult.Failure(SaveFailure.UNKNOWN_ACCOUNT)
 
         if (feeds.findByAccountId(accountId) != null) {
@@ -72,19 +71,13 @@ class FeedService(
                         SaveFailure.DUPLICATE_URL
                     },
                 )
-                val imported = importExistingItems(
+                importExistingItems(
                     feed = feed,
                     items = fetched.parsed.items,
-                    postExistingItems = postExistingItems,
-                    username = account.username,
                 )
                 feeds.markInitialImportDone(feed.id)
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)
-                SaveResult.Success(
-                    feed = saved,
-                    postedCount = imported.postedCount,
-                    skippedCount = imported.skippedCount,
-                )
+                SaveResult.Success(feed = saved)
             }
 
             FeedFetchService.FetchResult.InvalidUrl -> SaveResult.Failure(SaveFailure.INVALID_URL)
@@ -98,6 +91,44 @@ class FeedService(
     }
 
     fun findByAccountId(accountId: AccountId): Feed? = feeds.findByAccountId(accountId)
+
+    fun unpublishedItems(accountId: AccountId): UnpublishedResult {
+        accounts.findById(accountId)
+            ?: return UnpublishedResult.Failure(UnpublishedFailure.UNKNOWN_ACCOUNT)
+        val feed = feeds.findByAccountId(accountId)
+            ?: return UnpublishedResult.Failure(UnpublishedFailure.NO_FEED)
+        val items = feedItems.findPending(feed.id, Int.MAX_VALUE).map { item ->
+            UnpublishedItem(
+                title = item.title,
+                link = item.link,
+                publishedAt = item.publishedAt,
+            )
+        }
+        return UnpublishedResult.Success(items = items)
+    }
+
+    suspend fun postUnpublished(accountId: AccountId): PostUnpublishedResult {
+        val account = accounts.findById(accountId)
+            ?: return PostUnpublishedResult.Failure(PostUnpublishedFailure.UNKNOWN_ACCOUNT)
+        val feed = feeds.findByAccountId(accountId)
+            ?: return PostUnpublishedResult.Failure(PostUnpublishedFailure.NO_FEED)
+        val sender = actorDirectory.resolve(account.username)
+            ?: return PostUnpublishedResult.Success(postedCount = 0)
+        var postedCount = 0
+        feedItems.findPending(feed.id, Int.MAX_VALUE).forEach { stored ->
+            val html = stored.contentHtml ?: return@forEach
+            try {
+                notePublisher.publish(sender = sender, contentHtml = html)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                return@forEach
+            }
+            feedItems.markPosted(stored.id, Instant.now())
+            postedCount += 1
+        }
+        return PostUnpublishedResult.Success(postedCount = postedCount)
+    }
 
     data class FeedPreview(
         val title: String?,
@@ -133,8 +164,6 @@ class FeedService(
     sealed interface SaveResult {
         data class Success(
             val feed: Feed,
-            val postedCount: Int = 0,
-            val skippedCount: Int = 0,
         ) : SaveResult
 
         data class Failure(
@@ -149,6 +178,42 @@ class FeedService(
         INVALID_URL,
         FETCH_FAILED,
         PARSE_FAILED,
+    }
+
+    data class UnpublishedItem(
+        val title: String?,
+        val link: String?,
+        val publishedAt: Instant?,
+    )
+
+    sealed interface UnpublishedResult {
+        data class Success(
+            val items: List<UnpublishedItem>,
+        ) : UnpublishedResult
+
+        data class Failure(
+            val reason: UnpublishedFailure,
+        ) : UnpublishedResult
+    }
+
+    enum class UnpublishedFailure {
+        UNKNOWN_ACCOUNT,
+        NO_FEED,
+    }
+
+    sealed interface PostUnpublishedResult {
+        data class Success(
+            val postedCount: Int,
+        ) : PostUnpublishedResult
+
+        data class Failure(
+            val reason: PostUnpublishedFailure,
+        ) : PostUnpublishedResult
+    }
+
+    enum class PostUnpublishedFailure {
+        UNKNOWN_ACCOUNT,
+        NO_FEED,
     }
 
     private fun FeedFetchService.FetchResult.Success.toPreview(): FeedPreview {
@@ -173,29 +238,13 @@ class FeedService(
         return FeedText.truncate(normalized, DESCRIPTION_LIMIT)
     }
 
-    private data class ImportedCounts(
-        val postedCount: Int,
-        val skippedCount: Int,
-    )
-
-    private suspend fun importExistingItems(
+    private fun importExistingItems(
         feed: Feed,
         items: List<ParsedFeedItem>,
-        postExistingItems: Boolean,
-        username: String,
-    ): ImportedCounts {
+    ) {
         val now = Instant.now()
-        var skippedCount = 0
         items.forEach { item ->
             val contentHtml = composeItemHtml(item, feed.url)
-            val state = when {
-                contentHtml == null -> FeedItemState.SKIPPED
-                !postExistingItems -> FeedItemState.SKIPPED
-                else -> FeedItemState.PENDING
-            }
-            if (state == FeedItemState.SKIPPED) {
-                skippedCount += 1
-            }
             feedItems.add(
                 NewFeedItem(
                     feedId = feed.id,
@@ -205,29 +254,10 @@ class FeedService(
                     contentHtml = contentHtml,
                     publishedAt = item.publishedAt ?: item.updatedAt,
                     importedAt = now,
-                    state = state,
+                    state = if (contentHtml == null) FeedItemState.SKIPPED else FeedItemState.PENDING,
                 ),
             )
         }
-        if (!postExistingItems) {
-            return ImportedCounts(postedCount = 0, skippedCount = skippedCount)
-        }
-        val sender = actorDirectory.resolve(username)
-            ?: return ImportedCounts(postedCount = 0, skippedCount = skippedCount)
-        var postedCount = 0
-        feedItems.findPending(feed.id, Int.MAX_VALUE).forEach { stored ->
-            val html = stored.contentHtml ?: return@forEach
-            try {
-                notePublisher.publish(sender = sender, contentHtml = html)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                return@forEach
-            }
-            feedItems.markPosted(stored.id, Instant.now())
-            postedCount += 1
-        }
-        return ImportedCounts(postedCount = postedCount, skippedCount = skippedCount)
     }
 
     private fun composeItemHtml(
