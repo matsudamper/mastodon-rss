@@ -196,6 +196,8 @@ class AccountScreenViewModel(
                         acct = account.account.acct,
                         actorUrl = account.account.actorUrl,
                         host = host,
+                        displayName = account.account.displayName,
+                        summary = account.account.summary,
                     ),
                     notes = state.notes.map { it.toUiState() },
                     notesError = state.notesError,

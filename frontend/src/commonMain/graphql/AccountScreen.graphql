@@ -4,6 +4,8 @@ query AccountScreen($username: String!, $query: AccountNotesQuery!) {
         username
         acct
         actorUrl
+        displayName
+        summary
     }
     notes(query: $query) {
         nodes {

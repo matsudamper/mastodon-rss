@@ -12,6 +12,13 @@ CREATE TABLE accounts (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE account_profiles (
+    -- accounts に無い組み込みアカウントも含め、応答するアカウント名で引く
+    username TEXT COLLATE NOCASE NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    summary TEXT NOT NULL
+);
+
 CREATE TABLE followers (
     -- 1 行が「username のアカウントを remote_actor_id がフォローしている」ことを表す
     id INTEGER PRIMARY KEY AUTOINCREMENT,

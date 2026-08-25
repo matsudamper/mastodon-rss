@@ -59,13 +59,15 @@ data class AccountUiState(
             acct: String,
             actorUrl: String,
             host: String,
+            displayName: String = username,
+            summary: String = "RSS/Atom フィードを ActivityPub で配信するアカウント",
         ): AccountUiState {
             return AccountUiState(
                 username = username,
                 acct = acct,
                 actorUrl = actorUrl,
-                displayName = username,
-                summary = "RSS/Atom フィードを ActivityPub で配信するアカウント",
+                displayName = displayName,
+                summary = summary,
                 followers = "128",
                 deliveredCount = "342",
                 lastDeliveredAt = "2026-08-09 11:02",

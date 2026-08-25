@@ -7,4 +7,13 @@ type Account {
     acct: String!
 
     actorUrl: String!
+
+    "プロフィールに出す表示名"
+    displayName: String! @lazy
+
+    "プロフィールに出す説明文"
+    summary: String! @lazy
+
+    "DB に保存されたプロフィールがある"
+    profileStored: Boolean! @lazy
 }

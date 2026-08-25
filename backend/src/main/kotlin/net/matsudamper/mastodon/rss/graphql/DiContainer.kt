@@ -9,6 +9,7 @@ import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
+import net.matsudamper.mastodon.rss.repository.AccountProfileRepository
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
@@ -16,6 +17,7 @@ import net.matsudamper.mastodon.rss.repository.FollowerRepository
 class DiContainer(
     passwordHash: PasswordHash?,
     accountRepository: AccountRepository,
+    accountProfileRepository: AccountProfileRepository,
     followerRepository: FollowerRepository,
     feedRepository: FeedRepository,
     feedFetcher: FeedFetchService,
@@ -28,6 +30,7 @@ class DiContainer(
 
     val accountService: AccountService = AccountService(
         accounts = accountRepository,
+        accountProfiles = accountProfileRepository,
         followers = followerRepository,
         domain = domain,
     )

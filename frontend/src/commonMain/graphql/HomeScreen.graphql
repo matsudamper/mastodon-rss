@@ -5,6 +5,8 @@ query HomeScreen($cursor: String, $limit: Int!) {
             username
             acct
             actorUrl
+            displayName
+            summary
         }
         pageInfo {
             hasMore

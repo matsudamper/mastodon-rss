@@ -408,6 +408,57 @@ class AdminGraphQlTest {
             assertEquals(setOf("message"), errors.single().jsonObject.keys)
         }
 
+    @Test
+    fun `プロフィールを更新できる`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount(TestServerEnv.USERNAME, token)
+
+            val result = mutateUpdateAccountProfile(
+                username = TestServerEnv.USERNAME,
+                displayName = "運用者",
+                summary = "お知らせ用アカウント",
+                token = token,
+            ).updateAccountProfileResult()
+
+            val adminAccount = assertNotNull(result.getValue("adminAccount").jsonObject)
+            val account = adminAccount.obj("account")
+            assertEquals("運用者", account.string("displayName"))
+            assertEquals("お知らせ用アカウント", account.string("summary"))
+        }
+
+    @Test
+    fun `表示名が空なら更新できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount(TestServerEnv.USERNAME, token)
+
+            val failure = mutateUpdateAccountProfile(
+                username = TestServerEnv.USERNAME,
+                displayName = "   ",
+                summary = "説明",
+                token = token,
+            ).updateAccountProfileResult().failure()
+
+            assertTrue(failure.boolean("emptyDisplayName"))
+        }
+
+    @Test
+    fun `ログインしていなければプロフィールを更新できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            val errors = mutateUpdateAccountProfile(
+                username = TestServerEnv.USERNAME,
+                displayName = "運用者",
+                summary = "説明",
+            ).body().getValue("errors").jsonArray
+
+            assertEquals(1, errors.size)
+        }
+
     // スキーマに無いものが通ってしまうと、結線の漏れに気付けない
     @Test
     fun `スキーマに無いフィールドは errors になる`() =
@@ -484,6 +535,22 @@ class AdminGraphQlTest {
             variables = """{"username":${JsonPrimitive(username)}}""",
         )
 
+    private suspend fun ApplicationTestBuilder.mutateUpdateAccountProfile(
+        username: String,
+        displayName: String,
+        summary: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation Update(${'$'}username: String!, ${'$'}displayName: String!, ${'$'}summary: String!) { admin { " +
+                "updateAccountProfile(username: ${'$'}username, displayName: ${'$'}displayName, summary: ${'$'}summary) { " +
+                "adminAccount { $ACCOUNT_FIELDS } failure { unknownAccount emptyDisplayName displayNameMaxLength summaryMaxLength } } } }",
+            token = token,
+            variables =
+            """{"username":${JsonPrimitive(username)},"displayName":${JsonPrimitive(displayName)},"summary":${JsonPrimitive(summary)}}""",
+        )
+
     private suspend fun ApplicationTestBuilder.queryPreviewFeed(
         url: String,
         token: String? = null,
@@ -532,7 +599,8 @@ class AdminGraphQlTest {
 
         const val FEED_FIELDS = "id url title siteUrl format createdAt"
 
-        const val ACCOUNT_FIELDS = "account { id username acct actorUrl } createdAt feed { $FEED_FIELDS }"
+        const val ACCOUNT_FIELDS =
+            "account { id username acct actorUrl displayName summary profileStored } createdAt feed { $FEED_FIELDS }"
 
         /**
          * 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ
@@ -553,6 +621,8 @@ class AdminGraphQlTest {
         suspend fun HttpResponse.accounts(): List<JsonElement> = admin().getValue("adminAccounts").jsonArray
 
         suspend fun HttpResponse.addAccountResult(): JsonObject = admin().obj("addAccount")
+
+        suspend fun HttpResponse.updateAccountProfileResult(): JsonObject = admin().obj("updateAccountProfile")
 
         fun JsonObject.failure(): JsonObject = obj("failure")
 

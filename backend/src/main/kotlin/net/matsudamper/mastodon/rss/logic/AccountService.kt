@@ -5,6 +5,7 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountId
+import net.matsudamper.mastodon.rss.repository.AccountProfileRepository
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
@@ -13,6 +14,7 @@ import net.matsudamper.mastodon.rss.repository.FollowerRepository
  */
 class AccountService(
     private val accounts: AccountRepository,
+    private val accountProfiles: AccountProfileRepository,
     private val followers: FollowerRepository,
     private val domain: String,
 ) {
@@ -89,6 +91,89 @@ class AccountService(
         return AddAccountResult.Success(added.toManaged())
     }
 
+    /**
+     * 表示名と説明文を返す。アカウントが無ければ null
+     */
+    fun profile(username: String): ResolvedProfile? {
+        val managed = account(username) ?: return null
+        val stored = accountProfiles.findByUsername(managed.urls.username)
+
+        return ResolvedProfile(
+            displayName = AccountProfileDefaults.displayName(managed.urls.username, stored),
+            summary = AccountProfileDefaults.summary(stored),
+            stored = stored != null,
+        )
+    }
+
+    /**
+     * 複数アカウントのプロフィールをまとめて返す。存在しない名前は含めない
+     */
+    fun profiles(usernames: Set<String>): Map<String, ResolvedProfile> {
+        val managed = accountsByUsernames(usernames)
+        if (managed.isEmpty()) return emptyMap()
+
+        val stored = accountProfiles.findByUsernames(managed.keys)
+
+        return managed.mapValues { (username, account) ->
+            ResolvedProfile(
+                displayName = AccountProfileDefaults.displayName(account.urls.username, stored[username]),
+                summary = AccountProfileDefaults.summary(stored[username]),
+                stored = stored[username] != null,
+            )
+        }
+    }
+
+    fun updateProfile(
+        username: String,
+        displayName: String,
+        summary: String,
+    ): UpdateProfileResult {
+        val managed = account(username) ?: return UpdateProfileResult.Failure(
+            unknownAccount = true,
+            emptyDisplayName = false,
+            displayNameTooLong = false,
+            summaryTooLong = false,
+        )
+
+        val trimmedDisplayName = displayName.trim()
+        val trimmedSummary = summary.trim()
+
+        if (trimmedDisplayName.isEmpty()) {
+            return UpdateProfileResult.Failure(
+                unknownAccount = false,
+                emptyDisplayName = true,
+                displayNameTooLong = false,
+                summaryTooLong = false,
+            )
+        }
+
+        if (trimmedDisplayName.length > AccountProfileDefaults.DISPLAY_NAME_MAX_LENGTH) {
+            return UpdateProfileResult.Failure(
+                unknownAccount = false,
+                emptyDisplayName = false,
+                displayNameTooLong = true,
+                summaryTooLong = false,
+            )
+        }
+
+        if (trimmedSummary.length > AccountProfileDefaults.SUMMARY_MAX_LENGTH) {
+            return UpdateProfileResult.Failure(
+                unknownAccount = false,
+                emptyDisplayName = false,
+                displayNameTooLong = false,
+                summaryTooLong = true,
+            )
+        }
+
+        accountProfiles.upsert(
+            username = managed.urls.username,
+            displayName = trimmedDisplayName,
+            summary = trimmedSummary,
+        )
+
+        return UpdateProfileResult.Success(managed)
+    }
+
     private fun Account.toManaged(): ManagedAccount = ManagedAccount(
         urls = ActorUrls(domain = domain, username = username),
         accountId = id,
@@ -109,6 +194,25 @@ class AccountService(
         val hasMore: Boolean,
         val nextUsername: String?,
     )
+
+    data class ResolvedProfile(
+        val displayName: String,
+        val summary: String,
+        val stored: Boolean,
+    )
+
+    sealed interface UpdateProfileResult {
+        data class Success(
+            val account: ManagedAccount,
+        ) : UpdateProfileResult
+
+        data class Failure(
+            val unknownAccount: Boolean,
+            val emptyDisplayName: Boolean,
+            val displayNameTooLong: Boolean,
+            val summaryTooLong: Boolean,
+        ) : UpdateProfileResult
+    }
 
     sealed interface AddAccountResult {
         data class Success(

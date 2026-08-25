@@ -28,6 +28,8 @@ class AccountApi(
                 username = account.username,
                 acct = account.acct,
                 actorUrl = account.actorUrl,
+                displayName = account.displayName,
+                summary = account.summary,
             )
         }
 
@@ -65,6 +67,8 @@ class AccountApi(
                 username = account.username,
                 acct = account.acct,
                 actorUrl = account.actorUrl,
+                displayName = account.displayName,
+                summary = account.summary,
             ),
             notes = notes.nodes.map { it.accountNoteFields.toAccountNote() },
             notesCursor = notes.pageInfo.nextCursor,

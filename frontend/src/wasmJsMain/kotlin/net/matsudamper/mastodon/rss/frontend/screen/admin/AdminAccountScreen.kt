@@ -4,7 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -15,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -104,6 +109,9 @@ private fun AdminAccountScreen(
             is AdminAccountScreenUiState.Content.Loaded -> {
                 AccountCard(account = content.account, onNavigate = onNavigate)
                 FeedCard(feed = content.feed, listener = uiState.listener, wide = wide)
+                content.profile?.let { profile ->
+                    ProfileCard(profile = profile, listener = uiState.listener)
+                }
                 PostCard(post = content.post, listener = uiState.listener)
                 NotesCard(content = content, listener = uiState.listener)
             }
@@ -182,7 +190,6 @@ private fun FeedCard(
         is AdminAccountScreenUiState.Feed.Input -> {
             SectionCard(title = "RSS フィード") {
                 if (wide) {
-                    // 入力欄とプレビューを見比べられる幅がある時だけ横に並べる
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -222,10 +229,34 @@ private fun FeedInputPanel(
         OutlinedTextField(
             value = feed.url,
             onValueChange = { listener.onFeedUrlChanged(it) },
-            enabled = !feed.fetching && !feed.saving,
+            enabled = feed.canEditProfile,
             modifier = Modifier.fillMaxWidth(),
             label = { Text("フィード URL") },
             singleLine = true,
+        )
+
+        Text(
+            text = "プロフィール",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        OutlinedTextField(
+            value = feed.displayName,
+            onValueChange = { listener.onFeedProfileDisplayNameChanged(it) },
+            enabled = feed.canEditProfile,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("表示名") },
+            singleLine = true,
+        )
+
+        OutlinedTextField(
+            value = feed.summary,
+            onValueChange = { listener.onFeedProfileSummaryChanged(it) },
+            enabled = feed.canEditProfile,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("説明文") },
+            minLines = 3,
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -258,6 +289,42 @@ private fun FeedInputPanel(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
             )
+        }
+
+        feed.overwriteConfirm?.let { confirm ->
+            ProfileOverwriteConfirmCard(confirm = confirm, listener = listener)
+        }
+    }
+}
+
+@Composable
+private fun ProfileOverwriteConfirmCard(
+    confirm: AdminAccountScreenUiState.ProfileOverwriteConfirm,
+    listener: AdminAccountScreenUiState.Listener,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "プロフィールを上書きするか確認する",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        Text(text = "現在", style = MaterialTheme.typography.bodySmall)
+        Text(text = confirm.beforeDisplayName, style = MaterialTheme.typography.bodyMedium)
+        Text(text = confirm.beforeSummary, style = MaterialTheme.typography.bodyMedium)
+
+        Text(text = "変更後", style = MaterialTheme.typography.bodySmall)
+        Text(text = confirm.afterDisplayName, style = MaterialTheme.typography.bodyMedium)
+        Text(text = confirm.afterSummary, style = MaterialTheme.typography.bodyMedium)
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = { listener.onClickConfirmProfileOverwrite() }) {
+                Text("上書きする")
+            }
+
+            OutlinedButton(onClick = { listener.onClickSkipProfileOverwrite() }) {
+                Text("プロフィールはそのまま")
+            }
         }
     }
 }
@@ -329,6 +396,89 @@ private fun FeedPreviewPanel(
 }
 
 @Composable
+private fun ProfileCard(
+    profile: AdminAccountScreenUiState.Profile,
+    listener: AdminAccountScreenUiState.Listener,
+) {
+    SectionCard(title = "プロフィール") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "表示名と説明文",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+
+            if (!profile.editing) {
+                IconButton(onClick = { listener.onClickEditProfile() }) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "編集",
+                    )
+                }
+            }
+        }
+
+        if (profile.editing) {
+            OutlinedTextField(
+                value = profile.editDisplayName,
+                onValueChange = { listener.onProfileDisplayNameChanged(it) },
+                enabled = !profile.saving,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("表示名") },
+                singleLine = true,
+            )
+
+            OutlinedTextField(
+                value = profile.editSummary,
+                onValueChange = { listener.onProfileSummaryChanged(it) },
+                enabled = !profile.saving,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("説明文") },
+                minLines = 3,
+            )
+
+            if (profile.error != null) {
+                Text(
+                    text = profile.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = { listener.onClickSaveProfile() },
+                    enabled = profile.canSave,
+                ) {
+                    Text(if (profile.saving) "保存中" else "保存")
+                }
+
+                OutlinedButton(
+                    onClick = { listener.onClickCancelProfileEdit() },
+                    enabled = !profile.saving,
+                ) {
+                    Text("キャンセル")
+                }
+            }
+        } else {
+            Text(
+                text = profile.displayName,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Text(
+                text = profile.summary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+}
+
+@Composable
 private fun PostCard(
     post: AdminAccountScreenUiState.Post,
     listener: AdminAccountScreenUiState.Listener,
@@ -373,7 +523,6 @@ private fun PostCard(
                     text = "投稿した。宛先 ${result.targets} 件のうち ${result.delivered} 件に届いた。",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                // 外部リンクを開く口がまだ無いので URL は文字として出す
                 Text(
                     text = result.url,
                     style = MaterialTheme.typography.bodySmall,

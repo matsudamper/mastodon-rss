@@ -20,6 +20,7 @@ import net.matsudamper.mastodon.rss.json.respondJson
 fun Route.actorRoutes(
     directory: ActorDirectory,
     actorKey: ActorKey,
+    profile: (String) -> ActorProfile,
 ) {
     get("/users/{username}") {
         val requested = call.parameters["username"]
@@ -32,7 +33,7 @@ fun Route.actorRoutes(
 
         call.respondJson(
             serializer = Actor.serializer(),
-            value = actorDocument(urls, actorKey),
+            value = actorDocument(urls, actorKey, profile(urls.username)),
             // Accept を見ずに application/json で返すとアクターとして認識されない
             contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
         )
@@ -48,12 +49,13 @@ fun Route.actorRoutes(
 internal fun actorDocument(
     urls: ActorUrls,
     actorKey: ActorKey,
+    profile: ActorProfile,
 ): Actor =
     Actor(
         id = urls.actorId,
         preferredUsername = urls.username,
-        name = urls.username,
-        summary = SUMMARY,
+        name = profile.name,
+        summary = profile.summary,
         inbox = urls.inbox,
         outbox = urls.outbox,
         followers = urls.followers,
@@ -66,5 +68,3 @@ internal fun actorDocument(
             publicKeyPem = actorKey.publicKeyPem,
         ),
     )
-
-private const val SUMMARY = "RSS/Atom フィードを ActivityPub で配信するアカウント"

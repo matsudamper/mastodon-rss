@@ -20,6 +20,8 @@ import net.matsudamper.mastodon.rss.repository.sqlite.SqliteRepositories
 interface Repositories : AutoCloseable {
     val accounts: AccountRepository
 
+    val accountProfiles: AccountProfileRepository
+
     val followers: FollowerRepository
 
     val notes: NoteRepository

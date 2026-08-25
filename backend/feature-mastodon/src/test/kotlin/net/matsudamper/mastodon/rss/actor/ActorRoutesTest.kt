@@ -16,14 +16,19 @@ import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.activitypub.Actor
+import net.matsudamper.mastodon.rss.actor.ActorProfile
 import net.matsudamper.mastodon.rss.json.AppJson
 
 // アカウント発見の 2 ホップ目。Mastodon はここの JSON からプロフィールと公開鍵を作る。
 class ActorRoutesTest {
-    private fun ApplicationTestBuilder.installModule() {
+    private fun ApplicationTestBuilder.installModule(
+        profile: (String) -> ActorProfile = { username ->
+            ActorProfile(name = username, summary = DEFAULT_SUMMARY)
+        },
+    ) {
         application {
             routing {
-                actorRoutes(TestLocalActor.directory, TestActorKey.value)
+                actorRoutes(TestLocalActor.directory, TestActorKey.value, profile)
             }
         }
     }
@@ -122,4 +127,21 @@ class ActorRoutesTest {
             // 鍵はまだアクターごとに持っていない
             assertEquals(TestActorKey.value.publicKeyPem, actor.publicKey.publicKeyPem)
         }
+
+    @Test
+    fun `保存されたプロフィールが Actor JSON に入る`() =
+        testApplication {
+            installModule { _ ->
+                ActorProfile(name = "表示名", summary = "説明文")
+            }
+
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
+
+            assertEquals("表示名", actor.name)
+            assertEquals("説明文", actor.summary)
+        }
+
+    private companion object {
+        const val DEFAULT_SUMMARY = "RSS/Atom フィードを ActivityPub で配信するアカウント"
+    }
 }
