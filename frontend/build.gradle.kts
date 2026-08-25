@@ -32,6 +32,8 @@ kotlin {
                 implementation(libs.apollo.runtime)
                 implementation(libs.apollo.normalized.cache)
                 implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.ui)
             }
         }
 
