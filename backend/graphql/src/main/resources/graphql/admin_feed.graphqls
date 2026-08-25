@@ -31,16 +31,10 @@ enum AdminFeedPreviewFailureReason {
 input SaveFeedQuery {
     accountId: AccountId!
     url: String!
-    "true なら取得時点の記事も投稿する"
-    postExistingItems: Boolean! = false
 }
 
 type AdminSaveFeedResult {
     feed: Feed
-    "投稿できた件数。選ばなければ 0"
-    postedCount: Int
-    "投稿しなかった件数"
-    skippedCount: Int
     failure: AdminSaveFeedFailure
 }
 
@@ -55,4 +49,49 @@ enum AdminSaveFeedFailureReason {
     INVALID_URL
     FETCH_FAILED
     PARSE_FAILED
+}
+
+input UnpublishedFeedItemsQuery {
+    "未投稿を返す対象のアカウント"
+    accountId: AccountId!
+}
+
+type AdminUnpublishedFeedItem {
+    title: String
+    link: String
+    publishedAt: UnixTime
+}
+
+type AdminUnpublishedFeedItemsResult {
+    items: [AdminUnpublishedFeedItem!]
+    failure: AdminUnpublishedFeedItemsFailure
+}
+
+type AdminUnpublishedFeedItemsFailure {
+    reason: AdminUnpublishedFeedItemsFailureReason!
+}
+
+enum AdminUnpublishedFeedItemsFailureReason {
+    UNKNOWN_ACCOUNT
+    NO_FEED
+}
+
+input PostFeedItemsQuery {
+    "未投稿を投稿する対象のアカウント"
+    accountId: AccountId!
+}
+
+type AdminPostFeedItemsResult {
+    "投稿できた件数"
+    postedCount: Int
+    failure: AdminPostFeedItemsFailure
+}
+
+type AdminPostFeedItemsFailure {
+    reason: AdminPostFeedItemsFailureReason!
+}
+
+enum AdminPostFeedItemsFailureReason {
+    UNKNOWN_ACCOUNT
+    NO_FEED
 }

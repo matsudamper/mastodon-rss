@@ -12,6 +12,9 @@ type AdminQuery {
 
     "RSS フィードを取得してパース結果を返す。"
     previewFeed(url: String!): AdminFeedPreviewResult! @lazy
+
+    "未投稿の記事を返す"
+    unpublishedFeedItems(query: UnpublishedFeedItemsQuery!): AdminUnpublishedFeedItemsResult! @lazy
 }
 
 type AdminNotesConnection {

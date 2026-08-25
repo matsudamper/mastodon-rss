@@ -275,7 +275,7 @@ class AdminGraphQlTest {
         }
 
     @Test
-    fun `saveFeed の既定では既存記事を投稿しない`() =
+    fun `saveFeed は既存記事を投稿しない`() =
         testApplication {
             val repositories = FakeRepositories()
             applicationWith(
@@ -296,13 +296,11 @@ class AdminGraphQlTest {
             val result = mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token).admin().obj("saveFeed")
 
             assertEquals(JsonNull, result.getValue("failure"))
-            assertEquals(0, result.getValue("postedCount").jsonPrimitive.int)
-            assertEquals(2, result.getValue("skippedCount").jsonPrimitive.int)
             assertEquals(0, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
         }
 
     @Test
-    fun `postExistingItems が true なら既存記事を投稿する`() =
+    fun `unpublishedFeedItems は未投稿の記事を返す`() =
         testApplication {
             val repositories = FakeRepositories()
             applicationWith(
@@ -319,17 +317,43 @@ class AdminGraphQlTest {
                 .getValue("id")
                 .jsonPrimitive
                 .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
 
-            val result = mutateSaveFeed(
-                accountId = accountId,
-                url = FEED_URL,
-                token = token,
-                postExistingItems = true,
-            ).admin().obj("saveFeed")
+            val result = queryUnpublishedFeedItems(accountId = accountId, token = token)
+                .admin()
+                .obj("unpublishedFeedItems")
+
+            assertEquals(JsonNull, result.getValue("failure"))
+            assertEquals(
+                listOf("1 本目", "2 本目"),
+                result.getValue("items").jsonArray.map { it.jsonObject.string("title") },
+            )
+        }
+
+    @Test
+    fun `postFeedItems は未投稿の記事を投稿する`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(
+                passwordConfigured = true,
+                repositories = repositories,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+
+            val result = mutatePostFeedItems(accountId = accountId, token = token).admin().obj("postFeedItems")
 
             assertEquals(JsonNull, result.getValue("failure"))
             assertEquals(2, result.getValue("postedCount").jsonPrimitive.int)
-            assertEquals(0, result.getValue("skippedCount").jsonPrimitive.int)
             assertEquals(2, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
         }
 
@@ -573,16 +597,40 @@ class AdminGraphQlTest {
         accountId: Long,
         url: String,
         token: String? = null,
-        postExistingItems: Boolean = false,
     ): HttpResponse =
         graphQl(
             query =
-            "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!, ${'$'}postExistingItems: Boolean!) { admin { " +
-                "saveFeed(saveFeedQuery: { accountId: ${'$'}accountId, url: ${'$'}url, postExistingItems: ${'$'}postExistingItems }) { " +
-                "feed { $FEED_FIELDS } postedCount skippedCount failure { reason } } } }",
+            "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!) { admin { " +
+                "saveFeed(saveFeedQuery: { accountId: ${'$'}accountId, url: ${'$'}url }) { " +
+                "feed { $FEED_FIELDS } failure { reason } } } }",
             token = token,
             variables =
-            """{"accountId":${JsonPrimitive(accountId)},"url":${JsonPrimitive(url)},"postExistingItems":$postExistingItems}""",
+            """{"accountId":${JsonPrimitive(accountId)},"url":${JsonPrimitive(url)}}""",
+        )
+
+    private suspend fun ApplicationTestBuilder.queryUnpublishedFeedItems(
+        accountId: Long,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "query Unpublished(${'$'}accountId: AccountId!) { admin { " +
+                "unpublishedFeedItems(query: { accountId: ${'$'}accountId }) { " +
+                "items { title link } failure { reason } } } }",
+            token = token,
+            variables = """{"accountId":${JsonPrimitive(accountId)}}""",
+        )
+
+    private suspend fun ApplicationTestBuilder.mutatePostFeedItems(
+        accountId: Long,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation PostItems(${'$'}accountId: AccountId!) { admin { " +
+                "postFeedItems(query: { accountId: ${'$'}accountId }) { postedCount failure { reason } } } }",
+            token = token,
+            variables = """{"accountId":${JsonPrimitive(accountId)}}""",
         )
 
     private suspend fun ApplicationTestBuilder.graphQl(
