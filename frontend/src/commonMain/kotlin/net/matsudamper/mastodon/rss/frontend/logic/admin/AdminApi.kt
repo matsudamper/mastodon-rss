@@ -11,17 +11,23 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostFeedItemsMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnpublishedFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminPostFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailureReason
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminUnpublishedFeedItemsFailureReason
+import net.matsudamper.mastodon.rss.frontend.graphql.type.PostFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.type.UnpublishedFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 
@@ -158,14 +164,12 @@ class AdminApi(
     suspend fun saveFeed(
         accountId: Long,
         url: String,
-        postExistingItems: Boolean,
     ): AdminSaveFeedResult {
         val response = client.mutation(
             AdminSaveFeedMutation(
                 saveFeedQuery = SaveFeedQuery(
                     accountId = accountId,
                     url = url,
-                    postExistingItems = Optional.present(postExistingItems),
                 ),
             ),
         ).execute()
@@ -182,13 +186,55 @@ class AdminApi(
                     siteUrl = feed.siteUrl,
                     format = feed.format,
                 ),
-                postedCount = result.postedCount ?: 0,
-                skippedCount = result.skippedCount ?: 0,
             )
         }
 
         return AdminSaveFeedResult.Rejected(
             reason = result.failure?.reason?.toSaveFailure() ?: AdminSaveFeedResult.SaveFailure.UNKNOWN,
+        )
+    }
+
+    suspend fun unpublishedFeedItems(accountId: Long): AdminUnpublishedFeedItemsResult {
+        val response = client.query(
+            AdminUnpublishedFeedItemsQuery(
+                query = UnpublishedFeedItemsQuery(accountId = accountId),
+            ),
+        ).execute()
+        val result = response.data?.admin?.unpublishedFeedItems
+            ?: return AdminUnpublishedFeedItemsResult.Failure(response.failureMessage())
+        val items = result.items
+        if (items != null) {
+            return AdminUnpublishedFeedItemsResult.Success(
+                items = items.map { item ->
+                    AdminUnpublishedFeedItem(
+                        title = item.title,
+                        link = item.link,
+                        publishedAt = item.publishedAt,
+                    )
+                },
+            )
+        }
+        return AdminUnpublishedFeedItemsResult.Rejected(
+            reason = result.failure?.reason?.toUnpublishedFailure()
+                ?: AdminUnpublishedFeedItemsResult.FailureReason.UNKNOWN,
+        )
+    }
+
+    suspend fun postFeedItems(accountId: Long): AdminPostFeedItemsResult {
+        val response = client.mutation(
+            AdminPostFeedItemsMutation(
+                query = PostFeedItemsQuery(accountId = accountId),
+            ),
+        ).execute()
+        val result = response.data?.admin?.postFeedItems
+            ?: return AdminPostFeedItemsResult.Failure(response.failureMessage())
+        val postedCount = result.postedCount
+        if (postedCount != null) {
+            return AdminPostFeedItemsResult.Success(postedCount = postedCount)
+        }
+        return AdminPostFeedItemsResult.Rejected(
+            reason = result.failure?.reason?.toPostFeedItemsFailure()
+                ?: AdminPostFeedItemsResult.FailureReason.UNKNOWN,
         )
     }
 
@@ -259,6 +305,30 @@ class AdminApi(
             AdminSaveFeedFailureReason.FETCH_FAILED -> AdminSaveFeedResult.SaveFailure.FETCH_FAILED
             AdminSaveFeedFailureReason.PARSE_FAILED -> AdminSaveFeedResult.SaveFailure.PARSE_FAILED
             AdminSaveFeedFailureReason.UNKNOWN__ -> AdminSaveFeedResult.SaveFailure.UNKNOWN
+        }
+
+    private fun AdminUnpublishedFeedItemsFailureReason.toUnpublishedFailure(): AdminUnpublishedFeedItemsResult.FailureReason =
+        when (this) {
+            AdminUnpublishedFeedItemsFailureReason.UNKNOWN_ACCOUNT ->
+                AdminUnpublishedFeedItemsResult.FailureReason.UNKNOWN_ACCOUNT
+
+            AdminUnpublishedFeedItemsFailureReason.NO_FEED ->
+                AdminUnpublishedFeedItemsResult.FailureReason.NO_FEED
+
+            AdminUnpublishedFeedItemsFailureReason.UNKNOWN__ ->
+                AdminUnpublishedFeedItemsResult.FailureReason.UNKNOWN
+        }
+
+    private fun AdminPostFeedItemsFailureReason.toPostFeedItemsFailure(): AdminPostFeedItemsResult.FailureReason =
+        when (this) {
+            AdminPostFeedItemsFailureReason.UNKNOWN_ACCOUNT ->
+                AdminPostFeedItemsResult.FailureReason.UNKNOWN_ACCOUNT
+
+            AdminPostFeedItemsFailureReason.NO_FEED ->
+                AdminPostFeedItemsResult.FailureReason.NO_FEED
+
+            AdminPostFeedItemsFailureReason.UNKNOWN__ ->
+                AdminPostFeedItemsResult.FailureReason.UNKNOWN
         }
 
     private fun AdminNoteFields.toAdminNote(): AdminNote = AdminNote(

@@ -72,8 +72,32 @@ mutation AdminSaveFeed($saveFeedQuery: SaveFeedQuery!) {
                 siteUrl
                 format
             }
+            failure {
+                reason
+            }
+        }
+    }
+}
+
+query AdminUnpublishedFeedItems($query: UnpublishedFeedItemsQuery!) {
+    admin {
+        unpublishedFeedItems(query: $query) {
+            items {
+                title
+                link
+                publishedAt
+            }
+            failure {
+                reason
+            }
+        }
+    }
+}
+
+mutation AdminPostFeedItems($query: PostFeedItemsQuery!) {
+    admin {
+        postFeedItems(query: $query) {
             postedCount
-            skippedCount
             failure {
                 reason
             }

@@ -175,6 +175,32 @@ private fun FeedCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    if (feed.unpublishedItems.isNotEmpty()) {
+                        Text(
+                            text = "未投稿の記事が ${feed.unpublishedItems.size} 件ある。",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        feed.unpublishedItems.take(5).forEach { item ->
+                            Text(
+                                text = item.title ?: item.link.orEmpty(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Button(
+                            onClick = { listener.onClickPostUnpublished() },
+                            enabled = !feed.postingUnpublished,
+                        ) {
+                            Text(if (feed.postingUnpublished) "投稿中" else "未投稿を投稿する")
+                        }
+                    }
+                    if (feed.unpublishedError != null) {
+                        Text(
+                            text = feed.unpublishedError,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
         }
@@ -215,7 +241,7 @@ private fun FeedInputPanel(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            text = "RSS/Atom の URL を入れて取得する。記事があれば、まとめて投稿するか選んで登録する。",
+            text = "RSS/Atom の URL を入れて取得し、登録する。",
             style = MaterialTheme.typography.bodyMedium,
         )
 
@@ -239,40 +265,19 @@ private fun FeedInputPanel(
 
         val preview = feed.preview
         if (preview != null) {
-            if (preview.itemCount > 0) {
-                Text(
-                    text = "このフィードには記事が ${preview.itemCount} 件ある。登録時にまとめて投稿できる。",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { listener.onClickSaveFeed(postExistingItems = false) },
-                        enabled = feed.canSave,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(if (feed.saving) "登録中" else "投稿せずに登録")
-                    }
-                    Button(
-                        onClick = { listener.onClickSaveFeed(postExistingItems = true) },
-                        enabled = feed.canSave,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            if (feed.saving) {
-                                "登録中"
-                            } else {
-                                "既存の ${preview.itemCount} 件も投稿して登録"
-                            },
-                        )
-                    }
-                }
-            } else {
-                Button(
-                    onClick = { listener.onClickSaveFeed(postExistingItems = false) },
-                    enabled = feed.canSave,
-                ) {
-                    Text(if (feed.saving) "登録中" else "登録する")
-                }
+            Text(
+                text = if (preview.itemCount > 0) {
+                    "このフィードには記事が ${preview.itemCount} 件ある。"
+                } else {
+                    "このフィードには記事が無い。"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = { listener.onClickSaveFeed() },
+                enabled = feed.canSave,
+            ) {
+                Text(if (feed.saving) "登録中" else "登録する")
             }
         }
 

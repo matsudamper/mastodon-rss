@@ -17,9 +17,12 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItem
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItemsResult
 
 class AdminAccountScreenViewModel(
     private val username: String,
@@ -34,6 +37,8 @@ class AdminAccountScreenViewModel(
     private var postJob: Job? = null
     private var fetchFeedJob: Job? = null
     private var saveFeedJob: Job? = null
+    private var unpublishedJob: Job? = null
+    private var postUnpublishedJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
         MutableStateFlow(
@@ -56,8 +61,12 @@ class AdminAccountScreenViewModel(
                         fetchFeed()
                     }
 
-                    override fun onClickSaveFeed(postExistingItems: Boolean) {
-                        saveFeed(postExistingItems)
+                    override fun onClickSaveFeed() {
+                        saveFeed()
+                    }
+
+                    override fun onClickPostUnpublished() {
+                        postUnpublished()
                     }
 
                     override fun onBodyChanged(text: String) {
@@ -98,6 +107,8 @@ class AdminAccountScreenViewModel(
         postJob?.cancel()
         fetchFeedJob?.cancel()
         saveFeedJob?.cancel()
+        unpublishedJob?.cancel()
+        postUnpublishedJob?.cancel()
         cancelNotesJobs()
 
         viewModelStateFlow.update {
@@ -118,6 +129,9 @@ class AdminAccountScreenViewModel(
 
             if (account is AdminAccountResult.Success && account.account != null) {
                 loadNotes()
+                if (account.account.feed != null) {
+                    loadUnpublished(account.account.account.id)
+                }
             }
         }
     }
@@ -179,7 +193,7 @@ class AdminAccountScreenViewModel(
         }
     }
 
-    private fun saveFeed(postExistingItems: Boolean) {
+    private fun saveFeed() {
         val state = viewModelStateFlow.value
         val loaded = state.loadedAccount ?: return
         val accountId = loaded.account.id
@@ -193,7 +207,7 @@ class AdminAccountScreenViewModel(
 
         saveFeedJob = viewModelScope.launch {
             try {
-                when (val result = api.saveFeed(accountId = accountId, url = url, postExistingItems = postExistingItems)) {
+                when (val result = api.saveFeed(accountId = accountId, url = url)) {
                     is AdminSaveFeedResult.Success -> {
                         viewModelStateFlow.update { state ->
                             state.copy(
@@ -204,9 +218,7 @@ class AdminAccountScreenViewModel(
                                 feedSaveError = null,
                             )
                         }
-                        if (result.postedCount > 0) {
-                            loadNotes()
-                        }
+                        loadUnpublished(accountId)
                     }
 
                     is AdminSaveFeedResult.Rejected -> {
@@ -230,6 +242,86 @@ class AdminAccountScreenViewModel(
             } finally {
                 if (!isActive) {
                     viewModelStateFlow.update { it.copy(feedSaving = false) }
+                }
+            }
+        }
+    }
+
+    private fun loadUnpublished(accountId: Long) {
+        unpublishedJob?.cancel()
+        viewModelStateFlow.update { it.copy(unpublishedError = null) }
+
+        unpublishedJob = viewModelScope.launch {
+            when (val result = api.unpublishedFeedItems(accountId)) {
+                is AdminUnpublishedFeedItemsResult.Success -> {
+                    viewModelStateFlow.update {
+                        it.copy(
+                            unpublishedItems = result.items,
+                            unpublishedError = null,
+                        )
+                    }
+                }
+
+                is AdminUnpublishedFeedItemsResult.Rejected -> {
+                    viewModelStateFlow.update {
+                        it.copy(
+                            unpublishedItems = emptyList(),
+                            unpublishedError = result.reason.toMessage(),
+                        )
+                    }
+                }
+
+                is AdminUnpublishedFeedItemsResult.Failure -> {
+                    viewModelStateFlow.update {
+                        it.copy(
+                            unpublishedItems = emptyList(),
+                            unpublishedError = result.message,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun postUnpublished() {
+        val accountId = viewModelStateFlow.value.loadedAccount?.account?.id ?: return
+        if (viewModelStateFlow.value.postingUnpublished) return
+
+        postUnpublishedJob?.cancel()
+        viewModelStateFlow.update { it.copy(postingUnpublished = true, unpublishedError = null) }
+
+        postUnpublishedJob = viewModelScope.launch {
+            try {
+                when (val result = api.postFeedItems(accountId)) {
+                    is AdminPostFeedItemsResult.Success -> {
+                        viewModelStateFlow.update { it.copy(postingUnpublished = false) }
+                        loadUnpublished(accountId)
+                        if (result.postedCount > 0) {
+                            loadNotes()
+                        }
+                    }
+
+                    is AdminPostFeedItemsResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                postingUnpublished = false,
+                                unpublishedError = result.reason.toMessage(),
+                            )
+                        }
+                    }
+
+                    is AdminPostFeedItemsResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                postingUnpublished = false,
+                                unpublishedError = result.message,
+                            )
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(postingUnpublished = false) }
                 }
             }
         }
@@ -431,6 +523,27 @@ class AdminAccountScreenViewModel(
             AdminSaveFeedResult.SaveFailure.UNKNOWN -> "保存できなかった"
         }
 
+    private fun AdminUnpublishedFeedItemsResult.FailureReason.toMessage(): String =
+        when (this) {
+            AdminUnpublishedFeedItemsResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
+            AdminUnpublishedFeedItemsResult.FailureReason.NO_FEED -> "フィードが登録されていない"
+            AdminUnpublishedFeedItemsResult.FailureReason.UNKNOWN -> "未投稿を取得できなかった"
+        }
+
+    private fun AdminPostFeedItemsResult.FailureReason.toMessage(): String =
+        when (this) {
+            AdminPostFeedItemsResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
+            AdminPostFeedItemsResult.FailureReason.NO_FEED -> "フィードが登録されていない"
+            AdminPostFeedItemsResult.FailureReason.UNKNOWN -> "未投稿を投稿できなかった"
+        }
+
+    private fun AdminUnpublishedFeedItem.toUiState(): AdminAccountScreenUiState.UnpublishedItem =
+        AdminAccountScreenUiState.UnpublishedItem(
+            title = title,
+            link = link,
+            publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
+        )
+
     private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {
         val feed = account.feed
         return when {
@@ -438,6 +551,9 @@ class AdminAccountScreenViewModel(
                 url = feed.url,
                 title = feed.title,
                 format = feed.format,
+                unpublishedItems = unpublishedItems.map { it.toUiState() },
+                postingUnpublished = postingUnpublished,
+                unpublishedError = unpublishedError,
             )
 
             else -> {
@@ -504,6 +620,9 @@ class AdminAccountScreenViewModel(
         val feedPreviewError: String? = null,
         val feedSaving: Boolean = false,
         val feedSaveError: String? = null,
+        val unpublishedItems: List<AdminUnpublishedFeedItem> = emptyList(),
+        val postingUnpublished: Boolean = false,
+        val unpublishedError: String? = null,
     ) {
         val loadedAccount: AdminAccount? get() = (account as? AdminAccountResult.Success)?.account
 

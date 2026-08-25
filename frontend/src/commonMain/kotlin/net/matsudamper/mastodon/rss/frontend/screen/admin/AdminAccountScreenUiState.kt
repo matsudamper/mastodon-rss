@@ -62,6 +62,9 @@ data class AdminAccountScreenUiState(
             val url: String,
             val title: String?,
             val format: String?,
+            val unpublishedItems: List<UnpublishedItem>,
+            val postingUnpublished: Boolean,
+            val unpublishedError: String?,
         ) : Feed
 
         /**
@@ -80,6 +83,12 @@ data class AdminAccountScreenUiState(
             val saveError: String?,
         ) : Feed
     }
+
+    data class UnpublishedItem(
+        val title: String?,
+        val link: String?,
+        val publishedAt: String?,
+    )
 
     data class FeedPreview(
         val title: String?,
@@ -131,7 +140,9 @@ data class AdminAccountScreenUiState(
 
         fun onClickFetchFeed()
 
-        fun onClickSaveFeed(postExistingItems: Boolean)
+        fun onClickSaveFeed()
+
+        fun onClickPostUnpublished()
 
         fun onBodyChanged(text: String)
 
