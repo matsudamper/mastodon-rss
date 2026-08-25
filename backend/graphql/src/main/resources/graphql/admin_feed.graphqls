@@ -31,7 +31,7 @@ enum AdminFeedPreviewFailureReason {
 input SaveFeedQuery {
     accountId: AccountId!
     url: String!
-    "true なら、取得時点の記事も投稿する"
+    "true なら取得時点の記事も投稿する"
     postExistingItems: Boolean! = false
 }
 

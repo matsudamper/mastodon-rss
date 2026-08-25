@@ -11,7 +11,7 @@ type AdminMutation {
     "アカウントとして投稿し、フォロワーに配る"
     postNote(username: String!, body: String!): AdminPostNoteResult! @lazy
 
-    "RSS フィードを登録する。postExistingItems が true なら、取得時点の記事も投稿する"
+    "RSS フィードを登録する"
     saveFeed(saveFeedQuery: SaveFeedQuery!): AdminSaveFeedResult! @lazy
 }
 
