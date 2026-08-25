@@ -62,9 +62,9 @@ query AdminPreviewFeed($url: String!) {
     }
 }
 
-mutation AdminSaveFeed($accountId: AccountId!, $url: String!, $postExistingItems: Boolean!) {
+mutation AdminSaveFeed($saveFeedQuery: SaveFeedQuery!) {
     admin {
-        saveFeed(accountId: $accountId, url: $url, postExistingItems: $postExistingItems) {
+        saveFeed(saveFeedQuery: $saveFeedQuery) {
             feed {
                 id
                 url

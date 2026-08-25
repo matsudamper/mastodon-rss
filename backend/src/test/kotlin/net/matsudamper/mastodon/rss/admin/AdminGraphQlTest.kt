@@ -266,7 +266,7 @@ class AdminGraphQlTest {
             val response = graphQl(
                 query =
                 "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!) { admin { " +
-                    "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url) { failure { reason } } } }",
+                    "saveFeed(saveFeedQuery: { accountId: ${'$'}accountId, url: ${'$'}url }) { failure { reason } } } }",
                 token = token,
                 variables = """{"accountId":1.9,"url":"https://example.com/feed.xml"}""",
             )
@@ -578,7 +578,7 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!, ${'$'}postExistingItems: Boolean!) { admin { " +
-                "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url, postExistingItems: ${'$'}postExistingItems) { " +
+                "saveFeed(saveFeedQuery: { accountId: ${'$'}accountId, url: ${'$'}url, postExistingItems: ${'$'}postExistingItems }) { " +
                 "feed { $FEED_FIELDS } postedCount skippedCount failure { reason } } } }",
             token = token,
             variables =

@@ -21,6 +21,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailureReason
+import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 
@@ -161,9 +162,11 @@ class AdminApi(
     ): AdminSaveFeedResult {
         val response = client.mutation(
             AdminSaveFeedMutation(
-                accountId = accountId,
-                url = url,
-                postExistingItems = postExistingItems,
+                saveFeedQuery = SaveFeedQuery(
+                    accountId = accountId,
+                    url = url,
+                    postExistingItems = Optional.present(postExistingItems),
+                ),
             ),
         ).execute()
         val result = response.data?.admin?.saveFeed

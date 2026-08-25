@@ -28,6 +28,13 @@ enum AdminFeedPreviewFailureReason {
     PARSE_FAILED
 }
 
+input SaveFeedQuery {
+    accountId: AccountId!
+    url: String!
+    "true なら、取得時点の記事も投稿する"
+    postExistingItems: Boolean! = false
+}
+
 type AdminSaveFeedResult {
     feed: Feed
     "投稿できた件数。選ばなければ 0"

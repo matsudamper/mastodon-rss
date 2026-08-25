@@ -22,12 +22,12 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.graphql.model.QlSaveFeedQuery
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteService
 import net.matsudamper.mastodon.rss.repository.AccountId
-import net.matsudamper.mastodon.rss.shared.AccountId as GraphQlAccountId
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminMutationResolverImpl : AdminMutationResolver {
@@ -164,9 +164,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
     override fun saveFeed(
         adminMutation: QlAdminMutation,
-        accountId: GraphQlAccountId,
-        url: String,
-        postExistingItems: Boolean,
+        saveFeedQuery: QlSaveFeedQuery,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminSaveFeedResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
@@ -175,9 +173,9 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val result = diContainer.feedService.save(
-                accountId = AccountId(accountId.value),
-                url = url,
-                postExistingItems = postExistingItems,
+                accountId = AccountId(saveFeedQuery.accountId.value),
+                url = saveFeedQuery.url,
+                postExistingItems = saveFeedQuery.postExistingItems,
             ).toGraphqlResponse()
             DataFetcherResult.Builder(result).build()
         }

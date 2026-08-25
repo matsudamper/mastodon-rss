@@ -12,7 +12,7 @@ type AdminMutation {
     postNote(username: String!, body: String!): AdminPostNoteResult! @lazy
 
     "RSS フィードを登録する。postExistingItems が true なら、取得時点の記事も投稿する"
-    saveFeed(accountId: AccountId!, url: String!, postExistingItems: Boolean! = false): AdminSaveFeedResult! @lazy
+    saveFeed(saveFeedQuery: SaveFeedQuery!): AdminSaveFeedResult! @lazy
 }
 
 type AdminPostNoteResult {
