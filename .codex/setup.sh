@@ -12,8 +12,6 @@ EOF
   exit 1
 fi
 
-# 通常の JDK と GraalVM は foojay-resolver が必要な版を用意する。
-# CI の全ジョブに相当するタスクを一度に実行し、依存関係とツールチェインもキャッシュする。
-./gradlew \
-  :frontend:wasmJsBrowserDevelopmentExecutableDistribution \
-  :backend:nativeTestBuild
+# 変更後も再利用できるコンパイル結果と依存関係をキャッシュする。
+# バンドルと native-image は生成に時間がかかる一方、ソース変更後は再利用しにくいので作らない。
+./gradlew compileAll
