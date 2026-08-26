@@ -275,17 +275,21 @@ private fun ProfileHeader(
                     )
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
                     Text(
                         text = state.displayName,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        SelectionContainer {
+                        SelectionContainer(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = state.acct,
                                 style = MaterialTheme.typography.bodyMedium,
