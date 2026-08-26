@@ -74,6 +74,7 @@ class FeedService(
                 importExistingItems(
                     feed = feed,
                     items = fetched.parsed.items,
+                    feedUrl = fetched.feedUrl,
                 )
                 feeds.markInitialImportDone(feed.id)
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)
@@ -233,6 +234,7 @@ class FeedService(
                 importExistingItems(
                     feed = feed,
                     items = fetched.parsed.items,
+                    feedUrl = fetched.feedUrl,
                 )
                 ImportLatestResult.Success
             }
@@ -282,10 +284,11 @@ class FeedService(
     private fun importExistingItems(
         feed: Feed,
         items: List<ParsedFeedItem>,
+        feedUrl: String,
     ) {
         val now = Instant.now()
         items.forEach { item ->
-            val contentHtml = composeItemHtml(item, feed.url)
+            val contentHtml = composeItemHtml(item, feedUrl)
             feedItems.add(
                 NewFeedItem(
                     feedId = feed.id,

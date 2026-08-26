@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runTest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.respondRedirect
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import net.matsudamper.mastodon.rss.FakeFollowerStore
@@ -395,6 +396,48 @@ class FeedServiceTest {
             assertEquals(0, noteStore.added.size)
         }
 
+    @Test
+    fun `最新取得の最終 URL を基準に相対リンクを絶対化する`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            var firstFetch = true
+            val engine = MockEngine { request ->
+                when {
+                    firstFetch -> {
+                        firstFetch = false
+                        respond(
+                            content = FEED_XML,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", "application/rss+xml"),
+                        )
+                    }
+
+                    request.url.host == "example.com" -> respondRedirect(REDIRECTED_FEED_URL)
+
+                    else -> respond(
+                        content = REDIRECTED_RELATIVE_LINK_XML,
+                        status = HttpStatusCode.OK,
+                        headers = headersOf("Content-Type", "application/rss+xml"),
+                    )
+                }
+            }
+            val service = serviceOf(repositories, noteStore = noteStore, engine = engine)
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val result = service.postUnpublished(account.id)
+
+            val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
+            assertEquals(
+                listOf("https://example.com/1", "https://example.com/2", "https://cdn.example.net/posts/3"),
+                noteStore.added.map { html ->
+                    Regex("""href="([^"]+)"""").find(html.contentHtml)?.groupValues?.get(1)
+                },
+            )
+            assertEquals(listOf("1 本目", "2 本目", "3 本目"), success.items.map { it.title })
+        }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         status: HttpStatusCode = HttpStatusCode.OK,
@@ -403,24 +446,27 @@ class FeedServiceTest {
         statuses: List<HttpStatusCode>? = null,
         noteStore: FakeNoteStore = FakeNoteStore(),
         actorDirectory: ActorDirectory = TestLocalActor.directory,
+        engine: MockEngine? = null,
     ): FeedService {
-        val bodies = ArrayDeque(xmls ?: listOf(xml))
-        val codes = ArrayDeque(statuses ?: listOf(status))
-        val engine = MockEngine {
-            val code = if (codes.size > 1) codes.removeFirst() else codes.first()
-            val body = if (bodies.size > 1) bodies.removeFirst() else bodies.first()
-            respond(
-                content = if (code == HttpStatusCode.OK) body else "",
-                status = code,
-                headers = headersOf("Content-Type", "application/rss+xml"),
-            )
+        val mockEngine = engine ?: run {
+            val bodies = ArrayDeque(xmls ?: listOf(xml))
+            val codes = ArrayDeque(statuses ?: listOf(status))
+            MockEngine {
+                val code = if (codes.size > 1) codes.removeFirst() else codes.first()
+                val body = if (bodies.size > 1) bodies.removeFirst() else bodies.first()
+                respond(
+                    content = if (code == HttpStatusCode.OK) body else "",
+                    status = code,
+                    headers = headersOf("Content-Type", "application/rss+xml"),
+                )
+            }
         }
 
         return FeedService(
             accounts = repositories.accounts,
             feeds = repositories.feeds,
             feedItems = repositories.feedItems,
-            fetcher = FeedFetchService(HttpClient(engine)),
+            fetcher = FeedFetchService(HttpClient(mockEngine)),
             actorDirectory = actorDirectory,
             notePublisher = NotePublisher(
                 notes = noteStore,
@@ -433,6 +479,7 @@ class FeedServiceTest {
     private companion object {
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03Z")
         const val FEED_URL = "https://example.com/feed.xml"
+        const val REDIRECTED_FEED_URL = "https://cdn.example.net/rss/feed.xml"
         val FEED_XML = """
             <?xml version="1.0" encoding="UTF-8"?>
             <rss version="2.0">
@@ -476,6 +523,18 @@ class FeedServiceTest {
                 <link>https://example.com/</link>
                 <item></item>
                 <item><title>1 本目</title><link>https://example.com/1</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val REDIRECTED_RELATIVE_LINK_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://cdn.example.net/</link>
+                <item><title>1 本目</title><link>https://example.com/1</link></item>
+                <item><title>2 本目</title><link>https://example.com/2</link></item>
+                <item><title>3 本目</title><link>/posts/3</link></item>
               </channel>
             </rss>
         """.trimIndent()
