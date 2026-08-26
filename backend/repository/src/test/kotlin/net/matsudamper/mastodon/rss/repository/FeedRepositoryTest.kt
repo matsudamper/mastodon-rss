@@ -133,6 +133,36 @@ class FeedRepositoryTest {
     }
 
     @Test
+    fun `findDue は登録時の取り込みが済んでいないものを返さない`() {
+        withRepositories { repositories ->
+            val importing = repositories.addFeed(
+                username = "feed1",
+                url = "https://example.com/1.xml",
+                initialImportDone = false,
+            )
+            val done = repositories.addFeed(username = "feed2", url = "https://example.com/2.xml")
+
+            val found = repositories.feeds.findDue(now = CREATED_AT, limit = 10)
+
+            assertEquals(listOf(done.id), found.map { it.id })
+
+            repositories.feeds.markInitialImportDone(importing.id)
+
+            assertEquals(2, repositories.feeds.findDue(now = CREATED_AT, limit = 10).size)
+        }
+    }
+
+    @Test
+    fun `findDue は取り込みが済んでいないものに枠を取られない`() {
+        withRepositories { repositories ->
+            repositories.addFeed(username = "feed1", url = "https://example.com/1.xml", initialImportDone = false)
+            val done = repositories.addFeed(username = "feed2", url = "https://example.com/2.xml")
+
+            assertEquals(listOf(done.id), repositories.feeds.findDue(now = CREATED_AT, limit = 1).map { it.id })
+        }
+    }
+
+    @Test
     fun `findDue は limit で件数を抑える`() {
         withRepositories { repositories ->
             repositories.addFeed(username = "feed1", url = "https://example.com/1.xml")
@@ -171,12 +201,17 @@ class FeedRepositoryTest {
         }
     }
 
+    /**
+     * @param initialImportDone 登録時の取り込みが済んだことにするか。
+     *   `findDue` はここが済んでいるものだけを返す
+     */
     private fun Repositories.addFeed(
         username: String,
         url: String,
+        initialImportDone: Boolean = true,
     ): Feed {
         val account = assertNotNull(accounts.add(username = username, createdAt = CREATED_AT))
-        return assertNotNull(
+        val feed = assertNotNull(
             feeds.add(
                 NewFeed(
                     accountId = account.id,
@@ -188,6 +223,10 @@ class FeedRepositoryTest {
                 ),
             ),
         )
+        if (initialImportDone) {
+            feeds.markInitialImportDone(feed.id)
+        }
+        return feed
     }
 
     private fun withRepositories(block: (Repositories) -> Unit) {

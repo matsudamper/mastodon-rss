@@ -144,12 +144,7 @@ class FeedService(
     suspend fun pollDue(
         now: Instant,
         limit: Int,
-    ): List<PollResult> = feeds
-        .findDue(now = now, limit = limit)
-        // 登録の途中のフィードは飛ばす。登録時の取り込みが終わる前に取りに行くと、
-        // 既存記事をこちらが先に保存してしまい、新着として投稿する
-        .filter { it.initialImportDone }
-        .map { feed -> poll(feed, now) }
+    ): List<PollResult> = feeds.findDue(now = now, limit = limit).map { feed -> poll(feed, now) }
 
     data class PollResult(
         val feedId: FeedId,

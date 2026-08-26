@@ -55,7 +55,7 @@ internal class SqliteFeedRepository(
             .selectFrom(FEEDS)
             .fetch()
             .map { it.toFeed() }
-            .filter { it.isDue(now) }
+            .filter { it.initialImportDone && it.isDue(now) }
             .sortedBy { it.fetch.lastFetchedAt ?: Instant.MIN }
             .take(limit)
     }
