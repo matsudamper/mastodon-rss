@@ -6,3 +6,5 @@ scalar NoteId
 scalar AccountId
 
 scalar FeedId
+
+scalar FeedItemId

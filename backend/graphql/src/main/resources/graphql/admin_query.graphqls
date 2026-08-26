@@ -15,6 +15,9 @@ type AdminQuery {
 
     "未投稿の記事を返す"
     unpublishedFeedItems(query: UnpublishedFeedItemsQuery!): AdminUnpublishedFeedItemsResult! @lazy
+
+    "取り込んだ記事。新しい順"
+    feedItems(query: FeedItemsQuery!): AdminFeedItemsResult! @lazy
 }
 
 type AdminNotesConnection {

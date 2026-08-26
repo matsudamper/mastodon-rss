@@ -282,6 +282,86 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `取り込んだ記事を新しい順に少しずつ取得できる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val first = assertIs<FeedService.ItemsResult.Success>(
+                service.items(accountId = account.id, after = null, limit = 1),
+            )
+
+            assertEquals(listOf("2 本目"), first.items.map { it.title })
+            assertEquals(true, first.hasMore)
+
+            val second = assertIs<FeedService.ItemsResult.Success>(
+                service.items(accountId = account.id, after = assertNotNull(first.nextPosition), limit = 1),
+            )
+
+            assertEquals(listOf("1 本目"), second.items.map { it.title })
+            assertEquals(false, second.hasMore)
+            assertEquals(null, second.nextPosition)
+        }
+
+    @Test
+    fun `フィードが無ければ記事を取得できない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+
+            val result = service.items(accountId = account.id, after = null, limit = 10)
+
+            assertEquals(FeedService.ItemsFailure.NO_FEED, assertIs<FeedService.ItemsResult.Failure>(result).reason)
+        }
+
+    @Test
+    fun `記事を消すと未投稿として取り込み直される`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = noteStore)
+            service.save(accountId = account.id, url = FEED_URL)
+            service.postUnpublished(account.id)
+            val posted = repositories.feedItems.items().first { it.title == "1 本目" }
+
+            val deleted = service.deleteItem(accountId = account.id, feedItemId = posted.id)
+
+            assertEquals(posted.id, assertIs<FeedService.DeleteItemResult.Success>(deleted).deletedId)
+
+            val result = service.postUnpublished(account.id)
+
+            assertEquals(
+                listOf("1 本目"),
+                assertIs<FeedService.PostUnpublishedResult.Success>(result).items.map { it.title },
+            )
+            assertEquals(3, noteStore.added.size)
+        }
+
+    @Test
+    fun `他のアカウントのフィードの記事は消せない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val owner = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val other = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = owner.id, url = FEED_URL)
+            service.save(accountId = other.id, url = "https://example.com/other.xml")
+            val item = repositories.feedItems.items().first { it.feedId == assertNotNull(repositories.feeds.findByAccountId(owner.id)).id }
+
+            val result = service.deleteItem(accountId = other.id, feedItemId = item.id)
+
+            assertEquals(
+                FeedService.DeleteItemFailure.NOT_FOUND,
+                assertIs<FeedService.DeleteItemResult.Failure>(result).reason,
+            )
+            assertNotNull(repositories.feedItems.items().firstOrNull { it.id == item.id })
+        }
+
+    @Test
     fun `相対リンクはフィード URL を基準に絶対化して投稿する`() =
         runTest {
             val repositories = FakeRepositories()

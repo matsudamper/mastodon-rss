@@ -1,5 +1,12 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemFailureReason
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItem
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItemState
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItemsFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreview
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailureReason
@@ -18,7 +25,10 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnpublishedFeedItemsRes
 import net.matsudamper.mastodon.rss.graphql.model.QlFeed
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedItem
+import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.shared.FeedId
+import net.matsudamper.mastodon.rss.shared.FeedItemId
 
 internal fun Feed.toGraphqlResponse(): QlFeed = QlFeed(
     id = FeedId(id.value),
@@ -157,5 +167,57 @@ internal fun FeedService.PostUnpublishedFailure.toGraphqlResponse(): QlAdminPost
 
             FeedService.PostUnpublishedFailure.PARSE_FAILED ->
                 QlAdminPostFeedItemsFailureReason.PARSE_FAILED
+        },
+    )
+
+internal fun FeedItem.toGraphqlResponse(): QlAdminFeedItem = QlAdminFeedItem(
+    id = FeedItemId(id.value),
+    title = title,
+    link = link,
+    publishedAt = publishedAt?.epochSecond,
+    importedAt = importedAt.epochSecond,
+    state = state.toGraphqlResponse(),
+    postedAt = postedAt?.epochSecond,
+)
+
+internal fun FeedItemState.toGraphqlResponse(): QlAdminFeedItemState =
+    when (this) {
+        FeedItemState.PENDING -> QlAdminFeedItemState.PENDING
+        FeedItemState.POSTED -> QlAdminFeedItemState.POSTED
+        FeedItemState.SKIPPED -> QlAdminFeedItemState.SKIPPED
+    }
+
+internal fun FeedService.ItemsFailure.toGraphqlResponse(): QlAdminFeedItemsFailure =
+    QlAdminFeedItemsFailure(
+        reason = when (this) {
+            FeedService.ItemsFailure.UNKNOWN_ACCOUNT -> QlAdminFeedItemsFailureReason.UNKNOWN_ACCOUNT
+            FeedService.ItemsFailure.NO_FEED -> QlAdminFeedItemsFailureReason.NO_FEED
+        },
+    )
+
+internal fun FeedService.DeleteItemResult.toGraphqlResponse(): QlAdminDeleteFeedItemResult =
+    when (this) {
+        is FeedService.DeleteItemResult.Success -> QlAdminDeleteFeedItemResult(
+            deletedId = FeedItemId(deletedId.value),
+            failure = null,
+        )
+
+        is FeedService.DeleteItemResult.Failure -> QlAdminDeleteFeedItemResult(
+            deletedId = null,
+            failure = reason.toGraphqlResponse(),
+        )
+    }
+
+internal fun FeedService.DeleteItemFailure.toGraphqlResponse(): QlAdminDeleteFeedItemFailure =
+    QlAdminDeleteFeedItemFailure(
+        reason = when (this) {
+            FeedService.DeleteItemFailure.UNKNOWN_ACCOUNT ->
+                QlAdminDeleteFeedItemFailureReason.UNKNOWN_ACCOUNT
+
+            FeedService.DeleteItemFailure.NO_FEED ->
+                QlAdminDeleteFeedItemFailureReason.NO_FEED
+
+            FeedService.DeleteItemFailure.NOT_FOUND ->
+                QlAdminDeleteFeedItemFailureReason.NOT_FOUND
         },
     )

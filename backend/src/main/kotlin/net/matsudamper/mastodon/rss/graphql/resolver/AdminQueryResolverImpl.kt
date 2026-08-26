@@ -9,16 +9,21 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.data.FeedItemsCursor
 import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItemsConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnpublishedFeedItemsResult
+import net.matsudamper.mastodon.rss.graphql.model.QlFeedItemsQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
 import net.matsudamper.mastodon.rss.graphql.model.QlUnpublishedFeedItemsQuery
+import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminQueryResolverImpl : AdminQueryResolver {
@@ -131,6 +136,53 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         val result = GraphQlEngine.diContainer(env).feedService.unpublishedItems(
             accountId = query.accountId,
         ).toGraphqlResponse()
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
+    }
+
+    override fun feedItems(
+        adminQuery: QlAdminQuery,
+        query: QlFeedItemsQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminFeedItemsResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val after = query.cursor?.let { FeedItemsCursor.decode(it) }
+
+        // 読めないカーソルは、消えた記事を指していたのと同じ扱いにする
+        val result = if (query.cursor != null && after == null) {
+            QlAdminFeedItemsResult(
+                connection = QlAdminFeedItemsConnection(
+                    nodes = emptyList(),
+                    pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+                ),
+                failure = null,
+            )
+        } else {
+            val items = GraphQlEngine.diContainer(env).feedService.items(
+                accountId = query.accountId,
+                after = after?.toPosition(),
+                limit = query.limit,
+            )
+
+            when (items) {
+                is FeedService.ItemsResult.Success -> QlAdminFeedItemsResult(
+                    connection = QlAdminFeedItemsConnection(
+                        nodes = items.items.map { it.toGraphqlResponse() },
+                        pageInfo = QlPageInfo(
+                            hasMore = items.hasMore,
+                            nextCursor = items.nextPosition?.let { FeedItemsCursor.of(it).encode() },
+                        ),
+                    ),
+                    failure = null,
+                )
+
+                is FeedService.ItemsResult.Failure -> QlAdminFeedItemsResult(
+                    connection = null,
+                    failure = items.reason.toGraphqlResponse(),
+                )
+            }
+        }
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }

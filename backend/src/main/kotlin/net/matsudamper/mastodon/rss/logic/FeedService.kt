@@ -13,6 +13,9 @@ import net.matsudamper.mastodon.rss.feed.toDisplayName
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedItem
+import net.matsudamper.mastodon.rss.repository.FeedItemId
+import net.matsudamper.mastodon.rss.repository.FeedItemPosition
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
@@ -106,6 +109,62 @@ class FeedService(
             )
         }
         return UnpublishedResult.Success(items = items)
+    }
+
+    /**
+     * 取り込んだ記事を新しい順に返す。
+     *
+     * @param after 直前のページの最後の位置。null なら先頭から
+     * @param limit 要求された件数。[MAX_LIST_LIMIT] を超える指定は切り詰める
+     */
+    fun items(
+        accountId: AccountId,
+        after: FeedItemPosition?,
+        limit: Int,
+    ): ItemsResult {
+        accounts.findById(accountId)
+            ?: return ItemsResult.Failure(ItemsFailure.UNKNOWN_ACCOUNT)
+        val feed = feeds.findByAccountId(accountId)
+            ?: return ItemsResult.Failure(ItemsFailure.NO_FEED)
+
+        val size = limit.coerceIn(0, MAX_LIST_LIMIT)
+        if (size == 0) return ItemsResult.Success(items = emptyList(), hasMore = false, nextPosition = null)
+
+        val fetched = feedItems.findByFeed(feedId = feed.id, after = after, limit = size + 1)
+        val page = fetched.take(size)
+
+        return ItemsResult.Success(
+            items = page,
+            hasMore = fetched.size > size,
+            nextPosition = page
+                .lastOrNull()
+                ?.let { FeedItemPosition(publishedAt = it.publishedAt, id = it.id) }
+                .takeIf { fetched.size > size },
+        )
+    }
+
+    /**
+     * 取り込んだ記事を 1 件消す。
+     *
+     * 配信した投稿は消さない。消すと次の取り込みで新着として戻ってくるので、
+     * 投稿し直したい記事に使う
+     */
+    fun deleteItem(
+        accountId: AccountId,
+        feedItemId: FeedItemId,
+    ): DeleteItemResult {
+        accounts.findById(accountId)
+            ?: return DeleteItemResult.Failure(DeleteItemFailure.UNKNOWN_ACCOUNT)
+        val feed = feeds.findByAccountId(accountId)
+            ?: return DeleteItemResult.Failure(DeleteItemFailure.NO_FEED)
+        // 他のアカウントのフィードの記事を id だけで消せないようにする
+        feedItems.find(feedItemId)?.takeIf { it.feedId == feed.id }
+            ?: return DeleteItemResult.Failure(DeleteItemFailure.NOT_FOUND)
+
+        if (!feedItems.delete(feedItemId)) {
+            return DeleteItemResult.Failure(DeleteItemFailure.NOT_FOUND)
+        }
+        return DeleteItemResult.Success(deletedId = feedItemId)
     }
 
     suspend fun postUnpublished(accountId: AccountId): PostUnpublishedResult {
@@ -211,6 +270,42 @@ class FeedService(
     enum class UnpublishedFailure {
         UNKNOWN_ACCOUNT,
         NO_FEED,
+    }
+
+    sealed interface ItemsResult {
+        /**
+         * @param nextPosition 次のページを取るときに渡す位置。null なら最後のページ
+         */
+        data class Success(
+            val items: List<FeedItem>,
+            val hasMore: Boolean,
+            val nextPosition: FeedItemPosition?,
+        ) : ItemsResult
+
+        data class Failure(
+            val reason: ItemsFailure,
+        ) : ItemsResult
+    }
+
+    enum class ItemsFailure {
+        UNKNOWN_ACCOUNT,
+        NO_FEED,
+    }
+
+    sealed interface DeleteItemResult {
+        data class Success(
+            val deletedId: FeedItemId,
+        ) : DeleteItemResult
+
+        data class Failure(
+            val reason: DeleteItemFailure,
+        ) : DeleteItemResult
+    }
+
+    enum class DeleteItemFailure {
+        UNKNOWN_ACCOUNT,
+        NO_FEED,
+        NOT_FOUND,
     }
 
     sealed interface PostUnpublishedResult {
@@ -371,5 +466,10 @@ class FeedService(
         const val DESCRIPTION_LIMIT = 200
         const val POST_TITLE_MAX_CHARS = 200
         const val POST_DESCRIPTION_MAX_CHARS = 200
+
+        /**
+         * 1 回で返す件数の上限。画面から指定できる値をそのまま使わない
+         */
+        const val MAX_LIST_LIMIT = 50
     }
 }

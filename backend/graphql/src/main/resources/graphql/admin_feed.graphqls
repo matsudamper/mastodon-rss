@@ -98,3 +98,79 @@ enum AdminPostFeedItemsFailureReason {
     FETCH_FAILED
     PARSE_FAILED
 }
+
+input FeedItemsQuery {
+    "取り込んだ記事を返す対象のアカウント"
+    accountId: AccountId!
+    cursor: String
+    limit: Int!
+}
+
+type AdminFeedItemsResult {
+    connection: AdminFeedItemsConnection
+    failure: AdminFeedItemsFailure
+}
+
+type AdminFeedItemsConnection {
+    nodes: [AdminFeedItem!]!
+    pageInfo: PageInfo!
+}
+
+"取り込んだ記事 1 件"
+type AdminFeedItem {
+    id: FeedItemId!
+    title: String
+    link: String
+
+    "配信元が名乗っている公開日時。持たないフィードがある"
+    publishedAt: UnixTime
+
+    importedAt: UnixTime!
+    state: AdminFeedItemState!
+    postedAt: UnixTime
+}
+
+enum AdminFeedItemState {
+    "投稿待ち"
+    PENDING
+
+    "投稿済み"
+    POSTED
+
+    "題名もリンクも無く本文を組み立てられないので投稿しない"
+    SKIPPED
+}
+
+type AdminFeedItemsFailure {
+    reason: AdminFeedItemsFailureReason!
+}
+
+enum AdminFeedItemsFailureReason {
+    UNKNOWN_ACCOUNT
+    NO_FEED
+}
+
+input DeleteFeedItemQuery {
+    "記事を持っているフィードのアカウント"
+    accountId: AccountId!
+    feedItemId: FeedItemId!
+}
+
+type AdminDeleteFeedItemResult {
+    "消せた記事の id"
+    deletedId: FeedItemId
+
+    failure: AdminDeleteFeedItemFailure
+}
+
+type AdminDeleteFeedItemFailure {
+    reason: AdminDeleteFeedItemFailureReason!
+}
+
+enum AdminDeleteFeedItemFailureReason {
+    UNKNOWN_ACCOUNT
+    NO_FEED
+
+    "そのアカウントのフィードに無い記事"
+    NOT_FOUND
+}

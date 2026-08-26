@@ -14,6 +14,7 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
@@ -23,12 +24,14 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.graphql.model.QlDeleteFeedItemQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPostFeedItemsQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlSaveFeedQuery
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteService
+import net.matsudamper.mastodon.rss.repository.FeedItemId
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminMutationResolverImpl : AdminMutationResolver {
@@ -196,6 +199,21 @@ class AdminMutationResolverImpl : AdminMutationResolver {
             ).toGraphqlResponse()
             DataFetcherResult.Builder(result).build()
         }
+    }
+
+    override fun deleteFeedItem(
+        adminMutation: QlAdminMutation,
+        query: QlDeleteFeedItemQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminDeleteFeedItemResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val result = GraphQlEngine.diContainer(env).feedService.deleteItem(
+            accountId = query.accountId,
+            feedItemId = FeedItemId(query.feedItemId.value),
+        ).toGraphqlResponse()
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
     /**

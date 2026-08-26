@@ -16,6 +16,9 @@ type AdminMutation {
 
     "フィードの最新を取り込み、未投稿の記事を投稿する"
     postFeedItems(query: PostFeedItemsQuery!): AdminPostFeedItemsResult! @lazy
+
+    "取り込んだ記事を 1 件消す。配信した投稿は消さないので、取り込み直すと投稿し直せる"
+    deleteFeedItem(query: DeleteFeedItemQuery!): AdminDeleteFeedItemResult! @lazy
 }
 
 type AdminPostNoteResult {

@@ -355,6 +355,29 @@ jobs:
             exit 1
           fi
 
+          # deleteFeedItem の input には FeedItemId が入る。native-image から
+          # 落ちていると組み立てられず errors になる。フィードが無いので NO_FEED が返る
+          echo "--- GraphQL の記事削除（input の FeedItemId） ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"mutation Delete($q: DeleteFeedItemQuery!) { admin { deleteFeedItem(query: $q) { deletedId failure { reason } } } }","variables":{"q":{"accountId":'"$ACCOUNT_ID"',"feedItemId":1}}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-delete-feed-item.json
+          cat /tmp/graphql-delete-feed-item.json
+          grep -q '"reason":"NO_FEED"' /tmp/graphql-delete-feed-item.json
+          if grep -q '"errors"' /tmp/graphql-delete-feed-item.json; then
+            echo "::error::deleteFeedItem が errors を返した。input の FeedItemId を組み立てられていない"
+            exit 1
+          fi
+
+          # 取り込んだ記事の一覧も Connection の型を通る。フィードが無いので失敗が返る
+          echo "--- GraphQL の記事一覧 ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"query Items($q: FeedItemsQuery!) { admin { feedItems(query: $q) { connection { nodes { id } } failure { reason } } } }","variables":{"q":{"accountId":'"$ACCOUNT_ID"',"limit":10}}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-feed-items.json
+          cat /tmp/graphql-feed-items.json
+          grep -q '"reason":"NO_FEED"' /tmp/graphql-feed-items.json
+
           # 投稿の一覧は Connection の型を通る。まだ何も配っていないので空で返る
           echo "--- GraphQL の投稿一覧 ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
