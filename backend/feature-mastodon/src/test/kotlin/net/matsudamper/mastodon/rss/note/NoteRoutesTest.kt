@@ -19,7 +19,6 @@ import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.collection.COLLECTION_CURSOR_PARAM
 import net.matsudamper.mastodon.rss.collection.COLLECTION_PAGE_SIZE
-import net.matsudamper.mastodon.rss.collection.FEATURED_COLLECTION_SIZE
 import net.matsudamper.mastodon.rss.collection.OrderedCollection
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
@@ -35,7 +34,7 @@ class NoteRoutesTest {
             routing {
                 noteRoutes(TestLocalActor.DOMAIN, notes)
                 outboxRoutes(TestLocalActor.directory, notes)
-                featuredRoutes(TestLocalActor.directory, notes)
+                featuredRoutes(TestLocalActor.directory)
             }
         }
     }
@@ -180,11 +179,10 @@ class NoteRoutesTest {
         }
 
     @Test
-    fun `featured は Note を並べる`() =
+    fun `featured は空のコレクションを返す`() =
         testApplication {
             val notes = FakeNoteStore()
             notes.add(note("note-1"))
-            notes.add(note("note-2", publishedAt = publishedAt.plusSeconds(1)))
             installModule(notes)
 
             val response = client.get("/users/admin/collections/featured")
@@ -197,37 +195,8 @@ class NoteRoutesTest {
             )
             assertEquals("https://example.com/users/admin/collections/featured", collection.id)
             assertEquals("OrderedCollection", collection.type)
-            assertEquals(2, collection.totalItems)
-            assertEquals(
-                listOf("note-2", "note-1"),
-                collection.orderedItems.map { it.id.removePrefix("https://example.com/notes/") },
-            )
-            assertNull(collection.orderedItems.single { it.id.endsWith("note-2") }.context)
-            assertEquals("https://example.com/notes/note-2", collection.orderedItems.first().atomUri)
-        }
-
-    @Test
-    fun `featured は直近の投稿だけ返す`() =
-        testApplication {
-            val notes = FakeNoteStore()
-            repeat(FEATURED_COLLECTION_SIZE + 1) { index ->
-                notes.add(
-                    note(
-                        publicId = "note-$index",
-                        publishedAt = publishedAt.plusSeconds(index.toLong()),
-                    ),
-                )
-            }
-            installModule(notes)
-
-            val collection = AppJson.decodeFromString(
-                OrderedCollectionWithItems.serializer(Note.serializer()),
-                client.get("/users/admin/collections/featured").bodyAsText(),
-            )
-
-            assertEquals((FEATURED_COLLECTION_SIZE + 1).toLong(), collection.totalItems)
-            assertEquals(FEATURED_COLLECTION_SIZE, collection.orderedItems.size)
-            assertEquals("note-$FEATURED_COLLECTION_SIZE", collection.orderedItems.first().id.removePrefix("https://example.com/notes/"))
+            assertEquals(0, collection.totalItems)
+            assertEquals(emptyList(), collection.orderedItems)
         }
 
     @Test
