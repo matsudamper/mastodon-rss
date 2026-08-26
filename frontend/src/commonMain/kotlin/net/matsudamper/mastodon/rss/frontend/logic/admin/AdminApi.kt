@@ -125,7 +125,9 @@ class AdminApi(
                     cursor = Optional.presentIfNotNull(cursor),
                     limit = limit,
                 ),
-            ).execute()
+            )
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .execute()
 
         if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
             return AdminNotesResult.Failure(response.failureMessage())
