@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.repository
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.shared.AccountId
 
 /**
  * 購読しているフィードの読み書き。

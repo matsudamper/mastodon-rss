@@ -19,7 +19,6 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnpublishedFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
 import net.matsudamper.mastodon.rss.graphql.model.QlUnpublishedFeedItemsQuery
-import net.matsudamper.mastodon.rss.repository.AccountId
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminQueryResolverImpl : AdminQueryResolver {
@@ -130,7 +129,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
         val result = GraphQlEngine.diContainer(env).feedService.unpublishedItems(
-            accountId = AccountId(query.accountId),
+            accountId = query.accountId,
         ).toGraphqlResponse()
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())

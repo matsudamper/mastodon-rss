@@ -20,8 +20,8 @@ import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
-import net.matsudamper.mastodon.rss.repository.AccountId
 import net.matsudamper.mastodon.rss.repository.FeedItemState
+import net.matsudamper.mastodon.rss.shared.AccountId
 
 class FeedServiceTest {
     @Test

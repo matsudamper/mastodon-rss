@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.Account
-import net.matsudamper.mastodon.rss.repository.AccountId
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchStatus
@@ -22,6 +21,7 @@ import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.Repositories
+import net.matsudamper.mastodon.rss.shared.AccountId
 
 // ルーティングのテストで使う Repositories の差し替え。
 // 保存はメモリ上だけで、DB には一切触らない。

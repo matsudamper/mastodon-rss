@@ -9,7 +9,6 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminAccountResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlFeed
-import net.matsudamper.mastodon.rss.repository.AccountId
 
 class AdminAccountResolverImpl : AdminAccountResolver {
     override fun followerCount(
@@ -34,7 +33,7 @@ class AdminAccountResolverImpl : AdminAccountResolver {
     ): CompletionStage<DataFetcherResult<QlFeed?>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val accountId = AccountId(adminAccount.account.id)
+        val accountId = adminAccount.account.id
         val feed = GraphQlEngine.diContainer(env).feedService.findByAccountId(accountId)
 
         return CompletableFuture.completedFuture(

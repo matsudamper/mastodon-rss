@@ -29,7 +29,6 @@ import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteService
-import net.matsudamper.mastodon.rss.repository.AccountId
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminMutationResolverImpl : AdminMutationResolver {
@@ -175,7 +174,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val result = diContainer.feedService.save(
-                accountId = AccountId(saveFeedQuery.accountId),
+                accountId = saveFeedQuery.accountId,
                 url = saveFeedQuery.url,
             ).toGraphqlResponse()
             DataFetcherResult.Builder(result).build()
@@ -193,7 +192,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val result = diContainer.feedService.postUnpublished(
-                accountId = AccountId(query.accountId),
+                accountId = query.accountId,
             ).toGraphqlResponse()
             DataFetcherResult.Builder(result).build()
         }
