@@ -148,5 +148,14 @@ internal fun FeedService.PostUnpublishedFailure.toGraphqlResponse(): QlAdminPost
 
             FeedService.PostUnpublishedFailure.NO_FEED ->
                 QlAdminPostFeedItemsFailureReason.NO_FEED
+
+            FeedService.PostUnpublishedFailure.INVALID_URL ->
+                QlAdminPostFeedItemsFailureReason.INVALID_URL
+
+            FeedService.PostUnpublishedFailure.FETCH_FAILED ->
+                QlAdminPostFeedItemsFailureReason.FETCH_FAILED
+
+            FeedService.PostUnpublishedFailure.PARSE_FAILED ->
+                QlAdminPostFeedItemsFailureReason.PARSE_FAILED
         },
     )

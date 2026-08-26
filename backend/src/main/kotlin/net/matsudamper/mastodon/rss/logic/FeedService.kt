@@ -112,6 +112,10 @@ class FeedService(
             ?: return PostUnpublishedResult.Failure(PostUnpublishedFailure.UNKNOWN_ACCOUNT)
         val feed = feeds.findByAccountId(accountId)
             ?: return PostUnpublishedResult.Failure(PostUnpublishedFailure.NO_FEED)
+        when (val imported = importLatest(feed)) {
+            is ImportLatestResult.Failure -> return PostUnpublishedResult.Failure(imported.reason)
+            ImportLatestResult.Success -> Unit
+        }
         val sender = actorDirectory.resolve(account.username)
             ?: return PostUnpublishedResult.Success(items = emptyList())
         val posted = mutableListOf<UnpublishedItem>()
@@ -218,6 +222,39 @@ class FeedService(
     enum class PostUnpublishedFailure {
         UNKNOWN_ACCOUNT,
         NO_FEED,
+        INVALID_URL,
+        FETCH_FAILED,
+        PARSE_FAILED,
+    }
+
+    private suspend fun importLatest(feed: Feed): ImportLatestResult {
+        return when (val fetched = fetcher.fetch(feed.url)) {
+            is FeedFetchService.FetchResult.Success -> {
+                importExistingItems(
+                    feed = feed,
+                    items = fetched.parsed.items,
+                )
+                ImportLatestResult.Success
+            }
+
+            FeedFetchService.FetchResult.InvalidUrl ->
+                ImportLatestResult.Failure(PostUnpublishedFailure.INVALID_URL)
+
+            FeedFetchService.FetchResult.TooLarge,
+            is FeedFetchService.FetchResult.HttpError,
+            -> ImportLatestResult.Failure(PostUnpublishedFailure.FETCH_FAILED)
+
+            is FeedFetchService.FetchResult.ParseError ->
+                ImportLatestResult.Failure(PostUnpublishedFailure.PARSE_FAILED)
+        }
+    }
+
+    private sealed interface ImportLatestResult {
+        data object Success : ImportLatestResult
+
+        data class Failure(
+            val reason: PostUnpublishedFailure,
+        ) : ImportLatestResult
     }
 
     private fun FeedFetchService.FetchResult.Success.toPreview(): FeedPreview {

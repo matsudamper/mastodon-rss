@@ -94,4 +94,7 @@ type AdminPostFeedItemsFailure {
 enum AdminPostFeedItemsFailureReason {
     UNKNOWN_ACCOUNT
     NO_FEED
+    INVALID_URL
+    FETCH_FAILED
+    PARSE_FAILED
 }

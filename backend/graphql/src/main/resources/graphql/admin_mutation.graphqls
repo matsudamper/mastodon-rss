@@ -14,7 +14,7 @@ type AdminMutation {
     "RSS フィードを登録する"
     saveFeed(saveFeedQuery: SaveFeedQuery!): AdminSaveFeedResult! @lazy
 
-    "未投稿の記事を投稿する"
+    "フィードの最新を取り込み、未投稿の記事を投稿する"
     postFeedItems(query: PostFeedItemsQuery!): AdminPostFeedItemsResult! @lazy
 }
 

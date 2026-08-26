@@ -351,17 +351,67 @@ class FeedServiceTest {
             assertEquals(0, noteStore.added.size)
         }
 
+    @Test
+    fun `投稿前に最新の記事を取り込む`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(FEED_XML, LATEST_XML),
+                noteStore = noteStore,
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val result = service.postUnpublished(account.id)
+
+            val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
+            assertEquals(listOf("1 本目", "2 本目", "3 本目"), success.items.map { it.title })
+            assertEquals(3, noteStore.added.size)
+        }
+
+    @Test
+    fun `最新の取り込みに失敗したら投稿しない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                statuses = listOf(HttpStatusCode.OK, HttpStatusCode.NotFound),
+                noteStore = noteStore,
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val result = service.postUnpublished(account.id)
+
+            val failure = assertIs<FeedService.PostUnpublishedResult.Failure>(result)
+            assertEquals(FeedService.PostUnpublishedFailure.FETCH_FAILED, failure.reason)
+            assertEquals(
+                listOf(FeedItemState.PENDING, FeedItemState.PENDING),
+                repositories.feedItems.items().map { it.state },
+            )
+            assertEquals(0, noteStore.added.size)
+        }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         status: HttpStatusCode = HttpStatusCode.OK,
         xml: String = FEED_XML,
+        xmls: List<String>? = null,
+        statuses: List<HttpStatusCode>? = null,
         noteStore: FakeNoteStore = FakeNoteStore(),
         actorDirectory: ActorDirectory = TestLocalActor.directory,
     ): FeedService {
+        val bodies = ArrayDeque(xmls ?: listOf(xml))
+        val codes = ArrayDeque(statuses ?: listOf(status))
         val engine = MockEngine {
+            val code = if (codes.size > 1) codes.removeFirst() else codes.first()
+            val body = if (bodies.size > 1) bodies.removeFirst() else bodies.first()
             respond(
-                content = if (status == HttpStatusCode.OK) xml else "",
-                status = status,
+                content = if (code == HttpStatusCode.OK) body else "",
+                status = code,
                 headers = headersOf("Content-Type", "application/rss+xml"),
             )
         }
@@ -391,6 +441,18 @@ class FeedServiceTest {
                 <link>https://example.com/</link>
                 <item><title>1 本目</title><link>https://example.com/1</link></item>
                 <item><title>2 本目</title><link>https://example.com/2</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val LATEST_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <item><title>1 本目</title><link>https://example.com/1</link></item>
+                <item><title>2 本目</title><link>https://example.com/2</link></item>
+                <item><title>3 本目</title><link>https://example.com/3</link></item>
               </channel>
             </rss>
         """.trimIndent()
