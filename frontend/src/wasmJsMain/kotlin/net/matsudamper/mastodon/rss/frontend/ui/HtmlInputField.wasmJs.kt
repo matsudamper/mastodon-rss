@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -142,6 +143,7 @@ internal actual fun HiddenHtmlForm(
     onSubmit: () -> Unit,
     enabled: Boolean,
 ) {
+    val currentOnSubmit = rememberUpdatedState(onSubmit)
     DisposableEffect(formId, enabled) {
         val form = document.getElementById(formId) as HTMLFormElement?
             ?: run {
@@ -155,7 +157,7 @@ internal actual fun HiddenHtmlForm(
         form.onsubmit = { event ->
             event.preventDefault()
             if (enabled) {
-                onSubmit()
+                currentOnSubmit.value()
             }
         }
         onDispose {
