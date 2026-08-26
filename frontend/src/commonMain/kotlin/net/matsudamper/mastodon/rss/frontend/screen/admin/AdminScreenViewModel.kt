@@ -69,10 +69,11 @@ class AdminScreenViewModel(
         viewModelScope.launch {
             when (val result = api.login(state.password)) {
                 AdminLoginResult.Success -> {
+                    val session = api.session()
                     viewModelStateFlow.update {
                         it.copy(
                             submitting = false,
-                            session = AdminSessionResult.Success(loggedIn = true, passwordConfigured = true),
+                            session = session,
                         )
                     }
                 }
