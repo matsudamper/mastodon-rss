@@ -11,7 +11,6 @@ import graphql.schema.CoercingParseLiteralException
 import graphql.schema.CoercingParseValueException
 import graphql.schema.CoercingSerializeException
 import graphql.schema.GraphQLScalarType
-import net.matsudamper.mastodon.rss.shared.AccountId
 
 object AccountIdScalar {
     /**
@@ -35,13 +34,13 @@ object AccountIdScalar {
             else -> toDouble().takeIf { it % 1.0 == 0.0 && it in WHOLE_RANGE }?.toLong()
         }
 
-    private object AccountIdCoercing : Coercing<AccountId, Long> {
+    private object AccountIdCoercing : Coercing<Long, Long> {
         override fun serialize(
             dataFetcherResult: Any,
             graphQLContext: GraphQLContext,
             locale: Locale,
         ): Long {
-            return (dataFetcherResult as? AccountId)?.value
+            return dataFetcherResult as? Long
                 ?: throw CoercingSerializeException("AccountId にできない型: ${dataFetcherResult::class.qualifiedName}")
         }
 
@@ -49,14 +48,12 @@ object AccountIdScalar {
             input: Any,
             graphQLContext: GraphQLContext,
             locale: Locale,
-        ): AccountId {
+        ): Long {
             return when (input) {
-                is AccountId -> input
-
                 // toLong() は小数を切り捨てるので、1.9 が 1 として通ってしまう
-                is Number -> input.toWholeLong()?.let(::AccountId)
+                is Number -> input.toWholeLong()
 
-                is String -> input.toLongOrNull()?.let(::AccountId)
+                is String -> input.toLongOrNull()
 
                 else -> null
             } ?: throw CoercingParseValueException("AccountId として読めない: $input")
@@ -67,7 +64,7 @@ object AccountIdScalar {
             variables: CoercedVariables,
             graphQLContext: GraphQLContext,
             locale: Locale,
-        ): AccountId {
+        ): Long {
             val raw = when (input) {
                 // toLong() は桁が溢れると別の値に化ける
                 is IntValue -> runCatching { input.value.longValueExact() }.getOrNull()
@@ -76,8 +73,7 @@ object AccountIdScalar {
 
                 else -> null
             }
-            return raw?.let(::AccountId)
-                ?: throw CoercingParseLiteralException("AccountId は整数で書く")
+            return raw ?: throw CoercingParseLiteralException("AccountId は整数で書く")
         }
     }
 }

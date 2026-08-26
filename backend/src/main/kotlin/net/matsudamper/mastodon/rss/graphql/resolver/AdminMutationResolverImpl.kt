@@ -175,7 +175,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val result = diContainer.feedService.save(
-                accountId = AccountId(saveFeedQuery.accountId.value),
+                accountId = AccountId(saveFeedQuery.accountId),
                 url = saveFeedQuery.url,
             ).toGraphqlResponse()
             DataFetcherResult.Builder(result).build()
@@ -193,7 +193,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val result = diContainer.feedService.postUnpublished(
-                accountId = AccountId(query.accountId.value),
+                accountId = AccountId(query.accountId),
             ).toGraphqlResponse()
             DataFetcherResult.Builder(result).build()
         }

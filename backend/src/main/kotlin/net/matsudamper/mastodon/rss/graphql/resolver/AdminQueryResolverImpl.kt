@@ -130,7 +130,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
         val result = GraphQlEngine.diContainer(env).feedService.unpublishedItems(
-            accountId = AccountId(query.accountId.value),
+            accountId = AccountId(query.accountId),
         ).toGraphqlResponse()
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
