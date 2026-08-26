@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.note
 
-import kotlinx.serialization.builtins.serializer
 import java.time.Instant
+import kotlinx.serialization.builtins.serializer
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLParameter

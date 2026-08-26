@@ -1,11 +1,11 @@
 package net.matsudamper.mastodon.rss.note
 
-import kotlinx.serialization.builtins.serializer
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.builtins.serializer
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
