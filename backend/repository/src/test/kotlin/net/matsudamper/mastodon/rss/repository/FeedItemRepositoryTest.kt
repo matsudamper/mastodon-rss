@@ -164,6 +164,146 @@ class FeedItemRepositoryTest {
     }
 
     @Test
+    fun `findByFeed は新しい順で publishedAt が無いものを後ろにする`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val older = assertNotNull(
+                repositories.feedItems.add(
+                    item(
+                        feedId = feed.id,
+                        itemKey = "old",
+                        publishedAt = Instant.parse("2026-01-01T00:00:00Z"),
+                        state = FeedItemState.POSTED,
+                    ),
+                ),
+            )
+            val newer = assertNotNull(
+                repositories.feedItems.add(
+                    item(
+                        feedId = feed.id,
+                        itemKey = "new",
+                        publishedAt = Instant.parse("2026-06-01T00:00:00Z"),
+                        state = FeedItemState.PENDING,
+                    ),
+                ),
+            )
+            val undated = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "none", publishedAt = null)),
+            )
+
+            assertEquals(
+                listOf(newer.id, older.id, undated.id),
+                repositories.feedItems.findByFeed(feed.id, after = null, limit = 10).map { it.id },
+            )
+            assertEquals(emptyList(), repositories.feedItems.findByFeed(feed.id, after = null, limit = 0))
+        }
+    }
+
+    @Test
+    fun `findByFeed は位置の続きから返す`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val newer = assertNotNull(
+                repositories.feedItems.add(
+                    item(
+                        feedId = feed.id,
+                        itemKey = "new",
+                        publishedAt = Instant.parse("2026-06-01T00:00:00Z"),
+                    ),
+                ),
+            )
+            val older = assertNotNull(
+                repositories.feedItems.add(
+                    item(
+                        feedId = feed.id,
+                        itemKey = "old",
+                        publishedAt = Instant.parse("2026-01-01T00:00:00Z"),
+                    ),
+                ),
+            )
+            val undated = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "none", publishedAt = null)),
+            )
+
+            assertEquals(
+                listOf(older.id, undated.id),
+                repositories.feedItems
+                    .findByFeed(
+                        feed.id,
+                        after = FeedItemPosition(publishedAt = newer.publishedAt, id = newer.id),
+                        limit = 10,
+                    ).map { it.id },
+            )
+            assertEquals(
+                emptyList(),
+                repositories.feedItems.findByFeed(
+                    feed.id,
+                    after = FeedItemPosition(publishedAt = null, id = undated.id),
+                    limit = 10,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `findByFeed はフィードで絞れる`() {
+        withRepositories { repositories ->
+            val feed1 = repositories.addFeed(username = "feed1", url = "https://example.com/1.xml")
+            val feed2 = repositories.addFeed(username = "feed2", url = "https://example.com/2.xml")
+            val item1 = assertNotNull(repositories.feedItems.add(item(feedId = feed1.id, itemKey = "a")))
+            repositories.feedItems.add(item(feedId = feed2.id, itemKey = "b"))
+
+            assertEquals(
+                listOf(item1.id),
+                repositories.feedItems.findByFeed(feed1.id, after = null, limit = 10).map { it.id },
+            )
+        }
+    }
+
+    @Test
+    fun `delete で記事だけ消える`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val added = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "gone")))
+
+            assertTrue(repositories.feedItems.delete(added.id))
+
+            assertNull(repositories.feedItems.find(added.id))
+            assertEquals(0, repositories.feedItems.countByFeed(feed.id))
+            assertNotNull(repositories.feeds.find(feed.id))
+        }
+    }
+
+    @Test
+    fun `消した記事は取り込み直すと新着になる`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val added = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "again", state = FeedItemState.POSTED)),
+            )
+            repositories.feedItems.delete(added.id)
+
+            val reimported = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "again", state = FeedItemState.PENDING)),
+            )
+
+            assertEquals(
+                listOf(reimported.id),
+                repositories.feedItems.findPending(feed.id, limit = 10).map { it.id },
+            )
+        }
+    }
+
+    @Test
+    fun `無い記事は消せない`() {
+        withRepositories { repositories ->
+            repositories.addFeed()
+
+            assertEquals(false, repositories.feedItems.delete(FeedItemId(404)))
+        }
+    }
+
+    @Test
     fun `フィードを消すと記事も消える`() {
         withRepositories { repositories ->
             val feed = repositories.addFeed()

@@ -9,6 +9,7 @@ import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
 import net.matsudamper.mastodon.rss.repository.FeedId
 import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemId
+import net.matsudamper.mastodon.rss.repository.FeedItemPosition
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
@@ -346,6 +347,28 @@ class FakeFeedItemRepository : FeedItemRepository {
         update(id) { it.copy(state = FeedItemState.SKIPPED) }
     }
 
+    override fun findByFeed(
+        feedId: FeedId,
+        after: FeedItemPosition?,
+        limit: Int,
+    ): List<FeedItem> {
+        if (limit <= 0) return emptyList()
+
+        val sorted = stored.filter { it.feedId == feedId }.sortedWith(newestFirst)
+        val startIndex = if (after == null) {
+            0
+        } else {
+            val index = sorted.indexOfFirst { it.id == after.id }
+            if (index == -1) return emptyList()
+            index + 1
+        }
+        return sorted.drop(startIndex).take(limit)
+    }
+
+    override fun find(id: FeedItemId): FeedItem? = stored.firstOrNull { it.id == id }
+
+    override fun delete(id: FeedItemId): Boolean = stored.removeAll { it.id == id }
+
     override fun countByFeed(feedId: FeedId): Long = stored.count { it.feedId == feedId }.toLong()
 
     fun items(): List<FeedItem> = stored.toList()
@@ -366,5 +389,12 @@ class FakeFeedItemRepository : FeedItemRepository {
         val index = stored.indexOfFirst { it.id == id }
         if (index == -1) return
         stored[index] = block(stored[index])
+    }
+
+    private companion object {
+        val newestFirst: Comparator<FeedItem> =
+            compareBy<FeedItem> { it.publishedAt == null }
+                .thenByDescending { it.publishedAt }
+                .thenByDescending { it.id.value }
     }
 }

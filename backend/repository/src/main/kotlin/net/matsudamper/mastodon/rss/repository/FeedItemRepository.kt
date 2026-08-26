@@ -63,9 +63,45 @@ interface FeedItemRepository {
      */
     fun markSkipped(id: FeedItemId)
 
+    /**
+     * フィードの記事を新しい順に返す。管理画面の一覧に使う。
+     *
+     * 位置を件数で数えず、直前のページの最後の 1 件で指す。取り込みで先頭に
+     * 記事が増えるので、offset で数えるとページをまたいだときにずれる。
+     *
+     * @param after ここより後ろのものを返す。null なら先頭から
+     */
+    fun findByFeed(
+        feedId: FeedId,
+        after: FeedItemPosition?,
+        limit: Int,
+    ): List<FeedItem>
+
+    /** 引き当てられなければ null */
+    fun find(id: FeedItemId): FeedItem?
+
+    /**
+     * 記事を消す。消せたら true。
+     *
+     * 消すと次の取得で新着として戻ってくる。投稿済みのものを消して
+     * 投稿し直すのに使う。配信した投稿（`notes`）はここでは消さない。
+     */
+    fun delete(id: FeedItemId): Boolean
+
     /** フィードの記事を数える。初回の取り込みかどうかの判定などに使う */
     fun countByFeed(feedId: FeedId): Long
 }
+
+/**
+ * 一覧の位置。
+ *
+ * 並び順の鍵をそのまま持つ。日時の無い記事があるので [publishedAt] は null を取り、
+ * 同じ日時が並んだときのために [id] まで見て一意にする。
+ */
+data class FeedItemPosition(
+    val publishedAt: Instant?,
+    val id: FeedItemId,
+)
 
 @JvmInline
 value class FeedItemId(
