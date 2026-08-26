@@ -5,6 +5,8 @@ import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
 import com.apollographql.apollo.api.Optional
+import com.apollographql.cache.normalized.FetchPolicy
+import com.apollographql.cache.normalized.fetchPolicy
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
@@ -30,12 +32,17 @@ class AdminApi(
     suspend fun session(): AdminSessionResult {
         return client
             .query(AdminSessionQuery())
+            .fetchPolicy(FetchPolicy.NetworkOnly)
             .execute()
             .toSessionResult { it.admin.session.adminSessionFields }
     }
 
     suspend fun login(password: String): AdminLoginResult {
-        val response = client.mutation(AdminLoginMutation(password)).execute()
+        val response =
+            client
+                .mutation(AdminLoginMutation(password))
+                .fetchPolicy(FetchPolicy.NetworkOnly)
+                .execute()
         val login = response.data?.admin?.login ?: return AdminLoginResult.Failure(response.failureMessage())
 
         return when (login.failure) {
@@ -49,6 +56,7 @@ class AdminApi(
     suspend fun logout(): AdminSessionResult {
         return client
             .mutation(AdminLogoutMutation())
+            .fetchPolicy(FetchPolicy.NetworkOnly)
             .execute()
             .toSessionResult { it.admin.logout.adminSessionFields }
     }
