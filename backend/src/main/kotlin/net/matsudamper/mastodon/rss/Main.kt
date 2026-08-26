@@ -2,8 +2,8 @@ package net.matsudamper.mastodon.rss
 
 import java.nio.file.Path
 import io.ktor.server.application.Application
-import io.ktor.server.application.install
 import io.ktor.server.application.ServerReady
+import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
