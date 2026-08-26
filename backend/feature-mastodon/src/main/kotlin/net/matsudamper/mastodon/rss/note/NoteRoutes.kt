@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.note
 
+import kotlinx.serialization.builtins.serializer
 import java.time.Instant
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -14,8 +15,10 @@ import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.collection.COLLECTION_CURSOR_PARAM
 import net.matsudamper.mastodon.rss.collection.COLLECTION_PAGE_SIZE
+import net.matsudamper.mastodon.rss.collection.FEATURED_COLLECTION_SIZE
 import net.matsudamper.mastodon.rss.collection.OrderedCollection
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
+import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
 import net.matsudamper.mastodon.rss.json.respondJson
 
 /**
@@ -117,6 +120,41 @@ fun Route.outboxRoutes(
                 next = if (page.size < COLLECTION_PAGE_SIZE) null else pageUrl(urls, page.last().position),
             ),
             contentType = contentType,
+        )
+    }
+}
+
+/**
+ * プロフィールに載せる投稿の一覧。Actor の `featured` が指している先。
+ *
+ * Mastodon は未フォローでもプロフィールを開いたときここを引きに来る。
+ * outbox はフォロー後のバックフィル向けで、未フォローのプロフィール表示には使われない。
+ */
+fun Route.featuredRoutes(
+    directory: ActorDirectory,
+    notes: NoteStore,
+) {
+    get("/users/{username}/collections/featured") {
+        val requested = call.parameters["username"]
+        val urls = directory.resolve(requested)
+        if (urls == null) {
+            call.respondText("アカウントが見つからない: $requested", status = HttpStatusCode.NotFound)
+            return@get
+        }
+
+        val total = notes.count(urls.username)
+        val items = notes
+            .list(username = urls.username, after = null, limit = FEATURED_COLLECTION_SIZE)
+            .map { note -> NoteUrls(domain = urls.domain, publicId = note.publicId).noteId }
+
+        call.respondJson(
+            serializer = OrderedCollectionWithItems.serializer(String.serializer()),
+            value = OrderedCollectionWithItems(
+                id = urls.featured,
+                totalItems = total,
+                orderedItems = items,
+            ),
+            contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
         )
     }
 }

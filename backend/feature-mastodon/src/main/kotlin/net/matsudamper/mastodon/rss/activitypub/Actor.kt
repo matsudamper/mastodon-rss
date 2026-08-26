@@ -30,6 +30,11 @@ data class Actor(
     val summary: String? = null,
     val inbox: String,
     val outbox: String,
+    /**
+     * プロフィールに載せる投稿の一覧。Mastodon は未フォローでもここを引きに来る。
+     * outbox はフォロー後のバックフィル向けで、プロフィール表示には使われない。
+     */
+    val featured: String,
     val followers: String,
     val following: String,
     /** プロフィールから開くリンク。Mastodon は無ければ id を使う */

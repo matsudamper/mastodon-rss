@@ -44,6 +44,7 @@ class ActorRoutesTest {
             assertEquals("admin", actor.preferredUsername)
             assertEquals("https://example.com/users/admin/inbox", actor.inbox)
             assertEquals("https://example.com/users/admin/outbox", actor.outbox)
+            assertEquals("https://example.com/users/admin/collections/featured", actor.featured)
             assertEquals("https://example.com/users/admin/followers", actor.followers)
             assertEquals("https://example.com/users/admin/following", actor.following)
         }

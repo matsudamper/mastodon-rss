@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.note
 
+import kotlinx.serialization.builtins.serializer
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,8 +19,10 @@ import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.collection.COLLECTION_CURSOR_PARAM
 import net.matsudamper.mastodon.rss.collection.COLLECTION_PAGE_SIZE
+import net.matsudamper.mastodon.rss.collection.FEATURED_COLLECTION_SIZE
 import net.matsudamper.mastodon.rss.collection.OrderedCollection
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
+import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
 import net.matsudamper.mastodon.rss.json.AppJson
 
 // Mastodon が後から引きに来る投稿のパーマリンクと outbox。
@@ -32,6 +35,7 @@ class NoteRoutesTest {
             routing {
                 noteRoutes(TestLocalActor.DOMAIN, notes)
                 outboxRoutes(TestLocalActor.directory, notes)
+                featuredRoutes(TestLocalActor.directory, notes)
             }
         }
     }
@@ -172,6 +176,66 @@ class NoteRoutesTest {
             installModule()
 
             assertEquals(HttpStatusCode.NotFound, client.get("/users/other/outbox").status)
+        }
+
+    @Test
+    fun `featured は投稿の URL を並べる`() =
+        testApplication {
+            val notes = FakeNoteStore()
+            notes.add(note("note-1"))
+            notes.add(note("note-2", publishedAt = publishedAt.plusSeconds(1)))
+            installModule(notes)
+
+            val response = client.get("/users/admin/collections/featured")
+
+            assertEquals(HttpStatusCode.OK, response.status)
+
+            val collection = AppJson.decodeFromString(
+                OrderedCollectionWithItems.serializer(String.serializer()),
+                response.bodyAsText(),
+            )
+            assertEquals("https://example.com/users/admin/collections/featured", collection.id)
+            assertEquals("OrderedCollection", collection.type)
+            assertEquals(2, collection.totalItems)
+            assertEquals(
+                listOf(
+                    "https://example.com/notes/note-2",
+                    "https://example.com/notes/note-1",
+                ),
+                collection.orderedItems,
+            )
+        }
+
+    @Test
+    fun `featured は直近の投稿だけ返す`() =
+        testApplication {
+            val notes = FakeNoteStore()
+            repeat(FEATURED_COLLECTION_SIZE + 1) { index ->
+                notes.add(
+                    note(
+                        publicId = "note-$index",
+                        publishedAt = publishedAt.plusSeconds(index.toLong()),
+                    ),
+                )
+            }
+            installModule(notes)
+
+            val collection = AppJson.decodeFromString(
+                OrderedCollectionWithItems.serializer(String.serializer()),
+                client.get("/users/admin/collections/featured").bodyAsText(),
+            )
+
+            assertEquals((FEATURED_COLLECTION_SIZE + 1).toLong(), collection.totalItems)
+            assertEquals(FEATURED_COLLECTION_SIZE, collection.orderedItems.size)
+            assertEquals("https://example.com/notes/note-$FEATURED_COLLECTION_SIZE", collection.orderedItems.first())
+        }
+
+    @Test
+    fun `知らないユーザー名の featured は404`() =
+        testApplication {
+            installModule()
+
+            assertEquals(HttpStatusCode.NotFound, client.get("/users/other/collections/featured").status)
         }
 
     @Test
