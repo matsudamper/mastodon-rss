@@ -40,6 +40,11 @@ data class Actor(
     /** プロフィールから開くリンク。Mastodon は無ければ id を使う */
     val url: String? = null,
     val publicKey: ActorPublicKey,
+    /**
+     * Mastodon 4.6 以降。ピン留め欄を出すか
+     */
+    @SerialName("showFeatured")
+    val showFeatured: Boolean = true,
 ) {
     companion object {
         const val TYPE_SERVICE: String = "Service"

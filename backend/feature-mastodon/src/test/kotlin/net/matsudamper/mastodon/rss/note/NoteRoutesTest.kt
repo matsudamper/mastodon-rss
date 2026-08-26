@@ -69,7 +69,8 @@ class NoteRoutesTest {
             assertEquals("Note", body.type)
             assertEquals("https://example.com/users/admin", body.attributedTo)
             assertEquals("<p>abc</p>", body.content)
-            assertEquals(publishedAt.toString(), body.published)
+            assertEquals(publishedAt.toActivityPubPublished(), body.published)
+            assertEquals("https://example.com/notes/abc", body.atomUri)
             assertEquals(listOf(PUBLIC_AUDIENCE), body.to)
             assertEquals(listOf("https://example.com/users/admin/followers"), body.cc)
             assertEquals("https://example.com/notes/abc", body.url)
@@ -179,7 +180,7 @@ class NoteRoutesTest {
         }
 
     @Test
-    fun `featured は投稿の URL を並べる`() =
+    fun `featured は Note を並べる`() =
         testApplication {
             val notes = FakeNoteStore()
             notes.add(note("note-1"))
@@ -191,19 +192,18 @@ class NoteRoutesTest {
             assertEquals(HttpStatusCode.OK, response.status)
 
             val collection = AppJson.decodeFromString(
-                OrderedCollectionWithItems.serializer(String.serializer()),
+                OrderedCollectionWithItems.serializer(Note.serializer()),
                 response.bodyAsText(),
             )
             assertEquals("https://example.com/users/admin/collections/featured", collection.id)
             assertEquals("OrderedCollection", collection.type)
             assertEquals(2, collection.totalItems)
             assertEquals(
-                listOf(
-                    "https://example.com/notes/note-2",
-                    "https://example.com/notes/note-1",
-                ),
-                collection.orderedItems,
+                listOf("note-2", "note-1"),
+                collection.orderedItems.map { it.id.removePrefix("https://example.com/notes/") },
             )
+            assertNull(collection.orderedItems.single { it.id.endsWith("note-2") }.context)
+            assertEquals("https://example.com/notes/note-2", collection.orderedItems.first().atomUri)
         }
 
     @Test
@@ -221,13 +221,13 @@ class NoteRoutesTest {
             installModule(notes)
 
             val collection = AppJson.decodeFromString(
-                OrderedCollectionWithItems.serializer(String.serializer()),
+                OrderedCollectionWithItems.serializer(Note.serializer()),
                 client.get("/users/admin/collections/featured").bodyAsText(),
             )
 
             assertEquals((FEATURED_COLLECTION_SIZE + 1).toLong(), collection.totalItems)
             assertEquals(FEATURED_COLLECTION_SIZE, collection.orderedItems.size)
-            assertEquals("https://example.com/notes/note-$FEATURED_COLLECTION_SIZE", collection.orderedItems.first())
+            assertEquals("note-$FEATURED_COLLECTION_SIZE", collection.orderedItems.first().id.removePrefix("https://example.com/notes/"))
         }
 
     @Test

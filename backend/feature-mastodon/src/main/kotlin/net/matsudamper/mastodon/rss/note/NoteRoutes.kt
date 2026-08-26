@@ -1,7 +1,6 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
-import kotlinx.serialization.builtins.serializer
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLParameter
@@ -102,7 +101,7 @@ fun Route.outboxRoutes(
                 CreateNote(
                     id = NoteUrls(domain = urls.domain, publicId = note.publicId).createId,
                     actor = urls.actorId,
-                    published = note.publishedAt.toString(),
+                    published = note.publishedAt.toActivityPubPublished(),
                     to = listOf(PUBLIC_AUDIENCE),
                     cc = listOf(urls.followers),
                     target = noteDocument(urls = urls, note = note, embedded = true),
@@ -145,10 +144,10 @@ fun Route.featuredRoutes(
         val total = notes.count(urls.username)
         val items = notes
             .list(username = urls.username, after = null, limit = FEATURED_COLLECTION_SIZE)
-            .map { note -> NoteUrls(domain = urls.domain, publicId = note.publicId).noteId }
+            .map { note -> noteDocument(urls = urls, note = note, embedded = true) }
 
         call.respondJson(
-            serializer = OrderedCollectionWithItems.serializer(String.serializer()),
+            serializer = OrderedCollectionWithItems.serializer(Note.serializer()),
             value = OrderedCollectionWithItems(
                 id = urls.featured,
                 totalItems = total,
@@ -208,9 +207,10 @@ private fun noteDocument(
         id = noteUrls.noteId,
         attributedTo = urls.actorId,
         content = note.contentHtml,
-        published = note.publishedAt.toString(),
+        published = note.publishedAt.toActivityPubPublished(),
         to = listOf(PUBLIC_AUDIENCE),
         cc = listOf(urls.followers),
+        atomUri = noteUrls.noteId,
         url = noteUrls.noteId,
     )
 }

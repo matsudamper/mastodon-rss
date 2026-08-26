@@ -60,6 +60,7 @@ internal fun actorDocument(
         followers = urls.followers,
         following = urls.following,
         url = urls.actorId,
+        showFeatured = true,
         publicKey =
         ActorPublicKey(
             id = urls.publicKeyId,
