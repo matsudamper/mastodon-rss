@@ -11,7 +11,6 @@ import io.ktor.server.routing.routing
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.actorRoutes
-import net.matsudamper.mastodon.rss.feed.FeedPoller
 import net.matsudamper.mastodon.rss.follower.followerRoutes
 import net.matsudamper.mastodon.rss.graphql.DiContainer
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
@@ -56,6 +55,11 @@ fun main() {
             deps.close()
         },
     )
+
+    // フィードの定期取得を始める。HTTP を受けるかどうかとは関係が無いのでサーバーとは別に始める。
+    // 止めるのは deps.close()。シャットダウンフックを付けた後に始めることで、
+    // ここから先で落ちても止められる
+    deps.startFeedPolling()
 
     // start(wait = true) は停止まで返ってこない
     server.start(wait = true)
@@ -111,18 +115,12 @@ fun Application.module(deps: AppDependencies) {
         passwordHash = env.adminPasswordHash,
         accountRepository = deps.repositories.accounts,
         followerRepository = deps.repositories.followers,
-        feedRepository = deps.repositories.feeds,
-        feedItemRepository = deps.repositories.feedItems,
-        feedFetcher = deps.feedFetcher,
         domain = env.domain,
         actorDirectory = deps.directory,
         notePublisher = deps.notePublisher,
         noteStore = deps.noteStore,
+        feedService = deps.feedService,
     )
-
-    // Application のスコープに乗せる。サーバーを止めればここも止まるので、
-    // 取り込みの途中で DB が閉じられることがない
-    FeedPoller(diContainer.feedService).start(this)
 
     val graphQl = GraphQlEngine.create(
         resolvers = listOf(
