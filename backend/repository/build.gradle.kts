@@ -10,7 +10,6 @@ dependencies {
     implementation(libs.jooq)
     implementation(libs.opentelemetry.jdbc)
 
-    jooqCodegen(libs.jooq.codegen)
     jooqCodegen(libs.sqlite.jdbc)
 
     testImplementation(libs.kotlin.test)
