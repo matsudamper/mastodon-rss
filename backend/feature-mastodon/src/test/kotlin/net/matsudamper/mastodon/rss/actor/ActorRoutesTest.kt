@@ -51,17 +51,13 @@ class ActorRoutesTest {
         }
 
     @Test
-    fun `context に activitystreams と security が入る`() =
+    fun `context に activitystreams と security と featured の語彙が入る`() =
         testApplication {
             installModule()
 
             val body = client.get("/users/admin").bodyAsText()
 
-            // @context は @SerialName で出す必要がある。素の Kotlin 識別子では書けない
-            val expected =
-                """"@context":["https://www.w3.org/ns/activitystreams",""" +
-                    """"https://w3id.org/security/v1"]"""
-            assertTrue(body.contains(expected))
+            assertTrue(body.contains(""""@context":["https://www.w3.org/ns/activitystreams","https://w3id.org/security/v1",{"toot":"http://joinmastodon.org/ns#","featured":{"@id":"toot:featured","@type":"@id"},"showFeatured":"toot:showFeatured"}]"""))
         }
 
     @Test

@@ -1,0 +1,26 @@
+package net.matsudamper.mastodon.rss.activitypub
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import net.matsudamper.mastodon.rss.json.AppJson
+
+class ActorContextSerializerTest {
+    @Serializable
+    private data class Sample(
+        @SerialName("@context")
+        @Serializable(with = ActorContextSerializer::class)
+        val context: ActorContext = ActorContext,
+    )
+
+    @Test
+    fun `featured と showFeatured の語彙を載せる`() {
+        val encoded = AppJson.encodeToString(Sample())
+
+        assertEquals(
+            """{"@context":["https://www.w3.org/ns/activitystreams","https://w3id.org/security/v1",{"toot":"http://joinmastodon.org/ns#","featured":{"@id":"toot:featured","@type":"@id"},"showFeatured":"toot:showFeatured"}]}""",
+            encoded,
+        )
+    }
+}
