@@ -189,11 +189,13 @@ private fun bindDomListeners(
                         event.preventDefault()
                     }
                 }
+
                 "c" -> {
                     if (copySelection(input)) {
                         event.preventDefault()
                     }
                 }
+
                 "a" -> {
                     input.select()
                     event.preventDefault()
