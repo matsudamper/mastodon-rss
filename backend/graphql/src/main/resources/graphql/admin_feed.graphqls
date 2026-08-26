@@ -82,8 +82,8 @@ input PostFeedItemsQuery {
 }
 
 type AdminPostFeedItemsResult {
-    "投稿できた件数"
-    postedCount: Int
+    "投稿できた記事"
+    items: [AdminUnpublishedFeedItem!]
     failure: AdminPostFeedItemsFailure
 }
 

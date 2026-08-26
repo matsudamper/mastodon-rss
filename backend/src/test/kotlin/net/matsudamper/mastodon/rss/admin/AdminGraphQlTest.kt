@@ -353,7 +353,10 @@ class AdminGraphQlTest {
             val result = mutatePostFeedItems(accountId = accountId, token = token).admin().obj("postFeedItems")
 
             assertEquals(JsonNull, result.getValue("failure"))
-            assertEquals(2, result.getValue("postedCount").jsonPrimitive.int)
+            assertEquals(
+                listOf("1 本目", "2 本目"),
+                result.getValue("items").jsonArray.map { it.jsonObject.string("title") },
+            )
             assertEquals(2, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
         }
 
@@ -628,7 +631,7 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "mutation PostItems(${'$'}accountId: AccountId!) { admin { " +
-                "postFeedItems(query: { accountId: ${'$'}accountId }) { postedCount failure { reason } } } }",
+                "postFeedItems(query: { accountId: ${'$'}accountId }) { items { title link } failure { reason } } } }",
             token = token,
             variables = """{"accountId":${JsonPrimitive(accountId)}}""",
         )

@@ -113,8 +113,8 @@ class FeedService(
         val feed = feeds.findByAccountId(accountId)
             ?: return PostUnpublishedResult.Failure(PostUnpublishedFailure.NO_FEED)
         val sender = actorDirectory.resolve(account.username)
-            ?: return PostUnpublishedResult.Success(postedCount = 0)
-        var postedCount = 0
+            ?: return PostUnpublishedResult.Success(items = emptyList())
+        val posted = mutableListOf<UnpublishedItem>()
         feedItems.findPending(feed.id, Int.MAX_VALUE).forEach { stored ->
             val html = stored.contentHtml ?: return@forEach
             try {
@@ -125,9 +125,13 @@ class FeedService(
                 return@forEach
             }
             feedItems.markPosted(stored.id, Instant.now())
-            postedCount += 1
+            posted += UnpublishedItem(
+                title = stored.title,
+                link = stored.link,
+                publishedAt = stored.publishedAt,
+            )
         }
-        return PostUnpublishedResult.Success(postedCount = postedCount)
+        return PostUnpublishedResult.Success(items = posted)
     }
 
     data class FeedPreview(
@@ -203,7 +207,7 @@ class FeedService(
 
     sealed interface PostUnpublishedResult {
         data class Success(
-            val postedCount: Int,
+            val items: List<UnpublishedItem>,
         ) : PostUnpublishedResult
 
         data class Failure(
