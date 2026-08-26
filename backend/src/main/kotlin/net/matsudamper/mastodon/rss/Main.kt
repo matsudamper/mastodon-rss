@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss
 import java.nio.file.Path
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
+import io.ktor.server.application.ServerReady
 import io.ktor.server.application.log
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
@@ -56,10 +57,12 @@ fun main() {
         },
     )
 
-    // フィードの定期取得を始める。HTTP を受けるかどうかとは関係が無いのでサーバーとは別に始める。
-    // 止めるのは deps.close()。シャットダウンフックを付けた後に始めることで、
-    // ここから先で落ちても止められる
-    deps.startFeedPolling()
+    // フィードの定期取得は、受け付けが始まってから動かす。投稿を受け取った相手は
+    // その場で Note やアクターの URL を引きに来るので、待ち受ける前に投稿すると
+    // 相手は繋げずに終わる。止めるのは deps.close()
+    server.monitor.subscribe(ServerReady) {
+        deps.startFeedPolling()
+    }
 
     // start(wait = true) は停止まで返ってこない
     server.start(wait = true)
