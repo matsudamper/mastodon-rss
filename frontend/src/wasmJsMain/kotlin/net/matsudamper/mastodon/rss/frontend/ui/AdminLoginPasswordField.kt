@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -106,6 +107,8 @@ private fun HtmlCredentialField(
     val interactionSource = remember { MutableInteractionSource() }
     val focusInteractionHolder = remember { FocusInteractionHolder() }
     val clickInteractionSource = remember { MutableInteractionSource() }
+    val latestValue = rememberUpdatedState(value)
+    val latestOnValueChange = rememberUpdatedState(onValueChange)
 
     Box(
         modifier = modifier
@@ -135,6 +138,17 @@ private fun HtmlCredentialField(
                         input.setAttribute("form", FORM_ID)
                         input.setAttribute("aria-label", label)
                         input.required = true
+                        // oninput / onchange プロパティは使わない。
+                        // oninput の型は (InputEvent) -> Unit で、パスワードマネージャーが
+                        // 自動入力後に dispatch する素の Event ではキャストに失敗する。
+                        val valueListener: (Event) -> Unit = { event ->
+                            val newValue = readInputValue(event)
+                            if (newValue != latestValue.value) {
+                                latestOnValueChange.value(newValue)
+                            }
+                        }
+                        input.addEventListener("input", valueListener)
+                        input.addEventListener("change", valueListener)
                         input
                     },
                     update = { input ->
@@ -151,18 +165,6 @@ private fun HtmlCredentialField(
                         )
                         if (input.value != value) {
                             input.value = value
-                        }
-                        input.oninput = { event ->
-                            val newValue = readInputValue(event)
-                            if (newValue != value) {
-                                onValueChange(newValue)
-                            }
-                        }
-                        input.onchange = { event ->
-                            val newValue = readInputValue(event)
-                            if (newValue != value) {
-                                onValueChange(newValue)
-                            }
                         }
                     },
                 )
