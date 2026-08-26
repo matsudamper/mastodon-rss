@@ -490,6 +490,69 @@ class FeedServiceTest {
             assertEquals(listOf("1 本目", "2 本目", "3 本目"), success.items.map { it.title })
         }
 
+    @Test
+    fun `取得の時期が来たフィードの新着を投稿する`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(FEED_XML, LATEST_XML),
+                noteStore = noteStore,
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val results = service.pollDue(now = POLLED_AT, limit = 10)
+
+            assertEquals(listOf(null), results.map { it.error })
+            assertEquals(listOf("1 本目", "2 本目", "3 本目"), results.single().postedItems.map { it.title })
+            assertEquals(3, noteStore.added.size)
+            assertEquals(POLLED_AT, assertNotNull(repositories.feeds.findByAccountId(account.id)).fetch.lastSucceededAt)
+        }
+
+    @Test
+    fun `取得の時期が来ていないフィードは取りに行かない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = noteStore)
+            service.save(accountId = account.id, url = FEED_URL)
+            service.pollDue(now = POLLED_AT, limit = 10)
+
+            val results = service.pollDue(now = POLLED_AT.plusSeconds(60), limit = 10)
+
+            assertEquals(emptyList(), results)
+            assertEquals(2, noteStore.added.size)
+        }
+
+    @Test
+    fun `取得に失敗したら記録して投稿しない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                statuses = listOf(HttpStatusCode.OK, HttpStatusCode.NotFound),
+                noteStore = noteStore,
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val results = service.pollDue(now = POLLED_AT, limit = 10)
+
+            assertEquals(listOf("HTTP 404"), results.map { it.error })
+            assertEquals(0, noteStore.added.size)
+            val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
+            assertEquals("HTTP 404", feed.fetch.lastError)
+            assertEquals(POLLED_AT, feed.fetch.lastFetchedAt)
+            assertEquals(
+                listOf(FeedItemState.PENDING, FeedItemState.PENDING),
+                repositories.feedItems.items().map { it.state },
+            )
+        }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         status: HttpStatusCode = HttpStatusCode.OK,
@@ -530,6 +593,7 @@ class FeedServiceTest {
 
     private companion object {
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03Z")
+        val POLLED_AT: Instant = Instant.parse("2026-08-16T02:00:00Z")
         const val FEED_URL = "https://example.com/feed.xml"
         const val REDIRECTED_FEED_URL = "https://cdn.example.net/rss/feed.xml"
         val FEED_XML = """
