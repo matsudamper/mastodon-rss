@@ -24,6 +24,7 @@ import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.shared.AccountId
+import org.slf4j.LoggerFactory
 
 class FeedService(
     private val accounts: AccountRepository,
@@ -34,6 +35,8 @@ class FeedService(
     private val notePublisher: NotePublisher,
 ) {
     private val publishLock = Mutex()
+
+    private val logger = LoggerFactory.getLogger(FeedService::class.java)
 
     suspend fun preview(url: String): PreviewResult {
         return when (val fetched = fetcher.fetch(url)) {
@@ -141,7 +144,12 @@ class FeedService(
     suspend fun pollDue(
         now: Instant,
         limit: Int,
-    ): List<PollResult> = feeds.findDue(now = now, limit = limit).map { feed -> poll(feed, now) }
+    ): List<PollResult> = feeds
+        .findDue(now = now, limit = limit)
+        // 登録の途中のフィードは飛ばす。登録時の取り込みが終わる前に取りに行くと、
+        // 既存記事をこちらが先に保存してしまい、新着として投稿する
+        .filter { it.initialImportDone }
+        .map { feed -> poll(feed, now) }
 
     data class PollResult(
         val feedId: FeedId,
@@ -329,7 +337,10 @@ class FeedService(
                     notePublisher.publish(sender = sender, contentHtml = html)
                 } catch (e: CancellationException) {
                     throw e
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    // 投稿できなかった記事は未投稿のまま残る。無人で動くので、
+                    // 気付けるようにここに残す
+                    logger.warn("記事を投稿できなかった: ${stored.link ?: stored.itemKey}", e)
                     return@forEach
                 }
                 feedItems.markPosted(stored.id, Instant.now())

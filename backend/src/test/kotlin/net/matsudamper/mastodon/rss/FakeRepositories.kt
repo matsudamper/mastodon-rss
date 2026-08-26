@@ -284,6 +284,11 @@ class FakeFeedRepository : FeedRepository {
         update(id) { it.copy(initialImportDone = true) }
     }
 
+    /** 登録の取り込みが終わっていない状態を作る。本物には無い、テストのための口 */
+    fun clearInitialImportDone(id: FeedId) {
+        update(id) { it.copy(initialImportDone = false) }
+    }
+
     override fun delete(id: FeedId) {
         stored.removeAll { it.id == id }
     }

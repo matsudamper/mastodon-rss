@@ -547,6 +547,23 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `登録の取り込みが終わっていないフィードは取りに行かない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = noteStore)
+            service.save(accountId = account.id, url = FEED_URL)
+            val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
+            repositories.feeds.clearInitialImportDone(feed.id)
+
+            val results = service.pollDue(now = POLLED_AT, limit = 10)
+
+            assertEquals(emptyList(), results)
+            assertEquals(0, noteStore.added.size)
+        }
+
+    @Test
     fun `取得に失敗したら記録して投稿しない`() =
         runTest {
             val repositories = FakeRepositories()
