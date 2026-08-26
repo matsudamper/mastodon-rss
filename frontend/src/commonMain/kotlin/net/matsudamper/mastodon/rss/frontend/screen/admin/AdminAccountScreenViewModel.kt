@@ -12,7 +12,10 @@ import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteFeedItemResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeed
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedItem
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
@@ -39,6 +42,9 @@ class AdminAccountScreenViewModel(
     private var saveFeedJob: Job? = null
     private var unpublishedJob: Job? = null
     private var postUnpublishedJob: Job? = null
+    private var feedItemsJob: Job? = null
+    private var loadMoreFeedItemsJob: Job? = null
+    private var deleteFeedItemJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
         MutableStateFlow(
@@ -81,6 +87,18 @@ class AdminAccountScreenViewModel(
                         loadMore()
                     }
 
+                    override fun onClickDeleteFeedItem(id: Long) {
+                        deleteFeedItem(id)
+                    }
+
+                    override fun onClickLoadMoreFeedItems() {
+                        loadMoreFeedItems()
+                    }
+
+                    override fun onClickReloadFeedItems() {
+                        loadFeedItems()
+                    }
+
                     override fun onClickReloadNotes() {
                         loadNotes()
                     }
@@ -109,7 +127,9 @@ class AdminAccountScreenViewModel(
         saveFeedJob?.cancel()
         unpublishedJob?.cancel()
         postUnpublishedJob?.cancel()
+        deleteFeedItemJob?.cancel()
         cancelNotesJobs()
+        cancelFeedItemsJobs()
 
         viewModelStateFlow.update {
             ViewModelState(
@@ -131,6 +151,7 @@ class AdminAccountScreenViewModel(
                 loadNotes()
                 if (account.account.feed != null) {
                     loadUnpublished(account.account.account.id)
+                    loadFeedItems()
                 }
             }
         }
@@ -219,6 +240,7 @@ class AdminAccountScreenViewModel(
                             )
                         }
                         loadUnpublished(accountId)
+                        loadFeedItems()
                     }
 
                     is AdminSaveFeedResult.Rejected -> {
@@ -301,6 +323,7 @@ class AdminAccountScreenViewModel(
                             )
                         }
                         loadUnpublished(accountId)
+                        loadFeedItems()
                         if (result.items.isNotEmpty()) {
                             loadNotes(networkOnly = true)
                         }
@@ -330,6 +353,167 @@ class AdminAccountScreenViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * 取り込んだ記事の一覧を先頭から取り直す。
+     */
+    private fun loadFeedItems() {
+        val accountId = viewModelStateFlow.value.loadedAccount?.account?.id ?: return
+
+        cancelFeedItemsJobs()
+        viewModelStateFlow.update { it.copy(feedItemsLoading = true, feedItemsError = null) }
+
+        feedItemsJob = viewModelScope.launch {
+            try {
+                when (val result = api.feedItems(accountId = accountId, limit = PAGE_SIZE)) {
+                    is AdminFeedItemsResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedItems = result.items,
+                                feedItemsCursor = result.cursor,
+                                feedItemsError = null,
+                                feedItemsLoading = false,
+                                feedItemsLoadingMore = false,
+                            )
+                        }
+                    }
+
+                    is AdminFeedItemsResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedItems = emptyList(),
+                                feedItemsCursor = null,
+                                feedItemsError = result.reason.toMessage(),
+                                feedItemsLoading = false,
+                                feedItemsLoadingMore = false,
+                            )
+                        }
+                    }
+
+                    is AdminFeedItemsResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedItemsError = result.message,
+                                feedItemsLoading = false,
+                                feedItemsLoadingMore = false,
+                            )
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(feedItemsLoading = false, feedItemsLoadingMore = false) }
+                }
+            }
+        }
+    }
+
+    private fun loadMoreFeedItems() {
+        val state = viewModelStateFlow.value
+        val accountId = state.loadedAccount?.account?.id ?: return
+        val cursor = state.feedItemsCursor ?: return
+        if (state.feedItemsLoadingMore) return
+
+        loadMoreFeedItemsJob?.cancel()
+        viewModelStateFlow.update { it.copy(feedItemsLoadingMore = true) }
+
+        loadMoreFeedItemsJob = viewModelScope.launch {
+            try {
+                when (val result = api.feedItems(accountId = accountId, cursor = cursor, limit = PAGE_SIZE)) {
+                    is AdminFeedItemsResult.Success -> {
+                        viewModelStateFlow.update { current ->
+                            current.copy(
+                                feedItems = current.feedItems + result.items,
+                                feedItemsCursor = result.cursor,
+                                feedItemsError = null,
+                                feedItemsLoadingMore = false,
+                            )
+                        }
+                    }
+
+                    is AdminFeedItemsResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedItemsError = result.reason.toMessage(),
+                                feedItemsLoadingMore = false,
+                            )
+                        }
+                    }
+
+                    is AdminFeedItemsResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                feedItemsError = result.message,
+                                feedItemsLoadingMore = false,
+                            )
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(feedItemsLoadingMore = false) }
+                }
+            }
+        }
+    }
+
+    private fun deleteFeedItem(id: Long) {
+        val state = viewModelStateFlow.value
+        val accountId = state.loadedAccount?.account?.id ?: return
+        if (id in state.deletingFeedItemIds) return
+
+        deleteFeedItemJob?.cancel()
+        viewModelStateFlow.update {
+            it.copy(
+                deletingFeedItemIds = it.deletingFeedItemIds + id,
+                feedItemsError = null,
+            )
+        }
+
+        deleteFeedItemJob = viewModelScope.launch {
+            try {
+                when (val result = api.deleteFeedItem(accountId = accountId, feedItemId = id)) {
+                    is AdminDeleteFeedItemResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(deletingFeedItemIds = it.deletingFeedItemIds - id)
+                        }
+                        // 消すと未投稿の数も変わる。最新情報の投稿で流れ直すのはこの後
+                        loadUnpublished(accountId)
+                        loadFeedItems()
+                    }
+
+                    is AdminDeleteFeedItemResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                deletingFeedItemIds = it.deletingFeedItemIds - id,
+                                feedItemsError = result.reason.toMessage(),
+                            )
+                        }
+                    }
+
+                    is AdminDeleteFeedItemResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                deletingFeedItemIds = it.deletingFeedItemIds - id,
+                                feedItemsError = result.message,
+                            )
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(deletingFeedItemIds = it.deletingFeedItemIds - id) }
+                }
+            }
+        }
+    }
+
+    private fun cancelFeedItemsJobs() {
+        feedItemsJob?.cancel()
+        loadMoreFeedItemsJob?.cancel()
+        feedItemsJob = null
+        loadMoreFeedItemsJob = null
     }
 
     /**
@@ -493,6 +677,7 @@ class AdminAccountScreenViewModel(
                 AdminAccountScreenUiState.Content.Loaded(
                     account = found.toUiState(),
                     feed = state.feedUiState(found),
+                    feedItems = state.feedItemsUiState(found),
                     post = AdminAccountScreenUiState.Post(
                         body = state.body,
                         submitting = state.submitting,
@@ -545,11 +730,53 @@ class AdminAccountScreenViewModel(
             AdminPostFeedItemsResult.FailureReason.UNKNOWN -> "未投稿を投稿できなかった"
         }
 
+    private fun AdminFeedItemsResult.FailureReason.toMessage(): String =
+        when (this) {
+            AdminFeedItemsResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
+            AdminFeedItemsResult.FailureReason.NO_FEED -> "フィードが登録されていない"
+            AdminFeedItemsResult.FailureReason.UNKNOWN -> "取り込んだ記事を取得できなかった"
+        }
+
+    private fun AdminDeleteFeedItemResult.FailureReason.toMessage(): String =
+        when (this) {
+            AdminDeleteFeedItemResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
+            AdminDeleteFeedItemResult.FailureReason.NO_FEED -> "フィードが登録されていない"
+            AdminDeleteFeedItemResult.FailureReason.NOT_FOUND -> "この記事は既に消えている"
+            AdminDeleteFeedItemResult.FailureReason.UNKNOWN -> "記事を消せなかった"
+        }
+
     private fun AdminUnpublishedFeedItem.toUiState(): AdminAccountScreenUiState.UnpublishedItem =
         AdminAccountScreenUiState.UnpublishedItem(
             title = title,
             link = link,
             publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
+        )
+
+    private fun ViewModelState.feedItemsUiState(account: AdminAccount): AdminAccountScreenUiState.FeedItems? {
+        if (account.feed == null) return null
+
+        return AdminAccountScreenUiState.FeedItems(
+            items = feedItems.map { it.toUiState(deleting = it.id in deletingFeedItemIds) },
+            error = feedItemsError,
+            loading = feedItemsLoading,
+            canLoadMore = feedItemsCursor != null,
+            loadingMore = feedItemsLoadingMore,
+        )
+    }
+
+    private fun AdminFeedItem.toUiState(deleting: Boolean): AdminAccountScreenUiState.FeedItem =
+        AdminAccountScreenUiState.FeedItem(
+            id = id,
+            title = title,
+            link = link,
+            publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
+            stateText = when (state) {
+                AdminFeedItem.State.PENDING -> "未投稿"
+                AdminFeedItem.State.POSTED -> "投稿済み"
+                AdminFeedItem.State.SKIPPED -> "投稿しない"
+                AdminFeedItem.State.UNKNOWN -> "不明"
+            },
+            deleting = deleting,
         )
 
     private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {
@@ -629,6 +856,12 @@ class AdminAccountScreenViewModel(
         val feedPreviewError: String? = null,
         val feedSaving: Boolean = false,
         val feedSaveError: String? = null,
+        val feedItems: List<AdminFeedItem> = emptyList(),
+        val feedItemsCursor: String? = null,
+        val feedItemsError: String? = null,
+        val feedItemsLoading: Boolean = false,
+        val feedItemsLoadingMore: Boolean = false,
+        val deletingFeedItemIds: Set<Long> = emptySet(),
         val unpublishedItems: List<AdminUnpublishedFeedItem> = emptyList(),
         val postedItems: List<AdminUnpublishedFeedItem>? = null,
         val postingUnpublished: Boolean = false,

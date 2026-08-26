@@ -128,3 +128,66 @@ sealed interface AdminPostFeedItemsResult {
         UNKNOWN,
     }
 }
+
+/**
+ * 取り込んだ記事 1 件
+ */
+data class AdminFeedItem(
+    val id: Long,
+    val title: String?,
+    val link: String?,
+    val publishedAt: Long?,
+    val importedAt: Long,
+    val state: State,
+    val postedAt: Long?,
+) {
+    enum class State {
+        PENDING,
+        POSTED,
+        SKIPPED,
+        UNKNOWN,
+    }
+}
+
+sealed interface AdminFeedItemsResult {
+    /**
+     * @param cursor 次のページを取るときに渡す。null なら最後のページ
+     */
+    data class Success(
+        val items: List<AdminFeedItem>,
+        val cursor: String?,
+    ) : AdminFeedItemsResult
+
+    data class Rejected(
+        val reason: FailureReason,
+    ) : AdminFeedItemsResult
+
+    data class Failure(
+        val message: String,
+    ) : AdminFeedItemsResult
+
+    enum class FailureReason {
+        UNKNOWN_ACCOUNT,
+        NO_FEED,
+        UNKNOWN,
+    }
+}
+
+sealed interface AdminDeleteFeedItemResult {
+    data object Success : AdminDeleteFeedItemResult
+
+    data class Rejected(
+        val reason: FailureReason,
+    ) : AdminDeleteFeedItemResult
+
+    data class Failure(
+        val message: String,
+    ) : AdminDeleteFeedItemResult
+
+    enum class FailureReason {
+        UNKNOWN_ACCOUNT,
+        NO_FEED,
+        NOT_FOUND,
+        UNKNOWN,
+    }
+}

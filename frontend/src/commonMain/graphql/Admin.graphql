@@ -187,3 +187,43 @@ fragment AdminNoteFields on AdminNote {
     contentHtml
     publishedAt
 }
+
+query AdminFeedItems($query: FeedItemsQuery!) {
+    admin {
+        feedItems(query: $query) {
+            connection {
+                nodes {
+                    ...AdminFeedItemFields
+                }
+                pageInfo {
+                    hasMore
+                    nextCursor
+                }
+            }
+            failure {
+                reason
+            }
+        }
+    }
+}
+
+mutation AdminDeleteFeedItem($query: DeleteFeedItemQuery!) {
+    admin {
+        deleteFeedItem(query: $query) {
+            deletedId
+            failure {
+                reason
+            }
+        }
+    }
+}
+
+fragment AdminFeedItemFields on AdminFeedItem {
+    id
+    title
+    link
+    publishedAt
+    importedAt
+    state
+    postedAt
+}
