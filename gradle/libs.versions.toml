@@ -41,6 +41,7 @@ graalvm-nativeimage = { module = "org.graalvm.sdk:nativeimage", version.ref = "g
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
 jooq = { module = "org.jooq:jooq", version.ref = "jooq" }
 jooq-codegen = { module = "org.jooq:jooq-codegen", version.ref = "jooq" }
+jooq-codegen-gradle = { module = "org.jooq:jooq-codegen-gradle", version.ref = "jooq" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 graalvm-native-plugin = { module = "org.graalvm.buildtools:native-gradle-plugin", version.ref = "graalvmBuildtools" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }

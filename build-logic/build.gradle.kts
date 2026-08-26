@@ -18,6 +18,9 @@ dependencies {
     // native-image の設定（どの GraalVM で作るか）をプラグイン側で書くために要る。
     // モジュールごとに同じ結線を 3 回書かないようにするため
     implementation(libs.graalvm.native.plugin)
+
+    implementation(libs.jooq.codegen.gradle)
+    implementation(libs.jooq.codegen)
 }
 
 gradlePlugin {
