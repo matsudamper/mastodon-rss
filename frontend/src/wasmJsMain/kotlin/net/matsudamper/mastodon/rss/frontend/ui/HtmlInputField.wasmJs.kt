@@ -174,6 +174,8 @@ private fun bindDomListeners(
     input: HTMLInputElement,
     onValueChange: (String) -> Unit,
 ) {
+    // oninput プロパティの型は (InputEvent) -> Unit。切り取りやパスワードマネージャーの
+    // 自動入力では素の Event が来るので、キャストせず addEventListener で受ける。
     input.addEventListener("input") { event ->
         onValueChange(readInputValue(event))
     }
