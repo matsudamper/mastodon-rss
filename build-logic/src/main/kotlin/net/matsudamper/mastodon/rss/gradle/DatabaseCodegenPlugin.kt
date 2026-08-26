@@ -18,8 +18,7 @@ import org.jooq.codegen.gradle.CodegenTask
  *
  * codegen 本体は公式の `org.jooq.jooq-codegen-gradle` プラグインに任せる。
  * このプラグインは `GenerationTool` を Gradle デーモンの中で直接呼ぶので、
- * jOOQ 自体がデーモンのクラスパスに乗る。別プロセスに切り出す手もあるが、
- * その分の実装コストに見合わないので許容する
+ * jOOQ 自体がデーモンのクラスパスに乗る
  */
 class DatabaseCodegenPlugin : Plugin<Project> {
     override fun apply(target: Project) {
