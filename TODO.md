@@ -333,10 +333,14 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
       - アカウントの一覧 (`Query.admin.adminAccounts`)、1 件の参照 (`Query.admin.adminAccount`)、
         追加 (`Mutation.admin.addAccount`)、投稿 (`Mutation.admin.postNote`) と
         その一覧 (`Query.admin.notes`) は入れた
+      - 取り込んだ記事の一覧 (`Query.admin.feedItems`) と 1 件の削除
+        (`Mutation.admin.deleteFeedItem`) も入れた。フィード自体の削除は未実装
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
 - [ ] Compose でフィード一覧 / 追加 / 削除
+      - フィードの追加と、取り込んだ記事の一覧と削除は
+        `/admin/accounts/@{name}` に入れた。フィード自体の削除は未実装
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
       - フォロワー数は `/admin/accounts/@{name}` に出している。最終投稿と配信エラーは未着手
 - [ ] フィードのプレビュー（投稿前にどう見えるか）
