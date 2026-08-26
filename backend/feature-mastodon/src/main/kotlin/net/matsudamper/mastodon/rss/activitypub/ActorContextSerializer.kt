@@ -17,47 +17,47 @@ import kotlinx.serialization.json.buildJsonObject
 object ActorContext
 
 object ActorContextSerializer : KSerializer<ActorContext> {
-  private const val ACTIVITY_STREAMS = "https://www.w3.org/ns/activitystreams"
-  private const val SECURITY = "https://w3id.org/security/v1"
-  private const val TOOT_NAMESPACE = "http://joinmastodon.org/ns#"
+    private const val ACTIVITY_STREAMS = "https://www.w3.org/ns/activitystreams"
+    private const val SECURITY = "https://w3id.org/security/v1"
+    private const val TOOT_NAMESPACE = "http://joinmastodon.org/ns#"
 
-  override val descriptor: SerialDescriptor =
-    SerialDescriptor("net.matsudamper.mastodon.rss.activitypub.ActorContext", JsonPrimitive.serializer().descriptor)
+    override val descriptor: SerialDescriptor =
+        SerialDescriptor("net.matsudamper.mastodon.rss.activitypub.ActorContext", JsonPrimitive.serializer().descriptor)
 
-  override fun deserialize(decoder: Decoder): ActorContext {
-    val jsonDecoder =
-      decoder as? JsonDecoder
-        ?: throw SerializationException("ActorContextSerializer は JSON でのみ使える")
-    jsonDecoder.decodeJsonElement()
-    return ActorContext
-  }
+    override fun deserialize(decoder: Decoder): ActorContext {
+        val jsonDecoder =
+            decoder as? JsonDecoder
+                ?: throw SerializationException("ActorContextSerializer は JSON でのみ使える")
+        jsonDecoder.decodeJsonElement()
+        return ActorContext
+    }
 
-  override fun serialize(
-    encoder: Encoder,
-    value: ActorContext,
-  ) {
-    val jsonEncoder =
-      encoder as? JsonEncoder
-        ?: throw SerializationException("ActorContextSerializer は JSON でのみ使える")
+    override fun serialize(
+        encoder: Encoder,
+        value: ActorContext,
+    ) {
+        val jsonEncoder =
+            encoder as? JsonEncoder
+                ?: throw SerializationException("ActorContextSerializer は JSON でのみ使える")
 
-    jsonEncoder.encodeJsonElement(
-      buildJsonArray {
-        add(JsonPrimitive(ACTIVITY_STREAMS))
-        add(JsonPrimitive(SECURITY))
-        add(
-          buildJsonObject {
-            put("toot", JsonPrimitive(TOOT_NAMESPACE))
-            put(
-              "featured",
-              buildJsonObject {
-                put("@id", JsonPrimitive("toot:featured"))
-                put("@type", JsonPrimitive("@id"))
-              },
-            )
-            put("showFeatured", JsonPrimitive("toot:showFeatured"))
-          },
+        jsonEncoder.encodeJsonElement(
+            buildJsonArray {
+                add(JsonPrimitive(ACTIVITY_STREAMS))
+                add(JsonPrimitive(SECURITY))
+                add(
+                    buildJsonObject {
+                        put("toot", JsonPrimitive(TOOT_NAMESPACE))
+                        put(
+                            "featured",
+                            buildJsonObject {
+                                put("@id", JsonPrimitive("toot:featured"))
+                                put("@type", JsonPrimitive("@id"))
+                            },
+                        )
+                        put("showFeatured", JsonPrimitive("toot:showFeatured"))
+                    },
+                )
+            },
         )
-      },
-    )
-  }
+    }
 }

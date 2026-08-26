@@ -57,7 +57,13 @@ class ActorRoutesTest {
 
             val body = client.get("/users/admin").bodyAsText()
 
-            assertTrue(body.contains(""""@context":["https://www.w3.org/ns/activitystreams","https://w3id.org/security/v1",{"toot":"http://joinmastodon.org/ns#","featured":{"@id":"toot:featured","@type":"@id"},"showFeatured":"toot:showFeatured"}]"""))
+            val expectedContext =
+                """"@context":["https://www.w3.org/ns/activitystreams",""" +
+                    """"https://w3id.org/security/v1",""" +
+                    """{"toot":"http://joinmastodon.org/ns#",""" +
+                    """"featured":{"@id":"toot:featured","@type":"@id"},""" +
+                    """"showFeatured":"toot:showFeatured"}]"""
+            assertTrue(body.contains(expectedContext))
         }
 
     @Test

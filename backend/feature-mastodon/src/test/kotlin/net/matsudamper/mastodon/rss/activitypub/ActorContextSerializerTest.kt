@@ -18,9 +18,12 @@ class ActorContextSerializerTest {
     fun `featured と showFeatured の語彙を載せる`() {
         val encoded = AppJson.encodeToString(Sample())
 
-        assertEquals(
-            """{"@context":["https://www.w3.org/ns/activitystreams","https://w3id.org/security/v1",{"toot":"http://joinmastodon.org/ns#","featured":{"@id":"toot:featured","@type":"@id"},"showFeatured":"toot:showFeatured"}]}""",
-            encoded,
-        )
+        val expected =
+            """{"@context":["https://www.w3.org/ns/activitystreams",""" +
+                """"https://w3id.org/security/v1",""" +
+                """{"toot":"http://joinmastodon.org/ns#",""" +
+                """"featured":{"@id":"toot:featured","@type":"@id"},""" +
+                """"showFeatured":"toot:showFeatured"}]}"""
+        assertEquals(expected, encoded)
     }
 }
