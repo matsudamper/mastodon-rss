@@ -96,7 +96,7 @@ internal actual fun HtmlInputField(
                             focusInteractionHolder = focusInteractionHolder,
                             onValueChange = onValueChange,
                         )
-                        bindClipboardHandlers(input = input)
+                        bindClipboardHandlers(input = input, onValueChange = onValueChange)
                         syncInputValue(input = input, value = value)
                         input.oninput = { event ->
                             onValueChange(readInputValue(event))
@@ -170,12 +170,54 @@ private class FocusInteractionHolder {
     var focus: FocusInteraction.Focus? = null
 }
 
-private fun bindClipboardHandlers(input: HTMLInputElement) {
+private fun bindClipboardHandlers(
+    input: HTMLInputElement,
+    onValueChange: (String) -> Unit,
+) {
     input.onkeydown = { event ->
         if (event.isClipboardShortcutKey()) {
             event.stopPropagation()
+            when (event.key.lowercase()) {
+                "x" -> {
+                    if (cutSelection(input, onValueChange)) {
+                        event.preventDefault()
+                    }
+                }
+                "c" -> {
+                    if (copySelection(input)) {
+                        event.preventDefault()
+                    }
+                }
+                "a" -> {
+                    input.select()
+                    event.preventDefault()
+                }
+            }
         }
     }
+}
+
+private fun cutSelection(
+    input: HTMLInputElement,
+    onValueChange: (String) -> Unit,
+): Boolean {
+    val start = input.selectionStart ?: return false
+    val end = input.selectionEnd ?: return false
+    if (start >= end) return false
+    copyToClipboard(input.value.substring(start, end))
+    val next = input.value.removeRange(start, end)
+    input.value = next
+    input.setSelectionRange(start, start)
+    onValueChange(next)
+    return true
+}
+
+private fun copySelection(input: HTMLInputElement): Boolean {
+    val start = input.selectionStart ?: return false
+    val end = input.selectionEnd ?: return false
+    if (start >= end) return false
+    copyToClipboard(input.value.substring(start, end))
+    return true
 }
 
 private fun syncInputValue(
@@ -242,6 +284,8 @@ private fun applyInputStyle(
         lineHeight = "normal"
         fontFamily = "inherit"
         letterSpacing = "normal"
+        setProperty("user-select", "text")
+        setProperty("-webkit-user-select", "text")
     }
 }
 
