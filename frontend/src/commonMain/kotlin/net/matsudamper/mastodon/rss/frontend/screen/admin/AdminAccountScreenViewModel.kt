@@ -296,7 +296,7 @@ class AdminAccountScreenViewModel(
                     is AdminPostFeedItemsResult.Success -> {
                         viewModelStateFlow.update { it.copy(postingUnpublished = false) }
                         loadUnpublished(accountId)
-                        if (result.postedCount > 0) {
+                        if (result.items.isNotEmpty()) {
                             loadNotes()
                         }
                     }

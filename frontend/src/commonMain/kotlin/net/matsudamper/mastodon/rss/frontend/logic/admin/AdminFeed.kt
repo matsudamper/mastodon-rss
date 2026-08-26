@@ -108,7 +108,7 @@ sealed interface AdminUnpublishedFeedItemsResult {
 
 sealed interface AdminPostFeedItemsResult {
     data class Success(
-        val postedCount: Int,
+        val items: List<AdminUnpublishedFeedItem>,
     ) : AdminPostFeedItemsResult
 
     data class Rejected(

@@ -236,9 +236,17 @@ class AdminApi(
         ).execute()
         val result = response.data?.admin?.postFeedItems
             ?: return AdminPostFeedItemsResult.Failure(response.failureMessage())
-        val postedCount = result.postedCount
-        if (postedCount != null) {
-            return AdminPostFeedItemsResult.Success(postedCount = postedCount)
+        val items = result.items
+        if (items != null) {
+            return AdminPostFeedItemsResult.Success(
+                items = items.map { item ->
+                    AdminUnpublishedFeedItem(
+                        title = item.title,
+                        link = item.link,
+                        publishedAt = item.publishedAt,
+                    )
+                },
+            )
         }
         return AdminPostFeedItemsResult.Rejected(
             reason = result.failure?.reason?.toPostFeedItemsFailure()
