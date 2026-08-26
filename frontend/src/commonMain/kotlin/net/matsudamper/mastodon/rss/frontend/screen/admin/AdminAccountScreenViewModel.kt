@@ -297,7 +297,7 @@ class AdminAccountScreenViewModel(
                         viewModelStateFlow.update { it.copy(postingUnpublished = false) }
                         loadUnpublished(accountId)
                         if (result.items.isNotEmpty()) {
-                            loadNotes()
+                            loadNotes(networkOnly = true)
                         }
                     }
 
@@ -330,13 +330,13 @@ class AdminAccountScreenViewModel(
     /**
      * 投稿の一覧を先頭から取り直す。
      */
-    private fun loadNotes() {
+    private fun loadNotes(networkOnly: Boolean = false) {
         cancelNotesJobs()
         viewModelStateFlow.update { it.copy(notesLoading = true, notesError = null) }
 
         notesJob = viewModelScope.launch {
             try {
-                when (val result = api.notes(username = username, limit = PAGE_SIZE)) {
+                when (val result = api.notes(username = username, limit = PAGE_SIZE, networkOnly = networkOnly)) {
                     is AdminNotesResult.Success -> {
                         viewModelStateFlow.update {
                             it.copy(
@@ -436,7 +436,7 @@ class AdminAccountScreenViewModel(
                                 error = null,
                             )
                         }
-                        loadNotes()
+                        loadNotes(networkOnly = true)
                     }
 
                     is AdminPostNoteResult.Rejected -> {

@@ -117,17 +117,20 @@ class AdminApi(
         username: String,
         cursor: String? = null,
         limit: Int,
+        networkOnly: Boolean = false,
     ): AdminNotesResult {
-        val response = client
-            .query(
-                AdminNotesQuery(
-                    username = username,
-                    cursor = Optional.presentIfNotNull(cursor),
-                    limit = limit,
-                ),
-            )
-            .fetchPolicy(FetchPolicy.NetworkOnly)
-            .execute()
+        val query = client.query(
+            AdminNotesQuery(
+                username = username,
+                cursor = Optional.presentIfNotNull(cursor),
+                limit = limit,
+            ),
+        )
+        val response = if (networkOnly) {
+            query.fetchPolicy(FetchPolicy.NetworkOnly).execute()
+        } else {
+            query.execute()
+        }
 
         if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
             return AdminNotesResult.Failure(response.failureMessage())
