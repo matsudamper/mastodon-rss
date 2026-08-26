@@ -44,7 +44,7 @@ class FeedPollerTest {
             job.cancel()
 
             assertEquals(
-                listOf("""<p>1 本目<br><a href="https://example.com/1">https://example.com/1</a></p>"""),
+                listOf("""<p>2 本目<br><a href="https://example.com/2">https://example.com/2</a></p>"""),
                 noteStore.added.map { it.contentHtml },
             )
         }
@@ -54,9 +54,11 @@ class FeedPollerTest {
         feeds: FeedRepository,
         noteStore: FakeNoteStore,
     ): FeedService {
+        // 登録時の取り込みで 1 本目まで入る。その後の取得で 2 本目が新着として出る
+        val bodies = ArrayDeque(listOf(FEED_XML, LATEST_XML))
         val engine = MockEngine {
             respond(
-                content = FEED_XML,
+                content = if (bodies.size > 1) bodies.removeFirst() else bodies.first(),
                 status = HttpStatusCode.OK,
                 headers = headersOf("Content-Type", "application/rss+xml"),
             )
@@ -108,6 +110,17 @@ class FeedPollerTest {
                 <title>サンプル</title>
                 <link>https://example.com/</link>
                 <item><title>1 本目</title><link>https://example.com/1</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val LATEST_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <item><title>1 本目</title><link>https://example.com/1</link></item>
+                <item><title>2 本目</title><link>https://example.com/2</link></item>
               </channel>
             </rss>
         """.trimIndent()

@@ -16,6 +16,8 @@ import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedId
+import net.matsudamper.mastodon.rss.repository.FeedItem
+import net.matsudamper.mastodon.rss.repository.FeedItemId
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
@@ -259,7 +261,7 @@ class FeedService(
         // 条件付き GET はまだ送っていないので、保存されている値はそのまま残す
         feeds.recordFetchSuccess(id = feed.id, fetchedAt = now, validators = feed.fetch.validators)
 
-        importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
+        val imported = importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
 
         val account = accounts.findById(feed.accountId)
             ?: return PollResult(feedId = feed.id, url = feed.url, postedItems = emptyList(), error = "アカウントが無い")
@@ -271,6 +273,7 @@ class FeedService(
                 feed = feed,
                 username = account.username,
                 htmlByKey = htmlByKey(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl),
+                only = imported.map { it.id }.toSet(),
             ),
             error = null,
         )
@@ -304,30 +307,38 @@ class FeedService(
      * 定期ポーリングと管理画面からの手動投稿は同時に走りうる。取り出してから
      * 投稿済みにするまでを直列化しないと、両方が同じ記事を取り出してフォロワーに
      * 2 回配信する。取り消す手段は無いので、入口を 1 本に絞って防ぐ
+     *
+     * @param only 投稿する記事を絞る。null なら未投稿を全部投稿する。
+     *   定期ポーリングは今回取り込んだ分だけを渡す。登録時に取り込んだ既存記事は
+     *   確認してから手動で投稿するもので、自動では流さない
      */
     private suspend fun publishPending(
         feed: Feed,
         username: String,
         htmlByKey: Map<String, String?>,
+        only: Set<FeedItemId>? = null,
     ): List<UnpublishedItem> = publishLock.withLock {
         val sender = actorDirectory.resolve(username) ?: return@withLock emptyList()
         val posted = mutableListOf<UnpublishedItem>()
-        feedItems.findPending(feed.id, Int.MAX_VALUE).forEach { stored ->
-            val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
-            try {
-                notePublisher.publish(sender = sender, contentHtml = html)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                return@forEach
+        feedItems
+            .findPending(feed.id, Int.MAX_VALUE)
+            .filter { only == null || it.id in only }
+            .forEach { stored ->
+                val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
+                try {
+                    notePublisher.publish(sender = sender, contentHtml = html)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    return@forEach
+                }
+                feedItems.markPosted(stored.id, Instant.now())
+                posted += UnpublishedItem(
+                    title = stored.title,
+                    link = stored.link,
+                    publishedAt = stored.publishedAt,
+                )
             }
-            feedItems.markPosted(stored.id, Instant.now())
-            posted += UnpublishedItem(
-                title = stored.title,
-                link = stored.link,
-                publishedAt = stored.publishedAt,
-            )
-        }
         posted
     }
 
@@ -390,13 +401,18 @@ class FeedService(
         return FeedText.truncate(normalized, DESCRIPTION_LIMIT)
     }
 
+    /**
+     * 取り込んだ記事を保存して、今回新しく入ったものだけを返す。
+     *
+     * 既にある鍵は保存されず null が返る。定期ポーリングはこの戻り値を投稿の対象にする
+     */
     private fun importExistingItems(
         feed: Feed,
         items: List<ParsedFeedItem>,
         feedUrl: String,
-    ) {
+    ): List<FeedItem> {
         val now = Instant.now()
-        items.forEach { item ->
+        return items.mapNotNull { item ->
             val contentHtml = composeItemHtml(item, feedUrl)
             feedItems.add(
                 NewFeedItem(

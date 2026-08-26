@@ -506,9 +506,28 @@ class FeedServiceTest {
             val results = service.pollDue(now = POLLED_AT, limit = 10)
 
             assertEquals(listOf(null), results.map { it.error })
-            assertEquals(listOf("1 本目", "2 本目", "3 本目"), results.single().postedItems.map { it.title })
-            assertEquals(3, noteStore.added.size)
+            assertEquals(listOf("3 本目"), results.single().postedItems.map { it.title })
+            assertEquals(1, noteStore.added.size)
             assertEquals(POLLED_AT, assertNotNull(repositories.feeds.findByAccountId(account.id)).fetch.lastSucceededAt)
+        }
+
+    @Test
+    fun `登録時に取り込んだ記事は定期ポーリングでは投稿しない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = noteStore)
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val results = service.pollDue(now = POLLED_AT, limit = 10)
+
+            assertEquals(emptyList(), results.single().postedItems)
+            assertEquals(0, noteStore.added.size)
+            assertEquals(
+                listOf(FeedItemState.PENDING, FeedItemState.PENDING),
+                repositories.feedItems.items().map { it.state },
+            )
         }
 
     @Test
@@ -524,7 +543,7 @@ class FeedServiceTest {
             val results = service.pollDue(now = POLLED_AT.plusSeconds(60), limit = 10)
 
             assertEquals(emptyList(), results)
-            assertEquals(2, noteStore.added.size)
+            assertEquals(0, noteStore.added.size)
         }
 
     @Test
