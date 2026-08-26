@@ -11,6 +11,7 @@ import io.ktor.server.routing.routing
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.actorRoutes
+import net.matsudamper.mastodon.rss.feed.FeedPoller
 import net.matsudamper.mastodon.rss.follower.followerRoutes
 import net.matsudamper.mastodon.rss.graphql.DiContainer
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
@@ -106,6 +107,23 @@ fun Application.module(deps: AppDependencies) {
 
     logAdminLogin(env)
 
+    val diContainer = DiContainer(
+        passwordHash = env.adminPasswordHash,
+        accountRepository = deps.repositories.accounts,
+        followerRepository = deps.repositories.followers,
+        feedRepository = deps.repositories.feeds,
+        feedItemRepository = deps.repositories.feedItems,
+        feedFetcher = deps.feedFetcher,
+        domain = env.domain,
+        actorDirectory = deps.directory,
+        notePublisher = deps.notePublisher,
+        noteStore = deps.noteStore,
+    )
+
+    // Application のスコープに乗せる。サーバーを止めればここも止まるので、
+    // 取り込みの途中で DB が閉じられることがない
+    FeedPoller(diContainer.feedService).start(this)
+
     val graphQl = GraphQlEngine.create(
         resolvers = listOf(
             QueryResolverImpl(),
@@ -122,18 +140,7 @@ fun Application.module(deps: AppDependencies) {
                 cookieSecure = env.adminCookieSecure,
             )
         },
-        diContainer = DiContainer(
-            passwordHash = env.adminPasswordHash,
-            accountRepository = deps.repositories.accounts,
-            followerRepository = deps.repositories.followers,
-            feedRepository = deps.repositories.feeds,
-            feedItemRepository = deps.repositories.feedItems,
-            feedFetcher = deps.feedFetcher,
-            domain = env.domain,
-            actorDirectory = deps.directory,
-            notePublisher = deps.notePublisher,
-            noteStore = deps.noteStore,
-        ),
+        diContainer = diContainer,
         openTelemetry = deps.openTelemetry,
     )
 
