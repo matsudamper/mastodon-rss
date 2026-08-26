@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.repository.Repositories
 
 /**
@@ -18,6 +19,7 @@ fun testDependencies(
     env: ServerEnv = TestServerEnv.value,
     remoteActors: RemoteActors = TestRemoteActors(),
     delivery: ActivityDelivery = TestDelivery(),
+    feedFetcher: FeedFetchService = FeedFetchService(),
 ): AppDependencies =
     AppDependencies(
         repositories = repositories,
@@ -25,4 +27,5 @@ fun testDependencies(
         env = env,
         remoteActors = remoteActors,
         delivery = delivery,
+        feedFetcher = feedFetcher,
     )

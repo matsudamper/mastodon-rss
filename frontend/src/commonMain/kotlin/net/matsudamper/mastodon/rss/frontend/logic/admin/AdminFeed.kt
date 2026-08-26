@@ -79,3 +79,52 @@ sealed interface AdminSaveFeedResult {
         UNKNOWN,
     }
 }
+
+data class AdminUnpublishedFeedItem(
+    val title: String?,
+    val link: String?,
+    val publishedAt: Long?,
+)
+
+sealed interface AdminUnpublishedFeedItemsResult {
+    data class Success(
+        val items: List<AdminUnpublishedFeedItem>,
+    ) : AdminUnpublishedFeedItemsResult
+
+    data class Rejected(
+        val reason: FailureReason,
+    ) : AdminUnpublishedFeedItemsResult
+
+    data class Failure(
+        val message: String,
+    ) : AdminUnpublishedFeedItemsResult
+
+    enum class FailureReason {
+        UNKNOWN_ACCOUNT,
+        NO_FEED,
+        UNKNOWN,
+    }
+}
+
+sealed interface AdminPostFeedItemsResult {
+    data class Success(
+        val items: List<AdminUnpublishedFeedItem>,
+    ) : AdminPostFeedItemsResult
+
+    data class Rejected(
+        val reason: FailureReason,
+    ) : AdminPostFeedItemsResult
+
+    data class Failure(
+        val message: String,
+    ) : AdminPostFeedItemsResult
+
+    enum class FailureReason {
+        UNKNOWN_ACCOUNT,
+        NO_FEED,
+        INVALID_URL,
+        FETCH_FAILED,
+        PARSE_FAILED,
+        UNKNOWN,
+    }
+}

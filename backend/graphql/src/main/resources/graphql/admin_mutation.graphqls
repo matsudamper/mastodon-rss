@@ -12,7 +12,10 @@ type AdminMutation {
     postNote(username: String!, body: String!): AdminPostNoteResult! @lazy
 
     "RSS フィードを登録する"
-    saveFeed(accountId: AccountId!, url: String!): AdminSaveFeedResult! @lazy
+    saveFeed(saveFeedQuery: SaveFeedQuery!): AdminSaveFeedResult! @lazy
+
+    "フィードの最新を取り込み、未投稿の記事を投稿する"
+    postFeedItems(query: PostFeedItemsQuery!): AdminPostFeedItemsResult! @lazy
 }
 
 type AdminPostNoteResult {

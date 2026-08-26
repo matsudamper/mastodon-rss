@@ -17,6 +17,9 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -27,11 +30,14 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.http.headersOf
 import io.ktor.http.setCookie
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
+import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
@@ -260,12 +266,98 @@ class AdminGraphQlTest {
             val response = graphQl(
                 query =
                 "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!) { admin { " +
-                    "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url) { failure { reason } } } }",
+                    "saveFeed(saveFeedQuery: { accountId: ${'$'}accountId, url: ${'$'}url }) { failure { reason } } } }",
                 token = token,
                 variables = """{"accountId":1.9,"url":"https://example.com/feed.xml"}""",
             )
 
             assertTrue(response.body().containsKey("errors"))
+        }
+
+    @Test
+    fun `saveFeed は既存記事を投稿しない`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(
+                passwordConfigured = true,
+                repositories = repositories,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+
+            val result = mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token).admin().obj("saveFeed")
+
+            assertEquals(JsonNull, result.getValue("failure"))
+            assertEquals(0, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
+        }
+
+    @Test
+    fun `unpublishedFeedItems は未投稿の記事を返す`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(
+                passwordConfigured = true,
+                repositories = repositories,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+
+            val result = queryUnpublishedFeedItems(accountId = accountId, token = token)
+                .admin()
+                .obj("unpublishedFeedItems")
+
+            assertEquals(JsonNull, result.getValue("failure"))
+            assertEquals(
+                listOf("1 本目", "2 本目"),
+                result.getValue("items").jsonArray.map { it.jsonObject.string("title") },
+            )
+        }
+
+    @Test
+    fun `postFeedItems は未投稿の記事を投稿する`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(
+                passwordConfigured = true,
+                repositories = repositories,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+
+            val result = mutatePostFeedItems(accountId = accountId, token = token).admin().obj("postFeedItems")
+
+            assertEquals(JsonNull, result.getValue("failure"))
+            assertEquals(
+                listOf("1 本目", "2 本目"),
+                result.getValue("items").jsonArray.map { it.jsonObject.string("title") },
+            )
+            assertEquals(2, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
         }
 
     @Test
@@ -278,6 +370,30 @@ class AdminGraphQlTest {
 
             val adminAccount = queryAccount("feed1", token).admin().obj("adminAccount")
             assertEquals(JsonNull, adminAccount.getValue("feed"))
+        }
+
+    @Test
+    fun `saveFeed のあと adminAccount の feed が返る`() =
+        testApplication {
+            applicationWith(
+                passwordConfigured = true,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+
+            val feed = queryAccount("feed1", token).admin().obj("adminAccount").obj("feed")
+
+            assertEquals(FEED_URL, feed.string("url"))
+            assertEquals("サンプル", feed.string("title"))
         }
 
     @Test
@@ -430,6 +546,8 @@ class AdminGraphQlTest {
     private fun ApplicationTestBuilder.applicationWith(
         passwordConfigured: Boolean,
         cookieSecure: Boolean = true,
+        repositories: FakeRepositories = FakeRepositories(),
+        feedFetcher: FeedFetchService = FeedFetchService(),
     ) {
         val values =
             buildList {
@@ -438,7 +556,13 @@ class AdminGraphQlTest {
             }
 
         application {
-            module(testDependencies(env = TestServerEnv.of(*values.toTypedArray())))
+            module(
+                testDependencies(
+                    repositories = repositories,
+                    env = TestServerEnv.of(*values.toTypedArray()),
+                    feedFetcher = feedFetcher,
+                ),
+            )
         }
     }
 
@@ -504,9 +628,36 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "mutation Save(${'$'}accountId: AccountId!, ${'$'}url: String!) { admin { " +
-                "saveFeed(accountId: ${'$'}accountId, url: ${'$'}url) { feed { $FEED_FIELDS } failure { reason } } } }",
+                "saveFeed(saveFeedQuery: { accountId: ${'$'}accountId, url: ${'$'}url }) { " +
+                "feed { $FEED_FIELDS } failure { reason } } } }",
             token = token,
-            variables = """{"accountId":${JsonPrimitive(accountId)},"url":${JsonPrimitive(url)}}""",
+            variables =
+            """{"accountId":${JsonPrimitive(accountId)},"url":${JsonPrimitive(url)}}""",
+        )
+
+    private suspend fun ApplicationTestBuilder.queryUnpublishedFeedItems(
+        accountId: Long,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "query Unpublished(${'$'}accountId: AccountId!) { admin { " +
+                "unpublishedFeedItems(query: { accountId: ${'$'}accountId }) { " +
+                "items { title link } failure { reason } } } }",
+            token = token,
+            variables = """{"accountId":${JsonPrimitive(accountId)}}""",
+        )
+
+    private suspend fun ApplicationTestBuilder.mutatePostFeedItems(
+        accountId: Long,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation PostItems(${'$'}accountId: AccountId!) { admin { " +
+                "postFeedItems(query: { accountId: ${'$'}accountId }) { items { title link } failure { reason } } } }",
+            token = token,
+            variables = """{"accountId":${JsonPrimitive(accountId)}}""",
         )
 
     private suspend fun ApplicationTestBuilder.graphQl(
@@ -529,6 +680,31 @@ class AdminGraphQlTest {
 
     private companion object {
         const val PASSWORD = "とても長いパスワード"
+
+        const val FEED_URL = "https://example.com/feed.xml"
+
+        val FEED_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <item><title>1 本目</title><link>https://example.com/1</link></item>
+                <item><title>2 本目</title><link>https://example.com/2</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+
+        fun feedFetcherOf(xml: String): FeedFetchService {
+            val engine = MockEngine {
+                respond(
+                    content = xml,
+                    status = HttpStatusCode.OK,
+                    headers = headersOf("Content-Type", "application/rss+xml"),
+                )
+            }
+            return FeedFetchService(HttpClient(engine))
+        }
 
         const val FEED_FIELDS = "id url title siteUrl format createdAt"
 

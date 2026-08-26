@@ -4,6 +4,8 @@ plugins {
 }
 
 dependencies {
+    api(project(":shared"))
+
     // implementation にすることで、JDBC と jOOQ の型が :backend の compile classpath に漏れない。
     // :backend からは repository パッケージの interface だけが見える状態を保つ
     implementation(libs.sqlite.jdbc)

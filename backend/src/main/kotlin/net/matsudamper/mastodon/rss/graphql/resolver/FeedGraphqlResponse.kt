@@ -5,9 +5,16 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailureReason
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewItem
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostFeedItemsFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostFeedItemsFailureReason
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedFailureReason
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnpublishedFeedItem
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnpublishedFeedItemsFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnpublishedFeedItemsFailureReason
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnpublishedFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlFeed
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.repository.Feed
@@ -83,3 +90,72 @@ internal fun FeedService.SaveResult.toGraphqlResponse(): QlAdminSaveFeedResult =
             failure = reason.toGraphqlResponse(),
         )
     }
+
+internal fun FeedService.UnpublishedResult.toGraphqlResponse(): QlAdminUnpublishedFeedItemsResult =
+    when (this) {
+        is FeedService.UnpublishedResult.Success -> QlAdminUnpublishedFeedItemsResult(
+            items = items.map { item ->
+                QlAdminUnpublishedFeedItem(
+                    title = item.title,
+                    link = item.link,
+                    publishedAt = item.publishedAt?.epochSecond,
+                )
+            },
+            failure = null,
+        )
+
+        is FeedService.UnpublishedResult.Failure -> QlAdminUnpublishedFeedItemsResult(
+            items = null,
+            failure = reason.toGraphqlResponse(),
+        )
+    }
+
+internal fun FeedService.UnpublishedFailure.toGraphqlResponse(): QlAdminUnpublishedFeedItemsFailure =
+    QlAdminUnpublishedFeedItemsFailure(
+        reason = when (this) {
+            FeedService.UnpublishedFailure.UNKNOWN_ACCOUNT ->
+                QlAdminUnpublishedFeedItemsFailureReason.UNKNOWN_ACCOUNT
+
+            FeedService.UnpublishedFailure.NO_FEED ->
+                QlAdminUnpublishedFeedItemsFailureReason.NO_FEED
+        },
+    )
+
+internal fun FeedService.PostUnpublishedResult.toGraphqlResponse(): QlAdminPostFeedItemsResult =
+    when (this) {
+        is FeedService.PostUnpublishedResult.Success -> QlAdminPostFeedItemsResult(
+            items = items.map { item ->
+                QlAdminUnpublishedFeedItem(
+                    title = item.title,
+                    link = item.link,
+                    publishedAt = item.publishedAt?.epochSecond,
+                )
+            },
+            failure = null,
+        )
+
+        is FeedService.PostUnpublishedResult.Failure -> QlAdminPostFeedItemsResult(
+            items = null,
+            failure = reason.toGraphqlResponse(),
+        )
+    }
+
+internal fun FeedService.PostUnpublishedFailure.toGraphqlResponse(): QlAdminPostFeedItemsFailure =
+    QlAdminPostFeedItemsFailure(
+        reason = when (this) {
+            FeedService.PostUnpublishedFailure.UNKNOWN_ACCOUNT ->
+                QlAdminPostFeedItemsFailureReason.UNKNOWN_ACCOUNT
+
+            FeedService.PostUnpublishedFailure.NO_FEED ->
+                QlAdminPostFeedItemsFailureReason.NO_FEED
+
+            FeedService.PostUnpublishedFailure.INVALID_URL ->
+                QlAdminPostFeedItemsFailureReason.INVALID_URL
+
+            FeedService.PostUnpublishedFailure.FETCH_FAILED ->
+                QlAdminPostFeedItemsFailureReason.FETCH_FAILED
+
+            FeedService.PostUnpublishedFailure.PARSE_FAILED ->
+                QlAdminPostFeedItemsFailureReason.PARSE_FAILED
+        },
+    )
