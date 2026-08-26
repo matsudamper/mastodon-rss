@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -286,23 +287,27 @@ private fun ProfileHeader(
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         SelectionContainer(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = state.acct,
+                                modifier = Modifier.alignByBaseline(),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontFamily = FontFamily.Monospace,
                             )
                         }
-                        IconButton(onClick = { copyToClipboard(state.acct) }) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = "コピー",
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Outlined.ContentCopy,
+                            contentDescription = "コピー",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier =
+                            Modifier
+                                .alignByBaseline()
+                                .clickable(onClick = { copyToClipboard(state.acct) })
+                                .size(18.dp),
+                        )
                     }
                 }
             }
