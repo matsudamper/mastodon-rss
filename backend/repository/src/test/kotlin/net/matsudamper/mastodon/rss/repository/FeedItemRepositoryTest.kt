@@ -147,9 +147,9 @@ class FeedItemRepositoryTest {
                     item(feedId = feed.id, itemKey = "p", state = FeedItemState.PENDING),
                 ),
             )
-            val postedAt = Instant.parse("2026-08-16T12:00:00Z")
+            repositories.notes.add(note(publicId = "note-1"))
 
-            repositories.feedItems.markPosted(pending.id, postedAt)
+            repositories.feedItems.markPosted(pending.id, POSTED_AT, noteId = "note-1")
             repositories.feedItems.markSkipped(
                 assertNotNull(
                     repositories.feedItems.add(
@@ -164,99 +164,38 @@ class FeedItemRepositoryTest {
     }
 
     @Test
-    fun `findByFeed は新しい順で publishedAt が無いものを後ろにする`() {
+    fun `findByNoteIds は投稿の id から記事を引く`() {
         withRepositories { repositories ->
             val feed = repositories.addFeed()
-            val older = assertNotNull(
-                repositories.feedItems.add(
-                    item(
-                        feedId = feed.id,
-                        itemKey = "old",
-                        publishedAt = Instant.parse("2026-01-01T00:00:00Z"),
-                        state = FeedItemState.POSTED,
-                    ),
-                ),
+            val posted = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "posted", state = FeedItemState.PENDING)),
             )
-            val newer = assertNotNull(
-                repositories.feedItems.add(
-                    item(
-                        feedId = feed.id,
-                        itemKey = "new",
-                        publishedAt = Instant.parse("2026-06-01T00:00:00Z"),
-                        state = FeedItemState.PENDING,
-                    ),
-                ),
-            )
-            val undated = assertNotNull(
-                repositories.feedItems.add(item(feedId = feed.id, itemKey = "none", publishedAt = null)),
-            )
+            repositories.feedItems.add(item(feedId = feed.id, itemKey = "pending", state = FeedItemState.PENDING))
+            repositories.notes.add(note(publicId = "note-1"))
+            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = "note-1")
 
-            assertEquals(
-                listOf(newer.id, older.id, undated.id),
-                repositories.feedItems.findByFeed(feed.id, after = null, limit = 10).map { it.id },
-            )
-            assertEquals(emptyList(), repositories.feedItems.findByFeed(feed.id, after = null, limit = 0))
+            val found = repositories.feedItems.findByNoteIds(listOf("note-1", "note-2"))
+
+            assertEquals(setOf("note-1"), found.keys)
+            assertEquals(posted.id, assertNotNull(found["note-1"]).id)
+            assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(emptyList()))
         }
     }
 
     @Test
-    fun `findByFeed は位置の続きから返す`() {
+    fun `記事を消しても投稿は残る`() {
         withRepositories { repositories ->
             val feed = repositories.addFeed()
-            val newer = assertNotNull(
-                repositories.feedItems.add(
-                    item(
-                        feedId = feed.id,
-                        itemKey = "new",
-                        publishedAt = Instant.parse("2026-06-01T00:00:00Z"),
-                    ),
-                ),
+            val posted = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "posted", state = FeedItemState.PENDING)),
             )
-            val older = assertNotNull(
-                repositories.feedItems.add(
-                    item(
-                        feedId = feed.id,
-                        itemKey = "old",
-                        publishedAt = Instant.parse("2026-01-01T00:00:00Z"),
-                    ),
-                ),
-            )
-            val undated = assertNotNull(
-                repositories.feedItems.add(item(feedId = feed.id, itemKey = "none", publishedAt = null)),
-            )
+            repositories.notes.add(note(publicId = "note-1"))
+            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = "note-1")
 
-            assertEquals(
-                listOf(older.id, undated.id),
-                repositories.feedItems
-                    .findByFeed(
-                        feed.id,
-                        after = FeedItemPosition(publishedAt = newer.publishedAt, id = newer.id),
-                        limit = 10,
-                    ).map { it.id },
-            )
-            assertEquals(
-                emptyList(),
-                repositories.feedItems.findByFeed(
-                    feed.id,
-                    after = FeedItemPosition(publishedAt = null, id = undated.id),
-                    limit = 10,
-                ),
-            )
-        }
-    }
+            repositories.feedItems.delete(posted.id)
 
-    @Test
-    fun `findByFeed はフィードで絞れる`() {
-        withRepositories { repositories ->
-            val feed1 = repositories.addFeed(username = "feed1", url = "https://example.com/1.xml")
-            val feed2 = repositories.addFeed(username = "feed2", url = "https://example.com/2.xml")
-            val item1 = assertNotNull(repositories.feedItems.add(item(feedId = feed1.id, itemKey = "a")))
-            repositories.feedItems.add(item(feedId = feed2.id, itemKey = "b"))
-
-            assertEquals(
-                listOf(item1.id),
-                repositories.feedItems.findByFeed(feed1.id, after = null, limit = 10).map { it.id },
-            )
+            assertNotNull(repositories.notes.find("note-1"))
+            assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(listOf("note-1")))
         }
     }
 
@@ -351,6 +290,13 @@ class FeedItemRepositoryTest {
         state = state,
     )
 
+    private fun note(publicId: String): NewNote = NewNote(
+        username = "feed1",
+        publicId = publicId,
+        contentHtml = "<p>本文</p>",
+        publishedAt = CREATED_AT,
+    )
+
     private fun withRepositories(block: (Repositories) -> Unit) {
         val dbPath = tempDir.resolve("test.db")
         TestSchema.applyTo(dbPath)
@@ -360,5 +306,7 @@ class FeedItemRepositoryTest {
 
     private companion object {
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03.123456Z")
+
+        val POSTED_AT: Instant = Instant.parse("2026-08-16T12:00:00Z")
     }
 }

@@ -183,27 +183,12 @@ mutation AdminPostNote($username: String!, $body: String!) {
 }
 
 fragment AdminNoteFields on AdminNote {
+    id
     url
     contentHtml
     publishedAt
-}
-
-query AdminFeedItems($query: FeedItemsQuery!) {
-    admin {
-        feedItems(query: $query) {
-            connection {
-                nodes {
-                    ...AdminFeedItemFields
-                }
-                pageInfo {
-                    hasMore
-                    nextCursor
-                }
-            }
-            failure {
-                reason
-            }
-        }
+    feedItem {
+        ...AdminFeedItemFields
     }
 }
 

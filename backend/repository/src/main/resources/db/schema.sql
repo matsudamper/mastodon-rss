@@ -27,6 +27,10 @@ CREATE TABLE feed_items (
     -- pending: 投稿待ち / posted: 投稿済み / skipped: 投稿しない
     state TEXT NOT NULL CHECK (state IN ('pending', 'posted', 'skipped')),
     posted_at TEXT,
+    -- 投稿したときに配信した notes.public_id。記事と投稿の紐付けはこの 1 列だけ。
+    -- 記事を消しても投稿は残す（投稿は相手がパーマリンクを引きに来る）ので、
+    -- 参照はこちらから持つ
+    note_id TEXT REFERENCES notes (public_id) ON DELETE SET NULL,
     UNIQUE (feed_id, item_key)
 );
 
@@ -103,5 +107,7 @@ CREATE TABLE remote_actors (
 );
 
 CREATE INDEX feed_items_feed_id_state_published_at_id ON feed_items (feed_id, state, published_at, id);
+
+CREATE INDEX feed_items_note_id ON feed_items (note_id);
 
 CREATE INDEX notes_username_published_at ON notes (username, published_at);

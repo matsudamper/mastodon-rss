@@ -50,10 +50,15 @@ interface FeedItemRepository {
         limit: Int,
     ): List<FeedItem>
 
-    /** 投稿し終わったことを記録する */
+    /**
+     * 投稿し終わったことを記録する。
+     *
+     * @param noteId 配信した投稿の `notes.public_id`。記事と投稿はこれだけで紐づく
+     */
     fun markPosted(
         id: FeedItemId,
         postedAt: Instant,
+        noteId: String,
     )
 
     /**
@@ -64,18 +69,12 @@ interface FeedItemRepository {
     fun markSkipped(id: FeedItemId)
 
     /**
-     * フィードの記事を新しい順に返す。管理画面の一覧に使う。
+     * 投稿の `notes.public_id` から、その投稿の元になった記事を引く。
      *
-     * 位置を件数で数えず、直前のページの最後の 1 件で指す。取り込みで先頭に
-     * 記事が増えるので、offset で数えるとページをまたいだときにずれる。
-     *
-     * @param after ここより後ろのものを返す。null なら先頭から
+     * 投稿の一覧に記事を並べるのに使う。1 件ずつ問い合わせると投稿の数だけ
+     * 往復するので、まとめて渡してまとめて受け取る形にする
      */
-    fun findByFeed(
-        feedId: FeedId,
-        after: FeedItemPosition?,
-        limit: Int,
-    ): List<FeedItem>
+    fun findByNoteIds(noteIds: Collection<String>): Map<String, FeedItem>
 
     /** 引き当てられなければ null */
     fun find(id: FeedItemId): FeedItem?
@@ -92,17 +91,6 @@ interface FeedItemRepository {
     fun countByFeed(feedId: FeedId): Long
 }
 
-/**
- * 一覧の位置。
- *
- * 並び順の鍵をそのまま持つ。日時の無い記事があるので [publishedAt] は null を取り、
- * 同じ日時が並んだときのために [id] まで見て一意にする。
- */
-data class FeedItemPosition(
-    val publishedAt: Instant?,
-    val id: FeedItemId,
-)
-
 @JvmInline
 value class FeedItemId(
     val value: Long,
@@ -118,6 +106,7 @@ value class FeedItemId(
  *   配信に失敗して後から送り直すときに、配信元から取り直さずに済ませるため
  * @param publishedAt 配信元が名乗っている公開日時。順序付けに使う。
  *   信用しきれない（未来の日時や、更新のたびに現在時刻になるものがある）
+ * @param noteId 投稿したときに配信した `notes.public_id`。未投稿なら null
  */
 data class FeedItem(
     val id: FeedItemId,
@@ -130,6 +119,7 @@ data class FeedItem(
     val importedAt: Instant,
     val state: FeedItemState,
     val postedAt: Instant?,
+    val noteId: String?,
 )
 
 /** 保存する記事。id はまだ無い */

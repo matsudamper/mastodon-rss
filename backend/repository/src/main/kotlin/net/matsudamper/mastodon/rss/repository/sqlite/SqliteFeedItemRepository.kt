@@ -4,14 +4,11 @@ import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.FeedId
 import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemId
-import net.matsudamper.mastodon.rss.repository.FeedItemPosition
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEED_ITEMS
 import net.matsudamper.mastodon.rss.repository.jooq.tables.records.FeedItemsRecord
 import net.matsudamper.mastodon.rss.repository.sqlite.db.FeedItemStateDbValue
-import org.jooq.Condition
-import org.jooq.impl.DSL
 
 internal class SqliteFeedItemRepository(
     private val jooq: SqliteJooq,
@@ -53,6 +50,7 @@ internal class SqliteFeedItemRepository(
             .set(FEED_ITEMS.IMPORTED_AT, StoredInstant.format(item.importedAt))
             .set(FEED_ITEMS.STATE, FeedItemStateDbValue.of(item.state).dbValue)
             .set(FEED_ITEMS.POSTED_AT, null as String?)
+            .set(FEED_ITEMS.NOTE_ID, null as String?)
             .returning(FEED_ITEMS.ID)
             .fetchOne()
             ?.id
@@ -69,6 +67,7 @@ internal class SqliteFeedItemRepository(
             importedAt = item.importedAt,
             state = item.state,
             postedAt = null,
+            noteId = null,
         )
     }
 
@@ -82,12 +81,14 @@ internal class SqliteFeedItemRepository(
     override fun markPosted(
         id: FeedItemId,
         postedAt: Instant,
+        noteId: String,
     ) {
         jooq.transaction { dsl ->
             dsl
                 .update(FEED_ITEMS)
                 .set(FEED_ITEMS.STATE, FeedItemStateDbValue.POSTED.dbValue)
                 .set(FEED_ITEMS.POSTED_AT, StoredInstant.format(postedAt))
+                .set(FEED_ITEMS.NOTE_ID, noteId)
                 .where(FEED_ITEMS.ID.eq(id.value))
                 .execute()
         }
@@ -103,24 +104,16 @@ internal class SqliteFeedItemRepository(
         }
     }
 
-    override fun findByFeed(
-        feedId: FeedId,
-        after: FeedItemPosition?,
-        limit: Int,
-    ): List<FeedItem> {
-        if (limit <= 0) return emptyList()
+    override fun findByNoteIds(noteIds: Collection<String>): Map<String, FeedItem> {
+        if (noteIds.isEmpty()) return emptyMap()
 
         return jooq.withConnection { dsl ->
             dsl
                 .selectFrom(FEED_ITEMS)
-                .where(FEED_ITEMS.FEED_ID.eq(feedId.value))
-                .and(after?.let { olderThan(it) } ?: DSL.noCondition())
-                // SQLite は NULL を最小として並べるので、降順にすると
-                // 日時を持たない記事が後ろにまとまる。[olderThan] もその並びに合わせる
-                .orderBy(FEED_ITEMS.PUBLISHED_AT.desc(), FEED_ITEMS.ID.desc())
-                .limit(limit)
+                .where(FEED_ITEMS.NOTE_ID.`in`(noteIds))
                 .fetch()
                 .map { it.toFeedItem() }
+                .associateBy { checkNotNull(it.noteId) }
         }
     }
 
@@ -169,21 +162,6 @@ internal class SqliteFeedItemRepository(
         }
     }
 
-    /**
-     * 並び順で [cursor] より後ろにあるものを絞る条件。
-     *
-     * 日時を持たない記事は日時を持つ記事の後ろに来るので、日時での比較には
-     * 含まれない。null を指すカーソルからは、同じく日時を持たないものだけを返す
-     */
-    private fun olderThan(cursor: FeedItemPosition): Condition {
-        val publishedAt = cursor.publishedAt?.let(StoredInstant::format)
-            ?: return FEED_ITEMS.PUBLISHED_AT.isNull.and(FEED_ITEMS.ID.lt(cursor.id.value))
-
-        return FEED_ITEMS.PUBLISHED_AT.lt(publishedAt)
-            .or(FEED_ITEMS.PUBLISHED_AT.eq(publishedAt).and(FEED_ITEMS.ID.lt(cursor.id.value)))
-            .or(FEED_ITEMS.PUBLISHED_AT.isNull)
-    }
-
     private fun FeedItemsRecord.toFeedItem(): FeedItem = FeedItem(
         id = FeedItemId(id!!),
         feedId = FeedId(feedId!!),
@@ -195,6 +173,7 @@ internal class SqliteFeedItemRepository(
         importedAt = StoredInstant.parse(importedAt!!),
         state = FeedItemStateDbValue.parse(state!!).toFeedItemState(),
         postedAt = postedAt?.let(StoredInstant::parse),
+        noteId = noteId,
     )
 }
 

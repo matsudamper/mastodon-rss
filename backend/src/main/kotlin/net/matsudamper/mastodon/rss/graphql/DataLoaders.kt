@@ -8,6 +8,7 @@ import io.opentelemetry.context.Context
 import net.matsudamper.mastodon.rss.dataloader.AccountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.AccountNoteDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.DataLoaderDefine
+import net.matsudamper.mastodon.rss.dataloader.FeedItemByNoteDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.FollowerCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.OtelBatchLoaderScheduler
 import org.dataloader.DataLoader
@@ -31,6 +32,8 @@ class DataLoaders(
     val followerCountDataLoader by register { FollowerCountDataLoaderDefine(diContainer.accountService) }
 
     val accountNoteDataLoader by register { AccountNoteDataLoaderDefine(diContainer.noteStore) }
+
+    val feedItemByNoteDataLoader by register { FeedItemByNoteDataLoaderDefine(diContainer.feedService) }
 
     private fun <K : Any, V : Any> register(initializer: () -> DataLoaderDefine<K, V>): DataLoaderRegister<K, V> {
         val define = initializer()

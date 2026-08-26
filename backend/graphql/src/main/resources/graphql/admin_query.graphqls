@@ -15,9 +15,6 @@ type AdminQuery {
 
     "未投稿の記事を返す"
     unpublishedFeedItems(query: UnpublishedFeedItemsQuery!): AdminUnpublishedFeedItemsResult! @lazy
-
-    "取り込んだ記事。新しい順"
-    feedItems(query: FeedItemsQuery!): AdminFeedItemsResult! @lazy
 }
 
 type AdminNotesConnection {
@@ -27,6 +24,8 @@ type AdminNotesConnection {
 
 "配信した投稿 1 件"
 type AdminNote {
+    id: NoteId!
+
     "投稿の URL。相手はここをパーマリンクとして開く"
     url: String!
 
@@ -34,6 +33,9 @@ type AdminNote {
     contentHtml: String!
 
     publishedAt: UnixTime!
+
+    "この投稿の元になった取り込み済みの記事。手で書いた投稿と、記事を消した後は null"
+    feedItem: AdminFeedItem @lazy
 }
 
 type AdminSession {

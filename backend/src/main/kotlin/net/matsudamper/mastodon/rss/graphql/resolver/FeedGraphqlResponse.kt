@@ -5,8 +5,6 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemFailureRe
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItem
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItemState
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItemsFailure
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreview
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailureReason
@@ -186,14 +184,6 @@ internal fun FeedItemState.toGraphqlResponse(): QlAdminFeedItemState =
         FeedItemState.POSTED -> QlAdminFeedItemState.POSTED
         FeedItemState.SKIPPED -> QlAdminFeedItemState.SKIPPED
     }
-
-internal fun FeedService.ItemsFailure.toGraphqlResponse(): QlAdminFeedItemsFailure =
-    QlAdminFeedItemsFailure(
-        reason = when (this) {
-            FeedService.ItemsFailure.UNKNOWN_ACCOUNT -> QlAdminFeedItemsFailureReason.UNKNOWN_ACCOUNT
-            FeedService.ItemsFailure.NO_FEED -> QlAdminFeedItemsFailureReason.NO_FEED
-        },
-    )
 
 internal fun FeedService.DeleteItemResult.toGraphqlResponse(): QlAdminDeleteFeedItemResult =
     when (this) {

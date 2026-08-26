@@ -99,23 +99,6 @@ enum AdminPostFeedItemsFailureReason {
     PARSE_FAILED
 }
 
-input FeedItemsQuery {
-    "取り込んだ記事を返す対象のアカウント"
-    accountId: AccountId!
-    cursor: String
-    limit: Int!
-}
-
-type AdminFeedItemsResult {
-    connection: AdminFeedItemsConnection
-    failure: AdminFeedItemsFailure
-}
-
-type AdminFeedItemsConnection {
-    nodes: [AdminFeedItem!]!
-    pageInfo: PageInfo!
-}
-
 "取り込んだ記事 1 件"
 type AdminFeedItem {
     id: FeedItemId!
@@ -139,15 +122,6 @@ enum AdminFeedItemState {
 
     "題名もリンクも無く本文を組み立てられないので投稿しない"
     SKIPPED
-}
-
-type AdminFeedItemsFailure {
-    reason: AdminFeedItemsFailureReason!
-}
-
-enum AdminFeedItemsFailureReason {
-    UNKNOWN_ACCOUNT
-    NO_FEED
 }
 
 input DeleteFeedItemQuery {

@@ -19,6 +19,7 @@ import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
 import net.matsudamper.mastodon.rss.graphql.resolver.AccountNoteResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminAccountResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminMutationResolverImpl
+import net.matsudamper.mastodon.rss.graphql.resolver.AdminNoteResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminQueryResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.MutationResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.QueryResolverImpl
@@ -113,6 +114,7 @@ fun Application.module(deps: AppDependencies) {
             MutationResolverImpl(),
             AdminQueryResolverImpl(),
             AdminAccountResolverImpl(),
+            AdminNoteResolverImpl(),
             AdminMutationResolverImpl(),
         ),
         createContext = { call ->

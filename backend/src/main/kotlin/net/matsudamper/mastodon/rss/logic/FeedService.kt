@@ -15,7 +15,6 @@ import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemId
-import net.matsudamper.mastodon.rss.repository.FeedItemPosition
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
@@ -112,36 +111,11 @@ class FeedService(
     }
 
     /**
-     * 取り込んだ記事を新しい順に返す。
+     * 投稿の `notes.public_id` から、その投稿の元になった記事を引く。
      *
-     * @param after 直前のページの最後の位置。null なら先頭から
-     * @param limit 要求された件数。[MAX_LIST_LIMIT] を超える指定は切り詰める
+     * 投稿の一覧に記事を並べるのに使う
      */
-    fun items(
-        accountId: AccountId,
-        after: FeedItemPosition?,
-        limit: Int,
-    ): ItemsResult {
-        accounts.findById(accountId)
-            ?: return ItemsResult.Failure(ItemsFailure.UNKNOWN_ACCOUNT)
-        val feed = feeds.findByAccountId(accountId)
-            ?: return ItemsResult.Failure(ItemsFailure.NO_FEED)
-
-        val size = limit.coerceIn(0, MAX_LIST_LIMIT)
-        if (size == 0) return ItemsResult.Success(items = emptyList(), hasMore = false, nextPosition = null)
-
-        val fetched = feedItems.findByFeed(feedId = feed.id, after = after, limit = size + 1)
-        val page = fetched.take(size)
-
-        return ItemsResult.Success(
-            items = page,
-            hasMore = fetched.size > size,
-            nextPosition = page
-                .lastOrNull()
-                ?.let { FeedItemPosition(publishedAt = it.publishedAt, id = it.id) }
-                .takeIf { fetched.size > size },
-        )
-    }
+    fun itemsByNoteIds(noteIds: Collection<String>): Map<String, FeedItem> = feedItems.findByNoteIds(noteIds)
 
     /**
      * 取り込んだ記事を 1 件消す。
@@ -184,14 +158,14 @@ class FeedService(
         val posted = mutableListOf<UnpublishedItem>()
         feedItems.findPending(feed.id, Int.MAX_VALUE).forEach { stored ->
             val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
-            try {
+            val published = try {
                 notePublisher.publish(sender = sender, contentHtml = html)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 return@forEach
             }
-            feedItems.markPosted(stored.id, Instant.now())
+            feedItems.markPosted(stored.id, Instant.now(), noteId = published.publicId)
             posted += UnpublishedItem(
                 title = stored.title,
                 link = stored.link,
@@ -268,26 +242,6 @@ class FeedService(
     }
 
     enum class UnpublishedFailure {
-        UNKNOWN_ACCOUNT,
-        NO_FEED,
-    }
-
-    sealed interface ItemsResult {
-        /**
-         * @param nextPosition 次のページを取るときに渡す位置。null なら最後のページ
-         */
-        data class Success(
-            val items: List<FeedItem>,
-            val hasMore: Boolean,
-            val nextPosition: FeedItemPosition?,
-        ) : ItemsResult
-
-        data class Failure(
-            val reason: ItemsFailure,
-        ) : ItemsResult
-    }
-
-    enum class ItemsFailure {
         UNKNOWN_ACCOUNT,
         NO_FEED,
     }
@@ -466,10 +420,5 @@ class FeedService(
         const val DESCRIPTION_LIMIT = 200
         const val POST_TITLE_MAX_CHARS = 200
         const val POST_DESCRIPTION_MAX_CHARS = 200
-
-        /**
-         * 1 回で返す件数の上限。画面から指定できる値をそのまま使わない
-         */
-        const val MAX_LIST_LIMIT = 50
     }
 }

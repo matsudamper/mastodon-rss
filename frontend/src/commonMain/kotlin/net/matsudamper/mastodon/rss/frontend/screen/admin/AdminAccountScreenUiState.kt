@@ -23,7 +23,6 @@ data class AdminAccountScreenUiState(
         /**
          * @param account この画面が扱うアカウント
          * @param feed RSS フィードの登録状況と入力欄
-         * @param feedItems 取り込んだ記事。フィードが未登録なら null
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
@@ -33,7 +32,6 @@ data class AdminAccountScreenUiState(
         data class Loaded(
             val account: Account,
             val feed: Feed,
-            val feedItems: FeedItems?,
             val post: Post,
             val notes: List<Note>,
             val notesError: String?,
@@ -88,19 +86,8 @@ data class AdminAccountScreenUiState(
     }
 
     /**
-     * @param items 取り込んだ記事。新しい順
-     * @param error 一覧を取れなかった理由。削除の失敗もここに出す
-     * @param canLoadMore さらに古い記事があるか
-     */
-    data class FeedItems(
-        val items: List<FeedItem>,
-        val error: String?,
-        val loading: Boolean,
-        val canLoadMore: Boolean,
-        val loadingMore: Boolean,
-    )
-
-    /**
+     * 投稿の元になった取り込み済みの記事。
+     *
      * @param stateText 投稿の状況。「投稿済み」のような表示用の文字
      * @param deleting 削除中。ボタンを押せなくする
      */
@@ -147,10 +134,14 @@ data class AdminAccountScreenUiState(
         val canSubmit: Boolean get() = !submitting && body.isNotBlank()
     }
 
+    /**
+     * @param feedItem 元になった記事。手で書いた投稿と、記事を消した後は null
+     */
     data class Note(
         val url: String,
         val contentHtml: String,
         val publishedAt: String,
+        val feedItem: FeedItem?,
     )
 
     /**
@@ -180,17 +171,10 @@ data class AdminAccountScreenUiState(
         fun onClickLoadMore()
 
         /**
-         * 取り込んだ記事を消す。配信した投稿は残るので、
+         * 投稿の元になった記事を消す。配信した投稿は残るので、
          * 最新情報を投稿すると同じ記事がもう一度流れる
          */
         fun onClickDeleteFeedItem(id: Long)
-
-        fun onClickLoadMoreFeedItems()
-
-        /**
-         * 取り込んだ記事の一覧だけ取り直す
-         */
-        fun onClickReloadFeedItems()
 
         /**
          * 一覧だけ取り直す

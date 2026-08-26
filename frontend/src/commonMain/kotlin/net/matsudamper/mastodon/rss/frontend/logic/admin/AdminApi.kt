@@ -11,7 +11,6 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemMutation
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
@@ -27,14 +26,12 @@ import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteFeedItemFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedItemState
-import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminPostFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminUnpublishedFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteFeedItemQuery
-import net.matsudamper.mastodon.rss.frontend.graphql.type.FeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.PostFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UnpublishedFeedItemsQuery
@@ -274,42 +271,6 @@ class AdminApi(
         )
     }
 
-    /**
-     * @param cursor 直前のページの続きから取る。null なら先頭から
-     * @param limit 要求する件数。上限はサーバー側で決まる
-     */
-    suspend fun feedItems(
-        accountId: Long,
-        cursor: String? = null,
-        limit: Int,
-    ): AdminFeedItemsResult {
-        val response = client
-            .query(
-                AdminFeedItemsQuery(
-                    query = FeedItemsQuery(
-                        accountId = accountId,
-                        cursor = Optional.presentIfNotNull(cursor),
-                        limit = limit,
-                    ),
-                ),
-            )
-            .fetchPolicy(FetchPolicy.NetworkOnly)
-            .execute()
-        val result = response.data?.admin?.feedItems
-            ?: return AdminFeedItemsResult.Failure(response.failureMessage())
-
-        val connection = result.connection
-            ?: return AdminFeedItemsResult.Rejected(
-                reason = result.failure?.reason?.toFeedItemsFailure()
-                    ?: AdminFeedItemsResult.FailureReason.UNKNOWN,
-            )
-
-        return AdminFeedItemsResult.Success(
-            items = connection.nodes.map { it.adminFeedItemFields.toAdminFeedItem() },
-            cursor = connection.pageInfo.nextCursor,
-        )
-    }
-
     suspend fun deleteFeedItem(
         accountId: Long,
         feedItemId: Long,
@@ -435,13 +396,6 @@ class AdminApi(
                 AdminPostFeedItemsResult.FailureReason.UNKNOWN
         }
 
-    private fun AdminFeedItemsFailureReason.toFeedItemsFailure(): AdminFeedItemsResult.FailureReason =
-        when (this) {
-            AdminFeedItemsFailureReason.UNKNOWN_ACCOUNT -> AdminFeedItemsResult.FailureReason.UNKNOWN_ACCOUNT
-            AdminFeedItemsFailureReason.NO_FEED -> AdminFeedItemsResult.FailureReason.NO_FEED
-            AdminFeedItemsFailureReason.UNKNOWN__ -> AdminFeedItemsResult.FailureReason.UNKNOWN
-        }
-
     private fun AdminDeleteFeedItemFailureReason.toDeleteFeedItemFailure(): AdminDeleteFeedItemResult.FailureReason =
         when (this) {
             AdminDeleteFeedItemFailureReason.UNKNOWN_ACCOUNT ->
@@ -479,6 +433,7 @@ class AdminApi(
         url = url,
         contentHtml = contentHtml,
         publishedAt = Instant.fromEpochSeconds(publishedAt),
+        feedItem = feedItem?.adminFeedItemFields?.toAdminFeedItem(),
     )
 
     /**

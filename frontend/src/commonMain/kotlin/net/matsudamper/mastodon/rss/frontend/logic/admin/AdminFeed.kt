@@ -149,30 +149,6 @@ data class AdminFeedItem(
     }
 }
 
-sealed interface AdminFeedItemsResult {
-    /**
-     * @param cursor 次のページを取るときに渡す。null なら最後のページ
-     */
-    data class Success(
-        val items: List<AdminFeedItem>,
-        val cursor: String?,
-    ) : AdminFeedItemsResult
-
-    data class Rejected(
-        val reason: FailureReason,
-    ) : AdminFeedItemsResult
-
-    data class Failure(
-        val message: String,
-    ) : AdminFeedItemsResult
-
-    enum class FailureReason {
-        UNKNOWN_ACCOUNT,
-        NO_FEED,
-        UNKNOWN,
-    }
-}
-
 sealed interface AdminDeleteFeedItemResult {
     data object Success : AdminDeleteFeedItemResult
 

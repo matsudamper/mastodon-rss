@@ -104,10 +104,6 @@ private fun AdminAccountScreen(
             is AdminAccountScreenUiState.Content.Loaded -> {
                 AccountCard(account = content.account, onNavigate = onNavigate)
                 FeedCard(feed = content.feed, listener = uiState.listener, wide = wide)
-                val feedItems = content.feedItems
-                if (feedItems != null) {
-                    FeedItemsCard(feedItems = feedItems, listener = uiState.listener)
-                }
                 PostCard(post = content.post, listener = uiState.listener)
                 NotesCard(content = content, listener = uiState.listener)
             }
@@ -388,66 +384,7 @@ private fun FeedPreviewPanel(
 }
 
 @Composable
-private fun FeedItemsCard(
-    feedItems: AdminAccountScreenUiState.FeedItems,
-    listener: AdminAccountScreenUiState.Listener,
-) {
-    SectionCard(title = "取り込んだ記事") {
-        Text(
-            text = "消しても配信した投稿は残る。消した記事は最新情報を投稿すると取り込み直され、もう一度流れる。",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-
-        val items = feedItems.items
-        val error = feedItems.error
-
-        when {
-            feedItems.loading && items.isEmpty() -> {
-                Text(
-                    text = "取り込んだ記事を取ってきている。",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-
-            items.isEmpty() && error != null -> {
-                FeedItemsError(message = error, listener = listener)
-            }
-
-            items.isEmpty() -> {
-                Text(
-                    text = "まだ取り込んでいない。",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-
-            else -> {
-                items.forEach { item ->
-                    key(item.id) {
-                        FeedItemRow(item = item, listener = listener)
-                    }
-                }
-
-                if (error != null) {
-                    FeedItemsError(message = error, listener = listener)
-                }
-
-                if (feedItems.canLoadMore) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedButton(
-                            onClick = { listener.onClickLoadMoreFeedItems() },
-                            enabled = !feedItems.loadingMore,
-                        ) {
-                            Text(if (feedItems.loadingMore) "読み込み中" else "もっと見る")
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FeedItemRow(
+private fun NoteFeedItem(
     item: AdminAccountScreenUiState.FeedItem,
     listener: AdminAccountScreenUiState.Listener,
 ) {
@@ -456,8 +393,8 @@ private fun FeedItemRow(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = item.title ?: "(題名なし)",
-            style = MaterialTheme.typography.bodyMedium,
+            text = "元の記事: ${item.title ?: "(題名なし)"}",
+            style = MaterialTheme.typography.bodySmall,
         )
 
         val meta = listOfNotNull(item.stateText, item.publishedAt, item.link).joinToString("  ")
@@ -472,25 +409,8 @@ private fun FeedItemRow(
                 onClick = { listener.onClickDeleteFeedItem(item.id) },
                 enabled = !item.deleting,
             ) {
-                Text(if (item.deleting) "削除中" else "削除")
+                Text(if (item.deleting) "記事を削除中" else "記事を削除")
             }
-        }
-    }
-}
-
-@Composable
-private fun FeedItemsError(
-    message: String,
-    listener: AdminAccountScreenUiState.Listener,
-) {
-    Text(
-        text = message,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.error,
-    )
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedButton(onClick = { listener.onClickReloadFeedItems() }) {
-            Text("もう一度試す")
         }
     }
 }
@@ -557,6 +477,12 @@ private fun NotesCard(
     listener: AdminAccountScreenUiState.Listener,
 ) {
     SectionCard(title = "配信した投稿") {
+        Text(
+            text = "フィードから流した投稿には元の記事が付く。記事だけ消しても投稿は残り、" +
+                "最新情報を投稿すると取り込み直してもう一度流れる。",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
         val notes = content.notes
         val error = content.notesError
 
@@ -601,6 +527,10 @@ private fun NotesCard(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            val feedItem = note.feedItem
+                            if (feedItem != null) {
+                                NoteFeedItem(item = feedItem, listener = listener)
+                            }
                         }
                     }
                 }

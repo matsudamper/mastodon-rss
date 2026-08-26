@@ -282,39 +282,23 @@ class FeedServiceTest {
         }
 
     @Test
-    fun `取り込んだ記事を新しい順に少しずつ取得できる`() =
+    fun `投稿した記事は投稿の id から引ける`() =
         runTest {
             val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(repositories)
+            val service = serviceOf(repositories, noteStore = noteStore)
             service.save(accountId = account.id, url = FEED_URL)
+            service.postUnpublished(account.id)
+            val noteIds = noteStore.added.map { it.publicId }
 
-            val first = assertIs<FeedService.ItemsResult.Success>(
-                service.items(accountId = account.id, after = null, limit = 1),
+            val items = service.itemsByNoteIds(noteIds)
+
+            assertEquals(noteIds.toSet(), items.keys)
+            assertEquals(
+                listOf("1 本目", "2 本目"),
+                noteIds.map { assertNotNull(items[it]).title },
             )
-
-            assertEquals(listOf("2 本目"), first.items.map { it.title })
-            assertEquals(true, first.hasMore)
-
-            val second = assertIs<FeedService.ItemsResult.Success>(
-                service.items(accountId = account.id, after = assertNotNull(first.nextPosition), limit = 1),
-            )
-
-            assertEquals(listOf("1 本目"), second.items.map { it.title })
-            assertEquals(false, second.hasMore)
-            assertEquals(null, second.nextPosition)
-        }
-
-    @Test
-    fun `フィードが無ければ記事を取得できない`() =
-        runTest {
-            val repositories = FakeRepositories()
-            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
-            val service = serviceOf(repositories)
-
-            val result = service.items(accountId = account.id, after = null, limit = 10)
-
-            assertEquals(FeedService.ItemsFailure.NO_FEED, assertIs<FeedService.ItemsResult.Failure>(result).reason)
         }
 
     @Test

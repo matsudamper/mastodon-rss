@@ -361,7 +361,7 @@ class AdminGraphQlTest {
         }
 
     @Test
-    fun `feedItems は取り込んだ記事を新しい順に返す`() =
+    fun `notes は投稿の元になった記事を返す`() =
         testApplication {
             applicationWith(
                 passwordConfigured = true,
@@ -377,19 +377,31 @@ class AdminGraphQlTest {
                 .jsonPrimitive
                 .long
             mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+            mutatePostFeedItems(accountId = accountId, token = token)
 
-            val result = queryFeedItems(accountId = accountId, token = token).admin().obj("feedItems")
+            val nodes = queryNotes("feed1", token).admin().obj("notes").getValue("nodes").jsonArray
 
-            assertEquals(JsonNull, result.getValue("failure"))
-            val connection = result.obj("connection")
             assertEquals(
-                listOf("2 本目", "1 本目"),
-                connection.getValue("nodes").jsonArray.map { it.jsonObject.string("title") },
+                listOf("1 本目", "2 本目"),
+                nodes.map { it.jsonObject.obj("feedItem").string("title") }.sorted(),
             )
             assertEquals(
-                listOf("PENDING", "PENDING"),
-                connection.getValue("nodes").jsonArray.map { it.jsonObject.string("state") },
+                listOf("POSTED", "POSTED"),
+                nodes.map { it.jsonObject.obj("feedItem").string("state") },
             )
+        }
+
+    @Test
+    fun `手で書いた投稿には記事が付かない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            mutatePostNote(username = "feed1", body = "お知らせ", token = token)
+
+            val nodes = queryNotes("feed1", token).admin().obj("notes").getValue("nodes").jsonArray
+
+            assertEquals(listOf(JsonNull), nodes.map { it.jsonObject.getValue("feedItem") })
         }
 
     @Test
@@ -412,17 +424,7 @@ class AdminGraphQlTest {
                 .long
             mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
             mutatePostFeedItems(accountId = accountId, token = token)
-            val feedItemId = queryFeedItems(accountId = accountId, token = token)
-                .admin()
-                .obj("feedItems")
-                .obj("connection")
-                .getValue("nodes")
-                .jsonArray
-                .first()
-                .jsonObject
-                .getValue("id")
-                .jsonPrimitive
-                .long
+            val feedItemId = feedItemIdOf(username = "feed1", title = "1 本目", token = token)
 
             val result = mutateDeleteFeedItem(
                 accountId = accountId,
@@ -432,15 +434,12 @@ class AdminGraphQlTest {
 
             assertEquals(JsonNull, result.getValue("failure"))
             assertEquals(feedItemId, result.getValue("deletedId").jsonPrimitive.long)
+
+            val nodes = queryNotes("feed1", token).admin().obj("notes").getValue("nodes").jsonArray
+            assertEquals(2, nodes.size)
             assertEquals(
-                listOf("1 本目"),
-                queryFeedItems(accountId = accountId, token = token)
-                    .admin()
-                    .obj("feedItems")
-                    .obj("connection")
-                    .getValue("nodes")
-                    .jsonArray
-                    .map { it.jsonObject.string("title") },
+                listOf("2 本目"),
+                nodes.mapNotNull { (it.jsonObject.getValue("feedItem") as? JsonObject)?.string("title") },
             )
             assertEquals(2, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
         }
@@ -465,23 +464,16 @@ class AdminGraphQlTest {
                 .long
             mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
             mutatePostFeedItems(accountId = accountId, token = token)
-            val feedItemId = queryFeedItems(accountId = accountId, token = token)
-                .admin()
-                .obj("feedItems")
-                .obj("connection")
-                .getValue("nodes")
-                .jsonArray
-                .first()
-                .jsonObject
-                .getValue("id")
-                .jsonPrimitive
-                .long
-            mutateDeleteFeedItem(accountId = accountId, feedItemId = feedItemId, token = token)
+            mutateDeleteFeedItem(
+                accountId = accountId,
+                feedItemId = feedItemIdOf(username = "feed1", title = "1 本目", token = token),
+                token = token,
+            )
 
             val result = mutatePostFeedItems(accountId = accountId, token = token).admin().obj("postFeedItems")
 
             assertEquals(
-                listOf("2 本目"),
+                listOf("1 本目"),
                 result.getValue("items").jsonArray.map { it.jsonObject.string("title") },
             )
             assertEquals(3, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
@@ -811,19 +803,50 @@ class AdminGraphQlTest {
             variables = """{"accountId":${JsonPrimitive(accountId)}}""",
         )
 
-    private suspend fun ApplicationTestBuilder.queryFeedItems(
-        accountId: Long,
+    private suspend fun ApplicationTestBuilder.mutatePostNote(
+        username: String,
+        body: String,
         token: String? = null,
     ): HttpResponse =
         graphQl(
             query =
-            "query Items(${'$'}accountId: AccountId!) { admin { " +
-                "feedItems(query: { accountId: ${'$'}accountId, limit: 10 }) { " +
-                "connection { nodes { id title state } pageInfo { hasMore nextCursor } } " +
-                "failure { reason } } } }",
+            "mutation Post(${'$'}username: String!, ${'$'}body: String!) { admin { " +
+                "postNote(username: ${'$'}username, body: ${'$'}body) { note { url } failure { isEmpty } } } }",
             token = token,
-            variables = """{"accountId":${JsonPrimitive(accountId)}}""",
+            variables = """{"username":${JsonPrimitive(username)},"body":${JsonPrimitive(body)}}""",
         )
+
+    private suspend fun ApplicationTestBuilder.queryNotes(
+        username: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "query Notes(${'$'}username: String!) { admin { " +
+                "notes(username: ${'$'}username, limit: 10) { " +
+                "nodes { url feedItem { id title state } } } } }",
+            token = token,
+            variables = """{"username":${JsonPrimitive(username)}}""",
+        )
+
+    /**
+     * 題名から記事の id を引く。id は投稿を経由してしか出てこない
+     */
+    private suspend fun ApplicationTestBuilder.feedItemIdOf(
+        username: String,
+        title: String,
+        token: String? = null,
+    ): Long =
+        queryNotes(username, token)
+            .admin()
+            .obj("notes")
+            .getValue("nodes")
+            .jsonArray
+            .map { it.jsonObject.obj("feedItem") }
+            .first { it.string("title") == title }
+            .getValue("id")
+            .jsonPrimitive
+            .long
 
     private suspend fun ApplicationTestBuilder.mutateDeleteFeedItem(
         accountId: Long,
