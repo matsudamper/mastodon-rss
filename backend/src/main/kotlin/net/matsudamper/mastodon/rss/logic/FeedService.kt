@@ -113,15 +113,18 @@ class FeedService(
             ?: return PostUnpublishedResult.Failure(PostUnpublishedFailure.UNKNOWN_ACCOUNT)
         val feed = feeds.findByAccountId(accountId)
             ?: return PostUnpublishedResult.Failure(PostUnpublishedFailure.NO_FEED)
-        when (val imported = importLatest(feed)) {
-            is ImportLatestResult.Failure -> return PostUnpublishedResult.Failure(imported.reason)
-            ImportLatestResult.Success -> Unit
+        val imported = when (val result = importLatest(feed)) {
+            is ImportLatestResult.Failure -> return PostUnpublishedResult.Failure(result.reason)
+            is ImportLatestResult.Success -> result
+        }
+        val htmlByKey = imported.items.associate { item ->
+            FeedItemKey.of(feed.url, item).value to composeItemHtml(item, imported.feedUrl)
         }
         val sender = actorDirectory.resolve(account.username)
             ?: return PostUnpublishedResult.Success(items = emptyList())
         val posted = mutableListOf<UnpublishedItem>()
         feedItems.findPending(feed.id, Int.MAX_VALUE).forEach { stored ->
-            val html = stored.contentHtml ?: return@forEach
+            val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
             try {
                 notePublisher.publish(sender = sender, contentHtml = html)
             } catch (e: CancellationException) {
@@ -236,7 +239,10 @@ class FeedService(
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
                 )
-                ImportLatestResult.Success
+                ImportLatestResult.Success(
+                    items = fetched.parsed.items,
+                    feedUrl = fetched.feedUrl,
+                )
             }
 
             FeedFetchService.FetchResult.InvalidUrl ->
@@ -252,7 +258,10 @@ class FeedService(
     }
 
     private sealed interface ImportLatestResult {
-        data object Success : ImportLatestResult
+        data class Success(
+            val items: List<ParsedFeedItem>,
+            val feedUrl: String,
+        ) : ImportLatestResult
 
         data class Failure(
             val reason: PostUnpublishedFailure,
@@ -309,17 +318,32 @@ class FeedService(
         feedUrl: String,
     ): String? {
         val link = resolveItemLink(item.link, feedUrl)
-        val title = FeedText.singleLine(item.title.orEmpty()).ifBlank { link }
-        if (title.isBlank()) {
+        val title = FeedText.singleLine(item.title.orEmpty())
+        if (title.isBlank() && link.isBlank()) {
             return null
         }
-        val text = HtmlSanitizer.escapeText(FeedText.truncate(title, POST_TITLE_MAX_CHARS))
-        val html = if (link.isNotBlank()) {
-            """<p><a href="${HtmlSanitizer.escapeText(link)}">$text</a></p>"""
-        } else {
-            "<p>$text</p>"
+        val description = item.summary
+            ?.toPlainText()
+            ?.let { FeedText.singleLine(it) }
+            ?.let { FeedText.truncate(it, POST_DESCRIPTION_MAX_CHARS) }
+            ?.takeIf { it.isNotBlank() && it != title }
+            .orEmpty()
+        val lines = buildList {
+            if (title.isNotBlank()) {
+                add(HtmlSanitizer.escapeText(FeedText.truncate(title, POST_TITLE_MAX_CHARS)))
+            }
+            if (description.isNotBlank()) {
+                add(HtmlSanitizer.escapeText(description))
+            }
+            if (link.isNotBlank()) {
+                val escaped = HtmlSanitizer.escapeText(link)
+                add("""<a href="$escaped">$escaped</a>""")
+            }
         }
-        val sanitized = HtmlSanitizer.sanitize(html)
+        if (lines.isEmpty()) {
+            return null
+        }
+        val sanitized = HtmlSanitizer.sanitize("<p>${lines.joinToString("<br>")}</p>")
         return sanitized.takeIf { it.isNotBlank() }
     }
 
@@ -346,5 +370,6 @@ class FeedService(
         const val PREVIEW_ITEM_LIMIT = 5
         const val DESCRIPTION_LIMIT = 200
         const val POST_TITLE_MAX_CHARS = 200
+        const val POST_DESCRIPTION_MAX_CHARS = 200
     }
 }

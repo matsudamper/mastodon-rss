@@ -258,10 +258,11 @@ class FeedServiceTest {
                 },
             )
             assertEquals(
-                listOf("1 本目", "2 本目"),
-                noteStore.added.map { html ->
-                    Regex(""">([^<]+)</a>""").find(html.contentHtml)?.groupValues?.get(1)
-                },
+                listOf(
+                    """<p>1 本目<br><a href="https://example.com/1">https://example.com/1</a></p>""",
+                    """<p>2 本目<br><a href="https://example.com/2">https://example.com/2</a></p>""",
+                ),
+                noteStore.added.map { it.contentHtml },
             )
         }
 
@@ -330,6 +331,57 @@ class FeedServiceTest {
                 repositories.feedItems.items().map { it.state },
             )
             assertEquals(1, noteStore.added.size)
+        }
+
+    @Test
+    fun `投稿本文は題名と説明とリンクを改行で並べる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xml = DESCRIPTION_ITEM_XML,
+                noteStore = noteStore,
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val result = service.postUnpublished(account.id)
+
+            val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
+            assertEquals(listOf("1 本目"), success.items.map { it.title })
+            assertEquals(
+                listOf(
+                    """<p>1 本目<br>記事の要約<br><a href="https://example.com/1">https://example.com/1</a></p>""",
+                ),
+                noteStore.added.map { it.contentHtml },
+            )
+        }
+
+    @Test
+    fun `取り込み時に無かった説明も投稿直前の再取得で載せる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(FEED_XML, DESCRIPTION_ITEM_XML),
+                noteStore = noteStore,
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val result = service.postUnpublished(account.id)
+
+            val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
+            assertEquals(
+                listOf(
+                    """<p>1 本目<br>記事の要約<br><a href="https://example.com/1">https://example.com/1</a></p>""",
+                    """<p>2 本目<br><a href="https://example.com/2">https://example.com/2</a></p>""",
+                ),
+                noteStore.added.map { it.contentHtml },
+            )
+            assertEquals(listOf("1 本目", "2 本目"), success.items.map { it.title })
         }
 
     @Test
@@ -523,6 +575,20 @@ class FeedServiceTest {
                 <link>https://example.com/</link>
                 <item></item>
                 <item><title>1 本目</title><link>https://example.com/1</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val DESCRIPTION_ITEM_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <item>
+                  <title>1 本目</title>
+                  <link>https://example.com/1</link>
+                  <description>記事の要約</description>
+                </item>
               </channel>
             </rss>
         """.trimIndent()
