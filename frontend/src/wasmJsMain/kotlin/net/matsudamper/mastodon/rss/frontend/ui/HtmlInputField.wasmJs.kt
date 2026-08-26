@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalWasmJsInterop::class)
 @file:Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 
 package net.matsudamper.mastodon.rss.frontend.ui
@@ -22,12 +23,13 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.HtmlElementView
+import kotlin.js.ExperimentalWasmJsInterop
+import kotlin.js.js
 import kotlinx.browser.document
 import androidx.compose.material3.TextFieldDefaults as MaterialTextFieldDefaults
 import org.w3c.dom.HTMLFormElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
-import org.w3c.dom.events.KeyboardEvent
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +47,7 @@ internal actual fun HtmlInputField(
     formId: String?,
     required: Boolean,
 ) {
+    val currentOnValueChange = rememberUpdatedState(onValueChange)
     val colors = MaterialTheme.colorScheme
     val textStyle = MaterialTheme.typography.bodyLarge
     val interactionSource = remember { MutableInteractionSource() }
@@ -81,6 +84,10 @@ internal actual fun HtmlInputField(
                         }
                         input.setAttribute("aria-label", label)
                         input.required = required
+                        bindDomListeners(
+                            input = input,
+                            onValueChange = { currentOnValueChange.value(it) },
+                        )
                         input
                     },
                     update = { input ->
@@ -94,16 +101,9 @@ internal actual fun HtmlInputField(
                             input = input,
                             interactionSource = interactionSource,
                             focusInteractionHolder = focusInteractionHolder,
-                            onValueChange = onValueChange,
+                            onValueChange = { currentOnValueChange.value(it) },
                         )
-                        bindClipboardHandlers(input = input, onValueChange = onValueChange)
                         syncInputValue(input = input, value = value)
-                        input.oninput = { event ->
-                            onValueChange(readInputValue(event))
-                        }
-                        input.onchange = { event ->
-                            onValueChange(readInputValue(event))
-                        }
                     },
                 )
             },
@@ -170,14 +170,20 @@ private class FocusInteractionHolder {
     var focus: FocusInteraction.Focus? = null
 }
 
-private fun bindClipboardHandlers(
+private fun bindDomListeners(
     input: HTMLInputElement,
     onValueChange: (String) -> Unit,
 ) {
-    input.onkeydown = { event ->
-        if (event.isClipboardShortcutKey()) {
+    input.addEventListener("input") { event ->
+        onValueChange(readInputValue(event))
+    }
+    input.addEventListener("change") { event ->
+        onValueChange(readInputValue(event))
+    }
+    input.addEventListener("keydown") { event ->
+        if (isClipboardShortcutKey(event)) {
             event.stopPropagation()
-            when (event.key.lowercase()) {
+            when (keyboardKey(event).lowercase()) {
                 "x" -> {
                     if (cutSelection(input, onValueChange)) {
                         event.preventDefault()
@@ -230,14 +236,20 @@ private fun syncInputValue(
     }
 }
 
-private fun KeyboardEvent.isClipboardShortcutKey(): Boolean {
-    if (type != "keydown") return false
-    if (!ctrlKey && !metaKey) return false
-    return when (key.lowercase()) {
+private fun isClipboardShortcutKey(event: Event): Boolean {
+    if (event.type != "keydown") return false
+    if (!hasClipboardModifier(event)) return false
+    return when (keyboardKey(event).lowercase()) {
         "x", "c", "v", "a" -> true
         else -> false
     }
 }
+
+private fun hasClipboardModifier(event: Event): Boolean =
+    js("event.ctrlKey === true || event.metaKey === true")
+
+private fun keyboardKey(event: Event): String =
+    js("String(event.key || '')")
 
 private fun bindFocusHandlers(
     input: HTMLInputElement,
