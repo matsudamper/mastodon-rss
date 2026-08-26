@@ -14,7 +14,6 @@ import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.collection.COLLECTION_CURSOR_PARAM
 import net.matsudamper.mastodon.rss.collection.COLLECTION_PAGE_SIZE
-import net.matsudamper.mastodon.rss.collection.FEATURED_COLLECTION_SIZE
 import net.matsudamper.mastodon.rss.collection.OrderedCollection
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
@@ -126,12 +125,10 @@ fun Route.outboxRoutes(
 /**
  * プロフィールに載せる投稿の一覧。Actor の `featured` が指している先。
  *
- * Mastodon は未フォローでもプロフィールを開いたときここを引きに来る。
- * outbox はフォロー後のバックフィル向けで、未フォローのプロフィール表示には使われない。
+ * いまは空を返す。投稿を自動でピン留めしない。載せる処理は将来ここに足す。
  */
 fun Route.featuredRoutes(
     directory: ActorDirectory,
-    notes: NoteStore,
 ) {
     get("/users/{username}/collections/featured") {
         val requested = call.parameters["username"]
@@ -141,17 +138,12 @@ fun Route.featuredRoutes(
             return@get
         }
 
-        val total = notes.count(urls.username)
-        val items = notes
-            .list(username = urls.username, after = null, limit = FEATURED_COLLECTION_SIZE)
-            .map { note -> noteDocument(urls = urls, note = note, embedded = true) }
-
         call.respondJson(
             serializer = OrderedCollectionWithItems.serializer(Note.serializer()),
             value = OrderedCollectionWithItems(
                 id = urls.featured,
-                totalItems = total,
-                orderedItems = items,
+                totalItems = 0,
+                orderedItems = emptyList(),
             ),
             contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
         )

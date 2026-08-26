@@ -160,7 +160,7 @@ fun Application.module(deps: AppDependencies) {
 
         followerRoutes(deps.directory, deps.followerStore)
         outboxRoutes(deps.directory, deps.noteStore)
-        featuredRoutes(deps.directory, deps.noteStore)
+        featuredRoutes(deps.directory)
         noteRoutes(env.domain, deps.noteStore)
 
         nodeInfoRoutes(env.domain)

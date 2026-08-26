@@ -44,7 +44,7 @@ data class Actor(
      * Mastodon 4.6 以降。ピン留め欄を出すか
      */
     @SerialName("showFeatured")
-    val showFeatured: Boolean = true,
+    val showFeatured: Boolean = false,
 ) {
     companion object {
         const val TYPE_SERVICE: String = "Service"
