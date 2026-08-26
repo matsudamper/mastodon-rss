@@ -4,10 +4,11 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.time.Duration.Companion.minutes
-import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.test.runTest
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -25,8 +26,8 @@ import net.matsudamper.mastodon.rss.repository.FeedRepository
 
 class FeedPollerTest {
     @Test
-    fun `確認の間隔ごとに取得の時期が来たフィードを投稿する`() =
-        runTest {
+    fun `1 周目が失敗しても次の周で新着を投稿する`() =
+        runBlocking {
             val repositories = FakeRepositories()
             val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
@@ -34,13 +35,13 @@ class FeedPollerTest {
             val service = serviceOf(repositories = repositories, feeds = feeds, noteStore = noteStore)
             service.save(accountId = account.id, url = FEED_URL)
 
-            FeedPoller(feedService = service, checkInterval = CHECK_INTERVAL).start(backgroundScope)
-            runCurrent()
-
-            assertEquals(0, noteStore.added.size)
-
-            advanceTimeBy(CHECK_INTERVAL)
-            runCurrent()
+            val job = FeedPoller(feedService = service, checkInterval = CHECK_INTERVAL).start(this)
+            withTimeout(TIMEOUT) {
+                while (noteStore.added.isEmpty()) {
+                    delay(CHECK_INTERVAL)
+                }
+            }
+            job.cancel()
 
             assertEquals(
                 listOf("""<p>1 本目<br><a href="https://example.com/1">https://example.com/1</a></p>"""),
@@ -97,7 +98,8 @@ class FeedPollerTest {
 
     private companion object {
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03Z")
-        val CHECK_INTERVAL = 1.minutes
+        val CHECK_INTERVAL = 10.milliseconds
+        val TIMEOUT = 10.seconds
         const val FEED_URL = "https://example.com/feed.xml"
         val FEED_XML = """
             <?xml version="1.0" encoding="UTF-8"?>
