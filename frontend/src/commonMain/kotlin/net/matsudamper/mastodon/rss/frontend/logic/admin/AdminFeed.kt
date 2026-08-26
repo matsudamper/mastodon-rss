@@ -122,6 +122,9 @@ sealed interface AdminPostFeedItemsResult {
     enum class FailureReason {
         UNKNOWN_ACCOUNT,
         NO_FEED,
+        INVALID_URL,
+        FETCH_FAILED,
+        PARSE_FAILED,
         UNKNOWN,
     }
 }

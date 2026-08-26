@@ -63,6 +63,7 @@ data class AdminAccountScreenUiState(
             val title: String?,
             val format: String?,
             val unpublishedItems: List<UnpublishedItem>,
+            val postedItems: List<UnpublishedItem>?,
             val postingUnpublished: Boolean,
             val unpublishedError: String?,
         ) : Feed
@@ -142,7 +143,7 @@ data class AdminAccountScreenUiState(
 
         fun onClickSaveFeed()
 
-        fun onClickPostUnpublished()
+        fun onClickPostLatest()
 
         fun onBodyChanged(text: String)
 

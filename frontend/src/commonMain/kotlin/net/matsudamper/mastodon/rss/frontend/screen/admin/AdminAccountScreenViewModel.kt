@@ -65,7 +65,7 @@ class AdminAccountScreenViewModel(
                         saveFeed()
                     }
 
-                    override fun onClickPostUnpublished() {
+                    override fun onClickPostLatest() {
                         postUnpublished()
                     }
 
@@ -288,13 +288,18 @@ class AdminAccountScreenViewModel(
         if (viewModelStateFlow.value.postingUnpublished) return
 
         postUnpublishedJob?.cancel()
-        viewModelStateFlow.update { it.copy(postingUnpublished = true, unpublishedError = null) }
+        viewModelStateFlow.update { it.copy(postingUnpublished = true, unpublishedError = null, postedItems = null) }
 
         postUnpublishedJob = viewModelScope.launch {
             try {
                 when (val result = api.postFeedItems(accountId)) {
                     is AdminPostFeedItemsResult.Success -> {
-                        viewModelStateFlow.update { it.copy(postingUnpublished = false) }
+                        viewModelStateFlow.update {
+                            it.copy(
+                                postingUnpublished = false,
+                                postedItems = result.items,
+                            )
+                        }
                         loadUnpublished(accountId)
                         if (result.items.isNotEmpty()) {
                             loadNotes(networkOnly = true)
@@ -534,6 +539,9 @@ class AdminAccountScreenViewModel(
         when (this) {
             AdminPostFeedItemsResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
             AdminPostFeedItemsResult.FailureReason.NO_FEED -> "フィードが登録されていない"
+            AdminPostFeedItemsResult.FailureReason.INVALID_URL -> "URL の形式が正しくない"
+            AdminPostFeedItemsResult.FailureReason.FETCH_FAILED -> "フィードを取得できなかった"
+            AdminPostFeedItemsResult.FailureReason.PARSE_FAILED -> "フィードを読み取れなかった"
             AdminPostFeedItemsResult.FailureReason.UNKNOWN -> "未投稿を投稿できなかった"
         }
 
@@ -552,6 +560,7 @@ class AdminAccountScreenViewModel(
                 title = feed.title,
                 format = feed.format,
                 unpublishedItems = unpublishedItems.map { it.toUiState() },
+                postedItems = postedItems?.map { it.toUiState() },
                 postingUnpublished = postingUnpublished,
                 unpublishedError = unpublishedError,
             )
@@ -621,6 +630,7 @@ class AdminAccountScreenViewModel(
         val feedSaving: Boolean = false,
         val feedSaveError: String? = null,
         val unpublishedItems: List<AdminUnpublishedFeedItem> = emptyList(),
+        val postedItems: List<AdminUnpublishedFeedItem>? = null,
         val postingUnpublished: Boolean = false,
         val unpublishedError: String? = null,
     ) {

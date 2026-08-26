@@ -175,24 +175,24 @@ private fun FeedCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    if (feed.unpublishedItems.isNotEmpty()) {
-                        Text(
-                            text = "未投稿の記事が ${feed.unpublishedItems.size} 件ある。",
-                            style = MaterialTheme.typography.bodyMedium,
+                    Button(
+                        onClick = { listener.onClickPostLatest() },
+                        enabled = !feed.postingUnpublished,
+                    ) {
+                        Text(if (feed.postingUnpublished) "投稿中" else "最新情報を投稿")
+                    }
+                    val postedItems = feed.postedItems
+                    if (postedItems != null) {
+                        FeedItemSummary(
+                            countText = "${postedItems.size} 件投稿しました。",
+                            items = postedItems,
                         )
-                        feed.unpublishedItems.take(5).forEach { item ->
-                            Text(
-                                text = item.title ?: item.link.orEmpty(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Button(
-                            onClick = { listener.onClickPostUnpublished() },
-                            enabled = !feed.postingUnpublished,
-                        ) {
-                            Text(if (feed.postingUnpublished) "投稿中" else "未投稿を投稿する")
-                        }
+                    }
+                    if (feed.unpublishedItems.isNotEmpty()) {
+                        FeedItemSummary(
+                            countText = "未投稿の記事が ${feed.unpublishedItems.size} 件ある。",
+                            items = feed.unpublishedItems,
+                        )
                     }
                     if (feed.unpublishedError != null) {
                         Text(
@@ -227,6 +227,24 @@ private fun FeedCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FeedItemSummary(
+    countText: String,
+    items: List<AdminAccountScreenUiState.UnpublishedItem>,
+) {
+    Text(
+        text = countText,
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    items.take(5).forEach { item ->
+        Text(
+            text = item.title ?: item.link.orEmpty(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

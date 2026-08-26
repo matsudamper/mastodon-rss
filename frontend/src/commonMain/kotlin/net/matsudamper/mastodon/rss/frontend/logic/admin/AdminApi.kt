@@ -119,13 +119,14 @@ class AdminApi(
         limit: Int,
         networkOnly: Boolean = false,
     ): AdminNotesResult {
-        val query = client.query(
-            AdminNotesQuery(
-                username = username,
-                cursor = Optional.presentIfNotNull(cursor),
-                limit = limit,
-            ),
-        )
+        val query = client
+            .query(
+                AdminNotesQuery(
+                    username = username,
+                    cursor = Optional.presentIfNotNull(cursor),
+                    limit = limit,
+                ),
+            )
         val response = if (networkOnly) {
             query.fetchPolicy(FetchPolicy.NetworkOnly).execute()
         } else {
@@ -350,6 +351,15 @@ class AdminApi(
 
             AdminPostFeedItemsFailureReason.NO_FEED ->
                 AdminPostFeedItemsResult.FailureReason.NO_FEED
+
+            AdminPostFeedItemsFailureReason.INVALID_URL ->
+                AdminPostFeedItemsResult.FailureReason.INVALID_URL
+
+            AdminPostFeedItemsFailureReason.FETCH_FAILED ->
+                AdminPostFeedItemsResult.FailureReason.FETCH_FAILED
+
+            AdminPostFeedItemsFailureReason.PARSE_FAILED ->
+                AdminPostFeedItemsResult.FailureReason.PARSE_FAILED
 
             AdminPostFeedItemsFailureReason.UNKNOWN__ ->
                 AdminPostFeedItemsResult.FailureReason.UNKNOWN
