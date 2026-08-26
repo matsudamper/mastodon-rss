@@ -334,6 +334,26 @@ jobs:
           grep -q '"acct":"@ci-feed@example.com"' /tmp/graphql-admin-account.json
           grep -q '"followerCount":0' /tmp/graphql-admin-account.json
 
+          # saveFeed の input は Jackson が組み立てる。AccountId をオブジェクトとして
+          # 持たせると native-image でコンストラクタが無くて落ちる。Long のまま渡す。
+          echo "--- GraphQL のフィード登録（input の AccountId） ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"query Account($username: String!) { admin { adminAccount(username: $username) { account { id } } } }","variables":{"username":"ci-feed"}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-save-account.json
+          cat /tmp/graphql-save-account.json
+          ACCOUNT_ID="$(python3 -c "import json; print(json.load(open('/tmp/graphql-save-account.json'))['data']['admin']['adminAccount']['account']['id'])")"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"mutation Save($q: SaveFeedQuery!) { admin { saveFeed(saveFeedQuery: $q) { failure { reason } } } }","variables":{"q":{"accountId":'"$ACCOUNT_ID"',"url":"not-a-url"}}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-save-feed.json
+          cat /tmp/graphql-save-feed.json
+          grep -q '"reason":"INVALID_URL"' /tmp/graphql-save-feed.json
+          if grep -q '"errors"' /tmp/graphql-save-feed.json; then
+            echo "::error::saveFeed が errors を返した。input の AccountId を組み立てられていない"
+            exit 1
+          fi
+
           # 投稿の一覧は Connection の型を通る。まだ何も配っていないので空で返る
           echo "--- GraphQL の投稿一覧 ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
