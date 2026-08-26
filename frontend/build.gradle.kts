@@ -29,9 +29,12 @@ kotlin {
         commonMain {
             dependencies {
                 implementation(project(":shared"))
+                implementation(project(":frontend:common-component"))
                 implementation(libs.apollo.runtime)
                 implementation(libs.apollo.normalized.cache)
                 implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.ui)
             }
         }
 

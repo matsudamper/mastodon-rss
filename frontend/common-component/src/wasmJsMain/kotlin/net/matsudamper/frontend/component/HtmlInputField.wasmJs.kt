@@ -1,4 +1,7 @@
-package net.matsudamper.mastodon.rss.frontend.ui
+@file:OptIn(ExperimentalWasmJsInterop::class)
+@file:Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
+
+package net.matsudamper.frontend.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.FocusInteraction
@@ -20,95 +23,37 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.HtmlElementView
+import kotlin.js.ExperimentalWasmJsInterop
+import kotlin.js.js
 import kotlinx.browser.document
+import kotlinx.browser.window
 import androidx.compose.material3.TextFieldDefaults as MaterialTextFieldDefaults
 import org.w3c.dom.HTMLFormElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 
-/**
- * 管理画面ログイン用のパスワード入力。
- *
- * canvas 上の [androidx.compose.material3.OutlinedTextField] ではブラウザの
- * パスワードマネージャーがフィールドを認識できないため、HTML の input を埋め込む。
- * 見た目は Material3 の TextField と揃える。
- */
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun AdminLoginPasswordField(
-    password: String,
-    onPasswordChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    enabled: Boolean,
-    hasError: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    HiddenLoginForm(
-        onSubmit = onSubmit,
-        enabled = enabled,
-    )
-    HtmlCredentialField(
-        label = "パスワード",
-        value = password,
-        onValueChange = onPasswordChange,
-        inputId = PASSWORD_INPUT_ID,
-        inputName = "password",
-        inputType = "password",
-        autocomplete = "current-password",
-        enabled = enabled,
-        hasError = hasError,
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun HiddenLoginForm(
-    onSubmit: () -> Unit,
-    enabled: Boolean,
-) {
-    DisposableEffect(enabled) {
-        val form = document.getElementById(FORM_ID) as HTMLFormElement?
-            ?: run {
-                val created = document.createElement("form") as HTMLFormElement
-                created.id = FORM_ID
-                created.setAttribute("autocomplete", "on")
-                created.style.display = "none"
-                document.body?.appendChild(created)
-                created
-            }
-        form.onsubmit = { event ->
-            event.preventDefault()
-            if (enabled) {
-                onSubmit()
-            }
-        }
-        onDispose {
-            form.onsubmit = null
-        }
-    }
-}
-
-@OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
-@Composable
-private fun HtmlCredentialField(
-    label: String,
+actual fun HtmlInputField(
     value: String,
     onValueChange: (String) -> Unit,
+    label: String,
     inputId: String,
     inputName: String,
-    inputType: String,
+    inputType: HtmlInputType,
     autocomplete: String,
     enabled: Boolean,
     hasError: Boolean,
-    modifier: Modifier = Modifier,
+    modifier: Modifier,
+    formId: String?,
+    required: Boolean,
 ) {
+    val currentOnValueChange = rememberUpdatedState(onValueChange)
     val colors = MaterialTheme.colorScheme
     val textStyle = MaterialTheme.typography.bodyLarge
     val interactionSource = remember { MutableInteractionSource() }
     val focusInteractionHolder = remember { FocusInteractionHolder() }
     val clickInteractionSource = remember { MutableInteractionSource() }
-    val latestValue = rememberUpdatedState(value)
-    val latestOnValueChange = rememberUpdatedState(onValueChange)
 
     Box(
         modifier = modifier
@@ -133,22 +78,17 @@ private fun HtmlCredentialField(
                         val input = document.createElement("input") as HTMLInputElement
                         input.id = inputId
                         input.name = inputName
-                        input.type = inputType
+                        input.type = inputType.value
                         input.autocomplete = autocomplete
-                        input.setAttribute("form", FORM_ID)
-                        input.setAttribute("aria-label", label)
-                        input.required = true
-                        // oninput / onchange プロパティは使わない。
-                        // oninput の型は (InputEvent) -> Unit で、パスワードマネージャーが
-                        // 自動入力後に dispatch する素の Event ではキャストに失敗する。
-                        val valueListener: (Event) -> Unit = { event ->
-                            val newValue = readInputValue(event)
-                            if (newValue != latestValue.value) {
-                                latestOnValueChange.value(newValue)
-                            }
+                        if (formId != null) {
+                            input.setAttribute("form", formId)
                         }
-                        input.addEventListener("input", valueListener)
-                        input.addEventListener("change", valueListener)
+                        input.setAttribute("aria-label", label)
+                        input.required = required
+                        bindDomListeners(
+                            input = input,
+                            onValueChange = { currentOnValueChange.value(it) },
+                        )
                         input
                     },
                     update = { input ->
@@ -162,10 +102,9 @@ private fun HtmlCredentialField(
                             input = input,
                             interactionSource = interactionSource,
                             focusInteractionHolder = focusInteractionHolder,
+                            onValueChange = { currentOnValueChange.value(it) },
                         )
-                        if (input.value != value) {
-                            input.value = value
-                        }
+                        syncInputValue(input = input, value = value)
                     },
                 )
             },
@@ -199,14 +138,129 @@ private fun HtmlCredentialField(
     }
 }
 
+@Composable
+actual fun HiddenHtmlForm(
+    formId: String,
+    onSubmit: () -> Unit,
+    enabled: Boolean,
+) {
+    val currentOnSubmit = rememberUpdatedState(onSubmit)
+    DisposableEffect(formId, enabled) {
+        val form = document.getElementById(formId) as HTMLFormElement?
+            ?: run {
+                val created = document.createElement("form") as HTMLFormElement
+                created.id = formId
+                created.setAttribute("autocomplete", "on")
+                created.style.display = "none"
+                document.body?.appendChild(created)
+                created
+            }
+        form.onsubmit = { event ->
+            event.preventDefault()
+            if (enabled) {
+                currentOnSubmit.value()
+            }
+        }
+        onDispose {
+            form.onsubmit = null
+        }
+    }
+}
+
 private class FocusInteractionHolder {
     var focus: FocusInteraction.Focus? = null
 }
+
+private fun bindDomListeners(
+    input: HTMLInputElement,
+    onValueChange: (String) -> Unit,
+) {
+    // oninput プロパティの型は (InputEvent) -> Unit。切り取りやパスワードマネージャーの
+    // 自動入力では素の Event が来るので、キャストせず addEventListener で受ける。
+    input.addEventListener("input") { event ->
+        onValueChange(readInputValue(event))
+    }
+    input.addEventListener("change") { event ->
+        onValueChange(readInputValue(event))
+    }
+    input.addEventListener("keydown") { event ->
+        if (isClipboardShortcutKey(event)) {
+            event.stopPropagation()
+            when (keyboardKey(event).lowercase()) {
+                "x" -> {
+                    if (cutSelection(input, onValueChange)) {
+                        event.preventDefault()
+                    }
+                }
+
+                "c" -> {
+                    if (copySelection(input)) {
+                        event.preventDefault()
+                    }
+                }
+
+                "a" -> {
+                    input.select()
+                    event.preventDefault()
+                }
+            }
+        }
+    }
+}
+
+private fun cutSelection(
+    input: HTMLInputElement,
+    onValueChange: (String) -> Unit,
+): Boolean {
+    val start = input.selectionStart ?: return false
+    val end = input.selectionEnd ?: return false
+    if (start >= end) return false
+    copyToClipboard(input.value.substring(start, end))
+    val next = input.value.removeRange(start, end)
+    input.value = next
+    input.setSelectionRange(start, start)
+    onValueChange(next)
+    return true
+}
+
+private fun copySelection(input: HTMLInputElement): Boolean {
+    val start = input.selectionStart ?: return false
+    val end = input.selectionEnd ?: return false
+    if (start >= end) return false
+    copyToClipboard(input.value.substring(start, end))
+    return true
+}
+
+private fun syncInputValue(
+    input: HTMLInputElement,
+    value: String,
+) {
+    if (document.activeElement == input) return
+    if (input.value != value) {
+        input.value = value
+    }
+}
+
+private fun isClipboardShortcutKey(event: Event): Boolean {
+    if (event.type != "keydown") return false
+    if (!hasClipboardModifier(event)) return false
+    return when (keyboardKey(event).lowercase()) {
+        "x", "c", "v", "a" -> true
+        else -> false
+    }
+}
+
+private fun hasClipboardModifier(event: Event): Boolean =
+    js("event.ctrlKey === true || event.metaKey === true")
+
+private fun keyboardKey(event: Event): String =
+    js("String(event.key || '')")
 
 private fun bindFocusHandlers(
     input: HTMLInputElement,
     interactionSource: MutableInteractionSource,
     focusInteractionHolder: FocusInteractionHolder,
+    onValueChange: (String) -> Unit,
 ) {
     input.onfocus = {
         if (focusInteractionHolder.focus == null) {
@@ -221,6 +275,7 @@ private fun bindFocusHandlers(
             interactionSource.tryEmit(FocusInteraction.Unfocus(focus))
             focusInteractionHolder.focus = null
         }
+        onValueChange(input.value)
     }
 }
 
@@ -246,12 +301,18 @@ private fun applyInputStyle(
         lineHeight = "normal"
         fontFamily = "inherit"
         letterSpacing = "normal"
+        setProperty("user-select", "text")
+        setProperty("-webkit-user-select", "text")
     }
 }
 
 private fun readInputValue(event: Event): String {
     val target = event.target
     return (target as? HTMLInputElement)?.value ?: ""
+}
+
+private fun copyToClipboard(text: String) {
+    window.navigator.clipboard.writeText(text)
 }
 
 private fun Color.toCssColor(): String {
@@ -262,6 +323,4 @@ private fun Color.toCssColor(): String {
     return "rgb($r, $g, $b)"
 }
 
-private const val FORM_ID = "admin-login-form"
-private const val PASSWORD_INPUT_ID = "admin-login-password"
 private val InputLineHeight = 24.dp
