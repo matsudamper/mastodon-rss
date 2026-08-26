@@ -203,11 +203,14 @@ class AdminApi(
     }
 
     suspend fun unpublishedFeedItems(accountId: Long): AdminUnpublishedFeedItemsResult {
-        val response = client.query(
-            AdminUnpublishedFeedItemsQuery(
-                query = UnpublishedFeedItemsQuery(accountId = accountId),
-            ),
-        ).execute()
+        val response = client
+            .query(
+                AdminUnpublishedFeedItemsQuery(
+                    query = UnpublishedFeedItemsQuery(accountId = accountId),
+                ),
+            )
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .execute()
         val result = response.data?.admin?.unpublishedFeedItems
             ?: return AdminUnpublishedFeedItemsResult.Failure(response.failureMessage())
         val items = result.items
