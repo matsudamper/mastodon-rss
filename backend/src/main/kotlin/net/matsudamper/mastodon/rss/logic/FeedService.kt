@@ -3,6 +3,8 @@ package net.matsudamper.mastodon.rss.logic
 import java.net.URI
 import java.time.Instant
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedItemKey
@@ -29,6 +31,8 @@ class FeedService(
     private val actorDirectory: ActorDirectory,
     private val notePublisher: NotePublisher,
 ) {
+    private val publishLock = Mutex()
+
     suspend fun preview(url: String): PreviewResult {
         return when (val fetched = fetcher.fetch(url)) {
             is FeedFetchService.FetchResult.Success -> PreviewResult.Success(fetched.toPreview())
@@ -294,12 +298,19 @@ class FeedService(
         FeedItemKey.of(feed.url, item).value to composeItemHtml(item, feedUrl)
     }
 
+    /**
+     * 未投稿の記事を投稿して、投稿済みにする。
+     *
+     * 定期ポーリングと管理画面からの手動投稿は同時に走りうる。取り出してから
+     * 投稿済みにするまでを直列化しないと、両方が同じ記事を取り出してフォロワーに
+     * 2 回配信する。取り消す手段は無いので、入口を 1 本に絞って防ぐ
+     */
     private suspend fun publishPending(
         feed: Feed,
         username: String,
         htmlByKey: Map<String, String?>,
-    ): List<UnpublishedItem> {
-        val sender = actorDirectory.resolve(username) ?: return emptyList()
+    ): List<UnpublishedItem> = publishLock.withLock {
+        val sender = actorDirectory.resolve(username) ?: return@withLock emptyList()
         val posted = mutableListOf<UnpublishedItem>()
         feedItems.findPending(feed.id, Int.MAX_VALUE).forEach { stored ->
             val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
@@ -317,7 +328,7 @@ class FeedService(
                 publishedAt = stored.publishedAt,
             )
         }
-        return posted
+        posted
     }
 
     private suspend fun importLatest(feed: Feed): ImportLatestResult {
