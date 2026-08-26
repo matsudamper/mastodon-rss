@@ -373,6 +373,30 @@ class AdminGraphQlTest {
         }
 
     @Test
+    fun `saveFeed のあと adminAccount の feed が返る`() =
+        testApplication {
+            applicationWith(
+                passwordConfigured = true,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+
+            val feed = queryAccount("feed1", token).admin().obj("adminAccount").obj("feed")
+
+            assertEquals(FEED_URL, feed.string("url"))
+            assertEquals("サンプル", feed.string("title"))
+        }
+
+    @Test
     fun `アカウント 1 つを名前で引ける`() =
         testApplication {
             applicationWith(passwordConfigured = true)
