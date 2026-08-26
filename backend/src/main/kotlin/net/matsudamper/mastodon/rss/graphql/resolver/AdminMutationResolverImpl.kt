@@ -18,16 +18,17 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.graphql.model.QlPostFeedItemsQuery
+import net.matsudamper.mastodon.rss.graphql.model.QlSaveFeedQuery
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteService
-import net.matsudamper.mastodon.rss.repository.AccountId
-import net.matsudamper.mastodon.rss.shared.AccountId as GraphQlAccountId
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminMutationResolverImpl : AdminMutationResolver {
@@ -164,8 +165,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
     override fun saveFeed(
         adminMutation: QlAdminMutation,
-        accountId: GraphQlAccountId,
-        url: String,
+        saveFeedQuery: QlSaveFeedQuery,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminSaveFeedResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
@@ -173,7 +173,27 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         val diContainer = GraphQlEngine.diContainer(env)
 
         return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
-            val result = diContainer.feedService.save(AccountId(accountId.value), url).toGraphqlResponse()
+            val result = diContainer.feedService.save(
+                accountId = saveFeedQuery.accountId,
+                url = saveFeedQuery.url,
+            ).toGraphqlResponse()
+            DataFetcherResult.Builder(result).build()
+        }
+    }
+
+    override fun postFeedItems(
+        adminMutation: QlAdminMutation,
+        query: QlPostFeedItemsQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminPostFeedItemsResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val result = diContainer.feedService.postUnpublished(
+                accountId = query.accountId,
+            ).toGraphqlResponse()
             DataFetcherResult.Builder(result).build()
         }
     }

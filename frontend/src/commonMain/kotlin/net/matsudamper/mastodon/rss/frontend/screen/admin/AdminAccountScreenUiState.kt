@@ -62,12 +62,16 @@ data class AdminAccountScreenUiState(
             val url: String,
             val title: String?,
             val format: String?,
+            val unpublishedItems: List<UnpublishedItem>,
+            val postedItems: List<UnpublishedItem>?,
+            val postingUnpublished: Boolean,
+            val unpublishedError: String?,
         ) : Feed
 
         /**
          * @param fetching 取得中。ボタンの文字が変わる
          * @param canFetch false の間は取得のボタンを押せなくする
-         * @param canSave false の間は保存のボタンを押せなくする
+         * @param canSave false の間は登録のボタンを押せなくする
          */
         data class Input(
             val url: String,
@@ -80,6 +84,12 @@ data class AdminAccountScreenUiState(
             val saveError: String?,
         ) : Feed
     }
+
+    data class UnpublishedItem(
+        val title: String?,
+        val link: String?,
+        val publishedAt: String?,
+    )
 
     data class FeedPreview(
         val title: String?,
@@ -132,6 +142,8 @@ data class AdminAccountScreenUiState(
         fun onClickFetchFeed()
 
         fun onClickSaveFeed()
+
+        fun onClickPostLatest()
 
         fun onBodyChanged(text: String)
 

@@ -28,6 +28,11 @@ enum AdminFeedPreviewFailureReason {
     PARSE_FAILED
 }
 
+input SaveFeedQuery {
+    accountId: AccountId!
+    url: String!
+}
+
 type AdminSaveFeedResult {
     feed: Feed
     failure: AdminSaveFeedFailure
@@ -41,6 +46,54 @@ enum AdminSaveFeedFailureReason {
     UNKNOWN_ACCOUNT
     DUPLICATE_URL
     ALREADY_HAS_FEED
+    INVALID_URL
+    FETCH_FAILED
+    PARSE_FAILED
+}
+
+input UnpublishedFeedItemsQuery {
+    "未投稿を返す対象のアカウント"
+    accountId: AccountId!
+}
+
+type AdminUnpublishedFeedItem {
+    title: String
+    link: String
+    publishedAt: UnixTime
+}
+
+type AdminUnpublishedFeedItemsResult {
+    items: [AdminUnpublishedFeedItem!]
+    failure: AdminUnpublishedFeedItemsFailure
+}
+
+type AdminUnpublishedFeedItemsFailure {
+    reason: AdminUnpublishedFeedItemsFailureReason!
+}
+
+enum AdminUnpublishedFeedItemsFailureReason {
+    UNKNOWN_ACCOUNT
+    NO_FEED
+}
+
+input PostFeedItemsQuery {
+    "未投稿を投稿する対象のアカウント"
+    accountId: AccountId!
+}
+
+type AdminPostFeedItemsResult {
+    "投稿できた記事"
+    items: [AdminUnpublishedFeedItem!]
+    failure: AdminPostFeedItemsFailure
+}
+
+type AdminPostFeedItemsFailure {
+    reason: AdminPostFeedItemsFailureReason!
+}
+
+enum AdminPostFeedItemsFailureReason {
+    UNKNOWN_ACCOUNT
+    NO_FEED
     INVALID_URL
     FETCH_FAILED
     PARSE_FAILED

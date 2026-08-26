@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.repository
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.shared.AccountId
 
 /**
  * 応答するアカウントの読み書き。
@@ -50,11 +51,6 @@ interface AccountRepository {
         createdAt: Instant,
     ): Account?
 }
-
-@JvmInline
-value class AccountId(
-    val value: Long,
-)
 
 /**
  * 応答するアカウント 1 つ。

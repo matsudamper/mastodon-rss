@@ -10,6 +10,7 @@ import net.matsudamper.mastodon.rss.logic.NoteService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
@@ -18,6 +19,7 @@ class DiContainer(
     accountRepository: AccountRepository,
     followerRepository: FollowerRepository,
     feedRepository: FeedRepository,
+    feedItemRepository: FeedItemRepository,
     feedFetcher: FeedFetchService,
     val domain: String,
     val actorDirectory: ActorDirectory,
@@ -41,6 +43,9 @@ class DiContainer(
     val feedService: FeedService = FeedService(
         accounts = accountRepository,
         feeds = feedRepository,
+        feedItems = feedItemRepository,
         fetcher = feedFetcher,
+        actorDirectory = actorDirectory,
+        notePublisher = notePublisher,
     )
 }

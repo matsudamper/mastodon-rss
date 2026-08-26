@@ -70,6 +70,8 @@ jOOQ には SQL を直接読む `DDLDatabase` もあるが、そちらは jOOQ �
 | `remote_actors` | 相手のサーバーのアクター。inbox と公開鍵 |
 | `followers` | 成立しているフォロー。アカウントの名前と `remote_actors` の関連 |
 | `notes` | 配信した投稿。相手がパーマリンクを引きに来るので残す |
+| `feeds` | アカウントに紐づく RSS/Atom フィード。アカウントと 1:1 |
+| `feed_items` | 取り込んだ記事。投稿するかどうかの状態と、差分検出の鍵を持つ |
 | `health_check` | 起動時の書き込み確認用。行は常に 1 件 |
 
 `followers` と `notes` がこちらのアカウントを名前で持つのは、アクター ID が名前から

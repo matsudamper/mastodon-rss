@@ -2,21 +2,26 @@ package net.matsudamper.mastodon.rss
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.Account
-import net.matsudamper.mastodon.rss.repository.AccountId
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchStatus
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
 import net.matsudamper.mastodon.rss.repository.FeedId
+import net.matsudamper.mastodon.rss.repository.FeedItem
+import net.matsudamper.mastodon.rss.repository.FeedItemId
+import net.matsudamper.mastodon.rss.repository.FeedItemRepository
+import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
+import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.Repositories
+import net.matsudamper.mastodon.rss.shared.AccountId
 
 // ルーティングのテストで使う Repositories の差し替え。
 // 保存はメモリ上だけで、DB には一切触らない。
@@ -33,6 +38,8 @@ class FakeRepositories : Repositories {
     override val notes: NoteRepository = FakeNoteRepository()
 
     override val feeds: FakeFeedRepository = FakeFeedRepository()
+
+    override val feedItems: FakeFeedItemRepository = FakeFeedItemRepository()
 
     override fun verifyWritable() {
         verifyWritableCallCount++
@@ -284,6 +291,77 @@ class FakeFeedRepository : FeedRepository {
     private fun update(
         id: FeedId,
         block: (Feed) -> Feed,
+    ) {
+        val index = stored.indexOfFirst { it.id == id }
+        if (index == -1) return
+        stored[index] = block(stored[index])
+    }
+}
+
+class FakeFeedItemRepository : FeedItemRepository {
+    private val stored = mutableListOf<FeedItem>()
+    private var nextId = 1L
+
+    override fun findExistingKeys(
+        feedId: FeedId,
+        keys: Collection<String>,
+    ): Set<String> {
+        if (keys.isEmpty()) return emptySet()
+        val wanted = keys.toSet()
+        return stored.filter { it.feedId == feedId && it.itemKey in wanted }.map { it.itemKey }.toSet()
+    }
+
+    override fun add(item: NewFeedItem): FeedItem? {
+        if (stored.any { it.feedId == item.feedId && it.itemKey == item.itemKey }) return null
+
+        return FeedItem(
+            id = FeedItemId(nextId++),
+            feedId = item.feedId,
+            itemKey = item.itemKey,
+            title = item.title,
+            link = item.link,
+            contentHtml = item.contentHtml,
+            publishedAt = item.publishedAt,
+            importedAt = item.importedAt,
+            state = item.state,
+            postedAt = null,
+        ).also { stored += it }
+    }
+
+    override fun findPending(limit: Int): List<FeedItem> = pendingSorted().take(limit.coerceAtLeast(0))
+
+    override fun findPending(
+        feedId: FeedId,
+        limit: Int,
+    ): List<FeedItem> = pendingSorted().filter { it.feedId == feedId }.take(limit.coerceAtLeast(0))
+
+    override fun markPosted(
+        id: FeedItemId,
+        postedAt: Instant,
+    ) {
+        update(id) { it.copy(state = FeedItemState.POSTED, postedAt = postedAt) }
+    }
+
+    override fun markSkipped(id: FeedItemId) {
+        update(id) { it.copy(state = FeedItemState.SKIPPED) }
+    }
+
+    override fun countByFeed(feedId: FeedId): Long = stored.count { it.feedId == feedId }.toLong()
+
+    fun items(): List<FeedItem> = stored.toList()
+
+    private fun pendingSorted(): List<FeedItem> =
+        stored
+            .filter { it.state == FeedItemState.PENDING }
+            .sortedWith(
+                compareBy<FeedItem> { it.publishedAt == null }
+                    .thenBy { it.publishedAt }
+                    .thenBy { it.id.value },
+            )
+
+    private fun update(
+        id: FeedItemId,
+        block: (FeedItem) -> FeedItem,
     ) {
         val index = stored.indexOfFirst { it.id == id }
         if (index == -1) return

@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.repository
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.shared.AccountId
 
 /**
  * 購読しているフィードの読み書き。
@@ -72,8 +73,7 @@ interface FeedRepository {
     /**
      * 初回の取り込みが済んだことを記録する。
      *
-     * 登録直後の 1 回目は、既にある記事を全部投稿してしまわないよう
-     * 「取り込み済み」として記録するだけにする。その判定に使う。
+     * 済んでいなければ、後の取得が既存記事を新着として扱う。
      */
     fun markInitialImportDone(id: FeedId)
 
@@ -93,7 +93,7 @@ value class FeedId(
  * @param siteUrl フィードが指している Web サイトの URL。表示用で、取得には使わない
  * @param pollIntervalSeconds 取得の間隔。配信元の更新頻度に合わせて変えられるよう
  *   フィードごとに持つ
- * @param initialImportDone 初回の取り込みが済んでいるか。済んでいなければ投稿しない
+ * @param initialImportDone 登録時の取り込みが済んでいるか。済んでいなければ、後の取得が既存記事を新着として扱う
  */
 data class Feed(
     val id: FeedId,

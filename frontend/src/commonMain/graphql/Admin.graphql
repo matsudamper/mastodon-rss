@@ -62,15 +62,45 @@ query AdminPreviewFeed($url: String!) {
     }
 }
 
-mutation AdminSaveFeed($accountId: AccountId!, $url: String!) {
+mutation AdminSaveFeed($saveFeedQuery: SaveFeedQuery!) {
     admin {
-        saveFeed(accountId: $accountId, url: $url) {
+        saveFeed(saveFeedQuery: $saveFeedQuery) {
             feed {
                 id
                 url
                 title
                 siteUrl
                 format
+            }
+            failure {
+                reason
+            }
+        }
+    }
+}
+
+query AdminUnpublishedFeedItems($query: UnpublishedFeedItemsQuery!) {
+    admin {
+        unpublishedFeedItems(query: $query) {
+            items {
+                title
+                link
+                publishedAt
+            }
+            failure {
+                reason
+            }
+        }
+    }
+}
+
+mutation AdminPostFeedItems($query: PostFeedItemsQuery!) {
+    admin {
+        postFeedItems(query: $query) {
+            items {
+                title
+                link
+                publishedAt
             }
             failure {
                 reason

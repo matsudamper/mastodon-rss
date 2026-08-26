@@ -232,11 +232,15 @@ kickstart はスキーマとクラスの対応をリフレクションで解決�
 
 登録は `graalvm/GraphQlReflectionFeature`（`--features=` で渡す GraalVM の Feature）が
 イメージのビルド時にクラスパスを走査して行う。対象は生成物のパッケージ
-（`graphql.model`）とリゾルバの実装のパッケージ（`graphql.resolver`）の 2 つ。
-手で `reflect-config.json` に並べると、スキーマを触るたびに更新が要る。
+（`graphql.model`）とリゾルバの実装のパッケージ（`graphql.resolver`）、それに
+生成モデルがフィールドに持つ `:shared` の型。input object の中のカスタムスカラーは
+kickstart が Jackson で組み立てるので、パッケージ走査だけでは `AccountId` のような
+`:shared` の型が落ちる。手で `reflect-config.json` に並べると、スキーマを触るたびに
+更新が要る。
 
-リゾルバの実装を `graphql.resolver` 以外に置くと走査から外れる。こちらは
-`GraphQlReflectionTargetsTest` が JVM のテストで見ている。
+リゾルバの実装を `graphql.resolver` 以外に置くと走査から外れる。生成モデルが
+`:shared` の型を参照しているかも、`GraphQlReflectionTargetsTest` が JVM のテストで
+見ている。
 
 スキーマはリソースなので `resource-config.json` に登録している。読むファイルの一覧
 （`graphql/schema-list.txt`）は `:backend:graphql` がビルド時に作る。native バイナリでは

@@ -4,6 +4,7 @@ import java.time.Instant
 import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
+import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.NoteRepository
@@ -27,6 +28,8 @@ internal class SqliteRepositories(
     override val notes: NoteRepository = SqliteNoteRepository(jooq)
 
     override val feeds: FeedRepository = SqliteFeedRepository(jooq)
+
+    override val feedItems: FeedItemRepository = SqliteFeedItemRepository(jooq)
 
     override fun verifyWritable() {
         val writtenAt = Instant.now().toString()

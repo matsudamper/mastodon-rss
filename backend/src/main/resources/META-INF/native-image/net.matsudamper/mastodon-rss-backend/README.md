@@ -28,16 +28,29 @@ kobylynskyi の graphql-java-codegen が作り、graphql-java-tools (kickstart) 
 使うので、native-image 向けにクラスを登録する。
 
 登録は `--features=net.matsudamper.mastodon.rss.graalvm.GraphQlReflectionFeature` で
-渡す Feature が、イメージのビルド時に次の 2 つのパッケージを走査して行う。
+渡す Feature が、イメージのビルド時に次のパッケージを走査して行う。
 
 - `net.matsudamper.mastodon.rss.graphql.model`（生成されたモデルとインタフェース）
 - `net.matsudamper.mastodon.rss.graphql.resolver`（リゾルバの実装）
 
-ここに入っていないクラスは登録されない。リゾルバの実装が
-`graphql.resolver` から出ていないかは `GraphQlReflectionTargetsTest` が見ている。
+生成モデルがフィールドに持つ `:shared` の型も、同じ Feature が生成モデルから辿って
+登録する。input object の中の `AccountId` は kickstart が Jackson で
+`QlSaveFeedQuery` を組み立てるときにコンストラクタを呼ぶ。`:shared` は走査する
+パッケージに入っていないので、辿らなければ native バイナリでフィードを登録できない。
+
+    InvalidDefinitionException: Cannot construct instance of `...shared.AccountId`:
+    cannot deserialize from Object value (no delegate- or property-based Creator):
+    this appears to be a native image
+      (through reference chain: QlSaveFeedQuery["accountId"])
+
+JVM ではリフレクションが unrestricted なのでテストは通る。CI の native-image ジョブで
+`saveFeed` の input を通している。
+
+リゾルバの実装が `graphql.resolver` から出ていないかと、生成モデルが `:shared` の型を
+参照しているかは `GraphQlReflectionTargetsTest` が見ている。
 
 手で並べないのは、スキーマにフィールドや型を足すたびに更新が要るため。
-生成物とリゾルバをまとめて走査すれば忘れようがない。
+生成物とリゾルバをまとめて走査し、そこから shared の型を辿れば忘れようがない。
 
 以前は `RuntimeWiring` に `DataFetcher` を明示し、フィールドの値を `Map` で返して
 リフレクションを一切使わない形にしていた。その理由として「kickstart や
