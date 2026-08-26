@@ -5,10 +5,10 @@ import net.matsudamper.mastodon.rss.repository.FeedId
 import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemId
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
-import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEED_ITEMS
 import net.matsudamper.mastodon.rss.repository.jooq.tables.records.FeedItemsRecord
+import net.matsudamper.mastodon.rss.repository.sqlite.db.FeedItemStateDbValue
 
 internal class SqliteFeedItemRepository(
     private val jooq: SqliteJooq,
@@ -148,32 +148,3 @@ private val pendingOrder: Comparator<FeedItem> =
     compareBy<FeedItem> { it.publishedAt == null }
         .thenBy { it.publishedAt }
         .thenBy { it.id.value }
-
-internal enum class FeedItemStateDbValue(
-    internal val dbValue: String,
-) {
-    PENDING("pending"),
-    POSTED("posted"),
-    SKIPPED("skipped"),
-    ;
-
-    fun toFeedItemState(): FeedItemState =
-        when (this) {
-            PENDING -> FeedItemState.PENDING
-            POSTED -> FeedItemState.POSTED
-            SKIPPED -> FeedItemState.SKIPPED
-        }
-
-    companion object {
-        fun of(state: FeedItemState): FeedItemStateDbValue =
-            when (state) {
-                FeedItemState.PENDING -> PENDING
-                FeedItemState.POSTED -> POSTED
-                FeedItemState.SKIPPED -> SKIPPED
-            }
-
-        fun parse(value: String): FeedItemStateDbValue =
-            entries.find { it.dbValue == value }
-                ?: error("未知の記事状態: $value")
-    }
-}
