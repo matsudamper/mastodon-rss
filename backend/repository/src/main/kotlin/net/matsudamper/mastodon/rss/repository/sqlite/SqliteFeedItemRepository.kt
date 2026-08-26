@@ -48,7 +48,7 @@ internal class SqliteFeedItemRepository(
             .set(FEED_ITEMS.CONTENT_HTML, item.contentHtml)
             .set(FEED_ITEMS.PUBLISHED_AT, item.publishedAt?.let(StoredInstant::format))
             .set(FEED_ITEMS.IMPORTED_AT, StoredInstant.format(item.importedAt))
-            .set(FEED_ITEMS.STATE, item.state.toStored())
+            .set(FEED_ITEMS.STATE, FeedItemStateDbValue.of(item.state).dbValue)
             .set(FEED_ITEMS.POSTED_AT, null as String?)
             .returning(FEED_ITEMS.ID)
             .fetchOne()
@@ -83,7 +83,7 @@ internal class SqliteFeedItemRepository(
         jooq.transaction { dsl ->
             dsl
                 .update(FEED_ITEMS)
-                .set(FEED_ITEMS.STATE, FeedItemState.POSTED.toStored())
+                .set(FEED_ITEMS.STATE, FeedItemStateDbValue.POSTED.dbValue)
                 .set(FEED_ITEMS.POSTED_AT, StoredInstant.format(postedAt))
                 .where(FEED_ITEMS.ID.eq(id.value))
                 .execute()
@@ -94,7 +94,7 @@ internal class SqliteFeedItemRepository(
         jooq.transaction { dsl ->
             dsl
                 .update(FEED_ITEMS)
-                .set(FEED_ITEMS.STATE, FeedItemState.SKIPPED.toStored())
+                .set(FEED_ITEMS.STATE, FeedItemStateDbValue.SKIPPED.dbValue)
                 .where(FEED_ITEMS.ID.eq(id.value))
                 .execute()
         }
@@ -116,7 +116,7 @@ internal class SqliteFeedItemRepository(
         if (limit <= 0) return emptyList()
 
         return jooq.withConnection { dsl ->
-            val condition = FEED_ITEMS.STATE.eq(FeedItemState.PENDING.toStored()).let { pending ->
+            val condition = FEED_ITEMS.STATE.eq(FeedItemStateDbValue.PENDING.dbValue).let { pending ->
                 if (feedId == null) pending else pending.and(FEED_ITEMS.FEED_ID.eq(feedId.value))
             }
 
@@ -139,7 +139,7 @@ internal class SqliteFeedItemRepository(
         contentHtml = contentHtml,
         publishedAt = publishedAt?.let(StoredInstant::parse),
         importedAt = StoredInstant.parse(importedAt!!),
-        state = state!!.toFeedItemState(),
+        state = FeedItemStateDbValue.parse(state!!).toFeedItemState(),
         postedAt = postedAt?.let(StoredInstant::parse),
     )
 }
@@ -149,17 +149,31 @@ private val pendingOrder: Comparator<FeedItem> =
         .thenBy { it.publishedAt }
         .thenBy { it.id.value }
 
-private fun FeedItemState.toStored(): String =
-    when (this) {
-        FeedItemState.PENDING -> "pending"
-        FeedItemState.POSTED -> "posted"
-        FeedItemState.SKIPPED -> "skipped"
-    }
+internal enum class FeedItemStateDbValue(
+    internal val dbValue: String,
+) {
+    PENDING("pending"),
+    POSTED("posted"),
+    SKIPPED("skipped"),
+    ;
 
-private fun String.toFeedItemState(): FeedItemState =
-    when (this) {
-        "pending" -> FeedItemState.PENDING
-        "posted" -> FeedItemState.POSTED
-        "skipped" -> FeedItemState.SKIPPED
-        else -> error("未知の記事状態: $this")
+    fun toFeedItemState(): FeedItemState =
+        when (this) {
+            PENDING -> FeedItemState.PENDING
+            POSTED -> FeedItemState.POSTED
+            SKIPPED -> FeedItemState.SKIPPED
+        }
+
+    companion object {
+        fun of(state: FeedItemState): FeedItemStateDbValue =
+            when (state) {
+                FeedItemState.PENDING -> PENDING
+                FeedItemState.POSTED -> POSTED
+                FeedItemState.SKIPPED -> SKIPPED
+            }
+
+        fun parse(value: String): FeedItemStateDbValue =
+            entries.find { it.dbValue == value }
+                ?: error("未知の記事状態: $value")
     }
+}
