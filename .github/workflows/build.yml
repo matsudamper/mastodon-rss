@@ -334,8 +334,9 @@ jobs:
           grep -q '"acct":"@ci-feed@example.com"' /tmp/graphql-admin-account.json
           grep -q '"followerCount":0' /tmp/graphql-admin-account.json
 
-          # saveFeed の input は Jackson が組み立てる。AccountId をオブジェクトとして
-          # 持たせると native-image でコンストラクタが無くて落ちる。Long のまま渡す。
+          # saveFeed の input は Jackson が組み立てる。
+          # shared の AccountId のコンストラクタが native-image から落ちると
+          # InvalidDefinitionException になる。
           echo "--- GraphQL のフィード登録（input の AccountId） ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -H "Cookie: $SESSION_COOKIE" \

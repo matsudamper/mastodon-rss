@@ -8,7 +8,8 @@ import org.graalvm.nativeimage.hosted.RuntimeReflection
  * `--features=` で渡す（指定は `backend/build.gradle.kts`）。
  *
  * 手で `reflect-config.json` に並べるとスキーマを触るたびに更新が要るので、
- * イメージのビルド時にクラスパスを走査する。何が要るのかと、それぞれ何で落ちたかは
+ * イメージのビルド時にクラスパスを走査する。生成モデルが参照する `:shared` の型も
+ * 同じタイミングで登録する。何が要るのかと、それぞれ何で落ちたかは
  * `META-INF/native-image/` の README にある。
  */
 class GraphQlReflectionFeature : Feature {
@@ -29,6 +30,12 @@ class GraphQlReflectionFeature : Feature {
 
             classNames.forEach { register(it) }
         }
+
+        val sharedTypeNames = GraphQlReflectionTargets.sharedTypeNamesReferencedByGraphqlModels()
+        check(sharedTypeNames.isNotEmpty()) {
+            "生成モデルが ${GraphQlReflectionTargets.SHARED_PACKAGE} の型を参照していない。走査に失敗している"
+        }
+        sharedTypeNames.forEach { register(it) }
     }
 
     /**
