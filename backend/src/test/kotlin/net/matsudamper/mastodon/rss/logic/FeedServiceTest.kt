@@ -149,6 +149,21 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `取り込みが終わらなかった登録はやり直せる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = account.id, url = FEED_URL)
+            repositories.feeds.clearInitialImportDone(assertNotNull(repositories.feeds.findByAccountId(account.id)).id)
+
+            val result = service.save(accountId = account.id, url = FEED_URL)
+
+            val success = assertIs<FeedService.SaveResult.Success>(result)
+            assertEquals(true, success.feed.initialImportDone)
+        }
+
+    @Test
     fun `同じ URL は別のアカウントにも登録できない`() =
         runTest {
             val repositories = FakeRepositories()
