@@ -26,6 +26,7 @@ data class AdminAccountScreenUiState(
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
          * @param deleteNoteDialog 投稿を消す前の確認。出していなければ null
+         * @param deleteNoteResult 直前に消した投稿の配信結果。次の削除を始めたら消す
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
          * @param notesLoading 一覧を取っている最中
          * @param canLoadMore さらに古い投稿があるか
@@ -36,6 +37,7 @@ data class AdminAccountScreenUiState(
             val post: Post,
             val notes: List<Note>,
             val deleteNoteDialog: DeleteNoteDialog?,
+            val deleteNoteResult: DeleteNoteResult?,
             val notesError: String?,
             val notesLoading: Boolean,
             val canLoadMore: Boolean,
@@ -135,6 +137,17 @@ data class AdminAccountScreenUiState(
     ) {
         val canSubmit: Boolean get() = !submitting && body.isNotBlank()
     }
+
+    /**
+     * 消した投稿の `Delete` の配信結果。
+     *
+     * @param targets 送った宛先の数
+     * @param delivered そのうち届いた数。少なければ、その相手には投稿が残っている
+     */
+    data class DeleteNoteResult(
+        val targets: Int,
+        val delivered: Int,
+    )
 
     /**
      * 投稿を消す前の確認。

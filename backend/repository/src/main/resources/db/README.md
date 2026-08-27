@@ -39,7 +39,8 @@ sqlite3def --file backend/repository/src/main/resources/db/schema.sql /path/to/m
 
 sqlite3def で列を足しただけでは、それまでに投稿した記事の `note_id` は NULL のまま。
 管理画面は投稿から `note_id` を辿って元記事を出すので、NULL のままだと過去の記事は画面に出ず消せない。
-本文が一致する投稿で埋められる。
+投稿済みの記事は本文（`content_html`）が投稿と一致するので、そこから紐付けを戻せる。
+一対一に決まる組だけを埋める。同じ本文が複数あると、どれと組むかが決まらないため。
 
 ```sql
 UPDATE feed_items
@@ -53,11 +54,28 @@ SET note_id = (
       WHERE f.id = feed_items.feed_id
     )
 )
-WHERE note_id IS NULL AND state = 'posted';
+WHERE note_id IS NULL
+  AND state = 'posted'
+  -- 同じ本文の投稿が 1 件だけ
+  AND (
+    SELECT COUNT(*) FROM notes n
+    WHERE n.content_html = feed_items.content_html
+      AND n.username = (
+        SELECT a.username FROM accounts a
+        JOIN feeds f ON f.account_id = a.id
+        WHERE f.id = feed_items.feed_id
+      )
+  ) = 1
+  -- 同じ本文の記事も 1 件だけ
+  AND (
+    SELECT COUNT(*) FROM feed_items i
+    WHERE i.feed_id = feed_items.feed_id
+      AND i.content_html = feed_items.content_html
+  ) = 1;
 ```
 
-同じ本文の投稿が複数あると、そのうちの 1 件に寄る。
-埋まらなかった行は画面に出ないままなので、要らなければ消してよい。
+決まらなかった行と、投稿が見つからなかった行は NULL のまま残り、画面には出ない。
+要らなければ消してよい。
 
 ## スキーマから対応するコードが生成されるまで
 
