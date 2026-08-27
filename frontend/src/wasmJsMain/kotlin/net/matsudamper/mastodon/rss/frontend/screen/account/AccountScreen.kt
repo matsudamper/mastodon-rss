@@ -72,78 +72,80 @@ fun AccountScreen(
     username: String,
     onNavigate: (Screen) -> Unit,
 ) {
-    val viewModelScope = rememberCoroutineScope()
-    val snackbarHostState = LocalSnackbarHostState.current
-    val viewModel =
-        remember(viewModelScope, username, snackbarHostState) {
-            AccountScreenViewModel(
-                username = username,
-                host = window.location.host,
-                viewModelScope = viewModelScope,
-                copyToClipboard = ::copyToClipboard,
-                showSnackbar = snackbarHostState::show,
-            )
+    PublicScaffold(onNavigate = onNavigate) { wide ->
+        val viewModelScope = rememberCoroutineScope()
+        val snackbarHostState = LocalSnackbarHostState.current
+        val viewModel =
+            remember(viewModelScope, username, snackbarHostState) {
+                AccountScreenViewModel(
+                    username = username,
+                    host = window.location.host,
+                    viewModelScope = viewModelScope,
+                    copyToClipboard = ::copyToClipboard,
+                    showSnackbar = snackbarHostState::show,
+                )
+            }
+        val uiState by viewModel.uiStateFlow.collectAsState()
+
+        LifecycleStartEffect(viewModel) {
+            viewModel.onStart()
+            onStopOrDispose {}
         }
-    val uiState by viewModel.uiStateFlow.collectAsState()
 
-    LifecycleStartEffect(viewModel) {
-        viewModel.onStart()
-        onStopOrDispose {}
+        AccountScreenContent(
+            username = username,
+            uiState = uiState,
+            wide = wide,
+            onNavigate = onNavigate,
+        )
     }
-
-    AccountScreen(
-        username = username,
-        uiState = uiState,
-        onNavigate = onNavigate,
-    )
 }
 
 @Composable
-private fun AccountScreen(
+private fun AccountScreenContent(
     username: String,
     uiState: AccountScreenUiState,
+    wide: Boolean,
     onNavigate: (Screen) -> Unit,
 ) {
-    PublicScaffold(onNavigate = onNavigate) { wide ->
-        when (val content = uiState.content) {
-            AccountScreenUiState.Content.Loading -> {
-                SectionCard(title = "読み込み中") {
-                    Text(
-                        text = "アカウントを取ってきている。",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
-
-            AccountScreenUiState.Content.NotFound -> {
-                NotFoundContent(
-                    requestedPath = Screen.Account(username).path,
-                    description = "ユーザーが存在しません",
+    when (val content = uiState.content) {
+        AccountScreenUiState.Content.Loading -> {
+            SectionCard(title = "読み込み中") {
+                Text(
+                    text = "アカウントを取ってきている。",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
+        }
 
-            is AccountScreenUiState.Content.Error -> {
-                SectionCard(title = "アカウントを出せない") {
-                    Text(
-                        text = content.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+        AccountScreenUiState.Content.NotFound -> {
+            NotFoundContent(
+                requestedPath = Screen.Account(username).path,
+                description = "ユーザーが存在しません",
+            )
+        }
 
-                    OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
-                        Text("もう一度試す")
-                    }
+        is AccountScreenUiState.Content.Error -> {
+            SectionCard(title = "アカウントを出せない") {
+                Text(
+                    text = content.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+
+                OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
+                    Text("もう一度試す")
                 }
             }
+        }
 
-            is AccountScreenUiState.Content.Loaded -> {
-                AccountContent(
-                    content = content,
-                    wide = wide,
-                    onNavigate = onNavigate,
-                    listener = uiState.listener,
-                )
-            }
+        is AccountScreenUiState.Content.Loaded -> {
+            AccountContent(
+                content = content,
+                wide = wide,
+                onNavigate = onNavigate,
+                listener = uiState.listener,
+            )
         }
     }
 }

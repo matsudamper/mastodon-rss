@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -38,32 +39,34 @@ internal fun AppScaffoldLayout(
                 val outerPadding = if (wide) 24.dp else 12.dp
 
                 CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
-                    Column(
-                        modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = outerPadding, vertical = outerPadding),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
                         Column(
                             modifier =
                             Modifier
-                                .widthIn(max = ContentMaxWidth)
+                                .fillMaxSize()
+                                .padding(horizontal = outerPadding, vertical = outerPadding),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Column(
+                                modifier =
+                                Modifier
+                                    .widthIn(max = ContentMaxWidth)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                content = { content(wide) },
+                            )
+                        }
+
+                        ScaffoldSnackbarHost(
+                            state = snackbarHostState,
+                            modifier =
+                            Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(horizontal = outerPadding, vertical = outerPadding)
+                                .widthIn(max = SnackbarMaxWidth)
                                 .fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            content = { content(wide) },
                         )
                     }
-
-                    ScaffoldSnackbarHost(
-                        state = snackbarHostState,
-                        modifier =
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(horizontal = outerPadding, vertical = outerPadding)
-                            .widthIn(max = SnackbarMaxWidth)
-                            .fillMaxWidth(),
-                    )
                 }
             }
         }
