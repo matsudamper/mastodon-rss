@@ -38,44 +38,39 @@ sqlite3def --file backend/repository/src/main/resources/db/schema.sql /path/to/m
 ### 既に動いている DB に `feed_items.note_id` を入れるとき
 
 sqlite3def で列を足しただけでは、それまでに投稿した記事の `note_id` は NULL のまま。
-管理画面は投稿から `note_id` を辿って元記事を出すので、NULL のままだと過去の記事は画面に出ず消せない。
-投稿済みの記事は本文（`content_html`）が投稿と一致するので、そこから紐付けを戻せる。
-一対一に決まる組だけを埋める。同じ本文が複数あると、どれと組むかが決まらないため。
+管理画面は投稿から `note_id` を辿って元記事を出すので、NULL の記事は画面に出ず、そこからは消せない。
+実害は過去の記事を画面から消せないことだけで、取り込みも投稿も動く。埋めなくてもよい。
+
+埋めるなら手で確かめてから。本文（`content_html`）が一致する投稿を候補として出せるが、
+同じ本文を手で投稿していると、それが唯一の候補になって取り違える。
+自動で更新せず、候補を見てから 1 件ずつ書く。
 
 ```sql
-UPDATE feed_items
-SET note_id = (
-  SELECT n.public_id
-  FROM notes n
-  WHERE n.content_html = feed_items.content_html
-    AND n.username = (
-      SELECT a.username FROM accounts a
-      JOIN feeds f ON f.account_id = a.id
-      WHERE f.id = feed_items.feed_id
-    )
-)
-WHERE note_id IS NULL
-  AND state = 'posted'
-  -- 同じ本文の投稿が 1 件だけ
-  AND (
+-- 候補を出す。note_public_id が空でない行だけが埋められる
+SELECT
+  i.id AS feed_item_id,
+  i.title,
+  (
+    SELECT n.public_id FROM notes n
+    WHERE n.content_html = i.content_html
+      AND n.username = a.username
+  ) AS note_public_id,
+  (
     SELECT COUNT(*) FROM notes n
-    WHERE n.content_html = feed_items.content_html
-      AND n.username = (
-        SELECT a.username FROM accounts a
-        JOIN feeds f ON f.account_id = a.id
-        WHERE f.id = feed_items.feed_id
-      )
-  ) = 1
-  -- 同じ本文の記事も 1 件だけ
-  AND (
-    SELECT COUNT(*) FROM feed_items i
-    WHERE i.feed_id = feed_items.feed_id
-      AND i.content_html = feed_items.content_html
-  ) = 1;
+    WHERE n.content_html = i.content_html
+      AND n.username = a.username
+  ) AS note_count
+FROM feed_items i
+JOIN feeds f ON f.id = i.feed_id
+JOIN accounts a ON a.id = f.account_id
+WHERE i.note_id IS NULL AND i.state = 'posted';
 ```
 
-決まらなかった行と、投稿が見つからなかった行は NULL のまま残り、画面には出ない。
-要らなければ消してよい。
+`note_count` が 1 の行だけを、その投稿が本当にその記事から流れたものか確かめてから書く。
+
+```sql
+UPDATE feed_items SET note_id = '<notes.public_id>' WHERE id = <feed_items.id>;
+```
 
 ## スキーマから対応するコードが生成されるまで
 
