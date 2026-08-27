@@ -24,6 +24,7 @@ class AccountScreenViewModel(
     private val host: String,
     private val viewModelScope: CoroutineScope,
     private val api: AccountApi = AccountApi(),
+    private val copyToClipboard: (String) -> Unit,
 ) {
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
@@ -46,6 +47,10 @@ class AccountScreenViewModel(
 
                     override fun onClickLoadMore() {
                         loadMore()
+                    }
+
+                    override fun onClickCopyAcct() {
+                        copyAcct()
                     }
                 },
             ),
@@ -179,6 +184,15 @@ class AccountScreenViewModel(
                     }
                 }
             }
+    }
+
+    private fun copyAcct() {
+        val acct =
+            when (val account = viewModelStateFlow.value.account) {
+                is AccountResult.Success -> account.account.acct
+                else -> return
+            }
+        copyToClipboard(acct)
     }
 
     private fun createContent(state: ViewModelState): AccountScreenUiState.Content {

@@ -77,6 +77,7 @@ fun AccountScreen(
                 username = username,
                 host = window.location.host,
                 viewModelScope = viewModelScope,
+                copyToClipboard = ::copyToClipboard,
             )
         }
     val uiState by viewModel.uiStateFlow.collectAsState()
@@ -162,6 +163,7 @@ private fun AccountContent(
         ProfileHeader(
             state = state,
             wide = wide,
+            listener = listener,
         )
 
         if (wide) {
@@ -178,12 +180,12 @@ private fun AccountContent(
                 ) {
                     FeedSection(state = state)
                     DeliverySection(state = state)
-                    FollowSection(state = state, onNavigate = onNavigate)
+                    FollowSection(state = state, onNavigate = onNavigate, listener = listener)
                 }
             }
         } else {
             FeedSection(state = state)
-            FollowSection(state = state, onNavigate = onNavigate)
+            FollowSection(state = state, onNavigate = onNavigate, listener = listener)
             NotesSection(content = content, listener = listener)
             DeliverySection(state = state)
         }
@@ -233,6 +235,7 @@ private fun PlaceholderNotice() {
 private fun ProfileHeader(
     state: AccountUiState,
     wide: Boolean,
+    listener: AccountScreenUiState.Listener,
 ) {
     val avatarSize = if (wide) 88.dp else 68.dp
     val colors = avatarColors(state.username)
@@ -305,7 +308,7 @@ private fun ProfileHeader(
                             modifier =
                             Modifier
                                 .alignByBaseline()
-                                .clickable(onClick = { copyToClipboard(state.acct) })
+                                .clickable(onClick = listener::onClickCopyAcct)
                                 .size(18.dp),
                         )
                     }
@@ -450,6 +453,7 @@ private fun DeliverySection(state: AccountUiState) {
 private fun FollowSection(
     state: AccountUiState,
     onNavigate: (Screen) -> Unit,
+    listener: AccountScreenUiState.Listener,
 ) {
     SectionCard(title = "フォローする") {
         Text(
@@ -470,7 +474,7 @@ private fun FollowSection(
                         fontFamily = FontFamily.Monospace,
                     )
                 }
-                IconButton(onClick = { copyToClipboard(state.acct) }) {
+                IconButton(onClick = listener::onClickCopyAcct) {
                     Icon(
                         imageVector = Icons.Outlined.ContentCopy,
                         contentDescription = "コピー",

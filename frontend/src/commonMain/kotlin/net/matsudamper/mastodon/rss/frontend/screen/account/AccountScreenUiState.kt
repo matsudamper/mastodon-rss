@@ -35,5 +35,7 @@ data class AccountScreenUiState(
         fun onClickReloadNotes()
 
         fun onClickLoadMore()
+
+        fun onClickCopyAcct()
     }
 }
