@@ -6,14 +6,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,8 +27,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.layout.LastBaseline
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.js.ExperimentalWasmJsInterop
 import kotlinx.browser.window
@@ -199,6 +209,62 @@ fun copyToClipboard(
         },
     )
 }
+
+/**
+ * テキストの baseline に揃えるコピーアイコン。
+ *
+ * Icon 単体は baseline を持たないので、LastBaseline を底辺に置く。
+ * タップ領域だけ 48dp 四方に広げ、18dp のアイコンは下端を baseline に合わせる。
+ */
+@Composable
+fun RowScope.BaselineCopyIcon(onClick: () -> Unit) {
+    val iconSize = 18.dp
+    val touchSize = 48.dp
+    val iconBottomPadding = 2.dp
+    Box(
+        modifier =
+        Modifier
+            .alignBy(LastBaseline)
+            .baselineCopyIconTouchTarget(
+                iconSize = iconSize,
+                touchSize = touchSize,
+                iconBottomPadding = iconBottomPadding,
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.ContentCopy,
+            contentDescription = "コピー",
+            modifier = Modifier.size(iconSize),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun Modifier.baselineCopyIconTouchTarget(
+    iconSize: Dp,
+    touchSize: Dp,
+    iconBottomPadding: Dp,
+): Modifier =
+    layout { measurable, constraints ->
+        val iconPx = iconSize.roundToPx()
+        val touchPx = touchSize.roundToPx()
+        val iconBottomPaddingPx = iconBottomPadding.roundToPx()
+        val placeable = measurable.measure(Constraints.fixed(touchPx, touchPx))
+        val baselineOffset = (iconPx - iconBottomPaddingPx).coerceAtLeast(0)
+        layout(
+            width = touchPx,
+            height = iconPx,
+            alignmentLines =
+            mapOf(
+                FirstBaseline to baselineOffset,
+                LastBaseline to baselineOffset,
+            ),
+        ) {
+            placeable.place(0, iconPx - touchPx)
+        }
+    }
 
 /** 枠線 1 本ぶんの色。区切り線に使う */
 @Composable
