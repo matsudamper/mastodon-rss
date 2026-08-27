@@ -282,6 +282,26 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `投稿した記事は投稿の id から引ける`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = noteStore)
+            service.save(accountId = account.id, url = FEED_URL)
+            service.postUnpublished(account.id)
+            val noteIds = noteStore.added.map { it.publicId }
+
+            val items = service.itemsByNoteIds(noteIds)
+
+            assertEquals(noteIds.toSet(), items.keys)
+            assertEquals(
+                listOf("1 本目", "2 本目"),
+                noteIds.map { assertNotNull(items[it]).title },
+            )
+        }
+
+    @Test
     fun `相対リンクはフィード URL を基準に絶対化して投稿する`() =
         runTest {
             val repositories = FakeRepositories()

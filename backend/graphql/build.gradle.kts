@@ -43,6 +43,7 @@ tasks.named<GraphQLCodegenGradleTask>("graphqlCodegen") {
         "NoteId" to "net.matsudamper.mastodon.rss.shared.NoteId",
         "AccountId" to "net.matsudamper.mastodon.rss.shared.AccountId",
         "FeedId" to "net.matsudamper.mastodon.rss.shared.FeedId",
+        "FeedItemId" to "net.matsudamper.mastodon.rss.shared.FeedItemId",
     )
 
     modelNamePrefix = "Ql"

@@ -356,11 +356,12 @@ jobs:
             exit 1
           fi
 
-          # 投稿の一覧は Connection の型を通る。まだ何も配っていないので空で返る
+          # 投稿の一覧は Connection の型を通る。記事のリレーションは DataLoader を通るので、
+          # 登録漏れがあると native でだけ落ちる。まだ何も配っていないので空で返る
           echo "--- GraphQL の投稿一覧 ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -H "Cookie: $SESSION_COOKIE" \
-            -d '{"query":"query Notes($username: String!) { admin { notes(username: $username, limit: 10) { nodes { url } pageInfo { hasMore nextCursor } } } }","variables":{"username":"ci-feed"}}' \
+            -d '{"query":"query Notes($username: String!) { admin { notes(username: $username, limit: 10) { nodes { url feedItem { id title } } pageInfo { hasMore nextCursor } } } }","variables":{"username":"ci-feed"}}' \
             http://localhost:8080/graphql -o /tmp/graphql-notes.json
           cat /tmp/graphql-notes.json
           grep -q '"nodes":\[\]' /tmp/graphql-notes.json

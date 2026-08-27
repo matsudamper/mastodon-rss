@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItem
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItemState
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreview
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailureReason
@@ -18,7 +20,10 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnpublishedFeedItemsRes
 import net.matsudamper.mastodon.rss.graphql.model.QlFeed
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedItem
+import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.shared.FeedId
+import net.matsudamper.mastodon.rss.shared.FeedItemId
 
 internal fun Feed.toGraphqlResponse(): QlFeed = QlFeed(
     id = FeedId(id.value),
@@ -159,3 +164,20 @@ internal fun FeedService.PostUnpublishedFailure.toGraphqlResponse(): QlAdminPost
                 QlAdminPostFeedItemsFailureReason.PARSE_FAILED
         },
     )
+
+internal fun FeedItem.toGraphqlResponse(): QlAdminFeedItem = QlAdminFeedItem(
+    id = FeedItemId(id.value),
+    title = title,
+    link = link,
+    publishedAt = publishedAt?.epochSecond,
+    importedAt = importedAt.epochSecond,
+    state = state.toGraphqlResponse(),
+    postedAt = postedAt?.epochSecond,
+)
+
+internal fun FeedItemState.toGraphqlResponse(): QlAdminFeedItemState =
+    when (this) {
+        FeedItemState.PENDING -> QlAdminFeedItemState.PENDING
+        FeedItemState.POSTED -> QlAdminFeedItemState.POSTED
+        FeedItemState.SKIPPED -> QlAdminFeedItemState.SKIPPED
+    }

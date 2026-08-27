@@ -325,6 +325,7 @@ class FakeFeedItemRepository : FeedItemRepository {
             importedAt = item.importedAt,
             state = item.state,
             postedAt = null,
+            noteId = null,
         ).also { stored += it }
     }
 
@@ -338,12 +339,19 @@ class FakeFeedItemRepository : FeedItemRepository {
     override fun markPosted(
         id: FeedItemId,
         postedAt: Instant,
+        noteId: String,
     ) {
-        update(id) { it.copy(state = FeedItemState.POSTED, postedAt = postedAt) }
+        update(id) { it.copy(state = FeedItemState.POSTED, postedAt = postedAt, noteId = noteId) }
     }
 
     override fun markSkipped(id: FeedItemId) {
         update(id) { it.copy(state = FeedItemState.SKIPPED) }
+    }
+
+    override fun findByNoteIds(noteIds: Collection<String>): Map<String, FeedItem> {
+        if (noteIds.isEmpty()) return emptyMap()
+        val wanted = noteIds.toSet()
+        return stored.filter { it.noteId in wanted }.associateBy { checkNotNull(it.noteId) }
     }
 
     override fun countByFeed(feedId: FeedId): Long = stored.count { it.feedId == feedId }.toLong()

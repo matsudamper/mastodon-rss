@@ -361,6 +361,50 @@ class AdminGraphQlTest {
         }
 
     @Test
+    fun `notes は投稿の元になった記事を返す`() =
+        testApplication {
+            applicationWith(
+                passwordConfigured = true,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+            mutatePostFeedItems(accountId = accountId, token = token)
+
+            val nodes = queryNotes("feed1", token).admin().obj("notes").getValue("nodes").jsonArray
+
+            assertEquals(
+                listOf("1 本目", "2 本目"),
+                nodes.map { it.jsonObject.obj("feedItem").string("title") }.sorted(),
+            )
+            assertEquals(
+                listOf("POSTED", "POSTED"),
+                nodes.map { it.jsonObject.obj("feedItem").string("state") },
+            )
+        }
+
+    @Test
+    fun `手で書いた投稿には記事が付かない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            mutatePostNote(username = "feed1", body = "お知らせ", token = token)
+
+            val nodes = queryNotes("feed1", token).admin().obj("notes").getValue("nodes").jsonArray
+
+            assertEquals(listOf(JsonNull), nodes.map { it.jsonObject.getValue("feedItem") })
+        }
+
+    @Test
     fun `フィード未登録なら feed は null`() =
         testApplication {
             applicationWith(passwordConfigured = true)
@@ -658,6 +702,32 @@ class AdminGraphQlTest {
                 "postFeedItems(query: { accountId: ${'$'}accountId }) { items { title link } failure { reason } } } }",
             token = token,
             variables = """{"accountId":${JsonPrimitive(accountId)}}""",
+        )
+
+    private suspend fun ApplicationTestBuilder.mutatePostNote(
+        username: String,
+        body: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation Post(${'$'}username: String!, ${'$'}body: String!) { admin { " +
+                "postNote(username: ${'$'}username, body: ${'$'}body) { note { url } failure { isEmpty } } } }",
+            token = token,
+            variables = """{"username":${JsonPrimitive(username)},"body":${JsonPrimitive(body)}}""",
+        )
+
+    private suspend fun ApplicationTestBuilder.queryNotes(
+        username: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "query Notes(${'$'}username: String!) { admin { " +
+                "notes(username: ${'$'}username, limit: 10) { " +
+                "nodes { url feedItem { id title state } } } } }",
+            token = token,
+            variables = """{"username":${JsonPrimitive(username)}}""",
         )
 
     private suspend fun ApplicationTestBuilder.graphQl(
