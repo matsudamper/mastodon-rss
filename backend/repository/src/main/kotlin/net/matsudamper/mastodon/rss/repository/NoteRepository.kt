@@ -26,6 +26,13 @@ interface NoteRepository {
     fun findByPublicIds(publicIds: Set<String>): Map<String, Note>
 
     /**
+     * 消す。消えていれば何もしない。
+     *
+     * 消した投稿を元にした記事（`feed_items`）は残り、`note_id` だけが外れる
+     */
+    fun delete(publicId: String)
+
+    /**
      * 新しい順に返す。`outbox` と管理画面の一覧に使う。
      *
      * 位置を件数で数えず、直前のページの最後の 1 件で指す。件数で数えると、

@@ -167,6 +167,10 @@ class FakeNoteRepository : NoteRepository {
         .filter { it.publicId in publicIds }
         .associateBy { it.publicId }
 
+    override fun delete(publicId: String) {
+        stored.removeAll { it.publicId == publicId }
+    }
+
     override fun list(
         username: String,
         after: NotePosition?,

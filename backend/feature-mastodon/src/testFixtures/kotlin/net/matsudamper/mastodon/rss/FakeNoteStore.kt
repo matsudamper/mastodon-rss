@@ -20,6 +20,10 @@ class FakeNoteStore : NoteStore {
         .filter { it.publicId in publicIds }
         .associateBy { it.publicId }
 
+    override fun delete(publicId: String) {
+        added.removeAll { it.publicId == publicId }
+    }
+
     override fun list(
         username: String,
         after: NotePosition?,

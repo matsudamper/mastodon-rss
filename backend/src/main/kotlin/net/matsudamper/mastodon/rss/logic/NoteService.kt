@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.note.DeletedNote
 import net.matsudamper.mastodon.rss.note.NotePosition
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
@@ -36,6 +37,24 @@ class NoteService(
         }
 
         return PostResult.Success(publisher.publish(sender = urls, contentHtml = toHtml(text)))
+    }
+
+    /**
+     * 投稿を消して、消したことをフォロワーに配る。
+     *
+     * 記事（`feed_items`）は消さない。まとめて消すかは呼ぶ側が決める
+     */
+    suspend fun delete(
+        username: String,
+        publicId: String,
+    ): DeleteResult {
+        val urls = directory.resolve(username)
+            ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
+
+        val deleted = publisher.delete(sender = urls, publicId = publicId)
+            ?: return DeleteResult.Failure(DeleteFailure.NOT_FOUND)
+
+        return DeleteResult.Success(deleted)
     }
 
     /**
@@ -103,6 +122,23 @@ class NoteService(
         val hasMore: Boolean,
         val nextPosition: NotePosition?,
     )
+
+    sealed interface DeleteResult {
+        data class Success(
+            val deleted: DeletedNote,
+        ) : DeleteResult
+
+        data class Failure(
+            val reason: DeleteFailure,
+        ) : DeleteResult
+    }
+
+    enum class DeleteFailure {
+        UNKNOWN_ACCOUNT,
+
+        /** そのアカウントの投稿に無い */
+        NOT_FOUND,
+    }
 
     sealed interface PostResult {
         data class Success(

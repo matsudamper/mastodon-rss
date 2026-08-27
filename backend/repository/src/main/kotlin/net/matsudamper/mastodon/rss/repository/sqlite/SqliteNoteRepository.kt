@@ -47,6 +47,15 @@ internal class SqliteNoteRepository(
         }
     }
 
+    override fun delete(publicId: String) {
+        jooq.transaction { dsl ->
+            dsl
+                .deleteFrom(NOTES)
+                .where(NOTES.PUBLIC_ID.eq(publicId))
+                .execute()
+        }
+    }
+
     override fun list(
         username: String,
         after: NotePosition?,

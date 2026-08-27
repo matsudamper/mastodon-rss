@@ -82,6 +82,48 @@ data class CreateNote(
 }
 
 /**
+ * 消した投稿を表す `Tombstone`。
+ *
+ * 消えたことだけを表すので本文は持たない。id だけを送る実装もあるが、
+ * 型を付けておくと相手側が何を消せばよいか一意に決まる。
+ */
+@Serializable
+data class Tombstone(
+    val id: String,
+    val type: String = TYPE,
+) {
+    companion object {
+        const val TYPE: String = "Tombstone"
+    }
+}
+
+/**
+ * 投稿を消したことを伝える `Delete`。
+ *
+ * こちらで消しても相手のサーバーには残る。これを配らない限り、
+ * フォロワーのタイムラインからは消えない。
+ *
+ * `to` は元の投稿と同じ公開の宛先にする。狭めると、受け取ったかどうかを
+ * 相手が元の投稿の宛先で判断する実装で無視されることがある。
+ */
+@Serializable
+data class DeleteNote(
+    @SerialName("@context")
+    @Serializable(with = StringListSerializer::class)
+    val context: List<String> = OutgoingActivity.DEFAULT_CONTEXT,
+    val id: String,
+    val type: String = TYPE,
+    val actor: String,
+    val to: List<String>,
+    @SerialName("object")
+    val target: Tombstone,
+) {
+    companion object {
+        const val TYPE: String = "Delete"
+    }
+}
+
+/**
  * 誰でも見られることを表す宛先。
  *
  * `to` に入れると公開投稿、`cc` に入れると未収載（フォロワーには届くが

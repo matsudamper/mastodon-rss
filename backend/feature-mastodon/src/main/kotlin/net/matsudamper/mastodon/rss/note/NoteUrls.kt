@@ -19,4 +19,9 @@ data class NoteUrls(
      * `Create` 自身の id。GET できる文書があると読める形にしないためフラグメントを付ける
      */
     val createId: String = "$noteId#create"
+
+    /**
+     * `Delete` 自身の id。[createId] と同じ理由でフラグメントを付ける
+     */
+    val deleteId: String = "$noteId#delete"
 }

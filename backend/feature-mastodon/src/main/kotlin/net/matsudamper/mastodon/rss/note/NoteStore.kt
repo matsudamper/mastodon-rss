@@ -19,6 +19,12 @@ interface NoteStore {
 
     fun find(publicId: String): StoredNote?
 
+    /**
+     * 消す。`Delete` を配る前に呼ぶ。配信が先だと、消したことを受け取った相手が
+     * 確かめに来たときにまだ本文を返してしまう
+     */
+    fun delete(publicId: String)
+
     fun findByPublicIds(publicIds: Set<String>): Map<String, StoredNote>
 
     /**

@@ -31,6 +31,10 @@ class RepositoryNoteStore(
         .findByPublicIds(publicIds)
         .mapValues { (_, note) -> note.toStored() }
 
+    override fun delete(publicId: String) {
+        notes.delete(publicId)
+    }
+
     override fun list(
         username: String,
         after: NotePosition?,

@@ -15,6 +15,9 @@ import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailureReason
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
@@ -25,6 +28,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.graphql.model.QlDeleteFeedItemQuery
+import net.matsudamper.mastodon.rss.graphql.model.QlDeleteNoteQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPostFeedItemsQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlSaveFeedQuery
 import net.matsudamper.mastodon.rss.logic.AccountService
@@ -216,6 +220,53 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         ).toGraphqlResponse()
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
+    }
+
+    /**
+     * 消したことは相手のサーバーに配って初めて伝わる。配信の成否は
+     * [postNote] と同じように投稿の成否と分けて返す
+     */
+    override fun deleteNote(
+        adminMutation: QlAdminMutation,
+        query: QlDeleteNoteQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminDeleteNoteResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val result = when (
+                val deleted = diContainer.noteService.delete(
+                    username = query.username,
+                    publicId = query.noteId.value,
+                )
+            ) {
+                is NoteService.DeleteResult.Success -> QlAdminDeleteNoteResult(
+                    deletedId = NoteId(deleted.deleted.publicId),
+                    deliveryTargets = deleted.deleted.targets,
+                    delivered = deleted.deleted.delivered,
+                    failure = null,
+                )
+
+                is NoteService.DeleteResult.Failure -> QlAdminDeleteNoteResult(
+                    deletedId = null,
+                    deliveryTargets = null,
+                    delivered = null,
+                    failure = QlAdminDeleteNoteFailure(
+                        reason = when (deleted.reason) {
+                            NoteService.DeleteFailure.UNKNOWN_ACCOUNT ->
+                                QlAdminDeleteNoteFailureReason.UNKNOWN_ACCOUNT
+
+                            NoteService.DeleteFailure.NOT_FOUND ->
+                                QlAdminDeleteNoteFailureReason.NOT_FOUND
+                        },
+                    ),
+                )
+            }
+
+            DataFetcherResult.Builder(result).build()
+        }
     }
 
     /**

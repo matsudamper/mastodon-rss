@@ -66,6 +66,10 @@ inbox は署名が通れば 202、通らなければ 401 を返す。検証の�
 本文はプレーンテキストで受けて段落と改行だけの HTML に組み立てる。
 HTML をそのまま受けると、管理画面を通して任意のタグをフォロワーに配ることになる。
 
+消すときは `object` を `Tombstone` にした `Delete` を同じ宛先に配る。
+こちらの記録を消してから配る。配信が先だと、受け取った相手が確かめに来たときに
+まだ本文を返してしまう。届かなかった相手のタイムラインには投稿が残る。
+
 ```sh
 curl "http://localhost:8080/.well-known/webfinger?resource=acct:admin@example.com"
 curl -H 'Accept: application/activity+json' http://localhost:8080/users/admin
