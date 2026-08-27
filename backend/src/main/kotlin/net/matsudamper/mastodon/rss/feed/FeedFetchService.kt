@@ -61,7 +61,9 @@ class FeedFetchService(
 
                 is FeedParseException -> FetchResult.ParseError(error.message ?: "パースに失敗した")
 
-                else -> FetchResult.HttpError(message = error.message ?: "取得に失敗した")
+                // 例外の message は取得先の URL を含むことがある（Ktor のタイムアウトなど）。
+                // 購読の URL はトークンを含みうるので、記録やログに回らない形にする
+                else -> FetchResult.HttpError(message = error::class.simpleName ?: "取得に失敗した")
             }
         }
     }
@@ -177,6 +179,10 @@ class FeedFetchService(
 
         data object InvalidUrl : FetchResult
 
+        /**
+         * @param message 取得できなかった理由。例外の message は取得先の URL を含むことが
+         *   あるので入れない。記録やログに回るため、秘密を含まない形だけを渡す
+         */
         data class HttpError(
             val status: Int? = null,
             val message: String? = null,
