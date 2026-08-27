@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -295,28 +298,33 @@ private fun ProfileHeader(
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        SelectionContainer(modifier = Modifier.weight(1f, fill = false)) {
-                            Text(
-                                text = state.acct,
-                                modifier = Modifier.alignByBaseline(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontFamily = FontFamily.Monospace,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        IconButton(
-                            onClick = listener::onClickCopyAcct,
-                            modifier = Modifier.alignByBaseline(),
+                        Row(
+                            modifier = Modifier.weight(1f, fill = false),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
+                            SelectionContainer(modifier = Modifier.weight(1f, fill = false)) {
+                                Text(
+                                    text = state.acct,
+                                    modifier = Modifier.alignByBaseline(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                             Icon(
                                 imageVector = Icons.Outlined.ContentCopy,
                                 contentDescription = "コピー",
-                                modifier = Modifier.size(18.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier =
+                                Modifier
+                                    .alignByBaseline()
+                                    .clickable(onClick = listener::onClickCopyAcct)
+                                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                    .wrapContentSize(Alignment.BottomCenter)
+                                    .size(18.dp),
                             )
                         }
                     }
