@@ -20,8 +20,10 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnpublishedFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminFeedItemFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedItemState
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminPostFeedItemsFailureReason
@@ -368,10 +370,29 @@ class AdminApi(
                 AdminPostFeedItemsResult.FailureReason.UNKNOWN
         }
 
+    private fun AdminFeedItemFields.toAdminFeedItem(): AdminFeedItem = AdminFeedItem(
+        id = id,
+        title = title,
+        link = link,
+        publishedAt = publishedAt,
+        importedAt = importedAt,
+        state = state.toFeedItemState(),
+        postedAt = postedAt,
+    )
+
+    private fun AdminFeedItemState.toFeedItemState(): AdminFeedItem.State =
+        when (this) {
+            AdminFeedItemState.PENDING -> AdminFeedItem.State.PENDING
+            AdminFeedItemState.POSTED -> AdminFeedItem.State.POSTED
+            AdminFeedItemState.SKIPPED -> AdminFeedItem.State.SKIPPED
+            AdminFeedItemState.UNKNOWN__ -> AdminFeedItem.State.UNKNOWN
+        }
+
     private fun AdminNoteFields.toAdminNote(): AdminNote = AdminNote(
         url = url,
         contentHtml = contentHtml,
         publishedAt = Instant.fromEpochSeconds(publishedAt),
+        feedItem = feedItem?.adminFeedItemFields?.toAdminFeedItem(),
     )
 
     /**

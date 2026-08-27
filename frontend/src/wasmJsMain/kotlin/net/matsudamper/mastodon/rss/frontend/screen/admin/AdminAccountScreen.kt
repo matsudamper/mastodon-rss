@@ -384,6 +384,26 @@ private fun FeedPreviewPanel(
 }
 
 @Composable
+private fun NoteFeedItem(item: AdminAccountScreenUiState.FeedItem) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = "元の記事: ${item.title ?: "(題名なし)"}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+
+        val meta = listOfNotNull(item.stateText, item.publishedAt, item.link).joinToString("  ")
+        Text(
+            text = meta,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
 private fun PostCard(
     post: AdminAccountScreenUiState.Post,
     listener: AdminAccountScreenUiState.Listener,
@@ -445,6 +465,11 @@ private fun NotesCard(
     listener: AdminAccountScreenUiState.Listener,
 ) {
     SectionCard(title = "配信した投稿") {
+        Text(
+            text = "フィードから流した投稿には元の記事が付く。",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
         val notes = content.notes
         val error = content.notesError
 
@@ -489,6 +514,10 @@ private fun NotesCard(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            val feedItem = note.feedItem
+                            if (feedItem != null) {
+                                NoteFeedItem(item = feedItem)
+                            }
                         }
                     }
                 }

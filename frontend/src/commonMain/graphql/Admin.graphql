@@ -183,7 +183,21 @@ mutation AdminPostNote($username: String!, $body: String!) {
 }
 
 fragment AdminNoteFields on AdminNote {
+    id
     url
     contentHtml
     publishedAt
+    feedItem {
+        ...AdminFeedItemFields
+    }
+}
+
+fragment AdminFeedItemFields on AdminFeedItem {
+    id
+    title
+    link
+    publishedAt
+    importedAt
+    state
+    postedAt
 }

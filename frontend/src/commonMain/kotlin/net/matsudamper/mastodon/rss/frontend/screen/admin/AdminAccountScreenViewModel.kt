@@ -13,6 +13,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeed
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
@@ -552,6 +553,19 @@ class AdminAccountScreenViewModel(
             publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
         )
 
+    private fun AdminFeedItem.toUiState(): AdminAccountScreenUiState.FeedItem =
+        AdminAccountScreenUiState.FeedItem(
+            title = title,
+            link = link,
+            publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
+            stateText = when (state) {
+                AdminFeedItem.State.PENDING -> "未投稿"
+                AdminFeedItem.State.POSTED -> "投稿済み"
+                AdminFeedItem.State.SKIPPED -> "投稿しない"
+                AdminFeedItem.State.UNKNOWN -> "不明"
+            },
+        )
+
     private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {
         val feed = account.feed
         return when {
@@ -609,6 +623,7 @@ class AdminAccountScreenViewModel(
         url = url,
         contentHtml = contentHtml,
         publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
+        feedItem = feedItem?.toUiState(),
     )
 
     private data class ViewModelState(

@@ -85,6 +85,18 @@ data class AdminAccountScreenUiState(
         ) : Feed
     }
 
+    /**
+     * 投稿の元になった取り込み済みの記事。
+     *
+     * @param stateText 投稿の状況。「投稿済み」のような表示用の文字
+     */
+    data class FeedItem(
+        val title: String?,
+        val link: String?,
+        val publishedAt: String?,
+        val stateText: String,
+    )
+
     data class UnpublishedItem(
         val title: String?,
         val link: String?,
@@ -119,10 +131,14 @@ data class AdminAccountScreenUiState(
         val canSubmit: Boolean get() = !submitting && body.isNotBlank()
     }
 
+    /**
+     * @param feedItem 元になった記事。手で書いた投稿と、記事を消した後は null
+     */
     data class Note(
         val url: String,
         val contentHtml: String,
         val publishedAt: String,
+        val feedItem: FeedItem?,
     )
 
     /**

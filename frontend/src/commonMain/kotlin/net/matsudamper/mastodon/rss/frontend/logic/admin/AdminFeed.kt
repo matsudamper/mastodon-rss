@@ -128,3 +128,23 @@ sealed interface AdminPostFeedItemsResult {
         UNKNOWN,
     }
 }
+
+/**
+ * 取り込んだ記事 1 件
+ */
+data class AdminFeedItem(
+    val id: Long,
+    val title: String?,
+    val link: String?,
+    val publishedAt: Long?,
+    val importedAt: Long,
+    val state: State,
+    val postedAt: Long?,
+) {
+    enum class State {
+        PENDING,
+        POSTED,
+        SKIPPED,
+        UNKNOWN,
+    }
+}
