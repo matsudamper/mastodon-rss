@@ -136,7 +136,9 @@ class NoteService(
     enum class DeleteFailure {
         UNKNOWN_ACCOUNT,
 
-        /** そのアカウントの投稿に無い */
+        /**
+         * そのアカウントの投稿に無い
+         */
         NOT_FOUND,
     }
 

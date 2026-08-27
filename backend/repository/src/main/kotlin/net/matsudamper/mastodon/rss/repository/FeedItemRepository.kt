@@ -76,7 +76,9 @@ interface FeedItemRepository {
      */
     fun findByNoteIds(noteIds: Collection<String>): Map<String, FeedItem>
 
-    /** 引き当てられなければ null */
+    /**
+     * 引き当てられなければ null
+     */
     fun find(id: FeedItemId): FeedItem?
 
     /**

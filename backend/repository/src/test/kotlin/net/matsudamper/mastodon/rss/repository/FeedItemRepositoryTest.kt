@@ -234,6 +234,24 @@ class FeedItemRepositoryTest {
     }
 
     @Test
+    fun `投稿を消すと記事の紐付けが外れる`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val posted = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "posted", state = FeedItemState.PENDING)),
+            )
+            repositories.notes.add(note(publicId = "note-1"))
+            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = "note-1")
+
+            repositories.notes.delete("note-1")
+
+            // 記事は残るが、消えた投稿を指したままにはしない
+            assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(listOf("note-1")))
+            assertNull(assertNotNull(repositories.feedItems.find(posted.id)).noteId)
+        }
+    }
+
+    @Test
     fun `無い記事は消せない`() {
         withRepositories { repositories ->
             repositories.addFeed()

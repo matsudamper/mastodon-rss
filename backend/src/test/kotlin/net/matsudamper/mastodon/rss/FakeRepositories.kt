@@ -35,11 +35,13 @@ class FakeRepositories : Repositories {
 
     override val followers: FollowerRepository = FakeFollowerRepository()
 
-    override val notes: NoteRepository = FakeNoteRepository()
-
     override val feeds: FakeFeedRepository = FakeFeedRepository()
 
     override val feedItems: FakeFeedItemRepository = FakeFeedItemRepository()
+
+    // 投稿を消したら記事の note_id が外れるのは SQLite の ON DELETE SET NULL。
+    // ここで繋がないと、消した投稿の id で記事が引けるという本物には無い状態になる
+    override val notes: NoteRepository = FakeNoteRepository(onDeleted = feedItems::clearNoteId)
 
     override fun verifyWritable() {
         verifyWritableCallCount++
@@ -149,7 +151,9 @@ class FakeFollowerRepository : FollowerRepository {
 /**
  * 記録するだけの [NoteRepository]
  */
-class FakeNoteRepository : NoteRepository {
+class FakeNoteRepository(
+    private val onDeleted: (publicId: String) -> Unit = {},
+) : NoteRepository {
     private val stored = mutableListOf<Note>()
 
     override fun add(note: NewNote) {
@@ -169,6 +173,7 @@ class FakeNoteRepository : NoteRepository {
 
     override fun delete(publicId: String) {
         stored.removeAll { it.publicId == publicId }
+        onDeleted(publicId)
     }
 
     override fun list(
@@ -365,6 +370,10 @@ class FakeFeedItemRepository : FeedItemRepository {
     override fun countByFeed(feedId: FeedId): Long = stored.count { it.feedId == feedId }.toLong()
 
     fun items(): List<FeedItem> = stored.toList()
+
+    fun clearNoteId(noteId: String) {
+        stored.replaceAll { item -> if (item.noteId == noteId) item.copy(noteId = null) else item }
+    }
 
     private fun pendingSorted(): List<FeedItem> =
         stored

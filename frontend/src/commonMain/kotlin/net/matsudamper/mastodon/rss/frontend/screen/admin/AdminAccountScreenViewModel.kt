@@ -684,12 +684,19 @@ class AdminAccountScreenViewModel(
         }
 
     /**
-     * 消せなかった理由。消せていれば null
+     * 消せなかった理由。消せていれば null。
+     *
+     * 既に消えている場合も null にする。一覧を取り直す前の投稿には消した記事が
+     * 付いたまま見えるので、そこから消しても止めずに投稿の削除まで進める
      */
     private fun AdminDeleteFeedItemResult.errorMessage(): String? =
         when (this) {
             is AdminDeleteFeedItemResult.Success -> null
-            is AdminDeleteFeedItemResult.Rejected -> reason.toMessage()
+
+            is AdminDeleteFeedItemResult.Rejected -> {
+                reason.toMessage().takeIf { reason != AdminDeleteFeedItemResult.FailureReason.NOT_FOUND }
+            }
+
             is AdminDeleteFeedItemResult.Failure -> message
         }
 
