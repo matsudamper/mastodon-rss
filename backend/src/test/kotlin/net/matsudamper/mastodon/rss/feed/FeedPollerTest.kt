@@ -6,6 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -44,12 +45,16 @@ class FeedPollerTest {
             )
 
             val job = FeedPoller(feedService = service, checkInterval = CHECK_INTERVAL).start(this)
-            withTimeout(TIMEOUT) {
-                while (noteStore.added.isEmpty()) {
-                    delay(CHECK_INTERVAL)
+            try {
+                withTimeout(TIMEOUT) {
+                    while (noteStore.added.isEmpty()) {
+                        delay(CHECK_INTERVAL)
+                    }
                 }
+            } finally {
+                // 待ち切れずに抜けた場合も止める。繰り返しが残ると runBlocking が返らない
+                job.cancelAndJoin()
             }
-            job.cancel()
 
             assertEquals(
                 listOf("""<p>2 本目<br><a href="https://example.com/2">https://example.com/2</a></p>"""),
