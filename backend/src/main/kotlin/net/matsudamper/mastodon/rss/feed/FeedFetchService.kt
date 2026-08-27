@@ -61,8 +61,7 @@ class FeedFetchService(
 
                 is FeedParseException -> FetchResult.ParseError(error.message ?: "パースに失敗した")
 
-                // 例外の message は取得先の URL を含むことがある（Ktor のタイムアウトなど）。
-                // 購読の URL はトークンを含みうるので、記録やログに回らない形にする
+                // 例外の message は取得先の URL を含むことがある（Ktor のタイムアウトなど）
                 else -> FetchResult.HttpError(message = error::class.simpleName ?: "取得に失敗した")
             }
         }

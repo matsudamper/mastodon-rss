@@ -111,8 +111,7 @@ class AppDependencies(
     /**
      * フィードの定期ポーリングを始める。
      *
-     * 受け付けている HTTP とは関係が無いので、サーバーの組み立てとは別に呼ぶ。
-     * ここで始めたものは [close] が止める。ルーティングのテストは呼ばない
+     * 呼ぶまで動かない。止めるのは [close]
      */
     fun startFeedPolling() {
         FeedPoller(feedService).start(feedPollingScope)

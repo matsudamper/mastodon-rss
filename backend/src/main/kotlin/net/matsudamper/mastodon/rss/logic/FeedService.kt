@@ -87,8 +87,7 @@ class FeedService(
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
                 )
-                // 登録のために取りに行った分も取得として記録する。記録しないと
-                // 定期ポーリングが取得の時期を過ぎていると見なして、すぐ取り直す
+                // 記録しないと、定期ポーリングが取得の時期を過ぎていると見なしてすぐ取り直す
                 feeds.recordFetchSuccess(
                     id = feed.id,
                     fetchedAt = Instant.now(),
@@ -257,8 +256,8 @@ class FeedService(
     /**
      * 1 本のフィードを取り込んで、新着を投稿する。
      *
-     * 記録する時刻は、対象を選んだ時刻ではなくここで取り直す。1 回で何本も回るので、
-     * 選んだ時刻を使うと後の方のフィードほど古い時刻が残り、間隔を待たずに取り直す
+     * 1 回で何本も回るので、記録する時刻はここで取り直す。対象を選んだ時刻を使うと、
+     * 後の方のフィードほど古い時刻が残り、間隔を待たずに取り直す
      */
     private suspend fun poll(feed: Feed): PollResult {
         val fetched = when (val result = fetcher.fetch(feed.url)) {
@@ -376,8 +375,7 @@ class FeedService(
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
                 )
-                // 手動でも取得したことに変わりはない。記録しないと定期ポーリングが
-                // 直後に取り直し、成功した後も前の失敗が残る
+                // 記録しないと定期ポーリングが直後に取り直し、成功した後も前の失敗が残る
                 feeds.recordFetchSuccess(
                     id = feed.id,
                     fetchedAt = Instant.now(),
