@@ -212,3 +212,16 @@ fragment AdminFeedItemFields on AdminFeedItem {
     state
     postedAt
 }
+
+mutation AdminDeleteNote($query: DeleteNoteQuery!) {
+    admin {
+        deleteNote(query: $query) {
+            deletedId
+            deliveryTargets
+            delivered
+            failure {
+                reason
+            }
+        }
+    }
+}

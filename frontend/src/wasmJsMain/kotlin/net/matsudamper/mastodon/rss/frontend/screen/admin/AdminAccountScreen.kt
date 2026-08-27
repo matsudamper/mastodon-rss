@@ -4,11 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -106,6 +108,11 @@ private fun AdminAccountScreen(
                 FeedCard(feed = content.feed, listener = uiState.listener, wide = wide)
                 PostCard(post = content.post, listener = uiState.listener)
                 NotesCard(content = content, listener = uiState.listener)
+
+                val dialog = content.deleteNoteDialog
+                if (dialog != null) {
+                    DeleteNoteDialog(dialog = dialog, listener = uiState.listener)
+                }
             }
         }
     }
@@ -384,6 +391,61 @@ private fun FeedPreviewPanel(
 }
 
 @Composable
+private fun DeleteNoteDialog(
+    dialog: AdminAccountScreenUiState.DeleteNoteDialog,
+    listener: AdminAccountScreenUiState.Listener,
+) {
+    AlertDialog(
+        onDismissRequest = { listener.onDismissDeleteNote() },
+        title = { Text("投稿を削除する") },
+        text = {
+            Text(
+                text = if (dialog.hasFeedItem) {
+                    "フォロワーのサーバーにも削除を配る。届かなかった相手には残る。\n" +
+                        "元の記事も消すと、最新情報を投稿したときに取り込み直してもう一度流れる。" +
+                        "投稿だけ消すと、その記事はもう流れない。"
+                } else {
+                    "フォロワーのサーバーにも削除を配る。届かなかった相手には残る。"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { listener.onConfirmDeleteNote(withFeedItem = dialog.hasFeedItem) },
+                enabled = !dialog.deleting,
+            ) {
+                Text(
+                    when {
+                        dialog.deleting -> "削除中"
+                        dialog.hasFeedItem -> "投稿と記事を削除"
+                        else -> "削除"
+                    },
+                )
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (dialog.hasFeedItem) {
+                    TextButton(
+                        onClick = { listener.onConfirmDeleteNote(withFeedItem = false) },
+                        enabled = !dialog.deleting,
+                    ) {
+                        Text("投稿だけ削除")
+                    }
+                }
+                TextButton(
+                    onClick = { listener.onDismissDeleteNote() },
+                    enabled = !dialog.deleting,
+                ) {
+                    Text("やめる")
+                }
+            }
+        },
+    )
+}
+
+@Composable
 private fun NoteFeedItem(
     item: AdminAccountScreenUiState.FeedItem,
     listener: AdminAccountScreenUiState.Listener,
@@ -530,6 +592,11 @@ private fun NotesCard(
                             val feedItem = note.feedItem
                             if (feedItem != null) {
                                 NoteFeedItem(item = feedItem, listener = listener)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(onClick = { listener.onClickDeleteNote(note.id) }) {
+                                    Text("投稿を削除")
+                                }
                             }
                         }
                     }

@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteNoteMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
@@ -25,6 +26,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminFeedItemField
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteFeedItemFailureReason
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteNoteFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedItemState
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
@@ -32,6 +34,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminPostFeedItemsFail
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminUnpublishedFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteFeedItemQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteNoteQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.PostFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UnpublishedFeedItemsQuery
@@ -294,6 +297,38 @@ class AdminApi(
         )
     }
 
+    /**
+     * 投稿を消す。元になった記事は消えないので、まとめて消すなら
+     * [deleteFeedItem] も呼ぶ
+     */
+    suspend fun deleteNote(
+        username: String,
+        noteId: String,
+    ): AdminDeleteNoteResult {
+        val response = client.mutation(
+            AdminDeleteNoteMutation(
+                query = DeleteNoteQuery(
+                    username = username,
+                    noteId = noteId,
+                ),
+            ),
+        ).execute()
+        val result = response.data?.admin?.deleteNote
+            ?: return AdminDeleteNoteResult.Failure(response.failureMessage())
+
+        if (result.deletedId != null) {
+            return AdminDeleteNoteResult.Success(
+                deliveryTargets = result.deliveryTargets ?: 0,
+                delivered = result.delivered ?: 0,
+            )
+        }
+
+        return AdminDeleteNoteResult.Rejected(
+            reason = result.failure?.reason?.toDeleteNoteFailure()
+                ?: AdminDeleteNoteResult.FailureReason.UNKNOWN,
+        )
+    }
+
     suspend fun postNote(
         username: String,
         body: String,
@@ -411,6 +446,13 @@ class AdminApi(
                 AdminDeleteFeedItemResult.FailureReason.UNKNOWN
         }
 
+    private fun AdminDeleteNoteFailureReason.toDeleteNoteFailure(): AdminDeleteNoteResult.FailureReason =
+        when (this) {
+            AdminDeleteNoteFailureReason.UNKNOWN_ACCOUNT -> AdminDeleteNoteResult.FailureReason.UNKNOWN_ACCOUNT
+            AdminDeleteNoteFailureReason.NOT_FOUND -> AdminDeleteNoteResult.FailureReason.NOT_FOUND
+            AdminDeleteNoteFailureReason.UNKNOWN__ -> AdminDeleteNoteResult.FailureReason.UNKNOWN
+        }
+
     private fun AdminFeedItemFields.toAdminFeedItem(): AdminFeedItem = AdminFeedItem(
         id = id,
         title = title,
@@ -430,6 +472,7 @@ class AdminApi(
         }
 
     private fun AdminNoteFields.toAdminNote(): AdminNote = AdminNote(
+        id = id,
         url = url,
         contentHtml = contentHtml,
         publishedAt = Instant.fromEpochSeconds(publishedAt),

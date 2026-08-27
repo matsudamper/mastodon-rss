@@ -25,6 +25,7 @@ data class AdminAccountScreenUiState(
          * @param feed RSS フィードの登録状況と入力欄
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
+         * @param deleteNoteDialog 投稿を消す前の確認。出していなければ null
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
          * @param notesLoading 一覧を取っている最中
          * @param canLoadMore さらに古い投稿があるか
@@ -34,6 +35,7 @@ data class AdminAccountScreenUiState(
             val feed: Feed,
             val post: Post,
             val notes: List<Note>,
+            val deleteNoteDialog: DeleteNoteDialog?,
             val notesError: String?,
             val notesLoading: Boolean,
             val canLoadMore: Boolean,
@@ -135,9 +137,21 @@ data class AdminAccountScreenUiState(
     }
 
     /**
+     * 投稿を消す前の確認。
+     *
+     * @param hasFeedItem 元になった記事があるか。あるときだけ、まとめて消すかを選べる
+     * @param deleting 削除中。ボタンを押せなくする
+     */
+    data class DeleteNoteDialog(
+        val hasFeedItem: Boolean,
+        val deleting: Boolean,
+    )
+
+    /**
      * @param feedItem 元になった記事。手で書いた投稿と、記事を消した後は null
      */
     data class Note(
+        val id: String,
         val url: String,
         val contentHtml: String,
         val publishedAt: String,
@@ -175,6 +189,19 @@ data class AdminAccountScreenUiState(
          * 最新情報を投稿すると同じ記事がもう一度流れる
          */
         fun onClickDeleteFeedItem(id: Long)
+
+        /**
+         * 投稿を消す確認を出す
+         */
+        fun onClickDeleteNote(id: String)
+
+        fun onDismissDeleteNote()
+
+        /**
+         * @param withFeedItem 元になった記事も消す。消すと最新情報を投稿したときに
+         *   取り込み直されてもう一度流れる
+         */
+        fun onConfirmDeleteNote(withFeedItem: Boolean)
 
         /**
          * 一覧だけ取り直す
