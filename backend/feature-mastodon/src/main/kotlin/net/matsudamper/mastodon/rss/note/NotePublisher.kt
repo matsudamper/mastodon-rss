@@ -84,7 +84,7 @@ class NotePublisher(
         contentHtml: String,
         publishedAt: Instant,
     ): CreateNote {
-        val published = publishedAt.toString()
+        val published = publishedAt.toActivityPubPublished()
 
         return CreateNote(
             id = urls.createId,
@@ -100,6 +100,7 @@ class NotePublisher(
                 to = listOf(PUBLIC_AUDIENCE),
                 cc = listOf(sender.followers),
                 url = urls.noteId,
+                atomUri = urls.noteId,
             ),
         )
     }

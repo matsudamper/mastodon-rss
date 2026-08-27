@@ -16,6 +16,7 @@ import net.matsudamper.mastodon.rss.collection.COLLECTION_CURSOR_PARAM
 import net.matsudamper.mastodon.rss.collection.COLLECTION_PAGE_SIZE
 import net.matsudamper.mastodon.rss.collection.OrderedCollection
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
+import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
 import net.matsudamper.mastodon.rss.json.respondJson
 
 /**
@@ -99,7 +100,7 @@ fun Route.outboxRoutes(
                 CreateNote(
                     id = NoteUrls(domain = urls.domain, publicId = note.publicId).createId,
                     actor = urls.actorId,
-                    published = note.publishedAt.toString(),
+                    published = note.publishedAt.toActivityPubPublished(),
                     to = listOf(PUBLIC_AUDIENCE),
                     cc = listOf(urls.followers),
                     target = noteDocument(urls = urls, note = note, embedded = true),
@@ -117,6 +118,34 @@ fun Route.outboxRoutes(
                 next = if (page.size < COLLECTION_PAGE_SIZE) null else pageUrl(urls, page.last().position),
             ),
             contentType = contentType,
+        )
+    }
+}
+
+/**
+ * プロフィールに載せる投稿の一覧。Actor の `featured` が指している先。
+ *
+ * いまは空を返す。投稿を自動でピン留めしない。載せる処理は将来ここに足す。
+ */
+fun Route.featuredRoutes(
+    directory: ActorDirectory,
+) {
+    get("/users/{username}/collections/featured") {
+        val requested = call.parameters["username"]
+        val urls = directory.resolve(requested)
+        if (urls == null) {
+            call.respondText("アカウントが見つからない: $requested", status = HttpStatusCode.NotFound)
+            return@get
+        }
+
+        call.respondJson(
+            serializer = OrderedCollectionWithItems.serializer(Note.serializer()),
+            value = OrderedCollectionWithItems(
+                id = urls.featured,
+                totalItems = 0,
+                orderedItems = emptyList(),
+            ),
+            contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
         )
     }
 }
@@ -170,9 +199,10 @@ private fun noteDocument(
         id = noteUrls.noteId,
         attributedTo = urls.actorId,
         content = note.contentHtml,
-        published = note.publishedAt.toString(),
+        published = note.publishedAt.toActivityPubPublished(),
         to = listOf(PUBLIC_AUDIENCE),
         cc = listOf(urls.followers),
+        atomUri = noteUrls.noteId,
         url = noteUrls.noteId,
     )
 }

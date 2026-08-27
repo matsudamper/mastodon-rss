@@ -16,6 +16,7 @@
 | `POST /users/{name}/inbox` | アクティビティの受け口。HTTP Signatures を検証する |
 | `GET /users/{name}/followers` | フォロワーの OrderedCollection。`?cursor=` で中身 |
 | `GET /users/{name}/outbox` | 配信した `Create` の OrderedCollection。`?cursor=` で中身 |
+| `GET /users/{name}/collections/featured` | プロフィールに載せる投稿の OrderedCollection |
 | `GET /notes/{id}` | 配信した投稿。相手がパーマリンクとして引きに来る |
 | `GET /.well-known/nodeinfo` | NodeInfo の discovery document |
 | `GET /nodeinfo/2.1` | サーバーの実装と規模。調査用 |
@@ -61,6 +62,13 @@ inbox は署名が通れば 202、通らなければ 401 を返す。検証の�
 引きに来ることがあり、配信が先だとそこで 404 を返してしまう。
 
 再送はしない。届かなかった宛先はログに残るだけ。
+
+Mastodon は未フォローのプロフィールを開いたとき `outbox` ではなく Actor の
+`featured` を引きに来る。`outbox` はフォロー後のバックフィル向けで、
+未フォローでは投稿一覧に使われない。`featured` エンドポイントは将来の
+ピン留め用に用意しているが、いまは空のコレクションを返す。
+投稿数の表示だけ出て中身が空なのは、`outbox` の `totalItems` を読んでいるためで、
+タイムライン欄とは別の話になる。
 
 発火させるのは管理画面の投稿画面で、GraphQL の `admin.postNote` を叩く。
 本文はプレーンテキストで受けて段落と改行だけの HTML に組み立てる。
