@@ -154,9 +154,13 @@ class FeedService(
         limit: Int,
     ): List<PollResult> = feeds.findDue(now = now, limit = limit).map { feed -> poll(feed) }
 
+    /**
+     * @param host 取得先のホスト。URL には購読者だけが知るトークンが入ることがあるので、
+     *   ログに出せるところまで削った形で渡す
+     */
     data class PollResult(
         val feedId: FeedId,
-        val url: String,
+        val host: String,
         val postedItems: List<UnpublishedItem>,
         val error: String?,
     )
@@ -278,11 +282,11 @@ class FeedService(
         val imported = importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
 
         val account = accounts.findById(feed.accountId)
-            ?: return PollResult(feedId = feed.id, url = feed.url, postedItems = emptyList(), error = "アカウントが無い")
+            ?: return PollResult(feedId = feed.id, host = feed.host(), postedItems = emptyList(), error = "アカウントが無い")
 
         return PollResult(
             feedId = feed.id,
-            url = feed.url,
+            host = feed.host(),
             postedItems = publishPending(
                 feed = feed,
                 username = account.username,
@@ -295,8 +299,16 @@ class FeedService(
 
     private fun Feed.recordFailure(error: String): PollResult {
         feeds.recordFetchFailure(id = id, fetchedAt = Instant.now(), error = error)
-        return PollResult(feedId = id, url = url, postedItems = emptyList(), error = error)
+        return PollResult(feedId = id, host = host(), postedItems = emptyList(), error = error)
     }
+
+    /**
+     * ログに出せるところまで削った取得先。
+     *
+     * URL の残りはクエリやパスに購読者だけが知るトークンを含むことがある。
+     * 読めなければ空にする。ここで URL 全体に落とすと、隠す意味が無くなる
+     */
+    private fun Feed.host(): String = runCatching { URI(url).host }.getOrNull().orEmpty()
 
     /**
      * 保存済みの本文ではなく、取り込んだばかりの本文を使うための対応表。

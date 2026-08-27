@@ -45,12 +45,14 @@ class FeedPoller(
         }
 
         results.forEach { result ->
+            // URL 全体は出さない。購読者だけが知るトークンを含むことがある
+            val feed = "フィード ${result.feedId.value}（${result.host}）"
             if (result.error != null) {
-                logger.warn("フィードを取得できなかった: ${result.url}: ${result.error}")
+                logger.warn("$feed を取得できなかった: ${result.error}")
                 return@forEach
             }
             if (result.postedItems.isNotEmpty()) {
-                logger.info("${result.url} の新着 ${result.postedItems.size} 件を投稿した")
+                logger.info("$feed の新着 ${result.postedItems.size} 件を投稿した")
             }
         }
     }
