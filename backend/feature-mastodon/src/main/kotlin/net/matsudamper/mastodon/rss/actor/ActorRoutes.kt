@@ -56,9 +56,11 @@ internal fun actorDocument(
         summary = SUMMARY,
         inbox = urls.inbox,
         outbox = urls.outbox,
+        featured = urls.featured,
         followers = urls.followers,
         following = urls.following,
         url = urls.actorId,
+        showFeatured = false,
         publicKey =
         ActorPublicKey(
             id = urls.publicKeyId,
