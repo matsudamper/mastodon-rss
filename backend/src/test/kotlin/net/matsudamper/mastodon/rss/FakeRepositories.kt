@@ -172,8 +172,9 @@ class FakeNoteRepository(
         .associateBy { it.publicId }
 
     override fun delete(publicId: String) {
-        stored.removeAll { it.publicId == publicId }
-        onDeleted(publicId)
+        if (stored.removeAll { it.publicId == publicId }) {
+            onDeleted(publicId)
+        }
     }
 
     override fun list(
