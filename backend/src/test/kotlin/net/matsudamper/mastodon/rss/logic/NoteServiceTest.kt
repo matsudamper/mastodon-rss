@@ -149,6 +149,8 @@ class NoteServiceTest {
         assertContains(body, """"type":"Delete"""")
         assertContains(body, """"type":"Tombstone"""")
         assertContains(body, posted.published.url)
+        // 宛先が元の投稿と揃っていないと、受け取っても消さない実装がある
+        assertContains(body, TestLocalActor.urls.followers)
     }
 
     @Test

@@ -103,8 +103,8 @@ data class Tombstone(
  * こちらで消しても相手のサーバーには残る。これを配らない限り、
  * フォロワーのタイムラインからは消えない。
  *
- * `to` は元の投稿と同じ公開の宛先にする。狭めると、受け取ったかどうかを
- * 相手が元の投稿の宛先で判断する実装で無視されることがある。
+ * `to` と `cc` は元の投稿と同じものを入れる。宛先を見て配るかどうかを決める実装があり、
+ * 元の投稿と揃っていないと消したことが無視されてタイムラインに残る。
  */
 @Serializable
 data class DeleteNote(
@@ -115,6 +115,7 @@ data class DeleteNote(
     val type: String = TYPE,
     val actor: String,
     val to: List<String>,
+    val cc: List<String>,
     @SerialName("object")
     val target: Tombstone,
 ) {

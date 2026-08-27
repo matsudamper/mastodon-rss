@@ -136,6 +136,7 @@ class NotePublisher(
         id = urls.deleteId,
         actor = sender.actorId,
         to = listOf(PUBLIC_AUDIENCE),
+        cc = listOf(sender.followers),
         target = Tombstone(id = urls.noteId),
     )
 
