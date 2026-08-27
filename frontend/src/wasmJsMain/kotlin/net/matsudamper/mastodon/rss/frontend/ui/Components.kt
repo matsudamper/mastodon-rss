@@ -184,8 +184,20 @@ fun openExternalLink(url: String) {
     window.open(url, "_blank", "noopener,noreferrer")
 }
 
-fun copyToClipboard(text: String) {
-    window.navigator.clipboard.writeText(text)
+fun copyToClipboard(
+    text: String,
+    onResult: (Boolean) -> Unit,
+) {
+    window.navigator.clipboard.writeText(text).then(
+        onFulfilled = {
+            onResult(true)
+            null
+        },
+        onRejected = {
+            onResult(false)
+            null
+        },
+    )
 }
 
 /** 枠線 1 本ぶんの色。区切り線に使う */
