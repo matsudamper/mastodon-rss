@@ -16,8 +16,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Actor(
     @SerialName("@context")
-    @Serializable(with = StringListSerializer::class)
-    val context: List<String> = DEFAULT_CONTEXT,
+    @Serializable(with = ActorContextSerializer::class)
+    val context: ActorContext = ActorContext,
     val id: String,
     /**
      * `Service` は「自動化されたアカウント」を表す。人間ではなく RSS の
@@ -30,24 +30,24 @@ data class Actor(
     val summary: String? = null,
     val inbox: String,
     val outbox: String,
+    /**
+     * プロフィールに載せる投稿の一覧。Mastodon は未フォローでもここを引きに来る。
+     * outbox はフォロー後のバックフィル向けで、プロフィール表示には使われない。
+     */
+    val featured: String,
     val followers: String,
     val following: String,
     /** プロフィールから開くリンク。Mastodon は無ければ id を使う */
     val url: String? = null,
     val publicKey: ActorPublicKey,
+    /**
+     * Mastodon 4.6 以降。ピン留め欄を出すか
+     */
+    @SerialName("showFeatured")
+    val showFeatured: Boolean = false,
 ) {
     companion object {
         const val TYPE_SERVICE: String = "Service"
-
-        /**
-         * `security/v1` は `publicKey` の語彙を持ち込むために要る。
-         * これが無いと JSON-LD として厳密に処理する実装が公開鍵を読み落とす。
-         */
-        val DEFAULT_CONTEXT: List<String> =
-            listOf(
-                "https://www.w3.org/ns/activitystreams",
-                "https://w3id.org/security/v1",
-            )
     }
 }
 

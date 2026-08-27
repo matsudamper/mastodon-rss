@@ -26,6 +26,7 @@ import net.matsudamper.mastodon.rss.graphql.resolver.QueryResolverImpl
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
+import net.matsudamper.mastodon.rss.note.featuredRoutes
 import net.matsudamper.mastodon.rss.note.noteRoutes
 import net.matsudamper.mastodon.rss.note.outboxRoutes
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
@@ -161,6 +162,7 @@ fun Application.module(deps: AppDependencies) {
 
         followerRoutes(deps.directory, deps.followerStore)
         outboxRoutes(deps.directory, deps.noteStore)
+        featuredRoutes(deps.directory)
         noteRoutes(env.domain, deps.noteStore)
 
         nodeInfoRoutes(env.domain)

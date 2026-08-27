@@ -28,6 +28,7 @@ data class ActorUrls(
 
     val inbox: String = "$actorId/inbox"
     val outbox: String = "$actorId/outbox"
+    val featured: String = "$actorId/collections/featured"
     val followers: String = "$actorId/followers"
     val following: String = "$actorId/following"
 

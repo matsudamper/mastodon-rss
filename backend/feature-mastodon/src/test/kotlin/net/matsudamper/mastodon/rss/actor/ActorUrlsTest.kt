@@ -14,6 +14,7 @@ class ActorUrlsTest {
         assertEquals("https://example.com/users/admin", urls.actorId)
         assertEquals("https://example.com/users/admin/inbox", urls.inbox)
         assertEquals("https://example.com/users/admin/outbox", urls.outbox)
+        assertEquals("https://example.com/users/admin/collections/featured", urls.featured)
         assertEquals("https://example.com/users/admin/followers", urls.followers)
         assertEquals("https://example.com/users/admin/following", urls.following)
         assertEquals("https://example.com/users/admin#main-key", urls.publicKeyId)
