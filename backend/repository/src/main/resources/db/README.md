@@ -35,6 +35,30 @@ sqlite3def --file backend/repository/src/main/resources/db/schema.sql /path/to/m
 スキーマが binary の期待より古いままでも起動は通るが、ずれたテーブルに触るクエリが実行時に SQL エラーで落ちる。
 新しい binary を動かす前に適用すること。
 
+### 既に動いている DB に `feed_items.note_id` を入れるとき
+
+sqlite3def で列を足しただけでは、それまでに投稿した記事の `note_id` は NULL のまま。
+管理画面は投稿から `note_id` を辿って元記事を出すので、NULL のままだと過去の記事は画面に出ず消せない。
+本文が一致する投稿で埋められる。
+
+```sql
+UPDATE feed_items
+SET note_id = (
+  SELECT n.public_id
+  FROM notes n
+  WHERE n.content_html = feed_items.content_html
+    AND n.username = (
+      SELECT a.username FROM accounts a
+      JOIN feeds f ON f.account_id = a.id
+      WHERE f.id = feed_items.feed_id
+    )
+)
+WHERE note_id IS NULL AND state = 'posted';
+```
+
+同じ本文の投稿が複数あると、そのうちの 1 件に寄る。
+埋まらなかった行は画面に出ないままなので、要らなければ消してよい。
+
 ## スキーマから対応するコードが生成されるまで
 
 jOOQ の生成コードは、`schema.sql` からビルド時に作られる。
