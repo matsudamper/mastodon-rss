@@ -87,10 +87,12 @@ data class CreateNote(
 }
 
 /**
- * 消した投稿を表す `Tombstone`。
+ * 消した投稿を表す `Tombstone`（墓標）。
  *
  * 消えたことだけを表すので本文は持たない。id だけを送る実装もあるが、
  * 型を付けておくと相手側が何を消せばよいか一意に決まる。
+ *
+ * 名前は ActivityStreams 2.0 の語彙で、`type` に出る値もこれ。別の語にすると相手が削除と分からない。
  */
 @Serializable
 data class Tombstone(
