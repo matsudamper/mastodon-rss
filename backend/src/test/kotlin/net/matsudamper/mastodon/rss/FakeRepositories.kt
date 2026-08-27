@@ -210,7 +210,9 @@ class FakeFeedRepository : FeedRepository {
         stored
             .filter {
                 val lastFetchedAt = it.fetch.lastFetchedAt
-                it.initialImportDone && (lastFetchedAt == null || lastFetchedAt.plusSeconds(it.pollIntervalSeconds) <= now)
+                val due = lastFetchedAt == null || lastFetchedAt.plusSeconds(it.pollIntervalSeconds) <= now
+                val registrationTimedOut = it.createdAt.plusSeconds(it.pollIntervalSeconds) <= now
+                due && (it.initialImportDone || registrationTimedOut)
             }
             .sortedBy { it.fetch.lastFetchedAt ?: Instant.MIN }
             .take(limit)

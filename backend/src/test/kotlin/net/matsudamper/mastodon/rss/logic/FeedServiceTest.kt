@@ -597,20 +597,41 @@ class FeedServiceTest {
         }
 
     @Test
-    fun `登録の取り込みが終わっていないフィードは取りに行かない`() =
+    fun `登録の取り込み中のフィードは取りに行かない`() =
         runTest {
             val repositories = FakeRepositories()
             val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(repositories, noteStore = noteStore)
             service.save(accountId = account.id, url = FEED_URL)
-            val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
-            repositories.feeds.clearInitialImportDone(feed.id)
+            repositories.feeds.clearInitialImportDone(assertNotNull(repositories.feeds.findByAccountId(account.id)).id)
 
-            val results = service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
+            val results = service.pollDue(now = Instant.now().plusSeconds(60), limit = 10)
 
             assertEquals(emptyList(), results)
             assertEquals(0, noteStore.added.size)
+        }
+
+    @Test
+    fun `取り込みが終わらないまま間隔を過ぎたら取り込みだけ済ませる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, xmls = listOf(FEED_XML, LATEST_XML), noteStore = noteStore)
+            service.save(accountId = account.id, url = FEED_URL)
+            repositories.feeds.clearInitialImportDone(assertNotNull(repositories.feeds.findByAccountId(account.id)).id)
+
+            val results = service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
+
+            assertEquals(listOf(null), results.map { it.error })
+            assertEquals(emptyList(), results.single().postedItems)
+            assertEquals(0, noteStore.added.size)
+            assertEquals(true, assertNotNull(repositories.feeds.findByAccountId(account.id)).initialImportDone)
+            assertEquals(
+                listOf(FeedItemState.PENDING, FeedItemState.PENDING, FeedItemState.PENDING),
+                repositories.feedItems.items().map { it.state },
+            )
         }
 
     @Test

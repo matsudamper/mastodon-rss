@@ -287,6 +287,13 @@ class FeedService(
 
         val imported = importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
 
+        if (!feed.initialImportDone) {
+            // 登録が途中で終わったフィード。ここで取り込みを終わらせる。既存記事は
+            // 未投稿のまま残し、登録できたときと同じで自動では流さない
+            feeds.markInitialImportDone(feed.id)
+            return PollResult(feedId = feed.id, host = feed.host(), postedItems = emptyList(), error = null)
+        }
+
         val account = accounts.findById(feed.accountId)
             ?: return PollResult(feedId = feed.id, host = feed.host(), postedItems = emptyList(), error = "アカウントが無い")
 

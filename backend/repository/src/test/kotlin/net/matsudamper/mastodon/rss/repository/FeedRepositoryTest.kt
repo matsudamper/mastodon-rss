@@ -133,7 +133,7 @@ class FeedRepositoryTest {
     }
 
     @Test
-    fun `findDue は登録時の取り込みが済んでいないものを返さない`() {
+    fun `findDue は登録の取り込み中のフィードを返さない`() {
         withRepositories { repositories ->
             val importing = repositories.addFeed(
                 username = "feed1",
@@ -149,6 +149,23 @@ class FeedRepositoryTest {
             repositories.feeds.markInitialImportDone(importing.id)
 
             assertEquals(2, repositories.feeds.findDue(now = CREATED_AT, limit = 10).size)
+        }
+    }
+
+    @Test
+    fun `findDue は取り込みが終わらないまま間隔を過ぎたものを返す`() {
+        withRepositories { repositories ->
+            val importing = repositories.addFeed(
+                username = "feed1",
+                url = "https://example.com/1.xml",
+                initialImportDone = false,
+            )
+
+            assertEquals(emptyList(), repositories.feeds.findDue(now = Instant.now(), limit = 10).map { it.id })
+            assertEquals(
+                listOf(importing.id),
+                repositories.feeds.findDue(now = Instant.now().plusSeconds(901), limit = 10).map { it.id },
+            )
         }
     }
 
