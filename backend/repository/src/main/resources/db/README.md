@@ -69,11 +69,15 @@ WHERE i.note_id IS NULL AND i.state = 'posted';
 `note_count` が 1 の行だけを、その投稿が本当にその記事から流れたものか確かめてから書く。
 
 ```sql
--- note_id IS NULL を付けて、既に埋まっている行を上書きしないようにする
+-- 候補を出した後に状態が変わっていたら書かない。更新は 1 件になる
 UPDATE feed_items
 SET note_id = '<notes.public_id>'
-WHERE id = <feed_items.id> AND note_id IS NULL;
+WHERE id = <feed_items.id>
+  AND note_id IS NULL
+  AND state = 'posted';
 ```
+
+`changes()` が 1 でなければ、その行は候補を出した後に変わっている。もう一度候補から出し直す。
 
 ## スキーマから対応するコードが生成されるまで
 
