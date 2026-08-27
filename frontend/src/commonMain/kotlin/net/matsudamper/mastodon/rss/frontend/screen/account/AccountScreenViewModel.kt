@@ -25,6 +25,7 @@ class AccountScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String) -> Unit,
+    private val showSnackbar: (String) -> Unit,
 ) {
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
@@ -193,6 +194,7 @@ class AccountScreenViewModel(
                 else -> return
             }
         copyToClipboard(acct)
+        showSnackbar("コピーしました")
     }
 
     private fun createContent(state: ViewModelState): AccountScreenUiState.Content {

@@ -48,6 +48,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
+import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
@@ -72,13 +73,15 @@ fun AccountScreen(
     onNavigate: (Screen) -> Unit,
 ) {
     val viewModelScope = rememberCoroutineScope()
+    val snackbarHostState = LocalSnackbarHostState.current
     val viewModel =
-        remember(viewModelScope, username) {
+        remember(viewModelScope, username, snackbarHostState) {
             AccountScreenViewModel(
                 username = username,
                 host = window.location.host,
                 viewModelScope = viewModelScope,
                 copyToClipboard = ::copyToClipboard,
+                showSnackbar = snackbarHostState::show,
             )
         }
     val uiState by viewModel.uiStateFlow.collectAsState()
