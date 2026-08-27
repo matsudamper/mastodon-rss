@@ -446,10 +446,7 @@ private fun DeleteNoteDialog(
 }
 
 @Composable
-private fun NoteFeedItem(
-    item: AdminAccountScreenUiState.FeedItem,
-    listener: AdminAccountScreenUiState.Listener,
-) {
+private fun NoteFeedItem(item: AdminAccountScreenUiState.FeedItem) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -468,7 +465,7 @@ private fun NoteFeedItem(
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(
-                onClick = { listener.onClickDeleteFeedItem(item.id) },
+                onClick = { item.listener.onClickDelete() },
                 enabled = !item.deleting,
             ) {
                 Text(if (item.deleting) "記事を削除中" else "記事を削除")
@@ -604,10 +601,10 @@ private fun NotesCard(
                             )
                             val feedItem = note.feedItem
                             if (feedItem != null) {
-                                NoteFeedItem(item = feedItem, listener = listener)
+                                NoteFeedItem(item = feedItem)
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                OutlinedButton(onClick = { listener.onClickDeleteNote(note.id) }) {
+                                OutlinedButton(onClick = { note.listener.onClickDelete() }) {
                                     Text("投稿を削除")
                                 }
                             }

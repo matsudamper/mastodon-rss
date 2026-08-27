@@ -89,14 +89,6 @@ class AdminAccountScreenViewModel(
                         loadMore()
                     }
 
-                    override fun onClickDeleteFeedItem(id: Long) {
-                        deleteFeedItem(id)
-                    }
-
-                    override fun onClickDeleteNote(id: String) {
-                        viewModelStateFlow.update { it.copy(deleteNoteId = id, notesError = null, deleteNoteResult = null) }
-                    }
-
                     override fun onDismissDeleteNote() {
                         if (viewModelStateFlow.value.deletingNote) return
                         viewModelStateFlow.update { it.copy(deleteNoteId = null) }
@@ -739,7 +731,6 @@ class AdminAccountScreenViewModel(
 
     private fun AdminFeedItem.toUiState(deleting: Boolean): AdminAccountScreenUiState.FeedItem =
         AdminAccountScreenUiState.FeedItem(
-            id = id,
             title = title,
             link = link,
             publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
@@ -750,6 +741,11 @@ class AdminAccountScreenViewModel(
                 AdminFeedItem.State.UNKNOWN -> "不明"
             },
             deleting = deleting,
+            listener = object : AdminAccountScreenUiState.FeedItemListener {
+                override fun onClickDelete() {
+                    deleteFeedItem(id)
+                }
+            },
         )
 
     private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {
@@ -816,11 +812,17 @@ class AdminAccountScreenViewModel(
 
     private fun AdminNote.toUiState(deletingFeedItemIds: Set<Long>): AdminAccountScreenUiState.Note =
         AdminAccountScreenUiState.Note(
-            id = id,
             url = url,
             contentHtml = contentHtml,
             publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
             feedItem = feedItem?.toUiState(deleting = feedItem.id in deletingFeedItemIds),
+            listener = object : AdminAccountScreenUiState.NoteListener {
+                override fun onClickDelete() {
+                    viewModelStateFlow.update {
+                        it.copy(deleteNoteId = id, notesError = null, deleteNoteResult = null)
+                    }
+                }
+            },
         )
 
     private data class ViewModelState(

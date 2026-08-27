@@ -96,13 +96,22 @@ data class AdminAccountScreenUiState(
      * @param deleting 削除中。ボタンを押せなくする
      */
     data class FeedItem(
-        val id: Long,
         val title: String?,
         val link: String?,
         val publishedAt: String?,
         val stateText: String,
         val deleting: Boolean,
+        val listener: FeedItemListener,
     )
+
+    @Immutable
+    interface FeedItemListener {
+        /**
+         * この記事を消す。配信した投稿は残るので、
+         * 最新情報を投稿すると同じ記事がもう一度流れる
+         */
+        fun onClickDelete()
+    }
 
     data class UnpublishedItem(
         val title: String?,
@@ -164,12 +173,20 @@ data class AdminAccountScreenUiState(
      * @param feedItem 元になった記事。手で書いた投稿と、記事を消した後は null
      */
     data class Note(
-        val id: String,
         val url: String,
         val contentHtml: String,
         val publishedAt: String,
         val feedItem: FeedItem?,
+        val listener: NoteListener,
     )
+
+    @Immutable
+    interface NoteListener {
+        /**
+         * この投稿を消す確認を出す
+         */
+        fun onClickDelete()
+    }
 
     /**
      * @param targets 送った宛先の数
@@ -196,17 +213,6 @@ data class AdminAccountScreenUiState(
         fun onClickPost()
 
         fun onClickLoadMore()
-
-        /**
-         * 投稿の元になった記事を消す。配信した投稿は残るので、
-         * 最新情報を投稿すると同じ記事がもう一度流れる
-         */
-        fun onClickDeleteFeedItem(id: Long)
-
-        /**
-         * 投稿を消す確認を出す
-         */
-        fun onClickDeleteNote(id: String)
 
         fun onDismissDeleteNote()
 
