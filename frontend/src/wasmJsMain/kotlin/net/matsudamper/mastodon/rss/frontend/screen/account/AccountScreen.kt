@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,8 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -38,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,6 +45,7 @@ import kotlinx.browser.window
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
+import net.matsudamper.mastodon.rss.frontend.ui.BaselineCopyIcon
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
@@ -298,35 +297,21 @@ private fun ProfileHeader(
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Row(
-                            modifier = Modifier.weight(1f, fill = false),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            SelectionContainer(modifier = Modifier.weight(1f, fill = false)) {
-                                Text(
-                                    text = state.acct,
-                                    modifier = Modifier.alignByBaseline(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontFamily = FontFamily.Monospace,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = "コピー",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier =
-                                Modifier
-                                    .alignByBaseline()
-                                    .clickable(onClick = listener::onClickCopyAcct)
-                                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                                    .wrapContentSize(Alignment.BottomCenter)
-                                    .size(18.dp),
-                            )
-                        }
+                        Text(
+                            text = state.acct,
+                            modifier =
+                            Modifier
+                                .weight(1f, fill = false)
+                                .alignBy(LastBaseline),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        BaselineCopyIcon(onClick = listener::onClickCopyAcct)
                     }
                 }
             }
