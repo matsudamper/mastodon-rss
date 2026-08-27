@@ -152,7 +152,7 @@ class FeedService(
     suspend fun pollDue(
         now: Instant,
         limit: Int,
-    ): List<PollResult> = feeds.findDue(now = now, limit = limit).map { feed -> poll(feed, now) }
+    ): List<PollResult> = feeds.findDue(now = now, limit = limit).map { feed -> poll(feed) }
 
     data class PollResult(
         val feedId: FeedId,
@@ -250,27 +250,30 @@ class FeedService(
         PARSE_FAILED,
     }
 
-    private suspend fun poll(
-        feed: Feed,
-        now: Instant,
-    ): PollResult {
+    /**
+     * 1 本のフィードを取り込んで、新着を投稿する。
+     *
+     * 記録する時刻は、対象を選んだ時刻ではなくここで取り直す。1 回で何本も回るので、
+     * 選んだ時刻を使うと後の方のフィードほど古い時刻が残り、間隔を待たずに取り直す
+     */
+    private suspend fun poll(feed: Feed): PollResult {
         val fetched = when (val result = fetcher.fetch(feed.url)) {
             is FeedFetchService.FetchResult.Success -> result
 
-            FeedFetchService.FetchResult.InvalidUrl -> return feed.recordFailure(now, "URL として読めない")
+            FeedFetchService.FetchResult.InvalidUrl -> return feed.recordFailure("URL として読めない")
 
-            FeedFetchService.FetchResult.TooLarge -> return feed.recordFailure(now, "応答が大きすぎる")
+            FeedFetchService.FetchResult.TooLarge -> return feed.recordFailure("応答が大きすぎる")
 
             is FeedFetchService.FetchResult.HttpError ->
-                return feed.recordFailure(now, result.status?.let { "HTTP $it" } ?: result.message ?: "取得に失敗した")
+                return feed.recordFailure(result.status?.let { "HTTP $it" } ?: result.message ?: "取得に失敗した")
 
-            is FeedFetchService.FetchResult.ParseError -> return feed.recordFailure(now, "パースに失敗した: ${result.message}")
+            is FeedFetchService.FetchResult.ParseError -> return feed.recordFailure("パースに失敗した: ${result.message}")
         }
 
         // 取得できた時点で次の取得予定を進める。投稿の失敗で取得をやり直すと、
         // 配信元には同じ本文を配り直す理由が無いのに取りに行くことになる。
         // 条件付き GET はまだ送っていないので、保存されている値はそのまま残す
-        feeds.recordFetchSuccess(id = feed.id, fetchedAt = now, validators = feed.fetch.validators)
+        feeds.recordFetchSuccess(id = feed.id, fetchedAt = Instant.now(), validators = feed.fetch.validators)
 
         val imported = importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
 
@@ -290,11 +293,8 @@ class FeedService(
         )
     }
 
-    private fun Feed.recordFailure(
-        now: Instant,
-        error: String,
-    ): PollResult {
-        feeds.recordFetchFailure(id = id, fetchedAt = now, error = error)
+    private fun Feed.recordFailure(error: String): PollResult {
+        feeds.recordFetchFailure(id = id, fetchedAt = Instant.now(), error = error)
         return PollResult(feedId = id, url = url, postedItems = emptyList(), error = error)
     }
 

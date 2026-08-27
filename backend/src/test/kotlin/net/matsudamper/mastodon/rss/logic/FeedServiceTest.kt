@@ -509,7 +509,9 @@ class FeedServiceTest {
             assertEquals(listOf(null), results.map { it.error })
             assertEquals(listOf("3 本目"), results.single().postedItems.map { it.title })
             assertEquals(1, noteStore.added.size)
-            assertEquals(polledAt, assertNotNull(repositories.feeds.findByAccountId(account.id)).fetch.lastSucceededAt)
+            val fetch = assertNotNull(repositories.feeds.findByAccountId(account.id)).fetch
+            assertEquals(null, fetch.lastError)
+            assertNotNull(fetch.lastSucceededAt)
         }
 
     @Test
@@ -539,10 +541,10 @@ class FeedServiceTest {
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(repositories, noteStore = noteStore)
             service.save(accountId = account.id, url = FEED_URL)
-            val polledAt = Instant.now().plusSeconds(DUE_AFTER_SECONDS)
-            service.pollDue(now = polledAt, limit = 10)
+            service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
 
-            val results = service.pollDue(now = polledAt.plusSeconds(60), limit = 10)
+            // 取得した時刻を基準にするので、その 60 秒後はまだ来ていない
+            val results = service.pollDue(now = Instant.now().plusSeconds(60), limit = 10)
 
             assertEquals(emptyList(), results)
             assertEquals(0, noteStore.added.size)
@@ -596,7 +598,7 @@ class FeedServiceTest {
             assertEquals(0, noteStore.added.size)
             val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
             assertEquals("HTTP 404", feed.fetch.lastError)
-            assertEquals(polledAt, feed.fetch.lastFetchedAt)
+            assertNotNull(feed.fetch.lastFetchedAt)
             assertEquals(
                 listOf(FeedItemState.PENDING, FeedItemState.PENDING),
                 repositories.feedItems.items().map { it.state },
