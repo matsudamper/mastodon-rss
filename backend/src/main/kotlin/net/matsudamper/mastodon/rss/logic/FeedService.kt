@@ -269,15 +269,7 @@ class FeedService(
     private suspend fun poll(feed: Feed): PollResult {
         val fetched = when (val result = fetcher.fetch(feed.url)) {
             is FeedFetchService.FetchResult.Success -> result
-
-            FeedFetchService.FetchResult.InvalidUrl -> return feed.recordFailure("URL として読めない")
-
-            FeedFetchService.FetchResult.TooLarge -> return feed.recordFailure("応答が大きすぎる")
-
-            is FeedFetchService.FetchResult.HttpError ->
-                return feed.recordFailure(result.status?.let { "HTTP $it" } ?: result.message ?: "取得に失敗した")
-
-            is FeedFetchService.FetchResult.ParseError -> return feed.recordFailure("パースに失敗した")
+            else -> return feed.recordFailure(result.failureReason())
         }
 
         // 取得できた時点で次の取得予定を進める。投稿の失敗で取得をやり直すと、
@@ -308,6 +300,19 @@ class FeedService(
             ),
             error = null,
         )
+    }
+
+    /**
+     * 記録とログに残す失敗の理由。
+     *
+     * 配信元から来た文字列は入れない。購読者だけが知る値を含むことがある
+     */
+    private fun FeedFetchService.FetchResult.failureReason(): String = when (this) {
+        is FeedFetchService.FetchResult.Success -> "取得に失敗した"
+        FeedFetchService.FetchResult.InvalidUrl -> "URL として読めない"
+        FeedFetchService.FetchResult.TooLarge -> "応答が大きすぎる"
+        is FeedFetchService.FetchResult.HttpError -> status?.let { "HTTP $it" } ?: message ?: "取得に失敗した"
+        is FeedFetchService.FetchResult.ParseError -> "パースに失敗した"
     }
 
     private fun Feed.recordFailure(error: String): PollResult {
@@ -402,15 +407,22 @@ class FeedService(
                 )
             }
 
-            FeedFetchService.FetchResult.InvalidUrl ->
+            FeedFetchService.FetchResult.InvalidUrl -> {
+                feed.recordFailure(fetched.failureReason())
                 ImportLatestResult.Failure(PostUnpublishedFailure.INVALID_URL)
+            }
 
             FeedFetchService.FetchResult.TooLarge,
             is FeedFetchService.FetchResult.HttpError,
-            -> ImportLatestResult.Failure(PostUnpublishedFailure.FETCH_FAILED)
+            -> {
+                feed.recordFailure(fetched.failureReason())
+                ImportLatestResult.Failure(PostUnpublishedFailure.FETCH_FAILED)
+            }
 
-            is FeedFetchService.FetchResult.ParseError ->
+            is FeedFetchService.FetchResult.ParseError -> {
+                feed.recordFailure(fetched.failureReason())
                 ImportLatestResult.Failure(PostUnpublishedFailure.PARSE_FAILED)
+            }
         }
     }
 
