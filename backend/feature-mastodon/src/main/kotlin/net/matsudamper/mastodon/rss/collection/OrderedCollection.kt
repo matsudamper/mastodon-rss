@@ -64,6 +64,31 @@ data class OrderedCollectionPage<T>(
 const val COLLECTION_PAGE_SIZE: Int = 12
 
 /**
+ * featured に載せる投稿の件数。
+ *
+ * Mastodon はプロフィールを開いたとき featured を引きに来る。outbox は
+ * フォロー後のバックフィル用で、未フォローでは読まない。
+ */
+const val FEATURED_COLLECTION_SIZE: Int = 20
+
+/**
+ * 中身をそのまま返す [OrderedCollection]。
+ *
+ * outbox のように 2 段構えにしないコレクション向け。Mastodon の featured は
+ * 1 回の GET で orderedItems を読む。
+ */
+@Serializable
+data class OrderedCollectionWithItems<T>(
+    @SerialName("@context")
+    @Serializable(with = StringListSerializer::class)
+    val context: List<String> = OrderedCollection.DEFAULT_CONTEXT,
+    val id: String,
+    val type: String = OrderedCollection.TYPE,
+    val totalItems: Long,
+    val orderedItems: List<T>,
+)
+
+/**
  * ページを指すクエリパラメータの名前。
  *
  * 値は直前のページの最後の 1 件を指す cursor。空文字なら先頭のページ。

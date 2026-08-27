@@ -44,22 +44,26 @@ class ActorRoutesTest {
             assertEquals("admin", actor.preferredUsername)
             assertEquals("https://example.com/users/admin/inbox", actor.inbox)
             assertEquals("https://example.com/users/admin/outbox", actor.outbox)
+            assertEquals("https://example.com/users/admin/collections/featured", actor.featured)
+            assertEquals(false, actor.showFeatured)
             assertEquals("https://example.com/users/admin/followers", actor.followers)
             assertEquals("https://example.com/users/admin/following", actor.following)
         }
 
     @Test
-    fun `context に activitystreams と security が入る`() =
+    fun `context に activitystreams と security と featured の語彙が入る`() =
         testApplication {
             installModule()
 
             val body = client.get("/users/admin").bodyAsText()
 
-            // @context は @SerialName で出す必要がある。素の Kotlin 識別子では書けない
-            val expected =
+            val expectedContext =
                 """"@context":["https://www.w3.org/ns/activitystreams",""" +
-                    """"https://w3id.org/security/v1"]"""
-            assertTrue(body.contains(expected))
+                    """"https://w3id.org/security/v1",""" +
+                    """{"toot":"http://joinmastodon.org/ns#",""" +
+                    """"featured":{"@id":"toot:featured","@type":"@id"},""" +
+                    """"showFeatured":"toot:showFeatured"}]"""
+            assertTrue(body.contains(expectedContext))
         }
 
     @Test

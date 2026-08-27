@@ -40,6 +40,11 @@ data class Note(
     val to: List<String>,
     val cc: List<String>,
     /**
+     * Mastodon がパーマリンクの別名として引くことがある
+     */
+    val atomUri: String? = null,
+    val sensitive: Boolean = false,
+    /**
      * プロフィールや検索から開くリンク。無ければ [id] が使われる
      */
     val url: String? = null,
