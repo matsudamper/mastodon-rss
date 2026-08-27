@@ -643,6 +643,7 @@ class FeedServiceTest {
 
     private companion object {
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03Z")
+
         // 登録時の取得が記録されるので、その間隔を過ぎるまで次の取得は来ない
         const val DUE_AFTER_SECONDS = 901L
         const val FEED_URL = "https://example.com/feed.xml"
