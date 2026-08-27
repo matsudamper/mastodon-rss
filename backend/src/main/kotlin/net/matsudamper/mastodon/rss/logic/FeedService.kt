@@ -376,6 +376,13 @@ class FeedService(
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
                 )
+                // 手動でも取得したことに変わりはない。記録しないと定期ポーリングが
+                // 直後に取り直し、成功した後も前の失敗が残る
+                feeds.recordFetchSuccess(
+                    id = feed.id,
+                    fetchedAt = Instant.now(),
+                    validators = feed.fetch.validators,
+                )
                 ImportLatestResult.Success(
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,

@@ -20,6 +20,7 @@ import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
+import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.shared.AccountId
 
@@ -557,6 +558,25 @@ class FeedServiceTest {
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(repositories)
             service.save(accountId = account.id, url = FEED_URL)
+
+            assertEquals(emptyList(), service.pollDue(now = Instant.now(), limit = 10))
+        }
+
+    @Test
+    fun `手動の取得も次の取得予定の基準にする`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = account.id, url = FEED_URL)
+            val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
+            repositories.feeds.recordFetchSuccess(
+                id = feed.id,
+                fetchedAt = Instant.now().minusSeconds(feed.pollIntervalSeconds + 1),
+                validators = FeedFetchValidators.NONE,
+            )
+
+            service.postUnpublished(account.id)
 
             assertEquals(emptyList(), service.pollDue(now = Instant.now(), limit = 10))
         }
