@@ -540,17 +540,13 @@ class AdminGraphQlTest {
             mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
             mutatePostFeedItems(accountId = accountId, token = token)
 
+            // 記事を消すと投稿から題名を辿れなくなるので、先に id を控える
+            val feedItemId = feedItemIdOf(username = "feed1", title = "1 本目", token = token)
+            val noteId = noteIdOf(username = "feed1", title = "1 本目", token = token)
+
             // 画面と同じ順で、記事を消してから投稿を消す
-            mutateDeleteFeedItem(
-                accountId = accountId,
-                feedItemId = feedItemIdOf(username = "feed1", title = "1 本目", token = token),
-                token = token,
-            )
-            mutateDeleteNote(
-                username = "feed1",
-                noteId = noteIdOf(username = "feed1", title = "1 本目", token = token),
-                token = token,
-            )
+            mutateDeleteFeedItem(accountId = accountId, feedItemId = feedItemId, token = token)
+            mutateDeleteNote(username = "feed1", noteId = noteId, token = token)
 
             val result = mutatePostFeedItems(accountId = accountId, token = token).admin().obj("postFeedItems")
 
