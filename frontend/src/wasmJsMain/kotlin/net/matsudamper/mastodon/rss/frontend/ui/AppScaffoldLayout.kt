@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -23,6 +24,8 @@ internal fun AppScaffoldLayout(
     topBar: @Composable () -> Unit,
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
+    val snackbarHostState = rememberSnackbarHostState()
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -34,18 +37,32 @@ internal fun AppScaffoldLayout(
                 val wide = maxWidth >= WideBreakpoint
                 val outerPadding = if (wide) 24.dp else 12.dp
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = outerPadding, vertical = outerPadding),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
+                CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
                     Column(
-                        modifier = Modifier
-                            .widthIn(max = ContentMaxWidth)
+                        modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = outerPadding, vertical = outerPadding),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Column(
+                            modifier =
+                            Modifier
+                                .widthIn(max = ContentMaxWidth)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            content = { content(wide) },
+                        )
+                    }
+
+                    ScaffoldSnackbarHost(
+                        state = snackbarHostState,
+                        modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(horizontal = outerPadding, vertical = outerPadding)
+                            .widthIn(max = SnackbarMaxWidth)
                             .fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        content = { content(wide) },
                     )
                 }
             }
