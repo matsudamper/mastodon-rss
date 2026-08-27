@@ -277,7 +277,7 @@ class FeedService(
             is FeedFetchService.FetchResult.HttpError ->
                 return feed.recordFailure(result.status?.let { "HTTP $it" } ?: result.message ?: "取得に失敗した")
 
-            is FeedFetchService.FetchResult.ParseError -> return feed.recordFailure("パースに失敗した: ${result.message}")
+            is FeedFetchService.FetchResult.ParseError -> return feed.recordFailure("パースに失敗した")
         }
 
         // 取得できた時点で次の取得予定を進める。投稿の失敗で取得をやり直すと、
@@ -360,8 +360,9 @@ class FeedService(
                     throw e
                 } catch (e: Exception) {
                     // 投稿できなかった記事は未投稿のまま残る。無人で動くので、
-                    // 気付けるようにここに残す
-                    logger.warn("記事を投稿できなかった: ${stored.link ?: stored.itemKey}", e)
+                    // 気付けるようにここに残す。記事のリンクや鍵は購読者だけが知る値を
+                    // 含むことがあるので、こちらで採番した id だけ出す
+                    logger.warn("記事を投稿できなかった: フィード ${feed.id.value} の記事 ${stored.id.value}", e)
                     return@forEach
                 }
                 feedItems.markPosted(stored.id, Instant.now())
