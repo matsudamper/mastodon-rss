@@ -502,13 +502,14 @@ class FeedServiceTest {
                 noteStore = noteStore,
             )
             service.save(accountId = account.id, url = FEED_URL)
+            val polledAt = Instant.now().plusSeconds(DUE_AFTER_SECONDS)
 
-            val results = service.pollDue(now = POLLED_AT, limit = 10)
+            val results = service.pollDue(now = polledAt, limit = 10)
 
             assertEquals(listOf(null), results.map { it.error })
             assertEquals(listOf("3 本目"), results.single().postedItems.map { it.title })
             assertEquals(1, noteStore.added.size)
-            assertEquals(POLLED_AT, assertNotNull(repositories.feeds.findByAccountId(account.id)).fetch.lastSucceededAt)
+            assertEquals(polledAt, assertNotNull(repositories.feeds.findByAccountId(account.id)).fetch.lastSucceededAt)
         }
 
     @Test
@@ -520,7 +521,7 @@ class FeedServiceTest {
             val service = serviceOf(repositories, noteStore = noteStore)
             service.save(accountId = account.id, url = FEED_URL)
 
-            val results = service.pollDue(now = POLLED_AT, limit = 10)
+            val results = service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
 
             assertEquals(emptyList(), results.single().postedItems)
             assertEquals(0, noteStore.added.size)
@@ -538,12 +539,24 @@ class FeedServiceTest {
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(repositories, noteStore = noteStore)
             service.save(accountId = account.id, url = FEED_URL)
-            service.pollDue(now = POLLED_AT, limit = 10)
+            val polledAt = Instant.now().plusSeconds(DUE_AFTER_SECONDS)
+            service.pollDue(now = polledAt, limit = 10)
 
-            val results = service.pollDue(now = POLLED_AT.plusSeconds(60), limit = 10)
+            val results = service.pollDue(now = polledAt.plusSeconds(60), limit = 10)
 
             assertEquals(emptyList(), results)
             assertEquals(0, noteStore.added.size)
+        }
+
+    @Test
+    fun `登録した直後は取りに行かない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = account.id, url = FEED_URL)
+
+            assertEquals(emptyList(), service.pollDue(now = Instant.now(), limit = 10))
         }
 
     @Test
@@ -557,7 +570,7 @@ class FeedServiceTest {
             val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
             repositories.feeds.clearInitialImportDone(feed.id)
 
-            val results = service.pollDue(now = POLLED_AT, limit = 10)
+            val results = service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
 
             assertEquals(emptyList(), results)
             assertEquals(0, noteStore.added.size)
@@ -575,14 +588,15 @@ class FeedServiceTest {
                 noteStore = noteStore,
             )
             service.save(accountId = account.id, url = FEED_URL)
+            val polledAt = Instant.now().plusSeconds(DUE_AFTER_SECONDS)
 
-            val results = service.pollDue(now = POLLED_AT, limit = 10)
+            val results = service.pollDue(now = polledAt, limit = 10)
 
             assertEquals(listOf("HTTP 404"), results.map { it.error })
             assertEquals(0, noteStore.added.size)
             val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
             assertEquals("HTTP 404", feed.fetch.lastError)
-            assertEquals(POLLED_AT, feed.fetch.lastFetchedAt)
+            assertEquals(polledAt, feed.fetch.lastFetchedAt)
             assertEquals(
                 listOf(FeedItemState.PENDING, FeedItemState.PENDING),
                 repositories.feedItems.items().map { it.state },
@@ -629,7 +643,8 @@ class FeedServiceTest {
 
     private companion object {
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03Z")
-        val POLLED_AT: Instant = Instant.parse("2026-08-16T02:00:00Z")
+        // 登録時の取得が記録されるので、その間隔を過ぎるまで次の取得は来ない
+        const val DUE_AFTER_SECONDS = 901L
         const val FEED_URL = "https://example.com/feed.xml"
         const val REDIRECTED_FEED_URL = "https://cdn.example.net/rss/feed.xml"
         val FEED_XML = """

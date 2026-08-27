@@ -15,6 +15,7 @@ import net.matsudamper.mastodon.rss.feed.toDisplayName
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
 import net.matsudamper.mastodon.rss.repository.FeedId
 import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemId
@@ -85,6 +86,13 @@ class FeedService(
                     feed = feed,
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
+                )
+                // 登録のために取りに行った分も取得として記録する。記録しないと
+                // 定期ポーリングが取得の時期を過ぎていると見なして、すぐ取り直す
+                feeds.recordFetchSuccess(
+                    id = feed.id,
+                    fetchedAt = Instant.now(),
+                    validators = FeedFetchValidators.NONE,
                 )
                 feeds.markInitialImportDone(feed.id)
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)

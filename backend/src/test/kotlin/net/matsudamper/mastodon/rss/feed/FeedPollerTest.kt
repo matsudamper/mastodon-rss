@@ -22,6 +22,7 @@ import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 
 class FeedPollerTest {
@@ -34,6 +35,13 @@ class FeedPollerTest {
             val feeds = FailingOnceFeedRepository(repositories.feeds)
             val service = serviceOf(repositories = repositories, feeds = feeds, noteStore = noteStore)
             service.save(accountId = account.id, url = FEED_URL)
+            // 登録時の取得が記録されるので、取得の時期が来た状態に戻す
+            val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
+            repositories.feeds.recordFetchSuccess(
+                id = feed.id,
+                fetchedAt = Instant.now().minusSeconds(feed.pollIntervalSeconds + 1),
+                validators = FeedFetchValidators.NONE,
+            )
 
             val job = FeedPoller(feedService = service, checkInterval = CHECK_INTERVAL).start(this)
             withTimeout(TIMEOUT) {
