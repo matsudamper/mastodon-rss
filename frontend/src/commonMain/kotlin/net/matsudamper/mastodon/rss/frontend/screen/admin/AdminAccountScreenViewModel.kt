@@ -558,12 +558,6 @@ class AdminAccountScreenViewModel(
             title = title,
             link = link,
             publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
-            stateText = when (state) {
-                AdminFeedItem.State.PENDING -> "未投稿"
-                AdminFeedItem.State.POSTED -> "投稿済み"
-                AdminFeedItem.State.SKIPPED -> "投稿しない"
-                AdminFeedItem.State.UNKNOWN -> "不明"
-            },
         )
 
     private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {

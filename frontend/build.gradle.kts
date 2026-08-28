@@ -75,7 +75,6 @@ apollo {
         mapScalarToKotlinString("NoteId")
         mapScalarToKotlinLong("AccountId")
         mapScalarToKotlinLong("FeedId")
-        mapScalarToKotlinLong("FeedItemId")
 
         plugin("com.apollographql.cache:normalized-cache-apollo-compiler-plugin:${libs.versions.apollo.cache.get()}")
         pluginArgument("com.apollographql.cache.packageName", packageName.get())

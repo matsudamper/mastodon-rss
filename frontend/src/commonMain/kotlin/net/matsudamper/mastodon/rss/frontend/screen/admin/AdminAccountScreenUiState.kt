@@ -85,16 +85,11 @@ data class AdminAccountScreenUiState(
         ) : Feed
     }
 
-    /**
-     * 投稿の元になった取り込み済みの記事。
-     *
-     * @param stateText 投稿の状況。「投稿済み」のような表示用の文字
-     */
+    /** 投稿の元になった取り込み済みの記事 */
     data class FeedItem(
         val title: String?,
         val link: String?,
         val publishedAt: String?,
-        val stateText: String,
     )
 
     data class UnpublishedItem(

@@ -385,10 +385,6 @@ class AdminGraphQlTest {
                 listOf("1 本目", "2 本目"),
                 nodes.map { it.jsonObject.obj("feedItem").string("title") }.sorted(),
             )
-            assertEquals(
-                listOf("POSTED", "POSTED"),
-                nodes.map { it.jsonObject.obj("feedItem").string("state") },
-            )
         }
 
     @Test
@@ -725,7 +721,7 @@ class AdminGraphQlTest {
             query =
             "query Notes(${'$'}username: String!) { admin { " +
                 "notes(username: ${'$'}username, limit: 10) { " +
-                "nodes { url feedItem { id title state } } } } }",
+                "nodes { url feedItem { title } } } } }",
             token = token,
             variables = """{"username":${JsonPrimitive(username)}}""",
         )

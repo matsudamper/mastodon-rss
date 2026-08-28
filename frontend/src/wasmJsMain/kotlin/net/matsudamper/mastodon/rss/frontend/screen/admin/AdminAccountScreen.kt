@@ -394,7 +394,7 @@ private fun NoteFeedItem(item: AdminAccountScreenUiState.FeedItem) {
             style = MaterialTheme.typography.bodySmall,
         )
 
-        val meta = listOfNotNull(item.stateText, item.publishedAt, item.link).joinToString("  ")
+        val meta = listOfNotNull(item.publishedAt, item.link).joinToString("  ")
         Text(
             text = meta,
             style = MaterialTheme.typography.bodySmall,

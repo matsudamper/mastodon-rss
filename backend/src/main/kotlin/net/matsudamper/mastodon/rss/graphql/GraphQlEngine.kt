@@ -120,7 +120,6 @@ class GraphQlEngine private constructor(
                     NoteIdScalar.value,
                     AccountIdScalar.value,
                     FeedIdScalar.value,
-                    FeedItemIdScalar.value,
                 )
                 .resolvers(resolvers)
                 .build()
