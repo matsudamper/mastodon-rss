@@ -5,7 +5,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -35,8 +38,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import kotlinx.browser.window
@@ -44,6 +50,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
+import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarEvents
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
@@ -69,75 +76,80 @@ fun AccountScreen(
     username: String,
     onNavigate: (Screen) -> Unit,
 ) {
-    val viewModelScope = rememberCoroutineScope()
-    val viewModel =
-        remember(viewModelScope, username) {
-            AccountScreenViewModel(
-                username = username,
-                host = window.location.host,
-                viewModelScope = viewModelScope,
-            )
+    PublicScaffold(onNavigate = onNavigate) { wide ->
+        val viewModelScope = rememberCoroutineScope()
+        val snackbarEvents = LocalSnackbarEvents.current
+        val viewModel =
+            remember(viewModelScope, username, snackbarEvents) {
+                AccountScreenViewModel(
+                    username = username,
+                    host = window.location.host,
+                    viewModelScope = viewModelScope,
+                    copyToClipboard = ::copyToClipboard,
+                    snackbarEvents = snackbarEvents,
+                )
+            }
+        val uiState by viewModel.uiStateFlow.collectAsState()
+
+        LifecycleStartEffect(viewModel) {
+            viewModel.onStart()
+            onStopOrDispose {}
         }
-    val uiState by viewModel.uiStateFlow.collectAsState()
 
-    LifecycleStartEffect(viewModel) {
-        viewModel.onStart()
-        onStopOrDispose {}
+        AccountScreenContent(
+            username = username,
+            uiState = uiState,
+            wide = wide,
+            onNavigate = onNavigate,
+        )
     }
-
-    AccountScreen(
-        username = username,
-        uiState = uiState,
-        onNavigate = onNavigate,
-    )
 }
 
 @Composable
-private fun AccountScreen(
+private fun AccountScreenContent(
     username: String,
     uiState: AccountScreenUiState,
+    wide: Boolean,
     onNavigate: (Screen) -> Unit,
 ) {
-    PublicScaffold(onNavigate = onNavigate) { wide ->
-        when (val content = uiState.content) {
-            AccountScreenUiState.Content.Loading -> {
-                SectionCard(title = "読み込み中") {
-                    Text(
-                        text = "アカウントを取ってきている。",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
-
-            AccountScreenUiState.Content.NotFound -> {
-                NotFoundContent(
-                    requestedPath = Screen.Account(username).path,
-                    description = "ユーザーが存在しません",
+    when (val content = uiState.content) {
+        AccountScreenUiState.Content.Loading -> {
+            SectionCard(title = "読み込み中") {
+                Text(
+                    text = "アカウントを取ってきている。",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
+        }
 
-            is AccountScreenUiState.Content.Error -> {
-                SectionCard(title = "アカウントを出せない") {
-                    Text(
-                        text = content.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+        AccountScreenUiState.Content.NotFound -> {
+            NotFoundContent(
+                requestedPath = Screen.Account(username).path,
+                description = "ユーザーが存在しません",
+            )
+        }
 
-                    OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
-                        Text("もう一度試す")
-                    }
+        is AccountScreenUiState.Content.Error -> {
+            SectionCard(title = "アカウントを出せない") {
+                Text(
+                    text = content.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+
+                OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
+                    Text("もう一度試す")
                 }
             }
+        }
 
-            is AccountScreenUiState.Content.Loaded -> {
-                AccountContent(
-                    content = content,
-                    wide = wide,
-                    onNavigate = onNavigate,
-                    listener = uiState.listener,
-                )
-            }
+        is AccountScreenUiState.Content.Loaded -> {
+            AccountContent(
+                content = content,
+                wide = wide,
+                onNavigate = onNavigate,
+                listener = uiState.listener,
+            )
         }
     }
 }
@@ -161,6 +173,7 @@ private fun AccountContent(
         ProfileHeader(
             state = state,
             wide = wide,
+            listener = listener,
         )
 
         if (wide) {
@@ -177,12 +190,12 @@ private fun AccountContent(
                 ) {
                     FeedSection(state = state)
                     DeliverySection(state = state)
-                    FollowSection(state = state, onNavigate = onNavigate)
+                    FollowSection(state = state, onNavigate = onNavigate, listener = listener)
                 }
             }
         } else {
             FeedSection(state = state)
-            FollowSection(state = state, onNavigate = onNavigate)
+            FollowSection(state = state, onNavigate = onNavigate, listener = listener)
             NotesSection(content = content, listener = listener)
             DeliverySection(state = state)
         }
@@ -213,8 +226,7 @@ private fun PlaceholderNotice() {
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text =
-                "実際の値になるのは、フィードの取り込み（Phase 5）と管理 API（Phase 8）を繋いでから。" +
+                text = "実際の値になるのは、フィードの取り込み（Phase 5）と管理 API（Phase 8）を繋いでから。" +
                     "ユーザー名と acct と配信した投稿は本物。",
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -232,6 +244,7 @@ private fun PlaceholderNotice() {
 private fun ProfileHeader(
     state: AccountUiState,
     wide: Boolean,
+    listener: AccountScreenUiState.Listener,
 ) {
     val avatarSize = if (wide) 88.dp else 68.dp
     val colors = avatarColors(state.username)
@@ -240,61 +253,97 @@ private fun ProfileHeader(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column {
             Box(
-                modifier =
-                Modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .height(if (wide) 132.dp else 88.dp)
                     .background(Brush.linearGradient(colors)),
             )
 
             Row(
-                modifier =
-                Modifier
+                modifier = Modifier
                     .padding(horizontal = 20.dp)
-                    .offset(y = -avatarSize / 3),
-                verticalAlignment = Alignment.CenterVertically,
+                    .height(IntrinsicSize.Max),
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Box(
-                    modifier =
-                    Modifier
-                        .size(avatarSize)
-                        .clip(RoundedCornerShape(avatarSize / 4))
-                        .background(Brush.linearGradient(colors.reversed())),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = state.initial,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
+                Layout(
+                    {
+                        Box(
+                            modifier = Modifier
+                                .size(avatarSize)
+                                .clip(RoundedCornerShape(avatarSize / 4))
+                                .background(Brush.linearGradient(colors.reversed())),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = state.initial,
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    },
+                ) { measurables, constraints ->
+                    val placeable = measurables.first().measure(
+                        Constraints.fixed(
+                            avatarSize.roundToPx(),
+                            avatarSize.roundToPx(),
+                        ),
                     )
+                    layout(placeable.width, 0) {
+                        println("constraints.maxHeight=${constraints.maxHeight}, placeable.measuredHeight=${placeable.measuredHeight}")
+                        placeable.place(
+                            x = 0,
+                            y = constraints.maxHeight - placeable.measuredHeight,
+                        )
+                    }
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = state.displayName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    SelectionContainer {
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    Column(
+                        modifier = Modifier,
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = state.displayName,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
                         Text(
                             text = state.acct,
+                            modifier = Modifier,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontFamily = FontFamily.Monospace,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    IconButton(
+                        modifier = Modifier.size(36.dp),
+                        onClick = { listener.onClickCopyAcct() },
+                    ) {
+                        Icon(
+                            modifier = Modifier.padding(8.dp),
+                            imageVector = Icons.Outlined.ContentCopy,
+                            contentDescription = "コピー",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
-
+            Spacer(modifier = Modifier.height(16.dp))
             Column(
-                modifier =
-                Modifier
+                modifier = Modifier
                     .padding(horizontal = 20.dp)
                     .padding(bottom = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -430,6 +479,7 @@ private fun DeliverySection(state: AccountUiState) {
 private fun FollowSection(
     state: AccountUiState,
     onNavigate: (Screen) -> Unit,
+    listener: AccountScreenUiState.Listener,
 ) {
     SectionCard(title = "フォローする") {
         Text(
@@ -450,7 +500,7 @@ private fun FollowSection(
                         fontFamily = FontFamily.Monospace,
                     )
                 }
-                IconButton(onClick = { copyToClipboard(state.acct) }) {
+                IconButton(onClick = listener::onClickCopyAcct) {
                     Icon(
                         imageVector = Icons.Outlined.ContentCopy,
                         contentDescription = "コピー",
@@ -643,14 +693,13 @@ private fun statusColor(status: FetchStatus): Color =
  * 名前を変えながら検証しているときに見分けが付かない。
  */
 private fun avatarColors(username: String): List<Color> {
-    val palette =
-        listOf(
-            Color(0xFF4A3FD1) to Color(0xFF7B6FF0),
-            Color(0xFF1E7A6F) to Color(0xFF3FB8A6),
-            Color(0xFFB05A1E) to Color(0xFFE79A4B),
-            Color(0xFF8C2F6B) to Color(0xFFD167AC),
-            Color(0xFF2F5FA8) to Color(0xFF6795DE),
-        )
+    val palette = listOf(
+        Color(0xFF4A3FD1) to Color(0xFF7B6FF0),
+        Color(0xFF1E7A6F) to Color(0xFF3FB8A6),
+        Color(0xFFB05A1E) to Color(0xFFE79A4B),
+        Color(0xFF8C2F6B) to Color(0xFFD167AC),
+        Color(0xFF2F5FA8) to Color(0xFF6795DE),
+    )
 
     // hashCode は負にもなるので、剰余を取る前に絶対値にする
     val index = (username.hashCode().let { if (it == Int.MIN_VALUE) 0 else kotlin.math.abs(it) }) % palette.size
