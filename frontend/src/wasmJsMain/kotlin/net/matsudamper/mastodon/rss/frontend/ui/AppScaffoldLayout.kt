@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -25,7 +26,9 @@ internal fun AppScaffoldLayout(
     topBar: @Composable () -> Unit,
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
+    val snackbarEvents = rememberSnackbarEvents()
     val snackbarHostState = rememberSnackbarHostState()
+    CollectSnackbarEvents(events = snackbarEvents, receiver = snackbarHostState)
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -38,7 +41,7 @@ internal fun AppScaffoldLayout(
                 val wide = maxWidth >= WideBreakpoint
                 val outerPadding = if (wide) 24.dp else 12.dp
 
-                CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
+                CompositionLocalProvider(LocalSnackbarEvents provides snackbarEvents) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         Column(
                             modifier =
