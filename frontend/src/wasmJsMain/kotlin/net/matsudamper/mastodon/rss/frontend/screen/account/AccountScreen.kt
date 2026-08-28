@@ -5,7 +5,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -35,9 +38,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import kotlinx.browser.window
@@ -253,51 +258,67 @@ private fun ProfileHeader(
     ) {
         Column {
             Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(if (wide) 132.dp else 88.dp)
-                        .background(Brush.linearGradient(colors)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (wide) 132.dp else 88.dp)
+                    .background(Brush.linearGradient(colors)),
             )
 
             Row(
-                modifier =
-                    Modifier
-                        .padding(horizontal = 20.dp)
-                        .offset(y = -avatarSize / 3),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .height(IntrinsicSize.Max),
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(avatarSize)
-                            .clip(RoundedCornerShape(avatarSize / 4))
-                            .background(Brush.linearGradient(colors.reversed())),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = state.initial,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
+                Layout(
+                    {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(avatarSize)
+                                    .clip(RoundedCornerShape(avatarSize / 4))
+                                    .background(Brush.linearGradient(colors.reversed())),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = state.initial,
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    },
+                ) { measurables, constraints ->
+                    val placeable = measurables.first().measure(
+                        Constraints.fixed(
+                            avatarSize.roundToPx(), avatarSize.roundToPx(),
+                        ),
                     )
+                    layout(placeable.width, 0) {
+                        println("constraints.maxHeight=${constraints.maxHeight}, placeable.measuredHeight=${placeable.measuredHeight}")
+                        placeable.place(
+                            x = 0,
+                            y = constraints.maxHeight - placeable.measuredHeight,
+                        )
+                    }
                 }
 
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.Bottom,
                 ) {
-                    Text(
-                        text = state.displayName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    Column(
+                        modifier = Modifier,
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
+                        Text(
+                            text = state.displayName,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
                         Text(
                             text = state.acct,
                             modifier = Modifier,
@@ -307,21 +328,21 @@ private fun ProfileHeader(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        IconButton(
-                            modifier = Modifier.size(36.dp),
-                            onClick = { listener.onClickCopyAcct() },
-                        ) {
-                            Icon(
-                                modifier = Modifier.padding(4.dp),
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = "コピー",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                    }
+                    IconButton(
+                        modifier = Modifier.size(36.dp),
+                        onClick = { listener.onClickCopyAcct() },
+                    ) {
+                        Icon(
+                            modifier = Modifier.padding(8.dp),
+                            imageVector = Icons.Outlined.ContentCopy,
+                            contentDescription = "コピー",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
-
+            Spacer(modifier = Modifier.height(16.dp))
             Column(
                 modifier =
                     Modifier
