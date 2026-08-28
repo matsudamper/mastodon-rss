@@ -35,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,7 +44,6 @@ import kotlinx.browser.window
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
-import net.matsudamper.mastodon.rss.frontend.ui.BaselineCopyIcon
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
@@ -224,8 +222,8 @@ private fun PlaceholderNotice() {
             )
             Text(
                 text =
-                "実際の値になるのは、フィードの取り込み（Phase 5）と管理 API（Phase 8）を繋いでから。" +
-                    "ユーザー名と acct と配信した投稿は本物。",
+                    "実際の値になるのは、フィードの取り込み（Phase 5）と管理 API（Phase 8）を繋いでから。" +
+                        "ユーザー名と acct と配信した投稿は本物。",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -251,31 +249,31 @@ private fun ProfileHeader(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column {
             Box(
                 modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(if (wide) 132.dp else 88.dp)
-                    .background(Brush.linearGradient(colors)),
+                    Modifier
+                        .fillMaxWidth()
+                        .height(if (wide) 132.dp else 88.dp)
+                        .background(Brush.linearGradient(colors)),
             )
 
             Row(
                 modifier =
-                Modifier
-                    .padding(horizontal = 20.dp)
-                    .offset(y = -avatarSize / 3),
+                    Modifier
+                        .padding(horizontal = 20.dp)
+                        .offset(y = -avatarSize / 3),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Box(
                     modifier =
-                    Modifier
-                        .size(avatarSize)
-                        .clip(RoundedCornerShape(avatarSize / 4))
-                        .background(Brush.linearGradient(colors.reversed())),
+                        Modifier
+                            .size(avatarSize)
+                            .clip(RoundedCornerShape(avatarSize / 4))
+                            .background(Brush.linearGradient(colors.reversed())),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -298,29 +296,37 @@ private fun ProfileHeader(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             text = state.acct,
-                            modifier =
-                            Modifier
-                                .weight(1f, fill = false)
-                                .alignBy(LastBaseline),
+                            modifier = Modifier,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontFamily = FontFamily.Monospace,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        BaselineCopyIcon(onClick = listener::onClickCopyAcct)
+                        IconButton(
+                            modifier = Modifier.size(36.dp),
+                            onClick = { listener.onClickCopyAcct() },
+                        ) {
+                            Icon(
+                                modifier = Modifier.padding(4.dp),
+                                imageVector = Icons.Outlined.ContentCopy,
+                                contentDescription = "コピー",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
 
             Column(
                 modifier =
-                Modifier
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 20.dp),
+                    Modifier
+                        .padding(horizontal = 20.dp)
+                        .padding(bottom = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -668,14 +674,13 @@ private fun statusColor(status: FetchStatus): Color =
  * 名前を変えながら検証しているときに見分けが付かない。
  */
 private fun avatarColors(username: String): List<Color> {
-    val palette =
-        listOf(
-            Color(0xFF4A3FD1) to Color(0xFF7B6FF0),
-            Color(0xFF1E7A6F) to Color(0xFF3FB8A6),
-            Color(0xFFB05A1E) to Color(0xFFE79A4B),
-            Color(0xFF8C2F6B) to Color(0xFFD167AC),
-            Color(0xFF2F5FA8) to Color(0xFF6795DE),
-        )
+    val palette = listOf(
+        Color(0xFF4A3FD1) to Color(0xFF7B6FF0),
+        Color(0xFF1E7A6F) to Color(0xFF3FB8A6),
+        Color(0xFFB05A1E) to Color(0xFFE79A4B),
+        Color(0xFF8C2F6B) to Color(0xFFD167AC),
+        Color(0xFF2F5FA8) to Color(0xFF6795DE),
+    )
 
     // hashCode は負にもなるので、剰余を取る前に絶対値にする
     val index = (username.hashCode().let { if (it == Int.MIN_VALUE) 0 else kotlin.math.abs(it) }) % palette.size

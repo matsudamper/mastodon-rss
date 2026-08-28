@@ -213,67 +213,6 @@ fun copyToClipboard(
     )
 }
 
-/**
- * テキストの baseline に揃えるコピーアイコン。
- *
- * Icon 単体は baseline を持たないので、LastBaseline を底辺に置く。
- * タップ領域だけ 48dp 四方に広げ、18dp のアイコンは下端を baseline に合わせる。
- */
-@Composable
-fun RowScope.BaselineCopyIcon(onClick: () -> Unit) {
-    val iconSize = 18.dp
-    val touchSize = 48.dp
-    val iconBottomPadding = 2.dp
-    val interactionSource = remember { MutableInteractionSource() }
-    Box(
-        modifier =
-        Modifier
-            .alignBy(LastBaseline)
-            .baselineCopyIconTouchTarget(
-                iconSize = iconSize,
-                touchSize = touchSize,
-                iconBottomPadding = iconBottomPadding,
-            )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = ripple(bounded = false, radius = touchSize / 2),
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.BottomCenter,
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.ContentCopy,
-            contentDescription = "コピー",
-            modifier = Modifier.size(iconSize),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-private fun Modifier.baselineCopyIconTouchTarget(
-    iconSize: Dp,
-    touchSize: Dp,
-    iconBottomPadding: Dp,
-): Modifier =
-    layout { measurable, constraints ->
-        val iconPx = iconSize.roundToPx()
-        val touchPx = touchSize.roundToPx()
-        val iconBottomPaddingPx = iconBottomPadding.roundToPx()
-        val placeable = measurable.measure(Constraints.fixed(touchPx, touchPx))
-        val baselineOffset = (iconPx - iconBottomPaddingPx).coerceAtLeast(0)
-        layout(
-            width = touchPx,
-            height = iconPx,
-            alignmentLines =
-            mapOf(
-                FirstBaseline to baselineOffset,
-                LastBaseline to baselineOffset,
-            ),
-        ) {
-            placeable.place(0, iconPx - touchPx)
-        }
-    }
-
 /** 枠線 1 本ぶんの色。区切り線に使う */
 @Composable
 fun dividerColor(): Color = MaterialTheme.colorScheme.outlineVariant
