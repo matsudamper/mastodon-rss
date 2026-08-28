@@ -85,8 +85,8 @@ data class AdminAccountScreenUiState(
         ) : Feed
     }
 
-    /** 投稿の元になった取り込み済みの記事 */
-    data class FeedItem(
+    /** 投稿と一緒に見せる、元になった記事 */
+    data class SourceArticle(
         val title: String?,
         val link: String?,
         val publishedAt: String?,
@@ -127,13 +127,13 @@ data class AdminAccountScreenUiState(
     }
 
     /**
-     * @param feedItem 元になった記事。手で書いた投稿と、記事を消した後は null
+     * @param sourceArticle 元になった記事。無い投稿では出さない
      */
     data class Note(
         val url: String,
         val contentHtml: String,
         val publishedAt: String,
-        val feedItem: FeedItem?,
+        val sourceArticle: SourceArticle?,
     )
 
     /**

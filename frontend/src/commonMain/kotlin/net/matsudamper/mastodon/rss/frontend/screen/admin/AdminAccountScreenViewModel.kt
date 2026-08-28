@@ -553,8 +553,8 @@ class AdminAccountScreenViewModel(
             publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
         )
 
-    private fun AdminFeedItem.toUiState(): AdminAccountScreenUiState.FeedItem =
-        AdminAccountScreenUiState.FeedItem(
+    private fun AdminFeedItem.toUiState(): AdminAccountScreenUiState.SourceArticle =
+        AdminAccountScreenUiState.SourceArticle(
             title = title,
             link = link,
             publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
@@ -617,7 +617,7 @@ class AdminAccountScreenViewModel(
         url = url,
         contentHtml = contentHtml,
         publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
-        feedItem = feedItem?.toUiState(),
+        sourceArticle = feedItem?.toUiState(),
     )
 
     private data class ViewModelState(

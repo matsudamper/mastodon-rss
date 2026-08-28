@@ -384,17 +384,17 @@ private fun FeedPreviewPanel(
 }
 
 @Composable
-private fun NoteFeedItem(item: AdminAccountScreenUiState.FeedItem) {
+private fun NoteSourceArticle(article: AdminAccountScreenUiState.SourceArticle) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = "元の記事: ${item.title ?: "(題名なし)"}",
+            text = "元の記事: ${article.title ?: "(題名なし)"}",
             style = MaterialTheme.typography.bodySmall,
         )
 
-        val meta = listOfNotNull(item.publishedAt, item.link).joinToString("  ")
+        val meta = listOfNotNull(article.publishedAt, article.link).joinToString("  ")
         Text(
             text = meta,
             style = MaterialTheme.typography.bodySmall,
@@ -514,9 +514,9 @@ private fun NotesCard(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            val feedItem = note.feedItem
-                            if (feedItem != null) {
-                                NoteFeedItem(item = feedItem)
+                            val sourceArticle = note.sourceArticle
+                            if (sourceArticle != null) {
+                                NoteSourceArticle(article = sourceArticle)
                             }
                         }
                     }
