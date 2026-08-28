@@ -226,8 +226,7 @@ private fun PlaceholderNotice() {
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text =
-                "実際の値になるのは、フィードの取り込み（Phase 5）と管理 API（Phase 8）を繋いでから。" +
+                text = "実際の値になるのは、フィードの取り込み（Phase 5）と管理 API（Phase 8）を繋いでから。" +
                     "ユーザー名と acct と配信した投稿は本物。",
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -274,8 +273,7 @@ private fun ProfileHeader(
                 Layout(
                     {
                         Box(
-                            modifier =
-                            Modifier
+                            modifier = Modifier
                                 .size(avatarSize)
                                 .clip(RoundedCornerShape(avatarSize / 4))
                                 .background(Brush.linearGradient(colors.reversed())),
@@ -345,8 +343,7 @@ private fun ProfileHeader(
             }
             Spacer(modifier = Modifier.height(16.dp))
             Column(
-                modifier =
-                Modifier
+                modifier = Modifier
                     .padding(horizontal = 20.dp)
                     .padding(bottom = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
