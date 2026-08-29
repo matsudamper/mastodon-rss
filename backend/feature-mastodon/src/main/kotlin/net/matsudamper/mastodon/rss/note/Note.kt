@@ -98,9 +98,9 @@ data class CreateNote(
 @Serializable
 data class Tombstone(
     /**
-     * 消した投稿を配ったときの [Note.id]。投稿の URL がそのまま入る。
+     * 消す対象の id。ActivityStreams のオブジェクトの id は URL なので、投稿の URL が入る。
      *
-     * 相手はこれを鍵にして受け取り済みの投稿を引き当てるので、
+     * 相手はこれを鍵にして受け取り済みのものを引き当てるので、
      * 1 文字でも違うと何も消えない
      */
     val id: String,
