@@ -542,19 +542,6 @@ private fun NotesCard(
             style = MaterialTheme.typography.bodyMedium,
         )
 
-        val deleteResult = content.deleteNoteResult
-        if (deleteResult != null) {
-            Text(
-                text = "投稿を削除した。宛先 ${deleteResult.targets} 件のうち ${deleteResult.delivered} 件に届いた。" +
-                    if (deleteResult.delivered < deleteResult.targets) {
-                        "届かなかった相手のタイムラインには残る。"
-                    } else {
-                        ""
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-
         val notes = content.notes
         val error = content.notesError
 

@@ -54,14 +54,7 @@ sealed interface AdminPostNoteResult {
 }
 
 sealed interface AdminDeleteNoteResult {
-    /**
-     * @param deliveryTargets Delete を送った宛先の数
-     * @param delivered そのうち届いた数。少なければ、その相手には投稿が残っている
-     */
-    data class Success(
-        val deliveryTargets: Int,
-        val delivered: Int,
-    ) : AdminDeleteNoteResult
+    data object Success : AdminDeleteNoteResult
 
     data class Rejected(
         val reason: FailureReason,

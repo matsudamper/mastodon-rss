@@ -34,12 +34,6 @@ type AdminDeleteNoteResult {
     "消せた投稿の id"
     deletedId: NoteId
 
-    "削除を伝えた相手の数。まとめて伝わる相手がいるのでフォロワーの数とは一致しない"
-    deliveryTargets: Int
-
-    "そのうち伝わった数。少なければ、伝わらなかった相手には投稿が残っている"
-    delivered: Int
-
     failure: AdminDeleteNoteFailure
 }
 

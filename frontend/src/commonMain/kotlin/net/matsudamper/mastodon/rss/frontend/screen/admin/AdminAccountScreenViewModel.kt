@@ -416,7 +416,7 @@ class AdminAccountScreenViewModel(
         if (state.deletingNote) return
 
         deleteNoteJob?.cancel()
-        viewModelStateFlow.update { it.copy(deletingNote = true, notesError = null, deleteNoteResult = null) }
+        viewModelStateFlow.update { it.copy(deletingNote = true, notesError = null) }
 
         deleteNoteJob = viewModelScope.launch {
             try {
@@ -439,12 +439,6 @@ class AdminAccountScreenViewModel(
                                 deletingNote = false,
                                 deleteNoteId = null,
                                 notesError = null,
-                                // 届かなかった相手のタイムラインには投稿が残る。
-                                // こちらの一覧からは消えるので、件数を出さないと気付けない
-                                deleteNoteResult = AdminAccountScreenUiState.DeleteNoteResult(
-                                    targets = result.deliveryTargets,
-                                    delivered = result.delivered,
-                                ),
                             )
                         }
                         loadUnpublished(accountId)
@@ -644,7 +638,6 @@ class AdminAccountScreenViewModel(
                     ),
                     notes = state.notes.map { it.toUiState(state.deletingFeedItemIds) },
                     deleteNoteDialog = state.deleteNoteDialogUiState(),
-                    deleteNoteResult = state.deleteNoteResult,
                     notesError = state.notesError,
                     notesLoading = state.notesLoading,
                     canLoadMore = state.cursor != null,
@@ -813,7 +806,7 @@ class AdminAccountScreenViewModel(
             listener = object : AdminAccountScreenUiState.NoteListener {
                 override fun onClickDelete() {
                     viewModelStateFlow.update {
-                        it.copy(deleteNoteId = id, notesError = null, deleteNoteResult = null)
+                        it.copy(deleteNoteId = id, notesError = null)
                     }
                 }
             },
@@ -840,7 +833,6 @@ class AdminAccountScreenViewModel(
         val deletingFeedItemIds: Set<Long> = emptySet(),
         val deleteNoteId: String? = null,
         val deletingNote: Boolean = false,
-        val deleteNoteResult: AdminAccountScreenUiState.DeleteNoteResult? = null,
         val unpublishedItems: List<AdminUnpublishedFeedItem> = emptyList(),
         val postedItems: List<AdminUnpublishedFeedItem>? = null,
         val postingUnpublished: Boolean = false,

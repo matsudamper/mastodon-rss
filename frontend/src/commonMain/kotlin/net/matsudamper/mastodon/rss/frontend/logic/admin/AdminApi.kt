@@ -316,10 +316,7 @@ class AdminApi(
             ?: return AdminDeleteNoteResult.Failure(response.failureMessage())
 
         if (result.deletedId != null) {
-            return AdminDeleteNoteResult.Success(
-                deliveryTargets = result.deliveryTargets ?: 0,
-                delivered = result.delivered ?: 0,
-            )
+            return AdminDeleteNoteResult.Success
         }
 
         return AdminDeleteNoteResult.Rejected(

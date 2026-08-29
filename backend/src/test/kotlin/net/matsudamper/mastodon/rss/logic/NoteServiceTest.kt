@@ -141,7 +141,6 @@ class NoteServiceTest {
 
         val success = assertIs<NoteService.DeleteResult.Success>(result)
         assertEquals(posted.published.publicId, success.deleted.publicId)
-        assertEquals(1, success.deleted.delivered)
         assertEquals(emptyList(), notes.added)
 
         // 消したことは配って初めて伝わる。届かないとフォロワーのタイムラインに残る

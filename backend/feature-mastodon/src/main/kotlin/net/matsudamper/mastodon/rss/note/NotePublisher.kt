@@ -94,11 +94,7 @@ class NotePublisher(
 
         logger.info("投稿の削除を配った: ${sender.acct} $publicId 宛先=${result.targets} 成功=${result.delivered}")
 
-        return DeletedNote(
-            publicId = publicId,
-            targets = result.targets,
-            delivered = result.delivered,
-        )
+        return DeletedNote(publicId = publicId)
     }
 
     private suspend fun deliverToFollowers(
@@ -168,16 +164,8 @@ class NotePublisher(
     }
 }
 
-/**
- * 消した結果。
- *
- * @param targets `Delete` を送った宛先の数
- * @param delivered そのうち相手が受け取ったもの。届かなかった相手には投稿が残る
- */
 data class DeletedNote(
     val publicId: String,
-    val targets: Int,
-    val delivered: Int,
 )
 
 /**

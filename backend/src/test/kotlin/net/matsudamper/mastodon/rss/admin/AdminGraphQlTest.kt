@@ -930,7 +930,7 @@ class AdminGraphQlTest {
             query =
             "mutation DeleteNote(${'$'}username: String!, ${'$'}noteId: NoteId!) { admin { " +
                 "deleteNote(query: { username: ${'$'}username, noteId: ${'$'}noteId }) { " +
-                "deletedId deliveryTargets delivered failure { reason } } } }",
+                "deletedId failure { reason } } } }",
             token = token,
             variables =
             """{"username":${JsonPrimitive(username)},"noteId":${JsonPrimitive(noteId)}}""",

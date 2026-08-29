@@ -222,10 +222,6 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
-    /**
-     * 消したことは相手のサーバーに配って初めて伝わる。配信の成否は
-     * [postNote] と同じように投稿の成否と分けて返す
-     */
     override fun deleteNote(
         adminMutation: QlAdminMutation,
         query: QlDeleteNoteQuery,
@@ -244,15 +240,11 @@ class AdminMutationResolverImpl : AdminMutationResolver {
             ) {
                 is NoteService.DeleteResult.Success -> QlAdminDeleteNoteResult(
                     deletedId = NoteId(deleted.deleted.publicId),
-                    deliveryTargets = deleted.deleted.targets,
-                    delivered = deleted.deleted.delivered,
                     failure = null,
                 )
 
                 is NoteService.DeleteResult.Failure -> QlAdminDeleteNoteResult(
                     deletedId = null,
-                    deliveryTargets = null,
-                    delivered = null,
                     failure = QlAdminDeleteNoteFailure(
                         reason = when (deleted.reason) {
                             NoteService.DeleteFailure.UNKNOWN_ACCOUNT ->
