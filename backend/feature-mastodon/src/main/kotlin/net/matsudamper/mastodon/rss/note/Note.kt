@@ -97,10 +97,10 @@ data class CreateNote(
 @Serializable
 data class Tombstone(
     /**
-     * 消した投稿の URL。[Note.id] と同じものを入れる。
+     * 消した投稿を配ったときの [Note.id]。投稿の URL がそのまま入る。
      *
      * 相手はこれを鍵にして受け取り済みの投稿を引き当てるので、
-     * 別の綴りにすると何も消えない
+     * 1 文字でも違うと何も消えない
      */
     val id: String,
 ) {
