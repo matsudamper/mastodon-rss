@@ -8,11 +8,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
+import net.matsudamper.mastodon.rss.frontend.ui.SnackbarReceiver
 
 /**
  * @param username URL に入っていた名前。綴りが違っていても引けるので、
@@ -24,6 +26,8 @@ class AccountScreenViewModel(
     private val host: String,
     private val viewModelScope: CoroutineScope,
     private val api: AccountApi = AccountApi(),
+    private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
+    private val snackbarEvents: EventSender<SnackbarReceiver>,
 ) {
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
@@ -46,6 +50,10 @@ class AccountScreenViewModel(
 
                     override fun onClickLoadMore() {
                         loadMore()
+                    }
+
+                    override fun onClickCopyAcct() {
+                        copyAcct()
                     }
                 },
             ),
@@ -179,6 +187,21 @@ class AccountScreenViewModel(
                     }
                 }
             }
+    }
+
+    private fun copyAcct() {
+        val acct =
+            when (val account = viewModelStateFlow.value.account) {
+                is AccountResult.Success -> account.account.acct
+                else -> return
+            }
+        copyToClipboard(acct) { copied ->
+            if (copied) {
+                viewModelScope.launch {
+                    snackbarEvents.send { it.show("コピーしました") }
+                }
+            }
+        }
     }
 
     private fun createContent(state: ViewModelState): AccountScreenUiState.Content {

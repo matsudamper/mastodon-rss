@@ -400,7 +400,7 @@ private fun DeleteNoteDialog(
         title = { Text("投稿を削除する") },
         text = {
             Text(
-                text = if (dialog.hasFeedItem) {
+                text = if (dialog.hasSourceArticle) {
                     "フォロワーのサーバーにも削除を配る。届かなかった相手には残る。\n" +
                         "元の記事も消すと、最新情報を投稿したときに取り込み直してもう一度流れる。" +
                         "投稿だけ消すと、その記事はもう流れない。"
@@ -412,13 +412,13 @@ private fun DeleteNoteDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { listener.onConfirmDeleteNote(withFeedItem = dialog.hasFeedItem) },
+                onClick = { listener.onConfirmDeleteNote(withFeedItem = dialog.hasSourceArticle) },
                 enabled = !dialog.deleting,
             ) {
                 Text(
                     when {
                         dialog.deleting -> "削除中"
-                        dialog.hasFeedItem -> "投稿と記事を削除"
+                        dialog.hasSourceArticle -> "投稿と記事を削除"
                         else -> "削除"
                     },
                 )
@@ -426,7 +426,7 @@ private fun DeleteNoteDialog(
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (dialog.hasFeedItem) {
+                if (dialog.hasSourceArticle) {
                     TextButton(
                         onClick = { listener.onConfirmDeleteNote(withFeedItem = false) },
                         enabled = !dialog.deleting,
@@ -446,17 +446,17 @@ private fun DeleteNoteDialog(
 }
 
 @Composable
-private fun NoteFeedItem(item: AdminAccountScreenUiState.FeedItem) {
+private fun NoteSourceArticle(article: AdminAccountScreenUiState.SourceArticle) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = "元の記事: ${item.title ?: "(題名なし)"}",
+            text = "元の記事: ${article.title ?: "(題名なし)"}",
             style = MaterialTheme.typography.bodySmall,
         )
 
-        val meta = listOfNotNull(item.stateText, item.publishedAt, item.link).joinToString("  ")
+        val meta = listOfNotNull(article.publishedAt, article.link).joinToString("  ")
         Text(
             text = meta,
             style = MaterialTheme.typography.bodySmall,
@@ -465,10 +465,10 @@ private fun NoteFeedItem(item: AdminAccountScreenUiState.FeedItem) {
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(
-                onClick = { item.listener.onClickDelete() },
-                enabled = !item.deleting,
+                onClick = { article.listener.onClickDelete() },
+                enabled = !article.deleting,
             ) {
-                Text(if (item.deleting) "記事を削除中" else "記事を削除")
+                Text(if (article.deleting) "記事を削除中" else "記事を削除")
             }
         }
     }
@@ -599,9 +599,9 @@ private fun NotesCard(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            val feedItem = note.feedItem
-                            if (feedItem != null) {
-                                NoteFeedItem(item = feedItem)
+                            val sourceArticle = note.sourceArticle
+                            if (sourceArticle != null) {
+                                NoteSourceArticle(article = sourceArticle)
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 OutlinedButton(onClick = { note.listener.onClickDelete() }) {

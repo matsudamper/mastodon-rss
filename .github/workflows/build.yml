@@ -421,7 +421,7 @@ jobs:
           echo "--- GraphQL の投稿一覧（記事に紐づく投稿） ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -H "Cookie: $SESSION_COOKIE" \
-            -d '{"query":"query Notes($username: String!) { admin { notes(username: $username, limit: 10) { nodes { url feedItem { id title state } } } } }","variables":{"username":"admin"}}' \
+            -d '{"query":"query Notes($username: String!) { admin { notes(username: $username, limit: 10) { nodes { url feedItem { id title } } } } }","variables":{"username":"admin"}}' \
             http://localhost:8080/graphql -o /tmp/graphql-notes-admin.json
           cat /tmp/graphql-notes-admin.json
           if grep -q '"errors"' /tmp/graphql-notes-admin.json; then
@@ -429,7 +429,27 @@ jobs:
             exit 1
           fi
           grep -q '"title":"CI の記事"' /tmp/graphql-notes-admin.json
-          grep -q '"state":"POSTED"' /tmp/graphql-notes-admin.json
+
+          # 投稿が 0 件だと feedItem のリゾルバも DataLoader も呼ばれない。
+          # 1 件配ってから引く。手で書いた投稿なので元記事は付かず null になる
+          echo "--- GraphQL の投稿と元記事 ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"mutation Post($username: String!, $body: String!) { admin { postNote(username: $username, body: $body) { note { url } failure { isEmpty } } } }","variables":{"username":"ci-feed","body":"ci"}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-post-note.json
+          cat /tmp/graphql-post-note.json
+          grep -q '"failure":null' /tmp/graphql-post-note.json
+
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"query Notes($username: String!) { admin { notes(username: $username, limit: 10) { nodes { url feedItem { title } } } } }","variables":{"username":"ci-feed"}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-notes-posted.json
+          cat /tmp/graphql-notes-posted.json
+          grep -q '"feedItem":null' /tmp/graphql-notes-posted.json
+          if grep -q '"errors"' /tmp/graphql-notes-posted.json; then
+            echo "::error::feedItem が errors を返した。リゾルバか DataLoader が native で動いていない"
+            exit 1
+          fi
 
           # 追加は DB への書き込みを通る。入れた名前がそのまま WebFinger から引ける
           echo "--- GraphQL のアカウント追加 ---"

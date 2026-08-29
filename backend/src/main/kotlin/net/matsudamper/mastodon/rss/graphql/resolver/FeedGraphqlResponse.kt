@@ -4,7 +4,6 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemFailureReason
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItem
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItemState
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreview
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailureReason
@@ -24,7 +23,6 @@ import net.matsudamper.mastodon.rss.graphql.model.QlFeed
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedItem
-import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.shared.FeedId
 import net.matsudamper.mastodon.rss.shared.FeedItemId
 
@@ -173,17 +171,7 @@ internal fun FeedItem.toGraphqlResponse(): QlAdminFeedItem = QlAdminFeedItem(
     title = title,
     link = link,
     publishedAt = publishedAt?.epochSecond,
-    importedAt = importedAt.epochSecond,
-    state = state.toGraphqlResponse(),
-    postedAt = postedAt?.epochSecond,
 )
-
-internal fun FeedItemState.toGraphqlResponse(): QlAdminFeedItemState =
-    when (this) {
-        FeedItemState.PENDING -> QlAdminFeedItemState.PENDING
-        FeedItemState.POSTED -> QlAdminFeedItemState.POSTED
-        FeedItemState.SKIPPED -> QlAdminFeedItemState.SKIPPED
-    }
 
 internal fun FeedService.DeleteItemResult.toGraphqlResponse(): QlAdminDeleteFeedItemResult =
     when (this) {

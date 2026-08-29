@@ -90,22 +90,20 @@ data class AdminAccountScreenUiState(
     }
 
     /**
-     * 投稿の元になった取り込み済みの記事。
+     * 投稿と一緒に見せる、元になった記事
      *
-     * @param stateText 投稿の状況。「投稿済み」のような表示用の文字
      * @param deleting 削除中。ボタンを押せなくする
      */
-    data class FeedItem(
+    data class SourceArticle(
         val title: String?,
         val link: String?,
         val publishedAt: String?,
-        val stateText: String,
         val deleting: Boolean,
-        val listener: FeedItemListener,
+        val listener: SourceArticleListener,
     )
 
     @Immutable
-    interface FeedItemListener {
+    interface SourceArticleListener {
         /**
          * この記事を消す。配信した投稿は残るので、
          * 最新情報を投稿すると同じ記事がもう一度流れる
@@ -161,22 +159,22 @@ data class AdminAccountScreenUiState(
     /**
      * 投稿を消す前の確認。
      *
-     * @param hasFeedItem 元になった記事があるか。あるときだけ、まとめて消すかを選べる
+     * @param hasSourceArticle 元になった記事があるか。あるときだけ、まとめて消すかを選べる
      * @param deleting 削除中。ボタンを押せなくする
      */
     data class DeleteNoteDialog(
-        val hasFeedItem: Boolean,
+        val hasSourceArticle: Boolean,
         val deleting: Boolean,
     )
 
     /**
-     * @param feedItem 元になった記事。手で書いた投稿と、記事を消した後は null
+     * @param sourceArticle 元になった記事。無い投稿では出さない
      */
     data class Note(
         val url: String,
         val contentHtml: String,
         val publishedAt: String,
-        val feedItem: FeedItem?,
+        val sourceArticle: SourceArticle?,
         val listener: NoteListener,
     )
 

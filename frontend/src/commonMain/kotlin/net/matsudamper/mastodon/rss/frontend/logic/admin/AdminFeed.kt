@@ -137,17 +137,7 @@ data class AdminFeedItem(
     val title: String?,
     val link: String?,
     val publishedAt: Long?,
-    val importedAt: Long,
-    val state: State,
-    val postedAt: Long?,
-) {
-    enum class State {
-        PENDING,
-        POSTED,
-        SKIPPED,
-        UNKNOWN,
-    }
-}
+)
 
 sealed interface AdminDeleteFeedItemResult {
     data object Success : AdminDeleteFeedItemResult

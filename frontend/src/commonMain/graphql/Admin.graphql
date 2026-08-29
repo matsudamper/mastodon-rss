@@ -208,9 +208,6 @@ fragment AdminFeedItemFields on AdminFeedItem {
     title
     link
     publishedAt
-    importedAt
-    state
-    postedAt
 }
 
 mutation AdminDeleteNote($query: DeleteNoteQuery!) {

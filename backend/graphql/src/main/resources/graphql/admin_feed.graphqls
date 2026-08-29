@@ -107,21 +107,6 @@ type AdminFeedItem {
 
     "配信元が名乗っている公開日時。持たないフィードがある"
     publishedAt: UnixTime
-
-    importedAt: UnixTime!
-    state: AdminFeedItemState!
-    postedAt: UnixTime
-}
-
-enum AdminFeedItemState {
-    "投稿待ち"
-    PENDING
-
-    "投稿済み"
-    POSTED
-
-    "題名もリンクも無く本文を組み立てられないので投稿しない"
-    SKIPPED
 }
 
 input DeleteFeedItemQuery {

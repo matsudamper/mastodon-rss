@@ -729,19 +729,13 @@ class AdminAccountScreenViewModel(
             publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
         )
 
-    private fun AdminFeedItem.toUiState(deleting: Boolean): AdminAccountScreenUiState.FeedItem =
-        AdminAccountScreenUiState.FeedItem(
+    private fun AdminFeedItem.toUiState(deleting: Boolean): AdminAccountScreenUiState.SourceArticle =
+        AdminAccountScreenUiState.SourceArticle(
             title = title,
             link = link,
             publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
-            stateText = when (state) {
-                AdminFeedItem.State.PENDING -> "未投稿"
-                AdminFeedItem.State.POSTED -> "投稿済み"
-                AdminFeedItem.State.SKIPPED -> "投稿しない"
-                AdminFeedItem.State.UNKNOWN -> "不明"
-            },
             deleting = deleting,
-            listener = object : AdminAccountScreenUiState.FeedItemListener {
+            listener = object : AdminAccountScreenUiState.SourceArticleListener {
                 override fun onClickDelete() {
                     deleteFeedItem(id)
                 }
@@ -805,7 +799,7 @@ class AdminAccountScreenViewModel(
         val note = notes.firstOrNull { it.id == deleteNoteId } ?: return null
 
         return AdminAccountScreenUiState.DeleteNoteDialog(
-            hasFeedItem = note.feedItem != null,
+            hasSourceArticle = note.feedItem != null,
             deleting = deletingNote,
         )
     }
@@ -815,7 +809,7 @@ class AdminAccountScreenViewModel(
             url = url,
             contentHtml = contentHtml,
             publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
-            feedItem = feedItem?.toUiState(deleting = feedItem.id in deletingFeedItemIds),
+            sourceArticle = feedItem?.toUiState(deleting = feedItem.id in deletingFeedItemIds),
             listener = object : AdminAccountScreenUiState.NoteListener {
                 override fun onClickDelete() {
                     viewModelStateFlow.update {
