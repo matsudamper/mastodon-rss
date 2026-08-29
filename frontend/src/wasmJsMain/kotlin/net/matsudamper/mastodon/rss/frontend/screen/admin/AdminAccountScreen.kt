@@ -465,11 +465,6 @@ private fun NotesCard(
     listener: AdminAccountScreenUiState.Listener,
 ) {
     SectionCard(title = "配信した投稿") {
-        Text(
-            text = "フィードから流した投稿には元の記事が付く。",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-
         val notes = content.notes
         val error = content.notesError
 
