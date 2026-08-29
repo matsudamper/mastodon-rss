@@ -103,8 +103,12 @@ data class Tombstone(
      * 別の綴りにすると何も消えない
      */
     val id: String,
-    val type: String = TYPE,
 ) {
+    /**
+     * 相手はこの値を見て、消えたオブジェクトだと判断する。`Tombstone` 以外は入らない
+     */
+    val type: String = TYPE
+
     companion object {
         const val TYPE: String = "Tombstone"
     }
@@ -130,13 +134,17 @@ data class DeleteNote(
      * 相手の重複判定に使われるので、消した投稿の id と同じにしてはいけない
      */
     val id: String,
-    val type: String = TYPE,
     val actor: String,
     val to: List<String>,
     val cc: List<String>,
     @SerialName("object")
     val target: Tombstone,
 ) {
+    /**
+     * 相手はこの値を見て削除だと判断する。`Delete` 以外は入らない
+     */
+    val type: String = TYPE
+
     companion object {
         const val TYPE: String = "Delete"
     }
