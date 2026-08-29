@@ -107,11 +107,7 @@ data class Tombstone(
     /**
      * 相手はこの値を見て、消えたオブジェクトだと判断する。`Tombstone` 以外は入らない
      */
-    val type: String = TYPE
-
-    companion object {
-        const val TYPE: String = "Tombstone"
-    }
+    val type: String = "Tombstone"
 }
 
 /**
@@ -143,11 +139,7 @@ data class DeleteNote(
     /**
      * 相手はこの値を見て削除だと判断する。`Delete` 以外は入らない
      */
-    val type: String = TYPE
-
-    companion object {
-        const val TYPE: String = "Delete"
-    }
+    val type: String = "Delete"
 }
 
 /**

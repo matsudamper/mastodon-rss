@@ -20,7 +20,7 @@ type AdminMutation {
     "取り込んだ記事をまとめて消す。配信した投稿は消さないので、取り込み直すと投稿し直せる"
     deleteFeedItems(query: DeleteFeedItemsQuery!): AdminDeleteFeedItemsResult! @lazy
 
-    "投稿を 1 件消し、消したことをフォロワーに配る。元になった記事は消さない"
+    "投稿を 1 件消す。元になった記事は消さない"
     deleteNote(query: DeleteNoteQuery!): AdminDeleteNoteResult! @lazy
 }
 
@@ -34,10 +34,10 @@ type AdminDeleteNoteResult {
     "消せた投稿の id"
     deletedId: NoteId
 
-    "Delete を送った宛先の数。sharedInbox でまとまるのでフォロワーの数とは一致しない"
+    "削除を伝えた相手の数。まとめて伝わる相手がいるのでフォロワーの数とは一致しない"
     deliveryTargets: Int
 
-    "そのうち相手が受け取った数。宛先より少なければ、その相手には投稿が残っている"
+    "そのうち伝わった数。少なければ、伝わらなかった相手には投稿が残っている"
     delivered: Int
 
     failure: AdminDeleteNoteFailure
