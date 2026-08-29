@@ -98,7 +98,8 @@ data class CreateNote(
 @Serializable
 data class Tombstone(
     /**
-     * 消す対象の id。ActivityStreams のオブジェクトの id は URL なので、投稿の URL が入る。
+     * 消す対象の id。ActivityPub はオブジェクトの id を、取りに行ける公開の URI と定めている。
+     * 投稿の URL がそのまま id なので、それが入る。
      *
      * 相手はこれを鍵にして受け取り済みのものを引き当てるので、
      * 1 文字でも違うと何も消えない
