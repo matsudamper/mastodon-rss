@@ -96,6 +96,12 @@ data class CreateNote(
  */
 @Serializable
 data class Tombstone(
+    /**
+     * 消した投稿の URL。[Note.id] と同じものを入れる。
+     *
+     * 相手はこれを鍵にして受け取り済みの投稿を引き当てるので、
+     * 別の綴りにすると何も消えない
+     */
     val id: String,
     val type: String = TYPE,
 ) {
@@ -118,6 +124,11 @@ data class DeleteNote(
     @SerialName("@context")
     @Serializable(with = StringListSerializer::class)
     val context: List<String> = OutgoingActivity.DEFAULT_CONTEXT,
+    /**
+     * このアクティビティ自身の id。消す投稿の id ではない。
+     *
+     * 相手の重複判定に使われるので、消した投稿の id と同じにしてはいけない
+     */
     val id: String,
     val type: String = TYPE,
     val actor: String,
