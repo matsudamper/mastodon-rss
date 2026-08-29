@@ -376,18 +376,18 @@ jobs:
             exit 1
           fi
 
-          # deleteFeedItem の input には FeedItemId が入る。native-image から
+          # deleteFeedItems の input には FeedItemId のリストが入る。native-image から
           # 落ちていると組み立てられず errors になる。フィードが無いので NO_FEED が返る
           echo "--- GraphQL の記事削除（input の FeedItemId） ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -H "Cookie: $SESSION_COOKIE" \
-            -d '{"query":"mutation Delete($q: DeleteFeedItemQuery!) { admin { deleteFeedItem(query: $q) { deletedId failure { reason } } } }","variables":{"q":{"accountId":'"$ACCOUNT_ID"',"feedItemId":1}}}' \
+            -d '{"query":"mutation Delete($q: DeleteFeedItemsQuery!) { admin { deleteFeedItems(query: $q) { deletedIds failure { reason } } } }","variables":{"q":{"accountId":'"$ACCOUNT_ID"',"feedItemIds":[1,2]}}}' \
             http://localhost:8080/graphql -o /tmp/graphql-delete-feed-item.json
           cat /tmp/graphql-delete-feed-item.json
           # errors を先に見る。set -e が効いているので、reason の grep が先だと
           # 落ちた時点で step が終わり、何が起きたか分からないまま失敗する
           if grep -q '"errors"' /tmp/graphql-delete-feed-item.json; then
-            echo "::error::deleteFeedItem が errors を返した。input の FeedItemId を組み立てられていない"
+            echo "::error::deleteFeedItems が errors を返した。input の FeedItemId を組み立てられていない"
             exit 1
           fi
           grep -q '"reason":"NO_FEED"' /tmp/graphql-delete-feed-item.json

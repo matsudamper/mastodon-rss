@@ -82,12 +82,12 @@ interface FeedItemRepository {
     fun find(id: FeedItemId): FeedItem?
 
     /**
-     * 記事を消す。消せたら true。
+     * 記事をまとめて消す。消せた件数を返す。
      *
      * 消すと次の取得で新着として戻ってくる。投稿済みのものを消して
      * 投稿し直すのに使う。配信した投稿（`notes`）はここでは消さない。
      */
-    fun delete(id: FeedItemId): Boolean
+    fun delete(ids: Collection<FeedItemId>): Int
 
     /** フィードの記事を数える。初回の取り込みかどうかの判定などに使う */
     fun countByFeed(feedId: FeedId): Long

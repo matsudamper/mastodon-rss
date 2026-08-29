@@ -192,10 +192,10 @@ fragment AdminNoteFields on AdminNote {
     }
 }
 
-mutation AdminDeleteFeedItem($query: DeleteFeedItemQuery!) {
+mutation AdminDeleteFeedItems($query: DeleteFeedItemsQuery!) {
     admin {
-        deleteFeedItem(query: $query) {
-            deletedId
+        deleteFeedItems(query: $query) {
+            deletedIds
             failure {
                 reason
             }

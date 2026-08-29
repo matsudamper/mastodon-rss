@@ -312,9 +312,9 @@ class FeedServiceTest {
             service.postUnpublished(account.id)
             val posted = repositories.feedItems.items().first { it.title == "1 本目" }
 
-            val deleted = service.deleteItem(accountId = account.id, feedItemId = posted.id)
+            val deleted = service.deleteItems(accountId = account.id, feedItemIds = listOf(posted.id))
 
-            assertEquals(posted.id, assertIs<FeedService.DeleteItemResult.Success>(deleted).deletedId)
+            assertEquals(listOf(posted.id), assertIs<FeedService.DeleteItemsResult.Success>(deleted).deletedIds)
 
             val result = service.postUnpublished(account.id)
 
@@ -323,6 +323,47 @@ class FeedServiceTest {
                 assertIs<FeedService.PostUnpublishedResult.Success>(result).items.map { it.title },
             )
             assertEquals(3, noteStore.added.size)
+        }
+
+    @Test
+    fun `記事をまとめて消せる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = account.id, url = FEED_URL)
+            val items = repositories.feedItems.items()
+
+            val result = service.deleteItems(accountId = account.id, feedItemIds = items.map { it.id })
+
+            assertEquals(
+                items.map { it.id },
+                assertIs<FeedService.DeleteItemsResult.Success>(result).deletedIds,
+            )
+            assertEquals(emptyList(), repositories.feedItems.items())
+        }
+
+    @Test
+    fun `1 件でも他のフィードの記事が混ざっていたら何も消さない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val owner = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val other = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = owner.id, url = FEED_URL)
+            service.save(accountId = other.id, url = "https://example.com/other.xml")
+            val ownerFeedId = assertNotNull(repositories.feeds.findByAccountId(owner.id)).id
+            val mine = repositories.feedItems.items().first { it.feedId == ownerFeedId }
+            val theirs = repositories.feedItems.items().first { it.feedId != ownerFeedId }
+
+            val result = service.deleteItems(accountId = owner.id, feedItemIds = listOf(mine.id, theirs.id))
+
+            assertEquals(
+                FeedService.DeleteItemsFailure.NOT_FOUND,
+                assertIs<FeedService.DeleteItemsResult.Failure>(result).reason,
+            )
+            assertNotNull(repositories.feedItems.items().firstOrNull { it.id == mine.id })
+            assertNotNull(repositories.feedItems.items().firstOrNull { it.id == theirs.id })
         }
 
     @Test
@@ -336,11 +377,11 @@ class FeedServiceTest {
             service.save(accountId = other.id, url = "https://example.com/other.xml")
             val item = repositories.feedItems.items().first { it.feedId == assertNotNull(repositories.feeds.findByAccountId(owner.id)).id }
 
-            val result = service.deleteItem(accountId = other.id, feedItemId = item.id)
+            val result = service.deleteItems(accountId = other.id, feedItemIds = listOf(item.id))
 
             assertEquals(
-                FeedService.DeleteItemFailure.NOT_FOUND,
-                assertIs<FeedService.DeleteItemResult.Failure>(result).reason,
+                FeedService.DeleteItemsFailure.NOT_FOUND,
+                assertIs<FeedService.DeleteItemsResult.Failure>(result).reason,
             )
             assertNotNull(repositories.feedItems.items().firstOrNull { it.id == item.id })
         }

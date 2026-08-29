@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemFailure
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemFailureReason
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsFailureReason
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItem
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreview
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure
@@ -173,29 +173,29 @@ internal fun FeedItem.toGraphqlResponse(): QlAdminFeedItem = QlAdminFeedItem(
     publishedAt = publishedAt?.epochSecond,
 )
 
-internal fun FeedService.DeleteItemResult.toGraphqlResponse(): QlAdminDeleteFeedItemResult =
+internal fun FeedService.DeleteItemsResult.toGraphqlResponse(): QlAdminDeleteFeedItemsResult =
     when (this) {
-        is FeedService.DeleteItemResult.Success -> QlAdminDeleteFeedItemResult(
-            deletedId = FeedItemId(deletedId.value),
+        is FeedService.DeleteItemsResult.Success -> QlAdminDeleteFeedItemsResult(
+            deletedIds = deletedIds.map { FeedItemId(it.value) },
             failure = null,
         )
 
-        is FeedService.DeleteItemResult.Failure -> QlAdminDeleteFeedItemResult(
-            deletedId = null,
+        is FeedService.DeleteItemsResult.Failure -> QlAdminDeleteFeedItemsResult(
+            deletedIds = null,
             failure = reason.toGraphqlResponse(),
         )
     }
 
-internal fun FeedService.DeleteItemFailure.toGraphqlResponse(): QlAdminDeleteFeedItemFailure =
-    QlAdminDeleteFeedItemFailure(
+internal fun FeedService.DeleteItemsFailure.toGraphqlResponse(): QlAdminDeleteFeedItemsFailure =
+    QlAdminDeleteFeedItemsFailure(
         reason = when (this) {
-            FeedService.DeleteItemFailure.UNKNOWN_ACCOUNT ->
-                QlAdminDeleteFeedItemFailureReason.UNKNOWN_ACCOUNT
+            FeedService.DeleteItemsFailure.UNKNOWN_ACCOUNT ->
+                QlAdminDeleteFeedItemsFailureReason.UNKNOWN_ACCOUNT
 
-            FeedService.DeleteItemFailure.NO_FEED ->
-                QlAdminDeleteFeedItemFailureReason.NO_FEED
+            FeedService.DeleteItemsFailure.NO_FEED ->
+                QlAdminDeleteFeedItemsFailureReason.NO_FEED
 
-            FeedService.DeleteItemFailure.NOT_FOUND ->
-                QlAdminDeleteFeedItemFailureReason.NOT_FOUND
+            FeedService.DeleteItemsFailure.NOT_FOUND ->
+                QlAdminDeleteFeedItemsFailureReason.NOT_FOUND
         },
     )

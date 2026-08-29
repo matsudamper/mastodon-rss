@@ -366,7 +366,11 @@ class FakeFeedItemRepository : FeedItemRepository {
 
     override fun find(id: FeedItemId): FeedItem? = stored.firstOrNull { it.id == id }
 
-    override fun delete(id: FeedItemId): Boolean = stored.removeAll { it.id == id }
+    override fun delete(ids: Collection<FeedItemId>): Int {
+        val before = stored.size
+        stored.removeAll { it.id in ids }
+        return before - stored.size
+    }
 
     override fun countByFeed(feedId: FeedId): Long = stored.count { it.feedId == feedId }.toLong()
 

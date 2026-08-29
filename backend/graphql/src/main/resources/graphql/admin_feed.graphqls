@@ -109,24 +109,26 @@ type AdminFeedItem {
     publishedAt: UnixTime
 }
 
-input DeleteFeedItemQuery {
+input DeleteFeedItemsQuery {
     "記事を持っているフィードのアカウント"
     accountId: AccountId!
-    feedItemId: FeedItemId!
+
+    "消す記事。1 件でもこのアカウントのフィードに無ければ何も消さない"
+    feedItemIds: [FeedItemId!]!
 }
 
-type AdminDeleteFeedItemResult {
+type AdminDeleteFeedItemsResult {
     "消せた記事の id"
-    deletedId: FeedItemId
+    deletedIds: [FeedItemId!]
 
-    failure: AdminDeleteFeedItemFailure
+    failure: AdminDeleteFeedItemsFailure
 }
 
-type AdminDeleteFeedItemFailure {
-    reason: AdminDeleteFeedItemFailureReason!
+type AdminDeleteFeedItemsFailure {
+    reason: AdminDeleteFeedItemsFailureReason!
 }
 
-enum AdminDeleteFeedItemFailureReason {
+enum AdminDeleteFeedItemsFailureReason {
     UNKNOWN_ACCOUNT
     NO_FEED
 

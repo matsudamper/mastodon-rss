@@ -10,7 +10,7 @@ import com.apollographql.cache.normalized.fetchPolicy
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemsMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteNoteMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
@@ -25,14 +25,14 @@ import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminFeedItemFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
-import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteFeedItemFailureReason
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteNoteFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminPostFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminUnpublishedFeedItemsFailureReason
-import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteFeedItemQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteNoteQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.PostFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
@@ -273,32 +273,32 @@ class AdminApi(
         )
     }
 
-    suspend fun deleteFeedItem(
+    suspend fun deleteFeedItems(
         accountId: Long,
-        feedItemId: Long,
-    ): AdminDeleteFeedItemResult {
+        feedItemIds: List<Long>,
+    ): AdminDeleteFeedItemsResult {
         val response = client.mutation(
-            AdminDeleteFeedItemMutation(
-                query = DeleteFeedItemQuery(
+            AdminDeleteFeedItemsMutation(
+                query = DeleteFeedItemsQuery(
                     accountId = accountId,
-                    feedItemId = feedItemId,
+                    feedItemIds = feedItemIds,
                 ),
             ),
         ).execute()
-        val result = response.data?.admin?.deleteFeedItem
-            ?: return AdminDeleteFeedItemResult.Failure(response.failureMessage())
+        val result = response.data?.admin?.deleteFeedItems
+            ?: return AdminDeleteFeedItemsResult.Failure(response.failureMessage())
 
-        if (result.deletedId != null) return AdminDeleteFeedItemResult.Success
+        if (result.deletedIds != null) return AdminDeleteFeedItemsResult.Success
 
-        return AdminDeleteFeedItemResult.Rejected(
+        return AdminDeleteFeedItemsResult.Rejected(
             reason = result.failure?.reason?.toDeleteFeedItemFailure()
-                ?: AdminDeleteFeedItemResult.FailureReason.UNKNOWN,
+                ?: AdminDeleteFeedItemsResult.FailureReason.UNKNOWN,
         )
     }
 
     /**
      * 投稿を消す。元になった記事は消えないので、まとめて消すなら
-     * [deleteFeedItem] も呼ぶ
+     * [deleteFeedItems] も呼ぶ
      */
     suspend fun deleteNote(
         username: String,
@@ -430,19 +430,19 @@ class AdminApi(
                 AdminPostFeedItemsResult.FailureReason.UNKNOWN
         }
 
-    private fun AdminDeleteFeedItemFailureReason.toDeleteFeedItemFailure(): AdminDeleteFeedItemResult.FailureReason =
+    private fun AdminDeleteFeedItemsFailureReason.toDeleteFeedItemFailure(): AdminDeleteFeedItemsResult.FailureReason =
         when (this) {
-            AdminDeleteFeedItemFailureReason.UNKNOWN_ACCOUNT ->
-                AdminDeleteFeedItemResult.FailureReason.UNKNOWN_ACCOUNT
+            AdminDeleteFeedItemsFailureReason.UNKNOWN_ACCOUNT ->
+                AdminDeleteFeedItemsResult.FailureReason.UNKNOWN_ACCOUNT
 
-            AdminDeleteFeedItemFailureReason.NO_FEED ->
-                AdminDeleteFeedItemResult.FailureReason.NO_FEED
+            AdminDeleteFeedItemsFailureReason.NO_FEED ->
+                AdminDeleteFeedItemsResult.FailureReason.NO_FEED
 
-            AdminDeleteFeedItemFailureReason.NOT_FOUND ->
-                AdminDeleteFeedItemResult.FailureReason.NOT_FOUND
+            AdminDeleteFeedItemsFailureReason.NOT_FOUND ->
+                AdminDeleteFeedItemsResult.FailureReason.NOT_FOUND
 
-            AdminDeleteFeedItemFailureReason.UNKNOWN__ ->
-                AdminDeleteFeedItemResult.FailureReason.UNKNOWN
+            AdminDeleteFeedItemsFailureReason.UNKNOWN__ ->
+                AdminDeleteFeedItemsResult.FailureReason.UNKNOWN
         }
 
     private fun AdminDeleteNoteFailureReason.toDeleteNoteFailure(): AdminDeleteNoteResult.FailureReason =

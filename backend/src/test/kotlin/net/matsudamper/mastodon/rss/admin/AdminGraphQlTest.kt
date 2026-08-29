@@ -401,7 +401,7 @@ class AdminGraphQlTest {
         }
 
     @Test
-    fun `deleteFeedItem は記事だけ消し配信した投稿は残る`() =
+    fun `deleteFeedItems は記事だけ消し配信した投稿は残る`() =
         testApplication {
             val repositories = FakeRepositories()
             applicationWith(
@@ -422,14 +422,17 @@ class AdminGraphQlTest {
             mutatePostFeedItems(accountId = accountId, token = token)
             val feedItemId = feedItemIdOf(username = "feed1", title = "1 本目", token = token)
 
-            val result = mutateDeleteFeedItem(
+            val result = mutateDeleteFeedItems(
                 accountId = accountId,
-                feedItemId = feedItemId,
+                feedItemIds = listOf(feedItemId),
                 token = token,
-            ).admin().obj("deleteFeedItem")
+            ).admin().obj("deleteFeedItems")
 
             assertEquals(JsonNull, result.getValue("failure"))
-            assertEquals(feedItemId, result.getValue("deletedId").jsonPrimitive.long)
+            assertEquals(
+                listOf(feedItemId),
+                result.getValue("deletedIds").jsonArray.map { it.jsonPrimitive.long },
+            )
 
             val nodes = queryNotes("feed1", token).admin().obj("notes").getValue("nodes").jsonArray
             assertEquals(2, nodes.size)
@@ -460,9 +463,9 @@ class AdminGraphQlTest {
                 .long
             mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
             mutatePostFeedItems(accountId = accountId, token = token)
-            mutateDeleteFeedItem(
+            mutateDeleteFeedItems(
                 accountId = accountId,
-                feedItemId = feedItemIdOf(username = "feed1", title = "1 本目", token = token),
+                feedItemIds = listOf(feedItemIdOf(username = "feed1", title = "1 本目", token = token)),
                 token = token,
             )
 
@@ -541,7 +544,7 @@ class AdminGraphQlTest {
             val noteId = noteIdOf(username = "feed1", title = "1 本目", token = token)
 
             // 画面と同じ順で、記事を消してから投稿を消す
-            mutateDeleteFeedItem(accountId = accountId, feedItemId = feedItemId, token = token)
+            mutateDeleteFeedItems(accountId = accountId, feedItemIds = listOf(feedItemId), token = token)
             mutateDeleteNote(username = "feed1", noteId = noteId, token = token)
 
             val result = mutatePostFeedItems(accountId = accountId, token = token).admin().obj("postFeedItems")
@@ -582,13 +585,13 @@ class AdminGraphQlTest {
                 .jsonPrimitive
                 .long
 
-            val result = mutateDeleteFeedItem(
+            val result = mutateDeleteFeedItems(
                 accountId = accountId,
-                feedItemId = 1,
+                feedItemIds = listOf(1),
                 token = token,
-            ).admin().obj("deleteFeedItem")
+            ).admin().obj("deleteFeedItems")
 
-            assertEquals(JsonNull, result.getValue("deletedId"))
+            assertEquals(JsonNull, result.getValue("deletedIds"))
             assertEquals("NO_FEED", result.obj("failure").string("reason"))
         }
 
@@ -969,19 +972,21 @@ class AdminGraphQlTest {
             .jsonPrimitive
             .long
 
-    private suspend fun ApplicationTestBuilder.mutateDeleteFeedItem(
+    private suspend fun ApplicationTestBuilder.mutateDeleteFeedItems(
         accountId: Long,
-        feedItemId: Long,
+        feedItemIds: List<Long>,
         token: String? = null,
     ): HttpResponse =
         graphQl(
             query =
-            "mutation Delete(${'$'}accountId: AccountId!, ${'$'}feedItemId: FeedItemId!) { admin { " +
-                "deleteFeedItem(query: { accountId: ${'$'}accountId, feedItemId: ${'$'}feedItemId }) { " +
-                "deletedId failure { reason } } } }",
+            "mutation Delete(${'$'}accountId: AccountId!, ${'$'}feedItemIds: [FeedItemId!]!) { admin { " +
+                "deleteFeedItems(query: { accountId: ${'$'}accountId, feedItemIds: ${'$'}feedItemIds }) { " +
+                "deletedIds failure { reason } } } }",
             token = token,
             variables =
-            """{"accountId":${JsonPrimitive(accountId)},"feedItemId":${JsonPrimitive(feedItemId)}}""",
+            """{"accountId":${JsonPrimitive(accountId)},"feedItemIds":${
+                feedItemIds.joinToString(prefix = "[", postfix = "]") { JsonPrimitive(it).toString() }
+            }}""",
         )
 
     private suspend fun ApplicationTestBuilder.graphQl(

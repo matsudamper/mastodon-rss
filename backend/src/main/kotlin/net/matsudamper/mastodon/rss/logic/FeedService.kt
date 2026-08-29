@@ -118,27 +118,34 @@ class FeedService(
     fun itemsByNoteIds(noteIds: Collection<String>): Map<String, FeedItem> = feedItems.findByNoteIds(noteIds)
 
     /**
-     * 取り込んだ記事を 1 件消す。
+     * 取り込んだ記事をまとめて消す。
+     *
+     * 1 件でもそのアカウントのフィードに無ければ、何も消さずに NOT_FOUND を返す。
+     * 一部だけ消えた状態にすると、画面から消し直す相手が分からなくなる。
      *
      * 配信した投稿は消さない。消すと次の取り込みで新着として戻ってくるので、
      * 投稿し直したい記事に使う
      */
-    fun deleteItem(
+    fun deleteItems(
         accountId: AccountId,
-        feedItemId: FeedItemId,
-    ): DeleteItemResult {
+        feedItemIds: List<FeedItemId>,
+    ): DeleteItemsResult {
         accounts.findById(accountId)
-            ?: return DeleteItemResult.Failure(DeleteItemFailure.UNKNOWN_ACCOUNT)
+            ?: return DeleteItemsResult.Failure(DeleteItemsFailure.UNKNOWN_ACCOUNT)
         val feed = feeds.findByAccountId(accountId)
-            ?: return DeleteItemResult.Failure(DeleteItemFailure.NO_FEED)
-        // 他のアカウントのフィードの記事を id だけで消せないようにする
-        feedItems.find(feedItemId)?.takeIf { it.feedId == feed.id }
-            ?: return DeleteItemResult.Failure(DeleteItemFailure.NOT_FOUND)
+            ?: return DeleteItemsResult.Failure(DeleteItemsFailure.NO_FEED)
 
-        if (!feedItems.delete(feedItemId)) {
-            return DeleteItemResult.Failure(DeleteItemFailure.NOT_FOUND)
+        val targets = feedItemIds.distinct()
+        // 他のアカウントのフィードの記事を id だけで消せないようにする
+        val allInFeed = targets.all { id ->
+            feedItems.find(id)?.feedId == feed.id
         }
-        return DeleteItemResult.Success(deletedId = feedItemId)
+        if (!allInFeed) return DeleteItemsResult.Failure(DeleteItemsFailure.NOT_FOUND)
+
+        if (feedItems.delete(targets) != targets.size) {
+            return DeleteItemsResult.Failure(DeleteItemsFailure.NOT_FOUND)
+        }
+        return DeleteItemsResult.Success(deletedIds = targets)
     }
 
     suspend fun postUnpublished(accountId: AccountId): PostUnpublishedResult {
@@ -246,17 +253,17 @@ class FeedService(
         NO_FEED,
     }
 
-    sealed interface DeleteItemResult {
+    sealed interface DeleteItemsResult {
         data class Success(
-            val deletedId: FeedItemId,
-        ) : DeleteItemResult
+            val deletedIds: List<FeedItemId>,
+        ) : DeleteItemsResult
 
         data class Failure(
-            val reason: DeleteItemFailure,
-        ) : DeleteItemResult
+            val reason: DeleteItemsFailure,
+        ) : DeleteItemsResult
     }
 
-    enum class DeleteItemFailure {
+    enum class DeleteItemsFailure {
         UNKNOWN_ACCOUNT,
         NO_FEED,
         NOT_FOUND,

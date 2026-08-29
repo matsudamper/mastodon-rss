@@ -12,7 +12,7 @@ import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteFeedItemResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeed
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedItem
@@ -366,8 +366,8 @@ class AdminAccountScreenViewModel(
 
         deleteFeedItemJobs[id] = viewModelScope.launch {
             try {
-                when (val result = api.deleteFeedItem(accountId = accountId, feedItemId = id)) {
-                    is AdminDeleteFeedItemResult.Success -> {
+                when (val result = api.deleteFeedItems(accountId = accountId, feedItemIds = listOf(id))) {
+                    is AdminDeleteFeedItemsResult.Success -> {
                         viewModelStateFlow.update {
                             it.copy(deletingFeedItemIds = it.deletingFeedItemIds - id)
                         }
@@ -376,7 +376,7 @@ class AdminAccountScreenViewModel(
                         loadNotes(networkOnly = true)
                     }
 
-                    is AdminDeleteFeedItemResult.Rejected -> {
+                    is AdminDeleteFeedItemsResult.Rejected -> {
                         viewModelStateFlow.update {
                             it.copy(
                                 deletingFeedItemIds = it.deletingFeedItemIds - id,
@@ -385,7 +385,7 @@ class AdminAccountScreenViewModel(
                         }
                     }
 
-                    is AdminDeleteFeedItemResult.Failure -> {
+                    is AdminDeleteFeedItemsResult.Failure -> {
                         viewModelStateFlow.update {
                             it.copy(
                                 deletingFeedItemIds = it.deletingFeedItemIds - id,
@@ -422,7 +422,7 @@ class AdminAccountScreenViewModel(
             try {
                 val feedItemId = note.feedItem?.id
                 if (withFeedItem && feedItemId != null) {
-                    val deletedItem = api.deleteFeedItem(accountId = accountId, feedItemId = feedItemId)
+                    val deletedItem = api.deleteFeedItems(accountId = accountId, feedItemIds = listOf(feedItemId))
                     val message = deletedItem.errorMessage()
                     if (message != null) {
                         viewModelStateFlow.update {
@@ -696,15 +696,15 @@ class AdminAccountScreenViewModel(
      * 既に消えている場合も null にする。一覧を取り直す前の投稿には消した記事が
      * 付いたまま見えるので、そこから消しても止めずに投稿の削除まで進める
      */
-    private fun AdminDeleteFeedItemResult.errorMessage(): String? =
+    private fun AdminDeleteFeedItemsResult.errorMessage(): String? =
         when (this) {
-            is AdminDeleteFeedItemResult.Success -> null
+            is AdminDeleteFeedItemsResult.Success -> null
 
-            is AdminDeleteFeedItemResult.Rejected -> {
-                reason.toMessage().takeIf { reason != AdminDeleteFeedItemResult.FailureReason.NOT_FOUND }
+            is AdminDeleteFeedItemsResult.Rejected -> {
+                reason.toMessage().takeIf { reason != AdminDeleteFeedItemsResult.FailureReason.NOT_FOUND }
             }
 
-            is AdminDeleteFeedItemResult.Failure -> message
+            is AdminDeleteFeedItemsResult.Failure -> message
         }
 
     private fun AdminDeleteNoteResult.FailureReason.toMessage(): String =
@@ -714,12 +714,12 @@ class AdminAccountScreenViewModel(
             AdminDeleteNoteResult.FailureReason.UNKNOWN -> "投稿を消せなかった"
         }
 
-    private fun AdminDeleteFeedItemResult.FailureReason.toMessage(): String =
+    private fun AdminDeleteFeedItemsResult.FailureReason.toMessage(): String =
         when (this) {
-            AdminDeleteFeedItemResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
-            AdminDeleteFeedItemResult.FailureReason.NO_FEED -> "フィードが登録されていない"
-            AdminDeleteFeedItemResult.FailureReason.NOT_FOUND -> "この記事は既に消えている"
-            AdminDeleteFeedItemResult.FailureReason.UNKNOWN -> "記事を消せなかった"
+            AdminDeleteFeedItemsResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
+            AdminDeleteFeedItemsResult.FailureReason.NO_FEED -> "フィードが登録されていない"
+            AdminDeleteFeedItemsResult.FailureReason.NOT_FOUND -> "この記事は既に消えている"
+            AdminDeleteFeedItemsResult.FailureReason.UNKNOWN -> "記事を消せなかった"
         }
 
     private fun AdminUnpublishedFeedItem.toUiState(): AdminAccountScreenUiState.UnpublishedItem =

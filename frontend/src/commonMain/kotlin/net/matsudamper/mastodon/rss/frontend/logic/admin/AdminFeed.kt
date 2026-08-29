@@ -139,16 +139,16 @@ data class AdminFeedItem(
     val publishedAt: Long?,
 )
 
-sealed interface AdminDeleteFeedItemResult {
-    data object Success : AdminDeleteFeedItemResult
+sealed interface AdminDeleteFeedItemsResult {
+    data object Success : AdminDeleteFeedItemsResult
 
     data class Rejected(
         val reason: FailureReason,
-    ) : AdminDeleteFeedItemResult
+    ) : AdminDeleteFeedItemsResult
 
     data class Failure(
         val message: String,
-    ) : AdminDeleteFeedItemResult
+    ) : AdminDeleteFeedItemsResult
 
     enum class FailureReason {
         UNKNOWN_ACCOUNT,

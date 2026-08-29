@@ -192,7 +192,7 @@ class FeedItemRepositoryTest {
             repositories.notes.add(note(publicId = "note-1"))
             repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = "note-1")
 
-            repositories.feedItems.delete(posted.id)
+            repositories.feedItems.delete(listOf(posted.id))
 
             assertNotNull(repositories.notes.find("note-1"))
             assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(listOf("note-1")))
@@ -205,7 +205,7 @@ class FeedItemRepositoryTest {
             val feed = repositories.addFeed()
             val added = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "gone")))
 
-            assertTrue(repositories.feedItems.delete(added.id))
+            assertEquals(1, repositories.feedItems.delete(listOf(added.id)))
 
             assertNull(repositories.feedItems.find(added.id))
             assertEquals(0, repositories.feedItems.countByFeed(feed.id))
@@ -220,7 +220,7 @@ class FeedItemRepositoryTest {
             val added = assertNotNull(
                 repositories.feedItems.add(item(feedId = feed.id, itemKey = "again", state = FeedItemState.POSTED)),
             )
-            repositories.feedItems.delete(added.id)
+            repositories.feedItems.delete(listOf(added.id))
 
             val reimported = assertNotNull(
                 repositories.feedItems.add(item(feedId = feed.id, itemKey = "again", state = FeedItemState.PENDING)),
@@ -256,7 +256,23 @@ class FeedItemRepositoryTest {
         withRepositories { repositories ->
             repositories.addFeed()
 
-            assertEquals(false, repositories.feedItems.delete(FeedItemId(404)))
+            assertEquals(0, repositories.feedItems.delete(listOf(FeedItemId(404))))
+        }
+    }
+
+    @Test
+    fun `記事をまとめて消せる`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val first = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "1")))
+            val second = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "2")))
+            val kept = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "3")))
+
+            assertEquals(2, repositories.feedItems.delete(listOf(first.id, second.id)))
+
+            assertNull(repositories.feedItems.find(first.id))
+            assertNull(repositories.feedItems.find(second.id))
+            assertNotNull(repositories.feedItems.find(kept.id))
         }
     }
 

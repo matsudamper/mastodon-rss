@@ -14,7 +14,7 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailureReason
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteResult
@@ -27,7 +27,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
-import net.matsudamper.mastodon.rss.graphql.model.QlDeleteFeedItemQuery
+import net.matsudamper.mastodon.rss.graphql.model.QlDeleteFeedItemsQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlDeleteNoteQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPostFeedItemsQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlSaveFeedQuery
@@ -207,16 +207,16 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         }
     }
 
-    override fun deleteFeedItem(
+    override fun deleteFeedItems(
         adminMutation: QlAdminMutation,
-        query: QlDeleteFeedItemQuery,
+        query: QlDeleteFeedItemsQuery,
         env: DataFetchingEnvironment,
-    ): CompletionStage<DataFetcherResult<QlAdminDeleteFeedItemResult>> {
+    ): CompletionStage<DataFetcherResult<QlAdminDeleteFeedItemsResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val result = GraphQlEngine.diContainer(env).feedService.deleteItem(
+        val result = GraphQlEngine.diContainer(env).feedService.deleteItems(
             accountId = query.accountId,
-            feedItemId = FeedItemId(query.feedItemId.value),
+            feedItemIds = query.feedItemIds.map { FeedItemId(it.value) },
         ).toGraphqlResponse()
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())

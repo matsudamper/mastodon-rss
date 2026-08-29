@@ -125,11 +125,15 @@ internal class SqliteFeedItemRepository(
             ?.toFeedItem()
     }
 
-    override fun delete(id: FeedItemId): Boolean = jooq.transaction { dsl ->
-        dsl
-            .deleteFrom(FEED_ITEMS)
-            .where(FEED_ITEMS.ID.eq(id.value))
-            .execute() > 0
+    override fun delete(ids: Collection<FeedItemId>): Int {
+        if (ids.isEmpty()) return 0
+
+        return jooq.transaction { dsl ->
+            dsl
+                .deleteFrom(FEED_ITEMS)
+                .where(FEED_ITEMS.ID.`in`(ids.map { it.value }))
+                .execute()
+        }
     }
 
     override fun countByFeed(feedId: FeedId): Long = jooq.withConnection { dsl ->
