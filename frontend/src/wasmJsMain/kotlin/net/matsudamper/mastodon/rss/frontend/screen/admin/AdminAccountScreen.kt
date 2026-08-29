@@ -536,12 +536,6 @@ private fun NotesCard(
     listener: AdminAccountScreenUiState.Listener,
 ) {
     SectionCard(title = "配信した投稿") {
-        Text(
-            text = "フィードから流した投稿には元の記事が付く。記事だけ消しても投稿は残り、" +
-                "最新情報を投稿すると取り込み直してもう一度流れる。",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-
         val notes = content.notes
         val error = content.notesError
 
