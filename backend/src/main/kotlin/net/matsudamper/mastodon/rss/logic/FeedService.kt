@@ -135,14 +135,9 @@ class FeedService(
         val feed = feeds.findByAccountId(accountId)
             ?: return DeleteItemsResult.Failure(DeleteItemsFailure.NO_FEED)
 
+        // フィードを渡して、他のアカウントの記事を id だけで消せないようにする
         val targets = feedItemIds.distinct()
-        // 他のアカウントのフィードの記事を id だけで消せないようにする
-        val allInFeed = targets.all { id ->
-            feedItems.find(id)?.feedId == feed.id
-        }
-        if (!allInFeed) return DeleteItemsResult.Failure(DeleteItemsFailure.NOT_FOUND)
-
-        if (feedItems.delete(targets) != targets.size) {
+        if (!feedItems.delete(feedId = feed.id, ids = targets)) {
             return DeleteItemsResult.Failure(DeleteItemsFailure.NOT_FOUND)
         }
         return DeleteItemsResult.Success(deletedIds = targets)

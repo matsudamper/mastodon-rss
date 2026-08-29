@@ -7,6 +7,7 @@ import kotlin.io.path.deleteRecursively
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -192,7 +193,7 @@ class FeedItemRepositoryTest {
             repositories.notes.add(note(publicId = "note-1"))
             repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = "note-1")
 
-            repositories.feedItems.delete(listOf(posted.id))
+            repositories.feedItems.delete(feed.id, listOf(posted.id))
 
             assertNotNull(repositories.notes.find("note-1"))
             assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(listOf("note-1")))
@@ -205,7 +206,7 @@ class FeedItemRepositoryTest {
             val feed = repositories.addFeed()
             val added = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "gone")))
 
-            assertEquals(1, repositories.feedItems.delete(listOf(added.id)))
+            assertTrue(repositories.feedItems.delete(feed.id, listOf(added.id)))
 
             assertNull(repositories.feedItems.find(added.id))
             assertEquals(0, repositories.feedItems.countByFeed(feed.id))
@@ -220,7 +221,7 @@ class FeedItemRepositoryTest {
             val added = assertNotNull(
                 repositories.feedItems.add(item(feedId = feed.id, itemKey = "again", state = FeedItemState.POSTED)),
             )
-            repositories.feedItems.delete(listOf(added.id))
+            repositories.feedItems.delete(feed.id, listOf(added.id))
 
             val reimported = assertNotNull(
                 repositories.feedItems.add(item(feedId = feed.id, itemKey = "again", state = FeedItemState.PENDING)),
@@ -254,9 +255,9 @@ class FeedItemRepositoryTest {
     @Test
     fun `無い記事は消せない`() {
         withRepositories { repositories ->
-            repositories.addFeed()
+            val feed = repositories.addFeed()
 
-            assertEquals(0, repositories.feedItems.delete(listOf(FeedItemId(404))))
+            assertFalse(repositories.feedItems.delete(feed.id, listOf(FeedItemId(404))))
         }
     }
 
@@ -268,10 +269,22 @@ class FeedItemRepositoryTest {
             val second = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "2")))
             val kept = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "3")))
 
-            assertEquals(2, repositories.feedItems.delete(listOf(first.id, second.id)))
+            assertTrue(repositories.feedItems.delete(feed.id, listOf(first.id, second.id)))
 
             assertNull(repositories.feedItems.find(first.id))
             assertNull(repositories.feedItems.find(second.id))
+            assertNotNull(repositories.feedItems.find(kept.id))
+        }
+    }
+
+    @Test
+    fun `無い記事が混ざっていたら何も消さない`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val kept = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "kept")))
+
+            assertFalse(repositories.feedItems.delete(feed.id, listOf(kept.id, FeedItemId(404))))
+
             assertNotNull(repositories.feedItems.find(kept.id))
         }
     }

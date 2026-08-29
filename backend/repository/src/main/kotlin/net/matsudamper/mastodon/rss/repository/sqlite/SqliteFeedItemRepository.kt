@@ -125,16 +125,30 @@ internal class SqliteFeedItemRepository(
             ?.toFeedItem()
     }
 
-    override fun delete(ids: Collection<FeedItemId>): Int {
-        if (ids.isEmpty()) return 0
+    override fun delete(
+        feedId: FeedId,
+        ids: Collection<FeedItemId>,
+    ): Boolean {
+        val targets = ids.toSet()
+        if (targets.isEmpty()) return true
 
-        return jooq.transaction { dsl ->
-            dsl
-                .deleteFrom(FEED_ITEMS)
-                .where(FEED_ITEMS.ID.`in`(ids.map { it.value }))
-                .execute()
+        return try {
+            jooq.transaction { dsl ->
+                val deleted = dsl
+                    .deleteFrom(FEED_ITEMS)
+                    .where(FEED_ITEMS.ID.`in`(targets.map { it.value }))
+                    .and(FEED_ITEMS.FEED_ID.eq(feedId.value))
+                    .execute()
+                // このフィードに無い id が混ざっている。消した分を巻き戻す
+                if (deleted != targets.size) throw NotAllDeleted()
+                true
+            }
+        } catch (_: NotAllDeleted) {
+            false
         }
     }
+
+    private class NotAllDeleted : RuntimeException()
 
     override fun countByFeed(feedId: FeedId): Long = jooq.withConnection { dsl ->
         dsl
