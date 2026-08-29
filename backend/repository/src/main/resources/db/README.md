@@ -35,50 +35,6 @@ sqlite3def --file backend/repository/src/main/resources/db/schema.sql /path/to/m
 スキーマが binary の期待より古いままでも起動は通るが、ずれたテーブルに触るクエリが実行時に SQL エラーで落ちる。
 新しい binary を動かす前に適用すること。
 
-### 既に動いている DB に `feed_items.note_id` を入れるとき
-
-sqlite3def で列を足しただけでは、それまでに投稿した記事の `note_id` は NULL のまま。
-管理画面は投稿から `note_id` を辿って元記事を出すので、NULL の記事は画面に出ず、そこからは消せない。
-実害は過去の記事を画面から消せないことだけで、取り込みも投稿も動く。埋めなくてもよい。
-
-埋めるなら手で確かめてから。本文（`content_html`）が一致する投稿を候補として出せるが、
-同じ本文を手で投稿していると、それが唯一の候補になって取り違える。
-自動で更新せず、候補を見てから 1 件ずつ書く。
-
-```sql
--- 候補を出す。note_public_id が空でない行だけが埋められる
-SELECT
-  i.id AS feed_item_id,
-  i.title,
-  (
-    SELECT n.public_id FROM notes n
-    WHERE n.content_html = i.content_html
-      AND n.username = a.username
-  ) AS note_public_id,
-  (
-    SELECT COUNT(*) FROM notes n
-    WHERE n.content_html = i.content_html
-      AND n.username = a.username
-  ) AS note_count
-FROM feed_items i
-JOIN feeds f ON f.id = i.feed_id
-JOIN accounts a ON a.id = f.account_id
-WHERE i.note_id IS NULL AND i.state = 'posted';
-```
-
-`note_count` が 1 の行だけを、その投稿が本当にその記事から流れたものか確かめてから書く。
-
-```sql
--- 候補を出した後に状態が変わっていたら書かない。更新は 1 件になる
-UPDATE feed_items
-SET note_id = '<notes.public_id>'
-WHERE id = <feed_items.id>
-  AND note_id IS NULL
-  AND state = 'posted';
-```
-
-`changes()` が 1 でなければ、その行は候補を出した後に変わっている。もう一度候補から出し直す。
-
 ## スキーマから対応するコードが生成されるまで
 
 jOOQ の生成コードは、`schema.sql` からビルド時に作られる。
