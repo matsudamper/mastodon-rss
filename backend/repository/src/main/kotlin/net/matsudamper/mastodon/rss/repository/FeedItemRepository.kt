@@ -50,10 +50,15 @@ interface FeedItemRepository {
         limit: Int,
     ): List<FeedItem>
 
-    /** 投稿し終わったことを記録する */
+    /**
+     * 投稿し終わったことを記録する。
+     *
+     * @param noteId 配信した投稿の `notes.public_id`。記事と投稿はこれだけで紐づく
+     */
     fun markPosted(
         id: FeedItemId,
         postedAt: Instant,
+        noteId: String,
     )
 
     /**
@@ -62,6 +67,14 @@ interface FeedItemRepository {
      * 題名もリンクも無く本文を組み立てられない場合に使う。
      */
     fun markSkipped(id: FeedItemId)
+
+    /**
+     * 投稿の `notes.public_id` から、その投稿の元になった記事を引く。
+     *
+     * 投稿の一覧に記事を並べるのに使う。1 件ずつ問い合わせると投稿の数だけ
+     * 往復するので、まとめて渡してまとめて受け取る形にする
+     */
+    fun findByNoteIds(noteIds: Collection<String>): Map<String, FeedItem>
 
     /** フィードの記事を数える。初回の取り込みかどうかの判定などに使う */
     fun countByFeed(feedId: FeedId): Long
@@ -82,6 +95,7 @@ value class FeedItemId(
  *   配信に失敗して後から送り直すときに、配信元から取り直さずに済ませるため
  * @param publishedAt 配信元が名乗っている公開日時。順序付けに使う。
  *   信用しきれない（未来の日時や、更新のたびに現在時刻になるものがある）
+ * @param noteId 投稿したときに配信した `notes.public_id`。未投稿なら null
  */
 data class FeedItem(
     val id: FeedItemId,
@@ -94,6 +108,7 @@ data class FeedItem(
     val importedAt: Instant,
     val state: FeedItemState,
     val postedAt: Instant?,
+    val noteId: String?,
 )
 
 /** 保存する記事。id はまだ無い */

@@ -132,6 +132,13 @@ class FeedService(
         return UnpublishedResult.Success(items = items)
     }
 
+    /**
+     * 投稿の `notes.public_id` から、その投稿の元になった記事を引く。
+     *
+     * 投稿の一覧に記事を並べるのに使う
+     */
+    fun itemsByNoteIds(noteIds: Collection<String>): Map<String, FeedItem> = feedItems.findByNoteIds(noteIds)
+
     suspend fun postUnpublished(accountId: AccountId): PostUnpublishedResult {
         val account = accounts.findById(accountId)
             ?: return PostUnpublishedResult.Failure(PostUnpublishedFailure.UNKNOWN_ACCOUNT)
@@ -366,7 +373,7 @@ class FeedService(
             .filter { only == null || it.id in only }
             .forEach { stored ->
                 val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
-                try {
+                val published = try {
                     notePublisher.publish(sender = sender, contentHtml = html)
                 } catch (e: CancellationException) {
                     throw e
@@ -377,7 +384,7 @@ class FeedService(
                     logger.warn("記事を投稿できなかった: フィード ${feed.id.value} の記事 ${stored.id.value}", e)
                     return@forEach
                 }
-                feedItems.markPosted(stored.id, Instant.now())
+                feedItems.markPosted(stored.id, Instant.now(), noteId = published.publicId)
                 posted += UnpublishedItem(
                     title = stored.title,
                     link = stored.link,

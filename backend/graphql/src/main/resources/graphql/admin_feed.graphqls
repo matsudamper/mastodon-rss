@@ -98,3 +98,12 @@ enum AdminPostFeedItemsFailureReason {
     FETCH_FAILED
     PARSE_FAILED
 }
+
+"取り込んだ記事 1 件"
+type AdminFeedItem {
+    title: String
+    link: String
+
+    "配信元が名乗っている公開日時。持たないフィードがある"
+    publishedAt: UnixTime
+}
