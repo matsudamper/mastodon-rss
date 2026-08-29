@@ -412,7 +412,7 @@ private fun DeleteNoteDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { listener.onConfirmDeleteNote(withFeedItem = dialog.hasSourceArticle) },
+                onClick = { listener.onConfirmDeleteNote(deleteSourceArticle = dialog.hasSourceArticle) },
                 enabled = !dialog.deleting,
             ) {
                 Text(
@@ -428,7 +428,7 @@ private fun DeleteNoteDialog(
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (dialog.hasSourceArticle) {
                     TextButton(
-                        onClick = { listener.onConfirmDeleteNote(withFeedItem = false) },
+                        onClick = { listener.onConfirmDeleteNote(deleteSourceArticle = false) },
                         enabled = !dialog.deleting,
                     ) {
                         Text("投稿だけ削除")

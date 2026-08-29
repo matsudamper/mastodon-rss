@@ -94,8 +94,8 @@ class AdminAccountScreenViewModel(
                         viewModelStateFlow.update { it.copy(deleteNoteId = null) }
                     }
 
-                    override fun onConfirmDeleteNote(withFeedItem: Boolean) {
-                        deleteNote(withFeedItem = withFeedItem)
+                    override fun onConfirmDeleteNote(deleteSourceArticle: Boolean) {
+                        deleteNote(deleteSourceArticle = deleteSourceArticle)
                     }
 
                     override fun onClickReloadNotes() {
@@ -409,7 +409,7 @@ class AdminAccountScreenViewModel(
      * 投稿を先に消すと、記事だけが残ったときに画面から辿れなくなる。
      * 記事が先なら、途中で失敗しても投稿は一覧に残るのでやり直せる
      */
-    private fun deleteNote(withFeedItem: Boolean) {
+    private fun deleteNote(deleteSourceArticle: Boolean) {
         val state = viewModelStateFlow.value
         val note = state.notes.firstOrNull { it.id == state.deleteNoteId } ?: return
         val accountId = state.loadedAccount?.account?.id ?: return
@@ -421,7 +421,7 @@ class AdminAccountScreenViewModel(
         deleteNoteJob = viewModelScope.launch {
             try {
                 val feedItemId = note.feedItem?.id
-                if (withFeedItem && feedItemId != null) {
+                if (deleteSourceArticle && feedItemId != null) {
                     val deletedItem = api.deleteFeedItems(accountId = accountId, feedItemIds = listOf(feedItemId))
                     val message = deletedItem.errorMessage()
                     if (message != null) {

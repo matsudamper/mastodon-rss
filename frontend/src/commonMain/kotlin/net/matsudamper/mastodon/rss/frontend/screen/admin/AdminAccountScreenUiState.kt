@@ -202,10 +202,10 @@ data class AdminAccountScreenUiState(
         fun onDismissDeleteNote()
 
         /**
-         * @param withFeedItem 元になった記事も消す。消すと最新情報を投稿したときに
+         * @param deleteSourceArticle 元になった記事も消す。消すと最新情報を投稿したときに
          *   取り込み直されてもう一度流れる
          */
-        fun onConfirmDeleteNote(withFeedItem: Boolean)
+        fun onConfirmDeleteNote(deleteSourceArticle: Boolean)
 
         /**
          * 一覧だけ取り直す
