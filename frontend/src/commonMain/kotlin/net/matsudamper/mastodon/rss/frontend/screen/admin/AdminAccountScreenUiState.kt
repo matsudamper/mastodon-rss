@@ -85,6 +85,13 @@ data class AdminAccountScreenUiState(
         ) : Feed
     }
 
+    /** 投稿と一緒に見せる、元になった記事 */
+    data class SourceArticle(
+        val title: String?,
+        val link: String?,
+        val publishedAt: String?,
+    )
+
     data class UnpublishedItem(
         val title: String?,
         val link: String?,
@@ -119,10 +126,14 @@ data class AdminAccountScreenUiState(
         val canSubmit: Boolean get() = !submitting && body.isNotBlank()
     }
 
+    /**
+     * @param sourceArticle 元になった記事。無い投稿では出さない
+     */
     data class Note(
         val url: String,
         val contentHtml: String,
         val publishedAt: String,
+        val sourceArticle: SourceArticle?,
     )
 
     /**

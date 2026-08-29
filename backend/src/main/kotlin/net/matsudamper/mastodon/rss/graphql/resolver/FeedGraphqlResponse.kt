@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItem
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreview
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailureReason
@@ -18,6 +19,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnpublishedFeedItemsRes
 import net.matsudamper.mastodon.rss.graphql.model.QlFeed
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.shared.FeedId
 
 internal fun Feed.toGraphqlResponse(): QlFeed = QlFeed(
@@ -159,3 +161,9 @@ internal fun FeedService.PostUnpublishedFailure.toGraphqlResponse(): QlAdminPost
                 QlAdminPostFeedItemsFailureReason.PARSE_FAILED
         },
     )
+
+internal fun FeedItem.toGraphqlResponse(): QlAdminFeedItem = QlAdminFeedItem(
+    title = title,
+    link = link,
+    publishedAt = publishedAt?.epochSecond,
+)

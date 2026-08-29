@@ -2,10 +2,15 @@ package net.matsudamper.mastodon.rss.frontend.logic.admin
 
 import kotlin.time.Instant
 
+/**
+ * @param feedItem この投稿の元になった取り込み済みの記事。手で書いた投稿と、
+ *   記事を消した後は null
+ */
 data class AdminNote(
     val url: String,
     val contentHtml: String,
     val publishedAt: Instant,
+    val feedItem: AdminFeedItem?,
 )
 
 sealed interface AdminNotesResult {

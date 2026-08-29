@@ -128,3 +128,12 @@ sealed interface AdminPostFeedItemsResult {
         UNKNOWN,
     }
 }
+
+/**
+ * 取り込んだ記事 1 件
+ */
+data class AdminFeedItem(
+    val title: String?,
+    val link: String?,
+    val publishedAt: Long?,
+)

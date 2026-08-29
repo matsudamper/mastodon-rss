@@ -147,9 +147,9 @@ class FeedItemRepositoryTest {
                     item(feedId = feed.id, itemKey = "p", state = FeedItemState.PENDING),
                 ),
             )
-            val postedAt = Instant.parse("2026-08-16T12:00:00Z")
+            repositories.notes.add(note(publicId = "note-1"))
 
-            repositories.feedItems.markPosted(pending.id, postedAt)
+            repositories.feedItems.markPosted(pending.id, POSTED_AT, noteId = "note-1")
             repositories.feedItems.markSkipped(
                 assertNotNull(
                     repositories.feedItems.add(
@@ -160,6 +160,25 @@ class FeedItemRepositoryTest {
 
             assertEquals(emptyList(), repositories.feedItems.findPending(limit = 10))
             assertEquals(2, repositories.feedItems.countByFeed(feed.id))
+        }
+    }
+
+    @Test
+    fun `findByNoteIds は投稿の id から記事を引く`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val posted = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "posted", state = FeedItemState.PENDING)),
+            )
+            repositories.feedItems.add(item(feedId = feed.id, itemKey = "pending", state = FeedItemState.PENDING))
+            repositories.notes.add(note(publicId = "note-1"))
+            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = "note-1")
+
+            val found = repositories.feedItems.findByNoteIds(listOf("note-1", "note-2"))
+
+            assertEquals(setOf("note-1"), found.keys)
+            assertEquals(posted.id, assertNotNull(found["note-1"]).id)
+            assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(emptyList()))
         }
     }
 
@@ -211,6 +230,13 @@ class FeedItemRepositoryTest {
         state = state,
     )
 
+    private fun note(publicId: String): NewNote = NewNote(
+        username = "feed1",
+        publicId = publicId,
+        contentHtml = "<p>本文</p>",
+        publishedAt = CREATED_AT,
+    )
+
     private fun withRepositories(block: (Repositories) -> Unit) {
         val dbPath = tempDir.resolve("test.db")
         TestSchema.applyTo(dbPath)
@@ -220,5 +246,7 @@ class FeedItemRepositoryTest {
 
     private companion object {
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03.123456Z")
+
+        val POSTED_AT: Instant = Instant.parse("2026-08-16T12:00:00Z")
     }
 }

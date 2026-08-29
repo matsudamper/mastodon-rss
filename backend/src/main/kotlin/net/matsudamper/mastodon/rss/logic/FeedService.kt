@@ -13,6 +13,7 @@ import net.matsudamper.mastodon.rss.feed.toDisplayName
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
@@ -108,6 +109,13 @@ class FeedService(
         return UnpublishedResult.Success(items = items)
     }
 
+    /**
+     * 投稿の `notes.public_id` から、その投稿の元になった記事を引く。
+     *
+     * 投稿の一覧に記事を並べるのに使う
+     */
+    fun itemsByNoteIds(noteIds: Collection<String>): Map<String, FeedItem> = feedItems.findByNoteIds(noteIds)
+
     suspend fun postUnpublished(accountId: AccountId): PostUnpublishedResult {
         val account = accounts.findById(accountId)
             ?: return PostUnpublishedResult.Failure(PostUnpublishedFailure.UNKNOWN_ACCOUNT)
@@ -125,14 +133,14 @@ class FeedService(
         val posted = mutableListOf<UnpublishedItem>()
         feedItems.findPending(feed.id, Int.MAX_VALUE).forEach { stored ->
             val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
-            try {
+            val published = try {
                 notePublisher.publish(sender = sender, contentHtml = html)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 return@forEach
             }
-            feedItems.markPosted(stored.id, Instant.now())
+            feedItems.markPosted(stored.id, Instant.now(), noteId = published.publicId)
             posted += UnpublishedItem(
                 title = stored.title,
                 link = stored.link,

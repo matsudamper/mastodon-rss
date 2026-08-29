@@ -384,6 +384,26 @@ private fun FeedPreviewPanel(
 }
 
 @Composable
+private fun NoteSourceArticle(article: AdminAccountScreenUiState.SourceArticle) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = "元の記事: ${article.title ?: "(題名なし)"}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+
+        val meta = listOfNotNull(article.publishedAt, article.link).joinToString("  ")
+        Text(
+            text = meta,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
 private fun PostCard(
     post: AdminAccountScreenUiState.Post,
     listener: AdminAccountScreenUiState.Listener,
@@ -489,6 +509,10 @@ private fun NotesCard(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            val sourceArticle = note.sourceArticle
+                            if (sourceArticle != null) {
+                                NoteSourceArticle(article = sourceArticle)
+                            }
                         }
                     }
                 }

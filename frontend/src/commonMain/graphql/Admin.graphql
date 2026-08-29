@@ -186,4 +186,13 @@ fragment AdminNoteFields on AdminNote {
     url
     contentHtml
     publishedAt
+    feedItem {
+        ...AdminFeedItemFields
+    }
+}
+
+fragment AdminFeedItemFields on AdminFeedItem {
+    title
+    link
+    publishedAt
 }
