@@ -5,25 +5,38 @@ package net.matsudamper.mastodon.rss.frontend.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.layout.LastBaseline
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.js.ExperimentalWasmJsInterop
 import kotlinx.browser.window
@@ -184,8 +197,20 @@ fun openExternalLink(url: String) {
     window.open(url, "_blank", "noopener,noreferrer")
 }
 
-fun copyToClipboard(text: String) {
-    window.navigator.clipboard.writeText(text)
+fun copyToClipboard(
+    text: String,
+    onResult: (Boolean) -> Unit,
+) {
+    window.navigator.clipboard.writeText(text).then(
+        onFulfilled = {
+            onResult(true)
+            null
+        },
+        onRejected = {
+            onResult(false)
+            null
+        },
+    )
 }
 
 /** 枠線 1 本ぶんの色。区切り線に使う */
