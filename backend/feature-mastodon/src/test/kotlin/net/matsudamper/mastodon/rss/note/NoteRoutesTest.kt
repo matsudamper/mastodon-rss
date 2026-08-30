@@ -64,7 +64,7 @@ class NoteRoutesTest {
             assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
 
             val body = AppJson.decodeFromString(Note.serializer(), response.bodyAsText())
-            assertEquals("https://example.com/notes/abc", body.id)
+            assertEquals("https://example.com/notes/abc", body.id.value)
             assertEquals("Note", body.type)
             assertEquals("https://example.com/users/admin", body.attributedTo)
             assertEquals("<p>abc</p>", body.content)
@@ -126,12 +126,12 @@ class NoteRoutesTest {
 
             val create = page.orderedItems.single()
             assertEquals("Create", create.type)
-            assertEquals("https://example.com/notes/note-1#create", create.id)
+            assertEquals("https://example.com/notes/note-1#create", create.id.value)
             assertEquals("https://example.com/users/admin", create.actor)
             assertEquals(listOf(PUBLIC_AUDIENCE), create.to)
             assertEquals(listOf("https://example.com/users/admin/followers"), create.cc)
             assertNull(create.target.context)
-            assertEquals("https://example.com/notes/note-1", create.target.id)
+            assertEquals("https://example.com/notes/note-1", create.target.id.value)
             assertEquals("<p>note-1</p>", create.target.content)
         }
 
@@ -155,7 +155,7 @@ class NoteRoutesTest {
                 first,
             )
             assertEquals(COLLECTION_PAGE_SIZE, firstPage.orderedItems.size)
-            assertEquals("note-1", firstPage.orderedItems.last().target.id.removePrefix("https://example.com/notes/"))
+            assertEquals("note-1", firstPage.orderedItems.last().target.id.value.removePrefix("https://example.com/notes/"))
 
             val nextUrl = firstPage.next
             assertTrue(nextUrl != null)
@@ -166,7 +166,7 @@ class NoteRoutesTest {
                 second,
             )
             assertEquals(1, secondPage.orderedItems.size)
-            assertEquals("note-0", secondPage.orderedItems.single().target.id.removePrefix("https://example.com/notes/"))
+            assertEquals("note-0", secondPage.orderedItems.single().target.id.value.removePrefix("https://example.com/notes/"))
             assertNull(secondPage.next)
         }
 

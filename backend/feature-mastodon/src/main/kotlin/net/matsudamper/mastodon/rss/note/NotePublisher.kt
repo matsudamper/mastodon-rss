@@ -56,7 +56,7 @@ class NotePublisher(
 
         return PublishedNote(
             publicId = publicId,
-            url = urls.noteId,
+            url = urls.noteUrl,
             contentHtml = contentHtml,
             publishedAt = publishedAt,
             targets = result.targets,
@@ -157,8 +157,8 @@ class NotePublisher(
                 published = published,
                 to = listOf(PUBLIC_AUDIENCE),
                 cc = listOf(sender.followers),
-                url = urls.noteId,
-                atomUri = urls.noteId,
+                url = urls.noteUrl,
+                atomUri = urls.noteUrl,
             ),
         )
     }

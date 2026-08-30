@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.note
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.matsudamper.mastodon.rss.activitypub.ActivityPubId
 import net.matsudamper.mastodon.rss.activitypub.OutgoingActivity
 import net.matsudamper.mastodon.rss.activitypub.StringListSerializer
 
@@ -21,9 +22,9 @@ data class Note(
     @SerialName("@context")
     val context: List<String>? = null,
     /**
-     * この投稿の URL。相手はここをパーマリンクとして引きに来る
+     * この投稿の id。相手はここをパーマリンクとして引きに来る
      */
-    val id: String,
+    val id: ActivityPubId,
     val type: String = TYPE,
     /**
      * 投稿したアクターの id
@@ -72,7 +73,7 @@ data class CreateNote(
     /**
      * このアクティビティ自身の id。相手側の重複判定に使われる
      */
-    val id: String,
+    val id: ActivityPubId,
     val type: String = TYPE,
     val actor: String,
     val published: String,
@@ -98,13 +99,9 @@ data class CreateNote(
 @Serializable
 data class Tombstone(
     /**
-     * 消す対象の id。ActivityPub はオブジェクトの id を、取りに行ける公開の URI と定めている。
-     * 投稿の URL がそのまま id なので、それが入る。
-     *
-     * 相手はこれを鍵にして受け取り済みのものを引き当てるので、
-     * 1 文字でも違うと何も消えない
+     * 消す対象の id
      */
-    val id: String,
+    val id: ActivityPubId,
 ) {
     /**
      * 相手はこの値を見て、消えたオブジェクトだと判断する。`Tombstone` 以外は入らない
@@ -131,7 +128,7 @@ data class DeleteNote(
      *
      * 相手の重複判定に使われるので、消した投稿の id と同じにしてはいけない
      */
-    val id: String,
+    val id: ActivityPubId,
     val actor: String,
     val to: List<String>,
     val cc: List<String>,

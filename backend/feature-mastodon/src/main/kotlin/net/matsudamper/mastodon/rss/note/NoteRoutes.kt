@@ -202,7 +202,7 @@ private fun noteDocument(
         published = note.publishedAt.toActivityPubPublished(),
         to = listOf(PUBLIC_AUDIENCE),
         cc = listOf(urls.followers),
-        atomUri = noteUrls.noteId,
-        url = noteUrls.noteId,
+        atomUri = noteUrls.noteUrl,
+        url = noteUrls.noteUrl,
     )
 }

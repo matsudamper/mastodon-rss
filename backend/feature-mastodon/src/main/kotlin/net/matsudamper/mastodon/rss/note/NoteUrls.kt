@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.note
 
+import net.matsudamper.mastodon.rss.activitypub.ActivityPubId
+
 /**
  * 投稿の URL。
  *
@@ -13,15 +15,20 @@ data class NoteUrls(
     val domain: String,
     val publicId: String,
 ) {
-    val noteId: String = "https://$domain/notes/$publicId"
+    /**
+     * 投稿の URL。これがそのまま投稿の id になる
+     */
+    val noteUrl: String = "https://$domain/notes/$publicId"
+
+    val noteId: ActivityPubId = ActivityPubId(noteUrl)
 
     /**
      * `Create` 自身の id。GET できる文書があると読める形にしないためフラグメントを付ける
      */
-    val createId: String = "$noteId#create"
+    val createId: ActivityPubId = ActivityPubId("$noteUrl#create")
 
     /**
      * `Delete` 自身の id。[createId] と同じ理由でフラグメントを付ける
      */
-    val deleteId: String = "$noteId#delete"
+    val deleteId: ActivityPubId = ActivityPubId("$noteUrl#delete")
 }
