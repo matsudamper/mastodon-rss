@@ -133,7 +133,7 @@ class NotePublisher(
         actor = sender.actorId,
         to = listOf(PUBLIC_AUDIENCE),
         cc = listOf(sender.followers),
-        target = Tombstone(id = urls.noteId),
+        target = DeleteNote.Tombstone(id = urls.noteId),
     )
 
     private fun createActivity(
