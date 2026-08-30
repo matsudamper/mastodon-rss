@@ -82,8 +82,10 @@ CREATE TABLE notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     -- 投稿したこちらのアカウントの名前。followers と同じ理由で外部キーにしない
     username TEXT COLLATE NOCASE NOT NULL,
-    -- URL のパスに入る識別子。採番した id をそのまま出すと、
-    -- 投稿の総数と作られた順が外から分かってしまう
+    -- URL のパスに入る識別子。AUTOINCREMENT の id をそのまま出すと
+    -- 投稿の総数が外から分かってしまう。UUID v7 は先頭 48 bit に生成時刻を
+    -- 埋める。published_at も ActivityPub で公開するので順序の新規露出はない。
+    -- INSERT 時の INDEX 局所性のため v7 を使う
     public_id TEXT NOT NULL UNIQUE,
     -- 配信した本文の HTML。サニタイズ済みのものを入れる
     content_html TEXT NOT NULL,
