@@ -24,7 +24,7 @@ type AdminNotesConnection {
 
 "配信した投稿 1 件"
 type AdminNote {
-    id: NoteId!
+    id: PublicNoteId!
 
     "投稿の URL。相手はここをパーマリンクとして開く"
     url: String!
