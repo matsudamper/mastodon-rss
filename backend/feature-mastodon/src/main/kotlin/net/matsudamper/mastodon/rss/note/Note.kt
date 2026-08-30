@@ -23,7 +23,6 @@ data class Note(
      * この投稿の id。相手はここをパーマリンクとして引きに来る
      */
     val id: ActivityPubId,
-    val type: String = TYPE,
     /**
      * 投稿したアクターの id
      */
@@ -48,7 +47,8 @@ data class Note(
      */
     val url: String? = null,
 ) {
-    companion object {
-        const val TYPE: String = "Note"
-    }
+    /**
+     * 相手はこの値を見て投稿だと判断する。`Note` 以外は入らない
+     */
+    val type: String = "Note"
 }

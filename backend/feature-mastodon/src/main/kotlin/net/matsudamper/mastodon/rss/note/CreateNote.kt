@@ -18,14 +18,10 @@ import net.matsudamper.mastodon.rss.entity.ActivityPubId
  */
 @Serializable
 data class CreateNote(
-    @SerialName("@context")
-    @Serializable(with = StringListSerializer::class)
-    val context: List<String> = OutgoingActivity.DEFAULT_CONTEXT,
     /**
      * このアクティビティ自身の id。相手側の重複判定に使われる
      */
     val id: ActivityPubId,
-    val type: String = TYPE,
     val actor: String,
     val published: String,
     val to: List<String>,
@@ -33,7 +29,12 @@ data class CreateNote(
     @SerialName("object")
     val target: Note,
 ) {
-    companion object {
-        const val TYPE: String = "Create"
-    }
+    @SerialName("@context")
+    @Serializable(with = StringListSerializer::class)
+    val context: List<String> = OutgoingActivity.DEFAULT_CONTEXT
+
+    /**
+     * 相手はこの値を見て投稿の追加だと判断する。`Create` 以外は入らない
+     */
+    val type: String = "Create"
 }

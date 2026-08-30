@@ -17,9 +17,6 @@ import net.matsudamper.mastodon.rss.entity.ActivityPubId
  */
 @Serializable
 data class DeleteNote(
-    @SerialName("@context")
-    @Serializable(with = StringListSerializer::class)
-    val context: List<String> = OutgoingActivity.DEFAULT_CONTEXT,
     /**
      * このアクティビティ自身の id。消す投稿の id ではない。
      *
@@ -32,6 +29,10 @@ data class DeleteNote(
     @SerialName("object")
     val target: Tombstone,
 ) {
+    @SerialName("@context")
+    @Serializable(with = StringListSerializer::class)
+    val context: List<String> = OutgoingActivity.DEFAULT_CONTEXT
+
     /**
      * 相手はこの値を見て削除だと判断する。`Delete` 以外は入らない
      */
