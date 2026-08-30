@@ -82,14 +82,15 @@ interface FeedItemRepository {
     fun find(id: FeedItemId): FeedItem?
 
     /**
-     * フィードの記事をまとめて消す。全部消せたら true。
+     * フィードの記事をまとめて消す。
      *
-     * [feedId] に無い id が 1 つでもあれば、何も消さずに false を返す。
      * 引き当てと削除を分けると、その間に別の要求が消した分だけが減って
      * 一部だけ消えた状態になる。
      *
      * 消すと次の取得で新着として戻ってくる。投稿済みのものを消して
      * 投稿し直すのに使う。配信した投稿（`notes`）はここでは消さない。
+     *
+     * @return 全部消せたら true。[feedId] に無い id が 1 つでもあれば、何も消さずに false
      */
     fun delete(
         feedId: FeedId,
