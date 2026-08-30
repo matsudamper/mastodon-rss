@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.logic.admin
 
+import net.matsudamper.mastodon.rss.shared.FeedItemId
+
 data class AdminFeed(
     val id: Long,
     val url: String,
@@ -133,7 +135,7 @@ sealed interface AdminPostFeedItemsResult {
  * 取り込んだ記事 1 件
  */
 data class AdminFeedItem(
-    val id: Long,
+    val id: FeedItemId,
     val title: String?,
     val link: String?,
     val publishedAt: Long?,

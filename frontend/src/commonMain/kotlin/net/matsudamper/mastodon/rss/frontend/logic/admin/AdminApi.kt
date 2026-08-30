@@ -39,6 +39,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UnpublishedFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
+import net.matsudamper.mastodon.rss.shared.FeedItemId
 
 class AdminApi(
     private val client: ApolloClient = GraphQlClient.apollo,
@@ -275,7 +276,7 @@ class AdminApi(
 
     suspend fun deleteFeedItems(
         accountId: Long,
-        feedItemIds: List<Long>,
+        feedItemIds: List<FeedItemId>,
     ): AdminDeleteFeedItemsResult {
         val response = client.mutation(
             AdminDeleteFeedItemsMutation(

@@ -26,6 +26,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItemsResult
+import net.matsudamper.mastodon.rss.shared.FeedItemId
 
 class AdminAccountScreenViewModel(
     private val username: String,
@@ -45,7 +46,7 @@ class AdminAccountScreenViewModel(
 
     // 記事ごとに持つ。1 つにまとめると、次の削除を始めた時点で
     // 前の削除が送信前に中断され、消したつもりの記事が残る
-    private val deleteFeedItemJobs: MutableMap<Long, Job> = mutableMapOf()
+    private val deleteFeedItemJobs: MutableMap<FeedItemId, Job> = mutableMapOf()
     private var deleteNoteJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
@@ -352,7 +353,7 @@ class AdminAccountScreenViewModel(
         }
     }
 
-    private fun deleteFeedItem(id: Long) {
+    private fun deleteFeedItem(id: FeedItemId) {
         val state = viewModelStateFlow.value
         val accountId = state.loadedAccount?.account?.id ?: return
         if (id in state.deletingFeedItemIds) return
@@ -797,7 +798,7 @@ class AdminAccountScreenViewModel(
         )
     }
 
-    private fun AdminNote.toUiState(deletingFeedItemIds: Set<Long>): AdminAccountScreenUiState.Note =
+    private fun AdminNote.toUiState(deletingFeedItemIds: Set<FeedItemId>): AdminAccountScreenUiState.Note =
         AdminAccountScreenUiState.Note(
             url = url,
             contentHtml = contentHtml,
@@ -830,7 +831,7 @@ class AdminAccountScreenViewModel(
         val feedPreviewError: String? = null,
         val feedSaving: Boolean = false,
         val feedSaveError: String? = null,
-        val deletingFeedItemIds: Set<Long> = emptySet(),
+        val deletingFeedItemIds: Set<FeedItemId> = emptySet(),
         val deleteNoteId: String? = null,
         val deletingNote: Boolean = false,
         val unpublishedItems: List<AdminUnpublishedFeedItem> = emptyList(),
