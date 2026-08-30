@@ -41,8 +41,6 @@ class NoteService(
 
     /**
      * 投稿を消して、消したことをフォロワーに配る。
-     *
-     * 記事（`feed_items`）は消さない。まとめて消すかは呼ぶ側が決める
      */
     suspend fun delete(
         username: String,
