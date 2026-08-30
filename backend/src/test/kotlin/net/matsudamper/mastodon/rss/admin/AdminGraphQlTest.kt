@@ -928,7 +928,7 @@ class AdminGraphQlTest {
     ): HttpResponse =
         graphQl(
             query =
-            "mutation DeleteNote(${'$'}username: String!, ${'$'}noteId: NoteId!) { admin { " +
+            "mutation DeleteNote(${'$'}username: String!, ${'$'}noteId: PublicNoteId!) { admin { " +
                 "deleteNote(query: { username: ${'$'}username, noteId: ${'$'}noteId }) { " +
                 "deletedId failure { reason } } } }",
             token = token,

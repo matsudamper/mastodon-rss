@@ -72,7 +72,7 @@ apollo {
         )
 
         mapScalarToKotlinLong("UnixTime")
-        mapScalarToKotlinString("NoteId")
+        mapScalarToKotlinString("PublicNoteId")
         mapScalarToKotlinLong("AccountId")
         mapScalarToKotlinLong("FeedId")
         mapScalar(

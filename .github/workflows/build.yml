@@ -392,16 +392,16 @@ jobs:
           fi
           grep -q '"reason":"NO_FEED"' /tmp/graphql-delete-feed-item.json
 
-          # deleteNote の input には NoteId が入る。native-image から落ちていると
+          # deleteNote の input には PublicNoteId が入る。native-image から落ちていると
           # 組み立てられず errors になる。無い投稿なので NOT_FOUND が返る
-          echo "--- GraphQL の投稿削除（input の NoteId） ---"
+          echo "--- GraphQL の投稿削除（input の PublicNoteId） ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -H "Cookie: $SESSION_COOKIE" \
             -d '{"query":"mutation DeleteNote($q: DeleteNoteQuery!) { admin { deleteNote(query: $q) { deletedId failure { reason } } } }","variables":{"q":{"username":"ci-feed","noteId":"missing"}}}' \
             http://localhost:8080/graphql -o /tmp/graphql-delete-note.json
           cat /tmp/graphql-delete-note.json
           if grep -q '"errors"' /tmp/graphql-delete-note.json; then
-            echo "::error::deleteNote が errors を返した。input の NoteId を組み立てられていない"
+            echo "::error::deleteNote が errors を返した。input の PublicNoteId を組み立てられていない"
             exit 1
           fi
           grep -q '"reason":"NOT_FOUND"' /tmp/graphql-delete-note.json

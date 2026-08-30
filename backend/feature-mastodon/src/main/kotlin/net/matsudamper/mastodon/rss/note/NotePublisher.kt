@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
-import java.util.UUID
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.crypto.UuidV7
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
 import net.matsudamper.mastodon.rss.follower.FollowerStore
@@ -32,8 +32,8 @@ class NotePublisher(
         sender: ActorUrls,
         contentHtml: String,
     ): PublishedNote {
-        val publicId = UUID.randomUUID().toString()
         val publishedAt = Instant.now()
+        val publicId = UuidV7.generate(publishedAt.toEpochMilli())
         val urls = NoteUrls(domain = sender.domain, publicId = publicId)
 
         notes.add(

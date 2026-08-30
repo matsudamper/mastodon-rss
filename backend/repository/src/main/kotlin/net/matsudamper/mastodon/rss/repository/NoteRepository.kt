@@ -73,8 +73,8 @@ data class NotePosition(
 /**
  * 配信した投稿 1 件。
  *
- * @param publicId URL のパスに入る識別子。採番した id をそのまま出すと、
- *   投稿の総数と作られた順が外から分かってしまう
+ * @param publicId URL のパスに入る識別子。AUTOINCREMENT id ではなく UUID v7。
+ *   先頭 48 bit に生成時刻を持つ。published_at も公開するので順序の新規露出はない
  * @param username 投稿したこちらのアカウントの名前
  * @param contentHtml 配信した本文の HTML。サニタイズ済みのものが入っている
  * @param publishedAt 相手に見せる公開日時

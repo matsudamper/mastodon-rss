@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -67,6 +68,7 @@ class NotePublisherTest {
 
         assertEquals("Note", activity.target.type)
         assertEquals("<p>こんにちは</p>", activity.target.content)
+        assertEquals(7, UUID.fromString(published.publicId).version())
         assertEquals("https://example.com/notes/${published.publicId}", activity.target.id.value)
         // 外側の Create が @context を持つので、中で重ねない
         assertNull(activity.target.context)

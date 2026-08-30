@@ -36,7 +36,7 @@ import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteService
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
-import net.matsudamper.mastodon.rss.shared.NoteId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminMutationResolverImpl : AdminMutationResolver {
@@ -143,7 +143,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                 is NoteService.PostResult.Success -> {
                     QlAdminPostNoteResult(
                         note = QlAdminNote(
-                            id = NoteId(posted.published.publicId),
+                            id = PublicNoteId(posted.published.publicId),
                             url = posted.published.url,
                             contentHtml = posted.published.contentHtml,
                             publishedAt = posted.published.publishedAt.epochSecond,
@@ -239,7 +239,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                 )
             ) {
                 is NoteService.DeleteResult.Success -> QlAdminDeleteNoteResult(
-                    deletedId = NoteId(deleted.deleted.publicId),
+                    deletedId = PublicNoteId(deleted.deleted.publicId),
                     failure = null,
                 )
 

@@ -27,12 +27,12 @@ type AdminMutation {
 input DeleteNoteQuery {
     "投稿したアカウント"
     username: String!
-    noteId: NoteId!
+    noteId: PublicNoteId!
 }
 
 type AdminDeleteNoteResult {
     "消せた投稿の id"
-    deletedId: NoteId
+    deletedId: PublicNoteId
 
     failure: AdminDeleteNoteFailure
 }

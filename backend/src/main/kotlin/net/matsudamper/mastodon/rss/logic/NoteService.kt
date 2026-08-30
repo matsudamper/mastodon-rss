@@ -7,7 +7,7 @@ import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.PublishedNote
 import net.matsudamper.mastodon.rss.note.StoredNote
-import net.matsudamper.mastodon.rss.shared.NoteId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 /**
  * 管理画面から見た投稿の操作。
@@ -91,18 +91,18 @@ class NoteService(
         username: String,
         after: NotePosition?,
         limit: Int,
-    ): NoteIdPage {
+    ): PublicNoteIdPage {
         val urls = directory.resolve(username)
-            ?: return NoteIdPage(ids = emptyList(), hasMore = false, nextPosition = null)
+            ?: return PublicNoteIdPage(ids = emptyList(), hasMore = false, nextPosition = null)
 
         val size = limit.coerceIn(0, MAX_LIST_LIMIT)
-        if (size == 0) return NoteIdPage(ids = emptyList(), hasMore = false, nextPosition = null)
+        if (size == 0) return PublicNoteIdPage(ids = emptyList(), hasMore = false, nextPosition = null)
 
         val fetched = notes.listPositions(username = urls.username, after = after, limit = size + 1)
         val page = fetched.take(size)
 
-        return NoteIdPage(
-            ids = page.map { NoteId(it.publicId) },
+        return PublicNoteIdPage(
+            ids = page.map { PublicNoteId(it.publicId) },
             hasMore = fetched.size > size,
             nextPosition = page.lastOrNull().takeIf { fetched.size > size },
         )
@@ -117,8 +117,8 @@ class NoteService(
         val nextPosition: NotePosition?,
     )
 
-    data class NoteIdPage(
-        val ids: List<NoteId>,
+    data class PublicNoteIdPage(
+        val ids: List<PublicNoteId>,
         val hasMore: Boolean,
         val nextPosition: NotePosition?,
     )
