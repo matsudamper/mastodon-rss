@@ -117,7 +117,7 @@ class GraphQlEngine private constructor(
                 .schemaString(readSchema())
                 .scalars(
                     UnixTimeScalar.value,
-                    NoteIdScalar.value,
+                    PublicNoteIdScalar.value,
                     AccountIdScalar.value,
                     FeedIdScalar.value,
                 )

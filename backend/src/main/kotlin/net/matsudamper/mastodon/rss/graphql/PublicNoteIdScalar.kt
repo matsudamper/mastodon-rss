@@ -10,35 +10,37 @@ import graphql.schema.CoercingParseLiteralException
 import graphql.schema.CoercingParseValueException
 import graphql.schema.CoercingSerializeException
 import graphql.schema.GraphQLScalarType
-import net.matsudamper.mastodon.rss.shared.NoteId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
-object NoteIdScalar {
+object PublicNoteIdScalar {
     val value: GraphQLScalarType = GraphQLScalarType
         .newScalar()
-        .name("NoteId")
+        .name("PublicNoteId")
         .description("投稿の公開 id")
-        .coercing(NoteIdCoercing)
+        .coercing(PublicNoteIdCoercing)
         .build()
 
-    private object NoteIdCoercing : Coercing<NoteId, String> {
+    private object PublicNoteIdCoercing : Coercing<PublicNoteId, String> {
         override fun serialize(
             dataFetcherResult: Any,
             graphQLContext: GraphQLContext,
             locale: Locale,
         ): String {
-            return (dataFetcherResult as? NoteId)?.value
-                ?: throw CoercingSerializeException("NoteId にできない型: ${dataFetcherResult::class.qualifiedName}")
+            return (dataFetcherResult as? PublicNoteId)?.value
+                ?: throw CoercingSerializeException(
+                    "PublicNoteId にできない型: ${dataFetcherResult::class.qualifiedName}",
+                )
         }
 
         override fun parseValue(
             input: Any,
             graphQLContext: GraphQLContext,
             locale: Locale,
-        ): NoteId {
+        ): PublicNoteId {
             return when (input) {
-                is NoteId -> input
-                is String -> NoteId(input)
-                else -> throw CoercingParseValueException("NoteId として読めない: $input")
+                is PublicNoteId -> input
+                is String -> PublicNoteId(input)
+                else -> throw CoercingParseValueException("PublicNoteId として読めない: $input")
             }
         }
 
@@ -47,10 +49,10 @@ object NoteIdScalar {
             variables: CoercedVariables,
             graphQLContext: GraphQLContext,
             locale: Locale,
-        ): NoteId {
+        ): PublicNoteId {
             val raw = (input as? StringValue)?.value
-                ?: throw CoercingParseLiteralException("NoteId は文字列で書く")
-            return NoteId(raw)
+                ?: throw CoercingParseLiteralException("PublicNoteId は文字列で書く")
+            return PublicNoteId(raw)
         }
     }
 }
