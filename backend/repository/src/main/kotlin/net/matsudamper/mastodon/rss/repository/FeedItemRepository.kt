@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.repository
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 /**
  * 取り込んだ記事の読み書き。
@@ -60,7 +61,7 @@ interface FeedItemRepository {
     fun markPosted(
         id: FeedItemId,
         postedAt: Instant,
-        noteId: String,
+        noteId: PublicNoteId,
     )
 
     /**
@@ -76,7 +77,7 @@ interface FeedItemRepository {
      * 投稿の一覧に記事を並べるのに使う。1 件ずつ問い合わせると投稿の数だけ
      * 往復するので、まとめて渡してまとめて受け取る形にする
      */
-    fun findByNoteIds(noteIds: Collection<String>): Map<String, FeedItem>
+    fun findByNoteIds(noteIds: Collection<PublicNoteId>): Map<PublicNoteId, FeedItem>
 
     fun find(id: FeedItemId): FeedItem?
 
@@ -122,7 +123,7 @@ data class FeedItem(
     val importedAt: Instant,
     val state: FeedItemState,
     val postedAt: Instant?,
-    val noteId: String?,
+    val noteId: PublicNoteId?,
 )
 
 /** 保存する記事。id はまだ無い */

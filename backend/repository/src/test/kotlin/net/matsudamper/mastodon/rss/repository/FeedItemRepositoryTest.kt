@@ -13,6 +13,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 class FeedItemRepositoryTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-feed-item-test")
@@ -150,9 +151,9 @@ class FeedItemRepositoryTest {
                     item(feedId = feed.id, itemKey = "p", state = FeedItemState.PENDING),
                 ),
             )
-            repositories.notes.add(note(publicId = "note-1"))
+            repositories.notes.add(note(publicId = PublicNoteId("note-1")))
 
-            repositories.feedItems.markPosted(pending.id, POSTED_AT, noteId = "note-1")
+            repositories.feedItems.markPosted(pending.id, POSTED_AT, noteId = PublicNoteId("note-1"))
             repositories.feedItems.markSkipped(
                 assertNotNull(
                     repositories.feedItems.add(
@@ -174,13 +175,13 @@ class FeedItemRepositoryTest {
                 repositories.feedItems.add(item(feedId = feed.id, itemKey = "posted", state = FeedItemState.PENDING)),
             )
             repositories.feedItems.add(item(feedId = feed.id, itemKey = "pending", state = FeedItemState.PENDING))
-            repositories.notes.add(note(publicId = "note-1"))
-            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = "note-1")
+            repositories.notes.add(note(publicId = PublicNoteId("note-1")))
+            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = PublicNoteId("note-1"))
 
-            val found = repositories.feedItems.findByNoteIds(listOf("note-1", "note-2"))
+            val found = repositories.feedItems.findByNoteIds(listOf(PublicNoteId("note-1"), PublicNoteId("note-2")))
 
-            assertEquals(setOf("note-1"), found.keys)
-            assertEquals(posted.id, assertNotNull(found["note-1"]).id)
+            assertEquals(setOf(PublicNoteId("note-1")), found.keys)
+            assertEquals(posted.id, assertNotNull(found[PublicNoteId("note-1")]).id)
             assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(emptyList()))
         }
     }
@@ -192,13 +193,13 @@ class FeedItemRepositoryTest {
             val posted = assertNotNull(
                 repositories.feedItems.add(item(feedId = feed.id, itemKey = "posted", state = FeedItemState.PENDING)),
             )
-            repositories.notes.add(note(publicId = "note-1"))
-            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = "note-1")
+            repositories.notes.add(note(publicId = PublicNoteId("note-1")))
+            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = PublicNoteId("note-1"))
 
             repositories.feedItems.delete(feed.id, listOf(posted.id))
 
-            assertNotNull(repositories.notes.find("note-1"))
-            assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(listOf("note-1")))
+            assertNotNull(repositories.notes.find(PublicNoteId("note-1")))
+            assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(listOf(PublicNoteId("note-1"))))
         }
     }
 
@@ -243,13 +244,13 @@ class FeedItemRepositoryTest {
             val posted = assertNotNull(
                 repositories.feedItems.add(item(feedId = feed.id, itemKey = "posted", state = FeedItemState.PENDING)),
             )
-            repositories.notes.add(note(publicId = "note-1"))
-            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = "note-1")
+            repositories.notes.add(note(publicId = PublicNoteId("note-1")))
+            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = PublicNoteId("note-1"))
 
-            repositories.notes.delete("note-1")
+            repositories.notes.delete(PublicNoteId("note-1"))
 
             // 記事は残るが、消えた投稿を指したままにはしない
-            assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(listOf("note-1")))
+            assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(listOf(PublicNoteId("note-1"))))
             assertNull(assertNotNull(repositories.feedItems.find(posted.id)).noteId)
         }
     }
@@ -339,7 +340,7 @@ class FeedItemRepositoryTest {
         state = state,
     )
 
-    private fun note(publicId: String): NewNote = NewNote(
+    private fun note(publicId: PublicNoteId): NewNote = NewNote(
         username = "feed1",
         publicId = publicId,
         contentHtml = "<p>本文</p>",

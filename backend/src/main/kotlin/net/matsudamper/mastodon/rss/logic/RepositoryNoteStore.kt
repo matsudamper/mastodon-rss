@@ -6,6 +6,7 @@ import net.matsudamper.mastodon.rss.note.StoredNote
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NoteRepository
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 /**
  * ActivityPub 側の [NoteStore] を DB に繋ぐ。
@@ -18,21 +19,22 @@ class RepositoryNoteStore(
         notes.add(
             NewNote(
                 username = note.username,
-                publicId = note.publicId,
+                publicId = PublicNoteId(note.publicId),
                 contentHtml = note.contentHtml,
                 publishedAt = note.publishedAt,
             ),
         )
     }
 
-    override fun find(publicId: String): StoredNote? = notes.find(publicId)?.toStored()
+    override fun find(publicId: String): StoredNote? = notes.find(PublicNoteId(publicId))?.toStored()
 
     override fun findByPublicIds(publicIds: Set<String>): Map<String, StoredNote> = notes
-        .findByPublicIds(publicIds)
-        .mapValues { (_, note) -> note.toStored() }
+        .findByPublicIds(publicIds.map { PublicNoteId(it) }.toSet())
+        .entries
+        .associate { (publicId, note) -> publicId.value to note.toStored() }
 
     override fun delete(publicId: String) {
-        notes.delete(publicId)
+        notes.delete(PublicNoteId(publicId))
     }
 
     override fun list(
@@ -45,7 +47,7 @@ class RepositoryNoteStore(
             after = after?.let {
                 net.matsudamper.mastodon.rss.repository.NotePosition(
                     publishedAt = it.publishedAt,
-                    publicId = it.publicId,
+                    publicId = PublicNoteId(it.publicId),
                 )
             },
             limit = limit,
@@ -62,7 +64,7 @@ class RepositoryNoteStore(
             after = after?.let {
                 net.matsudamper.mastodon.rss.repository.NotePosition(
                     publishedAt = it.publishedAt,
-                    publicId = it.publicId,
+                    publicId = PublicNoteId(it.publicId),
                 )
             },
             limit = limit,
@@ -70,14 +72,14 @@ class RepositoryNoteStore(
         .map {
             NotePosition(
                 publishedAt = it.publishedAt,
-                publicId = it.publicId,
+                publicId = it.publicId.value,
             )
         }
 
     override fun count(username: String): Long = notes.count(username)
 
     private fun Note.toStored(): StoredNote = StoredNote(
-        publicId = publicId,
+        publicId = publicId.value,
         username = username,
         contentHtml = contentHtml,
         publishedAt = publishedAt,

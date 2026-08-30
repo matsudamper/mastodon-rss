@@ -21,6 +21,7 @@ import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.AccountId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 class FeedService(
     private val accounts: AccountRepository,
@@ -115,7 +116,7 @@ class FeedService(
      *
      * 投稿の一覧に記事を並べるのに使う
      */
-    fun itemsByNoteIds(noteIds: Collection<String>): Map<String, FeedItem> = feedItems.findByNoteIds(noteIds)
+    fun itemsByNoteIds(noteIds: Collection<PublicNoteId>): Map<PublicNoteId, FeedItem> = feedItems.findByNoteIds(noteIds)
 
     /**
      * 取り込んだ記事をまとめて消す。
@@ -167,7 +168,7 @@ class FeedService(
             } catch (_: Exception) {
                 return@forEach
             }
-            feedItems.markPosted(stored.id, Instant.now(), noteId = published.publicId)
+            feedItems.markPosted(stored.id, Instant.now(), noteId = PublicNoteId(published.publicId))
             posted += UnpublishedItem(
                 title = stored.title,
                 link = stored.link,

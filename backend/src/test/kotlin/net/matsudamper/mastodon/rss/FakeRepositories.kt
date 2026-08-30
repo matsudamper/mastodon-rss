@@ -22,6 +22,7 @@ import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.AccountId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 // ルーティングのテストで使う Repositories の差し替え。
 // 保存はメモリ上だけで、DB には一切触らない。
@@ -152,7 +153,7 @@ class FakeFollowerRepository : FollowerRepository {
  * 記録するだけの [NoteRepository]
  */
 class FakeNoteRepository(
-    private val onDeleted: (publicId: String) -> Unit = {},
+    private val onDeleted: (publicId: PublicNoteId) -> Unit = {},
 ) : NoteRepository {
     private val stored = mutableListOf<Note>()
 
@@ -165,13 +166,13 @@ class FakeNoteRepository(
         )
     }
 
-    override fun find(publicId: String): Note? = stored.firstOrNull { it.publicId == publicId }
+    override fun find(publicId: PublicNoteId): Note? = stored.firstOrNull { it.publicId == publicId }
 
-    override fun findByPublicIds(publicIds: Set<String>): Map<String, Note> = stored
+    override fun findByPublicIds(publicIds: Set<PublicNoteId>): Map<PublicNoteId, Note> = stored
         .filter { it.publicId in publicIds }
         .associateBy { it.publicId }
 
-    override fun delete(publicId: String) {
+    override fun delete(publicId: PublicNoteId) {
         if (stored.removeAll { it.publicId == publicId }) {
             onDeleted(publicId)
         }
@@ -183,11 +184,11 @@ class FakeNoteRepository(
         limit: Int,
     ): List<Note> = stored
         .filter { it.username == username }
-        .sortedWith(compareByDescending<Note> { it.publishedAt }.thenByDescending { it.publicId })
+        .sortedWith(compareByDescending<Note> { it.publishedAt }.thenByDescending { it.publicId.value })
         .filter { note ->
             after == null ||
                 note.publishedAt < after.publishedAt ||
-                (note.publishedAt == after.publishedAt && note.publicId < after.publicId)
+                (note.publishedAt == after.publishedAt && note.publicId.value < after.publicId.value)
         }
         .take(limit)
 
@@ -349,7 +350,7 @@ class FakeFeedItemRepository : FeedItemRepository {
     override fun markPosted(
         id: FeedItemId,
         postedAt: Instant,
-        noteId: String,
+        noteId: PublicNoteId,
     ) {
         update(id) { it.copy(state = FeedItemState.POSTED, postedAt = postedAt, noteId = noteId) }
     }
@@ -358,7 +359,7 @@ class FakeFeedItemRepository : FeedItemRepository {
         update(id) { it.copy(state = FeedItemState.SKIPPED) }
     }
 
-    override fun findByNoteIds(noteIds: Collection<String>): Map<String, FeedItem> {
+    override fun findByNoteIds(noteIds: Collection<PublicNoteId>): Map<PublicNoteId, FeedItem> {
         if (noteIds.isEmpty()) return emptyMap()
         val wanted = noteIds.toSet()
         return stored.filter { it.noteId in wanted }.associateBy { checkNotNull(it.noteId) }
@@ -381,7 +382,7 @@ class FakeFeedItemRepository : FeedItemRepository {
 
     fun items(): List<FeedItem> = stored.toList()
 
-    fun clearNoteId(noteId: String) {
+    fun clearNoteId(noteId: PublicNoteId) {
         stored.replaceAll { item -> if (item.noteId == noteId) item.copy(noteId = null) else item }
     }
 
