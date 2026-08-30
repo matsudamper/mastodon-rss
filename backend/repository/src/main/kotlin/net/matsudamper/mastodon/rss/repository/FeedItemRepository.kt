@@ -1,6 +1,8 @@
 package net.matsudamper.mastodon.rss.repository
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 
 /**
  * 取り込んだ記事の読み書き。
@@ -99,11 +101,6 @@ interface FeedItemRepository {
     /** フィードの記事を数える。初回の取り込みかどうかの判定などに使う */
     fun countByFeed(feedId: FeedId): Long
 }
-
-@JvmInline
-value class FeedItemId(
-    val value: Long,
-)
 
 /**
  * 取り込んだ記事 1 件。

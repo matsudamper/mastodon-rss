@@ -2,9 +2,9 @@ package net.matsudamper.mastodon.rss.note
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import net.matsudamper.mastodon.rss.activitypub.ActivityPubId
 import net.matsudamper.mastodon.rss.activitypub.OutgoingActivity
 import net.matsudamper.mastodon.rss.activitypub.StringListSerializer
+import net.matsudamper.mastodon.rss.entity.ActivityPubId
 
 /**
  * 配信する投稿。Mastodon のタイムラインに 1 件として並ぶもの。

@@ -11,6 +11,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 
 class FeedItemRepositoryTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-feed-item-test")

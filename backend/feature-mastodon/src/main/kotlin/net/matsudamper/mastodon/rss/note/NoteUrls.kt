@@ -1,6 +1,6 @@
 package net.matsudamper.mastodon.rss.note
 
-import net.matsudamper.mastodon.rss.activitypub.ActivityPubId
+import net.matsudamper.mastodon.rss.entity.ActivityPubId
 
 /**
  * 投稿の URL。

@@ -35,7 +35,7 @@ import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteService
-import net.matsudamper.mastodon.rss.repository.FeedItemId
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.NoteId
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
