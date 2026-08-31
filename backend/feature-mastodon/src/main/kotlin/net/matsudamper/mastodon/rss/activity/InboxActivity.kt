@@ -1,7 +1,9 @@
-package net.matsudamper.mastodon.rss.activitypub
+package net.matsudamper.mastodon.rss.activity
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
+import net.matsudamper.mastodon.rss.activitypub.id
 
 /**
  * inbox で受け取るアクティビティのうち、今のところ見ている部分だけ。

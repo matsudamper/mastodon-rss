@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.note
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.entity.ActivityPubId
 
 /**
@@ -12,7 +13,7 @@ import net.matsudamper.mastodon.rss.entity.ActivityPubId
  * コレクションを入れるのは Mastodon の慣習で、これが無いと配信されても
  * ホームタイムラインに並ばないことがある。
  *
- * `@context` は単体で返すときだけ入れる。[CreateNote] に包んで送るときは
+ * `@context` は単体で返すときだけ入れる。[CreateNoteActivity] に包んで送るときは
  * 外側が持っているので、中で重ねると同じものを 2 回書くことになる。
  */
 @Serializable

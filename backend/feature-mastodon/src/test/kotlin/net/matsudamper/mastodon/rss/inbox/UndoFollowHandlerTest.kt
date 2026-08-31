@@ -8,7 +8,7 @@ import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
-import net.matsudamper.mastodon.rss.activitypub.InboxActivity
+import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.json.AppJson
 

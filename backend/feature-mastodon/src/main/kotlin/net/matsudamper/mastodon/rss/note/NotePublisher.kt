@@ -1,6 +1,8 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
+import net.matsudamper.mastodon.rss.activity.DeleteNoteActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.crypto.UuidV7
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
@@ -47,7 +49,7 @@ class NotePublisher(
         )
 
         val body = AppJson.encodeToString(
-            CreateNote.serializer(),
+            CreateNoteActivity.serializer(),
             createActivity(sender = sender, urls = urls, contentHtml = contentHtml, publishedAt = publishedAt),
         ).toByteArray()
 
@@ -87,7 +89,7 @@ class NotePublisher(
         notes.delete(publicId)
 
         val body = AppJson.encodeToString(
-            DeleteNote.serializer(),
+            DeleteNoteActivity.serializer(),
             deleteActivity(sender = sender, urls = urls),
         ).toByteArray()
 
@@ -129,12 +131,12 @@ class NotePublisher(
     private fun deleteActivity(
         sender: ActorUrls,
         urls: NoteUrls,
-    ): DeleteNote = DeleteNote(
+    ): DeleteNoteActivity = DeleteNoteActivity(
         id = urls.deleteId,
         actor = sender.actorId,
         to = listOf(PUBLIC_AUDIENCE),
         cc = listOf(sender.followers),
-        target = DeleteNote.Tombstone(id = urls.noteId),
+        target = DeleteNoteActivity.Tombstone(id = urls.noteId),
     )
 
     private fun createActivity(
@@ -142,10 +144,10 @@ class NotePublisher(
         urls: NoteUrls,
         contentHtml: String,
         publishedAt: Instant,
-    ): CreateNote {
+    ): CreateNoteActivity {
         val published = publishedAt.toActivityPubPublished()
 
-        return CreateNote(
+        return CreateNoteActivity(
             id = urls.createId,
             actor = sender.actorId,
             published = published,

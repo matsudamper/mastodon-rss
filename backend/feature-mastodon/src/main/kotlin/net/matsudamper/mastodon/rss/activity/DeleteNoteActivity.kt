@@ -1,8 +1,7 @@
-package net.matsudamper.mastodon.rss.note
+package net.matsudamper.mastodon.rss.activity
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import net.matsudamper.mastodon.rss.activitypub.OutgoingActivity
 import net.matsudamper.mastodon.rss.activitypub.StringListSerializer
 import net.matsudamper.mastodon.rss.entity.ActivityPubId
 
@@ -16,7 +15,7 @@ import net.matsudamper.mastodon.rss.entity.ActivityPubId
  * 元の投稿と揃っていないと消したことが無視されてタイムラインに残る。
  */
 @Serializable
-data class DeleteNote(
+data class DeleteNoteActivity(
     /**
      * このアクティビティ自身の id。消す投稿の id ではない。
      *
@@ -39,7 +38,7 @@ data class DeleteNote(
     val type: String = "Delete"
 
     /**
-     * 消した投稿を表す `Tombstone`（墓標）。[DeleteNote] の `object` に入れて相手の inbox へ送る。
+     * 消した投稿を表す `Tombstone`（墓標）。[DeleteNoteActivity] の `object` に入れて相手の inbox へ送る。
      *
      * 送り出すためだけの形で、保存もしないし受け取ったものをこれに読むこともしない。
      * 消えたことだけを表すので本文は持たない。id だけを送る実装もあるが、

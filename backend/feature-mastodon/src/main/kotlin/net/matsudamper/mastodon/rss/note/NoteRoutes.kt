@@ -4,11 +4,11 @@ import java.time.Instant
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLParameter
-import io.ktor.server.application.call
 import io.ktor.server.request.header
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
@@ -98,7 +98,7 @@ fun Route.outboxRoutes(
 
         val items = page
             .map { note ->
-                CreateNote(
+                CreateNoteActivity(
                     id = NoteUrls(domain = urls.domain, publicId = note.publicId).createId,
                     actor = urls.actorId,
                     published = note.publishedAt.toActivityPubPublished(),
@@ -109,7 +109,7 @@ fun Route.outboxRoutes(
             }
 
         call.respondJson(
-            serializer = OrderedCollectionPage.serializer(CreateNote.serializer()),
+            serializer = OrderedCollectionPage.serializer(CreateNoteActivity.serializer()),
             value = OrderedCollectionPage(
                 id = pageUrl(urls, cursor.ifEmpty { null }?.let { decodeCursor(it) }),
                 totalItems = total,

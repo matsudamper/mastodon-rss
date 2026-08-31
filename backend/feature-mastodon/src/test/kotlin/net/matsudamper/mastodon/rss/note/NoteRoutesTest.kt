@@ -5,7 +5,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlinx.serialization.builtins.serializer
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -17,6 +16,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.collection.COLLECTION_CURSOR_PARAM
 import net.matsudamper.mastodon.rss.collection.COLLECTION_PAGE_SIZE
 import net.matsudamper.mastodon.rss.collection.OrderedCollection
@@ -116,7 +116,7 @@ class NoteRoutesTest {
             assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
 
             val page = AppJson.decodeFromString(
-                OrderedCollectionPage.serializer(CreateNote.serializer()),
+                OrderedCollectionPage.serializer(CreateNoteActivity.serializer()),
                 response.bodyAsText(),
             )
             assertEquals("OrderedCollectionPage", page.type)
@@ -152,7 +152,7 @@ class NoteRoutesTest {
 
             val first = client.get("/users/admin/outbox?$COLLECTION_CURSOR_PARAM=").bodyAsText()
             val firstPage = AppJson.decodeFromString(
-                OrderedCollectionPage.serializer(CreateNote.serializer()),
+                OrderedCollectionPage.serializer(CreateNoteActivity.serializer()),
                 first,
             )
             assertEquals(COLLECTION_PAGE_SIZE, firstPage.orderedItems.size)
@@ -163,7 +163,7 @@ class NoteRoutesTest {
 
             val second = client.get(nextUrl.substringAfter("example.com")).bodyAsText()
             val secondPage = AppJson.decodeFromString(
-                OrderedCollectionPage.serializer(CreateNote.serializer()),
+                OrderedCollectionPage.serializer(CreateNoteActivity.serializer()),
                 second,
             )
             assertEquals(1, secondPage.orderedItems.size)

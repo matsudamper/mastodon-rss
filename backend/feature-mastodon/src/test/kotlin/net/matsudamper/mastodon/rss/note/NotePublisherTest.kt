@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
 import net.matsudamper.mastodon.rss.json.AppJson
@@ -60,7 +61,7 @@ class NotePublisherTest {
             delivery.delivered.map { it.inbox },
         )
 
-        val activity = AppJson.decodeFromString(CreateNote.serializer(), delivery.delivered.first().body)
+        val activity = AppJson.decodeFromString(CreateNoteActivity.serializer(), delivery.delivered.first().body)
         assertEquals("Create", activity.type)
         assertEquals(sender.actorId, activity.actor)
         assertEquals(listOf(PUBLIC_AUDIENCE), activity.to)

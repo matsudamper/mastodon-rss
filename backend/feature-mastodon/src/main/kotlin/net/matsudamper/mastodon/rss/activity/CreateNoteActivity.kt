@@ -1,15 +1,15 @@
-package net.matsudamper.mastodon.rss.note
+package net.matsudamper.mastodon.rss.activity
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import net.matsudamper.mastodon.rss.activitypub.OutgoingActivity
 import net.matsudamper.mastodon.rss.activitypub.StringListSerializer
 import net.matsudamper.mastodon.rss.entity.ActivityPubId
+import net.matsudamper.mastodon.rss.note.Note
 
 /**
- * [Note] を包んで配る `Create`。
+ * [net.matsudamper.mastodon.rss.note.Note] を包んで配る `Create`。
  *
- * `to` と `cc` は中の [Note] と同じものを入れる。片方だけに入れると、
+ * `to` と `cc` は中の [net.matsudamper.mastodon.rss.note.Note] と同じものを入れる。片方だけに入れると、
  * 実装によって配信先の判断が変わる。
  *
  * [OutgoingActivity] と分けているのは、あちらの `object` が
@@ -17,7 +17,7 @@ import net.matsudamper.mastodon.rss.entity.ActivityPubId
  * そのまま返す `Accept` のための形だから。こちらは中身をこちらが組み立てる。
  */
 @Serializable
-data class CreateNote(
+data class CreateNoteActivity(
     /**
      * このアクティビティ自身の id。相手側の重複判定に使われる
      */
