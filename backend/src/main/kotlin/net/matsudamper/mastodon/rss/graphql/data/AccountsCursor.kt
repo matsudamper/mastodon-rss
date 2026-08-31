@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.graphql.data
 
 import java.util.Base64
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.matsudamper.mastodon.rss.json.AppJson
 
@@ -14,6 +15,7 @@ import net.matsudamper.mastodon.rss.json.AppJson
  */
 @Serializable
 data class AccountsCursor(
+    @SerialName("afterUsername")
     val afterUsername: String,
 ) {
     fun encode(): String =

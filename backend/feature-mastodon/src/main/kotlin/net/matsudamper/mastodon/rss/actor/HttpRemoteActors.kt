@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.actor
 
 import java.io.Closeable
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -195,9 +196,13 @@ class HttpRemoteActors(
  */
 @Serializable
 private data class RemoteActorDocument(
+    @SerialName("id")
     val id: String? = null,
+    @SerialName("inbox")
     val inbox: String? = null,
+    @SerialName("publicKey")
     val publicKey: RemoteActorPublicKey? = null,
+    @SerialName("endpoints")
     val endpoints: RemoteActorEndpoints? = null,
 )
 
@@ -209,12 +214,16 @@ private data class RemoteActorDocument(
  */
 @Serializable
 private data class RemoteActorEndpoints(
+    @SerialName("sharedInbox")
     val sharedInbox: String? = null,
 )
 
 @Serializable
 private data class RemoteActorPublicKey(
+    @SerialName("id")
     val id: String? = null,
+    @SerialName("owner")
     val owner: String? = null,
+    @SerialName("publicKeyPem")
     val publicKeyPem: String,
 )
