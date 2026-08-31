@@ -112,24 +112,6 @@ fun LabeledValue(
 }
 
 /**
- * 押せる文字。画面の中のリンクに使う。
- */
-@Composable
-fun TextLink(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Text(
-        text = text,
-        modifier = modifier.clickable(onClick = onClick),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.primary,
-        textDecoration = TextDecoration.Underline,
-    )
-}
-
-/**
  * 状態を表す丸。取得の成否のように、色だけで分かるものに添える。
  */
 @Composable
