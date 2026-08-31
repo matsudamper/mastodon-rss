@@ -12,6 +12,9 @@ dependencies {
     // このモジュールを切り出す際も一緒に付いてくる
     implementation(project(":backend:crypto"))
 
+    // 投稿の公開 id。口に出るので api にする
+    api(project(":shared"))
+
     // ルーティングの拡張関数（Route.actorRoutes など）と respondJson を公開するので api にする。
     // 使う側は Ktor のサーバーを立てることが前提になる
     api(libs.ktor.server.core)

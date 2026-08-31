@@ -168,7 +168,7 @@ class FeedService(
             } catch (_: Exception) {
                 return@forEach
             }
-            feedItems.markPosted(stored.id, Instant.now(), noteId = PublicNoteId(published.publicId))
+            feedItems.markPosted(stored.id, Instant.now(), noteId = published.publicId)
             posted += UnpublishedItem(
                 title = stored.title,
                 link = stored.link,

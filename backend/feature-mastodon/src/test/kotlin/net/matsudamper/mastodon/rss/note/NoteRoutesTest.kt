@@ -23,6 +23,7 @@ import net.matsudamper.mastodon.rss.collection.OrderedCollection
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 // Mastodon が後から引きに来る投稿のパーマリンクと outbox。
 // タイムラインに出ていても、ここが 404 だと開けない投稿になる。
@@ -45,7 +46,7 @@ class NoteRoutesTest {
         publishedAt: Instant = this.publishedAt,
         contentHtml: String = "<p>$publicId</p>",
     ): StoredNote = StoredNote(
-        publicId = publicId,
+        publicId = PublicNoteId(publicId),
         username = username,
         contentHtml = contentHtml,
         publishedAt = publishedAt,

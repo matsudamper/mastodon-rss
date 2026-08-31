@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.note
 
 import net.matsudamper.mastodon.rss.entity.ActivityPubId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 /**
  * 投稿の URL。
@@ -13,12 +14,12 @@ import net.matsudamper.mastodon.rss.entity.ActivityPubId
  */
 data class NoteUrls(
     val domain: String,
-    val publicId: String,
+    val publicId: PublicNoteId,
 ) {
     /**
      * 投稿の URL。これがそのまま投稿の id になる
      */
-    val noteUrl: String = "https://$domain/notes/$publicId"
+    val noteUrl: String = "https://$domain/notes/${publicId.value}"
 
     val noteId: ActivityPubId = ActivityPubId(noteUrl)
 

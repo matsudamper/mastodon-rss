@@ -15,8 +15,7 @@ class AccountNoteDataLoaderDefine(
     override fun getDataLoader(): DataLoader<PublicNoteId, StoredNote> {
         return DataLoaderFactory.newMappedDataLoader { keys, _ ->
             otelSupplyAsync {
-                notes.findByPublicIds(keys.map { it.value }.toSet())
-                    .mapKeys { (publicId, _) -> PublicNoteId(publicId) }
+                notes.findByPublicIds(keys.toSet())
             }
         }
     }

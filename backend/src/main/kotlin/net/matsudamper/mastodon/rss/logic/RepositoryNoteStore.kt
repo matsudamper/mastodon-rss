@@ -19,22 +19,21 @@ class RepositoryNoteStore(
         notes.add(
             NewNote(
                 username = note.username,
-                publicId = PublicNoteId(note.publicId),
+                publicId = note.publicId,
                 contentHtml = note.contentHtml,
                 publishedAt = note.publishedAt,
             ),
         )
     }
 
-    override fun find(publicId: String): StoredNote? = notes.find(PublicNoteId(publicId))?.toStored()
+    override fun find(publicId: PublicNoteId): StoredNote? = notes.find(publicId)?.toStored()
 
-    override fun findByPublicIds(publicIds: Set<String>): Map<String, StoredNote> = notes
-        .findByPublicIds(publicIds.map { PublicNoteId(it) }.toSet())
-        .entries
-        .associate { (publicId, note) -> publicId.value to note.toStored() }
+    override fun findByPublicIds(publicIds: Set<PublicNoteId>): Map<PublicNoteId, StoredNote> = notes
+        .findByPublicIds(publicIds)
+        .mapValues { (_, note) -> note.toStored() }
 
-    override fun delete(publicId: String) {
-        notes.delete(PublicNoteId(publicId))
+    override fun delete(publicId: PublicNoteId) {
+        notes.delete(publicId)
     }
 
     override fun list(
@@ -47,7 +46,7 @@ class RepositoryNoteStore(
             after = after?.let {
                 net.matsudamper.mastodon.rss.repository.NotePosition(
                     publishedAt = it.publishedAt,
-                    publicId = PublicNoteId(it.publicId),
+                    publicId = it.publicId,
                 )
             },
             limit = limit,
@@ -64,7 +63,7 @@ class RepositoryNoteStore(
             after = after?.let {
                 net.matsudamper.mastodon.rss.repository.NotePosition(
                     publishedAt = it.publishedAt,
-                    publicId = PublicNoteId(it.publicId),
+                    publicId = it.publicId,
                 )
             },
             limit = limit,
@@ -72,14 +71,14 @@ class RepositoryNoteStore(
         .map {
             NotePosition(
                 publishedAt = it.publishedAt,
-                publicId = it.publicId.value,
+                publicId = it.publicId,
             )
         }
 
     override fun count(username: String): Long = notes.count(username)
 
     private fun Note.toStored(): StoredNote = StoredNote(
-        publicId = publicId.value,
+        publicId = publicId,
         username = username,
         contentHtml = contentHtml,
         publishedAt = publishedAt,

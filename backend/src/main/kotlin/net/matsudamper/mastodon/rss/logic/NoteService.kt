@@ -44,7 +44,7 @@ class NoteService(
      */
     suspend fun delete(
         username: String,
-        publicId: String,
+        publicId: PublicNoteId,
     ): DeleteResult {
         val urls = directory.resolve(username)
             ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
@@ -100,7 +100,7 @@ class NoteService(
         val page = fetched.take(size)
 
         return PublicNoteIdPage(
-            ids = page.map { PublicNoteId(it.publicId) },
+            ids = page.map { it.publicId },
             hasMore = fetched.size > size,
             nextPosition = page.lastOrNull().takeIf { fetched.size > size },
         )

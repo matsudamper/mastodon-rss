@@ -14,6 +14,7 @@ import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.note.NotePublisher
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 // 管理画面から投稿する経路。
 // 本文をプレーンテキストで受けて HTML に組み立てるところがここの責務になる。
@@ -167,7 +168,7 @@ class NoteServiceTest {
         assertEquals(
             NoteService.DeleteFailure.NOT_FOUND,
             assertIs<NoteService.DeleteResult.Failure>(
-                service().delete(username = TestLocalActor.USERNAME, publicId = "missing"),
+                service().delete(username = TestLocalActor.USERNAME, publicId = PublicNoteId("missing")),
             ).reason,
         )
         // 他のアカウントの投稿を id だけで消せないようにする

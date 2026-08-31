@@ -5,6 +5,7 @@ import java.util.Base64
 import kotlinx.serialization.Serializable
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.note.NotePosition
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 /**
  * 配信した投稿の一覧の続きを指す印。
@@ -23,7 +24,7 @@ data class NotesCursor(
 ) {
     fun toPosition(): NotePosition = NotePosition(
         publishedAt = Instant.ofEpochSecond(afterEpochSecond, afterNano),
-        publicId = afterPublicId,
+        publicId = PublicNoteId(afterPublicId),
     )
 
     fun encode(): String =
@@ -35,7 +36,7 @@ data class NotesCursor(
         fun of(position: NotePosition): NotesCursor = NotesCursor(
             afterEpochSecond = position.publishedAt.epochSecond,
             afterNano = position.publishedAt.nano.toLong(),
-            afterPublicId = position.publicId,
+            afterPublicId = position.publicId.value,
         )
 
         /**

@@ -18,6 +18,7 @@ import net.matsudamper.mastodon.rss.collection.OrderedCollection
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
 import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 /**
  * 配信した投稿を返す。
@@ -31,7 +32,7 @@ fun Route.noteRoutes(
 ) {
     get("/notes/{publicId}") {
         val publicId = call.parameters["publicId"]
-        val note = publicId?.let { notes.find(it) }
+        val note = publicId?.let { notes.find(PublicNoteId(it)) }
 
         if (note == null) {
             call.respondText("投稿が見つからない: $publicId", status = HttpStatusCode.NotFound)
@@ -162,7 +163,7 @@ private fun pageUrl(
  * 相手が辿るだけの値なので、読める形にしておく必要は無い。
  * 区切りは `_`。`publicId` は UUID なので混ざらない
  */
-private fun NotePosition.encodeCursor(): String = "${publishedAt.epochSecond}_${publishedAt.nano}_$publicId"
+private fun NotePosition.encodeCursor(): String = "${publishedAt.epochSecond}_${publishedAt.nano}_${publicId.value}"
 
 /**
  * 読めない形なら null。壊れた cursor は先頭に倒す。
@@ -177,7 +178,7 @@ private fun decodeCursor(raw: String): NotePosition? {
     if (parts[2].isEmpty()) return null
 
     return runCatching {
-        NotePosition(publishedAt = Instant.ofEpochSecond(epochSecond, nano), publicId = parts[2])
+        NotePosition(publishedAt = Instant.ofEpochSecond(epochSecond, nano), publicId = PublicNoteId(parts[2]))
     }.getOrNull()
 }
 

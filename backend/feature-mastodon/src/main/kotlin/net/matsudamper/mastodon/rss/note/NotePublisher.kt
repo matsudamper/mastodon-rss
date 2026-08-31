@@ -7,6 +7,7 @@ import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import org.slf4j.LoggerFactory
 
 /**
@@ -33,7 +34,7 @@ class NotePublisher(
         contentHtml: String,
     ): PublishedNote {
         val publishedAt = Instant.now()
-        val publicId = UuidV7.generate(publishedAt.toEpochMilli())
+        val publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli()))
         val urls = NoteUrls(domain = sender.domain, publicId = publicId)
 
         notes.add(
@@ -76,7 +77,7 @@ class NotePublisher(
      */
     suspend fun delete(
         sender: ActorUrls,
-        publicId: String,
+        publicId: PublicNoteId,
     ): DeletedNote? {
         // 他のアカウントの投稿を publicId だけで消せないようにする
         notes.find(publicId)?.takeIf { it.username.equals(sender.username, ignoreCase = true) }
@@ -165,7 +166,7 @@ class NotePublisher(
 }
 
 data class DeletedNote(
-    val publicId: String,
+    val publicId: PublicNoteId,
 )
 
 /**
@@ -175,7 +176,7 @@ data class DeletedNote(
  * @param delivered そのうち相手が受け取ったもの
  */
 data class PublishedNote(
-    val publicId: String,
+    val publicId: PublicNoteId,
     val url: String,
     val contentHtml: String,
     val publishedAt: Instant,
