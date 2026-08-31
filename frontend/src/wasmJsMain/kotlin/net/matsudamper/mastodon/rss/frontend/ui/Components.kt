@@ -41,35 +41,6 @@ import kotlin.js.ExperimentalWasmJsInterop
 import kotlinx.browser.window
 
 /**
- * 見出し付きの枠。画面の中の 1 かたまりを表す。
- */
-@Composable
-fun SectionCard(
-    title: String,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            content()
-        }
-    }
-}
-
-/**
  * 短い印。アカウントの種類や取得状態のように、一目で分かればよいものに使う。
  */
 @Composable

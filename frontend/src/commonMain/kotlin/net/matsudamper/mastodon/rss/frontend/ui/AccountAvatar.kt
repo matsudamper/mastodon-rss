@@ -15,20 +15,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 
 @Composable
-fun AccountAvatar(
+internal fun AccountAvatar(
     username: String,
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
 ) {
-    val colors = avatarColors(username)
     Box(
-        modifier =
-        modifier
+        modifier = modifier
             .size(size)
             .clip(RoundedCornerShape(12.dp))
-            .background(Brush.linearGradient(colors)),
+            .background(Brush.linearGradient(avatarColors(username))),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -40,17 +39,15 @@ fun AccountAvatar(
     }
 }
 
-fun avatarColors(username: String): List<Color> {
-    val palette =
-        listOf(
-            Color(0xFF4A3FD1) to Color(0xFF7B6FF0),
-            Color(0xFF1E7A6F) to Color(0xFF3FB8A6),
-            Color(0xFFB05A1E) to Color(0xFFE79A4B),
-            Color(0xFF8C2F6B) to Color(0xFFD167AC),
-            Color(0xFF2F5FA8) to Color(0xFF6795DE),
-        )
-
-    val index = (username.hashCode().let { if (it == Int.MIN_VALUE) 0 else kotlin.math.abs(it) }) % palette.size
-    val (start, end) = palette[index]
+private fun avatarColors(username: String): List<Color> {
+    val palette = listOf(
+        Color(0xFF4A3FD1) to Color(0xFF7B6FF0),
+        Color(0xFF1E7A6F) to Color(0xFF3FB8A6),
+        Color(0xFFB05A1E) to Color(0xFFE79A4B),
+        Color(0xFF8C2F6B) to Color(0xFFD167AC),
+        Color(0xFF2F5FA8) to Color(0xFF6795DE),
+    )
+    val hash = username.hashCode().let { if (it == Int.MIN_VALUE) 0 else abs(it) }
+    val (start, end) = palette[hash % palette.size]
     return listOf(start, end)
 }
