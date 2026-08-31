@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -34,6 +35,7 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
@@ -57,9 +59,16 @@ private fun AdminAccountsScreen(
     onNavigate: (Screen) -> Unit,
 ) {
     AdminScaffold(title = "アカウント", onNavigate = onNavigate) { wide ->
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier
+                .widthIn(max = ContentMaxWidth)
+                .fillMaxWidth()
+                .padding(if (wide) 24.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
             Text(
                 modifier = Modifier.weight(1f),
                 text = "アカウント一覧",
@@ -75,9 +84,9 @@ private fun AdminAccountsScreen(
                     text = "追加",
                 )
             }
-        }
+            }
 
-        when (val content = uiState.content) {
+            when (val content = uiState.content) {
             AdminAccountsScreenUiState.Content.Loading -> {
                 Box(
                     modifier = Modifier
@@ -147,6 +156,7 @@ private fun AdminAccountsScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

@@ -1,7 +1,11 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -18,6 +22,7 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AdminLoginPasswordField
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink
@@ -43,14 +48,21 @@ private fun AdminScreen(
     uiState: AdminScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AdminScaffold(title = null, onNavigate = onNavigate) { _ ->
-        Text(
-            text = "管理画面",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
+    AdminScaffold(title = null, onNavigate = onNavigate) { wide ->
+        Column(
+            modifier = Modifier
+                .widthIn(max = ContentMaxWidth)
+                .fillMaxWidth()
+                .padding(if (wide) 24.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = "管理画面",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
 
-        when (val content = uiState.content) {
+            when (val content = uiState.content) {
             AdminScreenUiState.Content.Loading -> {
                 LoadingCard()
             }
@@ -67,6 +79,7 @@ private fun AdminScreen(
 
             is AdminScreenUiState.Content.Error -> {
                 ErrorCard(content = content, listener = uiState.listener)
+            }
             }
         }
     }

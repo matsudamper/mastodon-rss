@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -49,6 +50,7 @@ import kotlinx.browser.window
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
+import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarEvents
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
@@ -112,7 +114,14 @@ private fun AccountScreenContent(
     wide: Boolean,
     onNavigate: (Screen) -> Unit,
 ) {
-    when (val content = uiState.content) {
+    Column(
+        modifier = Modifier
+            .widthIn(max = ContentMaxWidth)
+            .fillMaxWidth()
+            .padding(if (wide) 24.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        when (val content = uiState.content) {
         AccountScreenUiState.Content.Loading -> {
             SectionCard(title = "読み込み中") {
                 Text(
@@ -150,6 +159,7 @@ private fun AccountScreenContent(
                 onNavigate = onNavigate,
                 listener = uiState.listener,
             )
+        }
         }
     }
 }

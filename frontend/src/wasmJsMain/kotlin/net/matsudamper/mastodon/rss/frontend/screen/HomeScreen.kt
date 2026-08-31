@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -35,6 +36,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.home.HomeScreenUiState
 import net.matsudamper.mastodon.rss.frontend.screen.home.HomeScreenViewModel
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
+import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
@@ -61,13 +63,20 @@ private fun HomeScreen(
     onNavigate: (Screen) -> Unit,
 ) {
     PublicScaffold(onNavigate = onNavigate) { wide ->
-        Text(
-            text = "RSS/AtomをActivityPubで配信中",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
+        Column(
+            modifier = Modifier
+                .widthIn(max = ContentMaxWidth)
+                .fillMaxWidth()
+                .padding(if (wide) 24.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = "RSS/AtomをActivityPubで配信中",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
 
-        when (val content = uiState.content) {
+            when (val content = uiState.content) {
             HomeScreenUiState.Content.Loading -> {
                 Box(
                     modifier = Modifier
@@ -156,6 +165,7 @@ private fun HomeScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

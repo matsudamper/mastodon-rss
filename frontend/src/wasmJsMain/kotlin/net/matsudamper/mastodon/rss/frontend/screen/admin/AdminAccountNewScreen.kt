@@ -1,8 +1,11 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -22,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
@@ -44,14 +48,21 @@ private fun AdminAccountNewScreen(
     uiState: AdminAccountNewScreenUiState,
     onNavigate: (Screen) -> Unit,
 ) {
-    AdminScaffold(title = "アカウントの追加", onNavigate = onNavigate) { _ ->
-        Text(
-            text = "アカウントの追加",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
+    AdminScaffold(title = "アカウントの追加", onNavigate = onNavigate) { wide ->
+        Column(
+            modifier = Modifier
+                .widthIn(max = ContentMaxWidth)
+                .fillMaxWidth()
+                .padding(if (wide) 24.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = "アカウントの追加",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
 
-        when (val content = uiState.content) {
+            when (val content = uiState.content) {
             AdminAccountNewScreenUiState.Content.Loading -> {
                 SectionCard(title = "確認中") {
                     Text(
@@ -85,6 +96,7 @@ private fun AdminAccountNewScreen(
                     listener = uiState.listener,
                     onNavigate = onNavigate,
                 )
+            }
             }
         }
     }

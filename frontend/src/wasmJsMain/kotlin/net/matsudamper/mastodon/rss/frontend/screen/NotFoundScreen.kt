@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,14 +17,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 
 @Composable
 fun NotFoundScreen(
     requestedPath: String,
     onNavigate: (Screen) -> Unit,
 ) {
-    PublicScaffold(onNavigate = onNavigate) { _ ->
-        NotFoundContent(requestedPath = requestedPath)
+    PublicScaffold(onNavigate = onNavigate) { wide ->
+        NotFoundContent(
+            requestedPath = requestedPath,
+            modifier = Modifier
+                .widthIn(max = ContentMaxWidth)
+                .fillMaxWidth()
+                .padding(if (wide) 24.dp else 12.dp),
+        )
     }
 }
 
@@ -29,9 +39,10 @@ fun NotFoundScreen(
 internal fun NotFoundContent(
     requestedPath: String,
     description: String? = null,
+    modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
         Column(
