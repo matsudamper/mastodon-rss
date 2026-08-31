@@ -1,9 +1,11 @@
 import net.matsudamper.mastodon.rss.gradle.WebpackBundleHashPlugin
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.kotlin.compose.compiler)
     alias(libs.plugins.compose)
     alias(libs.plugins.apollo)
@@ -12,6 +14,15 @@ plugins {
 
 kotlin {
     jvm("desktop")
+
+    android {
+        namespace = "net.matsudamper.mastodon.rss.frontend.preview"
+        compileSdk = libs.versions.androidCompileSdk.get().toInt()
+        minSdk = 23
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_11
+        }
+    }
 
     // Compose Multiplatform for Web。canvas 上に描画するため DOM 操作は最小限で済む
     @OptIn(ExperimentalWasmDsl::class)
@@ -69,6 +80,10 @@ kotlin {
             }
         }
     }
+}
+
+dependencies {
+    androidRuntimeClasspath("org.jetbrains.compose.ui:ui-tooling:${libs.versions.compose.get()}")
 }
 
 // 問い合わせ（src/commonMain/graphql/*.graphql）はこのモジュールが持つ。

@@ -3,6 +3,7 @@ import org.jlleitschuh.gradle.ktlint.KtlintExtension
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.multiplatform) apply false
+    alias(libs.plugins.android.kotlin.multiplatform.library) apply false
     alias(libs.plugins.kotlin.compose.compiler) apply false
     alias(libs.plugins.compose) apply false
     alias(libs.plugins.graalvm.native) apply false
@@ -46,6 +47,7 @@ tasks.register("compileAll") {
             project.tasks.matching { task ->
                 task.name.startsWith("compileKotlin") ||
                     task.name.startsWith("compileTestKotlin") ||
+                    task.name == "compileAndroidMain" ||
                     task.name in listOf("compileJava", "compileTestJava")
             }
         },
