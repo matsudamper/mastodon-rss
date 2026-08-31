@@ -43,6 +43,12 @@ kotlin {
             }
         }
 
+        getByName("desktopMain") {
+            dependencies {
+                implementation(project.dependencies.compose.desktop.currentOs)
+            }
+        }
+
         wasmJsMain {
             dependencies {
                 implementation(project(":frontend:common-component"))
