@@ -10,7 +10,6 @@ import androidx.compose.ui.tooling.preview.Preview
 private fun AdminAccountScreenPreview() {
     MaterialTheme {
         AdminAccountScreenContent(
-            username = "rss_news",
             uiState = previewUiState(),
             wide = true,
             onClickOpenAccount = {},
