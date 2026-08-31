@@ -1,7 +1,9 @@
-package net.matsudamper.mastodon.rss.activitypub
+package net.matsudamper.mastodon.rss.activity
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
+import net.matsudamper.mastodon.rss.activitypub.StringListSerializer
 
 /**
  * こちらから相手の inbox に送るアクティビティ。
@@ -9,7 +11,7 @@ import kotlinx.serialization.Serializable
  * いま送るのは `Follow` に返す `Accept` だけ。Phase 4 で投稿を配信するときの
  * `Create` も同じ形になるので、`type` と `object` を差し替えられるようにしてある。
  *
- * `@context` に `security/v1` は入れない。[Actor] と違って鍵を含まないため。
+ * `@context` に `security/v1` は入れない。[net.matsudamper.mastodon.rss.activitypub.Actor] と違って鍵を含まないため。
  */
 @Serializable
 data class OutgoingActivity(

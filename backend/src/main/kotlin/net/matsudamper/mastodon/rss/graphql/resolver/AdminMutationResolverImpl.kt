@@ -14,6 +14,10 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailureReason
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminLoginResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminMutation
@@ -23,13 +27,16 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.graphql.model.QlDeleteFeedItemsQuery
+import net.matsudamper.mastodon.rss.graphql.model.QlDeleteNoteQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPostFeedItemsQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlSaveFeedQuery
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteService
-import net.matsudamper.mastodon.rss.shared.NoteId
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminMutationResolverImpl : AdminMutationResolver {
@@ -136,7 +143,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                 is NoteService.PostResult.Success -> {
                     QlAdminPostNoteResult(
                         note = QlAdminNote(
-                            id = NoteId(posted.published.publicId),
+                            id = PublicNoteId(posted.published.publicId.value),
                             url = posted.published.url,
                             contentHtml = posted.published.contentHtml,
                             publishedAt = posted.published.publishedAt.epochSecond,
@@ -196,6 +203,60 @@ class AdminMutationResolverImpl : AdminMutationResolver {
             val result = diContainer.feedService.postUnpublished(
                 accountId = query.accountId,
             ).toGraphqlResponse()
+            DataFetcherResult.Builder(result).build()
+        }
+    }
+
+    override fun deleteFeedItems(
+        adminMutation: QlAdminMutation,
+        query: QlDeleteFeedItemsQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminDeleteFeedItemsResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val result = GraphQlEngine.diContainer(env).feedService.deleteItems(
+            accountId = query.accountId,
+            feedItemIds = query.feedItemIds.map { FeedItemId(it.value) },
+        ).toGraphqlResponse()
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
+    }
+
+    override fun deleteNote(
+        adminMutation: QlAdminMutation,
+        query: QlDeleteNoteQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminDeleteNoteResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val result = when (
+                val deleted = diContainer.noteService.delete(
+                    username = query.username,
+                    publicId = query.noteId,
+                )
+            ) {
+                is NoteService.DeleteResult.Success -> QlAdminDeleteNoteResult(
+                    deletedId = PublicNoteId(deleted.deleted.publicId.value),
+                    failure = null,
+                )
+
+                is NoteService.DeleteResult.Failure -> QlAdminDeleteNoteResult(
+                    deletedId = null,
+                    failure = QlAdminDeleteNoteFailure(
+                        reason = when (deleted.reason) {
+                            NoteService.DeleteFailure.UNKNOWN_ACCOUNT ->
+                                QlAdminDeleteNoteFailureReason.UNKNOWN_ACCOUNT
+
+                            NoteService.DeleteFailure.NOT_FOUND ->
+                                QlAdminDeleteNoteFailureReason.NOT_FOUND
+                        },
+                    ),
+                )
+            }
+
             DataFetcherResult.Builder(result).build()
         }
     }

@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.repository
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.shared.AccountId
 
 /**
@@ -84,11 +85,6 @@ interface FeedRepository {
     /** 登録を消す。記事も一緒に消える */
     fun delete(id: FeedId)
 }
-
-@JvmInline
-value class FeedId(
-    val value: Long,
-)
 
 /**
  * 購読しているフィード 1 本。

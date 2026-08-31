@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: read
+
 env:
   GITHUB_ACTOR: ${{ github.actor }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -146,6 +150,22 @@ jobs:
             "INSERT INTO accounts (username, created_at) VALUES ('admin', '2026-01-01T00:00:00Z');"
           sqlite3 "$DB_PATH" \
             "INSERT INTO accounts (username, created_at) VALUES ('ci-feed', '2026-01-01T00:00:00Z');"
+          # admin にフィードと投稿済みの記事を入れておく。AdminNote.feedItem は
+          # 記事に紐づく投稿が無いと解決されず、DataLoader の登録漏れが native で出ない
+          sqlite3 "$DB_PATH" \
+            "INSERT INTO notes (username, public_id, content_html, published_at)
+             VALUES ('admin', 'ci-note-1', '<p>ci</p>', '2026-01-01T00:00:00.000000000Z');"
+          sqlite3 "$DB_PATH" \
+            "INSERT INTO feeds (account_id, url, poll_interval_seconds, created_at)
+             VALUES ((SELECT id FROM accounts WHERE username = 'admin'),
+                     'https://example.com/ci.xml', 900, '2026-01-01T00:00:00Z');"
+          sqlite3 "$DB_PATH" \
+            "INSERT INTO feed_items (feed_id, item_key, title, link, content_html,
+                                     published_at, imported_at, state, posted_at, note_id)
+             VALUES ((SELECT id FROM feeds WHERE url = 'https://example.com/ci.xml'),
+                     'ci-item-1', 'CI の記事', 'https://example.com/1', '<p>ci</p>',
+                     '2026-01-01T00:00:00.000000000Z', '2026-01-01T00:00:00.000000000Z',
+                     'posted', '2026-01-01T00:00:00.000000000Z', 'ci-note-1');"
           # 鍵の生成と書き出しも native バイナリで動く必要がある
           export ACTOR_PRIVATE_KEY_PATH="$RUNNER_TEMP/native-check/actor-private-key.pem"
           # パスワードは ci-password。このジョブの中でしか使わない使い捨て
@@ -356,16 +376,59 @@ jobs:
             exit 1
           fi
 
+          # deleteFeedItems の input には FeedItemId のリストが入る。native-image から
+          # 落ちていると組み立てられず errors になる。フィードが無いので NO_FEED が返る
+          echo "--- GraphQL の記事削除（input の FeedItemId） ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"mutation Delete($q: DeleteFeedItemsQuery!) { admin { deleteFeedItems(query: $q) { deletedIds failure { reason } } } }","variables":{"q":{"accountId":'"$ACCOUNT_ID"',"feedItemIds":[1,2]}}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-delete-feed-item.json
+          cat /tmp/graphql-delete-feed-item.json
+          # errors を先に見る。set -e が効いているので、reason の grep が先だと
+          # 落ちた時点で step が終わり、何が起きたか分からないまま失敗する
+          if grep -q '"errors"' /tmp/graphql-delete-feed-item.json; then
+            echo "::error::deleteFeedItems が errors を返した。input の FeedItemId を組み立てられていない"
+            exit 1
+          fi
+          grep -q '"reason":"NO_FEED"' /tmp/graphql-delete-feed-item.json
+
+          # deleteNote の input には PublicNoteId が入る。native-image から落ちていると
+          # 組み立てられず errors になる。無い投稿なので NOT_FOUND が返る
+          echo "--- GraphQL の投稿削除（input の PublicNoteId） ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"mutation DeleteNote($q: DeleteNoteQuery!) { admin { deleteNote(query: $q) { deletedId failure { reason } } } }","variables":{"q":{"username":"ci-feed","noteId":"missing"}}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-delete-note.json
+          cat /tmp/graphql-delete-note.json
+          if grep -q '"errors"' /tmp/graphql-delete-note.json; then
+            echo "::error::deleteNote が errors を返した。input の PublicNoteId を組み立てられていない"
+            exit 1
+          fi
+          grep -q '"reason":"NOT_FOUND"' /tmp/graphql-delete-note.json
+
           # 投稿の一覧は Connection の型を通る。記事のリレーションは DataLoader を通るので、
           # 登録漏れがあると native でだけ落ちる。まだ何も配っていないので空で返る
           echo "--- GraphQL の投稿一覧 ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -H "Cookie: $SESSION_COOKIE" \
-            -d '{"query":"query Notes($username: String!) { admin { notes(username: $username, limit: 10) { nodes { url feedItem { title } } pageInfo { hasMore nextCursor } } } }","variables":{"username":"ci-feed"}}' \
+            -d '{"query":"query Notes($username: String!) { admin { notes(username: $username, limit: 10) { nodes { url feedItem { id title } } pageInfo { hasMore nextCursor } } } }","variables":{"username":"ci-feed"}}' \
             http://localhost:8080/graphql -o /tmp/graphql-notes.json
           cat /tmp/graphql-notes.json
           grep -q '"nodes":\[\]' /tmp/graphql-notes.json
           grep -q '"hasMore":false' /tmp/graphql-notes.json
+
+          # 記事に紐づく投稿。feedItem は DataLoader を通るので、登録漏れは native でだけ出る
+          echo "--- GraphQL の投稿一覧（記事に紐づく投稿） ---"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -H "Cookie: $SESSION_COOKIE" \
+            -d '{"query":"query Notes($username: String!) { admin { notes(username: $username, limit: 10) { nodes { url feedItem { id title } } } } }","variables":{"username":"admin"}}' \
+            http://localhost:8080/graphql -o /tmp/graphql-notes-admin.json
+          cat /tmp/graphql-notes-admin.json
+          if grep -q '"errors"' /tmp/graphql-notes-admin.json; then
+            echo "::error::notes が errors を返した。feedItem の DataLoader を解決できていない"
+            exit 1
+          fi
+          grep -q '"title":"CI の記事"' /tmp/graphql-notes-admin.json
 
           # 投稿が 0 件だと feedItem のリゾルバも DataLoader も呼ばれない。
           # 1 件配ってから引く。手で書いた投稿なので元記事は付かず null になる
@@ -382,11 +445,11 @@ jobs:
             -d '{"query":"query Notes($username: String!) { admin { notes(username: $username, limit: 10) { nodes { url feedItem { title } } } } }","variables":{"username":"ci-feed"}}' \
             http://localhost:8080/graphql -o /tmp/graphql-notes-posted.json
           cat /tmp/graphql-notes-posted.json
-          grep -q '"feedItem":null' /tmp/graphql-notes-posted.json
           if grep -q '"errors"' /tmp/graphql-notes-posted.json; then
             echo "::error::feedItem が errors を返した。リゾルバか DataLoader が native で動いていない"
             exit 1
           fi
+          grep -q '"feedItem":null' /tmp/graphql-notes-posted.json
 
           # 追加は DB への書き込みを通る。入れた名前がそのまま WebFinger から引ける
           echo "--- GraphQL のアカウント追加 ---"

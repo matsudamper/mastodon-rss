@@ -6,9 +6,7 @@ import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchStatus
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
-import net.matsudamper.mastodon.rss.repository.FeedId
 import net.matsudamper.mastodon.rss.repository.FeedItem
-import net.matsudamper.mastodon.rss.repository.FeedItemId
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
@@ -21,7 +19,10 @@ import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.Repositories
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.AccountId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 // ルーティングのテストで使う Repositories の差し替え。
 // 保存はメモリ上だけで、DB には一切触らない。
@@ -35,11 +36,13 @@ class FakeRepositories : Repositories {
 
     override val followers: FollowerRepository = FakeFollowerRepository()
 
-    override val notes: NoteRepository = FakeNoteRepository()
-
     override val feeds: FakeFeedRepository = FakeFeedRepository()
 
     override val feedItems: FakeFeedItemRepository = FakeFeedItemRepository()
+
+    // 投稿を消したら記事の note_id が外れるのは SQLite の ON DELETE SET NULL。
+    // ここで繋がないと、消した投稿の id で記事が引けるという本物には無い状態になる
+    override val notes: NoteRepository = FakeNoteRepository(onDeleted = feedItems::clearNoteId)
 
     override fun verifyWritable() {
         verifyWritableCallCount++
@@ -149,7 +152,9 @@ class FakeFollowerRepository : FollowerRepository {
 /**
  * 記録するだけの [NoteRepository]
  */
-class FakeNoteRepository : NoteRepository {
+class FakeNoteRepository(
+    private val onDeleted: (publicId: PublicNoteId) -> Unit = {},
+) : NoteRepository {
     private val stored = mutableListOf<Note>()
 
     override fun add(note: NewNote) {
@@ -161,11 +166,17 @@ class FakeNoteRepository : NoteRepository {
         )
     }
 
-    override fun find(publicId: String): Note? = stored.firstOrNull { it.publicId == publicId }
+    override fun find(publicId: PublicNoteId): Note? = stored.firstOrNull { it.publicId == publicId }
 
-    override fun findByPublicIds(publicIds: Set<String>): Map<String, Note> = stored
+    override fun findByPublicIds(publicIds: Set<PublicNoteId>): Map<PublicNoteId, Note> = stored
         .filter { it.publicId in publicIds }
         .associateBy { it.publicId }
+
+    override fun delete(publicId: PublicNoteId) {
+        if (stored.removeAll { it.publicId == publicId }) {
+            onDeleted(publicId)
+        }
+    }
 
     override fun list(
         username: String,
@@ -173,11 +184,11 @@ class FakeNoteRepository : NoteRepository {
         limit: Int,
     ): List<Note> = stored
         .filter { it.username == username }
-        .sortedWith(compareByDescending<Note> { it.publishedAt }.thenByDescending { it.publicId })
+        .sortedWith(compareByDescending<Note> { it.publishedAt }.thenByDescending { it.publicId.value })
         .filter { note ->
             after == null ||
                 note.publishedAt < after.publishedAt ||
-                (note.publishedAt == after.publishedAt && note.publicId < after.publicId)
+                (note.publishedAt == after.publishedAt && note.publicId.value < after.publicId.value)
         }
         .take(limit)
 
@@ -346,7 +357,7 @@ class FakeFeedItemRepository : FeedItemRepository {
     override fun markPosted(
         id: FeedItemId,
         postedAt: Instant,
-        noteId: String,
+        noteId: PublicNoteId,
     ) {
         update(id) { it.copy(state = FeedItemState.POSTED, postedAt = postedAt, noteId = noteId) }
     }
@@ -355,15 +366,32 @@ class FakeFeedItemRepository : FeedItemRepository {
         update(id) { it.copy(state = FeedItemState.SKIPPED) }
     }
 
-    override fun findByNoteIds(noteIds: Collection<String>): Map<String, FeedItem> {
+    override fun findByNoteIds(noteIds: Collection<PublicNoteId>): Map<PublicNoteId, FeedItem> {
         if (noteIds.isEmpty()) return emptyMap()
         val wanted = noteIds.toSet()
         return stored.filter { it.noteId in wanted }.associateBy { checkNotNull(it.noteId) }
     }
 
+    override fun find(id: FeedItemId): FeedItem? = stored.firstOrNull { it.id == id }
+
+    override fun delete(
+        feedId: FeedId,
+        ids: Collection<FeedItemId>,
+    ): Boolean {
+        val targets = ids.toSet()
+        if (targets.any { id -> stored.none { it.id == id && it.feedId == feedId } }) return false
+
+        stored.removeAll { it.id in targets }
+        return true
+    }
+
     override fun countByFeed(feedId: FeedId): Long = stored.count { it.feedId == feedId }.toLong()
 
     fun items(): List<FeedItem> = stored.toList()
+
+    fun clearNoteId(noteId: PublicNoteId) {
+        stored.replaceAll { item -> if (item.noteId == noteId) item.copy(noteId = null) else item }
+    }
 
     private fun pendingSorted(): List<FeedItem> =
         stored

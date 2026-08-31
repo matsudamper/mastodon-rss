@@ -16,7 +16,7 @@ class AccountNoteResolverImpl : AccountNoteResolver {
     ): CompletionStage<DataFetcherResult<String>> {
         return loadNote(accountNote, env).thenApply { note ->
             val domain = GraphQlEngine.diContainer(env).domain
-            DataFetcherResult.Builder(NoteUrls(domain = domain, publicId = note.publicId).noteId).build()
+            DataFetcherResult.Builder(NoteUrls(domain = domain, publicId = note.publicId).noteUrl).build()
         }
     }
 

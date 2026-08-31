@@ -183,6 +183,7 @@ mutation AdminPostNote($username: String!, $body: String!) {
 }
 
 fragment AdminNoteFields on AdminNote {
+    id
     url
     contentHtml
     publishedAt
@@ -191,8 +192,31 @@ fragment AdminNoteFields on AdminNote {
     }
 }
 
+mutation AdminDeleteFeedItems($query: DeleteFeedItemsQuery!) {
+    admin {
+        deleteFeedItems(query: $query) {
+            deletedIds
+            failure {
+                reason
+            }
+        }
+    }
+}
+
 fragment AdminFeedItemFields on AdminFeedItem {
+    id
     title
     link
     publishedAt
+}
+
+mutation AdminDeleteNote($query: DeleteNoteQuery!) {
+    admin {
+        deleteNote(query: $query) {
+            deletedId
+            failure {
+                reason
+            }
+        }
+    }
 }

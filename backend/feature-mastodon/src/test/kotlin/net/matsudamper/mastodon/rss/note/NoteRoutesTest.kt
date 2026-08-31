@@ -5,7 +5,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlinx.serialization.builtins.serializer
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -17,11 +16,13 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.collection.COLLECTION_CURSOR_PARAM
 import net.matsudamper.mastodon.rss.collection.COLLECTION_PAGE_SIZE
 import net.matsudamper.mastodon.rss.collection.OrderedCollection
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
+import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.AppJson
 
 // Mastodon が後から引きに来る投稿のパーマリンクと outbox。
@@ -45,7 +46,7 @@ class NoteRoutesTest {
         publishedAt: Instant = this.publishedAt,
         contentHtml: String = "<p>$publicId</p>",
     ): StoredNote = StoredNote(
-        publicId = publicId,
+        publicId = PublicNoteId(publicId),
         username = username,
         contentHtml = contentHtml,
         publishedAt = publishedAt,
@@ -64,7 +65,7 @@ class NoteRoutesTest {
             assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
 
             val body = AppJson.decodeFromString(Note.serializer(), response.bodyAsText())
-            assertEquals("https://example.com/notes/abc", body.id)
+            assertEquals("https://example.com/notes/abc", body.id.value)
             assertEquals("Note", body.type)
             assertEquals("https://example.com/users/admin", body.attributedTo)
             assertEquals("<p>abc</p>", body.content)
@@ -115,7 +116,7 @@ class NoteRoutesTest {
             assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
 
             val page = AppJson.decodeFromString(
-                OrderedCollectionPage.serializer(CreateNote.serializer()),
+                OrderedCollectionPage.serializer(CreateNoteActivity.serializer()),
                 response.bodyAsText(),
             )
             assertEquals("OrderedCollectionPage", page.type)
@@ -126,12 +127,12 @@ class NoteRoutesTest {
 
             val create = page.orderedItems.single()
             assertEquals("Create", create.type)
-            assertEquals("https://example.com/notes/note-1#create", create.id)
+            assertEquals("https://example.com/notes/note-1#create", create.id.value)
             assertEquals("https://example.com/users/admin", create.actor)
             assertEquals(listOf(PUBLIC_AUDIENCE), create.to)
             assertEquals(listOf("https://example.com/users/admin/followers"), create.cc)
             assertNull(create.target.context)
-            assertEquals("https://example.com/notes/note-1", create.target.id)
+            assertEquals("https://example.com/notes/note-1", create.target.id.value)
             assertEquals("<p>note-1</p>", create.target.content)
         }
 
@@ -151,22 +152,22 @@ class NoteRoutesTest {
 
             val first = client.get("/users/admin/outbox?$COLLECTION_CURSOR_PARAM=").bodyAsText()
             val firstPage = AppJson.decodeFromString(
-                OrderedCollectionPage.serializer(CreateNote.serializer()),
+                OrderedCollectionPage.serializer(CreateNoteActivity.serializer()),
                 first,
             )
             assertEquals(COLLECTION_PAGE_SIZE, firstPage.orderedItems.size)
-            assertEquals("note-1", firstPage.orderedItems.last().target.id.removePrefix("https://example.com/notes/"))
+            assertEquals("note-1", firstPage.orderedItems.last().target.id.value.removePrefix("https://example.com/notes/"))
 
             val nextUrl = firstPage.next
             assertTrue(nextUrl != null)
 
             val second = client.get(nextUrl.substringAfter("example.com")).bodyAsText()
             val secondPage = AppJson.decodeFromString(
-                OrderedCollectionPage.serializer(CreateNote.serializer()),
+                OrderedCollectionPage.serializer(CreateNoteActivity.serializer()),
                 second,
             )
             assertEquals(1, secondPage.orderedItems.size)
-            assertEquals("note-0", secondPage.orderedItems.single().target.id.removePrefix("https://example.com/notes/"))
+            assertEquals("note-0", secondPage.orderedItems.single().target.id.value.removePrefix("https://example.com/notes/"))
             assertNull(secondPage.next)
         }
 

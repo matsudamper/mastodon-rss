@@ -34,7 +34,7 @@ class GraphQlReflectionTargetsTest {
 
         assertContains(classNames, "${GraphQlReflectionTargets.SHARED_PACKAGE}.AccountId")
         assertContains(classNames, "${GraphQlReflectionTargets.SHARED_PACKAGE}.FeedId")
-        assertContains(classNames, "${GraphQlReflectionTargets.SHARED_PACKAGE}.NoteId")
+        assertContains(classNames, "${GraphQlReflectionTargets.SHARED_PACKAGE}.PublicNoteId")
         assertTrue(
             classNames.none { it == "${GraphQlReflectionTargets.SHARED_PACKAGE}.GraphQlPath" },
             "GraphQL のモデルから参照していない型まで拾っている",

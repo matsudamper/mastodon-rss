@@ -1,5 +1,8 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsFailureReason
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedItem
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreview
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewFailure
@@ -21,6 +24,7 @@ import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.shared.FeedId
+import net.matsudamper.mastodon.rss.shared.FeedItemId
 
 internal fun Feed.toGraphqlResponse(): QlFeed = QlFeed(
     id = FeedId(id.value),
@@ -163,7 +167,35 @@ internal fun FeedService.PostUnpublishedFailure.toGraphqlResponse(): QlAdminPost
     )
 
 internal fun FeedItem.toGraphqlResponse(): QlAdminFeedItem = QlAdminFeedItem(
+    id = FeedItemId(id.value),
     title = title,
     link = link,
     publishedAt = publishedAt?.epochSecond,
 )
+
+internal fun FeedService.DeleteItemsResult.toGraphqlResponse(): QlAdminDeleteFeedItemsResult =
+    when (this) {
+        is FeedService.DeleteItemsResult.Success -> QlAdminDeleteFeedItemsResult(
+            deletedIds = deletedIds.map { FeedItemId(it.value) },
+            failure = null,
+        )
+
+        is FeedService.DeleteItemsResult.Failure -> QlAdminDeleteFeedItemsResult(
+            deletedIds = null,
+            failure = reason.toGraphqlResponse(),
+        )
+    }
+
+internal fun FeedService.DeleteItemsFailure.toGraphqlResponse(): QlAdminDeleteFeedItemsFailure =
+    QlAdminDeleteFeedItemsFailure(
+        reason = when (this) {
+            FeedService.DeleteItemsFailure.UNKNOWN_ACCOUNT ->
+                QlAdminDeleteFeedItemsFailureReason.UNKNOWN_ACCOUNT
+
+            FeedService.DeleteItemsFailure.NO_FEED ->
+                QlAdminDeleteFeedItemsFailureReason.NO_FEED
+
+            FeedService.DeleteItemsFailure.NOT_FOUND ->
+                QlAdminDeleteFeedItemsFailureReason.NOT_FOUND
+        },
+    )

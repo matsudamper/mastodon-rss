@@ -4,9 +4,9 @@ import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchStatus
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
-import net.matsudamper.mastodon.rss.repository.FeedId
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.NewFeed
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEEDS
 import net.matsudamper.mastodon.rss.repository.jooq.tables.records.FeedsRecord
 import net.matsudamper.mastodon.rss.shared.AccountId

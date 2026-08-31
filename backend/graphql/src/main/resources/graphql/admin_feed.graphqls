@@ -101,9 +101,37 @@ enum AdminPostFeedItemsFailureReason {
 
 "取り込んだ記事 1 件"
 type AdminFeedItem {
+    id: FeedItemId!
     title: String
     link: String
 
     "配信元が名乗っている公開日時。持たないフィードがある"
     publishedAt: UnixTime
+}
+
+input DeleteFeedItemsQuery {
+    "記事を持っているフィードのアカウント"
+    accountId: AccountId!
+
+    "消す記事。1 件でもこのアカウントのフィードに無ければ何も消さない"
+    feedItemIds: [FeedItemId!]!
+}
+
+type AdminDeleteFeedItemsResult {
+    "消せた記事の id"
+    deletedIds: [FeedItemId!]
+
+    failure: AdminDeleteFeedItemsFailure
+}
+
+type AdminDeleteFeedItemsFailure {
+    reason: AdminDeleteFeedItemsFailureReason!
+}
+
+enum AdminDeleteFeedItemsFailureReason {
+    UNKNOWN_ACCOUNT
+    NO_FEED
+
+    "そのアカウントのフィードに無い記事"
+    NOT_FOUND
 }

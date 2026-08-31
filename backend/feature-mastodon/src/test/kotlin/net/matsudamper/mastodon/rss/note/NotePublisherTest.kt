@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -10,6 +11,7 @@ import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
 import net.matsudamper.mastodon.rss.json.AppJson
@@ -59,7 +61,7 @@ class NotePublisherTest {
             delivery.delivered.map { it.inbox },
         )
 
-        val activity = AppJson.decodeFromString(CreateNote.serializer(), delivery.delivered.first().body)
+        val activity = AppJson.decodeFromString(CreateNoteActivity.serializer(), delivery.delivered.first().body)
         assertEquals("Create", activity.type)
         assertEquals(sender.actorId, activity.actor)
         assertEquals(listOf(PUBLIC_AUDIENCE), activity.to)
@@ -67,7 +69,8 @@ class NotePublisherTest {
 
         assertEquals("Note", activity.target.type)
         assertEquals("<p>こんにちは</p>", activity.target.content)
-        assertEquals("https://example.com/notes/${published.publicId}", activity.target.id)
+        assertEquals(7, UUID.fromString(published.publicId.value).version())
+        assertEquals("https://example.com/notes/${published.publicId.value}", activity.target.id.value)
         // 外側の Create が @context を持つので、中で重ねない
         assertNull(activity.target.context)
     }

@@ -3,7 +3,7 @@ package net.matsudamper.mastodon.rss.dataloader
 import net.matsudamper.mastodon.rss.graphql.otelSupplyAsync
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.repository.FeedItem
-import net.matsudamper.mastodon.rss.shared.NoteId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderFactory
 
@@ -14,14 +14,13 @@ import org.dataloader.DataLoaderFactory
  */
 class FeedItemByNoteDataLoaderDefine(
     private val feeds: FeedService,
-) : DataLoaderDefine<NoteId, FeedItem> {
+) : DataLoaderDefine<PublicNoteId, FeedItem> {
     override val key: String = this::class.java.name
 
-    override fun getDataLoader(): DataLoader<NoteId, FeedItem> {
+    override fun getDataLoader(): DataLoader<PublicNoteId, FeedItem> {
         return DataLoaderFactory.newMappedDataLoader { keys, _ ->
             otelSupplyAsync {
-                feeds.itemsByNoteIds(keys.map { it.value })
-                    .mapKeys { (noteId, _) -> NoteId(noteId) }
+                feeds.itemsByNoteIds(keys)
             }
         }
     }

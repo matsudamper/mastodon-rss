@@ -16,15 +16,16 @@ import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
-import net.matsudamper.mastodon.rss.repository.FeedId
 import net.matsudamper.mastodon.rss.repository.FeedItem
-import net.matsudamper.mastodon.rss.repository.FeedItemId
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.AccountId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import org.slf4j.LoggerFactory
 
 class FeedService(
@@ -137,7 +138,33 @@ class FeedService(
      *
      * 投稿の一覧に記事を並べるのに使う
      */
-    fun itemsByNoteIds(noteIds: Collection<String>): Map<String, FeedItem> = feedItems.findByNoteIds(noteIds)
+    fun itemsByNoteIds(noteIds: Collection<PublicNoteId>): Map<PublicNoteId, FeedItem> = feedItems.findByNoteIds(noteIds)
+
+    /**
+     * 取り込んだ記事をまとめて消す。
+     *
+     * 1 件でもそのアカウントのフィードに無ければ、何も消さずに NOT_FOUND を返す。
+     * 一部だけ消えた状態にすると、画面から消し直す相手が分からなくなる。
+     *
+     * 配信した投稿は消さない。消すと次の取り込みで新着として戻ってくるので、
+     * 投稿し直したい記事に使う
+     */
+    fun deleteItems(
+        accountId: AccountId,
+        feedItemIds: List<FeedItemId>,
+    ): DeleteItemsResult {
+        accounts.findById(accountId)
+            ?: return DeleteItemsResult.Failure(DeleteItemsFailure.UNKNOWN_ACCOUNT)
+        val feed = feeds.findByAccountId(accountId)
+            ?: return DeleteItemsResult.Failure(DeleteItemsFailure.NO_FEED)
+
+        // フィードを渡して、他のアカウントの記事を id だけで消せないようにする
+        val targets = feedItemIds.distinct()
+        if (!feedItems.delete(feedId = feed.id, ids = targets)) {
+            return DeleteItemsResult.Failure(DeleteItemsFailure.NOT_FOUND)
+        }
+        return DeleteItemsResult.Success(deletedIds = targets)
+    }
 
     suspend fun postUnpublished(accountId: AccountId): PostUnpublishedResult {
         val account = accounts.findById(accountId)
@@ -247,6 +274,22 @@ class FeedService(
     enum class UnpublishedFailure {
         UNKNOWN_ACCOUNT,
         NO_FEED,
+    }
+
+    sealed interface DeleteItemsResult {
+        data class Success(
+            val deletedIds: List<FeedItemId>,
+        ) : DeleteItemsResult
+
+        data class Failure(
+            val reason: DeleteItemsFailure,
+        ) : DeleteItemsResult
+    }
+
+    enum class DeleteItemsFailure {
+        UNKNOWN_ACCOUNT,
+        NO_FEED,
+        NOT_FOUND,
     }
 
     sealed interface PostUnpublishedResult {
@@ -384,7 +427,7 @@ class FeedService(
                     logger.warn("記事を投稿できなかった: フィード ${feed.id.value} の記事 ${stored.id.value}", e)
                     return@forEach
                 }
-                feedItems.markPosted(stored.id, Instant.now(), noteId = published.publicId)
+                feedItems.markPosted(stored.id, Instant.now(), noteId = PublicNoteId(published.publicId.value))
                 posted += UnpublishedItem(
                     title = stored.title,
                     link = stored.link,
