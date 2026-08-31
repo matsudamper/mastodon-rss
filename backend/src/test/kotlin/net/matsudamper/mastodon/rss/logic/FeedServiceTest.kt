@@ -22,7 +22,6 @@ import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.shared.AccountId
-import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 class FeedServiceTest {
     @Test
@@ -291,7 +290,7 @@ class FeedServiceTest {
             val service = serviceOf(repositories, noteStore = noteStore)
             service.save(accountId = account.id, url = FEED_URL)
             service.postUnpublished(account.id)
-            val noteIds = noteStore.added.map { PublicNoteId(it.publicId) }
+            val noteIds = noteStore.added.map { it.publicId }
 
             val items = service.itemsByNoteIds(noteIds)
 
