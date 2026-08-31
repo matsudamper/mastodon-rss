@@ -18,27 +18,39 @@ data class Actor(
     @SerialName("@context")
     @Serializable(with = ActorContextSerializer::class)
     val context: ActorContext = ActorContext,
+    @SerialName("id")
     val id: String,
     /**
      * `Service` は「自動化されたアカウント」を表す。人間ではなく RSS の
      * 転送であることを相手に伝えられる。`Person` でも動く。
      */
+    @SerialName("type")
     val type: String = TYPE_SERVICE,
     /** WebFinger の acct 名と一致させること。ずれると検索から辿り着けない */
+    @SerialName("preferredUsername")
     val preferredUsername: String,
+    @SerialName("name")
     val name: String,
+    @SerialName("summary")
     val summary: String? = null,
+    @SerialName("inbox")
     val inbox: String,
+    @SerialName("outbox")
     val outbox: String,
     /**
      * プロフィールに載せる投稿の一覧。Mastodon は未フォローでもここを引きに来る。
      * outbox はフォロー後のバックフィル向けで、プロフィール表示には使われない。
      */
+    @SerialName("featured")
     val featured: String,
+    @SerialName("followers")
     val followers: String,
+    @SerialName("following")
     val following: String,
     /** プロフィールから開くリンク。Mastodon は無ければ id を使う */
+    @SerialName("url")
     val url: String? = null,
+    @SerialName("publicKey")
     val publicKey: ActorPublicKey,
     /**
      * Mastodon 4.6 以降。ピン留め欄を出すか
@@ -60,7 +72,10 @@ data class Actor(
  */
 @Serializable
 data class ActorPublicKey(
+    @SerialName("id")
     val id: String,
+    @SerialName("owner")
     val owner: String,
+    @SerialName("publicKeyPem")
     val publicKeyPem: String,
 )

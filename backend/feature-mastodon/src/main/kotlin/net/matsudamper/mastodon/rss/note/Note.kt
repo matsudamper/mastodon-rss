@@ -23,33 +23,43 @@ data class Note(
     /**
      * この投稿の id。相手はここをパーマリンクとして引きに来る
      */
+    @SerialName("id")
     val id: ActivityPubId,
     /**
      * 投稿したアクターの id
      */
+    @SerialName("attributedTo")
     val attributedTo: String,
     /**
      * 本文の HTML。許可されていないタグは相手側で落とされる
      */
+    @SerialName("content")
     val content: String,
     /**
      * ISO 8601。相手のタイムラインでの並び順になる
      */
+    @SerialName("published")
     val published: String,
+    @SerialName("to")
     val to: List<String>,
+    @SerialName("cc")
     val cc: List<String>,
     /**
      * Mastodon がパーマリンクの別名として引くことがある
      */
+    @SerialName("atomUri")
     val atomUri: String? = null,
+    @SerialName("sensitive")
     val sensitive: Boolean = false,
     /**
      * プロフィールや検索から開くリンク。無ければ [id] が使われる
      */
+    @SerialName("url")
     val url: String? = null,
 ) {
     /**
      * 相手はこの値を見て投稿だと判断する。`Note` 以外は入らない
      */
+    @SerialName("type")
     val type: String = "Note"
 }

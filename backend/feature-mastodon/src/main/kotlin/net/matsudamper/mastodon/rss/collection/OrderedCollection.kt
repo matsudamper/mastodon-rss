@@ -15,12 +15,16 @@ data class OrderedCollection(
     @SerialName("@context")
     @Serializable(with = StringListSerializer::class)
     val context: List<String> = DEFAULT_CONTEXT,
+    @SerialName("id")
     val id: String,
+    @SerialName("type")
     val type: String = TYPE,
+    @SerialName("totalItems")
     val totalItems: Long,
     /**
      * 最初のページの URL。中身が無くても返す。空の集合と壊れた集合を区別できるようにする
      */
+    @SerialName("first")
     val first: String,
 ) {
     companion object {
@@ -46,11 +50,17 @@ data class OrderedCollectionPage<T>(
     @SerialName("@context")
     @Serializable(with = StringListSerializer::class)
     val context: List<String> = OrderedCollection.DEFAULT_CONTEXT,
+    @SerialName("id")
     val id: String,
+    @SerialName("type")
     val type: String = TYPE,
+    @SerialName("totalItems")
     val totalItems: Long,
+    @SerialName("partOf")
     val partOf: String,
+    @SerialName("orderedItems")
     val orderedItems: List<T>,
+    @SerialName("next")
     val next: String? = null,
 ) {
     companion object {
@@ -82,9 +92,13 @@ data class OrderedCollectionWithItems<T>(
     @SerialName("@context")
     @Serializable(with = StringListSerializer::class)
     val context: List<String> = OrderedCollection.DEFAULT_CONTEXT,
+    @SerialName("id")
     val id: String,
+    @SerialName("type")
     val type: String = OrderedCollection.TYPE,
+    @SerialName("totalItems")
     val totalItems: Long,
+    @SerialName("orderedItems")
     val orderedItems: List<T>,
 )
 
