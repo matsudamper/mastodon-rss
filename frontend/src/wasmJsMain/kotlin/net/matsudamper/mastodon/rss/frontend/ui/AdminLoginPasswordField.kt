@@ -3,8 +3,8 @@ package net.matsudamper.mastodon.rss.frontend.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import net.matsudamper.frontend.component.HiddenHtmlForm
-import net.matsudamper.frontend.component.PlatformInputField
 import net.matsudamper.frontend.component.HtmlInputType
+import net.matsudamper.frontend.component.PlatformInputField
 
 /**
  * 管理画面ログイン用のパスワード入力。

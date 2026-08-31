@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -30,9 +31,13 @@ internal fun AdminAccountScreenContent(
     wide: Boolean,
     onClickOpenAccount: () -> Unit,
     onClickLogin: () -> Unit,
+    modifier: Modifier = Modifier,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
-    Column {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
         Text(
             text = uiState.acct,
             style = MaterialTheme.typography.headlineSmall,
@@ -184,6 +189,7 @@ private fun FeedPreviewPanel(feed: AdminAccountScreenUiState.Feed.Input, modifie
         Text("プレビュー", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
         when {
             feed.fetching -> Text("フィードを取ってきている。", style = MaterialTheme.typography.bodyMedium)
+
             feed.preview != null -> {
                 val preview = feed.preview
                 preview.title?.let { Text(it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold) }
@@ -200,6 +206,7 @@ private fun FeedPreviewPanel(feed: AdminAccountScreenUiState.Feed.Input, modifie
                     }
                 }
             }
+
             else -> Text("取得ボタンを押すとここに表示される。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -218,7 +225,15 @@ private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog,
         },
         confirmButton = {
             TextButton(onClick = { listener.onConfirmDeleteNote(dialog.hasSourceArticle) }, enabled = !dialog.deleting) {
-                Text(if (dialog.deleting) "削除中" else if (dialog.hasSourceArticle) "投稿と記事を削除" else "削除")
+                Text(
+                    if (dialog.deleting) {
+                        "削除中"
+                    } else if (dialog.hasSourceArticle) {
+                        "投稿と記事を削除"
+                    } else {
+                        "削除"
+                    },
+                )
             }
         },
         dismissButton = {
@@ -251,11 +266,14 @@ private fun NotesCard(content: AdminAccountScreenUiState.Content.Loaded, listene
     AdminSectionCard(title = "配信した投稿") {
         when {
             content.notesLoading && content.notes.isEmpty() -> Text("配信した投稿を取ってきている。", style = MaterialTheme.typography.bodyMedium)
+
             content.notes.isEmpty() && content.notesError != null -> {
                 Text(content.notesError, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                 OutlinedButton(onClick = listener::onClickReloadNotes) { Text("もう一度試す") }
             }
+
             content.notes.isEmpty() -> Text("まだ投稿していない。", style = MaterialTheme.typography.bodyMedium)
+
             else -> {
                 content.notes.forEach { note ->
                     key(note.url) {
