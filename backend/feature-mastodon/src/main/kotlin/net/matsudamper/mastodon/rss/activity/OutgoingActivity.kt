@@ -22,9 +22,12 @@ data class OutgoingActivity(
      * このアクティビティ自身の id。相手側で重複を判定するのに使われるので、
      * 送るたびに違う値にする。
      */
+    @SerialName("id")
     val id: String,
+    @SerialName("type")
     val type: String,
     /** 送り主のアクター id。署名に使う鍵の持ち主と一致していないと相手に弾かれる */
+    @SerialName("actor")
     val actor: String,
     /** `object` は Kotlin の予約語なので名前を変えて持つ */
     @SerialName("object")

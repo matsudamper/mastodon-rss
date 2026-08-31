@@ -17,9 +17,12 @@ import net.matsudamper.mastodon.rss.activitypub.id
  */
 @Serializable
 data class InboxActivity(
+    @SerialName("id")
     val id: String? = null,
+    @SerialName("type")
     val type: String? = null,
     /** 実行した相手。URL 文字列のことも、アクターが丸ごと埋まっていることもある */
+    @SerialName("actor")
     val actor: LinkOrObject? = null,
     /** `object` は Kotlin の予約語なので名前を変えて受ける */
     @SerialName("object")

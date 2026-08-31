@@ -21,9 +21,13 @@ data class DeleteNoteActivity(
      *
      * 相手の重複判定に使われるので、消した投稿の id と同じにしてはいけない
      */
+    @SerialName("id")
     val id: ActivityPubId,
+    @SerialName("actor")
     val actor: String,
+    @SerialName("to")
     val to: List<String>,
+    @SerialName("cc")
     val cc: List<String>,
     @SerialName("object")
     val target: Tombstone,
@@ -35,6 +39,7 @@ data class DeleteNoteActivity(
     /**
      * 相手はこの値を見て削除だと判断する。`Delete` 以外は入らない
      */
+    @SerialName("type")
     val type: String = "Delete"
 
     /**
@@ -51,11 +56,13 @@ data class DeleteNoteActivity(
         /**
          * 消す対象の id
          */
+        @SerialName("id")
         val id: ActivityPubId,
     ) {
         /**
          * 相手はこの値を見て、消えたオブジェクトだと判断する。`Tombstone` 以外は入らない
          */
+        @SerialName("type")
         val type: String = "Tombstone"
     }
 }
