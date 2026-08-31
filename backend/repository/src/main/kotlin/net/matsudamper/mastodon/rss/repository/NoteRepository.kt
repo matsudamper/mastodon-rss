@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.repository
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 /**
  * 配信した投稿の読み書き。
@@ -21,9 +22,16 @@ interface NoteRepository {
     /**
      * 公開 id で引く。`GET /notes/{publicId}` に使う
      */
-    fun find(publicId: String): Note?
+    fun find(publicId: PublicNoteId): Note?
 
-    fun findByPublicIds(publicIds: Set<String>): Map<String, Note>
+    fun findByPublicIds(publicIds: Set<PublicNoteId>): Map<PublicNoteId, Note>
+
+    /**
+     * 消す。消えていれば何もしない。
+     *
+     * 消した投稿を元にした記事（`feed_items`）は残り、`note_id` だけが外れる
+     */
+    fun delete(publicId: PublicNoteId)
 
     /**
      * 新しい順に返す。`outbox` と管理画面の一覧に使う。
@@ -60,7 +68,7 @@ interface NoteRepository {
  */
 data class NotePosition(
     val publishedAt: Instant,
-    val publicId: String,
+    val publicId: PublicNoteId,
 )
 
 /**
@@ -73,7 +81,7 @@ data class NotePosition(
  * @param publishedAt 相手に見せる公開日時
  */
 data class Note(
-    val publicId: String,
+    val publicId: PublicNoteId,
     val username: String,
     val contentHtml: String,
     val publishedAt: Instant,
@@ -84,7 +92,7 @@ data class Note(
  */
 data class NewNote(
     val username: String,
-    val publicId: String,
+    val publicId: PublicNoteId,
     val contentHtml: String,
     val publishedAt: Instant,
 )

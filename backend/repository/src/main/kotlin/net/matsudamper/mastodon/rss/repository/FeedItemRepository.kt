@@ -1,6 +1,9 @@
 package net.matsudamper.mastodon.rss.repository
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 /**
  * 取り込んだ記事の読み書き。
@@ -58,7 +61,7 @@ interface FeedItemRepository {
     fun markPosted(
         id: FeedItemId,
         postedAt: Instant,
-        noteId: String,
+        noteId: PublicNoteId,
     )
 
     /**
@@ -74,16 +77,29 @@ interface FeedItemRepository {
      * 投稿の一覧に記事を並べるのに使う。1 件ずつ問い合わせると投稿の数だけ
      * 往復するので、まとめて渡してまとめて受け取る形にする
      */
-    fun findByNoteIds(noteIds: Collection<String>): Map<String, FeedItem>
+    fun findByNoteIds(noteIds: Collection<PublicNoteId>): Map<PublicNoteId, FeedItem>
+
+    fun find(id: FeedItemId): FeedItem?
+
+    /**
+     * フィードの記事をまとめて消す。
+     *
+     * 引き当てと削除を分けると、その間に別の要求が消した分だけが減って
+     * 一部だけ消えた状態になる。
+     *
+     * 消すと次の取得で新着として戻ってくる。投稿済みのものを消して
+     * 投稿し直すのに使う。配信した投稿（`notes`）はここでは消さない。
+     *
+     * @return 全部消せたら true。[feedId] に無い id が 1 つでもあれば、何も消さずに false
+     */
+    fun delete(
+        feedId: FeedId,
+        ids: Collection<FeedItemId>,
+    ): Boolean
 
     /** フィードの記事を数える。初回の取り込みかどうかの判定などに使う */
     fun countByFeed(feedId: FeedId): Long
 }
-
-@JvmInline
-value class FeedItemId(
-    val value: Long,
-)
 
 /**
  * 取り込んだ記事 1 件。
@@ -108,7 +124,7 @@ data class FeedItem(
     val importedAt: Instant,
     val state: FeedItemState,
     val postedAt: Instant?,
-    val noteId: String?,
+    val noteId: PublicNoteId?,
 )
 
 /** 保存する記事。id はまだ無い */

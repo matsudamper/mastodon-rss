@@ -5,6 +5,7 @@ import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.NOTES
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import org.jooq.Condition
 import org.jooq.Record
 import org.jooq.impl.DSL
@@ -17,33 +18,42 @@ internal class SqliteNoteRepository(
             dsl
                 .insertInto(NOTES)
                 .set(NOTES.USERNAME, note.username)
-                .set(NOTES.PUBLIC_ID, note.publicId)
+                .set(NOTES.PUBLIC_ID, note.publicId.value)
                 .set(NOTES.CONTENT_HTML, note.contentHtml)
                 .set(NOTES.PUBLISHED_AT, StoredInstant.format(note.publishedAt))
                 .execute()
         }
     }
 
-    override fun find(publicId: String): Note? = jooq.withConnection { dsl ->
+    override fun find(publicId: PublicNoteId): Note? = jooq.withConnection { dsl ->
         dsl
             .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT)
             .from(NOTES)
-            .where(NOTES.PUBLIC_ID.eq(publicId))
+            .where(NOTES.PUBLIC_ID.eq(publicId.value))
             .fetchOne()
             ?.toNote()
     }
 
-    override fun findByPublicIds(publicIds: Set<String>): Map<String, Note> {
+    override fun findByPublicIds(publicIds: Set<PublicNoteId>): Map<PublicNoteId, Note> {
         if (publicIds.isEmpty()) return emptyMap()
 
         return jooq.withConnection { dsl ->
             dsl
                 .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT)
                 .from(NOTES)
-                .where(NOTES.PUBLIC_ID.`in`(publicIds))
+                .where(NOTES.PUBLIC_ID.`in`(publicIds.map { it.value }))
                 .fetch()
                 .map { it.toNote() }
                 .associateBy { it.publicId }
+        }
+    }
+
+    override fun delete(publicId: PublicNoteId) {
+        jooq.transaction { dsl ->
+            dsl
+                .deleteFrom(NOTES)
+                .where(NOTES.PUBLIC_ID.eq(publicId.value))
+                .execute()
         }
     }
 
@@ -81,7 +91,7 @@ internal class SqliteNoteRepository(
             .map {
                 NotePosition(
                     publishedAt = StoredInstant.parse(it.get(NOTES.PUBLISHED_AT)),
-                    publicId = it.get(NOTES.PUBLIC_ID),
+                    publicId = PublicNoteId(it.get(NOTES.PUBLIC_ID)),
                 )
             }
     }
@@ -95,7 +105,7 @@ internal class SqliteNoteRepository(
         val publishedAt = StoredInstant.format(cursor.publishedAt)
 
         return NOTES.PUBLISHED_AT.lt(publishedAt)
-            .or(NOTES.PUBLISHED_AT.eq(publishedAt).and(NOTES.PUBLIC_ID.lt(cursor.publicId)))
+            .or(NOTES.PUBLISHED_AT.eq(publishedAt).and(NOTES.PUBLIC_ID.lt(cursor.publicId.value)))
     }
 
     override fun count(username: String): Long = jooq.withConnection { dsl ->
@@ -108,7 +118,7 @@ internal class SqliteNoteRepository(
     }
 
     private fun Record.toNote(): Note = Note(
-        publicId = get(NOTES.PUBLIC_ID),
+        publicId = PublicNoteId(get(NOTES.PUBLIC_ID)),
         username = get(NOTES.USERNAME),
         contentHtml = get(NOTES.CONTENT_HTML),
         publishedAt = StoredInstant.parse(get(NOTES.PUBLISHED_AT)),

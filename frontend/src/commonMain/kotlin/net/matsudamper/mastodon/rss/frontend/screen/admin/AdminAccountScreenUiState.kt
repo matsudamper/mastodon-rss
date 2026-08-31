@@ -25,6 +25,7 @@ data class AdminAccountScreenUiState(
          * @param feed RSS フィードの登録状況と入力欄
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
+         * @param deleteNoteDialog 投稿を消す前の確認。出していなければ null
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
          * @param notesLoading 一覧を取っている最中
          * @param canLoadMore さらに古い投稿があるか
@@ -34,6 +35,7 @@ data class AdminAccountScreenUiState(
             val feed: Feed,
             val post: Post,
             val notes: List<Note>,
+            val deleteNoteDialog: DeleteNoteDialog?,
             val notesError: String?,
             val notesLoading: Boolean,
             val canLoadMore: Boolean,
@@ -85,12 +87,27 @@ data class AdminAccountScreenUiState(
         ) : Feed
     }
 
-    /** 投稿と一緒に見せる、元になった記事 */
+    /**
+     * 投稿と一緒に見せる、元になった記事
+     *
+     * @param deleting 削除中。ボタンを押せなくする
+     */
     data class SourceArticle(
         val title: String?,
         val link: String?,
         val publishedAt: String?,
+        val deleting: Boolean,
+        val listener: SourceArticleListener,
     )
+
+    @Immutable
+    interface SourceArticleListener {
+        /**
+         * この記事を消す。配信した投稿は残るので、
+         * 最新情報を投稿すると同じ記事がもう一度流れる
+         */
+        fun onClickDelete()
+    }
 
     data class UnpublishedItem(
         val title: String?,
@@ -127,6 +144,17 @@ data class AdminAccountScreenUiState(
     }
 
     /**
+     * 投稿を消す前の確認。
+     *
+     * @param hasSourceArticle 元になった記事があるか。あるときだけ、まとめて消すかを選べる
+     * @param deleting 削除中。ボタンを押せなくする
+     */
+    data class DeleteNoteDialog(
+        val hasSourceArticle: Boolean,
+        val deleting: Boolean,
+    )
+
+    /**
      * @param sourceArticle 元になった記事。無い投稿では出さない
      */
     data class Note(
@@ -134,7 +162,16 @@ data class AdminAccountScreenUiState(
         val contentHtml: String,
         val publishedAt: String,
         val sourceArticle: SourceArticle?,
+        val listener: NoteListener,
     )
+
+    @Immutable
+    interface NoteListener {
+        /**
+         * この投稿を消す確認を出す
+         */
+        fun onClickDelete()
+    }
 
     /**
      * @param targets 送った宛先の数
@@ -161,6 +198,14 @@ data class AdminAccountScreenUiState(
         fun onClickPost()
 
         fun onClickLoadMore()
+
+        fun onDismissDeleteNote()
+
+        /**
+         * @param deleteSourceArticle 元になった記事も消す。消すと最新情報を投稿したときに
+         *   取り込み直されてもう一度流れる
+         */
+        fun onConfirmDeleteNote(deleteSourceArticle: Boolean)
 
         /**
          * 一覧だけ取り直す

@@ -1,6 +1,8 @@
 package net.matsudamper.mastodon.rss.logic
 
+import java.time.Instant
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -10,7 +12,9 @@ import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.note.NotePublisher
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 // 管理画面から投稿する経路。
 // 本文をプレーンテキストで受けて HTML に組み立てるところがここの責務になる。
@@ -103,6 +107,84 @@ class NoteServiceTest {
     }
 
     @Test
+    fun `投稿を消すと記録が消え Delete を配る`() = runBlocking {
+        val follower = RemoteActor(
+            actorId = "https://remote.example/users/follower",
+            inbox = "https://remote.example/users/follower/inbox",
+            sharedInbox = null,
+            publicKeyPem = "pem",
+        )
+        val followers = FakeFollowerStore()
+        followers.record(
+            username = TestLocalActor.USERNAME,
+            follower = follower,
+            followActivityUri = "https://remote.example/follows/1",
+            receivedAt = FOLLOWED_AT,
+        )
+        followers.markAccepted(
+            username = TestLocalActor.USERNAME,
+            followerActorUri = follower.actorId,
+            acceptedAt = FOLLOWED_AT,
+        )
+        val service = NoteService(
+            directory = TestLocalActor.directory,
+            publisher = NotePublisher(notes, followers, delivery),
+            notes = notes,
+        )
+        val posted = assertIs<NoteService.PostResult.Success>(
+            service.post(username = TestLocalActor.USERNAME, body = "本文"),
+        )
+
+        val result = service.delete(
+            username = TestLocalActor.USERNAME,
+            publicId = PublicNoteId(posted.published.publicId.value),
+        )
+
+        val success = assertIs<NoteService.DeleteResult.Success>(result)
+        assertEquals(posted.published.publicId, success.deleted.publicId)
+        assertEquals(emptyList(), notes.added)
+
+        // 消したことは配って初めて伝わる。届かないとフォロワーのタイムラインに残る
+        val body = delivery.delivered.last().body
+        assertContains(body, """"type":"Delete"""")
+        assertContains(body, """"type":"Tombstone"""")
+        assertContains(body, posted.published.url)
+        // 宛先が元の投稿と揃っていないと、受け取っても消さない実装がある
+        assertContains(body, TestLocalActor.urls.followers)
+    }
+
+    @Test
+    fun `知らないアカウントと無い投稿は消せない`() = runBlocking {
+        val posted = assertIs<NoteService.PostResult.Success>(
+            service().post(username = TestLocalActor.USERNAME, body = "本文"),
+        )
+
+        assertEquals(
+            NoteService.DeleteFailure.UNKNOWN_ACCOUNT,
+            assertIs<NoteService.DeleteResult.Failure>(
+                service().delete(username = "nobody", publicId = PublicNoteId(posted.published.publicId.value)),
+            ).reason,
+        )
+        assertEquals(
+            NoteService.DeleteFailure.NOT_FOUND,
+            assertIs<NoteService.DeleteResult.Failure>(
+                service().delete(username = TestLocalActor.USERNAME, publicId = PublicNoteId("missing")),
+            ).reason,
+        )
+        // 他のアカウントの投稿を id だけで消せないようにする
+        assertEquals(
+            NoteService.DeleteFailure.NOT_FOUND,
+            assertIs<NoteService.DeleteResult.Failure>(
+                service().delete(
+                    username = TestLocalActor.STORED_USERNAME,
+                    publicId = PublicNoteId(posted.published.publicId.value),
+                ),
+            ).reason,
+        )
+        assertEquals(1, notes.added.size)
+    }
+
+    @Test
     fun `空の本文と長すぎる本文は弾く`() = runBlocking {
         val empty = service().post(username = TestLocalActor.USERNAME, body = "   ")
         assertIs<NoteService.PostResult.Failure>(empty)
@@ -116,5 +198,9 @@ class NoteServiceTest {
         assertEquals(true, tooLong.tooLong)
 
         assertEquals(emptyList(), notes.added)
+    }
+
+    private companion object {
+        val FOLLOWED_AT: Instant = Instant.parse("2026-08-16T00:00:00Z")
     }
 }

@@ -20,8 +20,7 @@ class FeedItemByNoteDataLoaderDefine(
     override fun getDataLoader(): DataLoader<PublicNoteId, FeedItem> {
         return DataLoaderFactory.newMappedDataLoader { keys, _ ->
             otelSupplyAsync {
-                feeds.itemsByNoteIds(keys.map { it.value })
-                    .mapKeys { (noteId, _) -> PublicNoteId(noteId) }
+                feeds.itemsByNoteIds(keys)
             }
         }
     }

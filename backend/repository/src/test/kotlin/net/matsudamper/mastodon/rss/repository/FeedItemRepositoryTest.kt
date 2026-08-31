@@ -7,9 +7,13 @@ import kotlin.io.path.deleteRecursively
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 class FeedItemRepositoryTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-feed-item-test")
@@ -147,9 +151,9 @@ class FeedItemRepositoryTest {
                     item(feedId = feed.id, itemKey = "p", state = FeedItemState.PENDING),
                 ),
             )
-            repositories.notes.add(note(publicId = "note-1"))
+            repositories.notes.add(note(publicId = PublicNoteId("note-1")))
 
-            repositories.feedItems.markPosted(pending.id, POSTED_AT, noteId = "note-1")
+            repositories.feedItems.markPosted(pending.id, POSTED_AT, noteId = PublicNoteId("note-1"))
             repositories.feedItems.markSkipped(
                 assertNotNull(
                     repositories.feedItems.add(
@@ -171,14 +175,120 @@ class FeedItemRepositoryTest {
                 repositories.feedItems.add(item(feedId = feed.id, itemKey = "posted", state = FeedItemState.PENDING)),
             )
             repositories.feedItems.add(item(feedId = feed.id, itemKey = "pending", state = FeedItemState.PENDING))
-            repositories.notes.add(note(publicId = "note-1"))
-            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = "note-1")
+            repositories.notes.add(note(publicId = PublicNoteId("note-1")))
+            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = PublicNoteId("note-1"))
 
-            val found = repositories.feedItems.findByNoteIds(listOf("note-1", "note-2"))
+            val found = repositories.feedItems.findByNoteIds(listOf(PublicNoteId("note-1"), PublicNoteId("note-2")))
 
-            assertEquals(setOf("note-1"), found.keys)
-            assertEquals(posted.id, assertNotNull(found["note-1"]).id)
+            assertEquals(setOf(PublicNoteId("note-1")), found.keys)
+            assertEquals(posted.id, assertNotNull(found[PublicNoteId("note-1")]).id)
             assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(emptyList()))
+        }
+    }
+
+    @Test
+    fun `記事を消しても投稿は残る`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val posted = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "posted", state = FeedItemState.PENDING)),
+            )
+            repositories.notes.add(note(publicId = PublicNoteId("note-1")))
+            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = PublicNoteId("note-1"))
+
+            repositories.feedItems.delete(feed.id, listOf(posted.id))
+
+            assertNotNull(repositories.notes.find(PublicNoteId("note-1")))
+            assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(listOf(PublicNoteId("note-1"))))
+        }
+    }
+
+    @Test
+    fun `delete で記事だけ消える`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val added = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "gone")))
+
+            assertTrue(repositories.feedItems.delete(feed.id, listOf(added.id)))
+
+            assertNull(repositories.feedItems.find(added.id))
+            assertEquals(0, repositories.feedItems.countByFeed(feed.id))
+            assertNotNull(repositories.feeds.find(feed.id))
+        }
+    }
+
+    @Test
+    fun `消した記事は取り込み直すと新着になる`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val added = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "again", state = FeedItemState.POSTED)),
+            )
+            repositories.feedItems.delete(feed.id, listOf(added.id))
+
+            val reimported = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "again", state = FeedItemState.PENDING)),
+            )
+
+            assertEquals(
+                listOf(reimported.id),
+                repositories.feedItems.findPending(feed.id, limit = 10).map { it.id },
+            )
+        }
+    }
+
+    @Test
+    fun `投稿を消すと記事の紐付けが外れる`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val posted = assertNotNull(
+                repositories.feedItems.add(item(feedId = feed.id, itemKey = "posted", state = FeedItemState.PENDING)),
+            )
+            repositories.notes.add(note(publicId = PublicNoteId("note-1")))
+            repositories.feedItems.markPosted(posted.id, POSTED_AT, noteId = PublicNoteId("note-1"))
+
+            repositories.notes.delete(PublicNoteId("note-1"))
+
+            // 記事は残るが、消えた投稿を指したままにはしない
+            assertEquals(emptyMap(), repositories.feedItems.findByNoteIds(listOf(PublicNoteId("note-1"))))
+            assertNull(assertNotNull(repositories.feedItems.find(posted.id)).noteId)
+        }
+    }
+
+    @Test
+    fun `無い記事は消せない`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+
+            assertFalse(repositories.feedItems.delete(feed.id, listOf(FeedItemId(404))))
+        }
+    }
+
+    @Test
+    fun `記事をまとめて消せる`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val first = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "1")))
+            val second = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "2")))
+            val kept = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "3")))
+
+            assertTrue(repositories.feedItems.delete(feed.id, listOf(first.id, second.id)))
+
+            assertNull(repositories.feedItems.find(first.id))
+            assertNull(repositories.feedItems.find(second.id))
+            assertNotNull(repositories.feedItems.find(kept.id))
+        }
+    }
+
+    @Test
+    fun `無い記事が混ざっていたら何も消さない`() {
+        withRepositories { repositories ->
+            val feed = repositories.addFeed()
+            val kept = assertNotNull(repositories.feedItems.add(item(feedId = feed.id, itemKey = "kept")))
+
+            assertFalse(repositories.feedItems.delete(feed.id, listOf(kept.id, FeedItemId(404))))
+
+            assertNotNull(repositories.feedItems.find(kept.id))
         }
     }
 
@@ -230,7 +340,7 @@ class FeedItemRepositoryTest {
         state = state,
     )
 
-    private fun note(publicId: String): NewNote = NewNote(
+    private fun note(publicId: PublicNoteId): NewNote = NewNote(
         username = "feed1",
         publicId = publicId,
         contentHtml = "<p>本文</p>",

@@ -16,6 +16,36 @@ type AdminMutation {
 
     "フィードの最新を取り込み、未投稿の記事を投稿する"
     postFeedItems(query: PostFeedItemsQuery!): AdminPostFeedItemsResult! @lazy
+
+    "取り込んだ記事を消す。配信した投稿は消されない。"
+    deleteFeedItems(query: DeleteFeedItemsQuery!): AdminDeleteFeedItemsResult! @lazy
+
+    "投稿を 1 件消す。元になった記事は消されない。"
+    deleteNote(query: DeleteNoteQuery!): AdminDeleteNoteResult! @lazy
+}
+
+input DeleteNoteQuery {
+    "投稿したアカウント"
+    username: String!
+    noteId: PublicNoteId!
+}
+
+type AdminDeleteNoteResult {
+    "消せた投稿の id"
+    deletedId: PublicNoteId
+
+    failure: AdminDeleteNoteFailure
+}
+
+type AdminDeleteNoteFailure {
+    reason: AdminDeleteNoteFailureReason!
+}
+
+enum AdminDeleteNoteFailureReason {
+    UNKNOWN_ACCOUNT
+
+    "そのアカウントの投稿に無い"
+    NOT_FOUND
 }
 
 type AdminPostNoteResult {

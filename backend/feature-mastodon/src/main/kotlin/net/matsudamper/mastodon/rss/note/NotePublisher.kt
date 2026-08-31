@@ -1,10 +1,13 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
+import net.matsudamper.mastodon.rss.activity.DeleteNoteActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.crypto.UuidV7
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
+import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
 import org.slf4j.LoggerFactory
@@ -33,7 +36,7 @@ class NotePublisher(
         contentHtml: String,
     ): PublishedNote {
         val publishedAt = Instant.now()
-        val publicId = UuidV7.generate(publishedAt.toEpochMilli())
+        val publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli()))
         val urls = NoteUrls(domain = sender.domain, publicId = publicId)
 
         notes.add(
@@ -46,10 +49,61 @@ class NotePublisher(
         )
 
         val body = AppJson.encodeToString(
-            CreateNote.serializer(),
+            CreateNoteActivity.serializer(),
             createActivity(sender = sender, urls = urls, contentHtml = contentHtml, publishedAt = publishedAt),
         ).toByteArray()
 
+        val result = deliverToFollowers(sender = sender, body = body)
+
+        logger.info("投稿を配った: ${sender.acct} $publicId 宛先=${result.targets} 成功=${result.delivered}")
+
+        return PublishedNote(
+            publicId = publicId,
+            url = urls.noteUrl,
+            contentHtml = contentHtml,
+            publishedAt = publishedAt,
+            targets = result.targets,
+            delivered = result.delivered,
+        )
+    }
+
+    /**
+     * 投稿を消して、消したことをフォロワーに配る。
+     *
+     * 記録を先に消す。配信が先だと、`Delete` を受け取った相手が確かめに来たときに
+     * まだ本文を返してしまう。
+     *
+     * 配れなかった相手のタイムラインには投稿が残る。再送しないのは [publish] と同じ。
+     *
+     * @return 記録が無ければ null
+     */
+    suspend fun delete(
+        sender: ActorUrls,
+        publicId: PublicNoteId,
+    ): DeletedNote? {
+        // 他のアカウントの投稿を publicId だけで消せないようにする
+        notes.find(publicId)?.takeIf { it.username.equals(sender.username, ignoreCase = true) }
+            ?: return null
+
+        val urls = NoteUrls(domain = sender.domain, publicId = publicId)
+        notes.delete(publicId)
+
+        val body = AppJson.encodeToString(
+            DeleteNoteActivity.serializer(),
+            deleteActivity(sender = sender, urls = urls),
+        ).toByteArray()
+
+        val result = deliverToFollowers(sender = sender, body = body)
+
+        logger.info("投稿の削除を配った: ${sender.acct} $publicId 宛先=${result.targets} 成功=${result.delivered}")
+
+        return DeletedNote(publicId = publicId)
+    }
+
+    private suspend fun deliverToFollowers(
+        sender: ActorUrls,
+        body: ByteArray,
+    ): DeliveryCount {
         val targets = followers.deliveryTargets(sender.username)
         var delivered = 0
 
@@ -61,32 +115,39 @@ class NotePublisher(
 
                 is DeliveryResult.Failed -> {
                     // 再送しないので、届かなかったことはここに残っているものが唯一の手がかり
-                    logger.warn("投稿を配れなかった: ${sender.acct} → $inbox ${result.reason}")
+                    logger.warn("配れなかった: ${sender.acct} → $inbox ${result.reason}")
                 }
             }
         }
 
-        logger.info("投稿を配った: ${sender.acct} $publicId 宛先=${targets.size} 成功=$delivered")
-
-        return PublishedNote(
-            publicId = publicId,
-            url = urls.noteId,
-            contentHtml = contentHtml,
-            publishedAt = publishedAt,
-            targets = targets.size,
-            delivered = delivered,
-        )
+        return DeliveryCount(targets = targets.size, delivered = delivered)
     }
+
+    private data class DeliveryCount(
+        val targets: Int,
+        val delivered: Int,
+    )
+
+    private fun deleteActivity(
+        sender: ActorUrls,
+        urls: NoteUrls,
+    ): DeleteNoteActivity = DeleteNoteActivity(
+        id = urls.deleteId,
+        actor = sender.actorId,
+        to = listOf(PUBLIC_AUDIENCE),
+        cc = listOf(sender.followers),
+        target = DeleteNoteActivity.Tombstone(id = urls.noteId),
+    )
 
     private fun createActivity(
         sender: ActorUrls,
         urls: NoteUrls,
         contentHtml: String,
         publishedAt: Instant,
-    ): CreateNote {
+    ): CreateNoteActivity {
         val published = publishedAt.toActivityPubPublished()
 
-        return CreateNote(
+        return CreateNoteActivity(
             id = urls.createId,
             actor = sender.actorId,
             published = published,
@@ -99,12 +160,16 @@ class NotePublisher(
                 published = published,
                 to = listOf(PUBLIC_AUDIENCE),
                 cc = listOf(sender.followers),
-                url = urls.noteId,
-                atomUri = urls.noteId,
+                url = urls.noteUrl,
+                atomUri = urls.noteUrl,
             ),
         )
     }
 }
+
+data class DeletedNote(
+    val publicId: PublicNoteId,
+)
 
 /**
  * 配信した結果。
@@ -113,7 +178,7 @@ class NotePublisher(
  * @param delivered そのうち相手が受け取ったもの
  */
 data class PublishedNote(
-    val publicId: String,
+    val publicId: PublicNoteId,
     val url: String,
     val contentHtml: String,
     val publishedAt: Instant,

@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.entity.PublicNoteId
 
 /**
  * 配信した投稿の置き先。
@@ -17,9 +18,15 @@ interface NoteStore {
      */
     fun add(note: StoredNote)
 
-    fun find(publicId: String): StoredNote?
+    fun find(publicId: PublicNoteId): StoredNote?
 
-    fun findByPublicIds(publicIds: Set<String>): Map<String, StoredNote>
+    /**
+     * 消す。`Delete` を配る前に呼ぶ。配信が先だと、消したことを受け取った相手が
+     * 確かめに来たときにまだ本文を返してしまう
+     */
+    fun delete(publicId: PublicNoteId)
+
+    fun findByPublicIds(publicIds: Set<PublicNoteId>): Map<PublicNoteId, StoredNote>
 
     /**
      * 新しい順に返す。
@@ -56,7 +63,7 @@ interface NoteStore {
  */
 data class NotePosition(
     val publishedAt: Instant,
-    val publicId: String,
+    val publicId: PublicNoteId,
 )
 
 /**
@@ -68,7 +75,7 @@ data class NotePosition(
  * @param publishedAt 相手に見せる公開日時
  */
 data class StoredNote(
-    val publicId: String,
+    val publicId: PublicNoteId,
     val username: String,
     val contentHtml: String,
     val publishedAt: Instant,

@@ -2,8 +2,8 @@ package net.matsudamper.mastodon.rss.note
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import net.matsudamper.mastodon.rss.activitypub.OutgoingActivity
-import net.matsudamper.mastodon.rss.activitypub.StringListSerializer
+import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
+import net.matsudamper.mastodon.rss.entity.ActivityPubId
 
 /**
  * 配信する投稿。Mastodon のタイムラインに 1 件として並ぶもの。
@@ -13,7 +13,7 @@ import net.matsudamper.mastodon.rss.activitypub.StringListSerializer
  * コレクションを入れるのは Mastodon の慣習で、これが無いと配信されても
  * ホームタイムラインに並ばないことがある。
  *
- * `@context` は単体で返すときだけ入れる。[CreateNote] に包んで送るときは
+ * `@context` は単体で返すときだけ入れる。[CreateNoteActivity] に包んで送るときは
  * 外側が持っているので、中で重ねると同じものを 2 回書くことになる。
  */
 @Serializable
@@ -21,10 +21,9 @@ data class Note(
     @SerialName("@context")
     val context: List<String>? = null,
     /**
-     * この投稿の URL。相手はここをパーマリンクとして引きに来る
+     * この投稿の id。相手はここをパーマリンクとして引きに来る
      */
-    val id: String,
-    val type: String = TYPE,
+    val id: ActivityPubId,
     /**
      * 投稿したアクターの id
      */
@@ -49,47 +48,8 @@ data class Note(
      */
     val url: String? = null,
 ) {
-    companion object {
-        const val TYPE: String = "Note"
-    }
-}
-
-/**
- * [Note] を包んで配る `Create`。
- *
- * `to` と `cc` は中の [Note] と同じものを入れる。片方だけに入れると、
- * 実装によって配信先の判断が変わる。
- *
- * [OutgoingActivity] と分けているのは、あちらの `object` が
- * [net.matsudamper.mastodon.rss.activitypub.LinkOrObject] で、受け取ったものを
- * そのまま返す `Accept` のための形だから。こちらは中身をこちらが組み立てる。
- */
-@Serializable
-data class CreateNote(
-    @SerialName("@context")
-    @Serializable(with = StringListSerializer::class)
-    val context: List<String> = OutgoingActivity.DEFAULT_CONTEXT,
     /**
-     * このアクティビティ自身の id。相手側の重複判定に使われる
+     * 相手はこの値を見て投稿だと判断する。`Note` 以外は入らない
      */
-    val id: String,
-    val type: String = TYPE,
-    val actor: String,
-    val published: String,
-    val to: List<String>,
-    val cc: List<String>,
-    @SerialName("object")
-    val target: Note,
-) {
-    companion object {
-        const val TYPE: String = "Create"
-    }
+    val type: String = "Note"
 }
-
-/**
- * 誰でも見られることを表す宛先。
- *
- * `to` に入れると公開投稿、`cc` に入れると未収載（フォロワーには届くが
- * 公開タイムラインには出ない）になる。
- */
-const val PUBLIC_AUDIENCE: String = "https://www.w3.org/ns/activitystreams#Public"

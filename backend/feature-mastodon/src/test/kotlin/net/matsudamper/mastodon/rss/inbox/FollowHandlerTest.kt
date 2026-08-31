@@ -11,7 +11,7 @@ import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
-import net.matsudamper.mastodon.rss.activitypub.InboxActivity
+import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
 import net.matsudamper.mastodon.rss.json.AppJson
 

@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.logic.admin
 
+import net.matsudamper.mastodon.rss.shared.FeedItemId
+
 data class AdminFeed(
     val id: Long,
     val url: String,
@@ -133,7 +135,27 @@ sealed interface AdminPostFeedItemsResult {
  * 取り込んだ記事 1 件
  */
 data class AdminFeedItem(
+    val id: FeedItemId,
     val title: String?,
     val link: String?,
     val publishedAt: Long?,
 )
+
+sealed interface AdminDeleteFeedItemsResult {
+    data object Success : AdminDeleteFeedItemsResult
+
+    data class Rejected(
+        val reason: FailureReason,
+    ) : AdminDeleteFeedItemsResult
+
+    data class Failure(
+        val message: String,
+    ) : AdminDeleteFeedItemsResult
+
+    enum class FailureReason {
+        UNKNOWN_ACCOUNT,
+        NO_FEED,
+        NOT_FOUND,
+        UNKNOWN,
+    }
+}

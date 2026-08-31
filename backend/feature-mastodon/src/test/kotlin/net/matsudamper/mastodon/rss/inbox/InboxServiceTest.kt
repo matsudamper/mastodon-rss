@@ -13,7 +13,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.http.Headers
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
-import net.matsudamper.mastodon.rss.activitypub.InboxActivity
+import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier

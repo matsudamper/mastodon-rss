@@ -4,12 +4,13 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.note.NotePosition
 
 class NotesCursorTest {
     private val position = NotePosition(
         publishedAt = Instant.parse("2026-08-19T00:00:00.123456789Z"),
-        publicId = "5b0d2b9a-0000-4000-8000-000000000000",
+        publicId = PublicNoteId("5b0d2b9a-0000-4000-8000-000000000000"),
     )
 
     @Test
@@ -25,7 +26,7 @@ class NotesCursorTest {
     fun `中身は表に出ない形にする`() {
         val encoded = NotesCursor.of(position).encode()
 
-        assertEquals(false, encoded.contains(position.publicId))
+        assertEquals(false, encoded.contains(position.publicId.value))
     }
 
     @Test

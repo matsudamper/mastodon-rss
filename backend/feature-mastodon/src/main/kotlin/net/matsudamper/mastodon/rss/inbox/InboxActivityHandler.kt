@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.inbox
 
 import kotlinx.serialization.json.JsonObject
-import net.matsudamper.mastodon.rss.activitypub.InboxActivity
+import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 
 /**

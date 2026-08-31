@@ -1,14 +1,15 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.repository.FeedId
 import net.matsudamper.mastodon.rss.repository.FeedItem
-import net.matsudamper.mastodon.rss.repository.FeedItemId
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEED_ITEMS
 import net.matsudamper.mastodon.rss.repository.jooq.tables.records.FeedItemsRecord
 import net.matsudamper.mastodon.rss.repository.sqlite.db.FeedItemStateDbValue
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 internal class SqliteFeedItemRepository(
     private val jooq: SqliteJooq,
@@ -81,14 +82,14 @@ internal class SqliteFeedItemRepository(
     override fun markPosted(
         id: FeedItemId,
         postedAt: Instant,
-        noteId: String,
+        noteId: PublicNoteId,
     ) {
         jooq.transaction { dsl ->
             dsl
                 .update(FEED_ITEMS)
                 .set(FEED_ITEMS.STATE, FeedItemStateDbValue.POSTED.dbValue)
                 .set(FEED_ITEMS.POSTED_AT, StoredInstant.format(postedAt))
-                .set(FEED_ITEMS.NOTE_ID, noteId)
+                .set(FEED_ITEMS.NOTE_ID, noteId.value)
                 .where(FEED_ITEMS.ID.eq(id.value))
                 .execute()
         }
@@ -104,18 +105,51 @@ internal class SqliteFeedItemRepository(
         }
     }
 
-    override fun findByNoteIds(noteIds: Collection<String>): Map<String, FeedItem> {
+    override fun findByNoteIds(noteIds: Collection<PublicNoteId>): Map<PublicNoteId, FeedItem> {
         if (noteIds.isEmpty()) return emptyMap()
 
         return jooq.withConnection { dsl ->
             dsl
                 .selectFrom(FEED_ITEMS)
-                .where(FEED_ITEMS.NOTE_ID.`in`(noteIds))
+                .where(FEED_ITEMS.NOTE_ID.`in`(noteIds.map { it.value }))
                 .fetch()
                 .map { it.toFeedItem() }
                 .associateBy { checkNotNull(it.noteId) }
         }
     }
+
+    override fun find(id: FeedItemId): FeedItem? = jooq.withConnection { dsl ->
+        dsl
+            .selectFrom(FEED_ITEMS)
+            .where(FEED_ITEMS.ID.eq(id.value))
+            .fetchOne()
+            ?.toFeedItem()
+    }
+
+    override fun delete(
+        feedId: FeedId,
+        ids: Collection<FeedItemId>,
+    ): Boolean {
+        val targets = ids.toSet()
+        if (targets.isEmpty()) return true
+
+        return try {
+            jooq.transaction { dsl ->
+                val deleted = dsl
+                    .deleteFrom(FEED_ITEMS)
+                    .where(FEED_ITEMS.ID.`in`(targets.map { it.value }))
+                    .and(FEED_ITEMS.FEED_ID.eq(feedId.value))
+                    .execute()
+                // このフィードに無い id が混ざっている。消した分を巻き戻す
+                if (deleted != targets.size) throw NotAllDeleted()
+                true
+            }
+        } catch (_: NotAllDeleted) {
+            false
+        }
+    }
+
+    private class NotAllDeleted : RuntimeException()
 
     override fun countByFeed(feedId: FeedId): Long = jooq.withConnection { dsl ->
         dsl
@@ -158,7 +192,7 @@ internal class SqliteFeedItemRepository(
         importedAt = StoredInstant.parse(importedAt!!),
         state = FeedItemStateDbValue.parse(state!!).toFeedItemState(),
         postedAt = postedAt?.let(StoredInstant::parse),
-        noteId = noteId,
+        noteId = noteId?.let(::PublicNoteId),
     )
 }
 

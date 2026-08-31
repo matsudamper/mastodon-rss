@@ -22,6 +22,7 @@ import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.shared.AccountId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 class FeedServiceTest {
     @Test
@@ -290,7 +291,7 @@ class FeedServiceTest {
             val service = serviceOf(repositories, noteStore = noteStore)
             service.save(accountId = account.id, url = FEED_URL)
             service.postUnpublished(account.id)
-            val noteIds = noteStore.added.map { it.publicId }
+            val noteIds = noteStore.added.map { PublicNoteId(it.publicId.value) }
 
             val items = service.itemsByNoteIds(noteIds)
 
@@ -299,6 +300,91 @@ class FeedServiceTest {
                 listOf("1 本目", "2 本目"),
                 noteIds.map { assertNotNull(items[it]).title },
             )
+        }
+
+    @Test
+    fun `記事を消すと未投稿として取り込み直される`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = noteStore)
+            service.save(accountId = account.id, url = FEED_URL)
+            service.postUnpublished(account.id)
+            val posted = repositories.feedItems.items().first { it.title == "1 本目" }
+
+            val deleted = service.deleteItems(accountId = account.id, feedItemIds = listOf(posted.id))
+
+            assertEquals(listOf(posted.id), assertIs<FeedService.DeleteItemsResult.Success>(deleted).deletedIds)
+
+            val result = service.postUnpublished(account.id)
+
+            assertEquals(
+                listOf("1 本目"),
+                assertIs<FeedService.PostUnpublishedResult.Success>(result).items.map { it.title },
+            )
+            assertEquals(3, noteStore.added.size)
+        }
+
+    @Test
+    fun `記事をまとめて消せる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = account.id, url = FEED_URL)
+            val items = repositories.feedItems.items()
+
+            val result = service.deleteItems(accountId = account.id, feedItemIds = items.map { it.id })
+
+            assertEquals(
+                items.map { it.id },
+                assertIs<FeedService.DeleteItemsResult.Success>(result).deletedIds,
+            )
+            assertEquals(emptyList(), repositories.feedItems.items())
+        }
+
+    @Test
+    fun `1 件でも他のフィードの記事が混ざっていたら何も消さない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val owner = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val other = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = owner.id, url = FEED_URL)
+            service.save(accountId = other.id, url = "https://example.com/other.xml")
+            val ownerFeedId = assertNotNull(repositories.feeds.findByAccountId(owner.id)).id
+            val mine = repositories.feedItems.items().first { it.feedId == ownerFeedId }
+            val theirs = repositories.feedItems.items().first { it.feedId != ownerFeedId }
+
+            val result = service.deleteItems(accountId = owner.id, feedItemIds = listOf(mine.id, theirs.id))
+
+            assertEquals(
+                FeedService.DeleteItemsFailure.NOT_FOUND,
+                assertIs<FeedService.DeleteItemsResult.Failure>(result).reason,
+            )
+            assertNotNull(repositories.feedItems.items().firstOrNull { it.id == mine.id })
+            assertNotNull(repositories.feedItems.items().firstOrNull { it.id == theirs.id })
+        }
+
+    @Test
+    fun `他のアカウントのフィードの記事は消せない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val owner = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val other = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            service.save(accountId = owner.id, url = FEED_URL)
+            service.save(accountId = other.id, url = "https://example.com/other.xml")
+            val item = repositories.feedItems.items().first { it.feedId == assertNotNull(repositories.feeds.findByAccountId(owner.id)).id }
+
+            val result = service.deleteItems(accountId = other.id, feedItemIds = listOf(item.id))
+
+            assertEquals(
+                FeedService.DeleteItemsFailure.NOT_FOUND,
+                assertIs<FeedService.DeleteItemsResult.Failure>(result).reason,
+            )
+            assertNotNull(repositories.feedItems.items().firstOrNull { it.id == item.id })
         }
 
     @Test

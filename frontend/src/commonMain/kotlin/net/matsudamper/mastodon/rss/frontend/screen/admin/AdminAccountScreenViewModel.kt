@@ -12,6 +12,8 @@ import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteFeedItemsResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeed
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview
@@ -24,6 +26,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItemsResult
+import net.matsudamper.mastodon.rss.shared.FeedItemId
 
 class AdminAccountScreenViewModel(
     private val username: String,
@@ -40,6 +43,11 @@ class AdminAccountScreenViewModel(
     private var saveFeedJob: Job? = null
     private var unpublishedJob: Job? = null
     private var postUnpublishedJob: Job? = null
+
+    // 記事ごとに持つ。1 つにまとめると、次の削除を始めた時点で
+    // 前の削除が送信前に中断され、消したつもりの記事が残る
+    private val deleteFeedItemJobs: MutableMap<FeedItemId, Job> = mutableMapOf()
+    private var deleteNoteJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
         MutableStateFlow(
@@ -82,6 +90,15 @@ class AdminAccountScreenViewModel(
                         loadMore()
                     }
 
+                    override fun onDismissDeleteNote() {
+                        if (viewModelStateFlow.value.deletingNote) return
+                        viewModelStateFlow.update { it.copy(deleteNoteId = null) }
+                    }
+
+                    override fun onConfirmDeleteNote(deleteSourceArticle: Boolean) {
+                        deleteNote(deleteSourceArticle = deleteSourceArticle)
+                    }
+
                     override fun onClickReloadNotes() {
                         loadNotes()
                     }
@@ -110,6 +127,9 @@ class AdminAccountScreenViewModel(
         saveFeedJob?.cancel()
         unpublishedJob?.cancel()
         postUnpublishedJob?.cancel()
+        deleteFeedItemJobs.values.forEach { it.cancel() }
+        deleteFeedItemJobs.clear()
+        deleteNoteJob?.cancel()
         cancelNotesJobs()
 
         viewModelStateFlow.update {
@@ -333,6 +353,123 @@ class AdminAccountScreenViewModel(
         }
     }
 
+    private fun deleteFeedItem(id: FeedItemId) {
+        val state = viewModelStateFlow.value
+        val accountId = state.loadedAccount?.account?.id ?: return
+        if (id in state.deletingFeedItemIds) return
+
+        viewModelStateFlow.update {
+            it.copy(
+                deletingFeedItemIds = it.deletingFeedItemIds + id,
+                notesError = null,
+            )
+        }
+
+        deleteFeedItemJobs[id] = viewModelScope.launch {
+            try {
+                when (val result = api.deleteFeedItems(accountId = accountId, feedItemIds = listOf(id))) {
+                    is AdminDeleteFeedItemsResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(deletingFeedItemIds = it.deletingFeedItemIds - id)
+                        }
+                        // 消すと未投稿の数も変わる。最新情報の投稿で流れ直すのはこの後
+                        loadUnpublished(accountId)
+                        loadNotes(networkOnly = true)
+                    }
+
+                    is AdminDeleteFeedItemsResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                deletingFeedItemIds = it.deletingFeedItemIds - id,
+                                notesError = result.reason.toMessage(),
+                            )
+                        }
+                    }
+
+                    is AdminDeleteFeedItemsResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                deletingFeedItemIds = it.deletingFeedItemIds - id,
+                                notesError = result.message,
+                            )
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(deletingFeedItemIds = it.deletingFeedItemIds - id) }
+                }
+                deleteFeedItemJobs.remove(id)
+            }
+        }
+    }
+
+    /**
+     * 投稿を消す。記事もまとめて消すときは、記事を先に消す。
+     *
+     * 投稿を先に消すと、記事だけが残ったときに画面から辿れなくなる。
+     * 記事が先なら、途中で失敗しても投稿は一覧に残るのでやり直せる
+     */
+    private fun deleteNote(deleteSourceArticle: Boolean) {
+        val state = viewModelStateFlow.value
+        val note = state.notes.firstOrNull { it.id == state.deleteNoteId } ?: return
+        val accountId = state.loadedAccount?.account?.id ?: return
+        if (state.deletingNote) return
+
+        deleteNoteJob?.cancel()
+        viewModelStateFlow.update { it.copy(deletingNote = true, notesError = null) }
+
+        deleteNoteJob = viewModelScope.launch {
+            try {
+                val feedItemId = note.feedItem?.id
+                if (deleteSourceArticle && feedItemId != null) {
+                    val deletedItem = api.deleteFeedItems(accountId = accountId, feedItemIds = listOf(feedItemId))
+                    val message = deletedItem.errorMessage()
+                    if (message != null) {
+                        viewModelStateFlow.update {
+                            it.copy(deletingNote = false, deleteNoteId = null, notesError = message)
+                        }
+                        return@launch
+                    }
+                }
+
+                when (val result = api.deleteNote(username = username, noteId = note.id)) {
+                    is AdminDeleteNoteResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                deletingNote = false,
+                                deleteNoteId = null,
+                                notesError = null,
+                            )
+                        }
+                        loadUnpublished(accountId)
+                        loadNotes(networkOnly = true)
+                    }
+
+                    is AdminDeleteNoteResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                deletingNote = false,
+                                deleteNoteId = null,
+                                notesError = result.reason.toMessage(),
+                            )
+                        }
+                    }
+
+                    is AdminDeleteNoteResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(deletingNote = false, deleteNoteId = null, notesError = result.message)
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(deletingNote = false) }
+                }
+            }
+        }
+    }
+
     /**
      * 投稿の一覧を先頭から取り直す。
      */
@@ -500,7 +637,8 @@ class AdminAccountScreenViewModel(
                         result = state.result,
                         error = state.error,
                     ),
-                    notes = state.notes.map { it.toUiState() },
+                    notes = state.notes.map { it.toUiState(state.deletingFeedItemIds) },
+                    deleteNoteDialog = state.deleteNoteDialogUiState(),
                     notesError = state.notesError,
                     notesLoading = state.notesLoading,
                     canLoadMore = state.cursor != null,
@@ -546,6 +684,38 @@ class AdminAccountScreenViewModel(
             AdminPostFeedItemsResult.FailureReason.UNKNOWN -> "未投稿を投稿できなかった"
         }
 
+    /**
+     * 消せなかった理由。消せていれば null。
+     *
+     * 既に消えている場合も null にする。一覧を取り直す前の投稿には消した記事が
+     * 付いたまま見えるので、そこから消しても止めずに投稿の削除まで進める
+     */
+    private fun AdminDeleteFeedItemsResult.errorMessage(): String? =
+        when (this) {
+            is AdminDeleteFeedItemsResult.Success -> null
+
+            is AdminDeleteFeedItemsResult.Rejected -> {
+                reason.toMessage().takeIf { reason != AdminDeleteFeedItemsResult.FailureReason.NOT_FOUND }
+            }
+
+            is AdminDeleteFeedItemsResult.Failure -> message
+        }
+
+    private fun AdminDeleteNoteResult.FailureReason.toMessage(): String =
+        when (this) {
+            AdminDeleteNoteResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
+            AdminDeleteNoteResult.FailureReason.NOT_FOUND -> "この投稿は既に消えている"
+            AdminDeleteNoteResult.FailureReason.UNKNOWN -> "投稿を消せなかった"
+        }
+
+    private fun AdminDeleteFeedItemsResult.FailureReason.toMessage(): String =
+        when (this) {
+            AdminDeleteFeedItemsResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
+            AdminDeleteFeedItemsResult.FailureReason.NO_FEED -> "フィードが登録されていない"
+            AdminDeleteFeedItemsResult.FailureReason.NOT_FOUND -> "この記事は既に消えている"
+            AdminDeleteFeedItemsResult.FailureReason.UNKNOWN -> "記事を消せなかった"
+        }
+
     private fun AdminUnpublishedFeedItem.toUiState(): AdminAccountScreenUiState.UnpublishedItem =
         AdminAccountScreenUiState.UnpublishedItem(
             title = title,
@@ -553,11 +723,17 @@ class AdminAccountScreenViewModel(
             publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
         )
 
-    private fun AdminFeedItem.toUiState(): AdminAccountScreenUiState.SourceArticle =
+    private fun AdminFeedItem.toUiState(deleting: Boolean): AdminAccountScreenUiState.SourceArticle =
         AdminAccountScreenUiState.SourceArticle(
             title = title,
             link = link,
             publishedAt = publishedAt?.let { UnixTimeUtil.format(it) },
+            deleting = deleting,
+            listener = object : AdminAccountScreenUiState.SourceArticleListener {
+                override fun onClickDelete() {
+                    deleteFeedItem(id)
+                }
+            },
         )
 
     private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {
@@ -613,12 +789,29 @@ class AdminAccountScreenViewModel(
             },
         )
 
-    private fun AdminNote.toUiState(): AdminAccountScreenUiState.Note = AdminAccountScreenUiState.Note(
-        url = url,
-        contentHtml = contentHtml,
-        publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
-        sourceArticle = feedItem?.toUiState(),
-    )
+    private fun ViewModelState.deleteNoteDialogUiState(): AdminAccountScreenUiState.DeleteNoteDialog? {
+        val note = notes.firstOrNull { it.id == deleteNoteId } ?: return null
+
+        return AdminAccountScreenUiState.DeleteNoteDialog(
+            hasSourceArticle = note.feedItem != null,
+            deleting = deletingNote,
+        )
+    }
+
+    private fun AdminNote.toUiState(deletingFeedItemIds: Set<FeedItemId>): AdminAccountScreenUiState.Note =
+        AdminAccountScreenUiState.Note(
+            url = url,
+            contentHtml = contentHtml,
+            publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
+            sourceArticle = feedItem?.toUiState(deleting = feedItem.id in deletingFeedItemIds),
+            listener = object : AdminAccountScreenUiState.NoteListener {
+                override fun onClickDelete() {
+                    viewModelStateFlow.update {
+                        it.copy(deleteNoteId = id, notesError = null)
+                    }
+                }
+            },
+        )
 
     private data class ViewModelState(
         val session: AdminSessionResult? = null,
@@ -638,6 +831,9 @@ class AdminAccountScreenViewModel(
         val feedPreviewError: String? = null,
         val feedSaving: Boolean = false,
         val feedSaveError: String? = null,
+        val deletingFeedItemIds: Set<FeedItemId> = emptySet(),
+        val deleteNoteId: String? = null,
+        val deletingNote: Boolean = false,
         val unpublishedItems: List<AdminUnpublishedFeedItem> = emptyList(),
         val postedItems: List<AdminUnpublishedFeedItem>? = null,
         val postingUnpublished: Boolean = false,

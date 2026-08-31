@@ -75,6 +75,11 @@ apollo {
         mapScalarToKotlinString("PublicNoteId")
         mapScalarToKotlinLong("AccountId")
         mapScalarToKotlinLong("FeedId")
+        mapScalar(
+            "FeedItemId",
+            "net.matsudamper.mastodon.rss.shared.FeedItemId",
+            "net.matsudamper.mastodon.rss.frontend.graphql.adapter.FeedItemIdAdapter",
+        )
 
         plugin("com.apollographql.cache:normalized-cache-apollo-compiler-plugin:${libs.versions.apollo.cache.get()}")
         pluginArgument("com.apollographql.cache.packageName", packageName.get())

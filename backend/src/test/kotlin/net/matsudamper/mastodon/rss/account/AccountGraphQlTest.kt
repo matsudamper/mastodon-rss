@@ -26,6 +26,7 @@ import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import net.matsudamper.mastodon.rss.testDependencies
 
 // アカウント画面が引く口。ログインが要らないので、管理画面のものとは別に見る。
@@ -151,7 +152,7 @@ class AccountGraphQlTest {
             repositories.notes.add(
                 NewNote(
                     username = TestServerEnv.USERNAME,
-                    publicId = "abc123",
+                    publicId = PublicNoteId("abc123"),
                     contentHtml = "<p>本文</p>",
                     publishedAt = publishedAt,
                 ),
@@ -177,7 +178,7 @@ class AccountGraphQlTest {
             repositories.notes.add(
                 NewNote(
                     username = TestServerEnv.USERNAME,
-                    publicId = "older",
+                    publicId = PublicNoteId("older"),
                     contentHtml = "<p>古い</p>",
                     publishedAt = Instant.parse("2026-08-08T10:00:00Z"),
                 ),
@@ -185,7 +186,7 @@ class AccountGraphQlTest {
             repositories.notes.add(
                 NewNote(
                     username = TestServerEnv.USERNAME,
-                    publicId = "newer",
+                    publicId = PublicNoteId("newer"),
                     contentHtml = "<p>新しい</p>",
                     publishedAt = Instant.parse("2026-08-09T11:00:00Z"),
                 ),
@@ -206,7 +207,7 @@ class AccountGraphQlTest {
                 repositories.notes.add(
                     NewNote(
                         username = TestServerEnv.USERNAME,
-                        publicId = "note$index",
+                        publicId = PublicNoteId("note$index"),
                         contentHtml = "<p>$index</p>",
                         publishedAt = Instant.parse("2026-08-09T1$index:00:00Z"),
                     ),

@@ -1,6 +1,8 @@
 package net.matsudamper.mastodon.rss.logic
 
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.mastodon.rss.note.DeletedNote
 import net.matsudamper.mastodon.rss.note.NotePosition
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
@@ -36,6 +38,22 @@ class NoteService(
         }
 
         return PostResult.Success(publisher.publish(sender = urls, contentHtml = toHtml(text)))
+    }
+
+    /**
+     * 投稿を消して、消したことをフォロワーに配る。
+     */
+    suspend fun delete(
+        username: String,
+        publicId: PublicNoteId,
+    ): DeleteResult {
+        val urls = directory.resolve(username)
+            ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
+
+        val deleted = publisher.delete(sender = urls, publicId = MastodonPublicNoteId(publicId.value))
+            ?: return DeleteResult.Failure(DeleteFailure.NOT_FOUND)
+
+        return DeleteResult.Success(deleted)
     }
 
     /**
@@ -83,7 +101,7 @@ class NoteService(
         val page = fetched.take(size)
 
         return PublicNoteIdPage(
-            ids = page.map { PublicNoteId(it.publicId) },
+            ids = page.map { PublicNoteId(it.publicId.value) },
             hasMore = fetched.size > size,
             nextPosition = page.lastOrNull().takeIf { fetched.size > size },
         )
@@ -103,6 +121,25 @@ class NoteService(
         val hasMore: Boolean,
         val nextPosition: NotePosition?,
     )
+
+    sealed interface DeleteResult {
+        data class Success(
+            val deleted: DeletedNote,
+        ) : DeleteResult
+
+        data class Failure(
+            val reason: DeleteFailure,
+        ) : DeleteResult
+    }
+
+    enum class DeleteFailure {
+        UNKNOWN_ACCOUNT,
+
+        /**
+         * そのアカウントの投稿に無い
+         */
+        NOT_FOUND,
+    }
 
     sealed interface PostResult {
         data class Success(

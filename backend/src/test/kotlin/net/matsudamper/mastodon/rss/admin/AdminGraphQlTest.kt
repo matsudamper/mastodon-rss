@@ -401,6 +401,201 @@ class AdminGraphQlTest {
         }
 
     @Test
+    fun `deleteFeedItems は記事だけ消し配信した投稿は残る`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(
+                passwordConfigured = true,
+                repositories = repositories,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+            mutatePostFeedItems(accountId = accountId, token = token)
+            val feedItemId = feedItemIdOf(username = "feed1", title = "1 本目", token = token)
+
+            val result = mutateDeleteFeedItems(
+                accountId = accountId,
+                feedItemIds = listOf(feedItemId),
+                token = token,
+            ).admin().obj("deleteFeedItems")
+
+            assertEquals(JsonNull, result.getValue("failure"))
+            assertEquals(
+                listOf(feedItemId),
+                result.getValue("deletedIds").jsonArray.map { it.jsonPrimitive.long },
+            )
+
+            val nodes = queryNotes("feed1", token).admin().obj("notes").getValue("nodes").jsonArray
+            assertEquals(2, nodes.size)
+            assertEquals(
+                listOf("2 本目"),
+                nodes.mapNotNull { (it.jsonObject.getValue("feedItem") as? JsonObject)?.string("title") },
+            )
+            assertEquals(2, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
+        }
+
+    @Test
+    fun `消した記事は最新情報の投稿で投稿し直される`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(
+                passwordConfigured = true,
+                repositories = repositories,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+            mutatePostFeedItems(accountId = accountId, token = token)
+            mutateDeleteFeedItems(
+                accountId = accountId,
+                feedItemIds = listOf(feedItemIdOf(username = "feed1", title = "1 本目", token = token)),
+                token = token,
+            )
+
+            val result = mutatePostFeedItems(accountId = accountId, token = token).admin().obj("postFeedItems")
+
+            assertEquals(
+                listOf("1 本目"),
+                result.getValue("items").jsonArray.map { it.jsonObject.string("title") },
+            )
+            assertEquals(3, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
+        }
+
+    @Test
+    fun `deleteNote は投稿を消し記事は残す`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(
+                passwordConfigured = true,
+                repositories = repositories,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+            mutatePostFeedItems(accountId = accountId, token = token)
+            val noteId = noteIdOf(username = "feed1", title = "1 本目", token = token)
+
+            val result = mutateDeleteNote(username = "feed1", noteId = noteId, token = token)
+                .admin()
+                .obj("deleteNote")
+
+            assertEquals(JsonNull, result.getValue("failure"))
+            assertEquals(noteId, result.getValue("deletedId").jsonPrimitive.content)
+            assertEquals(1, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
+            // 記事は残るので、消しただけでは投稿し直されない
+            assertEquals(
+                emptyList(),
+                mutatePostFeedItems(accountId = accountId, token = token)
+                    .admin()
+                    .obj("postFeedItems")
+                    .getValue("items")
+                    .jsonArray,
+            )
+        }
+
+    @Test
+    fun `投稿と記事の両方を消すと投稿し直せる`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(
+                passwordConfigured = true,
+                repositories = repositories,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+            mutatePostFeedItems(accountId = accountId, token = token)
+
+            // 記事を消すと投稿から題名を辿れなくなるので、先に id を控える
+            val feedItemId = feedItemIdOf(username = "feed1", title = "1 本目", token = token)
+            val noteId = noteIdOf(username = "feed1", title = "1 本目", token = token)
+
+            // 画面と同じ順で、記事を消してから投稿を消す
+            mutateDeleteFeedItems(accountId = accountId, feedItemIds = listOf(feedItemId), token = token)
+            mutateDeleteNote(username = "feed1", noteId = noteId, token = token)
+
+            val result = mutatePostFeedItems(accountId = accountId, token = token).admin().obj("postFeedItems")
+
+            assertEquals(
+                listOf("1 本目"),
+                result.getValue("items").jsonArray.map { it.jsonObject.string("title") },
+            )
+            assertEquals(2, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
+        }
+
+    @Test
+    fun `無い投稿は消せない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+
+            val result = mutateDeleteNote(username = "feed1", noteId = "missing", token = token)
+                .admin()
+                .obj("deleteNote")
+
+            assertEquals(JsonNull, result.getValue("deletedId"))
+            assertEquals("NOT_FOUND", result.obj("failure").string("reason"))
+        }
+
+    @Test
+    fun `フィードが無いアカウントの記事は消せない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+
+            val result = mutateDeleteFeedItems(
+                accountId = accountId,
+                feedItemIds = listOf(1),
+                token = token,
+            ).admin().obj("deleteFeedItems")
+
+            assertEquals(JsonNull, result.getValue("deletedIds"))
+            assertEquals("NO_FEED", result.obj("failure").string("reason"))
+        }
+
+    @Test
     fun `フィード未登録なら feed は null`() =
         testApplication {
             applicationWith(passwordConfigured = true)
@@ -721,9 +916,77 @@ class AdminGraphQlTest {
             query =
             "query Notes(${'$'}username: String!) { admin { " +
                 "notes(username: ${'$'}username, limit: 10) { " +
-                "nodes { url feedItem { title } } } } }",
+                "nodes { id url feedItem { id title } } } } }",
             token = token,
             variables = """{"username":${JsonPrimitive(username)}}""",
+        )
+
+    private suspend fun ApplicationTestBuilder.mutateDeleteNote(
+        username: String,
+        noteId: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation DeleteNote(${'$'}username: String!, ${'$'}noteId: PublicNoteId!) { admin { " +
+                "deleteNote(query: { username: ${'$'}username, noteId: ${'$'}noteId }) { " +
+                "deletedId failure { reason } } } }",
+            token = token,
+            variables =
+            """{"username":${JsonPrimitive(username)},"noteId":${JsonPrimitive(noteId)}}""",
+        )
+
+    /**
+     * 題名から投稿の id を引く
+     */
+    private suspend fun ApplicationTestBuilder.noteIdOf(
+        username: String,
+        title: String,
+        token: String? = null,
+    ): String =
+        queryNotes(username, token)
+            .admin()
+            .obj("notes")
+            .getValue("nodes")
+            .jsonArray
+            .map { it.jsonObject }
+            .first { (it.getValue("feedItem") as? JsonObject)?.string("title") == title }
+            .string("id")
+
+    /**
+     * 題名から記事の id を引く。id は投稿を経由してしか出てこない
+     */
+    private suspend fun ApplicationTestBuilder.feedItemIdOf(
+        username: String,
+        title: String,
+        token: String? = null,
+    ): Long =
+        queryNotes(username, token)
+            .admin()
+            .obj("notes")
+            .getValue("nodes")
+            .jsonArray
+            .map { it.jsonObject.obj("feedItem") }
+            .first { it.string("title") == title }
+            .getValue("id")
+            .jsonPrimitive
+            .long
+
+    private suspend fun ApplicationTestBuilder.mutateDeleteFeedItems(
+        accountId: Long,
+        feedItemIds: List<Long>,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation Delete(${'$'}accountId: AccountId!, ${'$'}feedItemIds: [FeedItemId!]!) { admin { " +
+                "deleteFeedItems(query: { accountId: ${'$'}accountId, feedItemIds: ${'$'}feedItemIds }) { " +
+                "deletedIds failure { reason } } } }",
+            token = token,
+            variables =
+            """{"accountId":${JsonPrimitive(accountId)},"feedItemIds":${
+                feedItemIds.joinToString(prefix = "[", postfix = "]") { JsonPrimitive(it).toString() }
+            }}""",
         )
 
     private suspend fun ApplicationTestBuilder.graphQl(
