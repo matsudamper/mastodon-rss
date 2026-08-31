@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.nodeinfo
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -11,6 +12,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class NodeInfoDiscovery(
+    @SerialName("links")
     val links: List<NodeInfoDiscoveryLink>,
 )
 
@@ -20,7 +22,9 @@ data class NodeInfoDiscovery(
  */
 @Serializable
 data class NodeInfoDiscoveryLink(
+    @SerialName("rel")
     val rel: String,
+    @SerialName("href")
     val href: String,
 ) {
     companion object {
@@ -36,12 +40,19 @@ data class NodeInfoDiscoveryLink(
  */
 @Serializable
 data class NodeInfo(
+    @SerialName("version")
     val version: String = "2.1",
+    @SerialName("software")
     val software: NodeInfoSoftware,
+    @SerialName("protocols")
     val protocols: List<String> = listOf("activitypub"),
+    @SerialName("services")
     val services: NodeInfoServices = NodeInfoServices(),
+    @SerialName("openRegistrations")
     val openRegistrations: Boolean = false,
+    @SerialName("usage")
     val usage: NodeInfoUsage,
+    @SerialName("metadata")
     val metadata: Map<String, String> = emptyMap(),
 )
 
@@ -50,24 +61,32 @@ data class NodeInfo(
  */
 @Serializable
 data class NodeInfoSoftware(
+    @SerialName("name")
     val name: String,
+    @SerialName("version")
     val version: String,
+    @SerialName("repository")
     val repository: String? = null,
 )
 
 @Serializable
 data class NodeInfoServices(
+    @SerialName("inbound")
     val inbound: List<String> = emptyList(),
+    @SerialName("outbound")
     val outbound: List<String> = emptyList(),
 )
 
 @Serializable
 data class NodeInfoUsage(
+    @SerialName("users")
     val users: NodeInfoUsers,
+    @SerialName("localPosts")
     val localPosts: Int = 0,
 )
 
 @Serializable
 data class NodeInfoUsers(
+    @SerialName("total")
     val total: Int,
 )

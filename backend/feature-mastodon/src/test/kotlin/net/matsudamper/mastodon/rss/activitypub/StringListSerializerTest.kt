@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.activitypub
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import net.matsudamper.mastodon.rss.json.AppJson
@@ -13,6 +14,7 @@ import net.matsudamper.mastodon.rss.json.AppJson
 class StringListSerializerTest {
     @Serializable
     private data class Sample(
+        @SerialName("to")
         @Serializable(with = StringListSerializer::class)
         val to: List<String>,
     )

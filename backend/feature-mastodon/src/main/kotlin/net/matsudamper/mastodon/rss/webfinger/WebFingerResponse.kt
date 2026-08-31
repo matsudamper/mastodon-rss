@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.webfinger
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -14,8 +15,11 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class WebFingerResponse(
+    @SerialName("subject")
     val subject: String,
+    @SerialName("aliases")
     val aliases: List<String>? = null,
+    @SerialName("links")
     val links: List<WebFingerLink>,
 )
 
@@ -25,8 +29,11 @@ data class WebFingerResponse(
  */
 @Serializable
 data class WebFingerLink(
+    @SerialName("rel")
     val rel: String,
+    @SerialName("type")
     val type: String? = null,
+    @SerialName("href")
     val href: String? = null,
 ) {
     companion object {

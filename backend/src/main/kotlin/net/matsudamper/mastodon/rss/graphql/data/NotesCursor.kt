@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.graphql.data
 
 import java.time.Instant
 import java.util.Base64
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.AppJson
@@ -18,8 +19,11 @@ import net.matsudamper.mastodon.rss.note.NotePosition
  */
 @Serializable
 data class NotesCursor(
+    @SerialName("afterEpochSecond")
     val afterEpochSecond: Long,
+    @SerialName("afterNano")
     val afterNano: Long,
+    @SerialName("afterPublicId")
     val afterPublicId: String,
 ) {
     fun toPosition(): NotePosition = NotePosition(
