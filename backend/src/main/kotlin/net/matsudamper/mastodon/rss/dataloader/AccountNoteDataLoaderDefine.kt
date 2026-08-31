@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.dataloader
 
+import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.graphql.otelSupplyAsync
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.StoredNote
@@ -15,7 +16,10 @@ class AccountNoteDataLoaderDefine(
     override fun getDataLoader(): DataLoader<PublicNoteId, StoredNote> {
         return DataLoaderFactory.newMappedDataLoader { keys, _ ->
             otelSupplyAsync {
-                notes.findByPublicIds(keys.toSet())
+                notes
+                    .findByPublicIds(keys.map { MastodonPublicNoteId(it.value) }.toSet())
+                    .map { (publicId, note) -> PublicNoteId(publicId.value) to note }
+                    .toMap()
             }
         }
     }

@@ -17,8 +17,8 @@ import net.matsudamper.mastodon.rss.collection.COLLECTION_PAGE_SIZE
 import net.matsudamper.mastodon.rss.collection.OrderedCollection
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
+import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.respondJson
-import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 /**
  * 配信した投稿を返す。

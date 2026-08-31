@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.note
 
 import net.matsudamper.mastodon.rss.entity.ActivityPubId
-import net.matsudamper.mastodon.rss.shared.PublicNoteId
+import net.matsudamper.mastodon.rss.entity.PublicNoteId
 
 /**
  * 投稿の URL。

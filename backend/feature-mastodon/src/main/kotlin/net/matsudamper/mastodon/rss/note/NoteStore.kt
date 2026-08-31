@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.shared.PublicNoteId
+import net.matsudamper.mastodon.rss.entity.PublicNoteId
 
 /**
  * 配信した投稿の置き先。

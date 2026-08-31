@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.note.DeletedNote
 import net.matsudamper.mastodon.rss.note.NotePosition
 import net.matsudamper.mastodon.rss.note.NotePublisher
@@ -49,7 +50,7 @@ class NoteService(
         val urls = directory.resolve(username)
             ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
 
-        val deleted = publisher.delete(sender = urls, publicId = publicId)
+        val deleted = publisher.delete(sender = urls, publicId = MastodonPublicNoteId(publicId.value))
             ?: return DeleteResult.Failure(DeleteFailure.NOT_FOUND)
 
         return DeleteResult.Success(deleted)
@@ -100,7 +101,7 @@ class NoteService(
         val page = fetched.take(size)
 
         return PublicNoteIdPage(
-            ids = page.map { it.publicId },
+            ids = page.map { PublicNoteId(it.publicId.value) },
             hasMore = fetched.size > size,
             nextPosition = page.lastOrNull().takeIf { fetched.size > size },
         )

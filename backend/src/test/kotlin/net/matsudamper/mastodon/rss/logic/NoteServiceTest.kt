@@ -137,7 +137,7 @@ class NoteServiceTest {
 
         val result = service.delete(
             username = TestLocalActor.USERNAME,
-            publicId = posted.published.publicId,
+            publicId = PublicNoteId(posted.published.publicId.value),
         )
 
         val success = assertIs<NoteService.DeleteResult.Success>(result)
@@ -162,7 +162,7 @@ class NoteServiceTest {
         assertEquals(
             NoteService.DeleteFailure.UNKNOWN_ACCOUNT,
             assertIs<NoteService.DeleteResult.Failure>(
-                service().delete(username = "nobody", publicId = posted.published.publicId),
+                service().delete(username = "nobody", publicId = PublicNoteId(posted.published.publicId.value)),
             ).reason,
         )
         assertEquals(
@@ -177,7 +177,7 @@ class NoteServiceTest {
             assertIs<NoteService.DeleteResult.Failure>(
                 service().delete(
                     username = TestLocalActor.STORED_USERNAME,
-                    publicId = posted.published.publicId,
+                    publicId = PublicNoteId(posted.published.publicId.value),
                 ),
             ).reason,
         )

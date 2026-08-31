@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.logic
 
+import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.note.NotePosition
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.StoredNote
@@ -19,21 +20,22 @@ class RepositoryNoteStore(
         notes.add(
             NewNote(
                 username = note.username,
-                publicId = note.publicId,
+                publicId = PublicNoteId(note.publicId.value),
                 contentHtml = note.contentHtml,
                 publishedAt = note.publishedAt,
             ),
         )
     }
 
-    override fun find(publicId: PublicNoteId): StoredNote? = notes.find(publicId)?.toStored()
+    override fun find(publicId: MastodonPublicNoteId): StoredNote? = notes.find(PublicNoteId(publicId.value))?.toStored()
 
-    override fun findByPublicIds(publicIds: Set<PublicNoteId>): Map<PublicNoteId, StoredNote> = notes
-        .findByPublicIds(publicIds)
-        .mapValues { (_, note) -> note.toStored() }
+    override fun findByPublicIds(publicIds: Set<MastodonPublicNoteId>): Map<MastodonPublicNoteId, StoredNote> = notes
+        .findByPublicIds(publicIds.map { PublicNoteId(it.value) }.toSet())
+        .map { (publicId, note) -> MastodonPublicNoteId(publicId.value) to note.toStored() }
+        .toMap()
 
-    override fun delete(publicId: PublicNoteId) {
-        notes.delete(publicId)
+    override fun delete(publicId: MastodonPublicNoteId) {
+        notes.delete(PublicNoteId(publicId.value))
     }
 
     override fun list(
@@ -43,12 +45,7 @@ class RepositoryNoteStore(
     ): List<StoredNote> = notes
         .list(
             username = username,
-            after = after?.let {
-                net.matsudamper.mastodon.rss.repository.NotePosition(
-                    publishedAt = it.publishedAt,
-                    publicId = it.publicId,
-                )
-            },
+            after = after?.toRepository(),
             limit = limit,
         )
         .map { it.toStored() }
@@ -60,25 +57,26 @@ class RepositoryNoteStore(
     ): List<NotePosition> = notes
         .listPositions(
             username = username,
-            after = after?.let {
-                net.matsudamper.mastodon.rss.repository.NotePosition(
-                    publishedAt = it.publishedAt,
-                    publicId = it.publicId,
-                )
-            },
+            after = after?.toRepository(),
             limit = limit,
         )
         .map {
             NotePosition(
                 publishedAt = it.publishedAt,
-                publicId = it.publicId,
+                publicId = MastodonPublicNoteId(it.publicId.value),
             )
         }
 
     override fun count(username: String): Long = notes.count(username)
 
+    private fun NotePosition.toRepository(): net.matsudamper.mastodon.rss.repository.NotePosition =
+        net.matsudamper.mastodon.rss.repository.NotePosition(
+            publishedAt = publishedAt,
+            publicId = PublicNoteId(publicId.value),
+        )
+
     private fun Note.toStored(): StoredNote = StoredNote(
-        publicId = publicId,
+        publicId = MastodonPublicNoteId(publicId.value),
         username = username,
         contentHtml = contentHtml,
         publishedAt = publishedAt,
