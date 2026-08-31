@@ -73,7 +73,7 @@ private fun AdminAccountNewScreen(
             }
 
             AdminAccountNewScreenUiState.Content.RequireLogin -> {
-                RequireLoginCard(onNavigate = onNavigate)
+                RequireLoginCard(onClickAdmin = { onNavigate(Screen.Admin) })
             }
 
             is AdminAccountNewScreenUiState.Content.Error -> {
