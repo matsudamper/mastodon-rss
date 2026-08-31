@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.activity.DeleteNoteActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
@@ -134,7 +135,7 @@ class NotePublisher(
     ): DeleteNoteActivity = DeleteNoteActivity(
         id = urls.deleteId,
         actor = sender.actorId,
-        to = listOf(PUBLIC_AUDIENCE),
+        to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
         cc = listOf(sender.followers),
         target = DeleteNoteActivity.Tombstone(id = urls.noteId),
     )
@@ -151,14 +152,14 @@ class NotePublisher(
             id = urls.createId,
             actor = sender.actorId,
             published = published,
-            to = listOf(PUBLIC_AUDIENCE),
+            to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
             cc = listOf(sender.followers),
             target = Note(
                 id = urls.noteId,
                 attributedTo = sender.actorId,
                 content = contentHtml,
                 published = published,
-                to = listOf(PUBLIC_AUDIENCE),
+                to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
                 cc = listOf(sender.followers),
                 url = urls.noteUrl,
                 atomUri = urls.noteUrl,

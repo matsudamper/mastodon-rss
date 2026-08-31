@@ -17,7 +17,7 @@ import net.matsudamper.mastodon.rss.activitypub.StringListSerializer
 data class OutgoingActivity(
     @SerialName("@context")
     @Serializable(with = StringListSerializer::class)
-    val context: List<String> = DEFAULT_CONTEXT,
+    val context: List<String> = ActivityStreamsIri.DEFAULT_CONTEXT,
     /**
      * このアクティビティ自身の id。相手側で重複を判定するのに使われるので、
      * 送るたびに違う値にする。
@@ -35,7 +35,5 @@ data class OutgoingActivity(
 ) {
     companion object {
         const val TYPE_ACCEPT: String = "Accept"
-
-        val DEFAULT_CONTEXT: List<String> = listOf("https://www.w3.org/ns/activitystreams")
     }
 }
