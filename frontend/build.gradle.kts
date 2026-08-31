@@ -86,6 +86,12 @@ dependencies {
     androidRuntimeClasspath("org.jetbrains.compose.ui:ui-tooling:${libs.versions.compose.get()}")
 }
 
+compose.desktop {
+    application {
+        mainClass = "net.matsudamper.mastodon.rss.frontend.DesktopMainKt"
+    }
+}
+
 // 問い合わせ（src/commonMain/graphql/*.graphql）はこのモジュールが持つ。
 // スキーマは :backend:graphql のものをファイルとして読むだけで、依存はしない。
 // 写しを持たないので、片方にだけフィールドがある状態にはならない
