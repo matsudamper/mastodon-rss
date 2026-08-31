@@ -8,6 +8,7 @@ import io.ktor.server.request.header
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
@@ -102,7 +103,7 @@ fun Route.outboxRoutes(
                     id = NoteUrls(domain = urls.domain, publicId = note.publicId).createId,
                     actor = urls.actorId,
                     published = note.publishedAt.toActivityPubPublished(),
-                    to = listOf(PUBLIC_AUDIENCE),
+                    to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
                     cc = listOf(urls.followers),
                     target = noteDocument(urls = urls, note = note, embedded = true),
                 )
@@ -196,12 +197,12 @@ private fun noteDocument(
     val noteUrls = NoteUrls(domain = urls.domain, publicId = note.publicId)
 
     return Note(
-        context = if (embedded) null else OrderedCollection.DEFAULT_CONTEXT,
+        context = if (embedded) null else ActivityStreamsIri.DEFAULT_CONTEXT,
         id = noteUrls.noteId,
         attributedTo = urls.actorId,
         content = note.contentHtml,
         published = note.publishedAt.toActivityPubPublished(),
-        to = listOf(PUBLIC_AUDIENCE),
+        to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
         cc = listOf(urls.followers),
         atomUri = noteUrls.noteUrl,
         url = noteUrls.noteUrl,
