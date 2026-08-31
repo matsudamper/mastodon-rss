@@ -1,3 +1,4 @@
+
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
@@ -8,10 +9,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -29,11 +28,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,64 +40,35 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LifecycleStartEffect
-import kotlinx.browser.window
-import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
-import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarEvents
-import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
-import net.matsudamper.mastodon.rss.frontend.ui.copyToClipboard
 import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
-import net.matsudamper.mastodon.rss.frontend.ui.openExternalLink
 
-/**
- * アカウント画面。`/@feed1` のような URL で開く。
- *
- * Mastodon のプロフィールに当たる画面だが、出すものは RSS に寄せている。
- * 人のアカウントと違って本文を書くことは無く、見たいのは「どのフィードが元で、
- * ちゃんと取れていて、直近で何が流れたか」なので、そこを主役にしている。
- *
- * 名前が合っていても、そのアカウントがあるとは限らない。開いてから引くので、
- * 無ければ見つからない表示に変わる。
- */
 @Composable
-fun AccountScreen(
+internal fun AccountScreen(
     username: String,
-    onNavigate: (Screen) -> Unit,
+    uiState: AccountScreenUiState,
+    onClickHome: () -> Unit,
+    onClickAdmin: () -> Unit,
+    onClickOperator: (String) -> Unit,
+    onOpenExternal: (String) -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
 ) {
-    PublicScaffold(onNavigate = onNavigate) { wide ->
-        val viewModelScope = rememberCoroutineScope()
-        val snackbarEvents = LocalSnackbarEvents.current
-        val viewModel =
-            remember(viewModelScope, username, snackbarEvents) {
-                AccountScreenViewModel(
-                    username = username,
-                    host = window.location.host,
-                    viewModelScope = viewModelScope,
-                    copyToClipboard = ::copyToClipboard,
-                    snackbarEvents = snackbarEvents,
-                )
-            }
-        val uiState by viewModel.uiStateFlow.collectAsState()
-
-        LifecycleStartEffect(viewModel) {
-            viewModel.onStart()
-            onStopOrDispose {}
-        }
-
+    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
         AccountScreenContent(
             username = username,
             uiState = uiState,
             wide = wide,
-            onNavigate = onNavigate,
+            onClickOperator = onClickOperator,
+            onOpenExternal = onOpenExternal,
+            noteContent = noteContent,
         )
     }
 }
@@ -112,7 +78,9 @@ private fun AccountScreenContent(
     username: String,
     uiState: AccountScreenUiState,
     wide: Boolean,
-    onNavigate: (Screen) -> Unit,
+    onClickOperator: (String) -> Unit,
+    onOpenExternal: (String) -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -133,7 +101,7 @@ private fun AccountScreenContent(
 
         AccountScreenUiState.Content.NotFound -> {
             NotFoundContent(
-                requestedPath = Screen.Account(username).path,
+                requestedPath = "/@$username",
                 description = "ユーザーが存在しません",
             )
         }
@@ -156,7 +124,9 @@ private fun AccountScreenContent(
             AccountContent(
                 content = content,
                 wide = wide,
-                onNavigate = onNavigate,
+                onClickOperator = onClickOperator,
+                onOpenExternal = onOpenExternal,
+                noteContent = noteContent,
                 listener = uiState.listener,
             )
         }
@@ -168,7 +138,9 @@ private fun AccountScreenContent(
 private fun AccountContent(
     content: AccountScreenUiState.Content.Loaded,
     wide: Boolean,
-    onNavigate: (Screen) -> Unit,
+    onClickOperator: (String) -> Unit,
+    onOpenExternal: (String) -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
     listener: AccountScreenUiState.Listener,
 ) {
     val state = content.account
@@ -184,6 +156,7 @@ private fun AccountContent(
             state = state,
             wide = wide,
             listener = listener,
+            onOpenExternal = onOpenExternal,
         )
 
         if (wide) {
@@ -192,22 +165,22 @@ private fun AccountContent(
                     modifier = Modifier.weight(1.5f),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    NotesSection(content = content, listener = listener)
+                    NotesSection(content, listener, onOpenExternal, noteContent)
                 }
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    FeedSection(state = state)
-                    DeliverySection(state = state)
-                    FollowSection(state = state, onNavigate = onNavigate, listener = listener)
+                    FeedSection(state, onOpenExternal)
+                    DeliverySection(state)
+                    FollowSection(state, onClickOperator, onOpenExternal, listener)
                 }
             }
         } else {
-            FeedSection(state = state)
-            FollowSection(state = state, onNavigate = onNavigate, listener = listener)
-            NotesSection(content = content, listener = listener)
-            DeliverySection(state = state)
+            FeedSection(state, onOpenExternal)
+            FollowSection(state, onClickOperator, onOpenExternal, listener)
+            NotesSection(content, listener, onOpenExternal, noteContent)
+            DeliverySection(state)
         }
     }
 }
@@ -255,6 +228,7 @@ private fun ProfileHeader(
     state: AccountUiState,
     wide: Boolean,
     listener: AccountScreenUiState.Listener,
+    onOpenExternal: (String) -> Unit,
 ) {
     val avatarSize = if (wide) 88.dp else 68.dp
     val colors = avatarColors(state.username)
@@ -383,10 +357,10 @@ private fun ProfileHeader(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { openExternalLink(state.feed.feedUrl) }) {
+                    Button(onClick = { onOpenExternal(state.feed.feedUrl) }) {
                         Text("フィードを開く")
                     }
-                    OutlinedButton(onClick = { openExternalLink(state.actorUrl) }) {
+                    OutlinedButton(onClick = { onOpenExternal(state.actorUrl) }) {
                         Text("Actor JSON")
                     }
                 }
@@ -418,7 +392,7 @@ private fun Stat(
  * 配信元のフィード。このアカウントが何を流すものなのかを示す部分。
  */
 @Composable
-private fun FeedSection(state: AccountUiState) {
+private fun FeedSection(state: AccountUiState, onOpenExternal: (String) -> Unit) {
     val feed = state.feed
 
     SectionCard(title = "配信元のフィード") {
@@ -436,13 +410,13 @@ private fun FeedSection(state: AccountUiState) {
         LabeledValue(
             label = "フィード",
             value = feed.feedUrl,
-            onClick = { openExternalLink(feed.feedUrl) },
+            onClick = { onOpenExternal(feed.feedUrl) },
         )
         if (feed.siteUrl != null) {
             LabeledValue(
                 label = "サイト",
                 value = feed.siteUrl,
-                onClick = { openExternalLink(feed.siteUrl) },
+                onClick = { onOpenExternal(feed.siteUrl) },
             )
         }
         LabeledValue(label = "形式", value = feed.format)
@@ -488,7 +462,8 @@ private fun DeliverySection(state: AccountUiState) {
 @Composable
 private fun FollowSection(
     state: AccountUiState,
-    onNavigate: (Screen) -> Unit,
+    onClickOperator: (String) -> Unit,
+    onOpenExternal: (String) -> Unit,
     listener: AccountScreenUiState.Listener,
 ) {
     SectionCard(title = "フォローする") {
@@ -522,7 +497,7 @@ private fun FollowSection(
         LabeledValue(
             label = "Actor",
             value = state.actorUrl,
-            onClick = { openExternalLink(state.actorUrl) },
+            onClick = { onOpenExternal(state.actorUrl) },
         )
 
         HorizontalDivider(color = dividerColor())
@@ -534,7 +509,7 @@ private fun FollowSection(
         )
         TextLink(
             text = state.operatorAcct,
-            onClick = { onNavigate(Screen.Account(state.operatorUsername)) },
+            onClick = { onClickOperator(state.operatorUsername) },
         )
     }
 }
@@ -546,6 +521,8 @@ private fun FollowSection(
 private fun NotesSection(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
+    onOpenExternal: (String) -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(
@@ -593,7 +570,7 @@ private fun NotesSection(
             else -> {
                 notes.forEach { note ->
                     key(note.url) {
-                        NoteCard(note = note)
+                        NoteCard(note, onOpenExternal, noteContent)
                     }
                 }
             }
@@ -622,7 +599,11 @@ private fun NoteListPlaceholder(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun NoteCard(note: NoteUiState) {
+private fun NoteCard(
+    note: NoteUiState,
+    onOpenExternal: (String) -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
@@ -633,10 +614,7 @@ private fun NoteCard(note: NoteUiState) {
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            NoteContent(
-                contentHtml = note.contentHtml,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            noteContent(note.contentHtml, Modifier.fillMaxWidth())
 
             Text(
                 text = note.publishedAt,
@@ -646,7 +624,7 @@ private fun NoteCard(note: NoteUiState) {
 
             TextLink(
                 text = note.url,
-                onClick = { openExternalLink(note.url) },
+                onClick = { onOpenExternal(note.url) },
             )
         }
     }
