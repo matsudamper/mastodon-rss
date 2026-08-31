@@ -58,18 +58,18 @@ class FeedService(
             ?: return SaveResult.Failure(SaveFailure.UNKNOWN_ACCOUNT)
 
         val existing = feeds.findByAccountId(accountId)
-        if (existing != null) {
-            if (existing.initialImportDone) {
-                return SaveResult.Failure(SaveFailure.ALREADY_HAS_FEED)
-            }
-
-            // 登録は保存と取り込みが別々に確定する。途中で終わったものは定期ポーリングの
-            // 対象にならず、同じ URL で登録し直すこともできなくなるので、消してやり直す
-            feeds.delete(existing.id)
+        if (existing != null && existing.initialImportDone) {
+            return SaveResult.Failure(SaveFailure.ALREADY_HAS_FEED)
         }
 
         return when (val fetched = fetcher.fetch(url)) {
             is FeedFetchService.FetchResult.Success -> {
+                // 登録は保存と取り込みが別々に確定する。途中で終わったものは同じ URL で
+                // 登録し直せないので、取り直せたことを確かめてから消す。先に消すと、
+                // 取得に失敗したときに取り込み済みの記事と取得状態まで失う
+                if (existing != null) {
+                    feeds.delete(existing.id)
+                }
                 if (feeds.findByUrl(fetched.feedUrl) != null) {
                     return SaveResult.Failure(SaveFailure.DUPLICATE_URL)
                 }

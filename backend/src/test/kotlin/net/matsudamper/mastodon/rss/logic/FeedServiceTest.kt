@@ -165,6 +165,26 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `やり直した登録が取れなければ前のフィードを残す`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val saved = assertIs<FeedService.SaveResult.Success>(serviceOf(repositories).save(accountId = account.id, url = FEED_URL))
+            repositories.feeds.clearInitialImportDone(saved.feed.id)
+            val before = assertNotNull(repositories.feeds.findByAccountId(account.id))
+
+            val result = serviceOf(repositories, status = HttpStatusCode.NotFound).save(accountId = account.id, url = FEED_URL)
+
+            val failure = assertIs<FeedService.SaveResult.Failure>(result)
+            assertEquals(FeedService.SaveFailure.FETCH_FAILED, failure.reason)
+            assertEquals(before, repositories.feeds.findByAccountId(account.id))
+            assertEquals(
+                listOf(FeedItemState.PENDING, FeedItemState.PENDING),
+                repositories.feedItems.items().map { it.state },
+            )
+        }
+
+    @Test
     fun `同じ URL は別のアカウントにも登録できない`() =
         runTest {
             val repositories = FakeRepositories()
