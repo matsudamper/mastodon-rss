@@ -11,6 +11,8 @@ plugins {
 }
 
 kotlin {
+    jvm("desktop")
+
     // Compose Multiplatform for Web。canvas 上に描画するため DOM 操作は最小限で済む
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
@@ -29,23 +31,25 @@ kotlin {
         commonMain {
             dependencies {
                 implementation(project(":shared"))
-                implementation(project(":frontend:common-component"))
                 implementation(libs.apollo.runtime)
                 implementation(libs.apollo.normalized.cache)
+                implementation(libs.kotlinx.datetime)
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.ui)
+                implementation(compose.material3)
+                implementation("org.jetbrains.compose.ui:ui-tooling-preview:${libs.versions.compose.get()}")
             }
         }
 
         wasmJsMain {
             dependencies {
+                implementation(project(":frontend:common-component"))
                 // compose.* は deprecated 警告が出るが、1.11.1 では
                 // org.jetbrains.compose.* の直接座標がまだ公開されていない
                 // （material3 は alpha 止まり）ため、こちらを使う。
                 // 1.12 系が安定したら直接座標へ移行する。
                 implementation(compose.foundation)
-                implementation(compose.material3)
                 implementation(compose.materialIconsExtended)
                 implementation(compose.ui)
                 // 画面遷移。JetBrains 版の Navigation 3（wasmJs 向けの成果物がある）。

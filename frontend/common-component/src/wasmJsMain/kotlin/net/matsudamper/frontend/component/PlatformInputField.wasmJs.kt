@@ -34,7 +34,7 @@ import org.w3c.dom.events.Event
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
 @Composable
-actual fun HtmlInputField(
+actual fun PlatformInputField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,

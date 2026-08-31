@@ -3,7 +3,7 @@ package net.matsudamper.mastodon.rss.frontend.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import net.matsudamper.frontend.component.HiddenHtmlForm
-import net.matsudamper.frontend.component.HtmlInputField
+import net.matsudamper.frontend.component.PlatformInputField
 import net.matsudamper.frontend.component.HtmlInputType
 
 /**
@@ -23,7 +23,7 @@ fun AdminLoginPasswordField(
         onSubmit = onSubmit,
         enabled = enabled,
     )
-    HtmlInputField(
+    PlatformInputField(
         value = password,
         onValueChange = onPasswordChange,
         label = "パスワード",

@@ -21,7 +21,7 @@ enum class HtmlInputType(val value: String) {
  * ブラウザに任せる。Android では [androidx.compose.material3.OutlinedTextField] を使う。
  */
 @Composable
-expect fun HtmlInputField(
+expect fun PlatformInputField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
@@ -39,7 +39,7 @@ expect fun HtmlInputField(
 /**
  * 画面外の HTML form。オートフィルと Enter 送信のため。
  *
- * Web 以外では何もしない。[HtmlInputField] の `formId` と同じ id を渡す。
+ * Web 以外では何もしない。[PlatformInputField] の `formId` と同じ id を渡す。
  */
 @Composable
 expect fun HiddenHtmlForm(
