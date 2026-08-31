@@ -9,11 +9,13 @@ import androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun AdminAccountScreenPreview() {
     MaterialTheme {
-        AdminAccountScreenContent(
+        AdminAccountScreen(
+            username = "rss_news",
             uiState = previewUiState(),
-            wide = true,
             onClickOpenAccount = {},
             onClickLogin = {},
+            onClickAdmin = {},
+            onClickHome = {},
             noteContent = { _, modifier ->
                 Text(
                     text = "配信済みの記事の本文。",

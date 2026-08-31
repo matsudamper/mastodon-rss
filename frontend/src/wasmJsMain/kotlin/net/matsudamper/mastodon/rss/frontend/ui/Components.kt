@@ -36,16 +36,9 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.js.ExperimentalWasmJsInterop
 import kotlinx.browser.window
-
-/** 画面の中身の最大幅。これ以上広い画面では左右に余白を作って中央に寄せる */
-val ContentMaxWidth = 1040.dp
-
-/** 1 カラムと 2 カラムを切り替える幅。タブレット縦を 1 カラム側に入れている */
-val WideBreakpoint = 900.dp
 
 /**
  * 見出し付きの枠。画面の中の 1 かたまりを表す。

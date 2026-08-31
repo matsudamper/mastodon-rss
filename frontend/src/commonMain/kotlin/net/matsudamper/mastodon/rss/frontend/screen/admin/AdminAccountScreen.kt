@@ -23,6 +23,37 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
+
+@Composable
+internal fun AdminAccountScreen(
+    username: String,
+    uiState: AdminAccountScreenUiState,
+    onClickOpenAccount: () -> Unit,
+    onClickLogin: () -> Unit,
+    onClickAdmin: () -> Unit,
+    onClickHome: () -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
+) {
+    AdminScaffold(
+        title = "@$username の管理",
+        onClickAdmin = onClickAdmin,
+        onClickHome = onClickHome,
+    ) { wide ->
+        AdminAccountScreenContent(
+            uiState = uiState,
+            wide = wide,
+            onClickOpenAccount = onClickOpenAccount,
+            onClickLogin = onClickLogin,
+            modifier = Modifier
+                .widthIn(max = ContentMaxWidth)
+                .fillMaxWidth()
+                .padding(if (wide) 24.dp else 12.dp),
+            noteContent = noteContent,
+        )
+    }
+}
 
 @Composable
 internal fun AdminAccountScreenContent(

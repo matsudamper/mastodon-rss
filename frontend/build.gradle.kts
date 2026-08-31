@@ -36,6 +36,7 @@ kotlin {
                 implementation(libs.kotlinx.datetime)
                 implementation(compose.runtime)
                 implementation(compose.foundation)
+                implementation(compose.materialIconsExtended)
                 implementation(compose.ui)
                 implementation(compose.material3)
                 implementation("org.jetbrains.compose.ui:ui-tooling-preview:${libs.versions.compose.get()}")
@@ -50,7 +51,6 @@ kotlin {
                 // （material3 は alpha 止まり）ため、こちらを使う。
                 // 1.12 系が安定したら直接座標へ移行する。
                 implementation(compose.foundation)
-                implementation(compose.materialIconsExtended)
                 implementation(compose.ui)
                 // 画面遷移。JetBrains 版の Navigation 3（wasmJs 向けの成果物がある）。
                 // runtime は推移的に androidx.navigation3 から入る
