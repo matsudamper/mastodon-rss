@@ -29,7 +29,6 @@ fun AdminAccountScreen(
 
     AdminScaffold(title = "@$username の管理", onNavigate = onNavigate) { wide ->
         AdminAccountScreenContent(
-            username = username,
             uiState = uiState,
             wide = wide,
             onClickOpenAccount = { onNavigate(Screen.Account(username)) },

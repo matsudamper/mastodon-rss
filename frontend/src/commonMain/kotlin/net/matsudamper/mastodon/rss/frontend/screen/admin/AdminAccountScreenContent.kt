@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun AdminAccountScreenContent(
-    username: String,
     uiState: AdminAccountScreenUiState,
     wide: Boolean,
     onClickOpenAccount: () -> Unit,
