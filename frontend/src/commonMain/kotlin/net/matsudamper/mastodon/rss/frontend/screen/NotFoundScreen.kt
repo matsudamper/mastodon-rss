@@ -15,16 +15,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
+import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 
 @Composable
-fun NotFoundScreen(
+internal fun NotFoundScreen(
     requestedPath: String,
-    onNavigate: (Screen) -> Unit,
+    onClickHome: () -> Unit,
+    onClickAdmin: () -> Unit,
 ) {
-    PublicScaffold(onNavigate = onNavigate) { wide ->
+    PublicScaffold(
+        onClickHome = onClickHome,
+        onClickAdmin = onClickAdmin,
+    ) { wide ->
         NotFoundContent(
             requestedPath = requestedPath,
             modifier = Modifier

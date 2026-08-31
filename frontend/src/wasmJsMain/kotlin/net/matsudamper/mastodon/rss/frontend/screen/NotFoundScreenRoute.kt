@@ -1,17 +1,16 @@
-package net.matsudamper.mastodon.rss.frontend.ui
+package net.matsudamper.mastodon.rss.frontend.screen
 
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 @Composable
-fun PublicScaffold(
+fun NotFoundScreen(
+    requestedPath: String,
     onNavigate: (Screen) -> Unit,
-    content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
-    PublicScaffold(
+    NotFoundScreen(
+        requestedPath = requestedPath,
         onClickHome = { onNavigate(Screen.Home) },
         onClickAdmin = { onNavigate(Screen.Admin) },
-        content = content,
     )
 }
