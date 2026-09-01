@@ -3,9 +3,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
+import net.matsudamper.mastodon.rss.frontend.preview.AndroidScreenPreviews
 
-@Preview
+@AndroidScreenPreviews
 @Composable
 private fun AccountScreenPreview() {
     MaterialTheme {
