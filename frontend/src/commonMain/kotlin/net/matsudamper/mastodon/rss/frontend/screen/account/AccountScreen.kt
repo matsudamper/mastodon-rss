@@ -53,6 +53,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
+import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
@@ -77,13 +78,27 @@ internal fun AccountScreen(
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
+    val snackbarHostState = rememberSnackbarHostState()
+    val eventReceiver =
+        remember(snackbarHostState) {
+            object : AccountScreenViewModel.Event {
+                override fun showSnackbar(message: String) {
+                    snackbarHostState.show(message)
+                }
+            }
+        }
+
     LaunchedEffect(viewModel) {
         viewModel.onStart()
     }
 
+    LaunchedEffect(viewModel, eventReceiver) {
+        viewModel.collectEvents(eventReceiver)
+    }
+
     AccountContent(
         uiState = uiState,
-        viewModel = viewModel,
+        snackbarHostState = snackbarHostState,
         username = username,
         platform = platform,
         onClickHome = onClickHome,
@@ -95,27 +110,13 @@ internal fun AccountScreen(
 @Composable
 internal fun AccountContent(
     uiState: AccountScreenUiState,
-    viewModel: AccountScreenViewModel? = null,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
     username: String,
     platform: ScreenPlatform,
     onClickHome: () -> Unit,
     onClickAdmin: () -> Unit,
     onClickOperator: (String) -> Unit,
 ) {
-    val snackbarHostState = rememberSnackbarHostState()
-    if (viewModel != null) {
-        val eventReceiver =
-            remember(snackbarHostState) {
-                object : AccountScreenViewModel.Event {
-                    override fun showSnackbar(message: String) {
-                        snackbarHostState.show(message)
-                    }
-                }
-            }
-        LaunchedEffect(viewModel, eventReceiver) {
-            viewModel.collectEvents(eventReceiver)
-        }
-    }
     PublicScaffold(
         onClickHome = onClickHome,
         onClickAdmin = onClickAdmin,
