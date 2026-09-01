@@ -18,9 +18,11 @@ import androidx.compose.ui.text.font.FontWeight
 @Composable
 internal fun PublicScaffold(
     listener: PublicScaffoldListener,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
     AppScaffoldLayout(
+        snackbarHostState = snackbarHostState,
         topBar = { PublicTopAppBar(listener = listener) },
         content = content,
     )

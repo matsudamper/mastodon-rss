@@ -22,9 +22,11 @@ import androidx.compose.ui.text.font.FontWeight
 internal fun AdminScaffold(
     title: String?,
     listener: AdminScaffoldListener,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
     AppScaffoldLayout(
+        snackbarHostState = snackbarHostState,
         topBar = { AdminTopAppBar(title = title, listener = listener) },
         content = content,
     )

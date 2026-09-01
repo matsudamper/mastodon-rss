@@ -52,13 +52,14 @@ import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
-import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarEvents
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
+import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
+import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
 @Composable
 internal fun AccountScreen(
@@ -67,25 +68,37 @@ internal fun AccountScreen(
     navigationEvents: EventSender<NavigationHandler>,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val snackbarEvents = LocalSnackbarEvents.current
-    val viewModel = remember(viewModelScope, username, snackbarEvents, platform, navigationEvents) {
+    val viewModel = remember(viewModelScope, username, platform, navigationEvents) {
         AccountScreenViewModel(
             username = username,
             host = platform.host,
             viewModelScope = viewModelScope,
             navigationEvents = navigationEvents,
             copyToClipboard = platform::copyToClipboard,
-            snackbarEvents = snackbarEvents,
         )
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
+
+    val snackbarHostState = rememberSnackbarHostState()
+    val eventReceiver = remember(snackbarHostState) {
+        object : AccountScreenViewModel.Event {
+            override fun showSnackbar(message: String) {
+                snackbarHostState.show(message)
+            }
+        }
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
     }
 
+    LaunchedEffect(viewModel, eventReceiver) {
+        viewModel.asHandler.collect(eventReceiver)
+    }
+
     AccountContent(
         uiState = uiState,
+        snackbarHostState = snackbarHostState,
         username = username,
         platform = platform,
     )
@@ -94,10 +107,14 @@ internal fun AccountScreen(
 @Composable
 internal fun AccountContent(
     uiState: AccountScreenUiState,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
     username: String,
     platform: ScreenPlatform,
 ) {
-    PublicScaffold(listener = uiState.listener) { wide ->
+    PublicScaffold(
+        listener = uiState.listener,
+        snackbarHostState = snackbarHostState,
+    ) { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
