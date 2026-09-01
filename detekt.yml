@@ -1,0 +1,18 @@
+# compose-rules が jar に同梱する既定設定をベースにし、ここでは無効化やオプション上書きだけ書く。
+# compose-rules を上げると新ルールの既定 ON/OFF も追従する。
+
+console-reports:
+  active: true
+  exclude:
+    - 'ProjectStatisticsReport'
+    - 'ComplexityReport'
+    - 'NotificationReport'
+    - 'LiteIssuesReport'
+
+Compose:
+  Material2:
+    active: false
+  PreviewNaming:
+    active: false
+  UnstableCollections:
+    active: false

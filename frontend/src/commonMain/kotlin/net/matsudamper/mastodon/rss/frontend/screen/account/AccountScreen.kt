@@ -97,11 +97,11 @@ internal fun AccountScreen(
 
     AccountContent(
         uiState = uiState,
-        snackbarHostState = snackbarHostState,
         username = username,
         platform = platform,
         onClickHome = onClickHome,
         onClickAdmin = onClickAdmin,
+        snackbarHostState = snackbarHostState,
         onClickOperator = onClickOperator,
     )
 }
@@ -109,11 +109,11 @@ internal fun AccountScreen(
 @Composable
 internal fun AccountContent(
     uiState: AccountScreenUiState,
-    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
     username: String,
     platform: ScreenPlatform,
     onClickHome: () -> Unit,
     onClickAdmin: () -> Unit,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
     onClickOperator: (String) -> Unit,
 ) {
     PublicScaffold(

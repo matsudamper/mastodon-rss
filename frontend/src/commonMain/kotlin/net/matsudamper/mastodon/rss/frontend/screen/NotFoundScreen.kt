@@ -41,8 +41,8 @@ internal fun NotFoundScreen(
 @Composable
 internal fun NotFoundContent(
     requestedPath: String,
-    description: String? = null,
     modifier: Modifier = Modifier,
+    description: String? = null,
 ) {
     Box(
         modifier = modifier.fillMaxSize(),

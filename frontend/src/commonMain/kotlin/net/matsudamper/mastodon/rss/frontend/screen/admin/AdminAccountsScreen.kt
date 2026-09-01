@@ -121,7 +121,7 @@ private fun Accounts(
 }
 
 @Composable
-private fun AccountCard(account: AdminAccountsScreenUiState.Account, onPublic: () -> Unit, onAdmin: () -> Unit, modifier: Modifier) {
+private fun AccountCard(account: AdminAccountsScreenUiState.Account, onPublic: () -> Unit, onAdmin: () -> Unit, modifier: Modifier = Modifier) {
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
