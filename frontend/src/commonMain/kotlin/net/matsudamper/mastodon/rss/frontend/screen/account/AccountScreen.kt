@@ -92,7 +92,7 @@ internal fun AccountScreen(
     }
 
     LaunchedEffect(viewModel, eventReceiver) {
-        viewModel.collectEvents(eventReceiver)
+        viewModel.asHandler().collect(eventReceiver)
     }
 
     AccountContent(
