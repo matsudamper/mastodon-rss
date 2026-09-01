@@ -4,16 +4,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 
 @Preview
 @Composable
 private fun AdminScreenPreview() {
     MaterialTheme {
-        AdminScreen(
-            model = PreviewAdminScreenModel,
+        AdminContent(
+            uiState = PreviewAdminScreenUiState,
             platform = PreviewScreenPlatform,
             onClickAccounts = {},
             onClickNewAccount = {},
@@ -23,16 +21,10 @@ private fun AdminScreenPreview() {
     }
 }
 
-private object PreviewAdminScreenModel : AdminScreenModel {
-    override val uiStateFlow: StateFlow<AdminScreenUiState> = MutableStateFlow(
-        AdminScreenUiState(
-            content = AdminScreenUiState.Content.LoggedIn,
-            listener = PreviewAdminScreenListener,
-        ),
-    )
-
-    override fun onStart() = Unit
-}
+private val PreviewAdminScreenUiState = AdminScreenUiState(
+    content = AdminScreenUiState.Content.LoggedIn,
+    listener = PreviewAdminScreenListener,
+)
 
 private object PreviewAdminScreenListener : AdminScreenUiState.Listener {
     override fun onPasswordChanged(text: String) = Unit

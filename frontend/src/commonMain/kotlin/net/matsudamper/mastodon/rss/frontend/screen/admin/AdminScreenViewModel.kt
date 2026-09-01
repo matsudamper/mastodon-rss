@@ -13,10 +13,10 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 internal class AdminScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
-) : AdminScreenModel {
+) {
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
-    override val uiStateFlow: StateFlow<AdminScreenUiState> =
+    val uiStateFlow: StateFlow<AdminScreenUiState> =
         MutableStateFlow(
             AdminScreenUiState(
                 content = AdminScreenUiState.Content.Loading,
@@ -49,7 +49,7 @@ internal class AdminScreenViewModel(
             }
         }.asStateFlow()
 
-    override fun onStart() {
+    fun onStart() {
         reload()
     }
 

@@ -51,6 +51,27 @@ internal fun AdminAccountScreen(
         viewModel.onStart()
     }
 
+    AdminAccountContent(
+        uiState = uiState,
+        username = username,
+        platform = platform,
+        onClickOpenAccount = onClickOpenAccount,
+        onClickLogin = onClickLogin,
+        onClickAdmin = onClickAdmin,
+        onClickHome = onClickHome,
+    )
+}
+
+@Composable
+internal fun AdminAccountContent(
+    uiState: AdminAccountScreenUiState,
+    username: String,
+    platform: ScreenPlatform,
+    onClickOpenAccount: () -> Unit,
+    onClickLogin: () -> Unit,
+    onClickAdmin: () -> Unit,
+    onClickHome: () -> Unit,
+) {
     AdminScaffold(
         title = "@$username の管理",
         onClickAdmin = onClickAdmin,

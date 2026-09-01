@@ -52,6 +52,25 @@ internal fun AdminAccountsScreen(
         viewModel.onStart()
     }
 
+    AdminAccountsContent(
+        uiState = uiState,
+        onClickNewAccount = onClickNewAccount,
+        onClickPublicAccount = onClickPublicAccount,
+        onClickAdminAccount = onClickAdminAccount,
+        onClickAdmin = onClickAdmin,
+        onClickHome = onClickHome,
+    )
+}
+
+@Composable
+internal fun AdminAccountsContent(
+    uiState: AdminAccountsScreenUiState,
+    onClickNewAccount: () -> Unit,
+    onClickPublicAccount: (String) -> Unit,
+    onClickAdminAccount: (String) -> Unit,
+    onClickAdmin: () -> Unit,
+    onClickHome: () -> Unit,
+) {
     AdminScaffold("アカウント", onClickAdmin, onClickHome) { wide ->
         Column(
             modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(if (wide) 24.dp else 12.dp),

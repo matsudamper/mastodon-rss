@@ -14,10 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.StateFlow
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -28,19 +29,39 @@ private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 
 @Composable
 internal fun AdminScreen(
-    model: AdminScreenModel,
     platform: ScreenPlatform,
     onClickAccounts: () -> Unit,
     onClickNewAccount: () -> Unit,
     onClickAdmin: () -> Unit,
     onClickHome: () -> Unit,
 ) {
-    val uiState by model.uiStateFlow.collectAsState()
+    val viewModelScope = rememberCoroutineScope()
+    val viewModel = remember(viewModelScope) { AdminScreenViewModel(viewModelScope) }
+    val uiState by viewModel.uiStateFlow.collectAsState()
 
-    LaunchedEffect(model) {
-        model.onStart()
+    LaunchedEffect(viewModel) {
+        viewModel.onStart()
     }
 
+    AdminContent(
+        uiState = uiState,
+        platform = platform,
+        onClickAccounts = onClickAccounts,
+        onClickNewAccount = onClickNewAccount,
+        onClickAdmin = onClickAdmin,
+        onClickHome = onClickHome,
+    )
+}
+
+@Composable
+internal fun AdminContent(
+    uiState: AdminScreenUiState,
+    platform: ScreenPlatform,
+    onClickAccounts: () -> Unit,
+    onClickNewAccount: () -> Unit,
+    onClickAdmin: () -> Unit,
+    onClickHome: () -> Unit,
+) {
     AdminScaffold(title = null, onClickAdmin = onClickAdmin, onClickHome = onClickHome) { wide ->
         Column(
             modifier = Modifier
@@ -82,12 +103,6 @@ internal fun AdminScreen(
             }
         }
     }
-}
-
-internal interface AdminScreenModel {
-    val uiStateFlow: StateFlow<AdminScreenUiState>
-
-    fun onStart()
 }
 
 @Composable

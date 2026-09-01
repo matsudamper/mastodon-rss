@@ -51,6 +51,21 @@ internal fun HomeScreen(
         viewModel.onStart()
     }
 
+    HomeContent(
+        uiState = uiState,
+        onClickAccount = onClickAccount,
+        onClickHome = onClickHome,
+        onClickAdmin = onClickAdmin,
+    )
+}
+
+@Composable
+internal fun HomeContent(
+    uiState: HomeScreenUiState,
+    onClickAccount: (String) -> Unit,
+    onClickHome: () -> Unit,
+    onClickAdmin: () -> Unit,
+) {
     PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
         Column(
             modifier = Modifier

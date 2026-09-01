@@ -83,6 +83,25 @@ internal fun AccountScreen(
         viewModel.onStart()
     }
 
+    AccountContent(
+        uiState = uiState,
+        username = username,
+        platform = platform,
+        onClickHome = onClickHome,
+        onClickAdmin = onClickAdmin,
+        onClickOperator = onClickOperator,
+    )
+}
+
+@Composable
+internal fun AccountContent(
+    uiState: AccountScreenUiState,
+    username: String,
+    platform: ScreenPlatform,
+    onClickHome: () -> Unit,
+    onClickAdmin: () -> Unit,
+    onClickOperator: (String) -> Unit,
+) {
     PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
         Column(
             modifier = Modifier
@@ -123,7 +142,7 @@ internal fun AccountScreen(
             }
 
             is AccountScreenUiState.Content.Loaded -> {
-                AccountContent(
+                LoadedAccountContent(
                     content = content,
                     wide = wide,
                     onClickOperator = onClickOperator,
@@ -138,7 +157,7 @@ internal fun AccountScreen(
 }
 
 @Composable
-private fun AccountContent(
+private fun LoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     wide: Boolean,
     onClickOperator: (String) -> Unit,
