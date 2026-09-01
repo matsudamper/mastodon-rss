@@ -14,7 +14,6 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
-import net.matsudamper.mastodon.rss.frontend.ui.SnackbarReceiver
 
 /**
  * @param username URL に入っていた名前。綴りが違っていても引けるので、
@@ -28,9 +27,9 @@ class AccountScreenViewModel(
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
 ) {
-    private val events = EventSender<SnackbarReceiver>()
+    private val events = EventSender<AccountScreenEventReceiver>()
 
-    internal suspend fun collectSnackbarEvents(receiver: SnackbarReceiver) {
+    internal suspend fun collectEvents(receiver: AccountScreenEventReceiver) {
         events.asHandler().collect(receiver)
     }
 
@@ -203,7 +202,7 @@ class AccountScreenViewModel(
         copyToClipboard(acct) { copied ->
             if (copied) {
                 viewModelScope.launch {
-                    events.send { it.show("コピーしました") }
+                    events.send { it.showSnackbar("コピーしました") }
                 }
             }
         }

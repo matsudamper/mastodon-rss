@@ -104,8 +104,16 @@ internal fun AccountContent(
 ) {
     val snackbarHostState = rememberSnackbarHostState()
     if (viewModel != null) {
-        LaunchedEffect(viewModel, snackbarHostState) {
-            viewModel.collectSnackbarEvents(snackbarHostState)
+        val eventReceiver =
+            remember(snackbarHostState) {
+                object : AccountScreenEventReceiver {
+                    override fun showSnackbar(message: String) {
+                        snackbarHostState.show(message)
+                    }
+                }
+            }
+        LaunchedEffect(viewModel, eventReceiver) {
+            viewModel.collectEvents(eventReceiver)
         }
     }
     PublicScaffold(
