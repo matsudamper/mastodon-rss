@@ -111,8 +111,8 @@ private fun Accounts(
                 row.forEach { account ->
                     AccountCard(
                         account = account,
-                        onPublic = { listener.onClickPublicAccount(account.username) },
-                        onAdmin = { listener.onClickAdminAccount(account.username) },
+                        onPublic = account.onClickPublic,
+                        onAdmin = account.onClickAdmin,
                         modifier = Modifier.weight(1f),
                     )
                 }

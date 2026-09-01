@@ -36,10 +36,6 @@ class HomeScreenViewModel(
                         navigator.navigate(Screen.Admin)
                     }
 
-                    override fun onClickAccount(username: String) {
-                        navigator.navigate(Screen.Account(username))
-                    }
-
                     override fun onClickReload() {
                         reload()
                     }
@@ -130,6 +126,7 @@ class HomeScreenViewModel(
                         HomeScreenUiState.Account(
                             username = account.username,
                             acct = account.acct,
+                            onClick = { navigator.navigate(Screen.Account(account.username)) },
                         )
                     },
                     hasMore = accounts.hasMore,

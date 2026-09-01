@@ -12,8 +12,16 @@ private fun HomeContentPreview() {
             uiState = HomeScreenUiState(
                 content = HomeScreenUiState.Content.Loaded(
                     accounts = listOf(
-                        HomeScreenUiState.Account("kotlin", "@kotlin@example.com"),
-                        HomeScreenUiState.Account("android", "@android@example.com"),
+                        HomeScreenUiState.Account(
+                            username = "kotlin",
+                            acct = "@kotlin@example.com",
+                            onClick = {},
+                        ),
+                        HomeScreenUiState.Account(
+                            username = "android",
+                            acct = "@android@example.com",
+                            onClick = {},
+                        ),
                     ),
                     hasMore = true,
                     isLoadingMore = false,
@@ -29,8 +37,6 @@ private object AndroidPreviewHomeListener : HomeScreenUiState.Listener {
     override fun onClickHome() = Unit
 
     override fun onClickAdmin() = Unit
-
-    override fun onClickAccount(username: String) = Unit
 
     override fun onClickReload() = Unit
 

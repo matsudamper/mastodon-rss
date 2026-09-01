@@ -41,14 +41,6 @@ class AdminAccountsScreenViewModel(
                         navigator.navigate(Screen.AdminAccountNew)
                     }
 
-                    override fun onClickPublicAccount(username: String) {
-                        navigator.navigate(Screen.Account(username))
-                    }
-
-                    override fun onClickAdminAccount(username: String) {
-                        navigator.navigate(Screen.AdminAccount(username))
-                    }
-
                     override fun onClickReload() {
                         reload()
                     }
@@ -107,6 +99,8 @@ class AdminAccountsScreenViewModel(
                             actorUrl = account.account.actorUrl,
                             createdAt = UnixTimeUtil.format(account.createdAt),
                             followerCount = account.followerCount,
+                            onClickPublic = { navigator.navigate(Screen.Account(account.account.username)) },
+                            onClickAdmin = { navigator.navigate(Screen.AdminAccount(account.account.username)) },
                         )
                     },
                 )

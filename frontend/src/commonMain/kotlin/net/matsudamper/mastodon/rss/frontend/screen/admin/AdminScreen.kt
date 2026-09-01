@@ -52,14 +52,16 @@ internal fun AdminScreen(
 
     AdminContent(
         uiState = uiState,
-        platform = platform,
+        passwordField = platform::AdminLoginPasswordField,
+        onOpenExternalLink = platform::openExternalLink,
     )
 }
 
 @Composable
 internal fun AdminContent(
     uiState: AdminScreenUiState,
-    platform: ScreenPlatform,
+    passwordField: @Composable (AdminScreenUiState.Content.Login, AdminScreenUiState.Listener) -> Unit,
+    onOpenExternalLink: (String) -> Unit,
 ) {
     AdminScaffold(title = null, listener = uiState.listener) { wide ->
         Column(
@@ -75,7 +77,7 @@ internal fun AdminContent(
                     Text("状態を確かめている。")
                 }
 
-                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, platform::AdminLoginPasswordField)
+                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, passwordField)
 
                 AdminScreenUiState.Content.LoggedIn -> {
                     MenuCard(listener = uiState.listener)
@@ -86,7 +88,7 @@ internal fun AdminContent(
                         Text("ソースコードは GitHub で公開している。")
                         TextLink(
                             text = "mastodon-rss",
-                            onClick = { platform.openExternalLink(REPOSITORY_URL) },
+                            onClick = { onOpenExternalLink(REPOSITORY_URL) },
                         )
                     }
                 }

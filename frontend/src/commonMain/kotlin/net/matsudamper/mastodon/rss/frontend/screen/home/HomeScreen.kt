@@ -139,7 +139,7 @@ private fun LoadedContent(
                 rowAccounts.forEach { account ->
                     AccountCard(
                         account = account,
-                        onClick = { listener.onClickAccount(account.username) },
+                        onClick = account.onClick,
                         modifier = Modifier.weight(1f),
                     )
                 }
