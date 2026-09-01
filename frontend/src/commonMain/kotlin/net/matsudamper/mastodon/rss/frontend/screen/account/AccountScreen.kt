@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberScreenNavigator
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
@@ -69,13 +68,12 @@ internal fun AccountScreen(
 ) {
     val viewModelScope = rememberCoroutineScope()
     val snackbarEvents = LocalSnackbarEvents.current
-    val navigator = rememberScreenNavigator(navigationEvents)
-    val viewModel = remember(viewModelScope, username, snackbarEvents, platform, navigator) {
+    val viewModel = remember(viewModelScope, username, snackbarEvents, platform, navigationEvents) {
         AccountScreenViewModel(
             username = username,
             host = platform.host,
             viewModelScope = viewModelScope,
-            navigator = navigator,
+            navigationEvents = navigationEvents,
             copyToClipboard = platform::copyToClipboard,
             snackbarEvents = snackbarEvents,
         )

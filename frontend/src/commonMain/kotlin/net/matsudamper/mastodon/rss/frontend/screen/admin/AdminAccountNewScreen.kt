@@ -25,7 +25,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberScreenNavigator
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
@@ -36,9 +35,8 @@ internal fun AdminAccountNewScreen(
     navigationEvents: EventSender<NavigationHandler>,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val navigator = rememberScreenNavigator(navigationEvents)
-    val viewModel = remember(viewModelScope, navigator) {
-        AdminAccountNewScreenViewModel(viewModelScope, navigator)
+    val viewModel = remember(viewModelScope, navigationEvents) {
+        AdminAccountNewScreenViewModel(viewModelScope, navigationEvents)
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 

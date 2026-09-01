@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collect
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberScreenNavigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 
@@ -51,12 +50,11 @@ internal fun AdminAccountScreen(
     navigationEvents: EventSender<NavigationHandler>,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val navigator = rememberScreenNavigator(navigationEvents)
-    val viewModel = remember(username, viewModelScope, navigator) {
+    val viewModel = remember(username, viewModelScope, navigationEvents) {
         AdminAccountScreenViewModel(
             username = username,
             viewModelScope = viewModelScope,
-            navigator = navigator,
+            navigationEvents = navigationEvents,
         )
     }
     val uiState by viewModel.uiStateFlow.collectAsState()

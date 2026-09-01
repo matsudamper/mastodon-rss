@@ -21,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberScreenNavigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -36,9 +35,8 @@ internal fun AdminScreen(
     navigationEvents: EventSender<NavigationHandler>,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val navigator = rememberScreenNavigator(navigationEvents)
-    val viewModel = remember(viewModelScope, navigator) {
-        AdminScreenViewModel(viewModelScope, navigator)
+    val viewModel = remember(viewModelScope, navigationEvents) {
+        AdminScreenViewModel(viewModelScope, navigationEvents)
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 

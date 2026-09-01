@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -20,7 +21,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberScreenNavigator
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 
@@ -29,9 +29,9 @@ internal fun NotFoundScreen(
     requestedPath: String,
     navigationEvents: EventSender<NavigationHandler>,
 ) {
-    val navigator = rememberScreenNavigator(navigationEvents)
-    val viewModel = remember(navigator) {
-        NotFoundScreenViewModel(navigator)
+    val viewModelScope = rememberCoroutineScope()
+    val viewModel = remember(viewModelScope, navigationEvents) {
+        NotFoundScreenViewModel(viewModelScope, navigationEvents)
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
