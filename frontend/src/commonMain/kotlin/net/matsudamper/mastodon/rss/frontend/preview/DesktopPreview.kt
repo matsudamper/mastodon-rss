@@ -14,4 +14,4 @@ import androidx.compose.ui.tooling.preview.Preview
 )
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.BINARY)
-annotation class AndroidScreenPreviews
+annotation class DesktopPreview

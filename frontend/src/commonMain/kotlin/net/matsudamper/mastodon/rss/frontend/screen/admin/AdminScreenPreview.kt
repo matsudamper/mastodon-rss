@@ -2,9 +2,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import net.matsudamper.mastodon.rss.frontend.preview.AndroidScreenPreviews
+import net.matsudamper.mastodon.rss.frontend.preview.DesktopPreview
 
-@AndroidScreenPreviews
+@DesktopPreview
 @Composable
 private fun AdminScreenPreview() {
     MaterialTheme {
