@@ -45,12 +45,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
-import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarEvents
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
@@ -67,14 +68,12 @@ internal fun AccountScreen(
     onClickOperator: (String) -> Unit,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val snackbarEvents = LocalSnackbarEvents.current
-    val viewModel = remember(viewModelScope, username, snackbarEvents, platform) {
+    val viewModel = remember(viewModelScope, username, platform) {
         AccountScreenViewModel(
             username = username,
             host = platform.host,
             viewModelScope = viewModelScope,
             copyToClipboard = platform::copyToClipboard,
-            snackbarEvents = snackbarEvents,
         )
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
@@ -85,6 +84,7 @@ internal fun AccountScreen(
 
     AccountContent(
         uiState = uiState,
+        messages = viewModel.messages,
         username = username,
         platform = platform,
         onClickHome = onClickHome,
@@ -96,13 +96,18 @@ internal fun AccountScreen(
 @Composable
 internal fun AccountContent(
     uiState: AccountScreenUiState,
+    messages: Flow<String> = emptyFlow(),
     username: String,
     platform: ScreenPlatform,
     onClickHome: () -> Unit,
     onClickAdmin: () -> Unit,
     onClickOperator: (String) -> Unit,
 ) {
-    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
+    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide, showSnackbar ->
+        LaunchedEffect(messages, showSnackbar) {
+            messages.collect(showSnackbar)
+        }
+
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)

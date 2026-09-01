@@ -13,10 +13,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,7 +26,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
 
 internal val SnackbarMaxWidth = 360.dp
 
@@ -37,12 +34,12 @@ private const val SnackbarVisibleDurationMillis = 4_000L
 @Stable
 class SnackbarHostState(
     private val scope: CoroutineScope,
-) : SnackbarReceiver {
+) {
     private var dismissJob: Job? = null
     private val messageState = mutableStateOf<String?>(null)
     val message: State<String?> = messageState
 
-    override fun show(text: String) {
+    fun show(text: String) {
         dismissJob?.cancel()
         messageState.value = text
         dismissJob =
@@ -65,25 +62,6 @@ class SnackbarHostState(
 internal fun rememberSnackbarHostState(): SnackbarHostState {
     val scope = rememberCoroutineScope()
     return remember(scope) { SnackbarHostState(scope) }
-}
-
-@Composable
-internal fun rememberSnackbarEvents(): EventSender<SnackbarReceiver> {
-    return remember { EventSender() }
-}
-
-@Composable
-internal fun CollectSnackbarEvents(
-    events: EventSender<SnackbarReceiver>,
-    receiver: SnackbarReceiver,
-) {
-    LaunchedEffect(events, receiver) {
-        events.asHandler().collect(receiver)
-    }
-}
-
-val LocalSnackbarEvents = compositionLocalOf<EventSender<SnackbarReceiver>> {
-    error("SnackbarEvents が未設定")
 }
 
 @Composable

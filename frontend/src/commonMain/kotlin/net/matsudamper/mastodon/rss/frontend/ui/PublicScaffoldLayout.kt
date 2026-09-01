@@ -19,7 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 internal fun PublicScaffold(
     onClickHome: () -> Unit,
     onClickAdmin: () -> Unit,
-    content: @Composable ColumnScope.(wide: Boolean) -> Unit,
+    content: @Composable ColumnScope.(wide: Boolean, showSnackbar: (String) -> Unit) -> Unit,
 ) {
     AppScaffoldLayout(
         topBar = {

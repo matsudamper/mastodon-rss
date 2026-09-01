@@ -23,7 +23,7 @@ internal fun AdminScaffold(
     title: String?,
     onClickAdmin: () -> Unit,
     onClickHome: () -> Unit,
-    content: @Composable ColumnScope.(wide: Boolean) -> Unit,
+    content: @Composable ColumnScope.(wide: Boolean, showSnackbar: (String) -> Unit) -> Unit,
 ) {
     AppScaffoldLayout(
         topBar = {
