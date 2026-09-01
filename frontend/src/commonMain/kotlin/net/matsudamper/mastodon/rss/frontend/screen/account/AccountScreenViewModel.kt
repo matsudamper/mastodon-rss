@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import net.matsudamper.mastodon.rss.frontend.event.EventHandler
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
@@ -30,7 +29,7 @@ class AccountScreenViewModel(
 ) {
     private val events = EventSender<Event>()
 
-    internal fun asHandler(): EventHandler<Event> = events.asHandler()
+    internal val asHandler = events.asHandler()
 
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
