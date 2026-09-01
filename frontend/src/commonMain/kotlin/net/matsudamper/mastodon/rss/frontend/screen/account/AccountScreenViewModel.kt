@@ -27,9 +27,13 @@ class AccountScreenViewModel(
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
 ) {
-    private val events = EventSender<AccountScreenEventReceiver>()
+    interface Event {
+        fun showSnackbar(message: String)
+    }
 
-    internal suspend fun collectEvents(receiver: AccountScreenEventReceiver) {
+    private val events = EventSender<Event>()
+
+    internal suspend fun collectEvents(receiver: Event) {
         events.asHandler().collect(receiver)
     }
 

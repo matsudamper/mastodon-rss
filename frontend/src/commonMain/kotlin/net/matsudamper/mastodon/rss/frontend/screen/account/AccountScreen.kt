@@ -106,7 +106,7 @@ internal fun AccountContent(
     if (viewModel != null) {
         val eventReceiver =
             remember(snackbarHostState) {
-                object : AccountScreenEventReceiver {
+                object : AccountScreenViewModel.Event {
                     override fun showSnackbar(message: String) {
                         snackbarHostState.show(message)
                     }
