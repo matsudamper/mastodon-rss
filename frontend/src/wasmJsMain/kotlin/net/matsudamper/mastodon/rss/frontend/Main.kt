@@ -1,6 +1,8 @@
 package net.matsudamper.mastodon.rss.frontend
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeViewport
@@ -18,6 +20,7 @@ import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountsScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreenUiState
+import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreenViewModel
 import net.matsudamper.mastodon.rss.frontend.screen.home.HomeScreen
 import net.matsudamper.mastodon.rss.frontend.ui.AppTheme
 
@@ -54,7 +57,10 @@ fun App() {
                     )
                 }
                 entry<Screen.Admin> {
+                    val viewModelScope = rememberCoroutineScope()
+                    val model = remember(viewModelScope) { AdminScreenViewModel(viewModelScope) }
                     AdminScreen(
+                        model = model,
                         platform = platform,
                         onClickAccounts = { navigator.navigateTo(Screen.AdminAccounts) },
                         onClickNewAccount = { navigator.navigateTo(Screen.AdminAccountNew) },
