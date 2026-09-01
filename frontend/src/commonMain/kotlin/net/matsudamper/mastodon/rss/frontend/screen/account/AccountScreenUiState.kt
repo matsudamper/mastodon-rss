@@ -49,7 +49,9 @@ sealed interface NoteDialogUiState {
     data object NotFound : NoteDialogUiState
 
     data class Loaded(
-        val note: NoteUiState,
+        val contentHtml: String,
+        val publishedAt: String,
+        val activityPubUrl: String,
     ) : NoteDialogUiState
 
     data class Error(

@@ -30,6 +30,7 @@ class AccountScreenViewModel(
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
     private val snackbarEvents: EventSender<SnackbarReceiver>,
+    private val onClickNote: (String) -> Unit,
 ) {
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
@@ -253,19 +254,29 @@ class AccountScreenViewModel(
     }
 
     private fun AccountNote.toUiState(): NoteUiState = NoteUiState(
-        id = id,
-        url = url,
         contentHtml = contentHtml,
         publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
+        listener = object : NoteUiState.Listener {
+            override fun onClick() {
+                onClickNote(id)
+            }
+        },
     )
 
     private fun createNoteDialog(state: ViewModelState): NoteDialogUiState? {
         if (selectedNoteId == null) return null
         return when (val result = state.selectedNote) {
             null -> NoteDialogUiState.Loading
+
             AccountNoteResult.NotFound -> NoteDialogUiState.NotFound
+
             is AccountNoteResult.Failure -> NoteDialogUiState.Error(result.message)
-            is AccountNoteResult.Success -> NoteDialogUiState.Loaded(result.note.toUiState())
+
+            is AccountNoteResult.Success -> NoteDialogUiState.Loaded(
+                contentHtml = result.note.contentHtml,
+                publishedAt = UnixTimeUtil.format(result.note.publishedAt.epochSeconds),
+                activityPubUrl = result.note.url,
+            )
         }
     }
 

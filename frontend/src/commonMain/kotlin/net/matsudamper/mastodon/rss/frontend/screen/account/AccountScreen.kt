@@ -32,7 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -81,6 +80,7 @@ internal fun AccountScreen(
             viewModelScope = viewModelScope,
             copyToClipboard = platform::copyToClipboard,
             snackbarEvents = snackbarEvents,
+            onClickNote = onClickNote,
         )
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
@@ -96,7 +96,6 @@ internal fun AccountScreen(
         onClickHome = onClickHome,
         onClickAdmin = onClickAdmin,
         onClickOperator = onClickOperator,
-        onClickNote = onClickNote,
         onDismissNote = onDismissNote,
     )
 }
@@ -109,7 +108,6 @@ internal fun AccountContent(
     onClickHome: () -> Unit,
     onClickAdmin: () -> Unit,
     onClickOperator: (String) -> Unit,
-    onClickNote: (String) -> Unit,
     onDismissNote: () -> Unit,
 ) {
     PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
@@ -156,7 +154,6 @@ internal fun AccountContent(
                         content = content,
                         wide = wide,
                         onClickOperator = onClickOperator,
-                        onClickNote = onClickNote,
                         onOpenExternal = platform::openExternalLink,
                         noteContent = platform::NoteContent,
                         listener = uiState.listener,
@@ -182,7 +179,6 @@ private fun LoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     wide: Boolean,
     onClickOperator: (String) -> Unit,
-    onClickNote: (String) -> Unit,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
     listener: AccountScreenUiState.Listener,
@@ -209,7 +205,7 @@ private fun LoadedAccountContent(
                     modifier = Modifier.weight(1.5f),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    NotesSection(content, listener, onClickNote, noteContent)
+                    NotesSection(content, listener, noteContent)
                 }
                 Column(
                     modifier = Modifier.weight(1f),
@@ -223,7 +219,7 @@ private fun LoadedAccountContent(
         } else {
             FeedSection(state, onOpenExternal)
             FollowSection(state, onClickOperator, onOpenExternal, listener)
-            NotesSection(content, listener, onClickNote, noteContent)
+            NotesSection(content, listener, noteContent)
             DeliverySection(state)
         }
     }
@@ -565,7 +561,6 @@ private fun FollowSection(
 private fun NotesSection(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
-    onClickNote: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -613,9 +608,7 @@ private fun NotesSection(
 
             else -> {
                 notes.forEach { note ->
-                    key(note.url) {
-                        NoteCard(note, onClickNote, noteContent)
-                    }
+                    NoteCard(note, noteContent)
                 }
             }
         }
@@ -645,12 +638,11 @@ private fun NoteListPlaceholder(content: @Composable () -> Unit) {
 @Composable
 private fun NoteCard(
     note: NoteUiState,
-    onClickNote: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        onClick = { onClickNote(note.id) },
+        onClick = note.listener::onClick,
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -727,15 +719,15 @@ private fun NoteDialog(
                     }
 
                     is NoteDialogUiState.Loaded -> {
-                        noteContent(state.note.contentHtml, Modifier.fillMaxWidth())
+                        noteContent(state.contentHtml, Modifier.fillMaxWidth())
                         Text(
-                            text = state.note.publishedAt,
+                            text = state.publishedAt,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         TextLink(
                             text = "ActivityPub の投稿を開く",
-                            onClick = { onOpenExternal(state.note.url) },
+                            onClick = { onOpenExternal(state.activityPubUrl) },
                         )
                     }
                 }

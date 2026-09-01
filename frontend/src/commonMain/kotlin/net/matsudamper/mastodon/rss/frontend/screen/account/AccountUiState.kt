@@ -139,8 +139,11 @@ data class DeliveryUiState(
  * 配信した投稿 1 件
  */
 data class NoteUiState(
-    val id: String,
-    val url: String,
     val contentHtml: String,
     val publishedAt: String,
-)
+    val listener: Listener,
+) {
+    interface Listener {
+        fun onClick()
+    }
+}
