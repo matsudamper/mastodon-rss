@@ -10,6 +10,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -25,7 +29,13 @@ internal fun NotFoundScreen(
     requestedPath: String,
     navigationEvents: EventSender<NavigatorReceiver>,
 ) {
-    PublicScaffold(navigationEvents = navigationEvents) { wide ->
+    val viewModelScope = rememberCoroutineScope()
+    val viewModel = remember(viewModelScope, navigationEvents) {
+        NotFoundScreenViewModel(viewModelScope, navigationEvents)
+    }
+    val uiState by viewModel.uiStateFlow.collectAsState()
+
+    PublicScaffold(listener = uiState.listener) { wide ->
         NotFoundContent(
             requestedPath = requestedPath,
             modifier = Modifier

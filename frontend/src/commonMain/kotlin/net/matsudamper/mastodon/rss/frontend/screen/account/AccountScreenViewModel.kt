@@ -14,6 +14,9 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
+import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 import net.matsudamper.mastodon.rss.frontend.ui.SnackbarReceiver
 
 /**
@@ -25,10 +28,12 @@ class AccountScreenViewModel(
     private val username: String,
     private val host: String,
     private val viewModelScope: CoroutineScope,
+    navigationEvents: EventSender<NavigatorReceiver>,
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
     private val snackbarEvents: EventSender<SnackbarReceiver>,
 ) {
+    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     private var loadingJob: Job? = null
@@ -40,6 +45,18 @@ class AccountScreenViewModel(
                 content = AccountScreenUiState.Content.Loading,
                 listener =
                 object : AccountScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigator.navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigator.navigate(Screen.Admin)
+                    }
+
+                    override fun onClickOperator() {
+                        navigator.navigate(Screen.Account(OPERATOR_USERNAME))
+                    }
+
                     override fun onClickReload() {
                         reload()
                     }
@@ -247,5 +264,6 @@ class AccountScreenViewModel(
 
     private companion object {
         const val PAGE_SIZE: Int = 20
+        const val OPERATOR_USERNAME: String = "admin"
     }
 }

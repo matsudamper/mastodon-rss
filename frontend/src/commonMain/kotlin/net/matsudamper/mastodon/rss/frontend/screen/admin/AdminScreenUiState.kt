@@ -2,6 +2,8 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.runtime.Immutable
 
+import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffoldListener
+
 data class AdminScreenUiState(
     val content: Content,
     val listener: Listener,
@@ -35,7 +37,7 @@ data class AdminScreenUiState(
     }
 
     @Immutable
-    interface Listener {
+    interface Listener : AdminScaffoldListener {
         fun onPasswordChanged(text: String)
 
         fun onClickLogin()
@@ -43,5 +45,9 @@ data class AdminScreenUiState(
         fun onClickLogout()
 
         fun onClickRetry()
+
+        fun onClickAccounts()
+
+        fun onClickNewAccount()
     }
 }

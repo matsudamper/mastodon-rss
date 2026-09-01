@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
@@ -26,13 +27,18 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItemsResult
+import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 import net.matsudamper.mastodon.rss.shared.FeedItemId
 
 class AdminAccountScreenViewModel(
     private val username: String,
     private val viewModelScope: CoroutineScope,
+    navigationEvents: EventSender<NavigatorReceiver>,
     private val api: AdminApi = AdminApi(),
 ) {
+    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     private var reloadJob: Job? = null
@@ -55,6 +61,22 @@ class AdminAccountScreenViewModel(
                 acct = "@$username",
                 content = AdminAccountScreenUiState.Content.Loading,
                 listener = object : AdminAccountScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigator.navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigator.navigate(Screen.Admin)
+                    }
+
+                    override fun onClickOpenAccount() {
+                        navigator.navigate(Screen.Account(username))
+                    }
+
+                    override fun onClickBackToAdmin() {
+                        navigator.navigate(Screen.Admin)
+                    }
+
                     override fun onFeedUrlChanged(text: String) {
                         viewModelStateFlow.update {
                             it.copy(

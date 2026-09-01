@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.runtime.Immutable
+import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffoldListener
 
 data class AccountScreenUiState(
     val content: Content,
@@ -29,7 +30,9 @@ data class AccountScreenUiState(
     }
 
     @Immutable
-    interface Listener {
+    interface Listener : PublicScaffoldListener {
+        fun onClickOperator()
+
         fun onClickReload()
 
         fun onClickReloadNotes()

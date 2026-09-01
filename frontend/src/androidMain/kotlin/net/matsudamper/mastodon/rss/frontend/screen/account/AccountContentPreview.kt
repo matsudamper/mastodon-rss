@@ -4,13 +4,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.MultiSizePreview
-import net.matsudamper.mastodon.rss.frontend.screen.rememberPreviewNavigationEvents
 
 @MultiSizePreview
 @Composable
 private fun AccountContentPreview() {
     val username = "kotlin"
-    val navigationEvents = rememberPreviewNavigationEvents()
     MaterialTheme {
         AccountContent(
             uiState = AccountScreenUiState(
@@ -37,12 +35,17 @@ private fun AccountContentPreview() {
             ),
             username = username,
             platform = AndroidPreviewScreenPlatform,
-            navigationEvents = navigationEvents,
         )
     }
 }
 
 private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
+    override fun onClickHome() = Unit
+
+    override fun onClickAdmin() = Unit
+
+    override fun onClickOperator() = Unit
+
     override fun onClickReload() = Unit
 
     override fun onClickReloadNotes() = Unit

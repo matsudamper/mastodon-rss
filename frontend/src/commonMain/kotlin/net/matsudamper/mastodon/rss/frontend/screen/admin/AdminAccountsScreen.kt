@@ -33,8 +33,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
-import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -45,39 +43,35 @@ internal fun AdminAccountsScreen(
     navigationEvents: EventSender<NavigatorReceiver>,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope) { AdminAccountsScreenViewModel(viewModelScope) }
+    val viewModel = remember(viewModelScope, navigationEvents) {
+        AdminAccountsScreenViewModel(viewModelScope, navigationEvents)
+    }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
     }
 
-    AdminAccountsContent(
-        uiState = uiState,
-        navigationEvents = navigationEvents,
-    )
+    AdminAccountsContent(uiState = uiState)
 }
 
 @Composable
 internal fun AdminAccountsContent(
     uiState: AdminAccountsScreenUiState,
-    navigationEvents: EventSender<NavigatorReceiver>,
 ) {
-    val navigation = rememberNavigation(navigationEvents)
-
-    AdminScaffold("アカウント", navigationEvents = navigationEvents) { wide ->
+    AdminScaffold("アカウント", listener = uiState.listener) { wide ->
         Column(
             modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(if (wide) 24.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("アカウント一覧", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                OutlinedButton(onClick = { navigation.navigate(Screen.AdminAccountNew) }) { Text("追加") }
+                OutlinedButton(onClick = uiState.listener::onClickNewAccount) { Text("追加") }
             }
             when (val content = uiState.content) {
                 AdminAccountsScreenUiState.Content.Loading -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 
-                AdminAccountsScreenUiState.Content.RequireLogin -> RequireLoginCard(navigationEvents = navigationEvents)
+                AdminAccountsScreenUiState.Content.RequireLogin -> RequireLoginCard(onClickAdmin = uiState.listener::onClickAdmin)
 
                 is AdminAccountsScreenUiState.Content.Error -> SectionCard("一覧を出せない") {
                     Text(content.message, color = MaterialTheme.colorScheme.error)
@@ -87,7 +81,7 @@ internal fun AdminAccountsContent(
                 is AdminAccountsScreenUiState.Content.Loaded -> Accounts(
                     accounts = content.accounts,
                     wide = wide,
-                    navigationEvents = navigationEvents,
+                    listener = uiState.listener,
                 )
             }
         }
@@ -98,10 +92,8 @@ internal fun AdminAccountsContent(
 private fun Accounts(
     accounts: List<AdminAccountsScreenUiState.Account>,
     wide: Boolean,
-    navigationEvents: EventSender<NavigatorReceiver>,
+    listener: AdminAccountsScreenUiState.Listener,
 ) {
-    val navigation = rememberNavigation(navigationEvents)
-
     if (accounts.isEmpty()) {
         SectionCard("アカウント") { Text("まだアカウントはありません。下のリンクから追加できます。") }
         return
@@ -113,8 +105,8 @@ private fun Accounts(
                 row.forEach { account ->
                     AccountCard(
                         account = account,
-                        onPublic = { navigation.navigate(Screen.Account(account.username)) },
-                        onAdmin = { navigation.navigate(Screen.AdminAccount(account.username)) },
+                        onPublic = { listener.onClickPublicAccount(account.username) },
+                        onAdmin = { listener.onClickAdminAccount(account.username) },
                         modifier = Modifier.weight(1f),
                     )
                 }

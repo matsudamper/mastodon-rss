@@ -14,10 +14,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
-import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
-import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 
 /**
  * 管理画面用の枠。タイトル末尾に「管理画面」を付けた TopAppBar を出す。
@@ -25,11 +21,11 @@ import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 @Composable
 internal fun AdminScaffold(
     title: String?,
-    navigationEvents: EventSender<NavigatorReceiver>,
+    listener: AdminScaffoldListener,
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
     AppScaffoldLayout(
-        topBar = { AdminTopAppBar(title = title, navigationEvents = navigationEvents) },
+        topBar = { AdminTopAppBar(title = title, listener = listener) },
         content = content,
     )
 }
@@ -38,23 +34,21 @@ internal fun AdminScaffold(
 @Composable
 private fun AdminTopAppBar(
     title: String?,
-    navigationEvents: EventSender<NavigatorReceiver>,
+    listener: AdminScaffoldListener,
 ) {
-    val navigation = rememberNavigation(navigationEvents)
-
     Surface(color = MaterialTheme.colorScheme.primaryContainer) {
         Column {
             TopAppBar(
                 title = {
                     Text(
                         text = "管理画面".plus(if (title != null) "/$title" else ""),
-                        modifier = Modifier.clickable(onClick = { navigation.navigate(Screen.Admin) }),
+                        modifier = Modifier.clickable(onClick = listener::onClickAdmin),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 actions = {
-                    TextButton(onClick = { navigation.navigate(Screen.Home) }) {
+                    TextButton(onClick = listener::onClickHome) {
                         Text("トップ")
                     }
                 },

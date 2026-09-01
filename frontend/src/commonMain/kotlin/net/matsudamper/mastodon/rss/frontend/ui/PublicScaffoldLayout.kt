@@ -14,18 +14,14 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
-import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
-import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 
 @Composable
 internal fun PublicScaffold(
-    navigationEvents: EventSender<NavigatorReceiver>,
+    listener: PublicScaffoldListener,
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
     AppScaffoldLayout(
-        topBar = { PublicTopAppBar(navigationEvents = navigationEvents) },
+        topBar = { PublicTopAppBar(listener = listener) },
         content = content,
     )
 }
@@ -33,23 +29,21 @@ internal fun PublicScaffold(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PublicTopAppBar(
-    navigationEvents: EventSender<NavigatorReceiver>,
+    listener: PublicScaffoldListener,
 ) {
-    val navigation = rememberNavigation(navigationEvents)
-
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
             TopAppBar(
                 title = {
                     Text(
                         text = "mastodon-rss",
-                        modifier = Modifier.clickable(onClick = { navigation.navigate(Screen.Home) }),
+                        modifier = Modifier.clickable(onClick = listener::onClickHome),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 actions = {
-                    TextButton(onClick = { navigation.navigate(Screen.Admin) }) {
+                    TextButton(onClick = listener::onClickAdmin) {
                         Text("管理画面")
                     }
                 },

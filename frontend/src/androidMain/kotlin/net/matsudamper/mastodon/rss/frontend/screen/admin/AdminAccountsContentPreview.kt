@@ -3,12 +3,10 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.screen.MultiSizePreview
-import net.matsudamper.mastodon.rss.frontend.screen.rememberPreviewNavigationEvents
 
 @MultiSizePreview
 @Composable
 private fun AdminAccountsContentPreview() {
-    val navigationEvents = rememberPreviewNavigationEvents()
     MaterialTheme {
         AdminAccountsContent(
             uiState = AdminAccountsScreenUiState(
@@ -32,11 +30,20 @@ private fun AdminAccountsContentPreview() {
                 ),
                 listener = AndroidPreviewAdminAccountsListener,
             ),
-            navigationEvents = navigationEvents,
         )
     }
 }
 
 private object AndroidPreviewAdminAccountsListener : AdminAccountsScreenUiState.Listener {
+    override fun onClickHome() = Unit
+
+    override fun onClickAdmin() = Unit
+
+    override fun onClickNewAccount() = Unit
+
+    override fun onClickPublicAccount(username: String) = Unit
+
+    override fun onClickAdminAccount(username: String) = Unit
+
     override fun onClickReload() = Unit
 }

@@ -47,8 +47,6 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
-import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
@@ -70,11 +68,12 @@ internal fun AccountScreen(
 ) {
     val viewModelScope = rememberCoroutineScope()
     val snackbarEvents = LocalSnackbarEvents.current
-    val viewModel = remember(viewModelScope, username, snackbarEvents, platform) {
+    val viewModel = remember(viewModelScope, username, snackbarEvents, platform, navigationEvents) {
         AccountScreenViewModel(
             username = username,
             host = platform.host,
             viewModelScope = viewModelScope,
+            navigationEvents = navigationEvents,
             copyToClipboard = platform::copyToClipboard,
             snackbarEvents = snackbarEvents,
         )
@@ -89,7 +88,6 @@ internal fun AccountScreen(
         uiState = uiState,
         username = username,
         platform = platform,
-        navigationEvents = navigationEvents,
     )
 }
 
@@ -98,9 +96,8 @@ internal fun AccountContent(
     uiState: AccountScreenUiState,
     username: String,
     platform: ScreenPlatform,
-    navigationEvents: EventSender<NavigatorReceiver>,
 ) {
-    PublicScaffold(navigationEvents = navigationEvents) { wide ->
+    PublicScaffold(listener = uiState.listener) { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
@@ -143,7 +140,6 @@ internal fun AccountContent(
                     LoadedAccountContent(
                         content = content,
                         wide = wide,
-                        navigationEvents = navigationEvents,
                         onOpenExternal = platform::openExternalLink,
                         noteContent = platform::NoteContent,
                         listener = uiState.listener,
@@ -158,12 +154,10 @@ internal fun AccountContent(
 private fun LoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     wide: Boolean,
-    navigationEvents: EventSender<NavigatorReceiver>,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
     listener: AccountScreenUiState.Listener,
 ) {
-    val navigation = rememberNavigation(navigationEvents)
     val state = content.account
 
     Column(
@@ -196,7 +190,7 @@ private fun LoadedAccountContent(
                     DeliverySection(state)
                     FollowSection(
                         state = state,
-                        onClickOperator = { navigation.navigate(Screen.Account(state.operatorUsername)) },
+                        onClickOperator = listener::onClickOperator,
                         onOpenExternal = onOpenExternal,
                         listener = listener,
                     )
@@ -206,7 +200,7 @@ private fun LoadedAccountContent(
             FeedSection(state, onOpenExternal)
             FollowSection(
                 state = state,
-                onClickOperator = { navigation.navigate(Screen.Account(state.operatorUsername)) },
+                onClickOperator = listener::onClickOperator,
                 onOpenExternal = onOpenExternal,
                 listener = listener,
             )

@@ -21,8 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
-import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -37,7 +35,9 @@ internal fun AdminScreen(
     navigationEvents: EventSender<NavigatorReceiver>,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope) { AdminScreenViewModel(viewModelScope) }
+    val viewModel = remember(viewModelScope, navigationEvents) {
+        AdminScreenViewModel(viewModelScope, navigationEvents)
+    }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
     LaunchedEffect(viewModel) {
@@ -47,7 +47,6 @@ internal fun AdminScreen(
     AdminContent(
         uiState = uiState,
         platform = platform,
-        navigationEvents = navigationEvents,
     )
 }
 
@@ -55,11 +54,8 @@ internal fun AdminScreen(
 internal fun AdminContent(
     uiState: AdminScreenUiState,
     platform: ScreenPlatform,
-    navigationEvents: EventSender<NavigatorReceiver>,
 ) {
-    val navigation = rememberNavigation(navigationEvents)
-
-    AdminScaffold(title = null, navigationEvents = navigationEvents) { wide ->
+    AdminScaffold(title = null, listener = uiState.listener) { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
@@ -76,10 +72,7 @@ internal fun AdminContent(
                 is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, platform::AdminLoginPasswordField)
 
                 AdminScreenUiState.Content.LoggedIn -> {
-                    MenuCard(
-                        onClickAccounts = { navigation.navigate(Screen.AdminAccounts) },
-                        onClickNewAccount = { navigation.navigate(Screen.AdminAccountNew) },
-                    )
+                    MenuCard(listener = uiState.listener)
                     SectionCard(title = "ログイン済み") {
                         OutlinedButton(onClick = uiState.listener::onClickLogout) { Text("ログアウト") }
                     }
@@ -130,10 +123,10 @@ private fun LoginCard(
 }
 
 @Composable
-private fun MenuCard(onClickAccounts: () -> Unit, onClickNewAccount: () -> Unit) {
+private fun MenuCard(listener: AdminScreenUiState.Listener) {
     SectionCard(title = "できること") {
-        TextLink("アカウントの一覧", onClickAccounts)
-        TextLink("アカウントの追加", onClickNewAccount)
+        TextLink("アカウントの一覧", listener::onClickAccounts)
+        TextLink("アカウントの追加", listener::onClickNewAccount)
         Text("投稿とフォロワー数は、一覧からアカウントを選んだ先にある。")
         Text(
             "フィードの登録・削除、配信エラーの確認、手動での再取得はこれから作る。",
