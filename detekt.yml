@@ -1,73 +1,10 @@
+# compose-rules が jar に同梱する既定設定をベースにし、ここでは無効化やオプション上書きだけ書く。
+# compose-rules を上げると新ルールの既定 ON/OFF も追従する。
+
 Compose:
-  ComposableAnnotationNaming:
-    active: true
-  ComposableNaming:
-    active: true
-  ComposableNestingDepth:
-    active: true
-  ComposableParamOrder:
-    active: true
-  CompositionLocalAllowlist:
-    active: true
-  CompositionLocalNaming:
-    active: true
-  ContentEmitterReturningValues:
-    active: true
-  ContentTrailingLambda:
-    active: true
-  ContentSlotReused:
-    active: true
-  DefaultsVisibility:
-    active: true
-  LambdaParameterEventTrailing:
-    active: true
-  LambdaParameterInRestartableEffect:
-    active: true
   Material2:
-    active: true
-  MissingReadOnlyComposable:
-    active: true
-  ModifierClickableOrder:
-    active: true
-  ModifierComposed:
-    active: true
-  ModifierMissing:
-    active: true
-  ModifierNaming:
-    active: true
-  ModifierNotUsedAtRoot:
-    active: true
-  ModifierReused:
-    active: true
-  ModifierWithoutDefault:
-    active: true
-  MultipleEmitters:
-    active: true
-  MutableParams:
-    active: true
-  MutableStateAutoboxing:
-    active: true
-  MutableStateParam:
-    active: true
-  ParameterNaming:
-    active: true
-  PreviewAnnotationNaming:
-    active: true
+    active: false
   PreviewNaming:
-    active: true
-  PreviewPublic:
-    active: true
-  RememberContentMissing:
-    active: true
-  RememberMissing:
-    active: true
-  StaleRememberUpdatedStateInRemember:
-    active: true
-  StateParam:
-    active: true
+    active: false
   UnstableCollections:
-    active: true
-  ViewModelForwarding:
-    active: true
-  ViewModelInjection:
-    active: true
+    active: false

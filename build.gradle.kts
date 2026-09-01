@@ -40,6 +40,36 @@ val detektTargetProjects =
         ":frontend:common-component",
     )
 
+configurations {
+    create("composeRulesDetekt")
+}
+
+dependencies {
+    add("composeRulesDetekt", libs.compose.rules.detekt)
+}
+
+fun composeRulesDetektConfigFile(): java.io.File {
+    val configFile = layout.buildDirectory.file("compose-rules-detekt.yml").get().asFile
+    val versionMarker = layout.buildDirectory.file("compose-rules-detekt.version").get().asFile
+    val composeRulesVersion = libs.versions.composeRules.get()
+    if (!configFile.exists() || !versionMarker.exists() || versionMarker.readText() != composeRulesVersion) {
+        configFile.parentFile.mkdirs()
+        val composeRulesJar =
+            configurations
+                .named("composeRulesDetekt")
+                .get()
+                .files
+                .single { it.name == "detekt-$composeRulesVersion.jar" }
+        zipTree(composeRulesJar)
+            .matching { include("config/config.yml") }
+            .singleFile
+            .copyTo(configFile, overwrite = true)
+        versionMarker.parentFile.mkdirs()
+        versionMarker.writeText(composeRulesVersion)
+    }
+    return configFile
+}
+
 configure(subprojects.filter { it.path in detektTargetProjects }) {
     apply(plugin = "dev.detekt")
 
@@ -49,7 +79,7 @@ configure(subprojects.filter { it.path in detektTargetProjects }) {
 
     extensions.configure<dev.detekt.gradle.extensions.DetektExtension> {
         toolVersion = rootProject.libs.versions.detekt.get()
-        config.setFrom(rootProject.files("detekt.yml"))
+        config.setFrom(composeRulesDetektConfigFile(), rootProject.files("detekt.yml"))
         buildUponDefaultConfig = false
         disableDefaultRuleSets = true
         parallel = true
