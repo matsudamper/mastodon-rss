@@ -1,7 +1,6 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.runtime.Immutable
-
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffoldListener
 
 data class AdminAccountsScreenUiState(
