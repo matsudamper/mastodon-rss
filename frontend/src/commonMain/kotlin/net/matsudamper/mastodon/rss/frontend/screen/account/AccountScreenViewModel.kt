@@ -14,7 +14,6 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
-import net.matsudamper.mastodon.rss.frontend.ui.SnackbarReceiver
 
 /**
  * @param username URL に入っていた名前。綴りが違っていても引けるので、
@@ -27,8 +26,11 @@ class AccountScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
-    private val snackbarEvents: EventSender<SnackbarReceiver>,
 ) {
+    private val events = EventSender<Event>()
+
+    internal val asHandler = events.asHandler()
+
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     private var loadingJob: Job? = null
@@ -198,7 +200,7 @@ class AccountScreenViewModel(
         copyToClipboard(acct) { copied ->
             if (copied) {
                 viewModelScope.launch {
-                    snackbarEvents.send { it.show("コピーしました") }
+                    events.send { it.showSnackbar("コピーしました") }
                 }
             }
         }
@@ -244,6 +246,10 @@ class AccountScreenViewModel(
         val notesCursor: String? = null,
         val loadingMore: Boolean = false,
     )
+
+    interface Event {
+        fun showSnackbar(message: String)
+    }
 
     private companion object {
         const val PAGE_SIZE: Int = 20
