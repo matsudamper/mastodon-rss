@@ -50,13 +50,13 @@ import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
+import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarEvents
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
-import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarEvents
 
 @Composable
 internal fun AccountScreen(
@@ -111,46 +111,46 @@ internal fun AccountContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             when (val content = uiState.content) {
-            AccountScreenUiState.Content.Loading -> {
-                SectionCard(title = "読み込み中") {
-                    Text(
-                        text = "アカウントを取ってきている。",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
-
-            AccountScreenUiState.Content.NotFound -> {
-                NotFoundContent(
-                    requestedPath = "/@$username",
-                    description = "ユーザーが存在しません",
-                )
-            }
-
-            is AccountScreenUiState.Content.Error -> {
-                SectionCard(title = "アカウントを出せない") {
-                    Text(
-                        text = content.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-
-                    OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
-                        Text("もう一度試す")
+                AccountScreenUiState.Content.Loading -> {
+                    SectionCard(title = "読み込み中") {
+                        Text(
+                            text = "アカウントを取ってきている。",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                 }
-            }
 
-            is AccountScreenUiState.Content.Loaded -> {
-                LoadedAccountContent(
-                    content = content,
-                    wide = wide,
-                    onClickOperator = onClickOperator,
-                    onOpenExternal = platform::openExternalLink,
-                    noteContent = platform::NoteContent,
-                    listener = uiState.listener,
-                )
-            }
+                AccountScreenUiState.Content.NotFound -> {
+                    NotFoundContent(
+                        requestedPath = "/@$username",
+                        description = "ユーザーが存在しません",
+                    )
+                }
+
+                is AccountScreenUiState.Content.Error -> {
+                    SectionCard(title = "アカウントを出せない") {
+                        Text(
+                            text = content.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+
+                        OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
+                            Text("もう一度試す")
+                        }
+                    }
+                }
+
+                is AccountScreenUiState.Content.Loaded -> {
+                    LoadedAccountContent(
+                        content = content,
+                        wide = wide,
+                        onClickOperator = onClickOperator,
+                        onOpenExternal = platform::openExternalLink,
+                        noteContent = platform::NoteContent,
+                        listener = uiState.listener,
+                    )
+                }
             }
         }
     }
