@@ -20,6 +20,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -33,13 +38,20 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
 internal fun AdminAccountsScreen(
-    uiState: AdminAccountsScreenUiState,
     onClickNewAccount: () -> Unit,
     onClickPublicAccount: (String) -> Unit,
     onClickAdminAccount: (String) -> Unit,
     onClickAdmin: () -> Unit,
     onClickHome: () -> Unit,
 ) {
+    val viewModelScope = rememberCoroutineScope()
+    val viewModel = remember(viewModelScope) { AdminAccountsScreenViewModel(viewModelScope) }
+    val uiState by viewModel.uiStateFlow.collectAsState()
+
+    LaunchedEffect(viewModel) {
+        viewModel.onStart()
+    }
+
     AdminScaffold("アカウント", onClickAdmin, onClickHome) { wide ->
         Column(
             modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(if (wide) 24.dp else 12.dp),

@@ -18,63 +18,58 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
+import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 
 @Composable
 internal fun AdminAccountScreen(
     username: String,
-    uiState: AdminAccountScreenUiState,
+    platform: ScreenPlatform,
     onClickOpenAccount: () -> Unit,
     onClickLogin: () -> Unit,
     onClickAdmin: () -> Unit,
     onClickHome: () -> Unit,
-    noteContent: @Composable (String, Modifier) -> Unit,
 ) {
+    val viewModelScope = rememberCoroutineScope()
+    val viewModel = remember(username, viewModelScope) {
+        AdminAccountScreenViewModel(username = username, viewModelScope = viewModelScope)
+    }
+    val uiState by viewModel.uiStateFlow.collectAsState()
+
+    LaunchedEffect(viewModel) {
+        viewModel.onStart()
+    }
+
     AdminScaffold(
         title = "@$username の管理",
         onClickAdmin = onClickAdmin,
         onClickHome = onClickHome,
     ) { wide ->
-        AdminAccountScreenContent(
-            uiState = uiState,
-            wide = wide,
-            onClickOpenAccount = onClickOpenAccount,
-            onClickLogin = onClickLogin,
+        Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
                 .fillMaxWidth()
                 .padding(if (wide) 24.dp else 12.dp),
-            noteContent = noteContent,
-        )
-    }
-}
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = uiState.acct,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
 
-@Composable
-internal fun AdminAccountScreenContent(
-    uiState: AdminAccountScreenUiState,
-    wide: Boolean,
-    onClickOpenAccount: () -> Unit,
-    onClickLogin: () -> Unit,
-    modifier: Modifier = Modifier,
-    noteContent: @Composable (String, Modifier) -> Unit,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = uiState.acct,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-
-        when (val content = uiState.content) {
+            when (val content = uiState.content) {
             AdminAccountScreenUiState.Content.Loading -> AdminSectionCard(title = "読み込み中") {
                 Text("アカウントを取ってきている。", style = MaterialTheme.typography.bodyMedium)
             }
@@ -95,8 +90,9 @@ internal fun AdminAccountScreenContent(
                 AccountCard(content.account, onClickOpenAccount)
                 FeedCard(content.feed, uiState.listener, wide)
                 PostCard(content.post, uiState.listener)
-                NotesCard(content, uiState.listener, noteContent)
+                NotesCard(content, uiState.listener, platform::NoteContent)
                 content.deleteNoteDialog?.let { DeleteNoteDialog(it, uiState.listener) }
+            }
             }
         }
     }

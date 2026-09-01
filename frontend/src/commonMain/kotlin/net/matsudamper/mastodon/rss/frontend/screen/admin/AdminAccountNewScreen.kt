@@ -14,6 +14,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -25,11 +30,18 @@ import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
 @Composable
 internal fun AdminAccountNewScreen(
-    uiState: AdminAccountNewScreenUiState,
     onClickAccounts: () -> Unit,
     onClickAdmin: () -> Unit,
     onClickHome: () -> Unit,
 ) {
+    val viewModelScope = rememberCoroutineScope()
+    val viewModel = remember(viewModelScope) { AdminAccountNewScreenViewModel(viewModelScope) }
+    val uiState by viewModel.uiStateFlow.collectAsState()
+
+    LaunchedEffect(viewModel) {
+        viewModel.onStart()
+    }
+
     AdminScaffold("アカウントの追加", onClickAdmin, onClickHome) { wide ->
         Column(
             Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(if (wide) 24.dp else 12.dp),

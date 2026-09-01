@@ -28,7 +28,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
+import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
@@ -50,46 +56,42 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
+import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarEvents
 
 @Composable
 internal fun AccountScreen(
     username: String,
-    uiState: AccountScreenUiState,
+    platform: ScreenPlatform,
     onClickHome: () -> Unit,
     onClickAdmin: () -> Unit,
     onClickOperator: (String) -> Unit,
-    onOpenExternal: (String) -> Unit,
-    noteContent: @Composable (String, Modifier) -> Unit,
 ) {
-    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
-        AccountScreenContent(
+    val viewModelScope = rememberCoroutineScope()
+    val snackbarEvents = LocalSnackbarEvents.current
+    val viewModel = remember(viewModelScope, username, snackbarEvents, platform) {
+        AccountScreenViewModel(
             username = username,
-            uiState = uiState,
-            wide = wide,
-            onClickOperator = onClickOperator,
-            onOpenExternal = onOpenExternal,
-            noteContent = noteContent,
+            host = platform.host,
+            viewModelScope = viewModelScope,
+            copyToClipboard = platform::copyToClipboard,
+            snackbarEvents = snackbarEvents,
         )
     }
-}
+    val uiState by viewModel.uiStateFlow.collectAsState()
 
-@Composable
-private fun AccountScreenContent(
-    username: String,
-    uiState: AccountScreenUiState,
-    wide: Boolean,
-    onClickOperator: (String) -> Unit,
-    onOpenExternal: (String) -> Unit,
-    noteContent: @Composable (String, Modifier) -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .widthIn(max = ContentMaxWidth)
-            .fillMaxWidth()
-            .padding(if (wide) 24.dp else 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        when (val content = uiState.content) {
+    LaunchedEffect(viewModel) {
+        viewModel.onStart()
+    }
+
+    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
+        Column(
+            modifier = Modifier
+                .widthIn(max = ContentMaxWidth)
+                .fillMaxWidth()
+                .padding(if (wide) 24.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            when (val content = uiState.content) {
             AccountScreenUiState.Content.Loading -> {
                 SectionCard(title = "読み込み中") {
                     Text(
@@ -125,10 +127,11 @@ private fun AccountScreenContent(
                     content = content,
                     wide = wide,
                     onClickOperator = onClickOperator,
-                    onOpenExternal = onOpenExternal,
-                    noteContent = noteContent,
+                    onOpenExternal = platform::openExternalLink,
+                    noteContent = platform::NoteContent,
                     listener = uiState.listener,
                 )
+            }
             }
         }
     }

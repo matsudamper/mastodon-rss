@@ -11,6 +11,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -18,17 +23,26 @@ import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
+import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
+
+private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 
 @Composable
 internal fun AdminScreen(
-    uiState: AdminScreenUiState,
+    platform: ScreenPlatform,
     onClickAccounts: () -> Unit,
     onClickNewAccount: () -> Unit,
-    onClickRepository: () -> Unit,
     onClickAdmin: () -> Unit,
     onClickHome: () -> Unit,
-    passwordField: @Composable (AdminScreenUiState.Content.Login, AdminScreenUiState.Listener) -> Unit,
 ) {
+    val viewModelScope = rememberCoroutineScope()
+    val viewModel = remember(viewModelScope) { AdminScreenViewModel(viewModelScope) }
+    val uiState by viewModel.uiStateFlow.collectAsState()
+
+    LaunchedEffect(viewModel) {
+        viewModel.onStart()
+    }
+
     AdminScaffold(title = null, onClickAdmin = onClickAdmin, onClickHome = onClickHome) { wide ->
         Column(
             modifier = Modifier
@@ -43,7 +57,7 @@ internal fun AdminScreen(
                     Text("状態を確かめている。")
                 }
 
-                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, passwordField)
+                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, platform::AdminLoginPasswordField)
 
                 AdminScreenUiState.Content.LoggedIn -> {
                     MenuCard(onClickAccounts, onClickNewAccount)
@@ -52,7 +66,10 @@ internal fun AdminScreen(
                     }
                     SectionCard(title = "このソフトウェア") {
                         Text("ソースコードは GitHub で公開している。")
-                        TextLink("mastodon-rss", onClickRepository)
+                        TextLink(
+                            text = "mastodon-rss",
+                            onClick = { platform.openExternalLink(REPOSITORY_URL) },
+                        )
                     }
                 }
 
