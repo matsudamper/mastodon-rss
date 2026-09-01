@@ -23,9 +23,11 @@ internal fun AdminScaffold(
     title: String?,
     onClickAdmin: () -> Unit,
     onClickHome: () -> Unit,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
     AppScaffoldLayout(
+        snackbarHostState = snackbarHostState,
         topBar = {
             AdminTopAppBar(
                 title = title,

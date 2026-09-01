@@ -16,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,11 +67,6 @@ internal fun rememberSnackbarHostState(): SnackbarHostState {
 }
 
 @Composable
-internal fun rememberSnackbarEvents(): EventSender<SnackbarReceiver> {
-    return remember { EventSender() }
-}
-
-@Composable
 internal fun CollectSnackbarEvents(
     events: EventSender<SnackbarReceiver>,
     receiver: SnackbarReceiver,
@@ -80,10 +74,6 @@ internal fun CollectSnackbarEvents(
     LaunchedEffect(events, receiver) {
         events.asHandler().collect(receiver)
     }
-}
-
-val LocalSnackbarEvents = compositionLocalOf<EventSender<SnackbarReceiver>> {
-    error("SnackbarEvents が未設定")
 }
 
 @Composable
