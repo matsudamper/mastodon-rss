@@ -97,7 +97,7 @@ fun App() {
                         onClickAdmin = { navigator.navigateTo(Screen.Admin) },
                         onClickOperator = { navigator.navigateTo(Screen.Account(it)) },
                         onClickNote = { navigator.navigateTo(Screen.Account(screen.username, it)) },
-                        onDismissNote = { navigator.dismissNote(screen.username) },
+                        onDismissNote = { navigator.back() },
                     )
                 }
                 entry<Screen.NotFound> { screen ->
