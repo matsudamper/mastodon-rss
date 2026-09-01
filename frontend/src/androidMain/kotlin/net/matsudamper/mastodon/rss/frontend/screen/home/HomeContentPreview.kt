@@ -2,9 +2,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.home
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
+import net.matsudamper.mastodon.rss.frontend.screen.MultiSizePreview
 
-@Preview
+@MultiSizePreview
 @Composable
 private fun HomeContentPreview() {
     MaterialTheme {
