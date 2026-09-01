@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 
 data class AccountScreenUiState(
     val content: Content,
+    val noteDialog: NoteDialogUiState?,
     val listener: Listener,
 ) {
     sealed interface Content {
@@ -37,5 +38,21 @@ data class AccountScreenUiState(
         fun onClickLoadMore()
 
         fun onClickCopyAcct()
+
+        fun onClickReloadNote()
     }
+}
+
+sealed interface NoteDialogUiState {
+    data object Loading : NoteDialogUiState
+
+    data object NotFound : NoteDialogUiState
+
+    data class Loaded(
+        val note: NoteUiState,
+    ) : NoteDialogUiState
+
+    data class Error(
+        val message: String,
+    ) : NoteDialogUiState
 }

@@ -91,10 +91,13 @@ fun App() {
                 entry<Screen.Account> { screen ->
                     AccountScreen(
                         username = screen.username,
+                        selectedNoteId = screen.noteId,
                         platform = platform,
                         onClickHome = { navigator.navigateTo(Screen.Home) },
                         onClickAdmin = { navigator.navigateTo(Screen.Admin) },
                         onClickOperator = { navigator.navigateTo(Screen.Account(it)) },
+                        onClickNote = { navigator.navigateTo(Screen.Account(screen.username, it)) },
+                        onDismissNote = { navigator.dismissNote(screen.username) },
                     )
                 }
                 entry<Screen.NotFound> { screen ->

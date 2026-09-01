@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.frontend.logic.account
 import kotlin.time.Instant
 
 data class AccountNote(
+    val id: String,
     val url: String,
     val contentHtml: String,
     val publishedAt: Instant,
@@ -20,4 +21,16 @@ sealed interface AccountNotesResult {
     data class Failure(
         val message: String,
     ) : AccountNotesResult
+}
+
+sealed interface AccountNoteResult {
+    data class Success(
+        val note: AccountNote,
+    ) : AccountNoteResult
+
+    data object NotFound : AccountNoteResult
+
+    data class Failure(
+        val message: String,
+    ) : AccountNoteResult
 }

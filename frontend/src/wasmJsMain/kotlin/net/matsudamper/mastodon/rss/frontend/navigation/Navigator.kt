@@ -35,6 +35,8 @@ import org.w3c.dom.events.Event
 class Navigator internal constructor(
     initial: Screen,
 ) {
+    private var noteOpenedFromAccount: Boolean = false
+
     /** [androidx.navigation3.ui.NavDisplay] に渡すバックスタック */
     val backStack: SnapshotStateList<Screen> = mutableStateListOf<Screen>().apply { addAll(stackOf(initial)) }
 
@@ -47,10 +49,28 @@ class Navigator internal constructor(
      * 同じ画面なら履歴に積まない。積むと戻るボタンを押しても同じ画面のままになる。
      */
     fun navigateTo(screen: Screen) {
-        if (screen == current) return
+        val previous = current
+        if (screen == previous) return
 
+        noteOpenedFromAccount = previous is Screen.Account &&
+            previous.noteId == null &&
+            screen is Screen.Account &&
+            screen.username == previous.username &&
+            screen.noteId != null
         window.history.pushState(null, screen.title, screen.path)
         applyStack(stackOf(screen))
+    }
+
+    fun dismissNote(username: String) {
+        if (noteOpenedFromAccount) {
+            noteOpenedFromAccount = false
+            back()
+            return
+        }
+
+        val account = Screen.Account(username)
+        window.history.replaceState(null, account.title, account.path)
+        applyStack(stackOf(account))
     }
 
     /**
@@ -66,6 +86,7 @@ class Navigator internal constructor(
 
     /** 戻る / 進むで URL が変わったときに呼ぶ */
     internal fun syncWithLocation() {
+        noteOpenedFromAccount = false
         applyStack(stackOf(Screen.of(window.location.pathname)))
     }
 

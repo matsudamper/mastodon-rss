@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
+import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
 import net.matsudamper.mastodon.rss.frontend.ui.SnackbarReceiver
@@ -23,6 +24,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.SnackbarReceiver
  */
 class AccountScreenViewModel(
     private val username: String,
+    private val selectedNoteId: String?,
     private val host: String,
     private val viewModelScope: CoroutineScope,
     private val api: AccountApi = AccountApi(),
@@ -33,11 +35,13 @@ class AccountScreenViewModel(
 
     private var loadingJob: Job? = null
     private var loadMoreJob: Job? = null
+    private var noteJob: Job? = null
 
     val uiStateFlow: StateFlow<AccountScreenUiState> =
         MutableStateFlow(
             AccountScreenUiState(
                 content = AccountScreenUiState.Content.Loading,
+                noteDialog = createNoteDialog(viewModelStateFlow.value),
                 listener =
                 object : AccountScreenUiState.Listener {
                     override fun onClickReload() {
@@ -55,13 +59,20 @@ class AccountScreenViewModel(
                     override fun onClickCopyAcct() {
                         copyAcct()
                     }
+
+                    override fun onClickReloadNote() {
+                        reloadNote()
+                    }
                 },
             ),
         ).also { uiStateFlow ->
             viewModelScope.launch {
                 viewModelStateFlow.collect { viewModelState ->
                     uiStateFlow.update { uiState ->
-                        uiState.copy(content = createContent(viewModelState))
+                        uiState.copy(
+                            content = createContent(viewModelState),
+                            noteDialog = createNoteDialog(viewModelState),
+                        )
                     }
                 }
             }
@@ -69,12 +80,23 @@ class AccountScreenViewModel(
 
     fun onStart() {
         reload()
+        reloadNote()
+    }
+
+    private fun reloadNote() {
+        val noteId = selectedNoteId ?: return
+        noteJob?.cancel()
+        viewModelStateFlow.update { it.copy(selectedNote = null) }
+        noteJob = viewModelScope.launch {
+            val result = api.note(username = username, id = noteId)
+            viewModelStateFlow.update { it.copy(selectedNote = result) }
+        }
     }
 
     private fun reload() {
         loadingJob?.cancel()
         loadMoreJob?.cancel()
-        viewModelStateFlow.update { ViewModelState() }
+        viewModelStateFlow.update { ViewModelState(selectedNote = it.selectedNote) }
 
         loadingJob =
             viewModelScope.launch {
@@ -231,10 +253,21 @@ class AccountScreenViewModel(
     }
 
     private fun AccountNote.toUiState(): NoteUiState = NoteUiState(
+        id = id,
         url = url,
         contentHtml = contentHtml,
         publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
     )
+
+    private fun createNoteDialog(state: ViewModelState): NoteDialogUiState? {
+        if (selectedNoteId == null) return null
+        return when (val result = state.selectedNote) {
+            null -> NoteDialogUiState.Loading
+            AccountNoteResult.NotFound -> NoteDialogUiState.NotFound
+            is AccountNoteResult.Failure -> NoteDialogUiState.Error(result.message)
+            is AccountNoteResult.Success -> NoteDialogUiState.Loaded(result.note.toUiState())
+        }
+    }
 
     private data class ViewModelState(
         val account: AccountResult? = null,
@@ -243,6 +276,7 @@ class AccountScreenViewModel(
         val notesLoading: Boolean = false,
         val notesCursor: String? = null,
         val loadingMore: Boolean = false,
+        val selectedNote: AccountNoteResult? = null,
     )
 
     private companion object {

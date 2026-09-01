@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
@@ -61,16 +63,20 @@ import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
 @Composable
 internal fun AccountScreen(
     username: String,
+    selectedNoteId: String?,
     platform: ScreenPlatform,
     onClickHome: () -> Unit,
     onClickAdmin: () -> Unit,
     onClickOperator: (String) -> Unit,
+    onClickNote: (String) -> Unit,
+    onDismissNote: () -> Unit,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val snackbarEvents = LocalSnackbarEvents.current
-    val viewModel = remember(viewModelScope, username, snackbarEvents, platform) {
+    val viewModel = remember(viewModelScope, username, selectedNoteId, snackbarEvents, platform) {
         AccountScreenViewModel(
             username = username,
+            selectedNoteId = selectedNoteId,
             host = platform.host,
             viewModelScope = viewModelScope,
             copyToClipboard = platform::copyToClipboard,
@@ -90,6 +96,8 @@ internal fun AccountScreen(
         onClickHome = onClickHome,
         onClickAdmin = onClickAdmin,
         onClickOperator = onClickOperator,
+        onClickNote = onClickNote,
+        onDismissNote = onDismissNote,
     )
 }
 
@@ -101,6 +109,8 @@ internal fun AccountContent(
     onClickHome: () -> Unit,
     onClickAdmin: () -> Unit,
     onClickOperator: (String) -> Unit,
+    onClickNote: (String) -> Unit,
+    onDismissNote: () -> Unit,
 ) {
     PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
         Column(
@@ -146,6 +156,7 @@ internal fun AccountContent(
                         content = content,
                         wide = wide,
                         onClickOperator = onClickOperator,
+                        onClickNote = onClickNote,
                         onOpenExternal = platform::openExternalLink,
                         noteContent = platform::NoteContent,
                         listener = uiState.listener,
@@ -154,6 +165,16 @@ internal fun AccountContent(
             }
         }
     }
+
+    uiState.noteDialog?.let { dialog ->
+        NoteDialog(
+            state = dialog,
+            listener = uiState.listener,
+            onDismiss = onDismissNote,
+            onOpenExternal = platform::openExternalLink,
+            noteContent = platform::NoteContent,
+        )
+    }
 }
 
 @Composable
@@ -161,6 +182,7 @@ private fun LoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     wide: Boolean,
     onClickOperator: (String) -> Unit,
+    onClickNote: (String) -> Unit,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
     listener: AccountScreenUiState.Listener,
@@ -187,7 +209,7 @@ private fun LoadedAccountContent(
                     modifier = Modifier.weight(1.5f),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    NotesSection(content, listener, onOpenExternal, noteContent)
+                    NotesSection(content, listener, onClickNote, noteContent)
                 }
                 Column(
                     modifier = Modifier.weight(1f),
@@ -201,7 +223,7 @@ private fun LoadedAccountContent(
         } else {
             FeedSection(state, onOpenExternal)
             FollowSection(state, onClickOperator, onOpenExternal, listener)
-            NotesSection(content, listener, onOpenExternal, noteContent)
+            NotesSection(content, listener, onClickNote, noteContent)
             DeliverySection(state)
         }
     }
@@ -543,7 +565,7 @@ private fun FollowSection(
 private fun NotesSection(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
-    onOpenExternal: (String) -> Unit,
+    onClickNote: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -592,7 +614,7 @@ private fun NotesSection(
             else -> {
                 notes.forEach { note ->
                     key(note.url) {
-                        NoteCard(note, onOpenExternal, noteContent)
+                        NoteCard(note, onClickNote, noteContent)
                     }
                 }
             }
@@ -623,11 +645,12 @@ private fun NoteListPlaceholder(content: @Composable () -> Unit) {
 @Composable
 private fun NoteCard(
     note: NoteUiState,
-    onOpenExternal: (String) -> Unit,
+    onClickNote: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
+        onClick = { onClickNote(note.id) },
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -644,10 +667,79 @@ private fun NoteCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            TextLink(
-                text = note.url,
-                onClick = { onOpenExternal(note.url) },
+            Text(
+                text = "投稿を開く",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
             )
+        }
+    }
+}
+
+@Composable
+private fun NoteDialog(
+    state: NoteDialogUiState,
+    listener: AccountScreenUiState.Listener,
+    onDismiss: () -> Unit,
+    onOpenExternal: (String) -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "投稿",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Outlined.Close, contentDescription = "閉じる")
+                    }
+                }
+
+                when (state) {
+                    NoteDialogUiState.Loading -> {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                    }
+
+                    NoteDialogUiState.NotFound -> {
+                        Text("投稿が見つかりません", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    is NoteDialogUiState.Error -> {
+                        Text(state.message, color = MaterialTheme.colorScheme.error)
+                        OutlinedButton(onClick = listener::onClickReloadNote) {
+                            Text("もう一度試す")
+                        }
+                    }
+
+                    is NoteDialogUiState.Loaded -> {
+                        noteContent(state.note.contentHtml, Modifier.fillMaxWidth())
+                        Text(
+                            text = state.note.publishedAt,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextLink(
+                            text = "ActivityPub の投稿を開く",
+                            onClick = { onOpenExternal(state.note.url) },
+                        )
+                    }
+                }
+            }
         }
     }
 }
