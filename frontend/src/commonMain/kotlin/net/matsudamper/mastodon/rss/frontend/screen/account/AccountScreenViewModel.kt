@@ -28,7 +28,11 @@ class AccountScreenViewModel(
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
 ) {
-    val events = EventSender<SnackbarReceiver>()
+    private val events = EventSender<SnackbarReceiver>()
+
+    internal suspend fun collectSnackbarEvents(receiver: SnackbarReceiver) {
+        events.asHandler().collect(receiver)
+    }
 
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
