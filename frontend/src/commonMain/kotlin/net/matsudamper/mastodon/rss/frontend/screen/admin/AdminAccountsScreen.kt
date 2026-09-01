@@ -51,11 +51,14 @@ internal fun AdminAccountsScreen(
             }
             when (val content = uiState.content) {
                 AdminAccountsScreenUiState.Content.Loading -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+
                 AdminAccountsScreenUiState.Content.RequireLogin -> RequireLoginCard(onClickAdmin)
+
                 is AdminAccountsScreenUiState.Content.Error -> SectionCard("一覧を出せない") {
                     Text(content.message, color = MaterialTheme.colorScheme.error)
                     OutlinedButton(onClick = uiState.listener::onClickReload) { Text("もう一度試す") }
                 }
+
                 is AdminAccountsScreenUiState.Content.Loaded -> Accounts(content.accounts, wide, onClickPublicAccount, onClickAdminAccount)
             }
         }

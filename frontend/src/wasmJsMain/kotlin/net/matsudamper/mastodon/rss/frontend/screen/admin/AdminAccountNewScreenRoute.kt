@@ -26,4 +26,3 @@ fun AdminAccountNewScreen(onNavigate: (Screen) -> Unit) {
         onClickHome = { onNavigate(Screen.Home) },
     )
 }
-

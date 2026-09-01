@@ -41,4 +41,3 @@ fun AdminScreen(onNavigate: (Screen) -> Unit) {
         },
     )
 }
-

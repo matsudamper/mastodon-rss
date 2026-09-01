@@ -42,7 +42,9 @@ internal fun AdminScreen(
                 AdminScreenUiState.Content.Loading -> SectionCard(title = "確認中") {
                     Text("状態を確かめている。")
                 }
+
                 is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, passwordField)
+
                 AdminScreenUiState.Content.LoggedIn -> {
                     MenuCard(onClickAccounts, onClickNewAccount)
                     SectionCard(title = "ログイン済み") {
@@ -53,6 +55,7 @@ internal fun AdminScreen(
                         TextLink("mastodon-rss", onClickRepository)
                     }
                 }
+
                 is AdminScreenUiState.Content.Error -> SectionCard(title = "状態が分からない") {
                     Text(content.message, color = MaterialTheme.colorScheme.error)
                     Text(

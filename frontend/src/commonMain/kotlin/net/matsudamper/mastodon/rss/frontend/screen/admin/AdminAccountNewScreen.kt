@@ -38,11 +38,15 @@ internal fun AdminAccountNewScreen(
             Text("アカウントの追加", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             when (val content = uiState.content) {
                 AdminAccountNewScreenUiState.Content.Loading -> SectionCard("確認中") { Text("状態を確かめている。") }
+
                 AdminAccountNewScreenUiState.Content.RequireLogin -> RequireLoginCard(onClickAdmin)
+
                 is AdminAccountNewScreenUiState.Content.Error -> SectionCard("状態が分からない") {
                     Text(content.message, color = MaterialTheme.colorScheme.error)
                 }
+
                 is AdminAccountNewScreenUiState.Content.Input -> InputCard(content, uiState.listener)
+
                 is AdminAccountNewScreenUiState.Content.Added -> AddedCard(content, uiState.listener, onClickAccounts)
             }
         }

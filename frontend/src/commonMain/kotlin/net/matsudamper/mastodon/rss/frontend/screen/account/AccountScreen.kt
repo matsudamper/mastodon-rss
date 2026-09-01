@@ -90,46 +90,46 @@ private fun AccountScreenContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         when (val content = uiState.content) {
-        AccountScreenUiState.Content.Loading -> {
-            SectionCard(title = "読み込み中") {
-                Text(
-                    text = "アカウントを取ってきている。",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-        }
-
-        AccountScreenUiState.Content.NotFound -> {
-            NotFoundContent(
-                requestedPath = "/@$username",
-                description = "ユーザーが存在しません",
-            )
-        }
-
-        is AccountScreenUiState.Content.Error -> {
-            SectionCard(title = "アカウントを出せない") {
-                Text(
-                    text = content.message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-
-                OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
-                    Text("もう一度試す")
+            AccountScreenUiState.Content.Loading -> {
+                SectionCard(title = "読み込み中") {
+                    Text(
+                        text = "アカウントを取ってきている。",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
-        }
 
-        is AccountScreenUiState.Content.Loaded -> {
-            AccountContent(
-                content = content,
-                wide = wide,
-                onClickOperator = onClickOperator,
-                onOpenExternal = onOpenExternal,
-                noteContent = noteContent,
-                listener = uiState.listener,
-            )
-        }
+            AccountScreenUiState.Content.NotFound -> {
+                NotFoundContent(
+                    requestedPath = "/@$username",
+                    description = "ユーザーが存在しません",
+                )
+            }
+
+            is AccountScreenUiState.Content.Error -> {
+                SectionCard(title = "アカウントを出せない") {
+                    Text(
+                        text = content.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+
+                    OutlinedButton(onClick = { uiState.listener.onClickReload() }) {
+                        Text("もう一度試す")
+                    }
+                }
+            }
+
+            is AccountScreenUiState.Content.Loaded -> {
+                AccountContent(
+                    content = content,
+                    wide = wide,
+                    onClickOperator = onClickOperator,
+                    onOpenExternal = onOpenExternal,
+                    noteContent = noteContent,
+                    listener = uiState.listener,
+                )
+            }
         }
     }
 }
