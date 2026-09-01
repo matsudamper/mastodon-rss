@@ -87,7 +87,9 @@ configure(subprojects.filter { it.path in detektTargetProjects }) {
     }
 
     tasks.withType<Detekt>().configureEach {
-        exclude("**/build/generated/**")
+        exclude { fileTreeElement ->
+            fileTreeElement.file.invariantSeparatorsPath.contains("/build/generated/")
+        }
     }
 }
 
