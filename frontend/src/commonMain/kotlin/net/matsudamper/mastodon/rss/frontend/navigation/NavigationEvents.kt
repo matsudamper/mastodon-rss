@@ -7,13 +7,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 
 @Composable
-internal fun rememberNavigationEvents(): EventSender<NavigatorReceiver> {
+internal fun rememberNavigationEvents(): EventSender<NavigationHandler> {
     return remember { EventSender() }
 }
 
 @Composable
 internal fun rememberScreenNavigator(
-    navigationEvents: EventSender<NavigatorReceiver>,
+    navigationEvents: EventSender<NavigationHandler>,
 ): ScreenNavigator {
     val viewModelScope = rememberCoroutineScope()
     return remember(navigationEvents, viewModelScope) {
@@ -23,10 +23,10 @@ internal fun rememberScreenNavigator(
 
 @Composable
 internal fun CollectNavigationEvents(
-    events: EventSender<NavigatorReceiver>,
-    receiver: NavigatorReceiver,
+    events: EventSender<NavigationHandler>,
+    handler: NavigationHandler,
 ) {
-    LaunchedEffect(events, receiver) {
-        events.asHandler().collect(receiver)
+    LaunchedEffect(events, handler) {
+        events.asHandler().collect(handler)
     }
 }

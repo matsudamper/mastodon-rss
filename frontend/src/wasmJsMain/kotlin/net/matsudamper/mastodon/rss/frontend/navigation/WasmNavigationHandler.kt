@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss.frontend.navigation
 
-internal class WasmNavigatorReceiver(
+internal class WasmNavigationHandler(
     private val navigator: Navigator,
-) : NavigatorReceiver {
+) : NavigationHandler {
     override fun navigate(screen: Screen) {
         navigator.navigateTo(screen)
     }

@@ -46,7 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
-import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
+import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberScreenNavigator
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
@@ -65,7 +65,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
 internal fun AccountScreen(
     username: String,
     platform: ScreenPlatform,
-    navigationEvents: EventSender<NavigatorReceiver>,
+    navigationEvents: EventSender<NavigationHandler>,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val snackbarEvents = LocalSnackbarEvents.current
