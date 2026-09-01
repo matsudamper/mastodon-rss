@@ -28,6 +28,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -135,7 +136,7 @@ internal fun AdminAccountContent(
                         content = content,
                         scrollState = scrollState,
                         attemptedAtItemCount = autoLoadAttemptedAtItemCount,
-                        onAttempted = { autoLoadAttemptedAtItemCount = it },
+                        onAttempt = { autoLoadAttemptedAtItemCount = it },
                         onLoadMore = uiState.listener::onClickLoadMore,
                     )
                     if (wide) {
@@ -188,13 +189,14 @@ private fun AutoLoadMoreNotes(
     content: AdminAccountScreenUiState.Content.Loaded,
     scrollState: androidx.compose.foundation.ScrollState,
     attemptedAtItemCount: Int?,
-    onAttempted: (Int?) -> Unit,
+    onAttempt: (Int?) -> Unit,
     onLoadMore: () -> Unit,
 ) {
     val loadMoreThreshold = with(LocalDensity.current) { 240.dp.roundToPx() }
+    val latestOnAttempt = rememberUpdatedState(onAttempt)
 
     LaunchedEffect(content.notesLoading) {
-        if (content.notesLoading) onAttempted(null)
+        if (content.notesLoading) latestOnAttempt.value(null)
     }
     LaunchedEffect(
         scrollState,
@@ -203,6 +205,7 @@ private fun AutoLoadMoreNotes(
         content.loadingMore,
         content.notesLoading,
         attemptedAtItemCount,
+        onLoadMore,
     ) {
         snapshotFlow { scrollState.value >= scrollState.maxValue - loadMoreThreshold }
             .collect { nearBottom ->
@@ -215,7 +218,7 @@ private fun AutoLoadMoreNotes(
                     !content.notesLoading &&
                     attemptedAtItemCount != itemCount
                 ) {
-                    onAttempted(itemCount)
+                    latestOnAttempt.value(itemCount)
                     onLoadMore()
                 }
             }

@@ -103,18 +103,18 @@ internal fun AccountScreen(
 
     AccountContent(
         uiState = uiState,
-        snackbarHostState = snackbarHostState,
         username = username,
         platform = platform,
+        snackbarHostState = snackbarHostState,
     )
 }
 
 @Composable
 internal fun AccountContent(
     uiState: AccountScreenUiState,
-    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
     username: String,
     platform: ScreenPlatform,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
 ) {
     PublicScaffold(
         listener = uiState.listener,
