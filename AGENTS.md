@@ -16,6 +16,9 @@
 - frontendはfrontendとsharedのコードしか知らない
 - backendはbackendとsharedのコードしか知らない
 
+## frontendのルール
+UIに表示に使用しない値をUiStateに渡さない。例、idやurlは表示に使用しない。
+
 ## コメント
 基本的にコードコメントは書かない、変数名、関数名からわからない、複雑な場合のみ特別に許可される。  
 mastodon, activity pubのコメントは詳細に記述する
