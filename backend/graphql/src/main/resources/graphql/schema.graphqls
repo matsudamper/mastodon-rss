@@ -12,6 +12,9 @@ type Query {
 
     "アカウントが配信した投稿。新しい順"
     notes(query: AccountNotesQuery!): AccountNotesConnection! @lazy
+
+    "アカウントが配信した投稿 1 件"
+    note(username: String!, id: PublicNoteId!): AccountNote
 }
 
 type Mutation {

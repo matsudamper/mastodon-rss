@@ -107,6 +107,14 @@ class NoteService(
         )
     }
 
+    fun note(
+        username: String,
+        publicId: PublicNoteId,
+    ): StoredNote? {
+        val urls = directory.resolve(username) ?: return null
+        return notes.find(MastodonPublicNoteId(publicId.value))?.takeIf { it.username == urls.username }
+    }
+
     /**
      * @param nextPosition 次のページを取るときに渡す位置。null なら最後のページ
      */

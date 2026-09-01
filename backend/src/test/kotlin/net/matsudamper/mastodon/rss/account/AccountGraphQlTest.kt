@@ -171,6 +171,51 @@ class AccountGraphQlTest {
         }
 
     @Test
+    fun `配信した投稿を公開 id で単体取得できる`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = TestServerEnv.USERNAME, createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+            val publishedAt = Instant.parse("2026-08-09T11:02:00Z")
+            repositories.notes.add(
+                NewNote(
+                    username = TestServerEnv.USERNAME,
+                    publicId = PublicNoteId("abc123"),
+                    contentHtml = "<p>本文</p>",
+                    publishedAt = publishedAt,
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val note = queryNote(TestServerEnv.USERNAME, "abc123").body().obj("data").obj("note")
+
+            assertEquals("abc123", note.string("id"))
+            assertEquals("<p>本文</p>", note.string("contentHtml"))
+            assertEquals(publishedAt.epochSecond, note.long("publishedAt"))
+        }
+
+    @Test
+    fun `別のアカウントの投稿は単体取得できない`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = TestServerEnv.USERNAME, createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+            repositories.accounts.add(username = "other", createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+            repositories.notes.add(
+                NewNote(
+                    username = TestServerEnv.USERNAME,
+                    publicId = PublicNoteId("abc123"),
+                    contentHtml = "<p>本文</p>",
+                    publishedAt = Instant.parse("2026-08-09T11:02:00Z"),
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val response = queryNote("other", "abc123").body()
+
+            assertEquals(JsonNull, response.obj("data").getValue("note"))
+            assertFalse(response.containsKey("errors"))
+        }
+
+    @Test
     fun `投稿は新しい順に返る`() =
         testApplication {
             val repositories = FakeRepositories()
@@ -250,6 +295,18 @@ class AccountGraphQlTest {
                 append(""""limit":${JsonPrimitive(limit)}""")
                 append("}")
             }
+
+            setBody("""{"query":${JsonPrimitive(query)},"variables":$variables}""")
+        }
+
+    private suspend fun ApplicationTestBuilder.queryNote(username: String, id: String): HttpResponse =
+        client.post(GRAPHQL_PATH) {
+            contentType(ContentType.Application.Json)
+
+            val query =
+                "query AccountNote(${'$'}username: String!, ${'$'}id: PublicNoteId!) { " +
+                    "note(username: ${'$'}username, id: ${'$'}id) { id url contentHtml publishedAt } }"
+            val variables = """{"username":${JsonPrimitive(username)},"id":${JsonPrimitive(id)}}"""
 
             setBody("""{"query":${JsonPrimitive(query)},"variables":$variables}""")
         }
