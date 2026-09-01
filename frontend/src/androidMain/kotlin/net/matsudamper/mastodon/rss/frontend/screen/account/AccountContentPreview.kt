@@ -21,9 +21,9 @@ private fun AccountContentPreview() {
                     ),
                     notes = listOf(
                         NoteUiState(
-                            url = "https://example.com/notes/1",
                             contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
                             publishedAt = "2026-09-02 12:00",
+                            listener = PreviewNoteListener,
                         ),
                     ),
                     notesError = null,
@@ -31,6 +31,7 @@ private fun AccountContentPreview() {
                     canLoadMore = true,
                     loadingMore = false,
                 ),
+                noteDialog = null,
                 listener = AndroidPreviewAccountListener,
             ),
             username = username,
@@ -38,8 +39,13 @@ private fun AccountContentPreview() {
             onClickHome = {},
             onClickAdmin = {},
             onClickOperator = {},
+            onDismissNote = {},
         )
     }
+}
+
+private object PreviewNoteListener : NoteUiState.Listener {
+    override fun onClick() = Unit
 }
 
 private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
@@ -50,4 +56,6 @@ private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
     override fun onClickLoadMore() = Unit
 
     override fun onClickCopyAcct() = Unit
+
+    override fun onClickReloadNote() = Unit
 }

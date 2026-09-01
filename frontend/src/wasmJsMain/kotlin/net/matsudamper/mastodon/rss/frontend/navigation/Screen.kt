@@ -79,9 +79,17 @@ sealed interface Screen : NavKey {
      */
     data class Account(
         val username: String,
+        val noteId: String? = null,
     ) : Screen {
-        override val path: String = "/$ACCOUNT_PREFIX$username"
-        override val title: String = "@$username | $SITE_NAME"
+        override val path: String = buildString {
+            append("/$ACCOUNT_PREFIX$username")
+            noteId?.let { append("/$it") }
+        }
+        override val title: String = if (noteId == null) {
+            "@$username | $SITE_NAME"
+        } else {
+            "@$username の投稿 | $SITE_NAME"
+        }
     }
 
     /**
@@ -155,8 +163,10 @@ sealed interface Screen : NavKey {
                 }
             }
 
-            if (segments.size == 1) {
-                accountNameOf(first)?.let { return Account(it) }
+            if (segments.size in 1..2) {
+                accountNameOf(first)?.let { username ->
+                    return Account(username = username, noteId = segments.getOrNull(1))
+                }
             }
 
             return NotFound(path)

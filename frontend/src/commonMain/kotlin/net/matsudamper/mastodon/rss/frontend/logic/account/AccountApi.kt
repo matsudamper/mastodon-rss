@@ -4,6 +4,7 @@ import kotlin.time.Instant
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Optional
+import net.matsudamper.mastodon.rss.frontend.graphql.AccountNoteQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.HomeScreenQuery
@@ -100,7 +101,20 @@ class AccountApi(
         )
     }
 
+    suspend fun note(username: String, id: String): AccountNoteResult {
+        val response = client.query(AccountNoteQuery(username = username, id = id)).execute()
+
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AccountNoteResult.Failure(response.failureMessage())
+        }
+
+        val data = response.data ?: return AccountNoteResult.Failure(response.failureMessage())
+        val note = data.note ?: return AccountNoteResult.NotFound
+        return AccountNoteResult.Success(note.accountNoteFields.toAccountNote())
+    }
+
     private fun AccountNoteFields.toAccountNote(): AccountNote = AccountNote(
+        id = id,
         url = url,
         contentHtml = contentHtml,
         publishedAt = Instant.fromEpochSeconds(publishedAt),
