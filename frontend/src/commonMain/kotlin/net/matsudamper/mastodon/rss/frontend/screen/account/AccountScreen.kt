@@ -79,14 +79,13 @@ internal fun AccountScreen(
     val uiState by viewModel.uiStateFlow.collectAsState()
 
     val snackbarHostState = rememberSnackbarHostState()
-    val eventReceiver =
-        remember(snackbarHostState) {
-            object : AccountScreenViewModel.Event {
-                override fun showSnackbar(message: String) {
-                    snackbarHostState.show(message)
-                }
+    val eventReceiver = remember(snackbarHostState) {
+        object : AccountScreenViewModel.Event {
+            override fun showSnackbar(message: String) {
+                snackbarHostState.show(message)
             }
         }
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()

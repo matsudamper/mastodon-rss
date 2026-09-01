@@ -27,10 +27,6 @@ class AccountScreenViewModel(
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
 ) {
-    interface Event {
-        fun showSnackbar(message: String)
-    }
-
     private val events = EventSender<Event>()
 
     internal suspend fun collectEvents(receiver: Event) {
@@ -252,6 +248,10 @@ class AccountScreenViewModel(
         val notesCursor: String? = null,
         val loadingMore: Boolean = false,
     )
+
+    interface Event {
+        fun showSnackbar(message: String)
+    }
 
     private companion object {
         const val PAGE_SIZE: Int = 20
