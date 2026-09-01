@@ -1,3 +1,4 @@
+import dev.detekt.gradle.Detekt
 import org.jlleitschuh.gradle.ktlint.KtlintExtension
 
 plugins {
@@ -8,6 +9,7 @@ plugins {
     alias(libs.plugins.compose) apply false
     alias(libs.plugins.graalvm.native) apply false
     alias(libs.plugins.ktlint) apply false
+    alias(libs.plugins.detekt) apply false
 }
 
 // version catalog のアクセサは allprojects の中からは引けないので、ここで取り出しておく
@@ -30,6 +32,45 @@ allprojects {
             exclude { element -> element.file.invariantSeparatorsPath.contains("/build/generated/") }
         }
     }
+}
+
+val detektTargetProjects =
+    setOf(
+        ":frontend",
+        ":frontend:common-component",
+    )
+
+configure(subprojects.filter { it.path in detektTargetProjects }) {
+    apply(plugin = "dev.detekt")
+
+    dependencies {
+        add("detektPlugins", rootProject.libs.compose.rules.detekt)
+    }
+
+    extensions.configure<dev.detekt.gradle.extensions.DetektExtension> {
+        toolVersion = rootProject.libs.versions.detekt.get()
+        config.setFrom(rootProject.files("detekt.yml"))
+        buildUponDefaultConfig = false
+        disableDefaultRuleSets = true
+        parallel = true
+        basePath = rootDir
+    }
+
+    tasks.withType<Detekt>().configureEach {
+        exclude("**/build/generated/**")
+    }
+}
+
+tasks.register("detektCheck") {
+    group = "verification"
+    description = "frontend の Compose ルールを detekt で検査する"
+    dependsOn(
+        detektTargetProjects.flatMap { projectPath ->
+            project(projectPath).tasks.matching { task ->
+                task.name.startsWith("detekt") && task.name.endsWith("MainSourceSet")
+            }
+        },
+    )
 }
 
 // CI が叩くのは root の ktlintCheck だけなので、別ビルドの build-logic を繋いでおく
