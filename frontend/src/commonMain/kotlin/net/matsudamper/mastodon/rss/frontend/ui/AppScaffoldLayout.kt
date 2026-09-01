@@ -23,7 +23,6 @@ internal fun AppScaffoldLayout(
     topBar: @Composable () -> Unit,
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
-
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
