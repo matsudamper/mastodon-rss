@@ -45,8 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
@@ -55,9 +54,10 @@ import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
-import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
+import net.matsudamper.mastodon.rss.frontend.ui.SnackbarReceiver
 import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
+import net.matsudamper.mastodon.rss.frontend.ui.CollectSnackbarEvents
 import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
 import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
@@ -86,7 +86,7 @@ internal fun AccountScreen(
 
     AccountContent(
         uiState = uiState,
-        messages = viewModel.messages,
+        events = viewModel.events,
         username = username,
         platform = platform,
         onClickHome = onClickHome,
@@ -98,7 +98,7 @@ internal fun AccountScreen(
 @Composable
 internal fun AccountContent(
     uiState: AccountScreenUiState,
-    messages: Flow<String> = emptyFlow(),
+    events: EventSender<SnackbarReceiver>? = null,
     username: String,
     platform: ScreenPlatform,
     onClickHome: () -> Unit,
@@ -106,14 +106,14 @@ internal fun AccountContent(
     onClickOperator: (String) -> Unit,
 ) {
     val snackbarHostState = rememberSnackbarHostState()
+    if (events != null) {
+        CollectSnackbarEvents(events = events, receiver = snackbarHostState)
+    }
     PublicScaffold(
         onClickHome = onClickHome,
         onClickAdmin = onClickAdmin,
         snackbarHostState = snackbarHostState,
     ) { wide ->
-        LaunchedEffect(messages, snackbarHostState) {
-            messages.collect(snackbarHostState::show)
-        }
 
         Column(
             modifier = Modifier

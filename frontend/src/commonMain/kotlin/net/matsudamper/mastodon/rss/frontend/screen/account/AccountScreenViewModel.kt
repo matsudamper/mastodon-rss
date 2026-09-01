@@ -8,14 +8,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
+import net.matsudamper.mastodon.rss.frontend.ui.SnackbarReceiver
 
 /**
  * @param username URL に入っていた名前。綴りが違っていても引けるので、
@@ -29,8 +28,8 @@ class AccountScreenViewModel(
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
 ) {
-    private val messageEvents = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    val messages: SharedFlow<String> = messageEvents.asSharedFlow()
+    val events = EventSender<SnackbarReceiver>()
+
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     private var loadingJob: Job? = null
@@ -199,7 +198,9 @@ class AccountScreenViewModel(
             }
         copyToClipboard(acct) { copied ->
             if (copied) {
-                messageEvents.tryEmit("コピーしました")
+                viewModelScope.launch {
+                    events.send { it.show("コピーしました") }
+                }
             }
         }
     }
