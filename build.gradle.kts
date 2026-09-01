@@ -1,7 +1,7 @@
+import javax.xml.parsers.DocumentBuilderFactory
 import dev.detekt.gradle.Detekt
 import org.jlleitschuh.gradle.ktlint.KtlintExtension
 import org.w3c.dom.Element
-import javax.xml.parsers.DocumentBuilderFactory
 
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
