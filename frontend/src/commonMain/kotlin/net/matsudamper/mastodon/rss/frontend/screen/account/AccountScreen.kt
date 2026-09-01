@@ -94,8 +94,6 @@ internal fun AccountContent(
     username: String,
     platform: ScreenPlatform,
 ) {
-    val navigation = rememberNavigation()
-
     PublicScaffold { wide ->
         Column(
             modifier = Modifier
