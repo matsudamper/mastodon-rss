@@ -32,6 +32,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -39,7 +42,9 @@ import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
-internal fun HomeScreen() {
+internal fun HomeScreen(
+    navigationEvents: EventSender<NavigatorReceiver>,
+) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) { HomeScreenViewModel(viewModelScope) }
     val uiState by viewModel.uiStateFlow.collectAsState()
@@ -48,14 +53,18 @@ internal fun HomeScreen() {
         viewModel.onStart()
     }
 
-    HomeContent(uiState = uiState)
+    HomeContent(
+        uiState = uiState,
+        navigationEvents = navigationEvents,
+    )
 }
 
 @Composable
 internal fun HomeContent(
     uiState: HomeScreenUiState,
+    navigationEvents: EventSender<NavigatorReceiver>,
 ) {
-    PublicScaffold { wide ->
+    PublicScaffold(navigationEvents = navigationEvents) { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
@@ -92,6 +101,7 @@ internal fun HomeContent(
                     content = content,
                     listener = uiState.listener,
                     wide = wide,
+                    navigationEvents = navigationEvents,
                 )
             }
         }
@@ -103,8 +113,9 @@ private fun LoadedContent(
     content: HomeScreenUiState.Content.Loaded,
     listener: HomeScreenUiState.Listener,
     wide: Boolean,
+    navigationEvents: EventSender<NavigatorReceiver>,
 ) {
-    val navigation = rememberNavigation()
+    val navigation = rememberNavigation(navigationEvents)
 
     if (content.accounts.isEmpty()) {
         SectionCard(title = "アカウント") {
@@ -130,7 +141,7 @@ private fun LoadedContent(
                 rowAccounts.forEach { account ->
                     AccountCard(
                         account = account,
-                        onClick = { navigation.navigate { navigateToAccount(account.username) } },
+                        onClick = { navigation.navigate(Screen.Account(account.username)) },
                         modifier = Modifier.weight(1f),
                     )
                 }

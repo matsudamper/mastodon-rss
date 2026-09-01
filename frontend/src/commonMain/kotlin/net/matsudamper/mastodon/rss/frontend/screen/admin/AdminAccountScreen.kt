@@ -38,6 +38,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collect
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
@@ -46,6 +49,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 internal fun AdminAccountScreen(
     username: String,
     platform: ScreenPlatform,
+    navigationEvents: EventSender<NavigatorReceiver>,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(username, viewModelScope) {
@@ -61,6 +65,7 @@ internal fun AdminAccountScreen(
         uiState = uiState,
         username = username,
         platform = platform,
+        navigationEvents = navigationEvents,
     )
 }
 
@@ -69,14 +74,16 @@ internal fun AdminAccountContent(
     uiState: AdminAccountScreenUiState,
     username: String,
     platform: ScreenPlatform,
+    navigationEvents: EventSender<NavigatorReceiver>,
 ) {
-    val navigation = rememberNavigation()
+    val navigation = rememberNavigation(navigationEvents)
     var showPostDialog by remember(username) { mutableStateOf(false) }
     var autoLoadAttemptedAtItemCount by remember(username) { mutableStateOf<Int?>(null) }
     val scrollState = rememberScrollState()
 
     AdminScaffold(
         title = "@$username の管理",
+        navigationEvents = navigationEvents,
     ) { wide ->
         Column(
             modifier = Modifier
@@ -107,12 +114,12 @@ internal fun AdminAccountContent(
                     Text("アカウントを取ってきている。", style = MaterialTheme.typography.bodyMedium)
                 }
 
-                AdminAccountScreenUiState.Content.RequireLogin -> AdminRequireLoginCard()
+                AdminAccountScreenUiState.Content.RequireLogin -> AdminRequireLoginCard(navigationEvents = navigationEvents)
 
                 AdminAccountScreenUiState.Content.NotFound -> AdminSectionCard(title = "このアカウントは無い") {
                     Text("この名前では Mastodon からも見つからない。", style = MaterialTheme.typography.bodyMedium)
                     AdminTextLink(text = "アカウントの一覧に戻る") {
-                        navigation.navigate { navigateToAdmin() }
+                        navigation.navigate(Screen.Admin)
                     }
                 }
 
@@ -147,7 +154,7 @@ internal fun AdminAccountContent(
                             ) {
                                 AccountCard(
                                     account = content.account,
-                                    onClickOpenAccount = { navigation.navigate { navigateToAccount(username) } },
+                                    onClickOpenAccount = { navigation.navigate(Screen.Account(username)) },
                                 )
                                 FeedCard(content.feed, uiState.listener)
                             }
@@ -155,7 +162,7 @@ internal fun AdminAccountContent(
                     } else {
                         AccountCard(
                             account = content.account,
-                            onClickOpenAccount = { navigation.navigate { navigateToAccount(username) } },
+                            onClickOpenAccount = { navigation.navigate(Screen.Account(username)) },
                         )
                         FeedCard(content.feed, uiState.listener)
                         NotesSection(content, uiState.listener, platform::NoteContent)
@@ -247,13 +254,15 @@ private fun AdminTextLink(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun AdminRequireLoginCard() {
-    val navigation = rememberNavigation()
+private fun AdminRequireLoginCard(
+    navigationEvents: EventSender<NavigatorReceiver>,
+) {
+    val navigation = rememberNavigation(navigationEvents)
 
     AdminSectionCard(title = "ログインが要る") {
         Text("管理画面のトップでログインしてから開く。", style = MaterialTheme.typography.bodyMedium)
         AdminTextLink(text = "管理画面のトップへ") {
-            navigation.navigate { navigateToAdmin() }
+            navigation.navigate(Screen.Admin)
         }
     }
 }

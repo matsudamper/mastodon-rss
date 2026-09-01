@@ -31,6 +31,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
@@ -38,7 +41,9 @@ import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
-internal fun AdminAccountsScreen() {
+internal fun AdminAccountsScreen(
+    navigationEvents: EventSender<NavigatorReceiver>,
+) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) { AdminAccountsScreenViewModel(viewModelScope) }
     val uiState by viewModel.uiStateFlow.collectAsState()
@@ -47,28 +52,32 @@ internal fun AdminAccountsScreen() {
         viewModel.onStart()
     }
 
-    AdminAccountsContent(uiState = uiState)
+    AdminAccountsContent(
+        uiState = uiState,
+        navigationEvents = navigationEvents,
+    )
 }
 
 @Composable
 internal fun AdminAccountsContent(
     uiState: AdminAccountsScreenUiState,
+    navigationEvents: EventSender<NavigatorReceiver>,
 ) {
-    val navigation = rememberNavigation()
+    val navigation = rememberNavigation(navigationEvents)
 
-    AdminScaffold("アカウント") { wide ->
+    AdminScaffold("アカウント", navigationEvents = navigationEvents) { wide ->
         Column(
             modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(if (wide) 24.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("アカウント一覧", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                OutlinedButton(onClick = { navigation.navigate { navigateToAdminAccountNew() } }) { Text("追加") }
+                OutlinedButton(onClick = { navigation.navigate(Screen.AdminAccountNew) }) { Text("追加") }
             }
             when (val content = uiState.content) {
                 AdminAccountsScreenUiState.Content.Loading -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 
-                AdminAccountsScreenUiState.Content.RequireLogin -> RequireLoginCard()
+                AdminAccountsScreenUiState.Content.RequireLogin -> RequireLoginCard(navigationEvents = navigationEvents)
 
                 is AdminAccountsScreenUiState.Content.Error -> SectionCard("一覧を出せない") {
                     Text(content.message, color = MaterialTheme.colorScheme.error)
@@ -78,6 +87,7 @@ internal fun AdminAccountsContent(
                 is AdminAccountsScreenUiState.Content.Loaded -> Accounts(
                     accounts = content.accounts,
                     wide = wide,
+                    navigationEvents = navigationEvents,
                 )
             }
         }
@@ -88,8 +98,9 @@ internal fun AdminAccountsContent(
 private fun Accounts(
     accounts: List<AdminAccountsScreenUiState.Account>,
     wide: Boolean,
+    navigationEvents: EventSender<NavigatorReceiver>,
 ) {
-    val navigation = rememberNavigation()
+    val navigation = rememberNavigation(navigationEvents)
 
     if (accounts.isEmpty()) {
         SectionCard("アカウント") { Text("まだアカウントはありません。下のリンクから追加できます。") }
@@ -102,8 +113,8 @@ private fun Accounts(
                 row.forEach { account ->
                     AccountCard(
                         account = account,
-                        onPublic = { navigation.navigate { navigateToAccount(account.username) } },
-                        onAdmin = { navigation.navigate { navigateToAdminAccount(account.username) } },
+                        onPublic = { navigation.navigate(Screen.Account(account.username)) },
+                        onAdmin = { navigation.navigate(Screen.AdminAccount(account.username)) },
                         modifier = Modifier.weight(1f),
                     )
                 }

@@ -4,61 +4,61 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.MultiSizePreview
-import net.matsudamper.mastodon.rss.frontend.screen.PreviewNavigation
+import net.matsudamper.mastodon.rss.frontend.screen.rememberPreviewNavigationEvents
 
 @MultiSizePreview
 @Composable
 private fun AdminAccountContentPreview() {
     val username = "kotlin"
+    val navigationEvents = rememberPreviewNavigationEvents()
     MaterialTheme {
-        PreviewNavigation {
-            AdminAccountContent(
-                uiState = AdminAccountScreenUiState(
-                    acct = "@$username@example.com",
-                    content = AdminAccountScreenUiState.Content.Loaded(
-                        account = AdminAccountScreenUiState.Account(
-                            username = username,
-                            acct = "@$username@example.com",
-                            actorUrl = "https://example.com/users/$username",
-                            createdAt = "2026-09-01 10:00",
-                            followerCount = 128,
-                        ),
-                        feed = AdminAccountScreenUiState.Feed.Registered(
-                            url = "https://example.com/feed.xml",
-                            title = "Kotlin Updates",
-                            format = "Atom 1.0",
-                            unpublishedItems = emptyList(),
-                            postedItems = null,
-                            postingUnpublished = false,
-                            unpublishedError = null,
-                        ),
-                        post = AdminAccountScreenUiState.Post(
-                            body = "新しい記事を公開しました。",
-                            submitting = false,
-                            result = null,
-                            error = null,
-                        ),
-                        notes = listOf(
-                            AdminAccountScreenUiState.Note(
-                                url = "https://example.com/notes/1",
-                                contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
-                                publishedAt = "2026-09-02 12:00",
-                                sourceArticle = null,
-                                listener = AndroidPreviewNoteListener,
-                            ),
-                        ),
-                        deleteNoteDialog = null,
-                        notesError = null,
-                        notesLoading = false,
-                        canLoadMore = true,
-                        loadingMore = false,
+        AdminAccountContent(
+            uiState = AdminAccountScreenUiState(
+                acct = "@$username@example.com",
+                content = AdminAccountScreenUiState.Content.Loaded(
+                    account = AdminAccountScreenUiState.Account(
+                        username = username,
+                        acct = "@$username@example.com",
+                        actorUrl = "https://example.com/users/$username",
+                        createdAt = "2026-09-01 10:00",
+                        followerCount = 128,
                     ),
-                    listener = AndroidPreviewAdminAccountListener,
+                    feed = AdminAccountScreenUiState.Feed.Registered(
+                        url = "https://example.com/feed.xml",
+                        title = "Kotlin Updates",
+                        format = "Atom 1.0",
+                        unpublishedItems = emptyList(),
+                        postedItems = null,
+                        postingUnpublished = false,
+                        unpublishedError = null,
+                    ),
+                    post = AdminAccountScreenUiState.Post(
+                        body = "新しい記事を公開しました。",
+                        submitting = false,
+                        result = null,
+                        error = null,
+                    ),
+                    notes = listOf(
+                        AdminAccountScreenUiState.Note(
+                            url = "https://example.com/notes/1",
+                            contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
+                            publishedAt = "2026-09-02 12:00",
+                            sourceArticle = null,
+                            listener = AndroidPreviewNoteListener,
+                        ),
+                    ),
+                    deleteNoteDialog = null,
+                    notesError = null,
+                    notesLoading = false,
+                    canLoadMore = true,
+                    loadingMore = false,
                 ),
-                username = username,
-                platform = AndroidPreviewScreenPlatform,
-            )
-        }
+                listener = AndroidPreviewAdminAccountListener,
+            ),
+            username = username,
+            platform = AndroidPreviewScreenPlatform,
+            navigationEvents = navigationEvents,
+        )
     }
 }
 

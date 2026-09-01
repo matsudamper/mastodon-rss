@@ -15,14 +15,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 
 @Composable
 internal fun NotFoundScreen(
     requestedPath: String,
+    navigationEvents: EventSender<NavigatorReceiver>,
 ) {
-    PublicScaffold { wide ->
+    PublicScaffold(navigationEvents = navigationEvents) { wide ->
         NotFoundContent(
             requestedPath = requestedPath,
             modifier = Modifier
