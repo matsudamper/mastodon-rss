@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.navigation.CollectScreenNavigationEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -35,10 +36,15 @@ internal fun AdminAccountNewScreen(
     navigationEvents: EventSender<NavigationHandler>,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope, navigationEvents) {
-        AdminAccountNewScreenViewModel(viewModelScope, navigationEvents)
+    val viewModel = remember(viewModelScope) {
+        AdminAccountNewScreenViewModel(viewModelScope)
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
+
+    CollectScreenNavigationEvents(
+        screenHandler = viewModel.navigationHandler,
+        appEvents = navigationEvents,
+    )
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()

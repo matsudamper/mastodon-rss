@@ -27,10 +27,11 @@ class AccountScreenViewModel(
     private val username: String,
     private val host: String,
     private val viewModelScope: CoroutineScope,
-    navigationEvents: EventSender<NavigationHandler>,
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
 ) {
+    private val navigationEvents = EventSender<NavigationHandler>()
+    internal val navigationHandler = navigationEvents.asHandler()
     private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
     private val events = EventSender<Event>()
 

@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.navigation.CollectScreenNavigationEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
@@ -35,10 +36,15 @@ internal fun AdminScreen(
     navigationEvents: EventSender<NavigationHandler>,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope, navigationEvents) {
-        AdminScreenViewModel(viewModelScope, navigationEvents)
+    val viewModel = remember(viewModelScope) {
+        AdminScreenViewModel(viewModelScope)
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
+
+    CollectScreenNavigationEvents(
+        screenHandler = viewModel.navigationHandler,
+        appEvents = navigationEvents,
+    )
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()

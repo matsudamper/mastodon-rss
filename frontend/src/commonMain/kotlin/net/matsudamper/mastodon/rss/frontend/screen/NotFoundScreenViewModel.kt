@@ -12,8 +12,9 @@ import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffoldListener
 
 class NotFoundScreenViewModel(
     viewModelScope: CoroutineScope,
-    navigationEvents: EventSender<NavigationHandler>,
 ) {
+    private val navigationEvents = EventSender<NavigationHandler>()
+    internal val navigationHandler = navigationEvents.asHandler()
     private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
 
     val uiStateFlow: StateFlow<NotFoundScreenUiState> =

@@ -15,9 +15,10 @@ import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 
 class HomeScreenViewModel(
     private val viewModelScope: CoroutineScope,
-    navigationEvents: EventSender<NavigationHandler>,
     private val api: AccountApi = AccountApi(),
 ) {
+    private val navigationEvents = EventSender<NavigationHandler>()
+    internal val navigationHandler = navigationEvents.asHandler()
     private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 

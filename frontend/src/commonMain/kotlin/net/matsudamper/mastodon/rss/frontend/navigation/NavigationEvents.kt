@@ -3,6 +3,8 @@ package net.matsudamper.mastodon.rss.frontend.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventHandler
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 
 @Composable
@@ -17,5 +19,21 @@ internal fun CollectNavigationEvents(
 ) {
     LaunchedEffect(events, handler) {
         events.asHandler().collect(handler)
+    }
+}
+
+@Composable
+internal fun CollectScreenNavigationEvents(
+    screenHandler: EventHandler<NavigationHandler>,
+    appEvents: EventSender<NavigationHandler>,
+) {
+    LaunchedEffect(screenHandler, appEvents) {
+        screenHandler.collect(
+            NavigationHandler { screen ->
+                launch {
+                    appEvents.send { it.navigate(screen) }
+                }
+            },
+        )
     }
 }

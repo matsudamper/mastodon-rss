@@ -17,9 +17,10 @@ import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 
 class AdminAccountsScreenViewModel(
     private val viewModelScope: CoroutineScope,
-    navigationEvents: EventSender<NavigationHandler>,
     private val api: AdminApi = AdminApi(),
 ) {
+    private val navigationEvents = EventSender<NavigationHandler>()
+    internal val navigationHandler = navigationEvents.asHandler()
     private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
