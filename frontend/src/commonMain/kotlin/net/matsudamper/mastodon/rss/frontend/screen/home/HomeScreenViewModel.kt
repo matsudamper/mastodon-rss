@@ -6,19 +6,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
-import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 
 class HomeScreenViewModel(
     private val viewModelScope: CoroutineScope,
-    navigationEvents: EventSender<NavigatorReceiver>,
+    private val navigator: ScreenNavigator,
     private val api: AccountApi = AccountApi(),
 ) {
-    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     val uiStateFlow: StateFlow<HomeScreenUiState> =

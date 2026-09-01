@@ -6,20 +6,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminLoginResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
-import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 
 internal class AdminScreenViewModel(
     private val viewModelScope: CoroutineScope,
-    navigationEvents: EventSender<NavigatorReceiver>,
+    private val navigator: ScreenNavigator,
     private val api: AdminApi = AdminApi(),
 ) {
-    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     val uiStateFlow: StateFlow<AdminScreenUiState> =

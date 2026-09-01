@@ -1,20 +1,15 @@
 package net.matsudamper.mastodon.rss.frontend.screen
 
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
-import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffoldListener
 
 class NotFoundScreenViewModel(
-    viewModelScope: CoroutineScope,
-    navigationEvents: EventSender<NavigatorReceiver>,
+    private val navigator: ScreenNavigator,
 ) {
-    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
 
     val uiStateFlow: StateFlow<NotFoundScreenUiState> =
         MutableStateFlow(

@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.navigation.NavigatorReceiver
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberScreenNavigator
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -43,8 +44,9 @@ internal fun AdminAccountsScreen(
     navigationEvents: EventSender<NavigatorReceiver>,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope, navigationEvents) {
-        AdminAccountsScreenViewModel(viewModelScope, navigationEvents)
+    val navigator = rememberScreenNavigator(navigationEvents)
+    val viewModel = remember(viewModelScope, navigator) {
+        AdminAccountsScreenViewModel(viewModelScope, navigator)
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
