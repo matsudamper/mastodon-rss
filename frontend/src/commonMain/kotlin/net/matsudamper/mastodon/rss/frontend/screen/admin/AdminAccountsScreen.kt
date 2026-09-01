@@ -31,19 +31,14 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
-internal fun AdminAccountsScreen(
-    onClickNewAccount: () -> Unit,
-    onClickPublicAccount: (String) -> Unit,
-    onClickAdminAccount: (String) -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
-) {
+internal fun AdminAccountsScreen() {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) { AdminAccountsScreenViewModel(viewModelScope) }
     val uiState by viewModel.uiStateFlow.collectAsState()
@@ -52,45 +47,38 @@ internal fun AdminAccountsScreen(
         viewModel.onStart()
     }
 
-    AdminAccountsContent(
-        uiState = uiState,
-        onClickNewAccount = onClickNewAccount,
-        onClickPublicAccount = onClickPublicAccount,
-        onClickAdminAccount = onClickAdminAccount,
-        onClickAdmin = onClickAdmin,
-        onClickHome = onClickHome,
-    )
+    AdminAccountsContent(uiState = uiState)
 }
 
 @Composable
 internal fun AdminAccountsContent(
     uiState: AdminAccountsScreenUiState,
-    onClickNewAccount: () -> Unit,
-    onClickPublicAccount: (String) -> Unit,
-    onClickAdminAccount: (String) -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
 ) {
-    AdminScaffold("アカウント", onClickAdmin, onClickHome) { wide ->
+    val navigation = rememberNavigation()
+
+    AdminScaffold("アカウント") { wide ->
         Column(
             modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(if (wide) 24.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("アカウント一覧", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                OutlinedButton(onClick = onClickNewAccount) { Text("追加") }
+                OutlinedButton(onClick = { navigation.navigate { navigateToAdminAccountNew() } }) { Text("追加") }
             }
             when (val content = uiState.content) {
                 AdminAccountsScreenUiState.Content.Loading -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 
-                AdminAccountsScreenUiState.Content.RequireLogin -> RequireLoginCard(onClickAdmin)
+                AdminAccountsScreenUiState.Content.RequireLogin -> RequireLoginCard()
 
                 is AdminAccountsScreenUiState.Content.Error -> SectionCard("一覧を出せない") {
                     Text(content.message, color = MaterialTheme.colorScheme.error)
                     OutlinedButton(onClick = uiState.listener::onClickReload) { Text("もう一度試す") }
                 }
 
-                is AdminAccountsScreenUiState.Content.Loaded -> Accounts(content.accounts, wide, onClickPublicAccount, onClickAdminAccount)
+                is AdminAccountsScreenUiState.Content.Loaded -> Accounts(
+                    accounts = content.accounts,
+                    wide = wide,
+                )
             }
         }
     }
@@ -100,9 +88,9 @@ internal fun AdminAccountsContent(
 private fun Accounts(
     accounts: List<AdminAccountsScreenUiState.Account>,
     wide: Boolean,
-    onClickPublicAccount: (String) -> Unit,
-    onClickAdminAccount: (String) -> Unit,
 ) {
+    val navigation = rememberNavigation()
+
     if (accounts.isEmpty()) {
         SectionCard("アカウント") { Text("まだアカウントはありません。下のリンクから追加できます。") }
         return
@@ -112,7 +100,12 @@ private fun Accounts(
         accounts.chunked(columns).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 row.forEach { account ->
-                    AccountCard(account, { onClickPublicAccount(account.username) }, { onClickAdminAccount(account.username) }, Modifier.weight(1f))
+                    AccountCard(
+                        account = account,
+                        onPublic = { navigation.navigate { navigateToAccount(account.username) } },
+                        onAdmin = { navigation.navigate { navigateToAdminAccount(account.username) } },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
                 repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
             }

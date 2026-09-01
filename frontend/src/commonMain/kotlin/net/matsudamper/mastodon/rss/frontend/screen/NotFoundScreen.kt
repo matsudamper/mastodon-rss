@@ -21,13 +21,8 @@ import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 @Composable
 internal fun NotFoundScreen(
     requestedPath: String,
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
 ) {
-    PublicScaffold(
-        onClickHome = onClickHome,
-        onClickAdmin = onClickAdmin,
-    ) { wide ->
+    PublicScaffold { wide ->
         NotFoundContent(
             requestedPath = requestedPath,
             modifier = Modifier

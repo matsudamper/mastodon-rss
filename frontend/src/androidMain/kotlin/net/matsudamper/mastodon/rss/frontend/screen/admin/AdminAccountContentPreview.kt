@@ -5,12 +5,15 @@ import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.MultiSizePreview
 
+import net.matsudamper.mastodon.rss.frontend.screen.PreviewNavigation
+
 @MultiSizePreview
 @Composable
 private fun AdminAccountContentPreview() {
     val username = "kotlin"
     MaterialTheme {
-        AdminAccountContent(
+        PreviewNavigation {
+            AdminAccountContent(
             uiState = AdminAccountScreenUiState(
                 acct = "@$username@example.com",
                 content = AdminAccountScreenUiState.Content.Loaded(
@@ -55,11 +58,8 @@ private fun AdminAccountContentPreview() {
             ),
             username = username,
             platform = AndroidPreviewScreenPlatform,
-            onClickOpenAccount = {},
-            onClickLogin = {},
-            onClickAdmin = {},
-            onClickHome = {},
-        )
+            )
+        }
     }
 }
 

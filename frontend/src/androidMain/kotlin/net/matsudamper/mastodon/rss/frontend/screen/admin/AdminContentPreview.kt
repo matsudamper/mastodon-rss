@@ -4,22 +4,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.MultiSizePreview
+import net.matsudamper.mastodon.rss.frontend.screen.PreviewNavigation
 
 @MultiSizePreview
 @Composable
 private fun AdminContentPreview() {
     MaterialTheme {
-        AdminContent(
-            uiState = AdminScreenUiState(
-                content = AdminScreenUiState.Content.LoggedIn,
-                listener = AndroidPreviewAdminListener,
-            ),
-            platform = AndroidPreviewScreenPlatform,
-            onClickAccounts = {},
-            onClickNewAccount = {},
-            onClickAdmin = {},
-            onClickHome = {},
-        )
+        PreviewNavigation {
+            AdminContent(
+                uiState = AdminScreenUiState(
+                    content = AdminScreenUiState.Content.LoggedIn,
+                    listener = AndroidPreviewAdminListener,
+                ),
+                platform = AndroidPreviewScreenPlatform,
+            )
+        }
     }
 }
 

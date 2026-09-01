@@ -14,43 +14,35 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 
 @Composable
 internal fun PublicScaffold(
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
     AppScaffoldLayout(
-        topBar = {
-            PublicTopAppBar(
-                onClickHome = onClickHome,
-                onClickAdmin = onClickAdmin,
-            )
-        },
+        topBar = { PublicTopAppBar() },
         content = content,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PublicTopAppBar(
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
-) {
+private fun PublicTopAppBar() {
+    val navigation = rememberNavigation()
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
             TopAppBar(
                 title = {
                     Text(
                         text = "mastodon-rss",
-                        modifier = Modifier.clickable(onClick = onClickHome),
+                        modifier = Modifier.clickable(onClick = { navigation.navigate { navigateToHome() } }),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 actions = {
-                    TextButton(onClick = onClickAdmin) {
+                    TextButton(onClick = { navigation.navigate { navigateToAdmin() } }) {
                         Text("管理画面")
                     }
                 },

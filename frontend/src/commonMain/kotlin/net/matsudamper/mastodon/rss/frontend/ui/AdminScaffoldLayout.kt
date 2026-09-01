@@ -14,6 +14,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 
 /**
  * 管理画面用の枠。タイトル末尾に「管理画面」を付けた TopAppBar を出す。
@@ -21,18 +22,10 @@ import androidx.compose.ui.text.font.FontWeight
 @Composable
 internal fun AdminScaffold(
     title: String?,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
     AppScaffoldLayout(
-        topBar = {
-            AdminTopAppBar(
-                title = title,
-                onClickAdmin = onClickAdmin,
-                onClickHome = onClickHome,
-            )
-        },
+        topBar = { AdminTopAppBar(title = title) },
         content = content,
     )
 }
@@ -41,22 +34,21 @@ internal fun AdminScaffold(
 @Composable
 private fun AdminTopAppBar(
     title: String?,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
 ) {
+    val navigation = rememberNavigation()
     Surface(color = MaterialTheme.colorScheme.primaryContainer) {
         Column {
             TopAppBar(
                 title = {
                     Text(
                         text = "管理画面".plus(if (title != null) "/$title" else ""),
-                        modifier = Modifier.clickable(onClick = onClickAdmin),
+                        modifier = Modifier.clickable(onClick = { navigation.navigate { navigateToAdmin() } }),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 actions = {
-                    TextButton(onClick = onClickHome) {
+                    TextButton(onClick = { navigation.navigate { navigateToHome() } }) {
                         Text("トップ")
                     }
                 },

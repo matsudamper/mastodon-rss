@@ -4,41 +4,41 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.MultiSizePreview
+import net.matsudamper.mastodon.rss.frontend.screen.PreviewNavigation
 
 @MultiSizePreview
 @Composable
 private fun AccountContentPreview() {
     val username = "kotlin"
     MaterialTheme {
-        AccountContent(
-            uiState = AccountScreenUiState(
-                content = AccountScreenUiState.Content.Loaded(
-                    account = AccountUiState.placeholder(
-                        username = username,
-                        acct = "@$username@example.com",
-                        actorUrl = "https://example.com/users/$username",
-                        host = AndroidPreviewScreenPlatform.host,
-                    ),
-                    notes = listOf(
-                        NoteUiState(
-                            url = "https://example.com/notes/1",
-                            contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
-                            publishedAt = "2026-09-02 12:00",
+        PreviewNavigation {
+            AccountContent(
+                uiState = AccountScreenUiState(
+                    content = AccountScreenUiState.Content.Loaded(
+                        account = AccountUiState.placeholder(
+                            username = username,
+                            acct = "@$username@example.com",
+                            actorUrl = "https://example.com/users/$username",
+                            host = AndroidPreviewScreenPlatform.host,
                         ),
+                        notes = listOf(
+                            NoteUiState(
+                                url = "https://example.com/notes/1",
+                                contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
+                                publishedAt = "2026-09-02 12:00",
+                            ),
+                        ),
+                        notesError = null,
+                        notesLoading = false,
+                        canLoadMore = true,
+                        loadingMore = false,
                     ),
-                    notesError = null,
-                    notesLoading = false,
-                    canLoadMore = true,
-                    loadingMore = false,
+                    listener = AndroidPreviewAccountListener,
                 ),
-                listener = AndroidPreviewAccountListener,
-            ),
-            username = username,
-            platform = AndroidPreviewScreenPlatform,
-            onClickHome = {},
-            onClickAdmin = {},
-            onClickOperator = {},
-        )
+                username = username,
+                platform = AndroidPreviewScreenPlatform,
+            )
+        }
     }
 }
 

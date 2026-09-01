@@ -23,17 +23,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
 @Composable
-internal fun AdminAccountNewScreen(
-    onClickAccounts: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
-) {
+internal fun AdminAccountNewScreen() {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) { AdminAccountNewScreenViewModel(viewModelScope) }
     val uiState by viewModel.uiStateFlow.collectAsState()
@@ -42,22 +39,16 @@ internal fun AdminAccountNewScreen(
         viewModel.onStart()
     }
 
-    AdminAccountNewContent(
-        uiState = uiState,
-        onClickAccounts = onClickAccounts,
-        onClickAdmin = onClickAdmin,
-        onClickHome = onClickHome,
-    )
+    AdminAccountNewContent(uiState = uiState)
 }
 
 @Composable
 internal fun AdminAccountNewContent(
     uiState: AdminAccountNewScreenUiState,
-    onClickAccounts: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
 ) {
-    AdminScaffold("アカウントの追加", onClickAdmin, onClickHome) { wide ->
+    val navigation = rememberNavigation()
+
+    AdminScaffold("アカウントの追加") { wide ->
         Column(
             Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(if (wide) 24.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -66,7 +57,7 @@ internal fun AdminAccountNewContent(
             when (val content = uiState.content) {
                 AdminAccountNewScreenUiState.Content.Loading -> SectionCard("確認中") { Text("状態を確かめている。") }
 
-                AdminAccountNewScreenUiState.Content.RequireLogin -> RequireLoginCard(onClickAdmin)
+                AdminAccountNewScreenUiState.Content.RequireLogin -> RequireLoginCard()
 
                 is AdminAccountNewScreenUiState.Content.Error -> SectionCard("状態が分からない") {
                     Text(content.message, color = MaterialTheme.colorScheme.error)
@@ -74,7 +65,11 @@ internal fun AdminAccountNewContent(
 
                 is AdminAccountNewScreenUiState.Content.Input -> InputCard(content, uiState.listener)
 
-                is AdminAccountNewScreenUiState.Content.Added -> AddedCard(content, uiState.listener, onClickAccounts)
+                is AdminAccountNewScreenUiState.Content.Added -> AddedCard(
+                    content = content,
+                    listener = uiState.listener,
+                    onClickAccounts = { navigation.navigate { navigateToAdminAccounts() } },
+                )
             }
         }
     }

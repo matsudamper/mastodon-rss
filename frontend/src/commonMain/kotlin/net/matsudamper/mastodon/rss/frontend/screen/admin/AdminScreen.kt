@@ -19,6 +19,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -30,10 +31,6 @@ private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 @Composable
 internal fun AdminScreen(
     platform: ScreenPlatform,
-    onClickAccounts: () -> Unit,
-    onClickNewAccount: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) { AdminScreenViewModel(viewModelScope) }
@@ -46,10 +43,6 @@ internal fun AdminScreen(
     AdminContent(
         uiState = uiState,
         platform = platform,
-        onClickAccounts = onClickAccounts,
-        onClickNewAccount = onClickNewAccount,
-        onClickAdmin = onClickAdmin,
-        onClickHome = onClickHome,
     )
 }
 
@@ -57,12 +50,10 @@ internal fun AdminScreen(
 internal fun AdminContent(
     uiState: AdminScreenUiState,
     platform: ScreenPlatform,
-    onClickAccounts: () -> Unit,
-    onClickNewAccount: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
 ) {
-    AdminScaffold(title = null, onClickAdmin = onClickAdmin, onClickHome = onClickHome) { wide ->
+    val navigation = rememberNavigation()
+
+    AdminScaffold(title = null) { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
@@ -79,7 +70,10 @@ internal fun AdminContent(
                 is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, platform::AdminLoginPasswordField)
 
                 AdminScreenUiState.Content.LoggedIn -> {
-                    MenuCard(onClickAccounts, onClickNewAccount)
+                    MenuCard(
+                        onClickAccounts = { navigation.navigate { navigateToAdminAccounts() } },
+                        onClickNewAccount = { navigation.navigate { navigateToAdminAccountNew() } },
+                    )
                     SectionCard(title = "ログイン済み") {
                         OutlinedButton(onClick = uiState.listener::onClickLogout) { Text("ログアウト") }
                     }

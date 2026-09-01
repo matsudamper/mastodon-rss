@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
@@ -62,9 +63,6 @@ import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
 internal fun AccountScreen(
     username: String,
     platform: ScreenPlatform,
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickOperator: (String) -> Unit,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val snackbarEvents = LocalSnackbarEvents.current
@@ -87,9 +85,6 @@ internal fun AccountScreen(
         uiState = uiState,
         username = username,
         platform = platform,
-        onClickHome = onClickHome,
-        onClickAdmin = onClickAdmin,
-        onClickOperator = onClickOperator,
     )
 }
 
@@ -98,11 +93,10 @@ internal fun AccountContent(
     uiState: AccountScreenUiState,
     username: String,
     platform: ScreenPlatform,
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickOperator: (String) -> Unit,
 ) {
-    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
+    val navigation = rememberNavigation()
+
+    PublicScaffold { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
@@ -145,7 +139,6 @@ internal fun AccountContent(
                     LoadedAccountContent(
                         content = content,
                         wide = wide,
-                        onClickOperator = onClickOperator,
                         onOpenExternal = platform::openExternalLink,
                         noteContent = platform::NoteContent,
                         listener = uiState.listener,
@@ -160,11 +153,11 @@ internal fun AccountContent(
 private fun LoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     wide: Boolean,
-    onClickOperator: (String) -> Unit,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
     listener: AccountScreenUiState.Listener,
 ) {
+    val navigation = rememberNavigation()
     val state = content.account
 
     Column(
@@ -195,12 +188,22 @@ private fun LoadedAccountContent(
                 ) {
                     FeedSection(state, onOpenExternal)
                     DeliverySection(state)
-                    FollowSection(state, onClickOperator, onOpenExternal, listener)
+                    FollowSection(
+                        state = state,
+                        onClickOperator = { navigation.navigate { navigateToAccount(state.operatorUsername) } },
+                        onOpenExternal = onOpenExternal,
+                        listener = listener,
+                    )
                 }
             }
         } else {
             FeedSection(state, onOpenExternal)
-            FollowSection(state, onClickOperator, onOpenExternal, listener)
+            FollowSection(
+                state = state,
+                onClickOperator = { navigation.navigate { navigateToAccount(state.operatorUsername) } },
+                onOpenExternal = onOpenExternal,
+                listener = listener,
+            )
             NotesSection(content, listener, onOpenExternal, noteContent)
             DeliverySection(state)
         }
@@ -484,7 +487,7 @@ private fun DeliverySection(state: AccountUiState) {
 @Composable
 private fun FollowSection(
     state: AccountUiState,
-    onClickOperator: (String) -> Unit,
+    onClickOperator: () -> Unit,
     onOpenExternal: (String) -> Unit,
     listener: AccountScreenUiState.Listener,
 ) {
@@ -531,7 +534,7 @@ private fun FollowSection(
         )
         TextLink(
             text = state.operatorAcct,
-            onClick = { onClickOperator(state.operatorUsername) },
+            onClick = onClickOperator,
         )
     }
 }

@@ -32,17 +32,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigation
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
-internal fun HomeScreen(
-    onClickAccount: (String) -> Unit,
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
-) {
+internal fun HomeScreen() {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) { HomeScreenViewModel(viewModelScope) }
     val uiState by viewModel.uiStateFlow.collectAsState()
@@ -51,22 +48,14 @@ internal fun HomeScreen(
         viewModel.onStart()
     }
 
-    HomeContent(
-        uiState = uiState,
-        onClickAccount = onClickAccount,
-        onClickHome = onClickHome,
-        onClickAdmin = onClickAdmin,
-    )
+    HomeContent(uiState = uiState)
 }
 
 @Composable
 internal fun HomeContent(
     uiState: HomeScreenUiState,
-    onClickAccount: (String) -> Unit,
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
 ) {
-    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
+    PublicScaffold { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
@@ -103,7 +92,6 @@ internal fun HomeContent(
                     content = content,
                     listener = uiState.listener,
                     wide = wide,
-                    onClickAccount = onClickAccount,
                 )
             }
         }
@@ -115,8 +103,9 @@ private fun LoadedContent(
     content: HomeScreenUiState.Content.Loaded,
     listener: HomeScreenUiState.Listener,
     wide: Boolean,
-    onClickAccount: (String) -> Unit,
 ) {
+    val navigation = rememberNavigation()
+
     if (content.accounts.isEmpty()) {
         SectionCard(title = "アカウント") {
             Text(
@@ -141,7 +130,7 @@ private fun LoadedContent(
                 rowAccounts.forEach { account ->
                     AccountCard(
                         account = account,
-                        onClick = { onClickAccount(account.username) },
+                        onClick = { navigation.navigate { navigateToAccount(account.username) } },
                         modifier = Modifier.weight(1f),
                     )
                 }

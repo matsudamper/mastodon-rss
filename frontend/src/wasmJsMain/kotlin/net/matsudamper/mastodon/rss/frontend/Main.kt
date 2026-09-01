@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeViewport
@@ -8,7 +9,11 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import kotlinx.browser.document
 import kotlinx.browser.window
+import net.matsudamper.mastodon.rss.frontend.navigation.CollectNavigationEvents
+import net.matsudamper.mastodon.rss.frontend.navigation.LocalNavigationEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.navigation.WasmNavigatorReceiver
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigationEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigator
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundScreen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
@@ -39,73 +44,48 @@ fun main() {
 fun App() {
     AppTheme {
         val navigator = rememberNavigator()
-        val platform = WasmScreenPlatform
-
-        NavDisplay(
-            backStack = navigator.backStack,
-            onBack = { navigator.back() },
-            entryProvider =
-            entryProvider {
-                entry<Screen.Home> {
-                    HomeScreen(
-                        onClickAccount = { navigator.navigateTo(Screen.Account(it)) },
-                        onClickHome = { navigator.navigateTo(Screen.Home) },
-                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
-                    )
-                }
-                entry<Screen.Admin> {
-                    AdminScreen(
-                        platform = platform,
-                        onClickAccounts = { navigator.navigateTo(Screen.AdminAccounts) },
-                        onClickNewAccount = { navigator.navigateTo(Screen.AdminAccountNew) },
-                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
-                        onClickHome = { navigator.navigateTo(Screen.Home) },
-                    )
-                }
-                entry<Screen.AdminAccounts> {
-                    AdminAccountsScreen(
-                        onClickNewAccount = { navigator.navigateTo(Screen.AdminAccountNew) },
-                        onClickPublicAccount = { navigator.navigateTo(Screen.Account(it)) },
-                        onClickAdminAccount = { navigator.navigateTo(Screen.AdminAccount(it)) },
-                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
-                        onClickHome = { navigator.navigateTo(Screen.Home) },
-                    )
-                }
-                entry<Screen.AdminAccountNew> {
-                    AdminAccountNewScreen(
-                        onClickAccounts = { navigator.navigateTo(Screen.AdminAccounts) },
-                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
-                        onClickHome = { navigator.navigateTo(Screen.Home) },
-                    )
-                }
-                entry<Screen.AdminAccount> { screen ->
-                    AdminAccountScreen(
-                        username = screen.username,
-                        platform = platform,
-                        onClickOpenAccount = { navigator.navigateTo(Screen.Account(screen.username)) },
-                        onClickLogin = { navigator.navigateTo(Screen.Admin) },
-                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
-                        onClickHome = { navigator.navigateTo(Screen.Home) },
-                    )
-                }
-                entry<Screen.Account> { screen ->
-                    AccountScreen(
-                        username = screen.username,
-                        platform = platform,
-                        onClickHome = { navigator.navigateTo(Screen.Home) },
-                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
-                        onClickOperator = { navigator.navigateTo(Screen.Account(it)) },
-                    )
-                }
-                entry<Screen.NotFound> { screen ->
-                    NotFoundScreen(
-                        requestedPath = screen.path,
-                        onClickHome = { navigator.navigateTo(Screen.Home) },
-                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
-                    )
-                }
-            },
+        val navigationEvents = rememberNavigationEvents()
+        CollectNavigationEvents(
+            events = navigationEvents,
+            receiver = WasmNavigatorReceiver(navigator),
         )
+
+        CompositionLocalProvider(LocalNavigationEvents provides navigationEvents) {
+            NavDisplay(
+                backStack = navigator.backStack,
+                onBack = { navigator.back() },
+                entryProvider =
+                entryProvider {
+                    entry<Screen.Home> {
+                        HomeScreen()
+                    }
+                    entry<Screen.Admin> {
+                        AdminScreen(platform = WasmScreenPlatform)
+                    }
+                    entry<Screen.AdminAccounts> {
+                        AdminAccountsScreen()
+                    }
+                    entry<Screen.AdminAccountNew> {
+                        AdminAccountNewScreen()
+                    }
+                    entry<Screen.AdminAccount> { screen ->
+                        AdminAccountScreen(
+                            username = screen.username,
+                            platform = WasmScreenPlatform,
+                        )
+                    }
+                    entry<Screen.Account> { screen ->
+                        AccountScreen(
+                            username = screen.username,
+                            platform = WasmScreenPlatform,
+                        )
+                    }
+                    entry<Screen.NotFound> { screen ->
+                        NotFoundScreen(requestedPath = screen.path)
+                    }
+                },
+            )
+        }
     }
 }
 
