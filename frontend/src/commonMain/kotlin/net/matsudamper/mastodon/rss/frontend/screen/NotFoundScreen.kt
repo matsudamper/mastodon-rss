@@ -27,7 +27,7 @@ internal fun NotFoundScreen(
     PublicScaffold(
         onClickHome = onClickHome,
         onClickAdmin = onClickAdmin,
-    ) { wide, _ ->
+    ) { wide ->
         NotFoundContent(
             requestedPath = requestedPath,
             modifier = Modifier

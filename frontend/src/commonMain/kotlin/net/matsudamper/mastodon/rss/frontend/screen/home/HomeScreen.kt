@@ -66,7 +66,7 @@ internal fun HomeContent(
     onClickHome: () -> Unit,
     onClickAdmin: () -> Unit,
 ) {
-    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide, _ ->
+    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)

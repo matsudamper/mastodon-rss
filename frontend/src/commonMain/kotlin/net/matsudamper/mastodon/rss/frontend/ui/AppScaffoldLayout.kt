@@ -19,10 +19,10 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 internal fun AppScaffoldLayout(
+    snackbarHostState: SnackbarHostState,
     topBar: @Composable () -> Unit,
-    content: @Composable ColumnScope.(wide: Boolean, showSnackbar: (String) -> Unit) -> Unit,
+    content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
-    val snackbarHostState = rememberSnackbarHostState()
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -40,7 +40,7 @@ internal fun AppScaffoldLayout(
                             .fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        content(wide, snackbarHostState::show)
+                        content(wide)
                     }
 
                     ScaffoldSnackbarHost(

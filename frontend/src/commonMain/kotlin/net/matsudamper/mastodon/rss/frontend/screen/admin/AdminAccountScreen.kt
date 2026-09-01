@@ -89,7 +89,7 @@ internal fun AdminAccountContent(
         title = "@$username の管理",
         onClickAdmin = onClickAdmin,
         onClickHome = onClickHome,
-    ) { wide, _ ->
+    ) { wide ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

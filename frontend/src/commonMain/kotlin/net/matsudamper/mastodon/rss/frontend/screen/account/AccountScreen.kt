@@ -55,9 +55,11 @@ import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
+import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
+import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
 @Composable
 internal fun AccountScreen(
@@ -103,9 +105,14 @@ internal fun AccountContent(
     onClickAdmin: () -> Unit,
     onClickOperator: (String) -> Unit,
 ) {
-    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide, showSnackbar ->
-        LaunchedEffect(messages, showSnackbar) {
-            messages.collect(showSnackbar)
+    val snackbarHostState = rememberSnackbarHostState()
+    PublicScaffold(
+        onClickHome = onClickHome,
+        onClickAdmin = onClickAdmin,
+        snackbarHostState = snackbarHostState,
+    ) { wide ->
+        LaunchedEffect(messages, snackbarHostState) {
+            messages.collect(snackbarHostState::show)
         }
 
         Column(

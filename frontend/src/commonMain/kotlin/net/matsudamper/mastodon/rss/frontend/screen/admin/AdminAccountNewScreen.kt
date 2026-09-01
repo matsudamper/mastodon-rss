@@ -57,7 +57,7 @@ internal fun AdminAccountNewContent(
     onClickAdmin: () -> Unit,
     onClickHome: () -> Unit,
 ) {
-    AdminScaffold("アカウントの追加", onClickAdmin, onClickHome) { wide, _ ->
+    AdminScaffold("アカウントの追加", onClickAdmin, onClickHome) { wide ->
         Column(
             Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(if (wide) 24.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
