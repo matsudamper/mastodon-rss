@@ -1,6 +1,5 @@
 import net.matsudamper.mastodon.rss.gradle.WebpackBundleHashPlugin
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
 plugins {
@@ -13,15 +12,10 @@ plugins {
 }
 
 kotlin {
-    jvm("desktop")
-
     android {
-        namespace = "net.matsudamper.mastodon.rss.frontend.preview"
+        namespace = "net.matsudamper.mastodon.rss.frontend"
         compileSdk = libs.versions.androidCompileSdk.get().toInt()
         minSdk = 23
-        compilerOptions {
-            jvmTarget = JvmTarget.JVM_11
-        }
     }
 
     // Compose Multiplatform for Web。canvas 上に描画するため DOM 操作は最小限で済む
@@ -50,13 +44,6 @@ kotlin {
                 implementation(compose.materialIconsExtended)
                 implementation(compose.ui)
                 implementation(compose.material3)
-                implementation("org.jetbrains.compose.ui:ui-tooling-preview:${libs.versions.compose.get()}")
-            }
-        }
-
-        getByName("desktopMain") {
-            dependencies {
-                implementation(project.dependencies.compose.desktop.currentOs)
             }
         }
 
@@ -79,16 +66,6 @@ kotlin {
                 implementation(libs.kotlinx.browser)
             }
         }
-    }
-}
-
-dependencies {
-    androidRuntimeClasspath("org.jetbrains.compose.ui:ui-tooling:${libs.versions.compose.get()}")
-}
-
-compose.desktop {
-    application {
-        mainClass = "net.matsudamper.mastodon.rss.frontend.DesktopMainKt"
     }
 }
 
