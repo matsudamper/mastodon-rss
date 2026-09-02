@@ -39,7 +39,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collect
-import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
@@ -67,7 +66,9 @@ internal fun AdminAccountScreen(
             }
         }
     }
-    CollectViewModelEvents(viewModel.eventHandler, eventReceiver)
+    LaunchedEffect(viewModel.eventHandler, eventReceiver) {
+        viewModel.eventHandler.collect(eventReceiver)
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()

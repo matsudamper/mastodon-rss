@@ -32,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
@@ -57,7 +56,9 @@ internal fun HomeScreen(
             }
         }
     }
-    CollectViewModelEvents(viewModel.eventHandler, eventReceiver)
+    LaunchedEffect(viewModel.eventHandler, eventReceiver) {
+        viewModel.eventHandler.collect(eventReceiver)
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
@@ -143,7 +144,7 @@ private fun LoadedContent(
                 rowAccounts.forEach { account ->
                     AccountCard(
                         account = account,
-                        onClick = account.onClick,
+                        onClick = { listener.onClickAccount(account.username) },
                         modifier = Modifier.weight(1f),
                     )
                 }

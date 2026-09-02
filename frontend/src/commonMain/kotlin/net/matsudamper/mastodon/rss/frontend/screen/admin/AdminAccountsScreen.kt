@@ -31,7 +31,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
@@ -56,7 +55,9 @@ internal fun AdminAccountsScreen(
             }
         }
     }
-    CollectViewModelEvents(viewModel.eventHandler, eventReceiver)
+    LaunchedEffect(viewModel.eventHandler, eventReceiver) {
+        viewModel.eventHandler.collect(eventReceiver)
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
@@ -115,8 +116,7 @@ private fun Accounts(
                 row.forEach { account ->
                     AccountCard(
                         account = account,
-                        onPublic = account.onClickPublic,
-                        onAdmin = account.onClickAdmin,
+                        listener = listener,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -127,7 +127,11 @@ private fun Accounts(
 }
 
 @Composable
-private fun AccountCard(account: AdminAccountsScreenUiState.Account, onPublic: () -> Unit, onAdmin: () -> Unit, modifier: Modifier = Modifier) {
+private fun AccountCard(
+    account: AdminAccountsScreenUiState.Account,
+    listener: AdminAccountsScreenUiState.Listener,
+    modifier: Modifier = Modifier,
+) {
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -142,8 +146,8 @@ private fun AccountCard(account: AdminAccountsScreenUiState.Account, onPublic: (
             }
             Text("追加: ${account.createdAt}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                OutlinedButton(onClick = onPublic) { Text("公開画面") }
-                Button(onClick = onAdmin) { Text("管理画面") }
+                OutlinedButton(onClick = { listener.onClickPublic(account.username) }) { Text("公開画面") }
+                Button(onClick = { listener.onClickAccount(account.username) }) { Text("管理画面") }
             }
         }
     }

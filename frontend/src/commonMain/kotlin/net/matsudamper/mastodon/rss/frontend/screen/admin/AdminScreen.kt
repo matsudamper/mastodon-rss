@@ -19,7 +19,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
@@ -48,7 +47,9 @@ internal fun AdminScreen(
             }
         }
     }
-    CollectViewModelEvents(viewModel.eventHandler, eventReceiver)
+    LaunchedEffect(viewModel.eventHandler, eventReceiver) {
+        viewModel.eventHandler.collect(eventReceiver)
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
@@ -56,16 +57,14 @@ internal fun AdminScreen(
 
     AdminContent(
         uiState = uiState,
-        passwordField = platform::AdminLoginPasswordField,
-        onOpenExternalLink = platform::openExternalLink,
+        platform = platform,
     )
 }
 
 @Composable
 internal fun AdminContent(
     uiState: AdminScreenUiState,
-    passwordField: @Composable (AdminScreenUiState.Content.Login, AdminScreenUiState.Listener) -> Unit,
-    onOpenExternalLink: (String) -> Unit,
+    platform: ScreenPlatform,
 ) {
     AdminScaffold(title = null, listener = uiState.listener) { wide ->
         Column(
@@ -81,7 +80,7 @@ internal fun AdminContent(
                     Text("状態を確かめている。")
                 }
 
-                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, passwordField)
+                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, platform::AdminLoginPasswordField)
 
                 AdminScreenUiState.Content.LoggedIn -> {
                     MenuCard(listener = uiState.listener)
@@ -92,7 +91,7 @@ internal fun AdminContent(
                         Text("ソースコードは GitHub で公開している。")
                         TextLink(
                             text = "mastodon-rss",
-                            onClick = { onOpenExternalLink(REPOSITORY_URL) },
+                            onClick = { platform.openExternalLink(REPOSITORY_URL) },
                         )
                     }
                 }

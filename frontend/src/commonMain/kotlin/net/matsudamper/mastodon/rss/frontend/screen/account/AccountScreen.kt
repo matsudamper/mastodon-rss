@@ -45,7 +45,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
@@ -96,7 +95,9 @@ internal fun AccountScreen(
         viewModel.onStart()
     }
 
-    CollectViewModelEvents(viewModel.eventHandler, eventReceiver)
+    LaunchedEffect(viewModel.eventHandler, eventReceiver) {
+        viewModel.eventHandler.collect(eventReceiver)
+    }
 
     AccountContent(
         uiState = uiState,
@@ -209,7 +210,6 @@ private fun LoadedAccountContent(
                     DeliverySection(state)
                     FollowSection(
                         state = state,
-                        onClickOperator = listener::onClickOperator,
                         onOpenExternal = onOpenExternal,
                         listener = listener,
                     )
@@ -219,7 +219,6 @@ private fun LoadedAccountContent(
             FeedSection(state, onOpenExternal)
             FollowSection(
                 state = state,
-                onClickOperator = listener::onClickOperator,
                 onOpenExternal = onOpenExternal,
                 listener = listener,
             )
@@ -506,7 +505,6 @@ private fun DeliverySection(state: AccountUiState) {
 @Composable
 private fun FollowSection(
     state: AccountUiState,
-    onClickOperator: () -> Unit,
     onOpenExternal: (String) -> Unit,
     listener: AccountScreenUiState.Listener,
 ) {
@@ -553,7 +551,7 @@ private fun FollowSection(
         )
         TextLink(
             text = state.operatorAcct,
-            onClick = onClickOperator,
+            onClick = { listener.onClickOperator(state.operatorUsername) },
         )
     }
 }
