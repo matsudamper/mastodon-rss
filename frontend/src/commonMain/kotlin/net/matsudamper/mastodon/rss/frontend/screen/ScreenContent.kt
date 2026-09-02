@@ -8,12 +8,3 @@ internal expect fun NoteContent(
     contentHtml: String,
     modifier: Modifier,
 )
-
-@Composable
-internal expect fun AdminLoginPasswordField(
-    password: String,
-    onPasswordChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    enabled: Boolean,
-    hasError: Boolean,
-)

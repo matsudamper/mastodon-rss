@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
-import net.matsudamper.mastodon.rss.frontend.screen.AdminLoginPasswordField
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
@@ -81,7 +81,7 @@ internal fun AdminContent(
                     Text("状態を確かめている。")
                 }
 
-                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, ::AdminLoginPasswordField)
+                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener)
 
                 AdminScreenUiState.Content.LoggedIn -> {
                     MenuCard(listener = uiState.listener)
@@ -114,7 +114,6 @@ internal fun AdminContent(
 private fun LoginCard(
     content: AdminScreenUiState.Content.Login,
     listener: AdminScreenUiState.Listener,
-    passwordField: @Composable (String, (String) -> Unit, () -> Unit, Boolean, Boolean) -> Unit,
 ) {
     SectionCard(title = "ログイン") {
         Text(
@@ -123,12 +122,13 @@ private fun LoginCard(
                 is AdminScreenUiState.Content.Login.Input.Disabled -> input.message
             },
         )
-        passwordField(
-            content.password,
-            listener::onPasswordChanged,
-            listener::onClickLogin,
-            content.inputEnabled && !content.submitting,
-            content.error != null,
+        OutlinedTextField(
+            value = content.password,
+            onValueChange = listener::onPasswordChanged,
+            enabled = content.inputEnabled && !content.submitting,
+            isError = content.error != null,
+            label = { Text("パスワード") },
+            modifier = Modifier.fillMaxWidth(),
         )
         content.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
