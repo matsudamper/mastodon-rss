@@ -2,6 +2,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.rememberScrollableState
@@ -21,7 +22,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -270,15 +273,25 @@ private fun WideLoadedAccountContent(
     val state = content.account
     var headerHeightPx by remember { mutableIntStateOf(0) }
     var headerOffsetPx by remember { mutableFloatStateOf(0f) }
+    val leftListState = rememberLazyListState()
+    val rightScrollState = rememberScrollState()
     val headerInputScrollState = rememberScrollableState { 0f }
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y >= 0f) return Offset.Zero
+                if (available.y < 0f) {
+                    val previous = headerOffsetPx
+                    headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
+                    return Offset(x = 0f, y = headerOffsetPx - previous)
+                }
 
-                val previous = headerOffsetPx
-                headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
-                return Offset(x = 0f, y = headerOffsetPx - previous)
+                if (available.y > 0f && panesAtTop(leftListState, rightScrollState)) {
+                    val previous = headerOffsetPx
+                    headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
+                    return Offset(x = 0f, y = headerOffsetPx - previous)
+                }
+
+                return Offset.Zero
             }
 
             override fun onPostScroll(
@@ -286,7 +299,7 @@ private fun WideLoadedAccountContent(
                 available: Offset,
                 source: NestedScrollSource,
             ): Offset {
-                if (available.y <= 0f) return Offset.Zero
+                if (available.y <= 0f || !panesAtTop(leftListState, rightScrollState)) return Offset.Zero
 
                 val previous = headerOffsetPx
                 headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
@@ -298,8 +311,7 @@ private fun WideLoadedAccountContent(
     CoordinatedTwoPaneLayout(
         modifier = Modifier
             .fillMaxSize()
-            .clipToBounds()
-            .nestedScroll(nestedScrollConnection),
+            .clipToBounds(),
         headerOffsetPx = headerOffsetPx,
         onHeaderHeightChange = { height ->
             headerHeightPx = height
@@ -309,6 +321,7 @@ private fun WideLoadedAccountContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .nestedScroll(nestedScrollConnection)
                     .scrollable(
                         state = headerInputScrollState,
                         orientation = Orientation.Vertical,
@@ -335,7 +348,9 @@ private fun WideLoadedAccountContent(
                 LazyColumn(
                     modifier = Modifier
                         .weight(1.5f)
-                        .fillMaxHeight(),
+                        .fillMaxHeight()
+                        .nestedScroll(nestedScrollConnection),
+                    state = leftListState,
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     notesItems(content, listener, onOpenExternal, noteContent)
@@ -344,7 +359,8 @@ private fun WideLoadedAccountContent(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .verticalScroll(rememberScrollState()),
+                        .nestedScroll(nestedScrollConnection)
+                        .verticalScroll(rightScrollState),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     FeedSection(state, onOpenExternal)
@@ -359,6 +375,14 @@ private fun WideLoadedAccountContent(
         },
     )
 }
+
+private fun panesAtTop(
+    leftListState: LazyListState,
+    rightScrollState: ScrollState,
+): Boolean =
+    leftListState.firstVisibleItemIndex == 0 &&
+        leftListState.firstVisibleItemScrollOffset == 0 &&
+        rightScrollState.value == 0
 
 @Composable
 private fun CoordinatedTwoPaneLayout(
