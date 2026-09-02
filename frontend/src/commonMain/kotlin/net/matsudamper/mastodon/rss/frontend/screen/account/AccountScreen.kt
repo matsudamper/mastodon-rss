@@ -274,7 +274,19 @@ private fun WideLoadedAccountContent(
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y == 0f) return Offset.Zero
+                if (available.y >= 0f) return Offset.Zero
+
+                val previous = headerOffsetPx
+                headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
+                return Offset(x = 0f, y = headerOffsetPx - previous)
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (available.y <= 0f) return Offset.Zero
 
                 val previous = headerOffsetPx
                 headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
