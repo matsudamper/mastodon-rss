@@ -280,6 +280,9 @@ private fun WideLoadedAccountContent(
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (available.y < 0f) {
+                    if (!panesAtTop(leftListState, rightScrollState)) return Offset.Zero
+                    if (headerOffsetPx <= -headerHeightPx.toFloat()) return Offset.Zero
+
                     val previous = headerOffsetPx
                     headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
                     return Offset(x = 0f, y = headerOffsetPx - previous)
@@ -321,8 +324,7 @@ private fun WideLoadedAccountContent(
     CoordinatedTwoPaneLayout(
         modifier = Modifier
             .fillMaxSize()
-            .clipToBounds()
-            .nestedScroll(nestedScrollConnection),
+            .clipToBounds(),
         headerOffsetPx = headerOffsetPx,
         onHeaderHeightChange = { height ->
             headerHeightPx = height
@@ -332,6 +334,7 @@ private fun WideLoadedAccountContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .nestedScroll(nestedScrollConnection)
                     .scrollable(
                         state = headerInputScrollState,
                         orientation = Orientation.Vertical,
@@ -352,7 +355,9 @@ private fun WideLoadedAccountContent(
         },
         panes = {
             Row(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(nestedScrollConnection),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 LazyColumn(
