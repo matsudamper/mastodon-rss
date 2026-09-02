@@ -32,7 +32,7 @@ import org.w3c.dom.events.Event
  * 積んだ順を別に覚えると、ブラウザの履歴と二重管理になってずれる。
  */
 @Stable
-class NavController internal constructor(
+class Navigator internal constructor(
     initial: Screen,
 ) {
     /** [androidx.navigation3.ui.NavDisplay] に渡すバックスタック */
@@ -93,24 +93,24 @@ class NavController internal constructor(
 }
 
 /**
- * 現在の URL から [NavController] を作り、履歴の操作とタブのタイトルを繋ぐ。
+ * 現在の URL から [Navigator] を作り、履歴の操作とタブのタイトルを繋ぐ。
  */
 @Composable
-fun rememberNavController(): NavController {
-    val navController = remember { NavController(Screen.of(window.location.pathname)) }
+fun rememberNavigator(): Navigator {
+    val navigator = remember { Navigator(Screen.of(window.location.pathname)) }
 
-    DisposableEffect(navController) {
+    DisposableEffect(navigator) {
         // 追加したものと同じ参照でないと外せないので、変数に持ってから渡す
-        val onPopState: (Event) -> Unit = { navController.syncWithLocation() }
+        val onPopState: (Event) -> Unit = { navigator.syncWithLocation() }
         window.addEventListener("popstate", onPopState)
         onDispose { window.removeEventListener("popstate", onPopState) }
     }
 
     // タブのタイトルは canvas の外にあるので Compose では描けない。
     // 画面が変わるたびにここで書き換える
-    LaunchedEffect(navController.current) {
-        document.title = navController.current.title
+    LaunchedEffect(navigator.current) {
+        document.title = navigator.current.title
     }
 
-    return navController
+    return navigator
 }

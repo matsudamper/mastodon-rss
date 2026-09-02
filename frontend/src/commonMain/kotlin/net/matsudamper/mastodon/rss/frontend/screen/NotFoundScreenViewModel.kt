@@ -4,18 +4,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
-import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffoldListener
 
 class NotFoundScreenViewModel(
-    viewModelScope: CoroutineScope,
+    private val viewModelScope: CoroutineScope,
 ) {
-    private val navigationEvents = EventSender<Navigator>()
-    internal val navigationHandler = navigationEvents.asHandler()
-    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
 
     val uiStateFlow: StateFlow<NotFoundScreenUiState> =
         MutableStateFlow(
@@ -23,15 +21,25 @@ class NotFoundScreenViewModel(
                 listener =
                 object : NotFoundScreenUiState.Listener {
                     override fun onClickHome() {
-                        navigator.navigate(Screen.Home)
+                        navigate(Screen.Home)
                     }
 
                     override fun onClickAdmin() {
-                        navigator.navigate(Screen.Admin)
+                        navigate(Screen.Admin)
                     }
                 },
             ),
         ).asStateFlow()
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
+        }
+    }
+
+    interface Event {
+        fun navigate(screen: Screen)
+    }
 }
 
 data class NotFoundScreenUiState(

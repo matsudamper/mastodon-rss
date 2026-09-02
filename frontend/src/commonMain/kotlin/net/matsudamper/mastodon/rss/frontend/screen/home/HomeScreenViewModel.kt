@@ -9,17 +9,14 @@ import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
-import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 
 class HomeScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AccountApi = AccountApi(),
 ) {
-    private val navigationEvents = EventSender<Navigator>()
-    internal val navigationHandler = navigationEvents.asHandler()
-    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     val uiStateFlow: StateFlow<HomeScreenUiState> =
@@ -29,11 +26,11 @@ class HomeScreenViewModel(
                 listener =
                 object : HomeScreenUiState.Listener {
                     override fun onClickHome() {
-                        navigator.navigate(Screen.Home)
+                        navigate(Screen.Home)
                     }
 
                     override fun onClickAdmin() {
-                        navigator.navigate(Screen.Admin)
+                        navigate(Screen.Admin)
                     }
 
                     override fun onClickReload() {
@@ -59,6 +56,12 @@ class HomeScreenViewModel(
         val state = viewModelStateFlow.value
         if (state.accounts == null && !state.isLoading) {
             reload()
+        }
+    }
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
         }
     }
 
@@ -126,7 +129,7 @@ class HomeScreenViewModel(
                         HomeScreenUiState.Account(
                             username = account.username,
                             acct = account.acct,
-                            onClick = { navigator.navigate(Screen.Account(account.username)) },
+                            onClick = { navigate(Screen.Account(account.username)) },
                         )
                     },
                     hasMore = accounts.hasMore,
@@ -143,6 +146,10 @@ class HomeScreenViewModel(
         val accounts: AccountsResult? = null,
         val loadMoreErrorMessage: String? = null,
     )
+
+    interface Event {
+        fun navigate(screen: Screen)
+    }
 
     private companion object {
         const val PAGE_SIZE = 20

@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -18,9 +19,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
-import net.matsudamper.mastodon.rss.frontend.navigation.CollectScreenNavigationEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
+import net.matsudamper.mastodon.rss.frontend.navigation.NavController
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -32,7 +33,7 @@ private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 @Composable
 internal fun AdminScreen(
     platform: ScreenPlatform,
-    navigationEvents: EventSender<Navigator>,
+    navController: NavController,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) {
@@ -40,10 +41,14 @@ internal fun AdminScreen(
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
-    CollectScreenNavigationEvents(
-        screenHandler = viewModel.navigationHandler,
-        appEvents = navigationEvents,
-    )
+    val eventReceiver = remember(navController) {
+        object : AdminScreenViewModel.Event {
+            override fun navigate(screen: Screen) {
+                navController.navigate(screen)
+            }
+        }
+    }
+    CollectViewModelEvents(viewModel.eventHandler, eventReceiver)
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()

@@ -27,9 +27,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItemsResult
-import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 import net.matsudamper.mastodon.rss.shared.FeedItemId
 
 class AdminAccountScreenViewModel(
@@ -37,9 +35,8 @@ class AdminAccountScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
-    private val navigationEvents = EventSender<Navigator>()
-    internal val navigationHandler = navigationEvents.asHandler()
-    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     private var reloadJob: Job? = null
@@ -63,19 +60,19 @@ class AdminAccountScreenViewModel(
                 content = AdminAccountScreenUiState.Content.Loading,
                 listener = object : AdminAccountScreenUiState.Listener {
                     override fun onClickHome() {
-                        navigator.navigate(Screen.Home)
+                        navigate(Screen.Home)
                     }
 
                     override fun onClickAdmin() {
-                        navigator.navigate(Screen.Admin)
+                        navigate(Screen.Admin)
                     }
 
                     override fun onClickOpenAccount() {
-                        navigator.navigate(Screen.Account(username))
+                        navigate(Screen.Account(username))
                     }
 
                     override fun onClickBackToAdmin() {
-                        navigator.navigate(Screen.Admin)
+                        navigate(Screen.Admin)
                     }
 
                     override fun onFeedUrlChanged(text: String) {
@@ -141,6 +138,12 @@ class AdminAccountScreenViewModel(
 
     fun onStart() {
         reload()
+    }
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
+        }
     }
 
     private fun reload() {
@@ -870,6 +873,10 @@ class AdminAccountScreenViewModel(
             val loaded = loadedAccount ?: return account
             return AdminAccountResult.Success(loaded.copy(feed = feed))
         }
+    }
+
+    interface Event {
+        fun navigate(screen: Screen)
     }
 
     private companion object {

@@ -38,9 +38,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
-import net.matsudamper.mastodon.rss.frontend.navigation.CollectScreenNavigationEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import kotlinx.coroutines.flow.collect
+import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
+import net.matsudamper.mastodon.rss.frontend.navigation.NavController
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 
@@ -48,7 +49,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 internal fun AdminAccountScreen(
     username: String,
     platform: ScreenPlatform,
-    navigationEvents: EventSender<Navigator>,
+    navController: NavController,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(username, viewModelScope) {
@@ -59,10 +60,14 @@ internal fun AdminAccountScreen(
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
-    CollectScreenNavigationEvents(
-        screenHandler = viewModel.navigationHandler,
-        appEvents = navigationEvents,
-    )
+    val eventReceiver = remember(navController) {
+        object : AdminAccountScreenViewModel.Event {
+            override fun navigate(screen: Screen) {
+                navController.navigate(screen)
+            }
+        }
+    }
+    CollectViewModelEvents(viewModel.eventHandler, eventReceiver)
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()

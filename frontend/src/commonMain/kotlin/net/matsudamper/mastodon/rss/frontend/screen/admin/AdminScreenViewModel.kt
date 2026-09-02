@@ -10,17 +10,14 @@ import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminLoginResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
-import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 
 internal class AdminScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
-    private val navigationEvents = EventSender<Navigator>()
-    internal val navigationHandler = navigationEvents.asHandler()
-    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     val uiStateFlow: StateFlow<AdminScreenUiState> =
@@ -30,19 +27,19 @@ internal class AdminScreenViewModel(
                 listener =
                 object : AdminScreenUiState.Listener {
                     override fun onClickHome() {
-                        navigator.navigate(Screen.Home)
+                        navigate(Screen.Home)
                     }
 
                     override fun onClickAdmin() {
-                        navigator.navigate(Screen.Admin)
+                        navigate(Screen.Admin)
                     }
 
                     override fun onClickAccounts() {
-                        navigator.navigate(Screen.AdminAccounts)
+                        navigate(Screen.AdminAccounts)
                     }
 
                     override fun onClickNewAccount() {
-                        navigator.navigate(Screen.AdminAccountNew)
+                        navigate(Screen.AdminAccountNew)
                     }
 
                     override fun onPasswordChanged(text: String) {
@@ -74,6 +71,12 @@ internal class AdminScreenViewModel(
 
     fun onStart() {
         reload()
+    }
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
+        }
     }
 
     private fun reload() {
@@ -169,6 +172,10 @@ internal class AdminScreenViewModel(
         val submitting: Boolean = false,
         val error: String? = null,
     )
+
+    interface Event {
+        fun navigate(screen: Screen)
+    }
 
     private companion object {
         const val LOGIN_DISABLED_MESSAGE = "ログインが無効化されている"

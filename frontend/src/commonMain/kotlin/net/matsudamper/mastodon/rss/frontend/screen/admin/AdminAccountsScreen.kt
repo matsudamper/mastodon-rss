@@ -31,9 +31,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
-import net.matsudamper.mastodon.rss.frontend.navigation.CollectScreenNavigationEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
+import net.matsudamper.mastodon.rss.frontend.navigation.NavController
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -41,7 +41,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
 internal fun AdminAccountsScreen(
-    navigationEvents: EventSender<Navigator>,
+    navController: NavController,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) {
@@ -49,10 +49,14 @@ internal fun AdminAccountsScreen(
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
-    CollectScreenNavigationEvents(
-        screenHandler = viewModel.navigationHandler,
-        appEvents = navigationEvents,
-    )
+    val eventReceiver = remember(navController) {
+        object : AdminAccountsScreenViewModel.Event {
+            override fun navigate(screen: Screen) {
+                navController.navigate(screen)
+            }
+        }
+    }
+    CollectViewModelEvents(viewModel.eventHandler, eventReceiver)
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()

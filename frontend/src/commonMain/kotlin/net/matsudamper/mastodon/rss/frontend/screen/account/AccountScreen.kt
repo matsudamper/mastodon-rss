@@ -45,9 +45,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
-import net.matsudamper.mastodon.rss.frontend.navigation.CollectScreenNavigationEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
+import net.matsudamper.mastodon.rss.frontend.navigation.NavController
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
@@ -66,7 +66,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 internal fun AccountScreen(
     username: String,
     platform: ScreenPlatform,
-    navigationEvents: EventSender<Navigator>,
+    navController: NavController,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope, username, platform) {
@@ -79,14 +79,13 @@ internal fun AccountScreen(
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
-    CollectScreenNavigationEvents(
-        screenHandler = viewModel.navigationHandler,
-        appEvents = navigationEvents,
-    )
-
     val snackbarHostState = rememberSnackbarHostState()
-    val eventReceiver = remember(snackbarHostState) {
+    val eventReceiver = remember(snackbarHostState, navController) {
         object : AccountScreenViewModel.Event {
+            override fun navigate(screen: Screen) {
+                navController.navigate(screen)
+            }
+
             override fun showSnackbar(message: String) {
                 snackbarHostState.show(message)
             }
@@ -97,9 +96,7 @@ internal fun AccountScreen(
         viewModel.onStart()
     }
 
-    LaunchedEffect(viewModel, eventReceiver) {
-        viewModel.asHandler.collect(eventReceiver)
-    }
+    CollectViewModelEvents(viewModel.eventHandler, eventReceiver)
 
     AccountContent(
         uiState = uiState,

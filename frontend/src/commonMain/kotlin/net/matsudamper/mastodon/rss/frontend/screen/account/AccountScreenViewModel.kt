@@ -14,9 +14,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
-import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 
 /**
  * @param username URL に入っていた名前。綴りが違っていても引けるので、
@@ -30,12 +28,8 @@ class AccountScreenViewModel(
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
 ) {
-    private val navigationEvents = EventSender<Navigator>()
-    internal val navigationHandler = navigationEvents.asHandler()
-    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
     private val events = EventSender<Event>()
-
-    internal val asHandler = events.asHandler()
+    internal val eventHandler = events.asHandler()
 
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
@@ -49,15 +43,15 @@ class AccountScreenViewModel(
                 listener =
                 object : AccountScreenUiState.Listener {
                     override fun onClickHome() {
-                        navigator.navigate(Screen.Home)
+                        navigate(Screen.Home)
                     }
 
                     override fun onClickAdmin() {
-                        navigator.navigate(Screen.Admin)
+                        navigate(Screen.Admin)
                     }
 
                     override fun onClickOperator() {
-                        navigator.navigate(Screen.Account(OPERATOR_USERNAME))
+                        navigate(Screen.Account(OPERATOR_USERNAME))
                     }
 
                     override fun onClickReload() {
@@ -89,6 +83,12 @@ class AccountScreenViewModel(
 
     fun onStart() {
         reload()
+    }
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
+        }
     }
 
     private fun reload() {
@@ -266,6 +266,8 @@ class AccountScreenViewModel(
     )
 
     interface Event {
+        fun navigate(screen: Screen)
+
         fun showSnackbar(message: String)
     }
 
