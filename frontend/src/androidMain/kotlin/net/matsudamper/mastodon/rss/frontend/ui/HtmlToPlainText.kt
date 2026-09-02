@@ -1,5 +1,8 @@
 package net.matsudamper.mastodon.rss.frontend.ui
 
-internal actual fun htmlToPlainText(html: String): String {
-    return html.replace(Regex("<[^>]*>"), "").trim()
+import android.text.Html
+import androidx.compose.ui.text.AnnotatedString
+
+internal actual fun htmlToAnnotatedString(html: String): AnnotatedString {
+    return AnnotatedString(Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY).toString().trim())
 }

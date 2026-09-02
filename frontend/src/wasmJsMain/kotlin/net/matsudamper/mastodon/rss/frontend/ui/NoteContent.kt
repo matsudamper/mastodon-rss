@@ -1,12 +1,13 @@
 package net.matsudamper.mastodon.rss.frontend.ui
 
 import kotlinx.browser.document
+import androidx.compose.ui.text.AnnotatedString
 import org.w3c.dom.HTMLDivElement
 
-internal actual fun htmlToPlainText(html: String): String {
-    if (html.isBlank()) return ""
+internal actual fun htmlToAnnotatedString(html: String): AnnotatedString {
+    if (html.isBlank()) return AnnotatedString("")
 
     val div = document.createElement("div") as HTMLDivElement
     div.innerHTML = html
-    return div.innerText.trim()
+    return AnnotatedString(div.innerText.trim())
 }
