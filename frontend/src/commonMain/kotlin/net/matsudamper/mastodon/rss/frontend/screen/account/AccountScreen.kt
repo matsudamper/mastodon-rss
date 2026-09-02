@@ -9,13 +9,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.Button
@@ -31,20 +38,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
@@ -117,12 +133,12 @@ internal fun AccountContent(
         listener = uiState.listener,
         snackbarHostState = snackbarHostState,
     ) { wide ->
-        Column(
+        Box(
             modifier = Modifier
+                .fillMaxSize()
                 .widthIn(max = ContentMaxWidth)
                 .fillMaxWidth()
                 .padding(if (wide) 24.dp else 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             when (val content = uiState.content) {
                 AccountScreenUiState.Content.Loading -> {
@@ -179,30 +195,144 @@ private fun LoadedAccountContent(
 ) {
     val state = content.account
 
-    Column(
+    if (!wide) {
+        CompactLoadedAccountContent(
+            content = content,
+            listener = listener,
+            onOpenExternal = onOpenExternal,
+            noteContent = noteContent,
+        )
+        return
+    }
+
+    WideLoadedAccountContent(
+        content = content,
+        listener = listener,
+        onOpenExternal = onOpenExternal,
+        noteContent = noteContent,
+    )
+}
+
+@Composable
+private fun CompactLoadedAccountContent(
+    content: AccountScreenUiState.Content.Loaded,
+    listener: AccountScreenUiState.Listener,
+    onOpenExternal: (String) -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
+) {
+    val state = content.account
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         if (state.placeholder) {
-            PlaceholderNotice()
+            item(key = "placeholder") {
+                PlaceholderNotice()
+            }
         }
+        item(key = "profile") {
+            ProfileHeader(
+                state = state,
+                wide = false,
+                listener = listener,
+                onOpenExternal = onOpenExternal,
+            )
+        }
+        item(key = "feed") {
+            FeedSection(state, onOpenExternal)
+        }
+        item(key = "follow") {
+            FollowSection(
+                state = state,
+                onOpenExternal = onOpenExternal,
+                listener = listener,
+            )
+        }
+        notesItems(content, listener, onOpenExternal, noteContent)
+        item(key = "delivery") {
+            DeliverySection(state)
+        }
+    }
+}
 
-        ProfileHeader(
-            state = state,
-            wide = wide,
-            listener = listener,
-            onOpenExternal = onOpenExternal,
-        )
+@Composable
+private fun WideLoadedAccountContent(
+    content: AccountScreenUiState.Content.Loaded,
+    listener: AccountScreenUiState.Listener,
+    onOpenExternal: (String) -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
+) {
+    val state = content.account
+    var headerHeightPx by remember { mutableIntStateOf(0) }
+    var headerOffsetPx by remember { mutableFloatStateOf(0f) }
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y >= 0f) return Offset.Zero
 
-        if (wide) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Column(
-                    modifier = Modifier.weight(1.5f),
+                val previous = headerOffsetPx
+                headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
+                return Offset(x = 0f, y = headerOffsetPx - previous)
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (available.y <= 0f) return Offset.Zero
+
+                val previous = headerOffsetPx
+                headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
+                return Offset(x = 0f, y = headerOffsetPx - previous)
+            }
+        }
+    }
+
+    CoordinatedTwoPaneLayout(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(nestedScrollConnection),
+        headerOffsetPx = headerOffsetPx,
+        onHeaderHeightChange = { height ->
+            headerHeightPx = height
+            headerOffsetPx = headerOffsetPx.coerceIn(-height.toFloat(), 0f)
+        },
+        header = {
+            Column(
+                modifier = Modifier.padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (state.placeholder) {
+                    PlaceholderNotice()
+                }
+                ProfileHeader(
+                    state = state,
+                    wide = true,
+                    listener = listener,
+                    onOpenExternal = onOpenExternal,
+                )
+            }
+        },
+        panes = {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1.5f)
+                        .fillMaxHeight(),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    NotesSection(content, listener, onOpenExternal, noteContent)
+                    notesItems(content, listener, onOpenExternal, noteContent)
                 }
                 Column(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     FeedSection(state, onOpenExternal)
@@ -214,15 +344,54 @@ private fun LoadedAccountContent(
                     )
                 }
             }
-        } else {
-            FeedSection(state, onOpenExternal)
-            FollowSection(
-                state = state,
-                onOpenExternal = onOpenExternal,
-                listener = listener,
-            )
-            NotesSection(content, listener, onOpenExternal, noteContent)
-            DeliverySection(state)
+        },
+    )
+}
+
+@Composable
+private fun CoordinatedTwoPaneLayout(
+    headerOffsetPx: Float,
+    onHeaderHeightChange: (Int) -> Unit,
+    header: @Composable () -> Unit,
+    panes: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Layout(
+        modifier = modifier,
+        content = {
+            Box(
+                modifier = Modifier
+                    .layoutId("header")
+                    .onSizeChanged { onHeaderHeightChange(it.height) },
+            ) {
+                header()
+            }
+            Box(modifier = Modifier.layoutId("panes")) {
+                panes()
+            }
+        },
+    ) { measurables, constraints ->
+        val headerPlaceable = measurables.first { it.layoutId == "header" }.measure(
+            constraints.copy(
+                minWidth = constraints.maxWidth,
+                minHeight = 0,
+                maxHeight = Constraints.Infinity,
+            ),
+        )
+        val visibleHeaderHeight = (headerPlaceable.height + headerOffsetPx)
+            .roundToInt()
+            .coerceIn(0, headerPlaceable.height)
+        val panesHeight = (constraints.maxHeight - visibleHeaderHeight).coerceAtLeast(0)
+        val panesPlaceable = measurables.first { it.layoutId == "panes" }.measure(
+            Constraints.fixed(
+                width = constraints.maxWidth,
+                height = panesHeight,
+            ),
+        )
+
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            headerPlaceable.place(x = 0, y = headerOffsetPx.roundToInt())
+            panesPlaceable.place(x = 0, y = visibleHeaderHeight)
         }
     }
 }
@@ -558,25 +727,26 @@ private fun FollowSection(
 /**
  * 配信した投稿。1 件ずつカードに分け、続きはページングで取る。
  */
-@Composable
-private fun NotesSection(
+private fun LazyListScope.notesItems(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    item(key = "notes-title") {
         Text(
             text = "配信した投稿",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
+    }
 
-        val notes = content.notes
-        val error = content.notesError
+    val notes = content.notes
+    val error = content.notesError
 
-        when {
-            content.notesLoading && notes.isEmpty() -> {
+    when {
+        content.notesLoading && notes.isEmpty() -> {
+            item(key = "notes-loading") {
                 NoteListPlaceholder {
                     Text(
                         text = "配信した投稿を取ってきている。",
@@ -584,8 +754,10 @@ private fun NotesSection(
                     )
                 }
             }
+        }
 
-            notes.isEmpty() && error != null -> {
+        notes.isEmpty() && error != null -> {
+            item(key = "notes-error") {
                 NoteListPlaceholder {
                     Text(
                         text = error,
@@ -597,8 +769,10 @@ private fun NotesSection(
                     }
                 }
             }
+        }
 
-            notes.isEmpty() -> {
+        notes.isEmpty() -> {
+            item(key = "notes-empty") {
                 NoteListPlaceholder {
                     Text(
                         text = "まだ投稿していない",
@@ -607,17 +781,20 @@ private fun NotesSection(
                     )
                 }
             }
-
-            else -> {
-                notes.forEach { note ->
-                    key(note.url) {
-                        NoteCard(note, onOpenExternal, noteContent)
-                    }
-                }
-            }
         }
 
-        if (notes.isNotEmpty()) {
+        else -> {
+            items(
+                items = notes,
+                key = NoteUiState::url,
+            ) { note ->
+                NoteCard(note, onOpenExternal, noteContent)
+            }
+        }
+    }
+
+    if (notes.isNotEmpty()) {
+        item(key = "notes-footer") {
             NotesPagingFooter(content = content, listener = listener)
         }
     }
