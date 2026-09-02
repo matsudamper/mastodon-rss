@@ -147,12 +147,12 @@ internal fun AccountContent(
                 .fillMaxSize()
                 .widthIn(max = ContentMaxWidth)
                 .fillMaxWidth()
-                .padding(start = edgePadding, end = edgePadding, top = edgePadding),
+                .padding(horizontal = edgePadding),
         ) {
             when (val content = uiState.content) {
                 AccountScreenUiState.Content.Loading -> {
                     SectionCard(
-                        modifier = Modifier.padding(bottom = edgePadding),
+                        modifier = Modifier.padding(vertical = edgePadding),
                         title = "読み込み中",
                     ) {
                         Text(
@@ -165,14 +165,14 @@ internal fun AccountContent(
                 AccountScreenUiState.Content.NotFound -> {
                     NotFoundContent(
                         requestedPath = "/@$username",
-                        modifier = Modifier.padding(bottom = edgePadding),
+                        modifier = Modifier.padding(vertical = edgePadding),
                         description = "ユーザーが存在しません",
                     )
                 }
 
                 is AccountScreenUiState.Content.Error -> {
                     SectionCard(
-                        modifier = Modifier.padding(bottom = edgePadding),
+                        modifier = Modifier.padding(vertical = edgePadding),
                         title = "アカウントを出せない",
                     ) {
                         Text(
@@ -191,7 +191,7 @@ internal fun AccountContent(
                     LoadedAccountContent(
                         content = content,
                         wide = wide,
-                        bottomPadding = edgePadding,
+                        verticalPadding = edgePadding,
                         onOpenExternal = platform::openExternalLink,
                         noteContent = ::NoteContent,
                         listener = uiState.listener,
@@ -206,7 +206,7 @@ internal fun AccountContent(
 private fun LoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     wide: Boolean,
-    bottomPadding: Dp,
+    verticalPadding: Dp,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
     listener: AccountScreenUiState.Listener,
@@ -215,7 +215,7 @@ private fun LoadedAccountContent(
         CompactLoadedAccountContent(
             content = content,
             listener = listener,
-            bottomPadding = bottomPadding,
+            verticalPadding = verticalPadding,
             onOpenExternal = onOpenExternal,
             noteContent = noteContent,
         )
@@ -225,7 +225,7 @@ private fun LoadedAccountContent(
     WideLoadedAccountContent(
         content = content,
         listener = listener,
-        bottomPadding = bottomPadding,
+        verticalPadding = verticalPadding,
         onOpenExternal = onOpenExternal,
         noteContent = noteContent,
     )
@@ -235,7 +235,7 @@ private fun LoadedAccountContent(
 private fun CompactLoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
-    bottomPadding: Dp,
+    verticalPadding: Dp,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
@@ -243,7 +243,7 @@ private fun CompactLoadedAccountContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = bottomPadding),
+        contentPadding = PaddingValues(vertical = verticalPadding),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         if (state.placeholder) {
@@ -280,7 +280,7 @@ private fun CompactLoadedAccountContent(
 private fun WideLoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
-    bottomPadding: Dp,
+    verticalPadding: Dp,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
@@ -311,7 +311,7 @@ private fun WideLoadedAccountContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(top = verticalPadding, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 if (state.placeholder) {
@@ -336,7 +336,7 @@ private fun WideLoadedAccountContent(
                         .fillMaxHeight()
                         .offset { IntOffset(x = 0, y = -pageScrollState.notesShiftPx()) },
                     state = notesListState,
-                    contentPadding = PaddingValues(bottom = bottomPadding),
+                    contentPadding = PaddingValues(bottom = verticalPadding),
                     userScrollEnabled = false,
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -353,7 +353,7 @@ private fun WideLoadedAccountContent(
                             .wrapContentHeight(align = Alignment.Top, unbounded = true)
                             .onSizeChanged { pageScrollState.updateSideHeight(it.height) }
                             .offset { IntOffset(x = 0, y = -pageScrollState.sideShiftPx()) }
-                            .padding(bottom = bottomPadding),
+                            .padding(bottom = verticalPadding),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         FeedSection(state, onOpenExternal)
