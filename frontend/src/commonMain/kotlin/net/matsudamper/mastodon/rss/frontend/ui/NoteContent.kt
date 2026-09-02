@@ -5,7 +5,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.AnnotatedString
 
 @Composable
 internal fun NoteContent(
@@ -20,5 +19,3 @@ internal fun NoteContent(
         color = MaterialTheme.colorScheme.onSurface,
     )
 }
-
-internal expect fun htmlToAnnotatedString(html: String): AnnotatedString
