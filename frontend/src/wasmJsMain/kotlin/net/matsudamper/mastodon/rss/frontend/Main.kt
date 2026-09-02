@@ -8,10 +8,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import kotlinx.browser.document
 import kotlinx.browser.window
-import net.matsudamper.mastodon.rss.frontend.navigation.CollectNavigationEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.WasmNavigationHandler
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigationEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigator
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundScreen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
@@ -42,11 +39,7 @@ fun main() {
 fun App() {
     AppTheme {
         val navigator = rememberNavigator()
-        val navigationEvents = rememberNavigationEvents()
-        CollectNavigationEvents(
-            events = navigationEvents,
-            handler = WasmNavigationHandler(navigator),
-        )
+        val platform = WasmScreenPlatform
 
         NavDisplay(
             backStack = navigator.backStack,
@@ -54,38 +47,61 @@ fun App() {
             entryProvider =
             entryProvider {
                 entry<Screen.Home> {
-                    HomeScreen(navigationEvents = navigationEvents)
+                    HomeScreen(
+                        onClickAccount = { navigator.navigateTo(Screen.Account(it)) },
+                        onClickHome = { navigator.navigateTo(Screen.Home) },
+                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
+                    )
                 }
                 entry<Screen.Admin> {
                     AdminScreen(
-                        platform = WasmScreenPlatform,
-                        navigationEvents = navigationEvents,
+                        platform = platform,
+                        onClickAccounts = { navigator.navigateTo(Screen.AdminAccounts) },
+                        onClickNewAccount = { navigator.navigateTo(Screen.AdminAccountNew) },
+                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
+                        onClickHome = { navigator.navigateTo(Screen.Home) },
                     )
                 }
                 entry<Screen.AdminAccounts> {
-                    AdminAccountsScreen(navigationEvents = navigationEvents)
+                    AdminAccountsScreen(
+                        onClickNewAccount = { navigator.navigateTo(Screen.AdminAccountNew) },
+                        onClickPublicAccount = { navigator.navigateTo(Screen.Account(it)) },
+                        onClickAdminAccount = { navigator.navigateTo(Screen.AdminAccount(it)) },
+                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
+                        onClickHome = { navigator.navigateTo(Screen.Home) },
+                    )
                 }
                 entry<Screen.AdminAccountNew> {
-                    AdminAccountNewScreen(navigationEvents = navigationEvents)
+                    AdminAccountNewScreen(
+                        onClickAccounts = { navigator.navigateTo(Screen.AdminAccounts) },
+                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
+                        onClickHome = { navigator.navigateTo(Screen.Home) },
+                    )
                 }
                 entry<Screen.AdminAccount> { screen ->
                     AdminAccountScreen(
                         username = screen.username,
-                        platform = WasmScreenPlatform,
-                        navigationEvents = navigationEvents,
+                        platform = platform,
+                        onClickOpenAccount = { navigator.navigateTo(Screen.Account(screen.username)) },
+                        onClickLogin = { navigator.navigateTo(Screen.Admin) },
+                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
+                        onClickHome = { navigator.navigateTo(Screen.Home) },
                     )
                 }
                 entry<Screen.Account> { screen ->
                     AccountScreen(
                         username = screen.username,
-                        platform = WasmScreenPlatform,
-                        navigationEvents = navigationEvents,
+                        platform = platform,
+                        onClickHome = { navigator.navigateTo(Screen.Home) },
+                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
+                        onClickOperator = { navigator.navigateTo(Screen.Account(it)) },
                     )
                 }
                 entry<Screen.NotFound> { screen ->
                     NotFoundScreen(
                         requestedPath = screen.path,
-                        navigationEvents = navigationEvents,
+                        onClickHome = { navigator.navigateTo(Screen.Home) },
+                        onClickAdmin = { navigator.navigateTo(Screen.Admin) },
                     )
                 }
             },

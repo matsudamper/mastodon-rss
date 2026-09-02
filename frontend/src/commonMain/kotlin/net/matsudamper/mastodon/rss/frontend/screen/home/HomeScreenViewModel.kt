@@ -6,20 +6,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
-import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
-import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 
 class HomeScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AccountApi = AccountApi(),
 ) {
-    private val navigationEvents = EventSender<NavigationHandler>()
-    internal val navigationHandler = navigationEvents.asHandler()
-    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     val uiStateFlow: StateFlow<HomeScreenUiState> =
@@ -28,14 +21,6 @@ class HomeScreenViewModel(
                 content = HomeScreenUiState.Content.Loading,
                 listener =
                 object : HomeScreenUiState.Listener {
-                    override fun onClickHome() {
-                        navigator.navigate(Screen.Home)
-                    }
-
-                    override fun onClickAdmin() {
-                        navigator.navigate(Screen.Admin)
-                    }
-
                     override fun onClickReload() {
                         reload()
                     }
@@ -101,6 +86,7 @@ class HomeScreenViewModel(
                         state.copy(isLoadingMore = false, accounts = merged, loadMoreErrorMessage = null)
                     }
 
+                    // 続きが取れなくても既に出ている一覧は消さない
                     is AccountsResult.Failure -> {
                         state.copy(isLoadingMore = false, loadMoreErrorMessage = result.message)
                     }
@@ -126,7 +112,6 @@ class HomeScreenViewModel(
                         HomeScreenUiState.Account(
                             username = account.username,
                             acct = account.acct,
-                            onClick = { navigator.navigate(Screen.Account(account.username)) },
                         )
                     },
                     hasMore = accounts.hasMore,
