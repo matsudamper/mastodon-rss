@@ -285,7 +285,11 @@ private fun WideLoadedAccountContent(
                     return Offset(x = 0f, y = headerOffsetPx - previous)
                 }
 
-                if (available.y > 0f && panesAtTop(leftListState, rightScrollState)) {
+                if (
+                    available.y > 0f &&
+                    headerOffsetPx < 0f &&
+                    panesAtTop(leftListState, rightScrollState)
+                ) {
                     val previous = headerOffsetPx
                     headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
                     return Offset(x = 0f, y = headerOffsetPx - previous)
@@ -299,7 +303,13 @@ private fun WideLoadedAccountContent(
                 available: Offset,
                 source: NestedScrollSource,
             ): Offset {
-                if (available.y <= 0f || !panesAtTop(leftListState, rightScrollState)) return Offset.Zero
+                if (
+                    available.y <= 0f ||
+                    headerOffsetPx >= 0f ||
+                    !panesAtTop(leftListState, rightScrollState)
+                ) {
+                    return Offset.Zero
+                }
 
                 val previous = headerOffsetPx
                 headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
@@ -311,7 +321,8 @@ private fun WideLoadedAccountContent(
     CoordinatedTwoPaneLayout(
         modifier = Modifier
             .fillMaxSize()
-            .clipToBounds(),
+            .clipToBounds()
+            .nestedScroll(nestedScrollConnection),
         headerOffsetPx = headerOffsetPx,
         onHeaderHeightChange = { height ->
             headerHeightPx = height
@@ -321,7 +332,6 @@ private fun WideLoadedAccountContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .nestedScroll(nestedScrollConnection)
                     .scrollable(
                         state = headerInputScrollState,
                         orientation = Orientation.Vertical,
@@ -348,8 +358,7 @@ private fun WideLoadedAccountContent(
                 LazyColumn(
                     modifier = Modifier
                         .weight(1.5f)
-                        .fillMaxHeight()
-                        .nestedScroll(nestedScrollConnection),
+                        .fillMaxHeight(),
                     state = leftListState,
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -359,7 +368,6 @@ private fun WideLoadedAccountContent(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .nestedScroll(nestedScrollConnection)
                         .verticalScroll(rightScrollState),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
