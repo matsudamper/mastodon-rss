@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.4.10"
-androidGradlePlugin = "9.3.0"
+androidGradlePlugin = "9.4.0"
 androidCompileSdk = "37"
 ktor = "3.5.2"
 compose = "1.12.0"
