@@ -341,16 +341,24 @@ class AdminAccountScreenViewModel(
             try {
                 when (val result = api.postFeedItems(accountId)) {
                     is AdminPostFeedItemsResult.Success -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                postingUnpublished = false,
-                                postedItems = result.items,
-                            )
-                        }
-                        loadUnpublished(accountId)
-                        if (result.items.isNotEmpty()) {
+                        if (result.items.isEmpty()) {
+                            viewModelStateFlow.update {
+                                it.copy(
+                                    postingUnpublished = false,
+                                    postedItems = null,
+                                )
+                            }
+                            events.send { it.showSnackbar("今回投稿した記事 0 件") }
+                        } else {
+                            viewModelStateFlow.update {
+                                it.copy(
+                                    postingUnpublished = false,
+                                    postedItems = result.items,
+                                )
+                            }
                             loadNotes(networkOnly = true)
                         }
+                        loadUnpublished(accountId)
                     }
 
                     is AdminPostFeedItemsResult.Rejected -> {
@@ -877,6 +885,8 @@ class AdminAccountScreenViewModel(
 
     interface Event {
         suspend fun navigate(screen: Screen)
+
+        fun showSnackbar(message: String)
     }
 
     private companion object {

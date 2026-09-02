@@ -44,6 +44,8 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
+import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
+import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
 @Composable
 internal fun AdminAccountScreen(
@@ -59,12 +61,17 @@ internal fun AdminAccountScreen(
         )
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
+    val snackbarHostState = rememberSnackbarHostState()
 
-    LaunchedEffect(viewModel.eventHandler, navController) {
+    LaunchedEffect(viewModel.eventHandler, navController, snackbarHostState) {
         viewModel.eventHandler.collect(
             object : AdminAccountScreenViewModel.Event {
                 override suspend fun navigate(screen: Screen) {
                     navController.navigate(screen)
+                }
+
+                override fun showSnackbar(message: String) {
+                    snackbarHostState.show(message)
                 }
             },
         )
@@ -78,6 +85,7 @@ internal fun AdminAccountScreen(
         uiState = uiState,
         username = username,
         platform = platform,
+        snackbarHostState = snackbarHostState,
     )
 }
 
@@ -86,6 +94,7 @@ internal fun AdminAccountContent(
     uiState: AdminAccountScreenUiState,
     username: String,
     platform: ScreenPlatform,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
 ) {
     var showPostDialog by remember(username) { mutableStateOf(false) }
     var autoLoadAttemptedAtItemCount by remember(username) { mutableStateOf<Int?>(null) }
@@ -94,6 +103,7 @@ internal fun AdminAccountContent(
     AdminScaffold(
         title = "@$username の管理",
         listener = uiState.listener,
+        snackbarHostState = snackbarHostState,
     ) { wide ->
         Column(
             modifier = Modifier
@@ -311,7 +321,7 @@ private fun FeedCard(feed: AdminAccountScreenUiState.Feed, listener: AdminAccoun
             Text(feed.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                feed.postedItems?.let { FeedItemSummary("今回投稿した記事 ${it.size} 件", it) }
+                feed.postedItems?.takeIf { it.isNotEmpty() }?.let { FeedItemSummary("今回投稿した記事 ${it.size} 件", it) }
                 if (feed.unpublishedItems.isNotEmpty()) FeedItemSummary("未投稿の記事 ${feed.unpublishedItems.size} 件", feed.unpublishedItems)
                 feed.unpublishedError?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
