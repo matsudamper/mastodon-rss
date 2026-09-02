@@ -22,12 +22,13 @@ data class HomeScreenUiState(
     data class Account(
         val username: String,
         val acct: String,
-        val onClick: () -> Unit,
     )
 
     interface Listener : PublicScaffoldListener {
         fun onClickReload()
 
         fun onClickLoadMore()
+
+        fun onClickAccount(username: String)
     }
 }

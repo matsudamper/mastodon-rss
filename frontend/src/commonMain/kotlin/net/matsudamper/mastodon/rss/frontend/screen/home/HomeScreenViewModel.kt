@@ -37,6 +37,10 @@ class HomeScreenViewModel(
                         reload()
                     }
 
+                    override fun onClickAccount(username: String) {
+                        navigate(Screen.Account(username))
+                    }
+
                     override fun onClickLoadMore() {
                         loadMore()
                     }
@@ -104,6 +108,7 @@ class HomeScreenViewModel(
                         state.copy(isLoadingMore = false, accounts = merged, loadMoreErrorMessage = null)
                     }
 
+                    // 続きが取れなくても既に出ている一覧は消さない
                     is AccountsResult.Failure -> {
                         state.copy(isLoadingMore = false, loadMoreErrorMessage = result.message)
                     }
@@ -129,7 +134,6 @@ class HomeScreenViewModel(
                         HomeScreenUiState.Account(
                             username = account.username,
                             acct = account.acct,
-                            onClick = { navigate(Screen.Account(account.username)) },
                         )
                     },
                     hasMore = accounts.hasMore,

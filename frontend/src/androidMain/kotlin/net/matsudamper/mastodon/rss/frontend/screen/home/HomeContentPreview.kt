@@ -15,12 +15,10 @@ private fun HomeContentPreview() {
                         HomeScreenUiState.Account(
                             username = "kotlin",
                             acct = "@kotlin@example.com",
-                            onClick = {},
                         ),
                         HomeScreenUiState.Account(
                             username = "android",
                             acct = "@android@example.com",
-                            onClick = {},
                         ),
                     ),
                     hasMore = true,
@@ -41,4 +39,6 @@ private object AndroidPreviewHomeListener : HomeScreenUiState.Listener {
     override fun onClickReload() = Unit
 
     override fun onClickLoadMore() = Unit
+
+    override fun onClickAccount(username: String) = Unit
 }

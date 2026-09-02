@@ -38,13 +38,15 @@ data class AdminAccountsScreenUiState(
         val actorUrl: String,
         val createdAt: String,
         val followerCount: Int,
-        val onClickPublic: () -> Unit,
-        val onClickAdmin: () -> Unit,
     )
 
     @Immutable
     interface Listener : AdminScaffoldListener {
         fun onClickNewAccount()
+
+        fun onClickPublic(username: String)
+
+        fun onClickAccount(username: String)
 
         fun onClickReload()
     }
