@@ -24,7 +24,10 @@ import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.repository.IncomingFollow
+import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import net.matsudamper.mastodon.rss.testDependencies
@@ -141,6 +144,58 @@ class AccountGraphQlTest {
                 page.nodes().map { it.string("username") },
             )
             assertEquals(false, page.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `フォロワー数と投稿数とフィードを引ける`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            val account = repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            repositories.followers.record(
+                IncomingFollow(
+                    username = "feed1",
+                    follower = NewRemoteActor(
+                        actorUri = "https://mastodon.example/users/alice",
+                        inbox = "https://mastodon.example/users/alice/inbox",
+                        sharedInbox = null,
+                        publicKeyPem = "pem",
+                    ),
+                    followActivityUri = "https://mastodon.example/activities/1",
+                    receivedAt = Instant.now(),
+                ),
+            )
+            repositories.followers.markAccepted(
+                username = "feed1",
+                followerActorUri = "https://mastodon.example/users/alice",
+                acceptedAt = Instant.now(),
+            )
+            repositories.notes.add(
+                NewNote(
+                    username = "feed1",
+                    publicId = PublicNoteId("note1"),
+                    contentHtml = "<p>本文</p>",
+                    publishedAt = Instant.parse("2026-08-09T11:02:00Z"),
+                ),
+            )
+            repositories.feeds.add(
+                NewFeed(
+                    accountId = account!!.id,
+                    url = "https://example.com/feed.xml",
+                    title = "サンプル",
+                    siteUrl = "https://example.com",
+                    format = "RSS 2.0",
+                    pollIntervalSeconds = 900,
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val result = queryAccount("feed1").account()
+
+            assertEquals(1, result.int("followerCount"))
+            assertEquals(1, result.int("noteCount"))
+            val feed = result.obj("feed")
+            assertEquals("https://example.com/feed.xml", feed.string("url"))
+            assertEquals("https://example.com", feed.string("siteUrl"))
         }
 
     @Test
@@ -338,7 +393,8 @@ class AccountGraphQlTest {
 
             val query =
                 "query Account(${'$'}username: String!) { " +
-                    "account(username: ${'$'}username) { id username acct actorUrl } }"
+                    "account(username: ${'$'}username) { " +
+                    "id username acct actorUrl followerCount noteCount feed { url siteUrl } } }"
 
             setBody(
                 """{"query":${JsonPrimitive(query)},"variables":{"username":${JsonPrimitive(username)}}}""",
@@ -371,5 +427,7 @@ class AccountGraphQlTest {
         fun JsonObject.boolean(name: String): Boolean = getValue(name).jsonPrimitive.boolean
 
         fun JsonObject.long(name: String): Long = getValue(name).jsonPrimitive.content.toLong()
+
+        fun JsonObject.int(name: String): Int = getValue(name).jsonPrimitive.content.toInt()
     }
 }

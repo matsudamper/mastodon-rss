@@ -7,4 +7,13 @@ type Account {
     acct: String!
 
     actorUrl: String!
+
+    "Accept を返せたフォロワーの数"
+    followerCount: Int! @lazy
+
+    "配信した投稿の数"
+    noteCount: Int! @lazy
+
+    "登録済みの RSS フィード。未登録なら null"
+    feed: Feed @lazy
 }

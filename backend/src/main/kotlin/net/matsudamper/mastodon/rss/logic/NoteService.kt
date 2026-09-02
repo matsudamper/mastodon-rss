@@ -115,6 +115,11 @@ class NoteService(
         return notes.find(MastodonPublicNoteId(publicId.value))?.takeIf { it.username == urls.username }
     }
 
+    fun noteCount(username: String): Long {
+        val urls = directory.resolve(username) ?: return 0
+        return notes.count(urls.username)
+    }
+
     /**
      * @param nextPosition 次のページを取るときに渡す位置。null なら最後のページ
      */
