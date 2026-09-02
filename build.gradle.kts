@@ -196,9 +196,11 @@ tasks.register("compileCloudAgent") {
 fun compileTasks(includeAndroid: Boolean) =
     allprojects.map { project ->
         project.tasks.matching { task ->
-            (task.name.startsWith("compileKotlin") ||
-                task.name.startsWith("compileTestKotlin") ||
-                (includeAndroid && task.name == "compileAndroidMain") ||
-                task.name in listOf("compileJava", "compileTestJava"))
+            (
+                task.name.startsWith("compileKotlin") ||
+                    task.name.startsWith("compileTestKotlin") ||
+                    (includeAndroid && task.name == "compileAndroidMain") ||
+                    task.name in listOf("compileJava", "compileTestJava")
+                )
         }
     }
