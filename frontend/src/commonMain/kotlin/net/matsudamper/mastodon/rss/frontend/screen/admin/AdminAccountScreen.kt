@@ -42,8 +42,8 @@ import kotlinx.coroutines.flow.collect
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
-import net.matsudamper.mastodon.rss.frontend.screen.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 
 @Composable
 internal fun AdminAccountScreen(

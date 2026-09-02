@@ -48,11 +48,11 @@ import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
-import net.matsudamper.mastodon.rss.frontend.screen.NoteContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
+import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
