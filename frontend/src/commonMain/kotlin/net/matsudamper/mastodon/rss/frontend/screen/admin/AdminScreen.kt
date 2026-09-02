@@ -19,6 +19,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.navigation.CollectScreenNavigationEvents
+import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -30,14 +33,18 @@ private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 @Composable
 internal fun AdminScreen(
     platform: ScreenPlatform,
-    onClickAccounts: () -> Unit,
-    onClickNewAccount: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
+    navigationEvents: EventSender<NavigationHandler>,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope) { AdminScreenViewModel(viewModelScope) }
+    val viewModel = remember(viewModelScope) {
+        AdminScreenViewModel(viewModelScope)
+    }
     val uiState by viewModel.uiStateFlow.collectAsState()
+
+    CollectScreenNavigationEvents(
+        screenHandler = viewModel.navigationHandler,
+        appEvents = navigationEvents,
+    )
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
@@ -45,24 +52,18 @@ internal fun AdminScreen(
 
     AdminContent(
         uiState = uiState,
-        platform = platform,
-        onClickAccounts = onClickAccounts,
-        onClickNewAccount = onClickNewAccount,
-        onClickAdmin = onClickAdmin,
-        onClickHome = onClickHome,
+        passwordField = platform::AdminLoginPasswordField,
+        onOpenExternalLink = platform::openExternalLink,
     )
 }
 
 @Composable
 internal fun AdminContent(
     uiState: AdminScreenUiState,
-    platform: ScreenPlatform,
-    onClickAccounts: () -> Unit,
-    onClickNewAccount: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
+    passwordField: @Composable (AdminScreenUiState.Content.Login, AdminScreenUiState.Listener) -> Unit,
+    onOpenExternalLink: (String) -> Unit,
 ) {
-    AdminScaffold(title = null, onClickAdmin = onClickAdmin, onClickHome = onClickHome) { wide ->
+    AdminScaffold(title = null, listener = uiState.listener) { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
@@ -76,10 +77,10 @@ internal fun AdminContent(
                     Text("状態を確かめている。")
                 }
 
-                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, platform::AdminLoginPasswordField)
+                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, passwordField)
 
                 AdminScreenUiState.Content.LoggedIn -> {
-                    MenuCard(onClickAccounts, onClickNewAccount)
+                    MenuCard(listener = uiState.listener)
                     SectionCard(title = "ログイン済み") {
                         OutlinedButton(onClick = uiState.listener::onClickLogout) { Text("ログアウト") }
                     }
@@ -87,7 +88,7 @@ internal fun AdminContent(
                         Text("ソースコードは GitHub で公開している。")
                         TextLink(
                             text = "mastodon-rss",
-                            onClick = { platform.openExternalLink(REPOSITORY_URL) },
+                            onClick = { onOpenExternalLink(REPOSITORY_URL) },
                         )
                     }
                 }
@@ -130,10 +131,10 @@ private fun LoginCard(
 }
 
 @Composable
-private fun MenuCard(onClickAccounts: () -> Unit, onClickNewAccount: () -> Unit) {
+private fun MenuCard(listener: AdminScreenUiState.Listener) {
     SectionCard(title = "できること") {
-        TextLink("アカウントの一覧", onClickAccounts)
-        TextLink("アカウントの追加", onClickNewAccount)
+        TextLink("アカウントの一覧", listener::onClickAccounts)
+        TextLink("アカウントの追加", listener::onClickNewAccount)
         Text("投稿とフォロワー数は、一覧からアカウントを選んだ先にある。")
         Text(
             "フィードの登録・削除、配信エラーの確認、手動での再取得はこれから作る。",

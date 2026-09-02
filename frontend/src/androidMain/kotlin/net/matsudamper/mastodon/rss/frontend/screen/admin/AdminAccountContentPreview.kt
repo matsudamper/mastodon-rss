@@ -55,10 +55,6 @@ private fun AdminAccountContentPreview() {
             ),
             username = username,
             platform = AndroidPreviewScreenPlatform,
-            onClickOpenAccount = {},
-            onClickLogin = {},
-            onClickAdmin = {},
-            onClickHome = {},
         )
     }
 }
@@ -68,6 +64,14 @@ private object AndroidPreviewNoteListener : AdminAccountScreenUiState.NoteListen
 }
 
 private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Listener {
+    override fun onClickHome() = Unit
+
+    override fun onClickAdmin() = Unit
+
+    override fun onClickOpenAccount() = Unit
+
+    override fun onClickBackToAdmin() = Unit
+
     override fun onFeedUrlChanged(text: String) = Unit
 
     override fun onClickFetchFeed() = Unit

@@ -18,6 +18,8 @@ private fun AdminAccountsContentPreview() {
                             actorUrl = "https://example.com/users/kotlin",
                             createdAt = "2026-09-01 10:00",
                             followerCount = 128,
+                            onClickPublic = {},
+                            onClickAdmin = {},
                         ),
                         AdminAccountsScreenUiState.Account(
                             username = "android",
@@ -25,20 +27,23 @@ private fun AdminAccountsContentPreview() {
                             actorUrl = "https://example.com/users/android",
                             createdAt = "2026-09-02 11:00",
                             followerCount = 64,
+                            onClickPublic = {},
+                            onClickAdmin = {},
                         ),
                     ),
                 ),
                 listener = AndroidPreviewAdminAccountsListener,
             ),
-            onClickNewAccount = {},
-            onClickPublicAccount = {},
-            onClickAdminAccount = {},
-            onClickAdmin = {},
-            onClickHome = {},
         )
     }
 }
 
 private object AndroidPreviewAdminAccountsListener : AdminAccountsScreenUiState.Listener {
+    override fun onClickHome() = Unit
+
+    override fun onClickAdmin() = Unit
+
+    override fun onClickNewAccount() = Unit
+
     override fun onClickReload() = Unit
 }

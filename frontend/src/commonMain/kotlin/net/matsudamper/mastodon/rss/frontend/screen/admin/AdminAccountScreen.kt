@@ -39,6 +39,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collect
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.navigation.CollectScreenNavigationEvents
+import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 
@@ -46,16 +49,21 @@ import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 internal fun AdminAccountScreen(
     username: String,
     platform: ScreenPlatform,
-    onClickOpenAccount: () -> Unit,
-    onClickLogin: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
+    navigationEvents: EventSender<NavigationHandler>,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(username, viewModelScope) {
-        AdminAccountScreenViewModel(username = username, viewModelScope = viewModelScope)
+        AdminAccountScreenViewModel(
+            username = username,
+            viewModelScope = viewModelScope,
+        )
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
+
+    CollectScreenNavigationEvents(
+        screenHandler = viewModel.navigationHandler,
+        appEvents = navigationEvents,
+    )
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
@@ -65,10 +73,6 @@ internal fun AdminAccountScreen(
         uiState = uiState,
         username = username,
         platform = platform,
-        onClickOpenAccount = onClickOpenAccount,
-        onClickLogin = onClickLogin,
-        onClickAdmin = onClickAdmin,
-        onClickHome = onClickHome,
     )
 }
 
@@ -77,10 +81,6 @@ internal fun AdminAccountContent(
     uiState: AdminAccountScreenUiState,
     username: String,
     platform: ScreenPlatform,
-    onClickOpenAccount: () -> Unit,
-    onClickLogin: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
 ) {
     var showPostDialog by remember(username) { mutableStateOf(false) }
     var autoLoadAttemptedAtItemCount by remember(username) { mutableStateOf<Int?>(null) }
@@ -88,8 +88,7 @@ internal fun AdminAccountContent(
 
     AdminScaffold(
         title = "@$username の管理",
-        onClickAdmin = onClickAdmin,
-        onClickHome = onClickHome,
+        listener = uiState.listener,
     ) { wide ->
         Column(
             modifier = Modifier
@@ -120,11 +119,11 @@ internal fun AdminAccountContent(
                     Text("アカウントを取ってきている。", style = MaterialTheme.typography.bodyMedium)
                 }
 
-                AdminAccountScreenUiState.Content.RequireLogin -> AdminRequireLoginCard(onClickLogin)
+                AdminAccountScreenUiState.Content.RequireLogin -> RequireLoginCard(onClickAdmin = uiState.listener::onClickAdmin)
 
                 AdminAccountScreenUiState.Content.NotFound -> AdminSectionCard(title = "このアカウントは無い") {
                     Text("この名前では Mastodon からも見つからない。", style = MaterialTheme.typography.bodyMedium)
-                    AdminTextLink(text = "アカウントの一覧に戻る", onClick = onClickLogin)
+                    AdminTextLink(text = "アカウントの一覧に戻る", onClick = uiState.listener::onClickBackToAdmin)
                 }
 
                 is AdminAccountScreenUiState.Content.Error -> AdminSectionCard(title = "この画面を出せない") {
@@ -156,12 +155,18 @@ internal fun AdminAccountContent(
                                 modifier = Modifier.weight(2f),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                             ) {
-                                AccountCard(content.account, onClickOpenAccount)
+                                AccountCard(
+                                    account = content.account,
+                                    onClickOpenAccount = uiState.listener::onClickOpenAccount,
+                                )
                                 FeedCard(content.feed, uiState.listener)
                             }
                         }
                     } else {
-                        AccountCard(content.account, onClickOpenAccount)
+                        AccountCard(
+                            account = content.account,
+                            onClickOpenAccount = uiState.listener::onClickOpenAccount,
+                        )
                         FeedCard(content.feed, uiState.listener)
                         NotesSection(content, uiState.listener, platform::NoteContent)
                     }
@@ -251,14 +256,6 @@ private fun AdminTextLink(text: String, onClick: () -> Unit) {
         color = MaterialTheme.colorScheme.primary,
         textDecoration = TextDecoration.Underline,
     )
-}
-
-@Composable
-private fun AdminRequireLoginCard(onClickLogin: () -> Unit) {
-    AdminSectionCard(title = "ログインが要る") {
-        Text("管理画面のトップでログインしてから開く。", style = MaterialTheme.typography.bodyMedium)
-        AdminTextLink(text = "管理画面のトップへ", onClick = onClickLogin)
-    }
 }
 
 @Composable

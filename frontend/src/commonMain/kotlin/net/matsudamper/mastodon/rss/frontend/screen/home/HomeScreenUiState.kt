@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.home
 
+import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffoldListener
+
 data class HomeScreenUiState(
     val content: Content,
     val listener: Listener,
@@ -20,10 +22,12 @@ data class HomeScreenUiState(
     data class Account(
         val username: String,
         val acct: String,
+        val onClick: () -> Unit,
     )
 
-    interface Listener {
+    interface Listener : PublicScaffoldListener {
         fun onClickReload()
+
         fun onClickLoadMore()
     }
 }
