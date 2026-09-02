@@ -35,7 +35,6 @@ internal fun CollectScreenNavigationEvents(
                         appEvents.send { it.navigate(screen) }
                     }
                 }
-
             },
         )
     }
