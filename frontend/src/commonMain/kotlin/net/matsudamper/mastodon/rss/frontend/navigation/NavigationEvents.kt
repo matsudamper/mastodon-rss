@@ -29,10 +29,13 @@ internal fun CollectScreenNavigationEvents(
 ) {
     LaunchedEffect(screenHandler, appEvents) {
         screenHandler.collect(
-            NavigationHandler { screen ->
-                launch {
-                    appEvents.send { it.navigate(screen) }
+            object : NavigationHandler {
+                override fun navigate(screen: Screen) {
+                    launch {
+                        appEvents.send { it.navigate(screen) }
+                    }
                 }
+
             },
         )
     }
