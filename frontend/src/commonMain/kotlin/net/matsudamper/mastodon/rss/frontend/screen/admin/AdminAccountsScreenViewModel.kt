@@ -11,7 +11,7 @@ import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
-import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 
@@ -19,7 +19,7 @@ class AdminAccountsScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
-    private val navigationEvents = EventSender<NavigationHandler>()
+    private val navigationEvents = EventSender<Navigator>()
     internal val navigationHandler = navigationEvents.asHandler()
     private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())

@@ -10,7 +10,7 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import net.matsudamper.mastodon.rss.frontend.navigation.CollectNavigationEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.WasmNavigationHandler
+import net.matsudamper.mastodon.rss.frontend.navigation.WasmNavigator
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigationEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigator
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundScreen
@@ -45,7 +45,7 @@ fun App() {
         val navigationEvents = rememberNavigationEvents()
         CollectNavigationEvents(
             events = navigationEvents,
-            handler = WasmNavigationHandler(navigator),
+            handler = WasmNavigator(navigator),
         )
 
         NavDisplay(

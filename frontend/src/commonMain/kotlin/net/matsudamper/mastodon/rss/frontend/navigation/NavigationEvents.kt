@@ -8,14 +8,14 @@ import net.matsudamper.mastodon.rss.frontend.event.EventHandler
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 
 @Composable
-internal fun rememberNavigationEvents(): EventSender<NavigationHandler> {
+internal fun rememberNavigationEvents(): EventSender<Navigator> {
     return remember { EventSender() }
 }
 
 @Composable
 internal fun CollectNavigationEvents(
-    events: EventSender<NavigationHandler>,
-    handler: NavigationHandler,
+    events: EventSender<Navigator>,
+    handler: Navigator,
 ) {
     LaunchedEffect(events, handler) {
         events.asHandler().collect(handler)
@@ -24,12 +24,12 @@ internal fun CollectNavigationEvents(
 
 @Composable
 internal fun CollectScreenNavigationEvents(
-    screenHandler: EventHandler<NavigationHandler>,
-    appEvents: EventSender<NavigationHandler>,
+    screenHandler: EventHandler<Navigator>,
+    appEvents: EventSender<Navigator>,
 ) {
     LaunchedEffect(screenHandler, appEvents) {
         screenHandler.collect(
-            object : NavigationHandler {
+            object : Navigator {
                 override fun navigate(screen: Screen) {
                     launch {
                         appEvents.send { it.navigate(screen) }

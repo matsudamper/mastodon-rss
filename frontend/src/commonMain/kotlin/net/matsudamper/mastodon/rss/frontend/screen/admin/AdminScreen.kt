@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -21,7 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.navigation.CollectScreenNavigationEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -33,7 +32,7 @@ private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 @Composable
 internal fun AdminScreen(
     platform: ScreenPlatform,
-    navigationEvents: EventSender<NavigationHandler>,
+    navigationEvents: EventSender<Navigator>,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) {

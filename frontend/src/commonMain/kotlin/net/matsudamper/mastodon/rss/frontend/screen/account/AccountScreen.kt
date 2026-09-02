@@ -47,7 +47,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.navigation.CollectScreenNavigationEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
@@ -66,7 +66,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 internal fun AccountScreen(
     username: String,
     platform: ScreenPlatform,
-    navigationEvents: EventSender<NavigationHandler>,
+    navigationEvents: EventSender<Navigator>,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope, username, platform) {
