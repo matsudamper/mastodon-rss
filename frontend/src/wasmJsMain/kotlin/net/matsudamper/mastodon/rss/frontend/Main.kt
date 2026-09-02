@@ -3,7 +3,6 @@ package net.matsudamper.mastodon.rss.frontend
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeViewport
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
@@ -20,7 +19,6 @@ import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountNewScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountsScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreen
-import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreenUiState
 import net.matsudamper.mastodon.rss.frontend.screen.home.HomeScreen
 import net.matsudamper.mastodon.rss.frontend.ui.AppTheme
 
@@ -103,22 +101,4 @@ private object WasmScreenPlatform : ScreenPlatform {
         net.matsudamper.mastodon.rss.frontend.ui.copyToClipboard(text, onResult)
     }
 
-    @Composable
-    override fun NoteContent(contentHtml: String, modifier: Modifier) {
-        net.matsudamper.mastodon.rss.frontend.ui.NoteContent(contentHtml, modifier)
-    }
-
-    @Composable
-    override fun AdminLoginPasswordField(
-        content: AdminScreenUiState.Content.Login,
-        listener: AdminScreenUiState.Listener,
-    ) {
-        net.matsudamper.mastodon.rss.frontend.ui.AdminLoginPasswordField(
-            password = content.password,
-            onPasswordChange = listener::onPasswordChanged,
-            onSubmit = listener::onClickLogin,
-            enabled = content.inputEnabled && !content.submitting,
-            hasError = content.error != null,
-        )
-    }
 }

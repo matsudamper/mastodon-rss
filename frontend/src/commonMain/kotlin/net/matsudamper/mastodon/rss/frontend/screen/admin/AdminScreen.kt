@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
+import net.matsudamper.mastodon.rss.frontend.screen.AdminLoginPasswordField
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
@@ -80,7 +81,7 @@ internal fun AdminContent(
                     Text("状態を確かめている。")
                 }
 
-                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, platform::AdminLoginPasswordField)
+                is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener, ::AdminLoginPasswordField)
 
                 AdminScreenUiState.Content.LoggedIn -> {
                     MenuCard(listener = uiState.listener)

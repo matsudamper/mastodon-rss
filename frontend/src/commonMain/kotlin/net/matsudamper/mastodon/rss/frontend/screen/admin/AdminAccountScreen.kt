@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.collect
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
+import net.matsudamper.mastodon.rss.frontend.screen.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 
 @Composable
@@ -153,7 +154,7 @@ internal fun AdminAccountContent(
                             NotesSection(
                                 content = content,
                                 listener = uiState.listener,
-                                noteContent = platform::NoteContent,
+                                noteContent = ::NoteContent,
                                 modifier = Modifier.weight(3f),
                             )
                             Column(
@@ -173,7 +174,7 @@ internal fun AdminAccountContent(
                             onClickOpenAccount = uiState.listener::onClickOpenAccount,
                         )
                         FeedCard(content.feed, uiState.listener)
-                        NotesSection(content, uiState.listener, platform::NoteContent)
+                        NotesSection(content, uiState.listener, ::NoteContent)
                     }
                     if (showPostDialog) {
                         PostDialog(
