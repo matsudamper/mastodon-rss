@@ -44,7 +44,7 @@ private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
 
     override fun onClickAdmin() = Unit
 
-    override fun onClickOperator() = Unit
+    override fun onClickOperator(username: String) = Unit
 
     override fun onClickReload() = Unit
 

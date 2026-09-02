@@ -50,8 +50,8 @@ class AccountScreenViewModel(
                         navigate(Screen.Admin)
                     }
 
-                    override fun onClickOperator() {
-                        navigate(Screen.Account(OPERATOR_USERNAME))
+                    override fun onClickOperator(username: String) {
+                        navigate(Screen.Account(username))
                     }
 
                     override fun onClickReload() {
@@ -273,6 +273,5 @@ class AccountScreenViewModel(
 
     private companion object {
         const val PAGE_SIZE: Int = 20
-        const val OPERATOR_USERNAME: String = "admin"
     }
 }
