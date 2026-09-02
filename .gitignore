@@ -6,6 +6,7 @@ build/
 .idea/
 out/
 scripts
+local.properties
 
 # docker build に渡す native バイナリの置き場所
 /mastodon-rss

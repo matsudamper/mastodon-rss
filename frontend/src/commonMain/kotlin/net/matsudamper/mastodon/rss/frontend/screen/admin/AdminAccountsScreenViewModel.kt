@@ -6,15 +6,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 class AdminAccountsScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     val uiStateFlow: StateFlow<AdminAccountsScreenUiState> =
@@ -22,6 +26,26 @@ class AdminAccountsScreenViewModel(
             AdminAccountsScreenUiState(
                 content = AdminAccountsScreenUiState.Content.Loading,
                 listener = object : AdminAccountsScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
+                    override fun onClickNewAccount() {
+                        navigate(Screen.AdminAccountNew)
+                    }
+
+                    override fun onClickPublic(username: String) {
+                        navigate(Screen.Account(username))
+                    }
+
+                    override fun onClickAccount(username: String) {
+                        navigate(Screen.AdminAccount(username))
+                    }
+
                     override fun onClickReload() {
                         reload()
                     }
@@ -39,6 +63,12 @@ class AdminAccountsScreenViewModel(
 
     fun onStart() {
         reload()
+    }
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
+        }
     }
 
     private fun reload() {
@@ -91,4 +121,8 @@ class AdminAccountsScreenViewModel(
         val session: AdminSessionResult? = null,
         val accounts: AdminAccountsResult? = null,
     )
+
+    interface Event {
+        suspend fun navigate(screen: Screen)
+    }
 }

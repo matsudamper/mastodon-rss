@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
@@ -26,6 +27,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItemsResult
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.shared.FeedItemId
 
 class AdminAccountScreenViewModel(
@@ -33,6 +35,8 @@ class AdminAccountScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     private var reloadJob: Job? = null
@@ -55,6 +59,22 @@ class AdminAccountScreenViewModel(
                 acct = "@$username",
                 content = AdminAccountScreenUiState.Content.Loading,
                 listener = object : AdminAccountScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
+                    override fun onClickOpenAccount() {
+                        navigate(Screen.Account(username))
+                    }
+
+                    override fun onClickBackToAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
                     override fun onFeedUrlChanged(text: String) {
                         viewModelStateFlow.update {
                             it.copy(
@@ -118,6 +138,12 @@ class AdminAccountScreenViewModel(
 
     fun onStart() {
         reload()
+    }
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
+        }
     }
 
     private fun reload() {
@@ -315,16 +341,24 @@ class AdminAccountScreenViewModel(
             try {
                 when (val result = api.postFeedItems(accountId)) {
                     is AdminPostFeedItemsResult.Success -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                postingUnpublished = false,
-                                postedItems = result.items,
-                            )
-                        }
-                        loadUnpublished(accountId)
-                        if (result.items.isNotEmpty()) {
+                        if (result.items.isEmpty()) {
+                            viewModelStateFlow.update {
+                                it.copy(
+                                    postingUnpublished = false,
+                                    postedItems = null,
+                                )
+                            }
+                            events.send { it.showSnackbar("今回投稿した記事 0 件") }
+                        } else {
+                            viewModelStateFlow.update {
+                                it.copy(
+                                    postingUnpublished = false,
+                                    postedItems = result.items,
+                                )
+                            }
                             loadNotes(networkOnly = true)
                         }
+                        loadUnpublished(accountId)
                     }
 
                     is AdminPostFeedItemsResult.Rejected -> {
@@ -847,6 +881,12 @@ class AdminAccountScreenViewModel(
             val loaded = loadedAccount ?: return account
             return AdminAccountResult.Success(loaded.copy(feed = feed))
         }
+    }
+
+    interface Event {
+        suspend fun navigate(screen: Screen)
+
+        fun showSnackbar(message: String)
     }
 
     private companion object {

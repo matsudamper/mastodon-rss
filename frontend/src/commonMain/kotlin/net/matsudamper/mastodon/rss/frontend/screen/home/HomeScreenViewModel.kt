@@ -6,13 +6,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 class HomeScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AccountApi = AccountApi(),
 ) {
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     val uiStateFlow: StateFlow<HomeScreenUiState> =
@@ -21,8 +25,20 @@ class HomeScreenViewModel(
                 content = HomeScreenUiState.Content.Loading,
                 listener =
                 object : HomeScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
                     override fun onClickReload() {
                         reload()
+                    }
+
+                    override fun onClickAccount(username: String) {
+                        navigate(Screen.Account(username))
                     }
 
                     override fun onClickLoadMore() {
@@ -44,6 +60,12 @@ class HomeScreenViewModel(
         val state = viewModelStateFlow.value
         if (state.accounts == null && !state.isLoading) {
             reload()
+        }
+    }
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
         }
     }
 
@@ -128,6 +150,10 @@ class HomeScreenViewModel(
         val accounts: AccountsResult? = null,
         val loadMoreErrorMessage: String? = null,
     )
+
+    interface Event {
+        suspend fun navigate(screen: Screen)
+    }
 
     private companion object {
         const val PAGE_SIZE = 20

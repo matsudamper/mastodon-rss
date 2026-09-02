@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.kotlin.compose.compiler)
     alias(libs.plugins.compose)
     alias(libs.plugins.apollo)
@@ -11,7 +12,11 @@ plugins {
 }
 
 kotlin {
-    jvm("desktop")
+    android {
+        namespace = "net.matsudamper.mastodon.rss.frontend"
+        compileSdk = libs.versions.androidCompileSdk.get().toInt()
+        minSdk = 23
+    }
 
     // Compose Multiplatform for Web。canvas 上に描画するため DOM 操作は最小限で済む
     @OptIn(ExperimentalWasmDsl::class)
@@ -36,9 +41,17 @@ kotlin {
                 implementation(libs.kotlinx.datetime)
                 implementation(compose.runtime)
                 implementation(compose.foundation)
+                implementation(compose.materialIconsExtended)
                 implementation(compose.ui)
                 implementation(compose.material3)
-                implementation("org.jetbrains.compose.ui:ui-tooling-preview:${libs.versions.compose.get()}")
+                implementation(libs.navigation3.ui)
+            }
+        }
+
+        androidMain {
+            dependencies {
+                implementation(libs.compose.ui.tooling)
+                implementation(libs.compose.ui.tooling.preview)
             }
         }
 
@@ -50,7 +63,6 @@ kotlin {
                 // （material3 は alpha 止まり）ため、こちらを使う。
                 // 1.12 系が安定したら直接座標へ移行する。
                 implementation(compose.foundation)
-                implementation(compose.materialIconsExtended)
                 implementation(compose.ui)
                 // 画面遷移。JetBrains 版の Navigation 3（wasmJs 向けの成果物がある）。
                 // runtime は推移的に androidx.navigation3 から入る

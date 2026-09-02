@@ -1,20 +1,25 @@
 package net.matsudamper.mastodon.rss.frontend
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import kotlinx.browser.document
+import kotlinx.browser.window
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigator
-import net.matsudamper.mastodon.rss.frontend.screen.HomeScreen
+import net.matsudamper.mastodon.rss.frontend.navigation.WasmNavigator
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavController
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundScreen
+import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountNewScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountsScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreen
+import net.matsudamper.mastodon.rss.frontend.screen.home.HomeScreen
 import net.matsudamper.mastodon.rss.frontend.ui.AppTheme
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -34,44 +39,65 @@ fun main() {
 @Composable
 fun App() {
     AppTheme {
-        val navigator = rememberNavigator()
+        val platformNavController = rememberNavController()
+        val navController: Navigator = remember(platformNavController) {
+            WasmNavigator(platformNavController)
+        }
 
         NavDisplay(
-            backStack = navigator.backStack,
-            onBack = { navigator.back() },
+            backStack = platformNavController.backStack,
+            onBack = { platformNavController.back() },
             entryProvider =
             entryProvider {
                 entry<Screen.Home> {
-                    HomeScreen(onNavigate = navigator::navigateTo)
+                    HomeScreen(navController = navController)
                 }
                 entry<Screen.Admin> {
-                    AdminScreen(onNavigate = navigator::navigateTo)
+                    AdminScreen(
+                        platform = WasmScreenPlatform,
+                        navController = navController,
+                    )
                 }
                 entry<Screen.AdminAccounts> {
-                    AdminAccountsScreen(onNavigate = navigator::navigateTo)
+                    AdminAccountsScreen(navController = navController)
                 }
                 entry<Screen.AdminAccountNew> {
-                    AdminAccountNewScreen(onNavigate = navigator::navigateTo)
+                    AdminAccountNewScreen(navController = navController)
                 }
                 entry<Screen.AdminAccount> { screen ->
                     AdminAccountScreen(
                         username = screen.username,
-                        onNavigate = navigator::navigateTo,
+                        platform = WasmScreenPlatform,
+                        navController = navController,
                     )
                 }
                 entry<Screen.Account> { screen ->
                     AccountScreen(
                         username = screen.username,
-                        onNavigate = navigator::navigateTo,
+                        platform = WasmScreenPlatform,
+                        navController = navController,
                     )
                 }
                 entry<Screen.NotFound> { screen ->
                     NotFoundScreen(
                         requestedPath = screen.path,
-                        onNavigate = navigator::navigateTo,
+                        navController = navController,
                     )
                 }
             },
         )
+    }
+}
+
+private object WasmScreenPlatform : ScreenPlatform {
+    override val host: String
+        get() = window.location.host
+
+    override fun openExternalLink(url: String) {
+        net.matsudamper.mastodon.rss.frontend.ui.openExternalLink(url)
+    }
+
+    override fun copyToClipboard(text: String, onResult: (Boolean) -> Unit) {
+        net.matsudamper.mastodon.rss.frontend.ui.copyToClipboard(text, onResult)
     }
 }
