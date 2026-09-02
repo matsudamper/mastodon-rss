@@ -6,5 +6,4 @@ internal interface ScreenPlatform {
     fun openExternalLink(url: String)
 
     fun copyToClipboard(text: String, onResult: (Boolean) -> Unit)
-
 }
