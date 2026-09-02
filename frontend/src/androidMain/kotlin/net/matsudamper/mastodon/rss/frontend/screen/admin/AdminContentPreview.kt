@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.screen.PreviewsMultiSize
+import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
 
 @PreviewsMultiSize
 @Composable
@@ -13,8 +14,7 @@ private fun AdminContentPreview() {
                 content = AdminScreenUiState.Content.LoggedIn,
                 listener = AndroidPreviewAdminListener,
             ),
-            passwordField = { _, _ -> },
-            onOpenExternalLink = {},
+            platform = AndroidPreviewScreenPlatform,
         )
     }
 }
