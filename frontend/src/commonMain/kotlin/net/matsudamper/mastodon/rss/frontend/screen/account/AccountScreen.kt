@@ -4,6 +4,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,17 +18,18 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.Button
@@ -53,20 +55,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
@@ -285,44 +285,32 @@ private fun WideLoadedAccountContent(
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     val state = content.account
-    val headerState = remember { CollapsingHeaderState() }
-    val leftListState = rememberLazyListState()
-    val rightScrollState = rememberScrollState()
-    val nestedScrollConnection = remember(headerState) {
-        object : NestedScrollConnection {
-            // 下方向はヘッダーを畳んでからペイン、上方向はペインを先頭に戻してからヘッダーを開く
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y >= 0f) return Offset.Zero
-                return Offset(x = 0f, y = headerState.consume(available.y))
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource,
-            ): Offset {
-                if (available.y <= 0f) return Offset.Zero
-                return Offset(x = 0f, y = headerState.consume(available.y))
-            }
-        }
+    val notesListState = rememberLazyListState()
+    val pageScrollState = remember { TwoPaneScrollState() }
+    val scrollableState = rememberScrollableState { delta ->
+        pageScrollState.scrollBy(delta = delta, notesListState = notesListState)
     }
-    val headerScrollState = rememberScrollableState { 0f }
 
     CoordinatedTwoPaneLayout(
         modifier = Modifier
             .fillMaxSize()
-            .clipToBounds(),
-        headerOffsetPx = headerState.offsetPx,
-        onHeaderHeightChange = headerState::updateHeight,
+            .clipToBounds()
+            .scrollable(
+                state = scrollableState,
+                orientation = Orientation.Vertical,
+                reverseDirection = ScrollableDefaults.reverseDirection(
+                    layoutDirection = LocalLayoutDirection.current,
+                    orientation = Orientation.Vertical,
+                    reverseScrolling = false,
+                ),
+            )
+            .onSizeChanged { pageScrollState.updateViewportHeight(it.height) },
+        headerCollapsePx = pageScrollState.headerCollapsePx,
+        onHeaderHeightChange = pageScrollState::updateHeaderHeight,
         header = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .nestedScroll(nestedScrollConnection)
-                    .scrollable(
-                        state = headerScrollState,
-                        orientation = Orientation.Vertical,
-                    )
                     .padding(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
@@ -339,36 +327,43 @@ private fun WideLoadedAccountContent(
         },
         panes = {
             Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(nestedScrollConnection),
+                modifier = Modifier.fillMaxSize(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 LazyColumn(
                     modifier = Modifier
                         .weight(1.5f)
-                        .fillMaxHeight(),
-                    state = leftListState,
+                        .fillMaxHeight()
+                        .offset { IntOffset(x = 0, y = -pageScrollState.notesShiftPx()) },
+                    state = notesListState,
                     contentPadding = PaddingValues(bottom = bottomPadding),
+                    userScrollEnabled = false,
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     notesItems(content, listener, onOpenExternal, noteContent)
                 }
-                Column(
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxHeight()
-                        .verticalScroll(rightScrollState)
-                        .padding(bottom = bottomPadding),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                        .fillMaxHeight(),
                 ) {
-                    FeedSection(state, onOpenExternal)
-                    DeliverySection(state)
-                    FollowSection(
-                        state = state,
-                        onOpenExternal = onOpenExternal,
-                        listener = listener,
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                            .onSizeChanged { pageScrollState.updateSideHeight(it.height) }
+                            .offset { IntOffset(x = 0, y = -pageScrollState.sideShiftPx()) }
+                            .padding(bottom = bottomPadding),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        FeedSection(state, onOpenExternal)
+                        DeliverySection(state)
+                        FollowSection(
+                            state = state,
+                            onOpenExternal = onOpenExternal,
+                            listener = listener,
+                        )
+                    }
                 }
             }
         },
@@ -376,33 +371,124 @@ private fun WideLoadedAccountContent(
 }
 
 /**
- * ヘッダーの折り畳み量。
+ * 2 ペインを 1 枚のページとして動かすスクロール位置。
  *
- * 左右のペインが同じ値を見るので、どちらをスクロールしてもヘッダーの状態が揃う
+ * ページの高さは長い方のカラムで決まる。投稿は 1 万件を想定していて全部の高さは測れないので、
+ * 投稿側は LazyColumn に送った量として持ち、投稿が尽きた先はカラムごとずらして送る
  */
 @Stable
-private class CollapsingHeaderState {
-    var offsetPx: Float by mutableFloatStateOf(0f)
+private class TwoPaneScrollState {
+    var headerCollapsePx: Float by mutableFloatStateOf(0f)
         private set
 
-    private var heightPx: Int by mutableIntStateOf(0)
+    private var contentOffsetPx: Float by mutableFloatStateOf(0f)
+    private var notesOverflowPx: Float by mutableFloatStateOf(0f)
+    private var headerHeightPx: Int by mutableIntStateOf(0)
+    private var sideHeightPx: Int by mutableIntStateOf(0)
+    private var viewportHeightPx: Int by mutableIntStateOf(0)
 
-    fun updateHeight(height: Int) {
-        heightPx = height
-        offsetPx = offsetPx.coerceIn(-height.toFloat(), 0f)
+    fun notesShiftPx(): Int = notesOverflowPx.roundToInt()
+
+    fun sideShiftPx(): Int = contentOffsetPx.roundToInt().coerceAtMost(sideHeightPx)
+
+    fun updateHeaderHeight(height: Int) {
+        headerHeightPx = height
+        headerCollapsePx = headerCollapsePx.coerceIn(0f, height.toFloat())
     }
 
-    fun consume(delta: Float): Float {
-        val next = (offsetPx + delta).coerceIn(-heightPx.toFloat(), 0f)
-        val consumed = next - offsetPx
-        offsetPx = next
+    fun updateSideHeight(height: Int) {
+        sideHeightPx = height
+    }
+
+    fun updateViewportHeight(height: Int) {
+        viewportHeightPx = height
+    }
+
+    fun scrollBy(delta: Float, notesListState: LazyListState): Float {
+        return if (delta > 0f) {
+            scrollForward(delta, notesListState)
+        } else {
+            scrollBackward(delta, notesListState)
+        }
+    }
+
+    /**
+     * ヘッダーを畳んでから投稿、投稿が尽きたらカラムごとずらす。
+     *
+     * ヘッダーを畳むと投稿側の表示領域が広がるが、それが反映されるのは次の計測なので、
+     * 送る量は畳む前に測った「画面の下に隠れている高さ」で頭打ちにする
+     */
+    private fun scrollForward(delta: Float, notesListState: LazyListState): Float {
+        val notesBelow = notesBelowViewportPx(notesListState)
+        var rest = delta.coerceAtMost(maxOf(notesBelow, sideBelowViewportPx()).coerceAtLeast(0f))
+        var consumed = 0f
+
+        val collapsed = collapseHeader(rest)
+        consumed += collapsed
+        rest -= collapsed
+
+        val scrolled = scrollNotes(notesListState, rest.coerceAtMost((notesBelow - collapsed).coerceAtLeast(0f)))
+        consumed += scrolled
+        rest -= scrolled
+
+        return consumed + shiftPastNotesEnd(rest)
+    }
+
+    private fun scrollBackward(delta: Float, notesListState: LazyListState): Float {
+        var rest = delta
+        var consumed = 0f
+
+        val unshifted = shiftPastNotesEnd(rest)
+        consumed += unshifted
+        rest -= unshifted
+
+        val scrolled = scrollNotes(notesListState, rest)
+        consumed += scrolled
+        rest -= scrolled
+
+        return consumed + collapseHeader(rest)
+    }
+
+    private fun collapseHeader(delta: Float): Float {
+        val next = (headerCollapsePx + delta).coerceIn(0f, headerHeightPx.toFloat())
+        val consumed = next - headerCollapsePx
+        headerCollapsePx = next
         return consumed
+    }
+
+    private fun scrollNotes(notesListState: LazyListState, delta: Float): Float {
+        if (delta == 0f) return 0f
+        val consumed = notesListState.dispatchRawDelta(delta)
+        contentOffsetPx += consumed
+        return consumed
+    }
+
+    private fun shiftPastNotesEnd(delta: Float): Float {
+        val consumed = if (delta > 0f) {
+            delta.coerceAtMost(sideBelowViewportPx().coerceAtLeast(0f))
+        } else {
+            delta.coerceAtLeast(-notesOverflowPx)
+        }
+        notesOverflowPx += consumed
+        contentOffsetPx += consumed
+        return consumed
+    }
+
+    private fun sideBelowViewportPx(): Float =
+        headerHeightPx - headerCollapsePx - contentOffsetPx + sideHeightPx - viewportHeightPx
+
+    private fun notesBelowViewportPx(notesListState: LazyListState): Float {
+        val layoutInfo = notesListState.layoutInfo
+        val lastItem = layoutInfo.visibleItemsInfo.lastOrNull() ?: return 0f
+        if (lastItem.index < layoutInfo.totalItemsCount - 1) return Float.POSITIVE_INFINITY
+        return (lastItem.offset + lastItem.size + layoutInfo.afterContentPadding - layoutInfo.viewportEndOffset)
+            .toFloat()
     }
 }
 
 @Composable
 private fun CoordinatedTwoPaneLayout(
-    headerOffsetPx: Float,
+    headerCollapsePx: Float,
     onHeaderHeightChange: (Int) -> Unit,
     header: @Composable () -> Unit,
     panes: @Composable () -> Unit,
@@ -430,7 +516,7 @@ private fun CoordinatedTwoPaneLayout(
                 maxHeight = Constraints.Infinity,
             ),
         )
-        val visibleHeaderHeight = (headerPlaceable.height + headerOffsetPx)
+        val visibleHeaderHeight = (headerPlaceable.height - headerCollapsePx)
             .roundToInt()
             .coerceIn(0, headerPlaceable.height)
         val panesHeight = (constraints.maxHeight - visibleHeaderHeight).coerceAtLeast(0)
