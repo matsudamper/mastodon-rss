@@ -96,7 +96,7 @@ class NavController internal constructor(
  * 現在の URL から [NavController] を作り、履歴の操作とタブのタイトルを繋ぐ。
  */
 @Composable
-fun rememberNavigator(): NavController {
+fun rememberNavController(): NavController {
     val navController = remember { NavController(Screen.of(window.location.pathname)) }
 
     DisposableEffect(navController) {

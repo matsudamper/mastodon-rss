@@ -12,7 +12,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.CollectNavigationEvents
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.WasmNavigator
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigationEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigator
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavController
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundScreen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountScreen
@@ -41,7 +41,7 @@ fun main() {
 @Composable
 fun App() {
     AppTheme {
-        val navigator = rememberNavigator()
+        val navigator = rememberNavController()
         val navigationEvents = rememberNavigationEvents()
         CollectNavigationEvents(
             events = navigationEvents,
