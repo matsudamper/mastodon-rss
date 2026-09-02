@@ -80,24 +80,22 @@ internal fun AccountScreen(
     val uiState by viewModel.uiStateFlow.collectAsState()
 
     val snackbarHostState = rememberSnackbarHostState()
-    val eventReceiver = remember(snackbarHostState, navController) {
-        object : AccountScreenViewModel.Event {
-            override suspend fun navigate(screen: Screen) {
-                navController.navigate(screen)
-            }
+    LaunchedEffect(viewModel.eventHandler, navController, snackbarHostState) {
+        viewModel.eventHandler.collect(
+            object : AccountScreenViewModel.Event {
+                override suspend fun navigate(screen: Screen) {
+                    navController.navigate(screen)
+                }
 
-            override fun showSnackbar(message: String) {
-                snackbarHostState.show(message)
-            }
-        }
+                override fun showSnackbar(message: String) {
+                    snackbarHostState.show(message)
+                }
+            },
+        )
     }
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
-    }
-
-    LaunchedEffect(viewModel.eventHandler, eventReceiver) {
-        viewModel.eventHandler.collect(eventReceiver)
     }
 
     AccountContent(

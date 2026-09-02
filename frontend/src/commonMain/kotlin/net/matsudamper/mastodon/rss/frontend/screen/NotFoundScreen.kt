@@ -36,15 +36,14 @@ internal fun NotFoundScreen(
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
-    val eventReceiver = remember(navController) {
-        object : NotFoundScreenViewModel.Event {
-            override suspend fun navigate(screen: Screen) {
-                navController.navigate(screen)
-            }
-        }
-    }
-    LaunchedEffect(viewModel.eventHandler, eventReceiver) {
-        viewModel.eventHandler.collect(eventReceiver)
+    LaunchedEffect(viewModel.eventHandler, navController) {
+        viewModel.eventHandler.collect(
+            object : NotFoundScreenViewModel.Event {
+                override suspend fun navigate(screen: Screen) {
+                    navController.navigate(screen)
+                }
+            },
+        )
     }
 
     PublicScaffold(listener = uiState.listener) { wide ->

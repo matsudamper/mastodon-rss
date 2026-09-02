@@ -40,15 +40,14 @@ internal fun AdminAccountNewScreen(
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
-    val eventReceiver = remember(navController) {
-        object : AdminAccountNewScreenViewModel.Event {
-            override suspend fun navigate(screen: Screen) {
-                navController.navigate(screen)
-            }
-        }
-    }
-    LaunchedEffect(viewModel.eventHandler, eventReceiver) {
-        viewModel.eventHandler.collect(eventReceiver)
+    LaunchedEffect(viewModel.eventHandler, navController) {
+        viewModel.eventHandler.collect(
+            object : AdminAccountNewScreenViewModel.Event {
+                override suspend fun navigate(screen: Screen) {
+                    navController.navigate(screen)
+                }
+            },
+        )
     }
 
     LaunchedEffect(viewModel) {
