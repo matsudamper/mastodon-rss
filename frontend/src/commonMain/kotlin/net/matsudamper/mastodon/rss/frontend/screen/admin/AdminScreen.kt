@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
@@ -127,6 +128,7 @@ private fun LoginCard(
             enabled = content.inputEnabled && !content.submitting,
             isError = content.error != null,
             label = { Text("パスワード") },
+            visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
         )
         content.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
