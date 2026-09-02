@@ -184,23 +184,14 @@ listOf("ktlintCheck", "ktlintFormat").forEach { taskName ->
 tasks.register("compileAll") {
     group = "build"
     description = "frontend・backendを含む全モジュールのプロダクションコードおよびテストコードをコンパイルする"
-    dependsOn(compileTasks(includeAndroid = true))
-}
-
-tasks.register("compileCloudAgent") {
-    group = "build"
-    description = "Cloud Agent 向け。Android SDK を要さず backend と Wasm frontend をコンパイルする"
-    dependsOn(compileTasks(includeAndroid = false))
-}
-
-fun compileTasks(includeAndroid: Boolean) =
-    allprojects.map { project ->
-        project.tasks.matching { task ->
-            (
+    dependsOn(
+        allprojects.map { project ->
+            project.tasks.matching { task ->
                 task.name.startsWith("compileKotlin") ||
                     task.name.startsWith("compileTestKotlin") ||
-                    (includeAndroid && task.name == "compileAndroidMain") ||
+                    task.name == "compileAndroidMain" ||
                     task.name in listOf("compileJava", "compileTestJava")
-                )
-        }
-    }
+            }
+        },
+    )
+}
