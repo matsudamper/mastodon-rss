@@ -31,8 +31,6 @@ data class AccountScreenUiState(
 
     @Immutable
     interface Listener : PublicScaffoldListener {
-        fun onClickOperator(username: String)
-
         fun onClickReload()
 
         fun onClickReloadNotes()

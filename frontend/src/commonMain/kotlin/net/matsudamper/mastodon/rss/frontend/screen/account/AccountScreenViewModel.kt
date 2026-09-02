@@ -19,11 +19,9 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 /**
  * @param username URL に入っていた名前。綴りが違っていても引けるので、
  *   画面に出すのは取ってきた方の名前にする
- * @param host 画面を開いているホスト。仮の値の組み立てにだけ使う
  */
 class AccountScreenViewModel(
     private val username: String,
-    private val host: String,
     private val viewModelScope: CoroutineScope,
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
@@ -48,10 +46,6 @@ class AccountScreenViewModel(
 
                     override fun onClickAdmin() {
                         navigate(Screen.Admin)
-                    }
-
-                    override fun onClickOperator(username: String) {
-                        navigate(Screen.Account(username))
                     }
 
                     override fun onClickReload() {
@@ -234,11 +228,18 @@ class AccountScreenViewModel(
 
             is AccountResult.Success -> {
                 AccountScreenUiState.Content.Loaded(
-                    account = AccountUiState.placeholder(
+                    account = AccountUiState(
                         username = account.account.username,
                         acct = account.account.acct,
                         actorUrl = account.account.actorUrl,
-                        host = host,
+                        followerCount = account.followerCount.toString(),
+                        noteCount = account.noteCount.toString(),
+                        feed = account.feed?.let { feed ->
+                            FeedUiState(
+                                feedUrl = feed.feedUrl,
+                                siteUrl = feed.siteUrl,
+                            )
+                        },
                     ),
                     notes = state.notes.map { it.toUiState() },
                     notesError = state.notesError,

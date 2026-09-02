@@ -1,4 +1,5 @@
 package net.matsudamper.mastodon.rss.frontend.logic.account
+
 /**
  * @param username 要求した綴りではなく、サーバーが持っている綴り
  * @param acct Mastodon の検索窓に貼る形
@@ -9,4 +10,9 @@ data class Account(
     val username: String,
     val acct: String,
     val actorUrl: String,
+)
+
+data class AccountFeed(
+    val feedUrl: String,
+    val siteUrl: String?,
 )
