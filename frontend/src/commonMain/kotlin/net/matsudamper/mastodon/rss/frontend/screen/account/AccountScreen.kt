@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -65,6 +66,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
@@ -139,16 +141,20 @@ internal fun AccountContent(
         listener = uiState.listener,
         snackbarHostState = snackbarHostState,
     ) { wide ->
+        val edgePadding = if (wide) 24.dp else 12.dp
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .widthIn(max = ContentMaxWidth)
                 .fillMaxWidth()
-                .padding(if (wide) 24.dp else 12.dp),
+                .padding(start = edgePadding, end = edgePadding, top = edgePadding),
         ) {
             when (val content = uiState.content) {
                 AccountScreenUiState.Content.Loading -> {
-                    SectionCard(title = "読み込み中") {
+                    SectionCard(
+                        modifier = Modifier.padding(bottom = edgePadding),
+                        title = "読み込み中",
+                    ) {
                         Text(
                             text = "アカウントを取ってきている。",
                             style = MaterialTheme.typography.bodyMedium,
@@ -159,12 +165,16 @@ internal fun AccountContent(
                 AccountScreenUiState.Content.NotFound -> {
                     NotFoundContent(
                         requestedPath = "/@$username",
+                        modifier = Modifier.padding(bottom = edgePadding),
                         description = "ユーザーが存在しません",
                     )
                 }
 
                 is AccountScreenUiState.Content.Error -> {
-                    SectionCard(title = "アカウントを出せない") {
+                    SectionCard(
+                        modifier = Modifier.padding(bottom = edgePadding),
+                        title = "アカウントを出せない",
+                    ) {
                         Text(
                             text = content.message,
                             style = MaterialTheme.typography.bodyMedium,
@@ -181,6 +191,7 @@ internal fun AccountContent(
                     LoadedAccountContent(
                         content = content,
                         wide = wide,
+                        bottomPadding = edgePadding,
                         onOpenExternal = platform::openExternalLink,
                         noteContent = ::NoteContent,
                         listener = uiState.listener,
@@ -195,6 +206,7 @@ internal fun AccountContent(
 private fun LoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     wide: Boolean,
+    bottomPadding: Dp,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
     listener: AccountScreenUiState.Listener,
@@ -203,6 +215,7 @@ private fun LoadedAccountContent(
         CompactLoadedAccountContent(
             content = content,
             listener = listener,
+            bottomPadding = bottomPadding,
             onOpenExternal = onOpenExternal,
             noteContent = noteContent,
         )
@@ -212,6 +225,7 @@ private fun LoadedAccountContent(
     WideLoadedAccountContent(
         content = content,
         listener = listener,
+        bottomPadding = bottomPadding,
         onOpenExternal = onOpenExternal,
         noteContent = noteContent,
     )
@@ -221,6 +235,7 @@ private fun LoadedAccountContent(
 private fun CompactLoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
+    bottomPadding: Dp,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
@@ -228,6 +243,7 @@ private fun CompactLoadedAccountContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = bottomPadding),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         if (state.placeholder) {
@@ -264,6 +280,7 @@ private fun CompactLoadedAccountContent(
 private fun WideLoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
+    bottomPadding: Dp,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
@@ -332,6 +349,7 @@ private fun WideLoadedAccountContent(
                         .weight(1.5f)
                         .fillMaxHeight(),
                     state = leftListState,
+                    contentPadding = PaddingValues(bottom = bottomPadding),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     notesItems(content, listener, onOpenExternal, noteContent)
@@ -340,7 +358,8 @@ private fun WideLoadedAccountContent(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .verticalScroll(rightScrollState),
+                        .verticalScroll(rightScrollState)
+                        .padding(bottom = bottomPadding),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     FeedSection(state, onOpenExternal)
