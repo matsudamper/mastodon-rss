@@ -100,5 +100,4 @@ private object WasmScreenPlatform : ScreenPlatform {
     override fun copyToClipboard(text: String, onResult: (Boolean) -> Unit) {
         net.matsudamper.mastodon.rss.frontend.ui.copyToClipboard(text, onResult)
     }
-
 }

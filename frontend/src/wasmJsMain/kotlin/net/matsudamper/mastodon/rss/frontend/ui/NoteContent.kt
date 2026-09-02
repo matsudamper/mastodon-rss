@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.ui
 
-import kotlinx.browser.document
 import androidx.compose.ui.text.AnnotatedString
+import kotlinx.browser.document
 import org.w3c.dom.HTMLDivElement
 
 internal actual fun htmlToAnnotatedString(html: String): AnnotatedString {
