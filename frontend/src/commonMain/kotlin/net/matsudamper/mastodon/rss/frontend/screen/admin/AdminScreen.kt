@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
@@ -122,13 +120,12 @@ private fun LoginCard(
                 is AdminScreenUiState.Content.Login.Input.Disabled -> input.message
             },
         )
-        OutlinedTextField(
-            value = content.password,
-            onValueChange = listener::onPasswordChanged,
+        AdminLoginPasswordField(
+            password = content.password,
+            onPasswordChange = listener::onPasswordChanged,
+            onSubmit = listener::onClickLogin,
             enabled = content.inputEnabled && !content.submitting,
-            isError = content.error != null,
-            label = { Text("パスワード") },
-            visualTransformation = PasswordVisualTransformation(),
+            hasError = content.error != null,
             modifier = Modifier.fillMaxWidth(),
         )
         content.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
