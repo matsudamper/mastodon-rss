@@ -2,7 +2,6 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.rememberScrollableState
@@ -22,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -42,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -200,8 +199,6 @@ private fun LoadedAccountContent(
     noteContent: @Composable (String, Modifier) -> Unit,
     listener: AccountScreenUiState.Listener,
 ) {
-    val state = content.account
-
     if (!wide) {
         CompactLoadedAccountContent(
             content = content,
@@ -271,34 +268,15 @@ private fun WideLoadedAccountContent(
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     val state = content.account
-    var headerHeightPx by remember { mutableIntStateOf(0) }
-    var headerOffsetPx by remember { mutableFloatStateOf(0f) }
+    val headerState = remember { CollapsingHeaderState() }
     val leftListState = rememberLazyListState()
     val rightScrollState = rememberScrollState()
-    val headerInputScrollState = rememberScrollableState { 0f }
-    val nestedScrollConnection = remember {
+    val nestedScrollConnection = remember(headerState) {
         object : NestedScrollConnection {
+            // 下方向はヘッダーを畳んでからペイン、上方向はペインを先頭に戻してからヘッダーを開く
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y < 0f) {
-                    if (!panesAtTop(leftListState, rightScrollState)) return Offset.Zero
-                    if (headerOffsetPx <= -headerHeightPx.toFloat()) return Offset.Zero
-
-                    val previous = headerOffsetPx
-                    headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
-                    return Offset(x = 0f, y = headerOffsetPx - previous)
-                }
-
-                if (
-                    available.y > 0f &&
-                    headerOffsetPx < 0f &&
-                    panesAtTop(leftListState, rightScrollState)
-                ) {
-                    val previous = headerOffsetPx
-                    headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
-                    return Offset(x = 0f, y = headerOffsetPx - previous)
-                }
-
-                return Offset.Zero
+                if (available.y >= 0f) return Offset.Zero
+                return Offset(x = 0f, y = headerState.consume(available.y))
             }
 
             override fun onPostScroll(
@@ -306,37 +284,26 @@ private fun WideLoadedAccountContent(
                 available: Offset,
                 source: NestedScrollSource,
             ): Offset {
-                if (
-                    available.y <= 0f ||
-                    headerOffsetPx >= 0f ||
-                    !panesAtTop(leftListState, rightScrollState)
-                ) {
-                    return Offset.Zero
-                }
-
-                val previous = headerOffsetPx
-                headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
-                return Offset(x = 0f, y = headerOffsetPx - previous)
+                if (available.y <= 0f) return Offset.Zero
+                return Offset(x = 0f, y = headerState.consume(available.y))
             }
         }
     }
+    val headerScrollState = rememberScrollableState { 0f }
 
     CoordinatedTwoPaneLayout(
         modifier = Modifier
             .fillMaxSize()
             .clipToBounds(),
-        headerOffsetPx = headerOffsetPx,
-        onHeaderHeightChange = { height ->
-            headerHeightPx = height
-            headerOffsetPx = headerOffsetPx.coerceIn(-height.toFloat(), 0f)
-        },
+        headerOffsetPx = headerState.offsetPx,
+        onHeaderHeightChange = headerState::updateHeight,
         header = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .nestedScroll(nestedScrollConnection)
                     .scrollable(
-                        state = headerInputScrollState,
+                        state = headerScrollState,
                         orientation = Orientation.Vertical,
                     )
                     .padding(bottom = 16.dp),
@@ -389,13 +356,30 @@ private fun WideLoadedAccountContent(
     )
 }
 
-private fun panesAtTop(
-    leftListState: LazyListState,
-    rightScrollState: ScrollState,
-): Boolean =
-    leftListState.firstVisibleItemIndex == 0 &&
-        leftListState.firstVisibleItemScrollOffset == 0 &&
-        rightScrollState.value == 0
+/**
+ * ヘッダーの折り畳み量。
+ *
+ * 左右のペインが同じ値を見るので、どちらをスクロールしてもヘッダーの状態が揃う
+ */
+@Stable
+private class CollapsingHeaderState {
+    var offsetPx: Float by mutableFloatStateOf(0f)
+        private set
+
+    private var heightPx: Int by mutableIntStateOf(0)
+
+    fun updateHeight(height: Int) {
+        heightPx = height
+        offsetPx = offsetPx.coerceIn(-height.toFloat(), 0f)
+    }
+
+    fun consume(delta: Float): Float {
+        val next = (offsetPx + delta).coerceIn(-heightPx.toFloat(), 0f)
+        val consumed = next - offsetPx
+        offsetPx = next
+        return consumed
+    }
+}
 
 @Composable
 private fun CoordinatedTwoPaneLayout(
@@ -439,7 +423,7 @@ private fun CoordinatedTwoPaneLayout(
         )
 
         layout(constraints.maxWidth, constraints.maxHeight) {
-            headerPlaceable.place(x = 0, y = headerOffsetPx.roundToInt())
+            headerPlaceable.place(x = 0, y = visibleHeaderHeight - headerPlaceable.height)
             panesPlaceable.place(x = 0, y = visibleHeaderHeight)
         }
     }
