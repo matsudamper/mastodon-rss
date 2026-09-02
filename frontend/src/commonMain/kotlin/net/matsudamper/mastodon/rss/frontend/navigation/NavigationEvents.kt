@@ -3,7 +3,6 @@ package net.matsudamper.mastodon.rss.frontend.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventHandler
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 
