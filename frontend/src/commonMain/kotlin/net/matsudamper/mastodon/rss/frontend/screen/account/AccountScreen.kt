@@ -3,6 +3,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -266,22 +270,11 @@ private fun WideLoadedAccountContent(
     val state = content.account
     var headerHeightPx by remember { mutableIntStateOf(0) }
     var headerOffsetPx by remember { mutableFloatStateOf(0f) }
+    val headerInputScrollState = rememberScrollableState { 0f }
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y >= 0f) return Offset.Zero
-
-                val previous = headerOffsetPx
-                headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
-                return Offset(x = 0f, y = headerOffsetPx - previous)
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource,
-            ): Offset {
-                if (available.y <= 0f) return Offset.Zero
+                if (available.y == 0f) return Offset.Zero
 
                 val previous = headerOffsetPx
                 headerOffsetPx = (headerOffsetPx + available.y).coerceIn(-headerHeightPx.toFloat(), 0f)
@@ -293,6 +286,7 @@ private fun WideLoadedAccountContent(
     CoordinatedTwoPaneLayout(
         modifier = Modifier
             .fillMaxSize()
+            .clipToBounds()
             .nestedScroll(nestedScrollConnection),
         headerOffsetPx = headerOffsetPx,
         onHeaderHeightChange = { height ->
@@ -301,7 +295,13 @@ private fun WideLoadedAccountContent(
         },
         header = {
             Column(
-                modifier = Modifier.padding(bottom = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .scrollable(
+                        state = headerInputScrollState,
+                        orientation = Orientation.Vertical,
+                    )
+                    .padding(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 if (state.placeholder) {
