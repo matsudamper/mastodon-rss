@@ -20,7 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.NavController
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
@@ -33,7 +33,7 @@ private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 @Composable
 internal fun AdminScreen(
     platform: ScreenPlatform,
-    navController: NavController,
+    navController: Navigator,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) {
@@ -43,7 +43,7 @@ internal fun AdminScreen(
 
     val eventReceiver = remember(navController) {
         object : AdminScreenViewModel.Event {
-            override fun navigate(screen: Screen) {
+            override suspend fun navigate(screen: Screen) {
                 navController.navigate(screen)
             }
         }

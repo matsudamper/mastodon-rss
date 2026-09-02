@@ -46,7 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.NavController
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
@@ -66,7 +66,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 internal fun AccountScreen(
     username: String,
     platform: ScreenPlatform,
-    navController: NavController,
+    navController: Navigator,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope, username, platform) {
@@ -82,7 +82,7 @@ internal fun AccountScreen(
     val snackbarHostState = rememberSnackbarHostState()
     val eventReceiver = remember(snackbarHostState, navController) {
         object : AccountScreenViewModel.Event {
-            override fun navigate(screen: Screen) {
+            override suspend fun navigate(screen: Screen) {
                 navController.navigate(screen)
             }
 

@@ -266,7 +266,7 @@ class AccountScreenViewModel(
     )
 
     interface Event {
-        fun navigate(screen: Screen)
+        suspend fun navigate(screen: Screen)
 
         fun showSnackbar(message: String)
     }

@@ -20,7 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.NavController
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
@@ -28,7 +28,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 @Composable
 internal fun NotFoundScreen(
     requestedPath: String,
-    navController: NavController,
+    navController: Navigator,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) {
@@ -38,7 +38,7 @@ internal fun NotFoundScreen(
 
     val eventReceiver = remember(navController) {
         object : NotFoundScreenViewModel.Event {
-            override fun navigate(screen: Screen) {
+            override suspend fun navigate(screen: Screen) {
                 navController.navigate(screen)
             }
         }

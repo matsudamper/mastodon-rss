@@ -174,7 +174,7 @@ internal class AdminScreenViewModel(
     )
 
     interface Event {
-        fun navigate(screen: Screen)
+        suspend fun navigate(screen: Screen)
     }
 
     private companion object {

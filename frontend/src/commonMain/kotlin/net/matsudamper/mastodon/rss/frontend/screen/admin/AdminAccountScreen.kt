@@ -40,7 +40,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collect
 import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.NavController
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
@@ -49,7 +49,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 internal fun AdminAccountScreen(
     username: String,
     platform: ScreenPlatform,
-    navController: NavController,
+    navController: Navigator,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(username, viewModelScope) {
@@ -62,7 +62,7 @@ internal fun AdminAccountScreen(
 
     val eventReceiver = remember(navController) {
         object : AdminAccountScreenViewModel.Event {
-            override fun navigate(screen: Screen) {
+            override suspend fun navigate(screen: Screen) {
                 navController.navigate(screen)
             }
         }

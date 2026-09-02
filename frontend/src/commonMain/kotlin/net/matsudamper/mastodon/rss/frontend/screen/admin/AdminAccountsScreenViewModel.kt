@@ -117,6 +117,6 @@ class AdminAccountsScreenViewModel(
     )
 
     interface Event {
-        fun navigate(screen: Screen)
+        suspend fun navigate(screen: Screen)
     }
 }

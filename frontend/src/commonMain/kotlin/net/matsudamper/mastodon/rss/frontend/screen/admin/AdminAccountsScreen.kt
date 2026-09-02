@@ -32,7 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.event.CollectViewModelEvents
-import net.matsudamper.mastodon.rss.frontend.navigation.NavController
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
@@ -41,7 +41,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
 internal fun AdminAccountsScreen(
-    navController: NavController,
+    navController: Navigator,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) {
@@ -51,7 +51,7 @@ internal fun AdminAccountsScreen(
 
     val eventReceiver = remember(navController) {
         object : AdminAccountsScreenViewModel.Event {
-            override fun navigate(screen: Screen) {
+            override suspend fun navigate(screen: Screen) {
                 navController.navigate(screen)
             }
         }

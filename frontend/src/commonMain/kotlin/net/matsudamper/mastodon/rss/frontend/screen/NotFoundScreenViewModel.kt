@@ -38,7 +38,7 @@ class NotFoundScreenViewModel(
     }
 
     interface Event {
-        fun navigate(screen: Screen)
+        suspend fun navigate(screen: Screen)
     }
 }
 

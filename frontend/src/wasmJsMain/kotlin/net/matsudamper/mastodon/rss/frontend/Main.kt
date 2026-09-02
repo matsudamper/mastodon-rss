@@ -9,9 +9,10 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import kotlinx.browser.document
 import kotlinx.browser.window
-import net.matsudamper.mastodon.rss.frontend.navigation.NavController
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavigator
+import net.matsudamper.mastodon.rss.frontend.navigation.WasmNavigator
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavController
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundScreen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountScreen
@@ -40,14 +41,14 @@ fun main() {
 @Composable
 fun App() {
     AppTheme {
-        val navigator = rememberNavigator()
-        val navController = remember(navigator) {
-            NavController(navigator::navigateTo)
+        val platformNavController = rememberNavController()
+        val navController: Navigator = remember(platformNavController) {
+            WasmNavigator(platformNavController)
         }
 
         NavDisplay(
-            backStack = navigator.backStack,
-            onBack = { navigator.back() },
+            backStack = platformNavController.backStack,
+            onBack = { platformNavController.back() },
             entryProvider =
             entryProvider {
                 entry<Screen.Home> {
