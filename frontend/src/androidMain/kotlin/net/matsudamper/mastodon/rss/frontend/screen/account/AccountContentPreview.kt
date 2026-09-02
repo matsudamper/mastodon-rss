@@ -35,17 +35,14 @@ private fun AccountContentPreview() {
             ),
             username = username,
             platform = AndroidPreviewScreenPlatform,
+            onClickHome = {},
+            onClickAdmin = {},
+            onClickOperator = {},
         )
     }
 }
 
 private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
-    override fun onClickHome() = Unit
-
-    override fun onClickAdmin() = Unit
-
-    override fun onClickOperator() = Unit
-
     override fun onClickReload() = Unit
 
     override fun onClickReloadNotes() = Unit

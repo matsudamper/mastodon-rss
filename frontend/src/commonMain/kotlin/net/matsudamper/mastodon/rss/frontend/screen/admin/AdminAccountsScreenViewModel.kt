@@ -6,22 +6,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
-import net.matsudamper.mastodon.rss.frontend.navigation.NavigationHandler
-import net.matsudamper.mastodon.rss.frontend.navigation.Screen
-import net.matsudamper.mastodon.rss.frontend.navigation.ScreenNavigator
 
 class AdminAccountsScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
-    private val navigationEvents = EventSender<NavigationHandler>()
-    internal val navigationHandler = navigationEvents.asHandler()
-    private val navigator = ScreenNavigator(navigationEvents, viewModelScope)
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     val uiStateFlow: StateFlow<AdminAccountsScreenUiState> =
@@ -29,18 +22,6 @@ class AdminAccountsScreenViewModel(
             AdminAccountsScreenUiState(
                 content = AdminAccountsScreenUiState.Content.Loading,
                 listener = object : AdminAccountsScreenUiState.Listener {
-                    override fun onClickHome() {
-                        navigator.navigate(Screen.Home)
-                    }
-
-                    override fun onClickAdmin() {
-                        navigator.navigate(Screen.Admin)
-                    }
-
-                    override fun onClickNewAccount() {
-                        navigator.navigate(Screen.AdminAccountNew)
-                    }
-
                     override fun onClickReload() {
                         reload()
                     }
@@ -99,8 +80,6 @@ class AdminAccountsScreenViewModel(
                             actorUrl = account.account.actorUrl,
                             createdAt = UnixTimeUtil.format(account.createdAt),
                             followerCount = account.followerCount,
-                            onClickPublic = { navigator.navigate(Screen.Account(account.account.username)) },
-                            onClickAdmin = { navigator.navigate(Screen.AdminAccount(account.account.username)) },
                         )
                     },
                 )

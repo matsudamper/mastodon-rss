@@ -17,20 +17,17 @@ private fun AdminAccountNewContentPreview() {
                 ),
                 listener = AndroidPreviewAdminAccountNewListener,
             ),
+            onClickAccounts = {},
+            onClickAdmin = {},
+            onClickHome = {},
         )
     }
 }
 
 private object AndroidPreviewAdminAccountNewListener : AdminAccountNewScreenUiState.Listener {
-    override fun onClickHome() = Unit
-
-    override fun onClickAdmin() = Unit
-
     override fun onUsernameChanged(text: String) = Unit
 
     override fun onClickAdd() = Unit
 
     override fun onClickAddAnother() = Unit
-
-    override fun onClickAccounts() = Unit
 }

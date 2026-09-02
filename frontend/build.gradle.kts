@@ -44,7 +44,6 @@ kotlin {
                 implementation(compose.materialIconsExtended)
                 implementation(compose.ui)
                 implementation(compose.material3)
-                implementation(libs.navigation3.ui)
             }
         }
 

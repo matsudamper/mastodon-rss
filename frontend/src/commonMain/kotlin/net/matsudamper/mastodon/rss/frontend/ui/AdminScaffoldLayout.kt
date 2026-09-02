@@ -21,13 +21,20 @@ import androidx.compose.ui.text.font.FontWeight
 @Composable
 internal fun AdminScaffold(
     title: String?,
-    listener: AdminScaffoldListener,
+    onClickAdmin: () -> Unit,
+    onClickHome: () -> Unit,
     snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
     AppScaffoldLayout(
         snackbarHostState = snackbarHostState,
-        topBar = { AdminTopAppBar(title = title, listener = listener) },
+        topBar = {
+            AdminTopAppBar(
+                title = title,
+                onClickAdmin = onClickAdmin,
+                onClickHome = onClickHome,
+            )
+        },
         content = content,
     )
 }
@@ -36,7 +43,8 @@ internal fun AdminScaffold(
 @Composable
 private fun AdminTopAppBar(
     title: String?,
-    listener: AdminScaffoldListener,
+    onClickAdmin: () -> Unit,
+    onClickHome: () -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.primaryContainer) {
         Column {
@@ -44,13 +52,13 @@ private fun AdminTopAppBar(
                 title = {
                     Text(
                         text = "管理画面".plus(if (title != null) "/$title" else ""),
-                        modifier = Modifier.clickable(onClick = listener::onClickAdmin),
+                        modifier = Modifier.clickable(onClick = onClickAdmin),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 actions = {
-                    TextButton(onClick = listener::onClickHome) {
+                    TextButton(onClick = onClickHome) {
                         Text("トップ")
                     }
                 },
