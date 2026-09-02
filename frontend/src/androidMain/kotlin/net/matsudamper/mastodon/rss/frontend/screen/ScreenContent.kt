@@ -4,7 +4,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreenUiState
 
 @Composable
 internal actual fun NoteContent(contentHtml: String, modifier: Modifier) {
@@ -13,13 +12,17 @@ internal actual fun NoteContent(contentHtml: String, modifier: Modifier) {
 
 @Composable
 internal actual fun AdminLoginPasswordField(
-    content: AdminScreenUiState.Content.Login,
-    listener: AdminScreenUiState.Listener,
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    enabled: Boolean,
+    hasError: Boolean,
 ) {
     OutlinedTextField(
-        value = content.password,
-        onValueChange = listener::onPasswordChanged,
-        enabled = content.inputEnabled && !content.submitting,
+        value = password,
+        onValueChange = onPasswordChange,
+        enabled = enabled,
+        isError = hasError,
         label = { Text("パスワード") },
     )
 }

@@ -114,7 +114,7 @@ internal fun AdminContent(
 private fun LoginCard(
     content: AdminScreenUiState.Content.Login,
     listener: AdminScreenUiState.Listener,
-    passwordField: @Composable (AdminScreenUiState.Content.Login, AdminScreenUiState.Listener) -> Unit,
+    passwordField: @Composable (String, (String) -> Unit, () -> Unit, Boolean, Boolean) -> Unit,
 ) {
     SectionCard(title = "ログイン") {
         Text(
@@ -123,7 +123,13 @@ private fun LoginCard(
                 is AdminScreenUiState.Content.Login.Input.Disabled -> input.message
             },
         )
-        passwordField(content, listener)
+        passwordField(
+            content.password,
+            listener::onPasswordChanged,
+            listener::onClickLogin,
+            content.inputEnabled && !content.submitting,
+            content.error != null,
+        )
         content.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
             onClick = listener::onClickLogin,
