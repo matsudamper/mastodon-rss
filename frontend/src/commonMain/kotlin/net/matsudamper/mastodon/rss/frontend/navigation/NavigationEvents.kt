@@ -30,10 +30,8 @@ internal fun CollectScreenNavigationEvents(
     LaunchedEffect(screenHandler, appEvents) {
         screenHandler.collect(
             object : Navigator {
-                override fun navigate(screen: Screen) {
-                    launch {
-                        appEvents.send { it.navigate(screen) }
-                    }
+                override suspend fun navigate(screen: Screen) {
+                    appEvents.send { it.navigate(screen) }
                 }
             },
         )

@@ -4,5 +4,5 @@ import androidx.compose.runtime.Stable
 
 @Stable
 interface Navigator {
-    fun navigate(screen: Screen)
+    suspend fun navigate(screen: Screen)
 }
