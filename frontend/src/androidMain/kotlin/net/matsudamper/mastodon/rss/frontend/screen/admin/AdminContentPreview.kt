@@ -15,15 +15,15 @@ private fun AdminContentPreview() {
                 listener = AndroidPreviewAdminListener,
             ),
             platform = AndroidPreviewScreenPlatform,
-            onClickAccounts = {},
-            onClickNewAccount = {},
-            onClickAdmin = {},
-            onClickHome = {},
         )
     }
 }
 
 private object AndroidPreviewAdminListener : AdminScreenUiState.Listener {
+    override fun onClickHome() = Unit
+
+    override fun onClickAdmin() = Unit
+
     override fun onPasswordChanged(text: String) = Unit
 
     override fun onClickLogin() = Unit
@@ -31,4 +31,8 @@ private object AndroidPreviewAdminListener : AdminScreenUiState.Listener {
     override fun onClickLogout() = Unit
 
     override fun onClickRetry() = Unit
+
+    override fun onClickAccounts() = Unit
+
+    override fun onClickNewAccount() = Unit
 }

@@ -17,19 +17,13 @@ import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 internal fun PublicScaffold(
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
+    listener: PublicScaffoldListener,
     snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
     content: @Composable ColumnScope.(wide: Boolean) -> Unit,
 ) {
     AppScaffoldLayout(
         snackbarHostState = snackbarHostState,
-        topBar = {
-            PublicTopAppBar(
-                onClickHome = onClickHome,
-                onClickAdmin = onClickAdmin,
-            )
-        },
+        topBar = { PublicTopAppBar(listener = listener) },
         content = content,
     )
 }
@@ -37,8 +31,7 @@ internal fun PublicScaffold(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PublicTopAppBar(
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
+    listener: PublicScaffoldListener,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
@@ -46,13 +39,13 @@ private fun PublicTopAppBar(
                 title = {
                     Text(
                         text = "mastodon-rss",
-                        modifier = Modifier.clickable(onClick = onClickHome),
+                        modifier = Modifier.clickable(onClick = listener::onClickHome),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 actions = {
-                    TextButton(onClick = onClickAdmin) {
+                    TextButton(onClick = listener::onClickAdmin) {
                         Text("管理画面")
                     }
                 },

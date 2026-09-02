@@ -10,24 +10,43 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 
 @Composable
 internal fun NotFoundScreen(
     requestedPath: String,
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
+    navController: Navigator,
 ) {
-    PublicScaffold(
-        onClickHome = onClickHome,
-        onClickAdmin = onClickAdmin,
-    ) { wide ->
+    val viewModelScope = rememberCoroutineScope()
+    val viewModel = remember(viewModelScope) {
+        NotFoundScreenViewModel(viewModelScope)
+    }
+    val uiState by viewModel.uiStateFlow.collectAsState()
+
+    LaunchedEffect(viewModel.eventHandler, navController) {
+        viewModel.eventHandler.collect(
+            object : NotFoundScreenViewModel.Event {
+                override suspend fun navigate(screen: Screen) {
+                    navController.navigate(screen)
+                }
+            },
+        )
+    }
+
+    PublicScaffold(listener = uiState.listener) { wide ->
         NotFoundContent(
             requestedPath = requestedPath,
             modifier = Modifier

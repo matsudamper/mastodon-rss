@@ -31,6 +31,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -38,59 +40,59 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
 internal fun AdminAccountsScreen(
-    onClickNewAccount: () -> Unit,
-    onClickPublicAccount: (String) -> Unit,
-    onClickAdminAccount: (String) -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
+    navController: Navigator,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope) { AdminAccountsScreenViewModel(viewModelScope) }
+    val viewModel = remember(viewModelScope) {
+        AdminAccountsScreenViewModel(viewModelScope)
+    }
     val uiState by viewModel.uiStateFlow.collectAsState()
+
+    LaunchedEffect(viewModel.eventHandler, navController) {
+        viewModel.eventHandler.collect(
+            object : AdminAccountsScreenViewModel.Event {
+                override suspend fun navigate(screen: Screen) {
+                    navController.navigate(screen)
+                }
+            },
+        )
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
     }
 
-    AdminAccountsContent(
-        uiState = uiState,
-        onClickNewAccount = onClickNewAccount,
-        onClickPublicAccount = onClickPublicAccount,
-        onClickAdminAccount = onClickAdminAccount,
-        onClickAdmin = onClickAdmin,
-        onClickHome = onClickHome,
-    )
+    AdminAccountsContent(uiState = uiState)
 }
 
 @Composable
 internal fun AdminAccountsContent(
     uiState: AdminAccountsScreenUiState,
-    onClickNewAccount: () -> Unit,
-    onClickPublicAccount: (String) -> Unit,
-    onClickAdminAccount: (String) -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
 ) {
-    AdminScaffold("アカウント", onClickAdmin, onClickHome) { wide ->
+    AdminScaffold("アカウント", listener = uiState.listener) { wide ->
         Column(
             modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(if (wide) 24.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("アカウント一覧", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                OutlinedButton(onClick = onClickNewAccount) { Text("追加") }
+                OutlinedButton(onClick = uiState.listener::onClickNewAccount) { Text("追加") }
             }
             when (val content = uiState.content) {
                 AdminAccountsScreenUiState.Content.Loading -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 
-                AdminAccountsScreenUiState.Content.RequireLogin -> RequireLoginCard(onClickAdmin)
+                AdminAccountsScreenUiState.Content.RequireLogin -> RequireLoginCard(onClickAdmin = uiState.listener::onClickAdmin)
 
                 is AdminAccountsScreenUiState.Content.Error -> SectionCard("一覧を出せない") {
                     Text(content.message, color = MaterialTheme.colorScheme.error)
                     OutlinedButton(onClick = uiState.listener::onClickReload) { Text("もう一度試す") }
                 }
 
-                is AdminAccountsScreenUiState.Content.Loaded -> Accounts(content.accounts, wide, onClickPublicAccount, onClickAdminAccount)
+                is AdminAccountsScreenUiState.Content.Loaded -> Accounts(
+                    accounts = content.accounts,
+                    wide = wide,
+                    listener = uiState.listener,
+                )
             }
         }
     }
@@ -100,8 +102,7 @@ internal fun AdminAccountsContent(
 private fun Accounts(
     accounts: List<AdminAccountsScreenUiState.Account>,
     wide: Boolean,
-    onClickPublicAccount: (String) -> Unit,
-    onClickAdminAccount: (String) -> Unit,
+    listener: AdminAccountsScreenUiState.Listener,
 ) {
     if (accounts.isEmpty()) {
         SectionCard("アカウント") { Text("まだアカウントはありません。下のリンクから追加できます。") }
@@ -112,7 +113,11 @@ private fun Accounts(
         accounts.chunked(columns).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 row.forEach { account ->
-                    AccountCard(account, { onClickPublicAccount(account.username) }, { onClickAdminAccount(account.username) }, Modifier.weight(1f))
+                    AccountCard(
+                        account = account,
+                        listener = listener,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
                 repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
             }
@@ -121,7 +126,11 @@ private fun Accounts(
 }
 
 @Composable
-private fun AccountCard(account: AdminAccountsScreenUiState.Account, onPublic: () -> Unit, onAdmin: () -> Unit, modifier: Modifier = Modifier) {
+private fun AccountCard(
+    account: AdminAccountsScreenUiState.Account,
+    listener: AdminAccountsScreenUiState.Listener,
+    modifier: Modifier = Modifier,
+) {
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -136,8 +145,8 @@ private fun AccountCard(account: AdminAccountsScreenUiState.Account, onPublic: (
             }
             Text("追加: ${account.createdAt}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                OutlinedButton(onClick = onPublic) { Text("公開画面") }
-                Button(onClick = onAdmin) { Text("管理画面") }
+                OutlinedButton(onClick = { listener.onClickPublic(account.username) }) { Text("公開画面") }
+                Button(onClick = { listener.onClickAccount(account.username) }) { Text("管理画面") }
             }
         }
     }

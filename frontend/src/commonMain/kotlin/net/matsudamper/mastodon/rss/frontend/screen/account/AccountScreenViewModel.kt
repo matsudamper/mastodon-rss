@@ -14,6 +14,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 /**
  * @param username URL に入っていた名前。綴りが違っていても引けるので、
@@ -28,8 +29,7 @@ class AccountScreenViewModel(
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
 ) {
     private val events = EventSender<Event>()
-
-    internal val asHandler = events.asHandler()
+    internal val eventHandler = events.asHandler()
 
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
@@ -42,6 +42,18 @@ class AccountScreenViewModel(
                 content = AccountScreenUiState.Content.Loading,
                 listener =
                 object : AccountScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
+                    override fun onClickOperator(username: String) {
+                        navigate(Screen.Account(username))
+                    }
+
                     override fun onClickReload() {
                         reload()
                     }
@@ -71,6 +83,12 @@ class AccountScreenViewModel(
 
     fun onStart() {
         reload()
+    }
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
+        }
     }
 
     private fun reload() {
@@ -248,6 +266,8 @@ class AccountScreenViewModel(
     )
 
     interface Event {
+        suspend fun navigate(screen: Screen)
+
         fun showSnackbar(message: String)
     }
 

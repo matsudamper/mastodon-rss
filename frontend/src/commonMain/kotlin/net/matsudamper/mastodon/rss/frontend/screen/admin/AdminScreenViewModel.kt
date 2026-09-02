@@ -6,14 +6,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminLoginResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 internal class AdminScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     val uiStateFlow: StateFlow<AdminScreenUiState> =
@@ -22,6 +26,22 @@ internal class AdminScreenViewModel(
                 content = AdminScreenUiState.Content.Loading,
                 listener =
                 object : AdminScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
+                    override fun onClickAccounts() {
+                        navigate(Screen.AdminAccounts)
+                    }
+
+                    override fun onClickNewAccount() {
+                        navigate(Screen.AdminAccountNew)
+                    }
+
                     override fun onPasswordChanged(text: String) {
                         viewModelStateFlow.update { it.copy(password = text, error = null) }
                     }
@@ -51,6 +71,12 @@ internal class AdminScreenViewModel(
 
     fun onStart() {
         reload()
+    }
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
+        }
     }
 
     private fun reload() {
@@ -146,6 +172,10 @@ internal class AdminScreenViewModel(
         val submitting: Boolean = false,
         val error: String? = null,
     )
+
+    interface Event {
+        suspend fun navigate(screen: Screen)
+    }
 
     private companion object {
         const val LOGIN_DISABLED_MESSAGE = "ログインが無効化されている"

@@ -30,15 +30,20 @@ private fun AdminAccountsContentPreview() {
                 ),
                 listener = AndroidPreviewAdminAccountsListener,
             ),
-            onClickNewAccount = {},
-            onClickPublicAccount = {},
-            onClickAdminAccount = {},
-            onClickAdmin = {},
-            onClickHome = {},
         )
     }
 }
 
 private object AndroidPreviewAdminAccountsListener : AdminAccountsScreenUiState.Listener {
+    override fun onClickHome() = Unit
+
+    override fun onClickAdmin() = Unit
+
+    override fun onClickNewAccount() = Unit
+
+    override fun onClickPublic(username: String) = Unit
+
+    override fun onClickAccount(username: String) = Unit
+
     override fun onClickReload() = Unit
 }

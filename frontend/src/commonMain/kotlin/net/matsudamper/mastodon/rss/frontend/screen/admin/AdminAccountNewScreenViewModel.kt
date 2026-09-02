@@ -6,14 +6,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAddAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 class AdminAccountNewScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     val uiStateFlow: StateFlow<AdminAccountNewScreenUiState> =
@@ -22,6 +26,18 @@ class AdminAccountNewScreenViewModel(
                 content = AdminAccountNewScreenUiState.Content.Loading,
                 listener =
                 object : AdminAccountNewScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
+                    override fun onClickAccounts() {
+                        navigate(Screen.AdminAccounts)
+                    }
+
                     override fun onUsernameChanged(text: String) {
                         viewModelStateFlow.update { it.copy(username = text, error = null) }
                     }
@@ -49,6 +65,12 @@ class AdminAccountNewScreenViewModel(
         viewModelScope.launch {
             val session = api.session()
             viewModelStateFlow.update { it.copy(session = session) }
+        }
+    }
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
         }
     }
 
@@ -121,4 +143,8 @@ class AdminAccountNewScreenViewModel(
         val error: String? = null,
         val added: String? = null,
     )
+
+    interface Event {
+        suspend fun navigate(screen: Screen)
+    }
 }

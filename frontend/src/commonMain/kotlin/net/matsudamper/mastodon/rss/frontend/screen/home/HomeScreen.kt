@@ -32,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
@@ -39,34 +41,36 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
 internal fun HomeScreen(
-    onClickAccount: (String) -> Unit,
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
+    navController: Navigator,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope) { HomeScreenViewModel(viewModelScope) }
+    val viewModel = remember(viewModelScope) {
+        HomeScreenViewModel(viewModelScope)
+    }
     val uiState by viewModel.uiStateFlow.collectAsState()
+
+    LaunchedEffect(viewModel.eventHandler, navController) {
+        viewModel.eventHandler.collect(
+            object : HomeScreenViewModel.Event {
+                override suspend fun navigate(screen: Screen) {
+                    navController.navigate(screen)
+                }
+            },
+        )
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
     }
 
-    HomeContent(
-        uiState = uiState,
-        onClickAccount = onClickAccount,
-        onClickHome = onClickHome,
-        onClickAdmin = onClickAdmin,
-    )
+    HomeContent(uiState = uiState)
 }
 
 @Composable
 internal fun HomeContent(
     uiState: HomeScreenUiState,
-    onClickAccount: (String) -> Unit,
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
 ) {
-    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
+    PublicScaffold(listener = uiState.listener) { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
@@ -103,7 +107,6 @@ internal fun HomeContent(
                     content = content,
                     listener = uiState.listener,
                     wide = wide,
-                    onClickAccount = onClickAccount,
                 )
             }
         }
@@ -115,7 +118,6 @@ private fun LoadedContent(
     content: HomeScreenUiState.Content.Loaded,
     listener: HomeScreenUiState.Listener,
     wide: Boolean,
-    onClickAccount: (String) -> Unit,
 ) {
     if (content.accounts.isEmpty()) {
         SectionCard(title = "アカウント") {
@@ -141,7 +143,7 @@ private fun LoadedContent(
                 rowAccounts.forEach { account ->
                     AccountCard(
                         account = account,
-                        onClick = { onClickAccount(account.username) },
+                        onClick = { listener.onClickAccount(account.username) },
                         modifier = Modifier.weight(1f),
                     )
                 }
