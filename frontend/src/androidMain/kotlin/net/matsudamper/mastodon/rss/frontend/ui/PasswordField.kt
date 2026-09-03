@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.screen.admin
+package net.matsudamper.mastodon.rss.frontend.ui
 
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -11,20 +11,24 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 
 @Composable
-internal actual fun AdminLoginPasswordField(
-    password: String,
-    onPasswordChange: (String) -> Unit,
+internal actual fun PasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
     onSubmit: () -> Unit,
+    label: String,
+    formId: String,
+    inputId: String,
+    inputName: String,
     enabled: Boolean,
     hasError: Boolean,
     modifier: Modifier,
 ) {
     OutlinedTextField(
-        value = password,
-        onValueChange = onPasswordChange,
+        value = value,
+        onValueChange = onValueChange,
         enabled = enabled,
         isError = hasError,
-        label = { Text("パスワード") },
+        label = { Text(label) },
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(

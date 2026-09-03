@@ -24,10 +24,13 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
+import net.matsudamper.mastodon.rss.frontend.ui.PasswordField
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
 private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
+private const val LOGIN_FORM_ID = "admin-login-form"
+private const val LOGIN_PASSWORD_INPUT_ID = "admin-login-password"
 
 @Composable
 internal fun AdminScreen(
@@ -120,10 +123,14 @@ private fun LoginCard(
                 is AdminScreenUiState.Content.Login.Input.Disabled -> input.message
             },
         )
-        AdminLoginPasswordField(
-            password = content.password,
-            onPasswordChange = listener::onPasswordChanged,
+        PasswordField(
+            value = content.password,
+            onValueChange = listener::onPasswordChanged,
             onSubmit = listener::onClickLogin,
+            label = "パスワード",
+            formId = LOGIN_FORM_ID,
+            inputId = LOGIN_PASSWORD_INPUT_ID,
+            inputName = "password",
             enabled = content.inputEnabled && !content.submitting,
             hasError = content.error != null,
             modifier = Modifier.fillMaxWidth(),
