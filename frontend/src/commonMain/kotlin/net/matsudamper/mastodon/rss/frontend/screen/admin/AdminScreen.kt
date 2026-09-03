@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,17 +18,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
+import net.matsudamper.mastodon.rss.frontend.ui.PasswordField
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
 private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
+private const val LOGIN_FORM_ID = "admin-login-form"
+private const val LOGIN_PASSWORD_INPUT_ID = "admin-login-password"
 
 @Composable
 internal fun AdminScreen(
@@ -122,13 +123,16 @@ private fun LoginCard(
                 is AdminScreenUiState.Content.Login.Input.Disabled -> input.message
             },
         )
-        OutlinedTextField(
+        PasswordField(
             value = content.password,
             onValueChange = listener::onPasswordChanged,
+            onSubmit = listener::onClickLogin,
+            label = "パスワード",
+            formId = LOGIN_FORM_ID,
+            inputId = LOGIN_PASSWORD_INPUT_ID,
+            inputName = "password",
             enabled = content.inputEnabled && !content.submitting,
-            isError = content.error != null,
-            label = { Text("パスワード") },
-            visualTransformation = PasswordVisualTransformation(),
+            hasError = content.error != null,
             modifier = Modifier.fillMaxWidth(),
         )
         content.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
