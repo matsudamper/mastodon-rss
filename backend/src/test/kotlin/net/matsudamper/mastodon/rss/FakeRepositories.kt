@@ -215,6 +215,9 @@ class FakeFeedRepository : FeedRepository {
 
     override fun findByAccountId(accountId: AccountId): Feed? = stored.firstOrNull { it.accountId == accountId }
 
+    override fun findByAccountIds(accountIds: Set<AccountId>): Map<AccountId, Feed> =
+        stored.filter { it.accountId in accountIds }.associateBy { it.accountId }
+
     override fun findByUrl(url: String): Feed? = stored.firstOrNull { it.url == url }
 
     override fun findDue(

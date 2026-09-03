@@ -97,6 +97,9 @@ class FeedService(
 
     fun findByAccountId(accountId: AccountId): Feed? = feeds.findByAccountId(accountId)
 
+    fun findByAccountIds(accountIds: Set<AccountId>): Map<AccountId, Feed> =
+        feeds.findByAccountIds(accountIds)
+
     fun unpublishedItems(accountId: AccountId): UnpublishedResult {
         accounts.findById(accountId)
             ?: return UnpublishedResult.Failure(UnpublishedFailure.UNKNOWN_ACCOUNT)

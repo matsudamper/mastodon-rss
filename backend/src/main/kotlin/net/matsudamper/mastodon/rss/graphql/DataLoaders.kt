@@ -8,6 +8,7 @@ import io.opentelemetry.context.Context
 import net.matsudamper.mastodon.rss.dataloader.AccountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.AccountNoteDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.DataLoaderDefine
+import net.matsudamper.mastodon.rss.dataloader.FeedByAccountIdDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.FeedItemByNoteDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.FollowerCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.NoteCountDataLoaderDefine
@@ -33,6 +34,8 @@ class DataLoaders(
     val followerCountDataLoader by register { FollowerCountDataLoaderDefine(diContainer.accountService) }
 
     val noteCountDataLoader by register { NoteCountDataLoaderDefine(diContainer.noteService) }
+
+    val feedByAccountIdDataLoader by register { FeedByAccountIdDataLoaderDefine(diContainer.feedService) }
 
     val accountNoteDataLoader by register { AccountNoteDataLoaderDefine(diContainer.noteStore) }
 

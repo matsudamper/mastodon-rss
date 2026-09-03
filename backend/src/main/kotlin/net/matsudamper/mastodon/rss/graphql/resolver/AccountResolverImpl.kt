@@ -1,6 +1,5 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
@@ -42,10 +41,13 @@ class AccountResolverImpl : AccountResolver {
         account: QlAccount,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlFeed?>> {
-        val feed = GraphQlEngine.diContainer(env).feedService.findByAccountId(account.id)
-
-        return CompletableFuture.completedFuture(
-            DataFetcherResult.Builder<QlFeed?>(feed?.toGraphqlResponse()).build(),
-        )
+        return GraphQlEngine
+            .dataLoaders(env)
+            .feedByAccountIdDataLoader
+            .get(env)
+            .load(account.id)
+            .thenApply { feed ->
+                DataFetcherResult.Builder<QlFeed?>(feed?.toGraphqlResponse()).build()
+            }
     }
 }
