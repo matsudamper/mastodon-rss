@@ -1,6 +1,5 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
-import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsResult
@@ -31,7 +30,7 @@ internal fun Feed.toGraphqlResponse(): QlFeed = QlFeed(
     id = FeedId(id.value),
     url = url,
     title = title,
-    siteUrl = HttpUrl.sanitize(siteUrl, url),
+    siteUrl = siteUrl,
     format = format,
     createdAt = createdAt.epochSecond,
 )
