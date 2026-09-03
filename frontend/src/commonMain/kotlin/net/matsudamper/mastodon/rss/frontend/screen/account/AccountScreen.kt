@@ -628,17 +628,21 @@ private fun ProfileHeader(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    AppBadge(
-                        text = "フィード",
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
+                    if (state.feed != null) {
+                        AppBadge(
+                            text = "フィード",
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
                 }
 
-                Text(
-                    text = "RSS/Atom フィードを ActivityPub で配信するアカウント",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                if (state.feed != null) {
+                    Text(
+                        text = "RSS/Atom フィードを ActivityPub で配信するアカウント",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                     Stat(value = state.followerCount, label = "フォロワー")
