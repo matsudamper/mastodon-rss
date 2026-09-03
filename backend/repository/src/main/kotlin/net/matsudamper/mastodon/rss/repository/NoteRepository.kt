@@ -58,6 +58,11 @@ interface NoteRepository {
     ): List<NotePosition>
 
     fun count(username: String): Long
+
+    /**
+     * フォロワー数と同様、一覧に並んだアカウントの分を 1 回で数える
+     */
+    fun counts(usernames: Set<String>): Map<String, Long>
 }
 
 /**

@@ -115,9 +115,16 @@ class NoteService(
         return notes.find(MastodonPublicNoteId(publicId.value))?.takeIf { it.username == urls.username }
     }
 
-    fun noteCount(username: String): Long {
-        val urls = directory.resolve(username) ?: return 0
-        return notes.count(urls.username)
+    fun noteCounts(usernames: Set<String>): Map<String, Long> {
+        if (usernames.isEmpty()) return emptyMap()
+
+        val resolved = directory.resolve(usernames)
+        val counts = notes.counts(resolved.values.map { it.username }.toSet())
+
+        return usernames.associateWith { username ->
+            val urls = resolved[username] ?: return@associateWith 0L
+            counts[urls.username] ?: 0L
+        }
     }
 
     /**

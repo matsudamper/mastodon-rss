@@ -200,6 +200,9 @@ class FakeNoteRepository(
         .map { NotePosition(publishedAt = it.publishedAt, publicId = it.publicId) }
 
     override fun count(username: String): Long = stored.count { it.username == username }.toLong()
+
+    override fun counts(usernames: Set<String>): Map<String, Long> =
+        usernames.associateWith { count(it) }
 }
 
 class FakeFeedRepository : FeedRepository {

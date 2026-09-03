@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
+import java.util.TreeMap
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NotePosition
@@ -115,6 +116,24 @@ internal class SqliteNoteRepository(
             .where(NOTES.USERNAME.eq(username))
             .fetchOne(0, Int::class.java)
             ?.toLong() ?: 0L
+    }
+
+    override fun counts(usernames: Set<String>): Map<String, Long> {
+        if (usernames.isEmpty()) return emptyMap()
+
+        return jooq.withConnection { dsl ->
+            val counted = TreeMap<String, Long>(String.CASE_INSENSITIVE_ORDER)
+
+            dsl
+                .select(NOTES.USERNAME, DSL.count())
+                .from(NOTES)
+                .where(NOTES.USERNAME.`in`(usernames))
+                .groupBy(NOTES.USERNAME)
+                .fetch()
+                .forEach { counted[it.value1()] = it.value2().toLong() }
+
+            usernames.associateWith { counted[it] ?: 0L }
+        }
     }
 
     private fun Record.toNote(): Note = Note(

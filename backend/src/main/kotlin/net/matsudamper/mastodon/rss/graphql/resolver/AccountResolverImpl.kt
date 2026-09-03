@@ -28,10 +28,14 @@ class AccountResolverImpl : AccountResolver {
         account: QlAccount,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<Int>> {
-        val count = GraphQlEngine.diContainer(env).noteService.noteCount(account.username)
-        return CompletableFuture.completedFuture(
-            DataFetcherResult.Builder(count.toInt()).build(),
-        )
+        return GraphQlEngine
+            .dataLoaders(env)
+            .noteCountDataLoader
+            .get(env)
+            .load(account.username)
+            .thenApply { count ->
+                DataFetcherResult.Builder(count ?: 0).build()
+            }
     }
 
     override fun feed(
