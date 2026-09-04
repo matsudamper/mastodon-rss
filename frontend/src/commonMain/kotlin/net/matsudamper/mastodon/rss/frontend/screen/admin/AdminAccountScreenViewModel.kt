@@ -607,7 +607,7 @@ class AdminAccountScreenViewModel(
                                 submitting = false,
                                 result = AdminAccountScreenUiState.PostResult(
                                     url = result.note.url,
-                                    targets = result.deliveryTargets,
+                                    deliveryAttemptCount = result.deliveryTargets,
                                     delivered = result.delivered,
                                 ),
                                 error = null,

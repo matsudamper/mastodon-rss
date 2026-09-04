@@ -13,13 +13,10 @@ import java.security.MessageDigest
  * 取りこぼしより二重投稿の方が目立つので、迷ったら変わりにくい方を採る。
  *
  * フィードをまたいだ一意性は考えない。保存するときにフィードの id と組で持つ前提。
- *
- * @param value 突き合わせに使う文字列
- * @param source どこから作った値か。運用でどの経路に落ちているかを見るために持つ
  */
 data class FeedItemKey(
-    val value: String,
-    val source: Source,
+    val dedupeKey: String,
+    val keySource: Source,
 ) {
     enum class Source {
         /** `guid` / Atom の `id` / RSS 1.0 の `rdf:about` */
@@ -52,20 +49,18 @@ data class FeedItemKey(
             item: ParsedFeedItem,
         ): FeedItemKey {
             item.id?.trim()?.takeIf { it.isNotEmpty() }?.let {
-                return FeedItemKey(value = it, source = Source.ID)
+                return FeedItemKey(dedupeKey = it, keySource = Source.ID)
             }
             item.link?.trim()?.takeIf { it.isNotEmpty() }?.let {
-                return FeedItemKey(value = it, source = Source.LINK)
+                return FeedItemKey(dedupeKey = it, keySource = Source.LINK)
             }
 
             val title = item.title?.trim().orEmpty()
-            // 題名まで無いときだけ本文を混ぜる。本文は配信元が直すことがあるので、
-            // 使わずに済むなら使わない
-            val body = if (title.isEmpty()) item.bodyOrSummary()?.toPlainText().orEmpty() else ""
+            val hashInputBodyText = if (title.isEmpty()) item.bodyOrSummary()?.toPlainText().orEmpty() else ""
 
             return FeedItemKey(
-                value = sha256Hex("$feedUrl\n$title\n$body"),
-                source = Source.HASH,
+                dedupeKey = sha256Hex("$feedUrl\n$title\n$hashInputBodyText"),
+                keySource = Source.HASH,
             )
         }
 

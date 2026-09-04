@@ -469,7 +469,7 @@ private fun PostDialog(
                 post.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
                 post.result?.let { result ->
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("投稿した。宛先 ${result.targets} 件のうち ${result.delivered} 件に届いた。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                        Text("投稿した。宛先 ${result.deliveryAttemptCount} 件のうち ${result.delivered} 件に届いた。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                         Text(result.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
