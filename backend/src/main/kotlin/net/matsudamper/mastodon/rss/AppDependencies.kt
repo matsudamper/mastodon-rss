@@ -72,7 +72,7 @@ class AppDependencies(
         },
     )
 
-    // ここも毎回引き直す。フィードの URL は登録や取得のたびに変わりうる
+    // 毎回引き直す。持ち回すと、フィードの URL を変えた後も古い URL を返し続ける
     val feedLinks: StoredFeedLinks = object : StoredFeedLinks {
         override fun find(username: String): FeedLinks {
             val account = repositories.accounts.findByUsername(username) ?: return FeedLinks.EMPTY
