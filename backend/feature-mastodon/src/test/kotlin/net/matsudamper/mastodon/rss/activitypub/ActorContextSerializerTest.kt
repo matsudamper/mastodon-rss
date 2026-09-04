@@ -15,7 +15,7 @@ class ActorContextSerializerTest {
     )
 
     @Test
-    fun `featured と showFeatured の語彙を載せる`() {
+    fun `featured と showFeatured と PropertyValue の語彙を載せる`() {
         val encoded = AppJson.encodeToString(Sample())
 
         val expected =
@@ -23,7 +23,10 @@ class ActorContextSerializerTest {
                 """"https://w3id.org/security/v1",""" +
                 """{"toot":"http://joinmastodon.org/ns#",""" +
                 """"featured":{"@id":"toot:featured","@type":"@id"},""" +
-                """"showFeatured":"toot:showFeatured"}]}"""
+                """"showFeatured":"toot:showFeatured",""" +
+                """"schema":"http://schema.org#",""" +
+                """"PropertyValue":"schema:PropertyValue",""" +
+                """"value":"schema:value"}]}"""
         assertEquals(expected, encoded)
     }
 }

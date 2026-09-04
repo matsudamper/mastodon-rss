@@ -50,6 +50,8 @@ data class Actor(
     /** プロフィールから開くリンク。Mastodon は無ければ id を使う */
     @SerialName("url")
     val url: String? = null,
+    @SerialName("attachment")
+    val attachment: List<ActorAttachment> = listOf(),
     @SerialName("publicKey")
     val publicKey: ActorPublicKey,
     /**
@@ -60,6 +62,29 @@ data class Actor(
 ) {
     companion object {
         const val TYPE_SERVICE: String = "Service"
+    }
+}
+
+/**
+ * プロフィールのリンク集の 1 項目。
+ *
+ * `value` は Mastodon 側で HTML として解釈される。リンクにするには
+ * `<a href="...">` を入れる必要があり、素の URL を入れてもリンクにはならない。
+ *
+ * @param name 見出し
+ * @param value 中身の HTML
+ */
+@Serializable
+data class ActorAttachment(
+    @SerialName("type")
+    val type: String = TYPE_PROPERTY_VALUE,
+    @SerialName("name")
+    val name: String,
+    @SerialName("value")
+    val value: String,
+) {
+    companion object {
+        const val TYPE_PROPERTY_VALUE: String = "PropertyValue"
     }
 }
 
