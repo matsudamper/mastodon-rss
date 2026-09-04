@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# SessionStart フックはローカルの CLI や IDE でも走る。手元の local.properties や
-# gradle.properties を書き換えたくないので、フックからのときはリモートだけで動かす。
-# 手で実行するぶんにはどこでも動く
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
