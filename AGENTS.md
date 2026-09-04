@@ -1,11 +1,49 @@
 # mastodon-rss
 
-リポジトリ固有のルールは次を参照:
-- @docs/agent-repo.md
-- backend: @backend/AGENTS.md
-- frontend: @frontend/AGENTS.md
+## 開発
+- `TODO.md` を確認する
+- 完了したら `TODO.md` のチェックを都度更新（部分実装はチェックせず補足を追記）
+
+## 境界
+- frontendはfrontendとsharedのみ知ってよい（スキーマは例外）
+- backendはbackendとsharedのみ
+- frontendがbackend事情を知るコード/コメントを書かない
+- backend/frontend の短い補足は `backend/AGENTS.md` / `frontend/AGENTS.md` も参照
+
+## コメント例外
+- mastodon / ActivityPub のコメントは詳細に記述してよい
+- 書く前に「その情報が無ければ誤判断するか」を確認
+- 制約は成立する最小スコープに書く。経緯はgit、実装はコードを正とする
+
+## 禁止
+- Global public関数（慣習のremember*等は可）
+
+## ドキュメント
+- KDocは `/** */` 一行にせず改行する
+- 更新前に読み手と作業を決める。不要なら更新しない
+- `README.md` / `docs/architecture.md` / `TODO.md` の役割分担に従う
+
+## backend
+- pagingはoffset禁止。cursorと最後のid等を使う
+
+## ビルド
+```shell
+./gradlew :compileAll
+```
+
+## その他
+- テスト名も日本語
+- マージコミットは既定文面。`-m` で書き直さない
 
 # 共通ルール
+
+## docs の参照
+リポジトリに存在する `docs/` 以下のエージェント向けドキュメントがあれば、必ず読んで従う。無いファイルは無視してよい。
+
+例:
+- `docs/agent-kotlin.md` — Kotlin 詳細スタイル
+- `docs/agent-compose.md` — Compose / UiState / Paparazzi
+- 既存の `docs/compose-guidelines.md` / `docs/coding_style.md` などリポ固有の詳細ガイド
 
 ## 言語
 - 応答・説明・コミットメッセージ・PR 文・レビュー返信は日本語
@@ -20,7 +58,7 @@
 - 書くなら What ではなく Why / コードで表せない制約
 - 既存コメントは削除しない。古くなったら更新可
 - どうしても必要そうなら勝手に書かずチャットで相談
-- 例外の緩さはリポジトリ固有ドキュメントに従う
+- 例外の緩さはリポジトリ固有セクションおよび docs に従う
 
 ## Kotlin / 一般（該当する場合）
 - Kotlin 公式コーディング規約に従う（リポに docs があればそちら優先）
@@ -49,7 +87,7 @@
 
 ## ビルド・検証（方針）
 - ビルド / format / lint / test 等のタスクは並列実行しない。逐次実行する
-- 編集後は確認してからコミット（具体コマンドはリポジトリ固有ドキュメント）
+- 編集後は確認してからコミット（具体コマンドはリポジトリ固有セクション）
 - 命令を無視して無理通ししない
 - 一回の指示で 5 回連続失敗したら経緯とやったことをまとめて提出して停止
 - ネットワーク起因のビルド失敗は深掘り不要。通らなかった旨を報告してよい
