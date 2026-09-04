@@ -25,6 +25,12 @@ class FakeNoteStore : NoteStore {
         added.removeAll { it.publicId == publicId }
     }
 
+    override fun deleteByUsername(username: String): Int {
+        val before = added.size
+        added.removeAll { it.username.equals(username, ignoreCase = true) }
+        return before - added.size
+    }
+
     override fun list(
         username: String,
         after: NotePosition?,

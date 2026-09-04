@@ -27,6 +27,7 @@ data class AdminAccountScreenUiState(
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
          * @param deleteNoteDialog 投稿を消す前の確認。出していなければ null
+         * @param deleteAccountDialog アカウントを消す前の確認。出していなければ null
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
          * @param notesLoading 一覧を取っている最中
          * @param canLoadMore さらに古い投稿があるか
@@ -37,6 +38,7 @@ data class AdminAccountScreenUiState(
             val post: Post,
             val notes: List<Note>,
             val deleteNoteDialog: DeleteNoteDialog?,
+            val deleteAccountDialog: DeleteAccountDialog?,
             val notesError: String?,
             val notesLoading: Boolean,
             val canLoadMore: Boolean,
@@ -156,6 +158,17 @@ data class AdminAccountScreenUiState(
     )
 
     /**
+     * アカウントを消す前の確認。
+     *
+     * @param deleting 削除中。ボタンを押せなくする
+     * @param error 消せなかった理由。出したままにして、閉じるかもう一度かを選べるようにする
+     */
+    data class DeleteAccountDialog(
+        val deleting: Boolean,
+        val error: String?,
+    )
+
+    /**
      * @param sourceArticle 元になった記事。無い投稿では出さない
      */
     data class Note(
@@ -203,6 +216,18 @@ data class AdminAccountScreenUiState(
         fun onClickPost()
 
         fun onClickLoadMore()
+
+        /**
+         * アカウントを消す確認を出す
+         */
+        fun onClickDeleteAccount()
+
+        fun onDismissDeleteAccount()
+
+        /**
+         * フォロワーと投稿、登録したフィードもまとめて消える
+         */
+        fun onConfirmDeleteAccount()
 
         fun onDismissDeleteNote()
 

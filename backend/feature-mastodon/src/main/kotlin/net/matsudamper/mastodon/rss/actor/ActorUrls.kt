@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.actor
 
+import net.matsudamper.mastodon.rss.entity.ActivityPubId
+
 /**
  * アクターの識別子と URL。
  *
@@ -31,6 +33,13 @@ data class ActorUrls(
     val featured: String = "$actorId/collections/featured"
     val followers: String = "$actorId/followers"
     val following: String = "$actorId/following"
+
+    /**
+     * このアクターを消したことを伝える `Delete` 自身の id。
+     *
+     * アクターの id と同じにすると、相手の重複判定でアクター文書と衝突する
+     */
+    val deleteId: ActivityPubId = ActivityPubId("$actorId#delete")
 
     /** Actor JSON の `publicKey.id`。署名の `keyId` としても飛んでくる */
     val publicKeyId: String = "$actorId#main-key"

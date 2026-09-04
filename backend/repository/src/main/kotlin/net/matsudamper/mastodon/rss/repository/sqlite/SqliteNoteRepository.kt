@@ -58,6 +58,13 @@ internal class SqliteNoteRepository(
         }
     }
 
+    override fun deleteByUsername(username: String): Int = jooq.transaction { dsl ->
+        dsl
+            .deleteFrom(NOTES)
+            .where(NOTES.USERNAME.eq(username))
+            .execute()
+    }
+
     override fun list(
         username: String,
         after: NotePosition?,

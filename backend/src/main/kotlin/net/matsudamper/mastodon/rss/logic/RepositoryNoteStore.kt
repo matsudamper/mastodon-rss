@@ -38,6 +38,8 @@ class RepositoryNoteStore(
         notes.delete(PublicNoteId(publicId.value))
     }
 
+    override fun deleteByUsername(username: String): Int = notes.deleteByUsername(username)
+
     override fun list(
         username: String,
         after: NotePosition?,

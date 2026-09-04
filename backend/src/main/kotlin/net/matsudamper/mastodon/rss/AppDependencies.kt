@@ -5,6 +5,7 @@ import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
+import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.FeedLinks
 import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
 import net.matsudamper.mastodon.rss.actor.RemoteActors
@@ -100,6 +101,12 @@ class AppDependencies(
     )
 
     val notePublisher: NotePublisher = NotePublisher(
+        notes = noteStore,
+        followers = followerStore,
+        delivery = delivery,
+    )
+
+    val actorPublisher: ActorPublisher = ActorPublisher(
         notes = noteStore,
         followers = followerStore,
         delivery = delivery,

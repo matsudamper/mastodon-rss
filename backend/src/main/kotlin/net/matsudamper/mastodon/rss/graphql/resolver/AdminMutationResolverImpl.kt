@@ -14,6 +14,9 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountFailureReason
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailureReason
@@ -27,6 +30,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.graphql.model.QlDeleteAccountQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlDeleteFeedItemsQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlDeleteNoteQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPostFeedItemsQuery
@@ -120,6 +124,49 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         }
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
+    }
+
+    /**
+     * 消した中身の数も返す。フォロワーと投稿が消えたことは画面から見えないので、
+     * 何が消えたのかを返さないと、消し切れたのかどうかを確かめようがない
+     */
+    override fun deleteAccount(
+        adminMutation: QlAdminMutation,
+        query: QlDeleteAccountQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminDeleteAccountResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val result = when (val deleted = diContainer.accountService.delete(query.username)) {
+                is AccountService.DeleteResult.Success -> QlAdminDeleteAccountResult(
+                    deletedUsername = deleted.username,
+                    removedFollowers = deleted.removedFollowers,
+                    deletedNotes = deleted.deletedNotes,
+                    deliveryTargets = deleted.deliveryTargets,
+                    delivered = deleted.delivered,
+                    failure = null,
+                )
+
+                is AccountService.DeleteResult.Failure -> QlAdminDeleteAccountResult(
+                    deletedUsername = null,
+                    removedFollowers = null,
+                    deletedNotes = null,
+                    deliveryTargets = null,
+                    delivered = null,
+                    failure = QlAdminDeleteAccountFailure(
+                        reason = when (deleted.reason) {
+                            AccountService.DeleteFailure.UNKNOWN_ACCOUNT ->
+                                QlAdminDeleteAccountFailureReason.UNKNOWN_ACCOUNT
+                        },
+                    ),
+                )
+            }
+
+            DataFetcherResult.Builder(result).build()
+        }
     }
 
     /**

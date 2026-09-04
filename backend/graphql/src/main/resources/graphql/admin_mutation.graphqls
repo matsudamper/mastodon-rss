@@ -8,6 +8,9 @@ type AdminMutation {
     "アカウントを追加する"
     addAccount(username: String!): AdminAddAccountResult! @lazy
 
+    "アカウントを消す。フォロワーと配信した投稿、登録したフィードと取り込んだ記事も消える。"
+    deleteAccount(query: DeleteAccountQuery!): AdminDeleteAccountResult! @lazy
+
     "アカウントとして投稿し、フォロワーに配る"
     postNote(username: String!, body: String!): AdminPostNoteResult! @lazy
 
@@ -22,6 +25,37 @@ type AdminMutation {
 
     "投稿を 1 件消す。元になった記事は消されない。"
     deleteNote(query: DeleteNoteQuery!): AdminDeleteNoteResult! @lazy
+}
+
+input DeleteAccountQuery {
+    username: String!
+}
+
+type AdminDeleteAccountResult {
+    "消せたアカウントの名前"
+    deletedUsername: String
+
+    "外したフォロワーの数。Accept を返せていないものも数える"
+    removedFollowers: Int
+
+    "消した投稿の数"
+    deletedNotes: Int
+
+    "Delete を送った宛先の数。sharedInbox でまとまるのでフォロワーの数とは一致しない"
+    deliveryTargets: Int
+
+    "そのうち相手が受け取った数"
+    delivered: Int
+
+    failure: AdminDeleteAccountFailure
+}
+
+type AdminDeleteAccountFailure {
+    reason: AdminDeleteAccountFailureReason!
+}
+
+enum AdminDeleteAccountFailureReason {
+    UNKNOWN_ACCOUNT
 }
 
 input DeleteNoteQuery {

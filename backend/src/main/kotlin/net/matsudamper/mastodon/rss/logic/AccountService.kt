@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.Account
@@ -14,6 +15,7 @@ import net.matsudamper.mastodon.rss.shared.AccountId
 class AccountService(
     private val accounts: AccountRepository,
     private val followers: FollowerRepository,
+    private val actorPublisher: ActorPublisher,
     private val domain: String,
 ) {
     /**
@@ -89,6 +91,32 @@ class AccountService(
         return AddAccountResult.Success(added.toManaged())
     }
 
+    /**
+     * アカウントを消して、消したことをフォロワーに配る。
+     *
+     * 配信した投稿とフォロワー、登録したフィードと取り込んだ記事も一緒に消える。
+     * 名前で持っているもの（投稿とフォロワー）を残すと、同じ名前で作り直したときに
+     * 引き継がれるので、消えるものはこの 1 回で消し切る。
+     *
+     * 先に投稿とフォロワーを消してからアカウントの行を消す。途中で失敗しても、
+     * 残るのは中身の無いアカウントだけで、もう一度消せばよい状態になる。
+     */
+    suspend fun delete(username: String): DeleteResult {
+        val account = accounts.findByUsername(username)
+            ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
+
+        val deleted = actorPublisher.delete(ActorUrls(domain = domain, username = account.username))
+        accounts.delete(account.id)
+
+        return DeleteResult.Success(
+            username = account.username,
+            deletedNotes = deleted.deletedNotes,
+            removedFollowers = deleted.removedFollowers,
+            deliveryTargets = deleted.targets,
+            delivered = deleted.delivered,
+        )
+    }
+
     private fun Account.toManaged(): ManagedAccount = ManagedAccount(
         urls = ActorUrls(domain = domain, username = username),
         accountId = id,
@@ -109,6 +137,31 @@ class AccountService(
         val hasMore: Boolean,
         val nextUsername: String?,
     )
+
+    sealed interface DeleteResult {
+        /**
+         * @param username 消したアカウントの名前。保存されていた綴りで返す
+         * @param deletedNotes 消した投稿の数
+         * @param removedFollowers 外したフォロワーの数
+         * @param deliveryTargets `Delete` を送った宛先の数
+         * @param delivered そのうち相手が受け取った数
+         */
+        data class Success(
+            val username: String,
+            val deletedNotes: Int,
+            val removedFollowers: Int,
+            val deliveryTargets: Int,
+            val delivered: Int,
+        ) : DeleteResult
+
+        data class Failure(
+            val reason: DeleteFailure,
+        ) : DeleteResult
+    }
+
+    enum class DeleteFailure {
+        UNKNOWN_ACCOUNT,
+    }
 
     sealed interface AddAccountResult {
         data class Success(

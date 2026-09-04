@@ -46,6 +46,7 @@ private fun AdminAccountContentPreview() {
                         ),
                     ),
                     deleteNoteDialog = null,
+                    deleteAccountDialog = null,
                     notesError = null,
                     notesLoading = false,
                     canLoadMore = true,
@@ -85,6 +86,12 @@ private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Li
     override fun onClickPost() = Unit
 
     override fun onClickLoadMore() = Unit
+
+    override fun onClickDeleteAccount() = Unit
+
+    override fun onDismissDeleteAccount() = Unit
+
+    override fun onConfirmDeleteAccount() = Unit
 
     override fun onDismissDeleteNote() = Unit
 

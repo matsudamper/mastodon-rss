@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -173,6 +174,7 @@ internal fun AdminAccountContent(
                                 AccountCard(
                                     account = content.account,
                                     onClickOpenAccount = uiState.listener::onClickOpenAccount,
+                                    onClickDelete = uiState.listener::onClickDeleteAccount,
                                 )
                                 FeedCard(content.feed, uiState.listener)
                             }
@@ -181,6 +183,7 @@ internal fun AdminAccountContent(
                         AccountCard(
                             account = content.account,
                             onClickOpenAccount = uiState.listener::onClickOpenAccount,
+                            onClickDelete = uiState.listener::onClickDeleteAccount,
                         )
                         FeedCard(content.feed, uiState.listener)
                         NotesSection(content, uiState.listener, ::NoteContent)
@@ -193,6 +196,7 @@ internal fun AdminAccountContent(
                         )
                     }
                     content.deleteNoteDialog?.let { DeleteNoteDialog(it, uiState.listener) }
+                    content.deleteAccountDialog?.let { DeleteAccountDialog(content.account, it, uiState.listener) }
                 }
             }
         }
@@ -274,7 +278,11 @@ private fun AdminTextLink(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun AccountCard(account: AdminAccountScreenUiState.Account, onClickOpenAccount: () -> Unit) {
+private fun AccountCard(
+    account: AdminAccountScreenUiState.Account,
+    onClickOpenAccount: () -> Unit,
+    onClickDelete: () -> Unit,
+) {
     AdminSectionCard(title = "このアカウント") {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -290,6 +298,15 @@ private fun AccountCard(account: AdminAccountScreenUiState.Account, onClickOpenA
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         LabeledValue(label = "Actor URL", value = account.actorUrl)
         LabeledValue(label = "追加日時", value = account.createdAt)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            OutlinedButton(
+                onClick = onClickDelete,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) {
+                Text("アカウントを削除")
+            }
+        }
     }
 }
 
@@ -441,6 +458,37 @@ private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog,
                 if (dialog.hasSourceArticle) TextButton(onClick = { listener.onConfirmDeleteNote(false) }, enabled = !dialog.deleting) { Text("投稿だけ削除") }
                 TextButton(onClick = listener::onDismissDeleteNote, enabled = !dialog.deleting) { Text("やめる") }
             }
+        },
+    )
+}
+
+@Composable
+private fun DeleteAccountDialog(
+    account: AdminAccountScreenUiState.Account,
+    dialog: AdminAccountScreenUiState.DeleteAccountDialog,
+    listener: AdminAccountScreenUiState.Listener,
+) {
+    AlertDialog(
+        onDismissRequest = listener::onDismissDeleteAccount,
+        title = { Text("${account.acct} を削除する") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "フォロワー ${account.followerCount} 人と配信した投稿、登録したフィードと取り込んだ記事が消える。" +
+                        "フォロワーのサーバーにも削除を配るが、届かなかった相手には残る。\n" +
+                        "消した後は、同じ名前と同じフィードで登録し直せる。",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                dialog.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = listener::onConfirmDeleteAccount, enabled = !dialog.deleting) {
+                Text(if (dialog.deleting) "削除中" else "削除")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = listener::onDismissDeleteAccount, enabled = !dialog.deleting) { Text("やめる") }
         },
     )
 }

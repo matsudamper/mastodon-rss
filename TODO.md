@@ -241,10 +241,11 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 - [ ] アクターごとに鍵ペアを生成して保存
       - Phase 1 の鍵はファイル 1 本。ここで `actors.private_key` に移すかを決める
         （Phase 3 の「フォロワーがいるなら鍵の自動生成を拒否する」と合わせて判断する）
-- [ ] アクター作成 / 削除の API
-      - 作成は入れた（`Mutation.admin.addAccount`）。一覧は `Query.admin.adminAccounts`。
-        どちらもログインが要る
-      - 削除はまだ。`Delete{Actor}` を配信してから消す。黙って消すと相手側に残り続ける
+- [x] アクター作成 / 削除の API
+      - 作成は `Mutation.admin.addAccount`、一覧は `Query.admin.adminAccounts`、
+        削除は `Mutation.admin.deleteAccount`。どれもログインが要る
+      - 削除はフォロワーと投稿を消してから `Delete{Actor}` を配る。フィードと記事は
+        外部キーで一緒に消えるので、同じフィードを最初から登録し直せる
 - [ ] アクター情報更新時に `Update{Actor}` を配信（アイコン・説明文の変更を伝播させる）
 - [ ] アイコン / ヘッダー画像（`icon` / `image`）の配信
 - [ ] フィードアクターのプロフィールに `admin` へのリンクを置く
@@ -333,14 +334,16 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
       - アカウントの一覧 (`Query.admin.adminAccounts`)、1 件の参照 (`Query.admin.adminAccount`)、
         追加 (`Mutation.admin.addAccount`)、投稿 (`Mutation.admin.postNote`) と
         その一覧 (`Query.admin.notes`) は入れた
-      - 投稿から元の記事を引く `AdminNote.feedItem` と、記事と投稿の削除も入れた。
-        残っているのはフィード自体の削除、配信状況、手動再取得
+      - 投稿から元の記事を引く `AdminNote.feedItem` と、記事と投稿の削除、
+        アカウントの削除 (`Mutation.admin.deleteAccount`) も入れた。
+        残っているのはフィードだけの削除、配信状況、手動再取得
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
 - [ ] Compose でフィード一覧 / 追加 / 削除
-      - フィードの追加と、投稿ごとの元記事の表示と、記事と投稿の削除は
-        `/admin/accounts/@{name}` に入れた。フィード自体の削除は未実装
+      - フィードの追加と、投稿ごとの元記事の表示と、記事と投稿の削除、
+        アカウントごとの削除は `/admin/accounts/@{name}` に入れた。
+        フィードだけを消す口は未実装
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
       - フォロワー数は `/admin/accounts/@{name}` に出している。最終投稿と配信エラーは未着手
 - [ ] フィードのプレビュー（投稿前にどう見えるか）
