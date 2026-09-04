@@ -69,6 +69,8 @@ class RepositoryNoteStore(
 
     override fun count(username: String): Long = notes.count(username)
 
+    override fun counts(usernames: Set<String>): Map<String, Long> = notes.counts(usernames)
+
     private fun NotePosition.toRepository(): net.matsudamper.mastodon.rss.repository.NotePosition =
         net.matsudamper.mastodon.rss.repository.NotePosition(
             publishedAt = publishedAt,

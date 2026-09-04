@@ -29,12 +29,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -77,13 +75,10 @@ import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
-import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
-import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
-import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
 import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
 @Composable
@@ -96,7 +91,6 @@ internal fun AccountScreen(
     val viewModel = remember(viewModelScope, username, platform) {
         AccountScreenViewModel(
             username = username,
-            host = platform.host,
             viewModelScope = viewModelScope,
             copyToClipboard = platform::copyToClipboard,
         )
@@ -246,11 +240,6 @@ private fun CompactLoadedAccountContent(
         contentPadding = PaddingValues(vertical = verticalPadding),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if (state.placeholder) {
-            item(key = "placeholder") {
-                PlaceholderNotice()
-            }
-        }
         item(key = "profile") {
             ProfileHeader(
                 state = state,
@@ -259,20 +248,12 @@ private fun CompactLoadedAccountContent(
                 onOpenExternal = onOpenExternal,
             )
         }
-        item(key = "feed") {
-            FeedSection(state, onOpenExternal)
-        }
-        item(key = "follow") {
-            FollowSection(
-                state = state,
-                onOpenExternal = onOpenExternal,
-                listener = listener,
-            )
+        state.feed?.let { feed ->
+            item(key = "feed") {
+                FeedSection(feed, onOpenExternal)
+            }
         }
         notesItems(content, listener, onOpenExternal, noteContent)
-        item(key = "delivery") {
-            DeliverySection(state)
-        }
     }
 }
 
@@ -314,9 +295,6 @@ private fun WideLoadedAccountContent(
                     .padding(top = verticalPadding, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                if (state.placeholder) {
-                    PlaceholderNotice()
-                }
                 ProfileHeader(
                     state = state,
                     wide = true,
@@ -347,22 +325,18 @@ private fun WideLoadedAccountContent(
                         .weight(1f)
                         .fillMaxHeight(),
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .wrapContentHeight(align = Alignment.Top, unbounded = true)
-                            .onSizeChanged { pageScrollState.updateSideHeight(it.height) }
-                            .offset { IntOffset(x = 0, y = -pageScrollState.sideShiftPx()) }
-                            .padding(bottom = verticalPadding),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        FeedSection(state, onOpenExternal)
-                        DeliverySection(state)
-                        FollowSection(
-                            state = state,
-                            onOpenExternal = onOpenExternal,
-                            listener = listener,
-                        )
+                    state.feed?.let { feed ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                                .onSizeChanged { pageScrollState.updateSideHeight(it.height) }
+                                .offset { IntOffset(x = 0, y = -pageScrollState.sideShiftPx()) }
+                                .padding(bottom = verticalPadding),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            FeedSection(feed, onOpenExternal)
+                        }
                     }
                 }
             }
@@ -535,38 +509,6 @@ private fun CoordinatedTwoPaneLayout(
 }
 
 /**
- * 仮の値であることの断り。
- *
- * 画面を先に作っているので、繋ぐ先がまだ無い。断りが無いと、フォロワー数や
- * 最終取得を実際の値だと思って運用の判断に使われる
- */
-@Composable
-private fun PlaceholderNotice() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(12.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = "この画面の数値とフィード情報は仮のもの",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = "実際の値になるのは、フィードの取り込み（Phase 5）と管理 API（Phase 8）を繋いでから。" +
-                    "ユーザー名と acct と配信した投稿は本物。",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-    }
-}
-
-/**
  * プロフィール。ヘッダー画像・アイコン・表示名・acct・説明・数値。
  *
  * 画像はまだ持っていない（Phase 6 の項目）ので、ユーザー名から決まる色で描く。
@@ -628,7 +570,6 @@ private fun ProfileHeader(
                         ),
                     )
                     layout(placeable.width, 0) {
-                        println("constraints.maxHeight=${constraints.maxHeight}, placeable.measuredHeight=${placeable.measuredHeight}")
                         placeable.place(
                             x = 0,
                             y = constraints.maxHeight - placeable.measuredHeight,
@@ -647,7 +588,7 @@ private fun ProfileHeader(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(
-                            text = state.displayName,
+                            text = state.username,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                         )
@@ -687,27 +628,33 @@ private fun ProfileHeader(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    AppBadge(
-                        text = "フィード",
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    if (state.feed != null) {
+                        AppBadge(
+                            text = "フィード",
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+
+                if (state.feed != null) {
+                    Text(
+                        text = "RSS/Atom フィードを ActivityPub で配信するアカウント",
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
 
-                Text(
-                    text = state.summary,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-
                 Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    Stat(value = state.followers, label = "フォロワー")
-                    Stat(value = state.deliveredCount, label = "配信した記事")
-                    Stat(value = state.lastDeliveredAt, label = "最終配信")
+                    Stat(value = state.followerCount, label = "フォロワー")
+                    Stat(value = state.noteCount, label = "配信した投稿")
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { onOpenExternal(state.feed.feedUrl) }) {
-                        Text("フィードを開く")
+                    val feedUrl = state.feed?.feedUrl
+                    if (feedUrl != null) {
+                        Button(onClick = { onOpenExternal(feedUrl) }) {
+                            Text("フィードを開く")
+                        }
                     }
                     OutlinedButton(onClick = { onOpenExternal(state.actorUrl) }) {
                         Text("Actor JSON")
@@ -741,21 +688,8 @@ private fun Stat(
  * 配信元のフィード。このアカウントが何を流すものなのかを示す部分。
  */
 @Composable
-private fun FeedSection(state: AccountUiState, onOpenExternal: (String) -> Unit) {
-    val feed = state.feed
-
+private fun FeedSection(feed: FeedUiState, onOpenExternal: (String) -> Unit) {
     SectionCard(title = "配信元のフィード") {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            StatusDot(color = statusColor(feed.status))
-            Text(
-                text = feed.status.label,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-
         LabeledValue(
             label = "フィード",
             value = feed.feedUrl,
@@ -768,97 +702,6 @@ private fun FeedSection(state: AccountUiState, onOpenExternal: (String) -> Unit)
                 onClick = { onOpenExternal(feed.siteUrl) },
             )
         }
-        LabeledValue(label = "形式", value = feed.format)
-        LabeledValue(label = "取得間隔", value = feed.interval)
-        LabeledValue(label = "最終取得", value = feed.lastFetchedAt)
-        LabeledValue(label = "次回取得", value = feed.nextFetchAt)
-    }
-}
-
-/**
- * 配信の状況。届いていないときに、どこで止まっているかを見る部分。
- */
-@Composable
-private fun DeliverySection(state: AccountUiState) {
-    SectionCard(title = "配信の状況") {
-        LabeledValue(label = "フォロワー", value = state.followers)
-        LabeledValue(label = "未配信", value = state.delivery.queued)
-        LabeledValue(label = "失敗", value = state.delivery.failed)
-
-        val lastError = state.delivery.lastError
-        if (lastError == null) {
-            Text(
-                text = "直近の配信エラーは無い",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            Text(
-                text = lastError,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-    }
-}
-
-/**
- * フォローの仕方。
- *
- * ここにフォローボタンは置けない。フォローは相手のインスタンス側で始まる操作で、
- * このサーバーには押した人のアカウントが無いため。acct を貼ってもらうのが確実。
- */
-@Composable
-private fun FollowSection(
-    state: AccountUiState,
-    onOpenExternal: (String) -> Unit,
-    listener: AccountScreenUiState.Listener,
-) {
-    SectionCard(title = "フォローする") {
-        Text(
-            text = "使っている Mastodon の検索窓にこの文字列を貼ると、このアカウントが出る。",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-
-        OutlinedBox {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SelectionContainer(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = state.acct,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = FontFamily.Monospace,
-                    )
-                }
-                IconButton(onClick = listener::onClickCopyAcct) {
-                    Icon(
-                        imageVector = Icons.Outlined.ContentCopy,
-                        contentDescription = "コピー",
-                    )
-                }
-            }
-        }
-
-        LabeledValue(
-            label = "Actor",
-            value = state.actorUrl,
-            onClick = { onOpenExternal(state.actorUrl) },
-        )
-
-        HorizontalDivider(color = dividerColor())
-
-        Text(
-            text = "このアカウントについての問い合わせ先",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        TextLink(
-            text = state.operatorAcct,
-            onClick = { listener.onClickOperator(state.operatorUsername) },
-        )
     }
 }
 
@@ -1021,14 +864,6 @@ private fun NotesPagingFooter(
         }
     }
 }
-
-@Composable
-private fun statusColor(status: FetchStatus): Color =
-    when (status) {
-        FetchStatus.Ok -> MaterialTheme.colorScheme.secondary
-        FetchStatus.Failed -> MaterialTheme.colorScheme.error
-        FetchStatus.Unknown -> MaterialTheme.colorScheme.outline
-    }
 
 /**
  * ユーザー名から決まる 2 色。アイコンとヘッダーの代わりに使う。

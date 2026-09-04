@@ -53,6 +53,8 @@ interface NoteStore {
     ): List<NotePosition>
 
     fun count(username: String): Long
+
+    fun counts(usernames: Set<String>): Map<String, Long>
 }
 
 /**

@@ -66,6 +66,14 @@ class AccountApi(
                 acct = account.acct,
                 actorUrl = account.actorUrl,
             ),
+            followerCount = account.followerCount,
+            noteCount = account.noteCount,
+            feed = account.feed?.let { feed ->
+                AccountFeed(
+                    feedUrl = feed.url,
+                    siteUrl = feed.siteUrl,
+                )
+            },
             notes = notes.nodes.map { it.accountNoteFields.toAccountNote() },
             notesCursor = notes.pageInfo.nextCursor,
         )

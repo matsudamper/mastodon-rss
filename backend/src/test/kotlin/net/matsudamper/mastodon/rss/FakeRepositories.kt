@@ -200,6 +200,9 @@ class FakeNoteRepository(
         .map { NotePosition(publishedAt = it.publishedAt, publicId = it.publicId) }
 
     override fun count(username: String): Long = stored.count { it.username == username }.toLong()
+
+    override fun counts(usernames: Set<String>): Map<String, Long> =
+        usernames.associateWith { count(it) }
 }
 
 class FakeFeedRepository : FeedRepository {
@@ -211,6 +214,9 @@ class FakeFeedRepository : FeedRepository {
     override fun find(id: FeedId): Feed? = stored.firstOrNull { it.id == id }
 
     override fun findByAccountId(accountId: AccountId): Feed? = stored.firstOrNull { it.accountId == accountId }
+
+    override fun findByAccountIds(accountIds: Set<AccountId>): Map<AccountId, Feed> =
+        stored.filter { it.accountId in accountIds }.associateBy { it.accountId }
 
     override fun findByUrl(url: String): Feed? = stored.firstOrNull { it.url == url }
 

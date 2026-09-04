@@ -44,6 +44,32 @@ class FeedRepositoryTest {
     }
 
     @Test
+    fun `account_id をまとめて引ける`() {
+        withRepositories { repositories ->
+            val account1 = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val account2 = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+
+            val feed1 = assertNotNull(
+                repositories.feeds.add(
+                    NewFeed(
+                        accountId = account1.id,
+                        url = "https://example.com/feed1.xml",
+                        title = "1",
+                        siteUrl = "https://example.com/1",
+                        format = "Atom 1.0",
+                        pollIntervalSeconds = 900,
+                    ),
+                ),
+            )
+
+            assertEquals(
+                mapOf(account1.id to feed1),
+                repositories.feeds.findByAccountIds(setOf(account1.id, account2.id)),
+            )
+        }
+    }
+
+    @Test
     fun `同じ URL は二重登録できない`() {
         withRepositories { repositories ->
             val account1 = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))

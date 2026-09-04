@@ -47,4 +47,7 @@ class FakeNoteStore : NoteStore {
         .map { it.position }
 
     override fun count(username: String): Long = added.count { it.username == username }.toLong()
+
+    override fun counts(usernames: Set<String>): Map<String, Long> =
+        usernames.associateWith { count(it) }
 }

@@ -4,6 +4,12 @@ query AccountScreen($username: String!, $query: AccountNotesQuery!) {
         username
         acct
         actorUrl
+        followerCount
+        noteCount
+        feed {
+            url
+            siteUrl
+        }
     }
     notes(query: $query) {
         nodes {

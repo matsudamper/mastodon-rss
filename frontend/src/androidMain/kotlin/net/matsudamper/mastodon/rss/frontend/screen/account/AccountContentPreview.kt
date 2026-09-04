@@ -13,11 +13,16 @@ private fun AccountContentPreview() {
         AccountContent(
             uiState = AccountScreenUiState(
                 content = AccountScreenUiState.Content.Loaded(
-                    account = AccountUiState.placeholder(
+                    account = AccountUiState(
                         username = username,
                         acct = "@$username@example.com",
                         actorUrl = "https://example.com/users/$username",
-                        host = AndroidPreviewScreenPlatform.host,
+                        followerCount = "12",
+                        noteCount = "3",
+                        feed = FeedUiState(
+                            feedUrl = "https://example.com/blog/feed.xml",
+                            siteUrl = "https://example.com/blog",
+                        ),
                     ),
                     notes = listOf(
                         NoteUiState(
@@ -43,8 +48,6 @@ private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
     override fun onClickHome() = Unit
 
     override fun onClickAdmin() = Unit
-
-    override fun onClickOperator(username: String) = Unit
 
     override fun onClickReload() = Unit
 

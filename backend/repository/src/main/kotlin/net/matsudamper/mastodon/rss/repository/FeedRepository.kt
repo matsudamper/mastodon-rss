@@ -19,6 +19,8 @@ interface FeedRepository {
 
     fun findByAccountId(accountId: AccountId): Feed?
 
+    fun findByAccountIds(accountIds: Set<AccountId>): Map<AccountId, Feed>
+
     /** URL で引く。同じ URL の二重登録を弾くために使う */
     fun findByUrl(url: String): Feed?
 
