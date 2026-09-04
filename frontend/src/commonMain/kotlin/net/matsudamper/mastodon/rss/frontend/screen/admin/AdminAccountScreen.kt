@@ -196,7 +196,7 @@ internal fun AdminAccountContent(
                         )
                     }
                     content.deleteNoteDialog?.let { DeleteNoteDialog(it, uiState.listener) }
-                    content.deleteAccountDialog?.let { DeleteAccountDialog(content.account, it, uiState.listener) }
+                    content.deleteAccountDialog?.let { DeleteAccountDialog(it, uiState.listener) }
                 }
             }
         }
@@ -464,31 +464,27 @@ private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog,
 
 @Composable
 private fun DeleteAccountDialog(
-    account: AdminAccountScreenUiState.Account,
     dialog: AdminAccountScreenUiState.DeleteAccountDialog,
     listener: AdminAccountScreenUiState.Listener,
 ) {
     AlertDialog(
         onDismissRequest = listener::onDismissDeleteAccount,
-        title = { Text("${account.acct} を削除する") },
+        title = { Text("アカウントを削除する") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "フォロワー ${account.followerCount} 人と配信した投稿、登録したフィードと取り込んだ記事が消える。" +
-                        "フォロワーのサーバーにも削除を配るが、届かなかった相手には残る。\n" +
-                        "消した後は、同じ名前と同じフィードで登録し直せる。",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                dialog.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
+                Text(dialog.message, style = MaterialTheme.typography.bodyMedium)
+                dialog.errorMessage?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = listener::onConfirmDeleteAccount, enabled = !dialog.deleting) {
-                Text(if (dialog.deleting) "削除中" else "削除")
+            TextButton(onClick = listener::onConfirmDeleteAccount, enabled = dialog.canConfirm) {
+                Text(dialog.confirmLabel)
             }
         },
         dismissButton = {
-            TextButton(onClick = listener::onDismissDeleteAccount, enabled = !dialog.deleting) { Text("やめる") }
+            TextButton(onClick = listener::onDismissDeleteAccount, enabled = dialog.canDismiss) { Text("やめる") }
         },
     )
 }

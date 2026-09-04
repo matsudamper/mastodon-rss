@@ -525,9 +525,7 @@ class AdminAccountScreenViewModel(
     }
 
     /**
-     * アカウントを消す。消えたら一覧に戻る。
-     *
-     * この画面が扱う対象が無くなるので、消せたら状態を触らずに離れる
+     * 消せたら一覧に戻る。この画面が扱う対象が無くなるので、状態は触らずに離れる
      */
     private fun deleteAccount() {
         val state = viewModelStateFlow.value
@@ -540,8 +538,6 @@ class AdminAccountScreenViewModel(
             try {
                 when (val result = api.deleteAccount(username)) {
                     AdminDeleteAccountResult.Success -> {
-                        // スナックバーはこの画面のものなので、離れると出せない。
-                        // 消えたことは一覧から居なくなることで分かる
                         events.send { it.navigate(Screen.AdminAccounts) }
                     }
 
@@ -901,11 +897,19 @@ class AdminAccountScreenViewModel(
     }
 
     private fun ViewModelState.deleteAccountDialogUiState(): AdminAccountScreenUiState.DeleteAccountDialog? {
-        if (!deleteAccountRequested) return null
+        val account = loadedAccount?.takeIf { deleteAccountRequested } ?: return null
 
         return AdminAccountScreenUiState.DeleteAccountDialog(
-            deleting = deletingAccount,
-            error = deleteAccountError,
+            message = buildString {
+                append("${account.account.acct} を消す。")
+                append("フォロワー ${account.followerCount} 人と配信した投稿、登録したフィードが消える。")
+                append("フォロワーのサーバーにも削除を伝えるが、届かなかった相手には残る。\n")
+                append("消した後は同じ名前と同じフィードで登録し直せる。")
+            },
+            confirmLabel = if (deletingAccount) "削除中" else "削除",
+            canConfirm = !deletingAccount,
+            canDismiss = !deletingAccount,
+            errorMessage = deleteAccountError,
         )
     }
 

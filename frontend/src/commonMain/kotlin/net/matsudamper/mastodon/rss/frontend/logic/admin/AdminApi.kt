@@ -336,9 +336,6 @@ class AdminApi(
         )
     }
 
-    /**
-     * アカウントを消す。フォロワーと投稿、登録したフィードも一緒に消える
-     */
     suspend fun deleteAccount(username: String): AdminDeleteAccountResult {
         val response = client.mutation(
             AdminDeleteAccountMutation(query = DeleteAccountQuery(username = username)),

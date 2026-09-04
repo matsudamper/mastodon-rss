@@ -157,15 +157,12 @@ data class AdminAccountScreenUiState(
         val deleting: Boolean,
     )
 
-    /**
-     * アカウントを消す前の確認。
-     *
-     * @param deleting 削除中。ボタンを押せなくする
-     * @param error 消せなかった理由。出したままにして、閉じるかもう一度かを選べるようにする
-     */
     data class DeleteAccountDialog(
-        val deleting: Boolean,
-        val error: String?,
+        val message: String,
+        val confirmLabel: String,
+        val canConfirm: Boolean,
+        val canDismiss: Boolean,
+        val errorMessage: String?,
     )
 
     /**
@@ -217,16 +214,10 @@ data class AdminAccountScreenUiState(
 
         fun onClickLoadMore()
 
-        /**
-         * アカウントを消す確認を出す
-         */
         fun onClickDeleteAccount()
 
         fun onDismissDeleteAccount()
 
-        /**
-         * フォロワーと投稿、登録したフィードもまとめて消える
-         */
         fun onConfirmDeleteAccount()
 
         fun onDismissDeleteNote()
