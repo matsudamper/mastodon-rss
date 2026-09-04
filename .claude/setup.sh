@@ -50,15 +50,25 @@ fi
 # 起動ごとに Gradle が読む場所へ書き出す。
 gpr_user="${GPR_USER:-${GITHUB_ACTOR:-}}"
 gpr_key="${GPR_KEY:-${GITHUB_TOKEN:-}}"
-if [ -n "${gpr_user}" ] && [ -n "${gpr_key}" ]; then
-  mkdir -p "${HOME}/.gradle"
-  umask 077
-  {
-    echo "gpr.user=${gpr_user}"
-    echo "gpr.key=${gpr_key}"
-  } > "${HOME}/.gradle/gradle.properties"
-else
-  echo "[setup] GPR_USER / GPR_KEY が無いので GitHub Packages の資格情報を書けなかった" >&2
+if [ -z "${gpr_user}" ] || [ -z "${gpr_key}" ]; then
+  cat >&2 <<'MSG'
+GPR_USER / GPR_KEY (または GITHUB_ACTOR / GITHUB_TOKEN) が未設定。
+GitHub Packages(read:packages)の資格情報が無いと Gradle は構成段階で落ちる。
+MSG
+  exit 1
 fi
+
+gradle_properties="${HOME}/.gradle/gradle.properties"
+mkdir -p "${HOME}/.gradle"
+tmp_properties="$(mktemp "${HOME}/.gradle/.gradle.properties.XXXXXX")"
+chmod 600 "${tmp_properties}"
+if [ -f "${gradle_properties}" ]; then
+  grep -v -E '^[[:space:]]*gpr\.(user|key)[[:space:]]*=' "${gradle_properties}" > "${tmp_properties}" || true
+fi
+{
+  echo "gpr.user=${gpr_user}"
+  echo "gpr.key=${gpr_key}"
+} >> "${tmp_properties}"
+mv "${tmp_properties}" "${gradle_properties}"
 
 echo "[setup] 完了"
