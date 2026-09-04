@@ -1,2 +1,4 @@
+リポジトリ固有ルール: @docs/agent-repo.md の frontend セクション
+
 Ui,UiStateはバックエンドの情報を知っていてはいけない。何を表示したいかで記述する
 UiにUi以外のロジックを書かない。ロジックはViewModelに記述する。
