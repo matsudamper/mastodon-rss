@@ -43,35 +43,38 @@ if [ ! -f "${HOME}/.android/debug.keystore" ]; then
     -storepass android -alias androiddebugkey -keypass android \
     -keyalg RSA -keysize 2048 -validity 10000 \
     -dname "CN=Android Debug,O=Android,C=US" > /dev/null
+  # 既定の umask だと 0644 になり、秘密鍵を同一ホストの別ユーザーにコピーされる
+  chmod 600 "${HOME}/.android/debug.keystore"
 fi
 
 # settings.gradle.kts が graphql-java-codegen の fork を GitHub Packages から引くため、
 # read:packages 付きの資格情報が無いと構成段階で必ず落ちる。値はコミットせず、
 # 起動ごとに Gradle が読む場所へ書き出す。
-gradle_properties="${HOME}/.gradle/gradle.properties"
-gpr_user="${GPR_USER:-${GITHUB_ACTOR:-}}"
-gpr_key="${GPR_KEY:-${GITHUB_TOKEN:-}}"
+gradle_user_home="${GRADLE_USER_HOME:-${HOME}/.gradle}"
+gradle_properties="${gradle_user_home}/gradle.properties"
 
-has_property() {
-  [ -f "${gradle_properties}" ] && grep -q -E "^[[:space:]]*$1[[:space:]]*=" "${gradle_properties}"
+read_property() {
+  [ -f "${gradle_properties}" ] || return 0
+  sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\\(.*\\)$/\\1/p" "${gradle_properties}" | tail -n 1
 }
 
+# settings.gradle.kts の credential() と同じで、キーごとに Gradle プロパティ→環境変数の順で見る
+gpr_user="$(read_property 'gpr\.user')"
+gpr_user="${gpr_user:-${GPR_USER:-${GITHUB_ACTOR:-}}}"
+gpr_key="$(read_property 'gpr\.key')"
+gpr_key="${gpr_key:-${GPR_KEY:-${GITHUB_TOKEN:-}}}"
+
 if [ -z "${gpr_user}" ] || [ -z "${gpr_key}" ]; then
-  if has_property 'gpr\.user' && has_property 'gpr\.key'; then
-    echo "[setup] gradle.properties の資格情報を使う"
-    echo "[setup] 完了"
-    exit 0
-  fi
-  cat >&2 <<'MSG'
+  cat >&2 <<MSG
 GPR_USER / GPR_KEY (または GITHUB_ACTOR / GITHUB_TOKEN) が未設定で、
-~/.gradle/gradle.properties にも gpr.user / gpr.key が無い。
+${gradle_properties} にも gpr.user / gpr.key が無い。
 GitHub Packages(read:packages)の資格情報が無いと Gradle は構成段階で落ちる。
 MSG
   exit 1
 fi
 
-mkdir -p "${HOME}/.gradle"
-tmp_properties="$(mktemp "${HOME}/.gradle/.gradle.properties.XXXXXX")"
+mkdir -p "${gradle_user_home}"
+tmp_properties="$(mktemp "${gradle_user_home}/.gradle.properties.XXXXXX")"
 chmod 600 "${tmp_properties}"
 if [ -f "${gradle_properties}" ]; then
   grep -v -E '^[[:space:]]*gpr\.(user|key)[[:space:]]*=' "${gradle_properties}" > "${tmp_properties}" || true
