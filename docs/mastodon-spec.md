@@ -87,6 +87,20 @@ curl -H 'Accept: application/activity+json' http://localhost:8080/users/admin
 外から見えるようにするには HTTPS が要る。開発中は Cloudflare Tunnel や ngrok で
 `DOMAIN` に指定したホスト名に向ける。
 
+## プロフィールのリンク
+
+アカウントにフィードが登録されていれば、Actor の `attachment` にサイトと
+フィードの URL を並べる。Mastodon はこれをプロフィールのリンク集として出す。
+
+`value` は HTML として解釈されるので、素の URL を入れてもリンクにはならない。
+`<a>` にして入れる。フィードの登録元は外から来た文字列なので、`http` と `https`
+以外は落とす。
+
+登録されていないアカウントでは `attachment` は空。空の項目を出すと、
+相手のプロフィールに見出しだけの行が並ぶ。
+
+`attachment` を変えても相手側の表示は変わらない。`Update{Actor}` の配信は未実装。
+
 ## アカウントの引き当て
 
 WebFinger の `resource` とパスの `{username}` は同じ経路で引き当てる
