@@ -23,7 +23,7 @@ class ActorRoutesTest {
     private fun ApplicationTestBuilder.installModule() {
         application {
             routing {
-                actorRoutes(TestLocalActor.directory, TestActorKey.value)
+                actorRoutes(TestLocalActor.directory, TestActorKey.value, TestLocalActor.feedLinks)
             }
         }
     }
@@ -62,7 +62,10 @@ class ActorRoutesTest {
                     """"https://w3id.org/security/v1",""" +
                     """{"toot":"http://joinmastodon.org/ns#",""" +
                     """"featured":{"@id":"toot:featured","@type":"@id"},""" +
-                    """"showFeatured":"toot:showFeatured"}]"""
+                    """"showFeatured":"toot:showFeatured",""" +
+                    """"schema":"http://schema.org#",""" +
+                    """"PropertyValue":"schema:PropertyValue",""" +
+                    """"value":"schema:value"}]"""
             assertTrue(body.contains(expectedContext))
         }
 
@@ -101,6 +104,39 @@ class ActorRoutesTest {
             val response = client.get("/users/admin") { header(HttpHeaders.Accept, "*/*") }
 
             assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
+        }
+
+    @Test
+    fun `フィードを持つアカウントはサイトとフィードの URL が attachment に並ぶ`() =
+        testApplication {
+            installModule()
+
+            val path = "/users/${TestLocalActor.STORED_USERNAME}"
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
+
+            assertEquals(listOf("サイト", "フィード"), actor.attachment.map { it.name })
+            assertEquals(listOf("PropertyValue", "PropertyValue"), actor.attachment.map { it.type })
+            // 素の URL を入れてもリンクにならない
+            assertEquals(
+                """<a href="https://feed1.example.org/" rel="nofollow noopener" target="_blank">https://feed1.example.org/</a>""",
+                actor.attachment[0].value,
+            )
+            assertEquals(
+                """<a href="https://feed1.example.org/rss.xml" rel="nofollow noopener" target="_blank">""" +
+                    """https://feed1.example.org/rss.xml</a>""",
+                actor.attachment[1].value,
+            )
+        }
+
+    @Test
+    fun `フィードを持たないアカウントは attachment が空`() =
+        testApplication {
+            installModule()
+
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
+
+            // 見出しだけの行がプロフィールに並ばないようにする
+            assertTrue(actor.attachment.isEmpty())
         }
 
     @Test
