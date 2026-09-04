@@ -50,10 +50,6 @@ data class Actor(
     /** プロフィールから開くリンク。Mastodon は無ければ id を使う */
     @SerialName("url")
     val url: String? = null,
-    /**
-     * プロフィールに並べるリンク集。Mastodon は `PropertyValue` の
-     * `name` を見出し、`value` を中身として表示する。
-     */
     @SerialName("attachment")
     val attachment: List<ActorAttachment> = listOf(),
     @SerialName("publicKey")
