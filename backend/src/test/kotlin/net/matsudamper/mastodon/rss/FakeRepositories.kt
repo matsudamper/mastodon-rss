@@ -133,6 +133,9 @@ class FakeFollowerRepository : FollowerRepository {
     override fun removeAccount(username: String): Int {
         val before = stored.size
         stored.removeAll { it.username.equals(username, ignoreCase = true) }
+        // 行ごと消える本物と揃える。残すと、同じ名前で作り直した後の Follow が
+        // Accept を返す前から受理済みとして数えられる
+        accepted.removeAll { (acceptedUsername, _) -> acceptedUsername.equals(username, ignoreCase = true) }
         return before - stored.size
     }
 

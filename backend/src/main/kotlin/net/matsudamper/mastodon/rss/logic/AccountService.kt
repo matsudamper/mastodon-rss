@@ -98,15 +98,20 @@ class AccountService(
      * 名前で持っているもの（投稿とフォロワー）を残すと、同じ名前で作り直したときに
      * 引き継がれるので、消えるものはこの 1 回で消し切る。
      *
-     * 先に投稿とフォロワーを消してからアカウントの行を消す。途中で失敗しても、
-     * 残るのは中身の無いアカウントだけで、もう一度消せばよい状態になる。
+     * アカウントの行を先に消す。消えていればその名前は引き当てられなくなり、
+     * 投稿の配信や `Follow` の受理が止まる。後から入った行が消し漏れて、
+     * 作り直したアカウントに引き継がれることがなくなる。
+     * 消せた 1 つだけが以降に進むので、同時に呼ばれても配信は 1 回になる。
      */
     suspend fun delete(username: String): DeleteResult {
         val account = accounts.findByUsername(username)
             ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
 
+        if (!accounts.delete(account.id)) {
+            return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
+        }
+
         val deleted = actorPublisher.delete(ActorUrls(domain = domain, username = account.username))
-        accounts.delete(account.id)
 
         return DeleteResult.Success(
             username = account.username,

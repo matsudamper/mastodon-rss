@@ -2,8 +2,10 @@ package net.matsudamper.mastodon.rss.actor
 
 import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.DeleteActorActivity
+import net.matsudamper.mastodon.rss.crypto.UuidV7
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
+import net.matsudamper.mastodon.rss.entity.ActivityPubId
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.note.NoteStore
@@ -34,7 +36,9 @@ class ActorPublisher(
         val body = AppJson.encodeToString(
             DeleteActorActivity.serializer(),
             DeleteActorActivity(
-                id = sender.deleteId,
+                // 削除のたびに変える。同じ名前で作り直して再度消すと、
+                // アクターの id から決めた固定の値では 2 回目が相手の重複判定で落ちる
+                id = ActivityPubId("${sender.actorId}#delete-${UuidV7.generate()}"),
                 actor = sender.actorId,
                 to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
                 target = sender.actorId,

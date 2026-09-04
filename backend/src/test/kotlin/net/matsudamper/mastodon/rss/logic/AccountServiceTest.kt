@@ -76,6 +76,46 @@ class AccountServiceTest {
     }
 
     @Test
+    fun `2 回目の削除は配信しない`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.withFullAccount()
+        val delivery = TestDelivery()
+        val service = serviceOf(repositories, delivery)
+        service.delete(USERNAME)
+
+        val result = service.delete(USERNAME)
+
+        val failure = assertIs<AccountService.DeleteResult.Failure>(result)
+        assertEquals(AccountService.DeleteFailure.UNKNOWN_ACCOUNT, failure.reason)
+        // 1 回目の分だけ。消せた 1 つしか配信まで進まない
+        assertEquals(1, delivery.delivered.size)
+    }
+
+    @Test
+    fun `消した名前で作り直した後のフォローは Accept を返すまで数えない`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.withFullAccount()
+        serviceOf(repositories, TestDelivery()).delete(USERNAME)
+        repositories.accounts.add(username = USERNAME, createdAt = CREATED_AT)
+
+        repositories.followers.record(
+            IncomingFollow(
+                username = USERNAME,
+                follower = NewRemoteActor(
+                    actorUri = FOLLOWER_ACTOR_URI,
+                    inbox = FOLLOWER_INBOX,
+                    sharedInbox = null,
+                    publicKeyPem = "pem",
+                ),
+                followActivityUri = "$FOLLOWER_ACTOR_URI/follows/2",
+                receivedAt = CREATED_AT,
+            ),
+        )
+
+        assertEquals(0L, repositories.followers.count(USERNAME))
+    }
+
+    @Test
     fun `知らないアカウントは消せない`() = runTest {
         val repositories = FakeRepositories()
         val delivery = TestDelivery()
