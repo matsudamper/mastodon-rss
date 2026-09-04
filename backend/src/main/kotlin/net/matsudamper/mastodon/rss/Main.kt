@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss
 
 import java.nio.file.Path
 import io.ktor.server.application.Application
+import io.ktor.server.application.ServerReady
 import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.cio.CIO
@@ -59,6 +60,12 @@ fun main() {
         },
     )
 
+    // 受け付けが始まってから動かす。投稿を受け取った相手はその場で Note やアクターの
+    // URL を引きに来るので、待ち受ける前に投稿すると相手は繋げずに終わる
+    server.monitor.subscribe(ServerReady) {
+        deps.startFeedPolling()
+    }
+
     // start(wait = true) は停止まで返ってこない
     server.start(wait = true)
 }
@@ -109,6 +116,17 @@ fun Application.module(deps: AppDependencies) {
 
     logAdminLogin(env)
 
+    val diContainer = DiContainer(
+        passwordHash = env.adminPasswordHash,
+        accountRepository = deps.repositories.accounts,
+        followerRepository = deps.repositories.followers,
+        domain = env.domain,
+        actorDirectory = deps.directory,
+        notePublisher = deps.notePublisher,
+        noteStore = deps.noteStore,
+        feedService = deps.feedService,
+    )
+
     val graphQl = GraphQlEngine.create(
         resolvers = listOf(
             QueryResolverImpl(),
@@ -127,18 +145,7 @@ fun Application.module(deps: AppDependencies) {
                 cookieSecure = env.adminCookieSecure,
             )
         },
-        diContainer = DiContainer(
-            passwordHash = env.adminPasswordHash,
-            accountRepository = deps.repositories.accounts,
-            followerRepository = deps.repositories.followers,
-            feedRepository = deps.repositories.feeds,
-            feedItemRepository = deps.repositories.feedItems,
-            feedFetcher = deps.feedFetcher,
-            domain = env.domain,
-            actorDirectory = deps.directory,
-            notePublisher = deps.notePublisher,
-            noteStore = deps.noteStore,
-        ),
+        diContainer = diContainer,
         openTelemetry = deps.openTelemetry,
     )
 

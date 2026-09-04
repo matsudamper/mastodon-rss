@@ -3,7 +3,14 @@ package net.matsudamper.mastodon.rss.delivery
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.cio.CIO
@@ -117,6 +124,34 @@ class HttpActivityDeliveryTest {
         }
 
         assertIs<DeliveryResult.Failed>(result)
+    }
+
+    @Test
+    fun `送信の途中で止められたら失敗として返さない`() {
+        val started = CompletableDeferred<Unit>()
+        val client = HttpClient(
+            MockEngine {
+                started.complete(Unit)
+                awaitCancellation()
+            },
+        )
+        var result: DeliveryResult? = null
+
+        runBlocking {
+            HttpActivityDelivery(TestActorKey.value, client = client).use { delivery ->
+                val job = launch {
+                    result = delivery.deliver(
+                        inbox = "https://example.com/users/alice/inbox",
+                        sender = sender,
+                        body = """{"type":"Create"}""".toByteArray(),
+                    )
+                }
+                started.await()
+                job.cancelAndJoin()
+            }
+        }
+
+        assertNull(result)
     }
 
     @Test

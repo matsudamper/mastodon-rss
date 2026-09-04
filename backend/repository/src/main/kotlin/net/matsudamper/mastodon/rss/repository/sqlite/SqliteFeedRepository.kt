@@ -68,7 +68,7 @@ internal class SqliteFeedRepository(
             .selectFrom(FEEDS)
             .fetch()
             .map { it.toFeed() }
-            .filter { it.isDue(now) }
+            .filter { it.isDue(now) && (it.initialImportDone || it.registrationTimedOut(now)) }
             .sortedBy { it.fetch.lastFetchedAt ?: Instant.MIN }
             .take(limit)
     }
@@ -188,6 +188,13 @@ internal class SqliteFeedRepository(
                 .execute()
         }
     }
+
+    /**
+     * 登録の取り込みが、間隔を過ぎても終わっていない。
+     *
+     * 登録は取得を終えてから間を置かずに済む。過ぎているなら途中で終わっている
+     */
+    private fun Feed.registrationTimedOut(now: Instant): Boolean = createdAt.plusSeconds(pollIntervalSeconds) <= now
 
     private fun Feed.isDue(now: Instant): Boolean {
         val lastFetchedAt = fetch.lastFetchedAt ?: return true

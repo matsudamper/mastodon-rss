@@ -1,5 +1,12 @@
 package net.matsudamper.mastodon.rss
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorKey
@@ -12,8 +19,10 @@ import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
+import net.matsudamper.mastodon.rss.feed.FeedPoller
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
+import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
 import net.matsudamper.mastodon.rss.note.NotePublisher
@@ -88,6 +97,26 @@ class AppDependencies(
         delivery = delivery,
     )
 
+    val feedService: FeedService = FeedService(
+        accounts = repositories.accounts,
+        feeds = repositories.feeds,
+        feedItems = repositories.feedItems,
+        fetcher = feedFetcher,
+        actorDirectory = directory,
+        notePublisher = notePublisher,
+    )
+
+    private val feedPollingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * フィードの定期ポーリングを始める。
+     *
+     * 呼ぶまで動かない。止めるのは [close]
+     */
+    fun startFeedPolling() {
+        FeedPoller(feedService).start(feedPollingScope)
+    }
+
     /**
      * 抱えているものを作った順の逆に閉じる。
      *
@@ -95,6 +124,15 @@ class AppDependencies(
      * 最初の close が投げた時点で後ろが開いたままになる。
      */
     override fun close() {
+        // 取り込みの途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ。
+        // サーバーの停止を待った後にここへ来るので、docker stop の既定の猶予（10 秒）に
+        // 収まるよう待ち時間は短くする
+        runBlocking {
+            withTimeoutOrNull(3_000) {
+                feedPollingScope.coroutineContext.job.cancelAndJoin()
+            }
+        }
+
         try {
             feedFetcher.close()
         } finally {

@@ -227,7 +227,9 @@ class FakeFeedRepository : FeedRepository {
         stored
             .filter {
                 val lastFetchedAt = it.fetch.lastFetchedAt
-                lastFetchedAt == null || lastFetchedAt.plusSeconds(it.pollIntervalSeconds) <= now
+                val due = lastFetchedAt == null || lastFetchedAt.plusSeconds(it.pollIntervalSeconds) <= now
+                val registrationTimedOut = it.createdAt.plusSeconds(it.pollIntervalSeconds) <= now
+                due && (it.initialImportDone || registrationTimedOut)
             }
             .sortedBy { it.fetch.lastFetchedAt ?: Instant.MIN }
             .take(limit)
@@ -299,6 +301,11 @@ class FakeFeedRepository : FeedRepository {
 
     override fun markInitialImportDone(id: FeedId) {
         update(id) { it.copy(initialImportDone = true) }
+    }
+
+    /** 登録の取り込みが終わっていない状態を作る。本物には無い、テストのための口 */
+    fun clearInitialImportDone(id: FeedId) {
+        update(id) { it.copy(initialImportDone = false) }
     }
 
     override fun delete(id: FeedId) {

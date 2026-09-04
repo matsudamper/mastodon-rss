@@ -3,6 +3,8 @@ package net.matsudamper.mastodon.rss.logic
 import java.net.URI
 import java.time.Instant
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedItemKey
@@ -14,15 +16,18 @@ import net.matsudamper.mastodon.rss.feed.toDisplayName
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
+import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
 import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.AccountId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
+import org.slf4j.LoggerFactory
 
 class FeedService(
     private val accounts: AccountRepository,
@@ -32,6 +37,10 @@ class FeedService(
     private val actorDirectory: ActorDirectory,
     private val notePublisher: NotePublisher,
 ) {
+    private val publishLock = Mutex()
+
+    private val logger = LoggerFactory.getLogger(FeedService::class.java)
+
     suspend fun preview(url: String): PreviewResult {
         return when (val fetched = fetcher.fetch(url)) {
             is FeedFetchService.FetchResult.Success -> PreviewResult.Success(fetched.toPreview())
@@ -49,12 +58,19 @@ class FeedService(
         accounts.findById(accountId)
             ?: return SaveResult.Failure(SaveFailure.UNKNOWN_ACCOUNT)
 
-        if (feeds.findByAccountId(accountId) != null) {
+        val existing = feeds.findByAccountId(accountId)
+        if (existing != null && existing.initialImportDone) {
             return SaveResult.Failure(SaveFailure.ALREADY_HAS_FEED)
         }
 
         return when (val fetched = fetcher.fetch(url)) {
             is FeedFetchService.FetchResult.Success -> {
+                // 登録は保存と取り込みが別々に確定する。途中で終わったものは同じ URL で
+                // 登録し直せないので、取り直せたことを確かめてから消す。先に消すと、
+                // 取得に失敗したときに取り込み済みの記事と取得状態まで失う
+                if (existing != null) {
+                    feeds.delete(existing.id)
+                }
                 if (feeds.findByUrl(fetched.feedUrl) != null) {
                     return SaveResult.Failure(SaveFailure.DUPLICATE_URL)
                 }
@@ -79,6 +95,12 @@ class FeedService(
                     feed = feed,
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
+                )
+                // 記録しないと、定期ポーリングが取得の時期を過ぎていると見なしてすぐ取り直す
+                feeds.recordFetchSuccess(
+                    id = feed.id,
+                    fetchedAt = Instant.now(),
+                    validators = FeedFetchValidators.NONE,
                 )
                 feeds.markInitialImportDone(feed.id)
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)
@@ -157,30 +179,35 @@ class FeedService(
             is ImportLatestResult.Failure -> return PostUnpublishedResult.Failure(result.reason)
             is ImportLatestResult.Success -> result
         }
-        val htmlByKey = imported.items.associate { item ->
-            FeedItemKey.of(feed.url, item).value to composeItemHtml(item, imported.feedUrl)
-        }
-        val sender = actorDirectory.resolve(account.username)
-            ?: return PostUnpublishedResult.Success(items = emptyList())
-        val posted = mutableListOf<UnpublishedItem>()
-        feedItems.findPending(feed.id, Int.MAX_VALUE).forEach { stored ->
-            val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
-            val published = try {
-                notePublisher.publish(sender = sender, contentHtml = html)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                return@forEach
-            }
-            feedItems.markPosted(stored.id, Instant.now(), noteId = PublicNoteId(published.publicId.value))
-            posted += UnpublishedItem(
-                title = stored.title,
-                link = stored.link,
-                publishedAt = stored.publishedAt,
-            )
-        }
+        val posted = publishPending(
+            feed = feed,
+            username = account.username,
+            htmlByKey = htmlByKey(feed = feed, items = imported.items, feedUrl = imported.feedUrl),
+        )
         return PostUnpublishedResult.Success(items = posted)
     }
+
+    /**
+     * 取得の時期が来たフィードを取り込み、未投稿の記事を投稿する。
+     *
+     * 1 本が失敗しても残りを続ける。配信元同士に関係は無いので、
+     * 落ちている 1 本のせいで他のフィードが止まる方が困る。
+     */
+    suspend fun pollDue(
+        now: Instant,
+        limit: Int,
+    ): List<PollResult> = feeds.findDue(now = now, limit = limit).map { feed -> poll(feed) }
+
+    /**
+     * @param host 取得先のホスト。URL には購読者だけが知るトークンが入ることがあるので、
+     *   ログに出せるところまで削った形で渡す
+     */
+    data class PollResult(
+        val feedId: FeedId,
+        val host: String,
+        val postedItems: List<UnpublishedItem>,
+        val error: String?,
+    )
 
     data class FeedPreview(
         val title: String?,
@@ -287,6 +314,133 @@ class FeedService(
         PARSE_FAILED,
     }
 
+    /**
+     * 1 本のフィードを取り込んで、新着を投稿する。
+     *
+     * 1 回で何本も回るので、記録する時刻はここで取り直す。対象を選んだ時刻を使うと、
+     * 後の方のフィードほど古い時刻が残り、間隔を待たずに取り直す
+     */
+    private suspend fun poll(feed: Feed): PollResult {
+        val fetched = when (val result = fetcher.fetch(feed.url)) {
+            is FeedFetchService.FetchResult.Success -> result
+            else -> return feed.recordFailure(result.failureReason())
+        }
+
+        // 取得できた時点で次の取得予定を進める。投稿の失敗で取得をやり直すと、
+        // 配信元には同じ本文を配り直す理由が無いのに取りに行くことになる。
+        // 条件付き GET はまだ送っていないので、保存されている値はそのまま残す
+        feeds.recordFetchSuccess(id = feed.id, fetchedAt = Instant.now(), validators = feed.fetch.validators)
+
+        val imported = importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
+
+        if (!feed.initialImportDone) {
+            // 登録が途中で終わったフィード。ここで取り込みを終わらせる。既存記事は
+            // 未投稿のまま残し、登録できたときと同じで自動では流さない
+            feeds.markInitialImportDone(feed.id)
+            return PollResult(feedId = feed.id, host = feed.host(), postedItems = emptyList(), error = null)
+        }
+
+        val account = accounts.findById(feed.accountId)
+            ?: return PollResult(feedId = feed.id, host = feed.host(), postedItems = emptyList(), error = "アカウントが無い")
+
+        return PollResult(
+            feedId = feed.id,
+            host = feed.host(),
+            postedItems = publishPending(
+                feed = feed,
+                username = account.username,
+                htmlByKey = htmlByKey(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl),
+                only = imported.map { it.id }.toSet(),
+            ),
+            error = null,
+        )
+    }
+
+    /**
+     * 記録とログに残す失敗の理由。
+     *
+     * 配信元から来た文字列は入れない。購読者だけが知る値を含むことがある
+     */
+    private fun FeedFetchService.FetchResult.failureReason(): String = when (this) {
+        is FeedFetchService.FetchResult.Success -> "取得に失敗した"
+        FeedFetchService.FetchResult.InvalidUrl -> "URL として読めない"
+        FeedFetchService.FetchResult.TooLarge -> "応答が大きすぎる"
+        is FeedFetchService.FetchResult.HttpError -> status?.let { "HTTP $it" } ?: message ?: "取得に失敗した"
+        is FeedFetchService.FetchResult.ParseError -> "パースに失敗した"
+    }
+
+    private fun Feed.recordFailure(error: String): PollResult {
+        feeds.recordFetchFailure(id = id, fetchedAt = Instant.now(), error = error)
+        return PollResult(feedId = id, host = host(), postedItems = emptyList(), error = error)
+    }
+
+    /**
+     * ログに出せるところまで削った取得先。
+     *
+     * URL の残りはクエリやパスに購読者だけが知るトークンを含むことがある。
+     * 読めなければ空にする。ここで URL 全体に落とすと、隠す意味が無くなる
+     */
+    private fun Feed.host(): String = runCatching { URI(url).host }.getOrNull().orEmpty()
+
+    /**
+     * 保存済みの本文ではなく、取り込んだばかりの本文を使うための対応表。
+     *
+     * 配信元は同じ記事の説明を後から足すことがある。取り込んだ時点の本文だけを
+     * 見ていると、その分が落ちたまま投稿される。
+     */
+    private fun htmlByKey(
+        feed: Feed,
+        items: List<ParsedFeedItem>,
+        feedUrl: String,
+    ): Map<String, String?> = items.associate { item ->
+        FeedItemKey.of(feed.url, item).value to composeItemHtml(item, feedUrl)
+    }
+
+    /**
+     * 未投稿の記事を投稿して、投稿済みにする。
+     *
+     * 定期ポーリングと管理画面からの手動投稿は同時に走りうる。取り出してから
+     * 投稿済みにするまでを直列化しないと、両方が同じ記事を取り出してフォロワーに
+     * 2 回配信する。取り消す手段は無いので、入口を 1 本に絞って防ぐ
+     *
+     * @param only 投稿する記事を絞る。null なら未投稿を全部投稿する。
+     *   定期ポーリングは今回取り込んだ分だけを渡す。登録時に取り込んだ既存記事は
+     *   確認してから手動で投稿するもので、自動では流さない
+     */
+    private suspend fun publishPending(
+        feed: Feed,
+        username: String,
+        htmlByKey: Map<String, String?>,
+        only: Set<FeedItemId>? = null,
+    ): List<UnpublishedItem> = publishLock.withLock {
+        val sender = actorDirectory.resolve(username) ?: return@withLock emptyList()
+        val posted = mutableListOf<UnpublishedItem>()
+        feedItems
+            .findPending(feed.id, Int.MAX_VALUE)
+            .filter { only == null || it.id in only }
+            .forEach { stored ->
+                val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
+                val published = try {
+                    notePublisher.publish(sender = sender, contentHtml = html)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // 投稿できなかった記事は未投稿のまま残る。無人で動くので、
+                    // 気付けるようにここに残す。記事のリンクや鍵は購読者だけが知る値を
+                    // 含むことがあるので、こちらで採番した id だけ出す
+                    logger.warn("記事を投稿できなかった: フィード ${feed.id.value} の記事 ${stored.id.value}", e)
+                    return@forEach
+                }
+                feedItems.markPosted(stored.id, Instant.now(), noteId = PublicNoteId(published.publicId.value))
+                posted += UnpublishedItem(
+                    title = stored.title,
+                    link = stored.link,
+                    publishedAt = stored.publishedAt,
+                )
+            }
+        posted
+    }
+
     private suspend fun importLatest(feed: Feed): ImportLatestResult {
         return when (val fetched = fetcher.fetch(feed.url)) {
             is FeedFetchService.FetchResult.Success -> {
@@ -295,21 +449,34 @@ class FeedService(
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
                 )
+                // 記録しないと定期ポーリングが直後に取り直し、成功した後も前の失敗が残る
+                feeds.recordFetchSuccess(
+                    id = feed.id,
+                    fetchedAt = Instant.now(),
+                    validators = feed.fetch.validators,
+                )
                 ImportLatestResult.Success(
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
                 )
             }
 
-            FeedFetchService.FetchResult.InvalidUrl ->
+            FeedFetchService.FetchResult.InvalidUrl -> {
+                feed.recordFailure(fetched.failureReason())
                 ImportLatestResult.Failure(PostUnpublishedFailure.INVALID_URL)
+            }
 
             FeedFetchService.FetchResult.TooLarge,
             is FeedFetchService.FetchResult.HttpError,
-            -> ImportLatestResult.Failure(PostUnpublishedFailure.FETCH_FAILED)
+            -> {
+                feed.recordFailure(fetched.failureReason())
+                ImportLatestResult.Failure(PostUnpublishedFailure.FETCH_FAILED)
+            }
 
-            is FeedFetchService.FetchResult.ParseError ->
+            is FeedFetchService.FetchResult.ParseError -> {
+                feed.recordFailure(fetched.failureReason())
                 ImportLatestResult.Failure(PostUnpublishedFailure.PARSE_FAILED)
+            }
         }
     }
 
@@ -346,13 +513,18 @@ class FeedService(
         return FeedText.truncate(normalized, DESCRIPTION_LIMIT)
     }
 
+    /**
+     * 取り込んだ記事を保存して、今回新しく入ったものだけを返す。
+     *
+     * 既にある鍵は保存されず null が返る。定期ポーリングはこの戻り値を投稿の対象にする
+     */
     private fun importExistingItems(
         feed: Feed,
         items: List<ParsedFeedItem>,
         feedUrl: String,
-    ) {
+    ): List<FeedItem> {
         val now = Instant.now()
-        items.forEach { item ->
+        return items.mapNotNull { item ->
             val contentHtml = composeItemHtml(item, feedUrl)
             feedItems.add(
                 NewFeedItem(
