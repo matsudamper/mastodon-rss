@@ -81,8 +81,11 @@ internal fun actorDocument(
  */
 private fun feedAttachments(feedLinks: FeedLinks): List<ActorAttachment> =
     buildList {
-        feedLinks.siteUrl?.let { add(linkAttachment(name = SITE_ATTACHMENT_NAME, url = it)) }
-        feedLinks.feedUrl?.let { add(linkAttachment(name = FEED_ATTACHMENT_NAME, url = it)) }
+        val siteUrl = feedLinks.siteUrl
+        if (siteUrl != null) add(linkAttachment(name = SITE_ATTACHMENT_NAME, url = siteUrl))
+
+        val feedUrl = feedLinks.feedUrl
+        if (feedUrl != null) add(linkAttachment(name = FEED_ATTACHMENT_NAME, url = feedUrl))
     }
 
 private fun linkAttachment(

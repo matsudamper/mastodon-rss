@@ -55,7 +55,7 @@ data class Actor(
      * `name` を見出し、`value` を中身として表示する。
      */
     @SerialName("attachment")
-    val attachment: List<ActorAttachment> = emptyList(),
+    val attachment: List<ActorAttachment> = listOf(),
     @SerialName("publicKey")
     val publicKey: ActorPublicKey,
     /**
