@@ -190,7 +190,6 @@ internal fun CoordinatedTwoPaneLayout(
 internal fun rememberCoordinatedTwoPaneScrollableModifier(
     pageScrollState: TwoPaneScrollState,
     notesListState: LazyListState,
-    onViewportHeightChange: (Int) -> Unit,
 ): Modifier {
     val scrollableState = rememberScrollableState { delta ->
         pageScrollState.scrollBy(delta = delta, notesListState = notesListState)
@@ -207,5 +206,5 @@ internal fun rememberCoordinatedTwoPaneScrollableModifier(
                 reverseScrolling = false,
             ),
         )
-        .onSizeChanged { onViewportHeightChange(it.height) }
+        .onSizeChanged { pageScrollState.updateViewportHeight(it.height) }
 }

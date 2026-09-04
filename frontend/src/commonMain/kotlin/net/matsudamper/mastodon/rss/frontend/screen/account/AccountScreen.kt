@@ -262,7 +262,6 @@ private fun WideLoadedAccountContent(
     val coordinatedScrollModifier = rememberCoordinatedTwoPaneScrollableModifier(
         pageScrollState = pageScrollState,
         notesListState = notesListState,
-        onViewportHeightChange = pageScrollState::updateViewportHeight,
     )
 
     CoordinatedTwoPaneLayout(
