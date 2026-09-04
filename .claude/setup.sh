@@ -48,17 +48,28 @@ fi
 # settings.gradle.kts が graphql-java-codegen の fork を GitHub Packages から引くため、
 # read:packages 付きの資格情報が無いと構成段階で必ず落ちる。値はコミットせず、
 # 起動ごとに Gradle が読む場所へ書き出す。
+gradle_properties="${HOME}/.gradle/gradle.properties"
 gpr_user="${GPR_USER:-${GITHUB_ACTOR:-}}"
 gpr_key="${GPR_KEY:-${GITHUB_TOKEN:-}}"
+
+has_property() {
+  [ -f "${gradle_properties}" ] && grep -q -E "^[[:space:]]*$1[[:space:]]*=" "${gradle_properties}"
+}
+
 if [ -z "${gpr_user}" ] || [ -z "${gpr_key}" ]; then
+  if has_property 'gpr\.user' && has_property 'gpr\.key'; then
+    echo "[setup] gradle.properties の資格情報を使う"
+    echo "[setup] 完了"
+    exit 0
+  fi
   cat >&2 <<'MSG'
-GPR_USER / GPR_KEY (または GITHUB_ACTOR / GITHUB_TOKEN) が未設定。
+GPR_USER / GPR_KEY (または GITHUB_ACTOR / GITHUB_TOKEN) が未設定で、
+~/.gradle/gradle.properties にも gpr.user / gpr.key が無い。
 GitHub Packages(read:packages)の資格情報が無いと Gradle は構成段階で落ちる。
 MSG
   exit 1
 fi
 
-gradle_properties="${HOME}/.gradle/gradle.properties"
 mkdir -p "${HOME}/.gradle"
 tmp_properties="$(mktemp "${HOME}/.gradle/.gradle.properties.XXXXXX")"
 chmod 600 "${tmp_properties}"
