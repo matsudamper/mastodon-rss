@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+# セットアップスクリプト欄から呼ぶときは cwd がリポジトリ外なので、自分の位置から解決する
+cd "${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 
 # 構築済みの SDK を無視して入れ直さないよう、local.properties の sdk.dir も候補にする
 sdk_dir_in_local_properties=""
@@ -33,13 +34,19 @@ if [ ! -x "${SDKMANAGER}" ]; then
   mv "${tmp}/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
 fi
 
-echo "[setup] Android SDK パッケージを導入する (compileSdk=${compile_sdk})"
-# yes だと SIGPIPE で 141 を返し pipefail に引っかかるので、有限個の y を流す
-{ for _ in $(seq 1 200); do printf 'y\n'; done; } | "${SDKMANAGER}" --sdk_root="${ANDROID_SDK_ROOT}" --licenses > /dev/null
-"${SDKMANAGER}" --sdk_root="${ANDROID_SDK_ROOT}" --install \
-  "platform-tools" \
-  "platforms;android-${compile_sdk}.0" \
-  "build-tools;${BUILD_TOOLS_VERSION}" > /dev/null
+# SessionStart フックからも呼ぶので、揃っているときは sdkmanager を起動しない。
+# sdkmanager は何もすることが無くてもリモートのリポジトリを引きに行って数秒かかる
+if [ ! -f "${ANDROID_SDK_ROOT}/platforms/android-${compile_sdk}.0/android.jar" ] ||
+  [ ! -d "${ANDROID_SDK_ROOT}/build-tools/${BUILD_TOOLS_VERSION}" ] ||
+  [ ! -x "${ANDROID_SDK_ROOT}/platform-tools/adb" ]; then
+  echo "[setup] Android SDK パッケージを導入する (compileSdk=${compile_sdk})"
+  # yes だと SIGPIPE で 141 を返し pipefail に引っかかるので、有限個の y を流す
+  { for _ in $(seq 1 200); do printf 'y\n'; done; } | "${SDKMANAGER}" --sdk_root="${ANDROID_SDK_ROOT}" --licenses > /dev/null
+  "${SDKMANAGER}" --sdk_root="${ANDROID_SDK_ROOT}" --install \
+    "platform-tools" \
+    "platforms;android-${compile_sdk}.0" \
+    "build-tools;${BUILD_TOOLS_VERSION}" > /dev/null
+fi
 
 # 環境変数(ANDROID_HOME)はセットアップ後のシェルに残らないので local.properties に書く。
 # cmake.dir など他のローカル設定を消さないよう sdk.dir の行だけ差し替える
