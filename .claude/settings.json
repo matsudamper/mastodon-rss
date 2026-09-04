@@ -7,5 +7,19 @@
     "deny": [
       "mcp__Claude_Code_Remote__send_later"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/setup.sh\"",
+            "timeout": 900
+          }
+        ],
+        "matcher": "startup|resume"
+      }
+    ]
   }
 }
