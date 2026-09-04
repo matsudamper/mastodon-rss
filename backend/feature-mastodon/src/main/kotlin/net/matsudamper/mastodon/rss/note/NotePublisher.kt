@@ -49,21 +49,23 @@ class NotePublisher(
             ),
         )
 
-        val body = AppJson.encodeToString(
+        val activityBodyBytes = AppJson.encodeToString(
             CreateNoteActivity.serializer(),
             createActivity(sender = sender, urls = urls, contentHtml = contentHtml, publishedAt = publishedAt),
         ).toByteArray()
 
-        val result = deliverToFollowers(sender = sender, body = body)
+        val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
 
-        logger.info("投稿を配った: ${sender.acct} $publicId 宛先=${result.targets} 成功=${result.delivered}")
+        logger.info(
+            "投稿を配った: ${sender.acct} $publicId 宛先=${result.deliveryAttemptCount} 成功=${result.delivered}",
+        )
 
         return PublishedNote(
             publicId = publicId,
             url = urls.noteUrl,
             contentHtml = contentHtml,
             publishedAt = publishedAt,
-            targets = result.targets,
+            deliveryAttemptCount = result.deliveryAttemptCount,
             delivered = result.delivered,
         )
     }
@@ -89,14 +91,16 @@ class NotePublisher(
         val urls = NoteUrls(domain = sender.domain, publicId = publicId)
         notes.delete(publicId)
 
-        val body = AppJson.encodeToString(
+        val activityBodyBytes = AppJson.encodeToString(
             DeleteNoteActivity.serializer(),
             deleteActivity(sender = sender, urls = urls),
         ).toByteArray()
 
-        val result = deliverToFollowers(sender = sender, body = body)
+        val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
 
-        logger.info("投稿の削除を配った: ${sender.acct} $publicId 宛先=${result.targets} 成功=${result.delivered}")
+        logger.info(
+            "投稿の削除を配った: ${sender.acct} $publicId 宛先=${result.deliveryAttemptCount} 成功=${result.delivered}",
+        )
 
         return DeletedNote(publicId = publicId)
     }
@@ -105,10 +109,10 @@ class NotePublisher(
         sender: ActorUrls,
         body: ByteArray,
     ): DeliveryCount {
-        val targets = followers.deliveryTargets(sender.username)
+        val deliveryInboxes = followers.deliveryTargets(sender.username)
         var delivered = 0
 
-        targets.forEach { inbox ->
+        deliveryInboxes.forEach { inbox ->
             when (val result = delivery.deliver(inbox = inbox, sender = sender, body = body)) {
                 is DeliveryResult.Delivered -> {
                     delivered++
@@ -121,11 +125,11 @@ class NotePublisher(
             }
         }
 
-        return DeliveryCount(targets = targets.size, delivered = delivered)
+        return DeliveryCount(deliveryAttemptCount = deliveryInboxes.size, delivered = delivered)
     }
 
     private data class DeliveryCount(
-        val targets: Int,
+        val deliveryAttemptCount: Int,
         val delivered: Int,
     )
 
@@ -172,17 +176,12 @@ data class DeletedNote(
     val publicId: PublicNoteId,
 )
 
-/**
- * 配信した結果。
- *
- * @param targets 送った宛先の数。`sharedInbox` でまとまるのでフォロワーの数とは一致しない
- * @param delivered そのうち相手が受け取ったもの
- */
+/** 配信した結果。 */
 data class PublishedNote(
     val publicId: PublicNoteId,
     val url: String,
     val contentHtml: String,
     val publishedAt: Instant,
-    val targets: Int,
+    val deliveryAttemptCount: Int,
     val delivered: Int,
 )

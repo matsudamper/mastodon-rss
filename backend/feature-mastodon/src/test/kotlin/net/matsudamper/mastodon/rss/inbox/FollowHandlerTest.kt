@@ -32,12 +32,12 @@ class FollowHandlerTest {
         handler: FollowHandler,
         json: String,
     ) {
-        val raw = AppJson.parseToJsonElement(json) as JsonObject
+        val rawActivityJson = AppJson.parseToJsonElement(json) as JsonObject
         handler.handle(
             recipient = recipient,
-            signer = TestRemoteActor.ACTOR_ID,
-            activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), raw),
-            raw = raw,
+            verifiedSignerActorId = TestRemoteActor.ACTOR_ID,
+            activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), rawActivityJson),
+            rawActivityJson = rawActivityJson,
         )
     }
 

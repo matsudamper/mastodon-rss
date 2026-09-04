@@ -96,7 +96,7 @@ private fun linkAttachment(
     // rel は Mastodon 側でも付け直されるが、そのまま表示する実装もあるので入れておく
     return ActorAttachment(
         name = name,
-        value = """<a href="$escaped" rel="nofollow noopener" target="_blank">$escaped</a>""",
+        htmlContent = """<a href="$escaped" rel="nofollow noopener" target="_blank">$escaped</a>""",
     )
 }
 

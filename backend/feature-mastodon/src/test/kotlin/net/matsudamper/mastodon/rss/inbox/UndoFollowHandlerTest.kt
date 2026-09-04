@@ -39,14 +39,14 @@ class UndoFollowHandlerTest {
     private suspend fun handle(
         store: FakeFollowerStore,
         json: String,
-        signer: String = TestRemoteActor.ACTOR_ID,
+        verifiedSignerActorId: String = TestRemoteActor.ACTOR_ID,
     ) {
-        val raw = AppJson.parseToJsonElement(json) as JsonObject
+        val rawActivityJson = AppJson.parseToJsonElement(json) as JsonObject
         UndoFollowHandler(store).handle(
             recipient = recipient,
-            signer = signer,
-            activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), raw),
-            raw = raw,
+            verifiedSignerActorId = verifiedSignerActorId,
+            activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), rawActivityJson),
+            rawActivityJson = rawActivityJson,
         )
     }
 
@@ -130,7 +130,7 @@ class UndoFollowHandlerTest {
              "object":{"id":"$followUri","type":"Follow",
                        "actor":"${TestRemoteActor.ACTOR_ID}","object":"${recipient.actorId}"}}
             """.trimIndent(),
-            signer = "https://remote.example/users/mallory",
+            verifiedSignerActorId = "https://remote.example/users/mallory",
         )
 
         assertEquals(1, store.count(TestLocalActor.USERNAME))

@@ -43,7 +43,7 @@ class FeedParserAtomTest {
         assertEquals("記事の題名", entry.title)
         assertEquals("https://example.com/1", entry.link)
         assertEquals("tag:example.com,2024:1", entry.id)
-        assertEquals("要約", entry.summary?.value)
+        assertEquals("要約", entry.summary?.text)
         assertEquals(FeedContent.Type.TEXT, entry.summary?.type)
         assertEquals(Instant.parse("2024-10-01T00:00:00Z"), entry.publishedAt)
         assertEquals(Instant.parse("2024-10-02T00:00:00Z"), entry.updatedAt)
@@ -83,7 +83,7 @@ class FeedParserAtomTest {
         val content = item.content
 
         assertEquals(FeedContent.Type.HTML, content?.type)
-        assertEquals("<p>本文</p>", content?.value)
+        assertEquals("<p>本文</p>", content?.text)
     }
 
     @Test
@@ -106,9 +106,9 @@ class FeedParserAtomTest {
         val content = item.content
 
         assertEquals(FeedContent.Type.HTML, content?.type)
-        val value = content?.value.orEmpty()
-        assertTrue(value.contains("<p>"), "段落のタグが残っていない: $value")
-        assertTrue(value.contains("""<a href="https://example.com/1">リンク</a>"""), "リンクが残っていない: $value")
+        val contentText = content?.text.orEmpty()
+        assertTrue(contentText.contains("<p>"), "段落のタグが残っていない: $contentText")
+        assertTrue(contentText.contains("""<a href="https://example.com/1">リンク</a>"""), "リンクが残っていない: $contentText")
     }
 
     @Test

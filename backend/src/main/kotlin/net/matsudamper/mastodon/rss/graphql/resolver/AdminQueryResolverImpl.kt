@@ -62,11 +62,10 @@ class AdminQueryResolverImpl : AdminQueryResolver {
     ): CompletionStage<DataFetcherResult<QlAdminNotesConnection>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        // カーソルを組み立てるのも解くのもこの層。下は位置しか知らない
-        val after = cursor?.let { NotesCursor.decode(it) }
+        val notesCursorPosition = cursor?.let { NotesCursor.decode(it) }
 
         // 読めないカーソルは、消えた投稿を指していたのと同じ扱いにする
-        val connection = if (cursor != null && after == null) {
+        val connection = if (cursor != null && notesCursorPosition == null) {
             QlAdminNotesConnection(
                 nodes = emptyList(),
                 pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
@@ -75,7 +74,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
             val diContainer = GraphQlEngine.diContainer(env)
             val page = diContainer.noteService.notes(
                 username = username,
-                after = after?.toPosition(),
+                after = notesCursorPosition?.toPosition(),
                 limit = limit,
             )
 

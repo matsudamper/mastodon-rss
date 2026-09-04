@@ -119,12 +119,12 @@ class ActorRoutesTest {
             // 素の URL を入れてもリンクにならない
             assertEquals(
                 """<a href="https://feed1.example.org/" rel="nofollow noopener" target="_blank">https://feed1.example.org/</a>""",
-                actor.attachment[0].value,
+                actor.attachment[0].htmlContent,
             )
             assertEquals(
                 """<a href="https://feed1.example.org/rss.xml" rel="nofollow noopener" target="_blank">""" +
                     """https://feed1.example.org/rss.xml</a>""",
-                actor.attachment[1].value,
+                actor.attachment[1].htmlContent,
             )
         }
 

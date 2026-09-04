@@ -158,7 +158,7 @@ class FeedService(
             is ImportLatestResult.Success -> result
         }
         val htmlByKey = imported.items.associate { item ->
-            FeedItemKey.of(feed.url, item).value to composeItemHtml(item, imported.feedUrl)
+            FeedItemKey.of(feed.url, item).dedupeKey to composeItemHtml(item, imported.feedUrl)
         }
         val sender = actorDirectory.resolve(account.username)
             ?: return PostUnpublishedResult.Success(items = emptyList())
@@ -357,7 +357,7 @@ class FeedService(
             feedItems.add(
                 NewFeedItem(
                     feedId = feed.id,
-                    itemKey = FeedItemKey.of(feed.url, item).value,
+                    itemKey = FeedItemKey.of(feed.url, item).dedupeKey,
                     title = item.title,
                     link = item.link,
                     contentHtml = contentHtml,
