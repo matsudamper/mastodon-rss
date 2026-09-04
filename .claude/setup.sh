@@ -85,12 +85,27 @@ read_property() {
 gpr_user="${GPR_USER:-${GITHUB_ACTOR:-$(read_property 'gpr\.user')}}"
 gpr_key="${GPR_KEY:-${GITHUB_TOKEN:-$(read_property 'gpr\.key')}}"
 
+describe_source() {
+  # 値そのものは出さない。どこから取れたかだけ示す
+  for name in "$@"; do
+    eval "value=\${${name}:-}"
+    [ -n "${value}" ] && { echo "${name}"; return 0; }
+  done
+  echo "無し"
+}
+
 if [ -z "${gpr_user}" ] || [ -z "${gpr_key}" ]; then
   cat >&2 <<MSG
-GPR_USER / GPR_KEY (または GITHUB_ACTOR / GITHUB_TOKEN) が未設定で、
-${gradle_properties} にも gpr.user / gpr.key が無い。
-GitHub Packages(read:packages)の資格情報が無いと Gradle は構成段階で落ちる。
+GitHub Packages(read:packages)の資格情報が揃っていない。無いと Gradle は構成段階で落ちる。
+  gpr.user: $(describe_source GPR_USER GITHUB_ACTOR) / ${gradle_properties}: $([ -n "$(read_property 'gpr\.user')" ] && echo 有り || echo 無し)
+  gpr.key : $(describe_source GPR_KEY GITHUB_TOKEN) / ${gradle_properties}: $([ -n "$(read_property 'gpr\.key')" ] && echo 有り || echo 無し)
 MSG
+  # セットアップスクリプトとして走る段階では GITHUB_ACTOR / GITHUB_TOKEN がまだ無い。
+  # ここで失敗させるとセッションが起動しないので、フックの回に書けることへ賭ける
+  if [ -z "${CLAUDE_PROJECT_DIR:-}" ]; then
+    echo "[setup] 資格情報はセッション開始時に書き直す" >&2
+    exit 0
+  fi
   exit 1
 fi
 
