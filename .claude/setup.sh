@@ -23,22 +23,22 @@ if [ -z "${compile_sdk}" ]; then
   exit 1
 fi
 
-if [ ! -x "${SDKMANAGER}" ]; then
-  echo "[setup] cmdline-tools を導入する"
-  mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
-  tmp="$(mktemp -d)"
-  trap 'rm -rf "${tmp}"' EXIT
-  curl -fsSL -o "${tmp}/cmdline-tools.zip" "${CMDLINE_TOOLS_URL}"
-  unzip -q "${tmp}/cmdline-tools.zip" -d "${tmp}"
-  rm -rf "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
-  mv "${tmp}/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
-fi
-
 # SessionStart フックからも呼ぶので、揃っているときは sdkmanager を起動しない。
 # sdkmanager は何もすることが無くてもリモートのリポジトリを引きに行って数秒かかる
 if [ ! -f "${ANDROID_SDK_ROOT}/platforms/android-${compile_sdk}.0/android.jar" ] ||
   [ ! -d "${ANDROID_SDK_ROOT}/build-tools/${BUILD_TOOLS_VERSION}" ] ||
   [ ! -x "${ANDROID_SDK_ROOT}/platform-tools/adb" ]; then
+  if [ ! -x "${SDKMANAGER}" ]; then
+    echo "[setup] cmdline-tools を導入する"
+    mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "${tmp}"' EXIT
+    curl -fsSL -o "${tmp}/cmdline-tools.zip" "${CMDLINE_TOOLS_URL}"
+    unzip -q "${tmp}/cmdline-tools.zip" -d "${tmp}"
+    rm -rf "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+    mv "${tmp}/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+  fi
+
   echo "[setup] Android SDK パッケージを導入する (compileSdk=${compile_sdk})"
   # yes だと SIGPIPE で 141 を返し pipefail に引っかかるので、有限個の y を流す
   { for _ in $(seq 1 200); do printf 'y\n'; done; } | "${SDKMANAGER}" --sdk_root="${ANDROID_SDK_ROOT}" --licenses > /dev/null
@@ -57,15 +57,16 @@ fi
 echo "sdk.dir=${ANDROID_SDK_ROOT}" >> "${tmp_local_properties}"
 mv "${tmp_local_properties}" local.properties
 
-if [ ! -f "${HOME}/.android/debug.keystore" ]; then
+android_user_home="${ANDROID_USER_HOME:-${HOME}/.android}"
+if [ ! -f "${android_user_home}/debug.keystore" ]; then
   echo "[setup] debug.keystore を作る"
-  mkdir -p "${HOME}/.android"
-  keytool -genkeypair -keystore "${HOME}/.android/debug.keystore" \
+  mkdir -p "${android_user_home}"
+  keytool -genkeypair -keystore "${android_user_home}/debug.keystore" \
     -storepass android -alias androiddebugkey -keypass android \
     -keyalg RSA -keysize 2048 -validity 10000 \
     -dname "CN=Android Debug,O=Android,C=US" > /dev/null
   # 既定の umask だと 0644 になり、秘密鍵を同一ホストの別ユーザーにコピーされる
-  chmod 600 "${HOME}/.android/debug.keystore"
+  chmod 600 "${android_user_home}/debug.keystore"
 fi
 
 # settings.gradle.kts が graphql-java-codegen の fork を GitHub Packages から引くため、
@@ -79,11 +80,10 @@ read_property() {
   sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\\(.*\\)$/\\1/p" "${gradle_properties}" | tail -n 1
 }
 
-# settings.gradle.kts の credential() と同じで、キーごとに Gradle プロパティ→環境変数の順で見る
-gpr_user="$(read_property 'gpr\.user')"
-gpr_user="${gpr_user:-${GPR_USER:-${GITHUB_ACTOR:-}}}"
-gpr_key="$(read_property 'gpr\.key')"
-gpr_key="${gpr_key:-${GPR_KEY:-${GITHUB_TOKEN:-}}}"
+# 環境変数はセッションごとに配られる新しい値なので、あればそちらで上書きする。
+# 無ければファイルの値をそのまま使う(手で書いた資格情報だけの環境を失敗させない)
+gpr_user="${GPR_USER:-${GITHUB_ACTOR:-$(read_property 'gpr\.user')}}"
+gpr_key="${GPR_KEY:-${GITHUB_TOKEN:-$(read_property 'gpr\.key')}}"
 
 if [ -z "${gpr_user}" ] || [ -z "${gpr_key}" ]; then
   cat >&2 <<MSG
