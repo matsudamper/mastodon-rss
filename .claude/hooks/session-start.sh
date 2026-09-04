@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+cd "${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 
-ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${HOME}/android-sdk}"
+ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-${HOME}/android-sdk}}"
 CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
+# AGP 9.4.0 の DEFAULT_BUILD_TOOLS_REVISION。compileSdk とは独立していて、
+# 揃えないと AGP がビルド中に別バージョンを取りに行く
+BUILD_TOOLS_VERSION="36.0.0"
 SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
 
 # compileSdk と別バージョンの platform を入れても AGP が SDK 未検出で落ちるので catalog を正とする
@@ -31,10 +34,16 @@ echo "[setup] Android SDK パッケージを導入する (compileSdk=${compile_s
 "${SDKMANAGER}" --sdk_root="${ANDROID_SDK_ROOT}" --install \
   "platform-tools" \
   "platforms;android-${compile_sdk}.0" \
-  "build-tools;${compile_sdk}.0.0" > /dev/null
+  "build-tools;${BUILD_TOOLS_VERSION}" > /dev/null
 
-# 環境変数(ANDROID_HOME)はセットアップ後のシェルに残らないので local.properties に書く
-echo "sdk.dir=${ANDROID_SDK_ROOT}" > local.properties
+# 環境変数(ANDROID_HOME)はセットアップ後のシェルに残らないので local.properties に書く。
+# cmake.dir など他のローカル設定を消さないよう sdk.dir の行だけ差し替える
+tmp_local_properties="$(mktemp ./.local.properties.XXXXXX)"
+if [ -f local.properties ]; then
+  grep -v -E '^[[:space:]]*sdk\.dir[[:space:]]*=' local.properties > "${tmp_local_properties}" || true
+fi
+echo "sdk.dir=${ANDROID_SDK_ROOT}" >> "${tmp_local_properties}"
+mv "${tmp_local_properties}" local.properties
 
 if [ ! -f "${HOME}/.android/debug.keystore" ]; then
   echo "[setup] debug.keystore を作る"
