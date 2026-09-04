@@ -157,7 +157,7 @@ fun Application.module(deps: AppDependencies) {
 
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
         webFingerRoutes(deps.directory)
-        actorRoutes(deps.directory, actorKey)
+        actorRoutes(deps.directory, actorKey, deps.feedLinks)
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)

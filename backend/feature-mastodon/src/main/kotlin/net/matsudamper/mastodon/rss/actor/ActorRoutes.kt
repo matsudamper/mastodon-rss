@@ -9,6 +9,7 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.activitypub.Actor
+import net.matsudamper.mastodon.rss.activitypub.ActorAttachment
 import net.matsudamper.mastodon.rss.activitypub.ActorPublicKey
 import net.matsudamper.mastodon.rss.json.respondJson
 
@@ -20,6 +21,7 @@ import net.matsudamper.mastodon.rss.json.respondJson
 fun Route.actorRoutes(
     directory: ActorDirectory,
     actorKey: ActorKey,
+    feedLinks: StoredFeedLinks,
 ) {
     get("/users/{username}") {
         val requested = call.parameters["username"]
@@ -32,7 +34,7 @@ fun Route.actorRoutes(
 
         call.respondJson(
             serializer = Actor.serializer(),
-            value = actorDocument(urls, actorKey),
+            value = actorDocument(urls, actorKey, feedLinks.find(urls.username)),
             // Accept を見ずに application/json で返すとアクターとして認識されない
             contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
         )
@@ -48,6 +50,7 @@ fun Route.actorRoutes(
 internal fun actorDocument(
     urls: ActorUrls,
     actorKey: ActorKey,
+    feedLinks: FeedLinks,
 ): Actor =
     Actor(
         id = urls.actorId,
@@ -60,6 +63,7 @@ internal fun actorDocument(
         followers = urls.followers,
         following = urls.following,
         url = urls.actorId,
+        attachment = feedAttachments(feedLinks),
         showFeatured = false,
         publicKey =
         ActorPublicKey(
@@ -69,4 +73,41 @@ internal fun actorDocument(
         ),
     )
 
+/**
+ * フィードの URL をプロフィールのリンク集にする。
+ *
+ * フィードを持たないアカウントは空になる。空の項目を出すと、Mastodon の
+ * プロフィールに見出しだけの行が並ぶ。
+ */
+private fun feedAttachments(feedLinks: FeedLinks): List<ActorAttachment> =
+    buildList {
+        val siteUrl = feedLinks.siteUrl
+        if (siteUrl != null) add(linkAttachment(name = SITE_ATTACHMENT_NAME, url = siteUrl))
+
+        val feedUrl = feedLinks.feedUrl
+        if (feedUrl != null) add(linkAttachment(name = FEED_ATTACHMENT_NAME, url = feedUrl))
+    }
+
+private fun linkAttachment(
+    name: String,
+    url: String,
+): ActorAttachment {
+    val escaped = escapeHtml(url)
+    // rel は Mastodon 側でも付け直されるが、そのまま表示する実装もあるので入れておく
+    return ActorAttachment(
+        name = name,
+        value = """<a href="$escaped" rel="nofollow noopener" target="_blank">$escaped</a>""",
+    )
+}
+
+private fun escapeHtml(raw: String): String =
+    raw
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&#39;")
+
 private const val SUMMARY = "RSS/Atom フィードを ActivityPub で配信するアカウント"
+private const val SITE_ATTACHMENT_NAME = "サイト"
+private const val FEED_ATTACHMENT_NAME = "フィード"
