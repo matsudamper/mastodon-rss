@@ -3,7 +3,12 @@ set -euo pipefail
 
 cd "${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 
-ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-${HOME}/android-sdk}}"
+# 構築済みの SDK を無視して入れ直さないよう、local.properties の sdk.dir も候補にする
+sdk_dir_in_local_properties=""
+if [ -f local.properties ]; then
+  sdk_dir_in_local_properties="$(sed -n 's/^[[:space:]]*sdk\.dir[[:space:]]*=[[:space:]]*\(.*\)$/\1/p' local.properties | tail -n 1)"
+fi
+ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-${sdk_dir_in_local_properties:-${HOME}/android-sdk}}}"
 CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
 # AGP 9.4.0 の DEFAULT_BUILD_TOOLS_REVISION。compileSdk とは独立していて、
 # 揃えないと AGP がビルド中に別バージョンを取りに行く
