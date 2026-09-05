@@ -32,21 +32,6 @@ input DeleteAccountQuery {
 }
 
 type AdminDeleteAccountResult {
-    "消せたアカウントの名前"
-    deletedUsername: String
-
-    "外したフォロワーの数。Accept を返せていないものも数える"
-    removedFollowers: Int
-
-    "消した投稿の数"
-    deletedNotes: Int
-
-    "Delete を送った宛先の数。sharedInbox でまとまるのでフォロワーの数とは一致しない"
-    deliveryTargets: Int
-
-    "そのうち相手が受け取った数"
-    delivered: Int
-
     failure: AdminDeleteAccountFailure
 }
 

@@ -126,10 +126,6 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
-    /**
-     * 消した中身の数も返す。フォロワーと投稿が消えたことは画面から見えないので、
-     * 何が消えたのかを返さないと、消し切れたのかどうかを確かめようがない
-     */
     override fun deleteAccount(
         adminMutation: QlAdminMutation,
         query: QlDeleteAccountQuery,
@@ -141,21 +137,9 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
         return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val result = when (val deleted = diContainer.accountService.delete(query.username)) {
-                is AccountService.DeleteResult.Success -> QlAdminDeleteAccountResult(
-                    deletedUsername = deleted.username,
-                    removedFollowers = deleted.removedFollowers,
-                    deletedNotes = deleted.deletedNotes,
-                    deliveryTargets = deleted.deliveryTargets,
-                    delivered = deleted.delivered,
-                    failure = null,
-                )
+                AccountService.DeleteResult.Success -> QlAdminDeleteAccountResult(failure = null)
 
                 is AccountService.DeleteResult.Failure -> QlAdminDeleteAccountResult(
-                    deletedUsername = null,
-                    removedFollowers = null,
-                    deletedNotes = null,
-                    deliveryTargets = null,
-                    delivered = null,
                     failure = QlAdminDeleteAccountFailure(
                         reason = when (deleted.reason) {
                             AccountService.DeleteFailure.UNKNOWN_ACCOUNT ->

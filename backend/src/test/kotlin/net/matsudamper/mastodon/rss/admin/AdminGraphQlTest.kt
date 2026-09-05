@@ -580,8 +580,6 @@ class AdminGraphQlTest {
             val result = mutateDeleteAccount("feed1", token).admin().obj("deleteAccount")
 
             assertEquals(JsonNull, result.getValue("failure"))
-            assertEquals("feed1", result.string("deletedUsername"))
-            assertEquals(2, result.getValue("deletedNotes").jsonPrimitive.int)
             assertEquals(
                 emptyList(),
                 repositories.notes.list(username = "feed1", after = null, limit = 10),
@@ -622,7 +620,6 @@ class AdminGraphQlTest {
 
             val result = mutateDeleteAccount("nobody", token).admin().obj("deleteAccount")
 
-            assertEquals(JsonNull, result.getValue("deletedUsername"))
             assertEquals("UNKNOWN_ACCOUNT", result.obj("failure").string("reason"))
         }
 
@@ -1024,7 +1021,6 @@ class AdminGraphQlTest {
             query =
             "mutation DeleteAccount(${'$'}username: String!) { admin { " +
                 "deleteAccount(query: { username: ${'$'}username }) { " +
-                "deletedUsername removedFollowers deletedNotes deliveryTargets delivered " +
                 "failure { reason } } } }",
             token = token,
             variables = """{"username":${JsonPrimitive(username)}}""",

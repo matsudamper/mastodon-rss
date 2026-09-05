@@ -343,12 +343,8 @@ class AdminApi(
         val result = response.data?.admin?.deleteAccount
             ?: return AdminDeleteAccountResult.Failure(response.failureMessage())
 
-        if (result.deletedUsername != null) return AdminDeleteAccountResult.Success
-
-        return AdminDeleteAccountResult.Rejected(
-            reason = result.failure?.reason?.toDeleteAccountFailure()
-                ?: AdminDeleteAccountResult.FailureReason.UNKNOWN,
-        )
+        val failure = result.failure ?: return AdminDeleteAccountResult.Success
+        return AdminDeleteAccountResult.Rejected(reason = failure.reason.toDeleteAccountFailure())
     }
 
     suspend fun postNote(

@@ -111,15 +111,9 @@ class AccountService(
             return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
         }
 
-        val deleted = actorPublisher.delete(ActorUrls(domain = domain, username = account.username))
+        actorPublisher.delete(ActorUrls(domain = domain, username = account.username))
 
-        return DeleteResult.Success(
-            username = account.username,
-            deletedNotes = deleted.deletedNotes,
-            removedFollowers = deleted.removedFollowers,
-            deliveryTargets = deleted.targets,
-            delivered = deleted.delivered,
-        )
+        return DeleteResult.Success
     }
 
     private fun Account.toManaged(): ManagedAccount = ManagedAccount(
@@ -144,20 +138,7 @@ class AccountService(
     )
 
     sealed interface DeleteResult {
-        /**
-         * @param username 消したアカウントの名前。保存されていた綴りで返す
-         * @param deletedNotes 消した投稿の数
-         * @param removedFollowers 外したフォロワーの数
-         * @param deliveryTargets `Delete` を送った宛先の数
-         * @param delivered そのうち相手が受け取った数
-         */
-        data class Success(
-            val username: String,
-            val deletedNotes: Int,
-            val removedFollowers: Int,
-            val deliveryTargets: Int,
-            val delivered: Int,
-        ) : DeleteResult
+        data object Success : DeleteResult
 
         data class Failure(
             val reason: DeleteFailure,

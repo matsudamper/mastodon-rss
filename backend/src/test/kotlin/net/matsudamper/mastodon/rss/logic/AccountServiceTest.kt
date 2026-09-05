@@ -32,9 +32,7 @@ class AccountServiceTest {
 
         val result = serviceOf(repositories, delivery).delete(USERNAME)
 
-        val success = assertIs<AccountService.DeleteResult.Success>(result)
-        assertEquals(1, success.removedFollowers)
-        assertEquals(1, success.deletedNotes)
+        assertIs<AccountService.DeleteResult.Success>(result)
         assertNull(repositories.accounts.findById(account.id))
         assertEquals(0L, repositories.followers.count(USERNAME))
         assertEquals(0L, repositories.notes.count(USERNAME))
@@ -50,9 +48,7 @@ class AccountServiceTest {
 
         val result = serviceOf(repositories, delivery).delete(USERNAME)
 
-        val success = assertIs<AccountService.DeleteResult.Success>(result)
-        assertEquals(1, success.deliveryTargets)
-        assertEquals(1, success.delivered)
+        assertIs<AccountService.DeleteResult.Success>(result)
 
         val body = delivery.delivered.single().body
         assertContains(body, "\"type\":\"Delete\"")
