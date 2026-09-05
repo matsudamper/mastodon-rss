@@ -20,6 +20,8 @@ private fun AdminAccountContentPreview() {
                         actorUrl = "https://example.com/users/$username",
                         createdAt = "2026-09-01 10:00",
                         followerCount = 128,
+                        displayName = null,
+                        summary = null,
                     ),
                     feed = AdminAccountScreenUiState.Feed.Registered(
                         url = "https://example.com/feed.xml",
@@ -75,6 +77,8 @@ private fun AdminAccountContentNoFeedPreview() {
                         actorUrl = "https://example.com/users/$username",
                         createdAt = "2026-09-01 10:00",
                         followerCount = 0,
+                        displayName = null,
+                        summary = null,
                     ),
                     feed = AdminAccountScreenUiState.Feed.NotRegistered,
                     post = AdminAccountScreenUiState.Post(
@@ -113,6 +117,8 @@ private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Li
     override fun onClickBackToAdmin() = Unit
 
     override fun onClickAddFeed() = Unit
+
+    override fun onClickEditProfile() = Unit
 
     override fun onClickPostLatest() = Unit
 

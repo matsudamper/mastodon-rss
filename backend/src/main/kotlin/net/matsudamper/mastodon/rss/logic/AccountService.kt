@@ -91,6 +91,28 @@ class AccountService(
         return AddAccountResult.Success(added.toManaged())
     }
 
+    fun updateProfile(
+        username: String,
+        displayName: String,
+        summary: String,
+    ): UpdateProfileResult {
+        val trimmedDisplayName = displayName.trim()
+        val trimmedSummary = summary.trim()
+        val displayNameTooLong = trimmedDisplayName.codePointCount(0, trimmedDisplayName.length) > DISPLAY_NAME_MAX_LENGTH
+        val summaryTooLong = trimmedSummary.codePointCount(0, trimmedSummary.length) > SUMMARY_MAX_LENGTH
+        if (displayNameTooLong || summaryTooLong) {
+            return UpdateProfileResult.Failure(false, displayNameTooLong, summaryTooLong)
+        }
+        val account = accounts.findByUsername(username)
+            ?: return UpdateProfileResult.Failure(true, false, false)
+        val updated = accounts.updateProfile(
+            id = account.id,
+            displayName = trimmedDisplayName.ifEmpty { null },
+            summary = trimmedSummary.ifEmpty { null },
+        ) ?: return UpdateProfileResult.Failure(true, false, false)
+        return UpdateProfileResult.Success(updated.toManaged())
+    }
+
     /**
      * アカウントを消して、消したことをフォロワーに配る。
      *
@@ -120,12 +142,16 @@ class AccountService(
         urls = ActorUrls(domain = domain, username = username),
         accountId = id,
         createdAt = createdAt,
+        displayName = displayName,
+        summary = summary,
     )
 
     data class ManagedAccount(
         val urls: ActorUrls,
         val accountId: AccountId,
         val createdAt: Instant,
+        val displayName: String?,
+        val summary: String?,
     )
 
     /**
@@ -145,8 +171,23 @@ class AccountService(
         ) : DeleteResult
     }
 
+    sealed interface UpdateProfileResult {
+        data class Success(val account: ManagedAccount) : UpdateProfileResult
+
+        data class Failure(
+            val unknownAccount: Boolean,
+            val displayNameTooLong: Boolean,
+            val summaryTooLong: Boolean,
+        ) : UpdateProfileResult
+    }
+
     enum class DeleteFailure {
         UNKNOWN_ACCOUNT,
+    }
+
+    companion object {
+        const val DISPLAY_NAME_MAX_LENGTH: Int = 30
+        const val SUMMARY_MAX_LENGTH: Int = 500
     }
 
     sealed interface AddAccountResult {

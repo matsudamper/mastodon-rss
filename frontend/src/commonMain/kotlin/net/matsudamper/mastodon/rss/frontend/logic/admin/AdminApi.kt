@@ -22,6 +22,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnpublishedFeedItemsQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminUpdateAccountProfileMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminFeedItemFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
@@ -40,6 +41,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteNoteQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.PostFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UnpublishedFeedItemsQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.type.UpdateAccountProfileQuery
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 import net.matsudamper.mastodon.rss.shared.FeedItemId
@@ -128,6 +130,42 @@ class AdminApi(
             minLength = failure.minLength,
             isDuplicated = failure.isDuplicated,
         )
+    }
+
+    /**
+     * @param displayName 空文字を渡すと未設定に戻す
+     * @param summary 空文字を渡すと未設定に戻す
+     */
+    suspend fun updateAccountProfile(
+        username: String,
+        displayName: String,
+        summary: String,
+    ): AdminUpdateAccountProfileResult {
+        val response = client.mutation(
+            AdminUpdateAccountProfileMutation(
+                query = UpdateAccountProfileQuery(
+                    username = username,
+                    displayName = displayName,
+                    summary = summary,
+                ),
+            ),
+        ).execute()
+        val result = response.data?.admin?.updateAccountProfile
+            ?: return AdminUpdateAccountProfileResult.Failure(response.failureMessage())
+
+        val failure = result.failure
+        if (failure != null) {
+            return AdminUpdateAccountProfileResult.Rejected(
+                unknownAccount = failure.unknownAccount,
+                displayNameMaxLength = failure.displayNameMaxLength,
+                summaryMaxLength = failure.summaryMaxLength,
+            )
+        }
+
+        val account = result.adminAccount
+            ?: return AdminUpdateAccountProfileResult.Failure("保存できたが内容が返ってこない")
+
+        return AdminUpdateAccountProfileResult.Success(account.adminAccountFields.toAdminAccount())
     }
 
     /**
@@ -385,6 +423,8 @@ class AdminApi(
             actorUrl = account.actorUrl,
         ),
         createdAt = createdAt,
+        displayName = displayName,
+        summary = summary,
         followerCount = followerCount,
         feed = feed?.let {
             AdminFeed(

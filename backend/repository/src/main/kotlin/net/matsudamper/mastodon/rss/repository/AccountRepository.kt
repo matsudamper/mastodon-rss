@@ -51,6 +51,12 @@ interface AccountRepository {
         createdAt: Instant,
     ): Account?
 
+    fun updateProfile(
+        id: AccountId,
+        displayName: String?,
+        summary: String?,
+    ): Account?
+
     /**
      * 消す。フィードと記事も外部キーで一緒に消える。
      *
@@ -72,4 +78,6 @@ data class Account(
     val id: AccountId,
     val username: String,
     val createdAt: Instant,
+    val displayName: String?,
+    val summary: String?,
 )

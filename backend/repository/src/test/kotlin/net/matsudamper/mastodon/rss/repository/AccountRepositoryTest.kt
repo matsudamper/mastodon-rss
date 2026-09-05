@@ -31,6 +31,36 @@ class AccountRepositoryTest {
     }
 
     @Test
+    fun `プロフィールを書き換えると引き直したときに反映されている`() {
+        withRepositories { repositories ->
+            val added = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+
+            val updated = assertNotNull(
+                repositories.accounts.updateProfile(id = added.id, displayName = "フィード 1", summary = "説明"),
+            )
+
+            assertEquals("フィード 1", updated.displayName)
+            assertEquals("説明", updated.summary)
+            assertEquals(updated, repositories.accounts.findByUsername("feed1"))
+        }
+    }
+
+    @Test
+    fun `プロフィールに null を渡すと未設定に戻る`() {
+        withRepositories { repositories ->
+            val added = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            repositories.accounts.updateProfile(id = added.id, displayName = "フィード 1", summary = "説明")
+
+            val cleared = assertNotNull(
+                repositories.accounts.updateProfile(id = added.id, displayName = null, summary = null),
+            )
+
+            assertNull(cleared.displayName)
+            assertNull(cleared.summary)
+        }
+    }
+
+    @Test
     fun `大文字小文字の違いは同じ名前として扱う`() {
         withRepositories { repositories ->
             repositories.accounts.add(username = "Feed1", createdAt = CREATED_AT)

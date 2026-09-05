@@ -98,6 +98,14 @@ sealed interface Screen : NavKey {
         override val background: Screen = AdminAccount(username)
     }
 
+    data class AdminAccountProfileEdit(
+        val username: String,
+    ) : Overlay {
+        override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$ACCOUNT_PREFIX$username/profile"
+        override val title: String = "@$username のプロフィールを編集 | $SITE_NAME"
+        override val background: Screen = AdminAccount(username)
+    }
+
     /**
      * アカウント画面。`/@feed1` のように `@` + ユーザー名で開く。
      *
@@ -185,6 +193,10 @@ sealed interface Screen : NavKey {
                     rest.size == 4 && rest[0] == ACCOUNTS_SEGMENT &&
                         rest[2] == FEEDS_SEGMENT && rest[3] == NEW_SEGMENT -> {
                         accountNameOf(rest[1])?.let { AdminAccountFeedNew(it) } ?: NotFound(path)
+                    }
+
+                    rest.size == 3 && rest[0] == ACCOUNTS_SEGMENT && rest[2] == "profile" -> {
+                        accountNameOf(rest[1])?.let { AdminAccountProfileEdit(it) } ?: NotFound(path)
                     }
 
                     else -> NotFound(path)

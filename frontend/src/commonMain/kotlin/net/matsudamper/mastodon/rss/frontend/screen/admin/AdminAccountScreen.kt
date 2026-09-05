@@ -251,6 +251,7 @@ private fun CompactLoadedAdminAccountContent(
             AccountCard(
                 account = content.account,
                 onClickOpenAccount = uiState.listener::onClickOpenAccount,
+                onClickEditProfile = uiState.listener::onClickEditProfile,
                 onClickDelete = uiState.listener::onClickDeleteAccount,
             )
         }
@@ -332,6 +333,7 @@ private fun WideLoadedAdminAccountContent(
                         AccountCard(
                             account = content.account,
                             onClickOpenAccount = uiState.listener::onClickOpenAccount,
+                            onClickEditProfile = uiState.listener::onClickEditProfile,
                             onClickDelete = uiState.listener::onClickDeleteAccount,
                         )
                         FeedCard(content.feed, uiState.listener)
@@ -496,6 +498,7 @@ private fun AdminTextLink(text: String, onClick: () -> Unit) {
 private fun AccountCard(
     account: AdminAccountScreenUiState.Account,
     onClickOpenAccount: () -> Unit,
+    onClickEditProfile: () -> Unit,
     onClickDelete: () -> Unit,
 ) {
     AdminSectionCard(title = "このアカウント") {
@@ -509,6 +512,12 @@ private fun AccountCard(
                 Text("${account.followerCount} 人", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             }
             OutlinedButton(onClick = onClickOpenAccount) { Text("公開画面") }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        LabeledValue(label = "表示名", value = account.displayName ?: "未設定（@${account.username} が出る）")
+        LabeledValue(label = "説明文", value = account.summary ?: "未設定（既定の文言が出る）")
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            OutlinedButton(onClick = onClickEditProfile) { Text("プロフィールを編集") }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         LabeledValue(label = "Actor URL", value = account.actorUrl)

@@ -22,6 +22,7 @@ fun Route.actorRoutes(
     directory: ActorDirectory,
     actorKey: ActorKey,
     feedLinks: StoredFeedLinks,
+    profiles: StoredActorProfiles,
 ) {
     get("/users/{username}") {
         val requested = call.parameters["username"]
@@ -34,7 +35,7 @@ fun Route.actorRoutes(
 
         call.respondJson(
             serializer = Actor.serializer(),
-            value = actorDocument(urls, actorKey, feedLinks.find(urls.username)),
+            value = actorDocument(urls, actorKey, feedLinks.find(urls.username), profiles.find(urls.username)),
             // Accept を見ずに application/json で返すとアクターとして認識されない
             contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
         )
@@ -44,19 +45,19 @@ fun Route.actorRoutes(
 /**
  * Actor JSON を組み立てる。
  *
- * 表示名と説明文は Phase 6 でアクターごとに DB から引くようになる。
- * それまでは名前から決まる。
+ * 表示名と説明文は管理画面から設定できる。設定していなければ名前から決まる。
  */
 internal fun actorDocument(
     urls: ActorUrls,
     actorKey: ActorKey,
     feedLinks: FeedLinks,
+    profile: ActorProfile,
 ): Actor =
     Actor(
         id = urls.actorId,
         preferredUsername = urls.username,
-        name = urls.username,
-        summary = SUMMARY,
+        name = profile.displayName ?: urls.username,
+        summary = profile.summary?.let { summaryHtml(it) } ?: SUMMARY,
         inbox = urls.inbox,
         outbox = urls.outbox,
         featured = urls.featured,
@@ -99,6 +100,21 @@ private fun linkAttachment(
         htmlContent = """<a href="$escaped" rel="nofollow noopener" target="_blank">$escaped</a>""",
     )
 }
+
+/**
+ * 説明文のプレーンテキストを `summary` に入れる HTML にする。
+ *
+ * 空行で段落に分け、行の切れ目は `<br>` にする。Mastodon が許可するのは
+ * この程度のタグで、それ以外は相手側で落とされる。
+ */
+private fun summaryHtml(text: String): String = text
+    .replace("\r\n", "\n")
+    .split(Regex("\n{2,}"))
+    .filter { it.isNotBlank() }
+    .joinToString("") { paragraph ->
+        val escaped = paragraph.trim().split("\n").joinToString("<br>") { escapeHtml(it) }
+        "<p>$escaped</p>"
+    }
 
 private fun escapeHtml(raw: String): String =
     raw

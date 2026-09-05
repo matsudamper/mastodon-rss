@@ -60,6 +60,8 @@ data class AdminAccountScreenUiState(
         val actorUrl: String,
         val createdAt: String,
         val followerCount: Int,
+        val displayName: String?,
+        val summary: String?,
     )
 
     sealed interface Feed {
@@ -171,6 +173,8 @@ data class AdminAccountScreenUiState(
         fun onClickBackToAdmin()
 
         fun onClickAddFeed()
+
+        fun onClickEditProfile()
 
         fun onClickPostLatest()
 

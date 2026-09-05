@@ -30,6 +30,8 @@ fragment AdminAccountFields on AdminAccount {
         actorUrl
     }
     createdAt
+    displayName
+    summary
     followerCount
     feed {
         id
@@ -124,6 +126,21 @@ mutation AdminLogout {
     admin {
         logout {
             ...AdminSessionFields
+        }
+    }
+}
+
+mutation AdminUpdateAccountProfile($query: UpdateAccountProfileQuery!) {
+    admin {
+        updateAccountProfile(query: $query) {
+            adminAccount {
+                ...AdminAccountFields
+            }
+            failure {
+                unknownAccount
+                displayNameMaxLength
+                summaryMaxLength
+            }
         }
     }
 }
