@@ -10,8 +10,9 @@ import com.apollographql.apollo.api.Optional
 import com.apollographql.cache.normalized.FetchPolicy
 import com.apollographql.cache.normalized.fetchPolicy
 import com.apollographql.cache.normalized.watch
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountIdQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountScreenQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemsMutation
@@ -25,7 +26,8 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnpublishedFeedItemsQuery
-import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountListFields
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountScreenFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminFeedItemFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
@@ -84,7 +86,7 @@ class AdminApi(
 
     fun accounts(): Flow<AdminAccountsResult> {
         return client
-            .query(AdminAccountsQuery())
+            .query(AdminAccountsScreenQuery())
             .fetchPolicy(FetchPolicy.NetworkOnly)
             .watch()
             .map { response ->
@@ -92,26 +94,30 @@ class AdminApi(
                     ?: return@map AdminAccountsResult.Failure(response.failureMessage())
 
                 AdminAccountsResult.Success(
-                    data.admin.adminAccounts.map { it.adminAccountFields.toAdminAccount() },
+                    data.admin.adminAccounts.map { it.adminAccountListFields.toAdminAccount() },
                 )
             }
     }
 
     fun watchAccount(username: String): Flow<AdminAccountResult> {
         return client
-            .query(AdminAccountQuery(username))
+            .query(AdminAccountScreenQuery(username))
             .fetchPolicy(FetchPolicy.NetworkOnly)
             .watch()
             .map { response -> response.toAdminAccountResult() }
     }
 
-    suspend fun account(username: String): AdminAccountResult {
+    suspend fun accountId(username: String): AdminAccountIdResult {
         val response = client
-            .query(AdminAccountQuery(username))
+            .query(AdminAccountIdQuery(username))
             .fetchPolicy(FetchPolicy.NetworkOnly)
             .execute()
 
-        return response.toAdminAccountResult()
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminAccountIdResult.Failure(response.failureMessage())
+        }
+        val id = response.data?.admin?.adminAccount?.account?.id ?: return AdminAccountIdResult.NotFound
+        return AdminAccountIdResult.Success(id)
     }
 
     suspend fun addAccount(username: String): AdminAddAccountResult {
@@ -361,7 +367,7 @@ class AdminApi(
         )
     }
 
-    private fun AdminAccountFields.toAdminAccount(): AdminAccount = AdminAccount(
+    private fun AdminAccountScreenFields.toAdminAccount(): AdminAccount = AdminAccount(
         account = Account(
             id = account.id,
             username = account.username,
@@ -381,13 +387,25 @@ class AdminApi(
         },
     )
 
-    private fun ApolloResponse<AdminAccountQuery.Data>.toAdminAccountResult(): AdminAccountResult {
+    private fun AdminAccountListFields.toAdminAccount(): AdminAccount = AdminAccount(
+        account = Account(
+            id = account.id,
+            username = account.username,
+            acct = account.acct,
+            actorUrl = account.actorUrl,
+        ),
+        createdAt = createdAt,
+        followerCount = followerCount,
+        feed = null,
+    )
+
+    private fun ApolloResponse<AdminAccountScreenQuery.Data>.toAdminAccountResult(): AdminAccountResult {
         if (exception != null || errors.orEmpty().isNotEmpty()) {
             return AdminAccountResult.Failure(failureMessage())
         }
 
         val data = data ?: return AdminAccountResult.Failure(failureMessage())
-        return AdminAccountResult.Success(data.admin.adminAccount?.adminAccountFields?.toAdminAccount())
+        return AdminAccountResult.Success(data.admin.adminAccount?.adminAccountScreenFields?.toAdminAccount())
     }
 
     private fun ApolloResponse<AdminUnpublishedFeedItemsQuery.Data>.toUnpublishedFeedItemsResult(): AdminUnpublishedFeedItemsResult {

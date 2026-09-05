@@ -1,4 +1,4 @@
-query Account($username: String!) {
+query AccountScreen($username: String!) {
     account(username: $username) {
         id
         username

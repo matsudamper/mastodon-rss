@@ -22,3 +22,11 @@ sealed interface AdminAccountsResult {
         val message: String,
     ) : AdminAccountsResult
 }
+
+sealed interface AdminAccountIdResult {
+    data class Success(val id: Long) : AdminAccountIdResult
+
+    data object NotFound : AdminAccountIdResult
+
+    data class Failure(val message: String) : AdminAccountIdResult
+}
