@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.Account
@@ -14,6 +15,7 @@ import net.matsudamper.mastodon.rss.shared.AccountId
 class AccountService(
     private val accounts: AccountRepository,
     private val followers: FollowerRepository,
+    private val actorPublisher: ActorPublisher,
     private val domain: String,
 ) {
     /**
@@ -89,12 +91,6 @@ class AccountService(
         return AddAccountResult.Success(added.toManaged())
     }
 
-    /**
-     * プロフィールを書き換える。空文字は未設定に戻す扱いにする。
-     *
-     * 入力を空にしたことと、初めから設定していないことを分ける意味が無いので、
-     * どちらも同じ「未設定」にまとめる
-     */
     fun updateProfile(
         username: String,
         displayName: String,
@@ -102,36 +98,44 @@ class AccountService(
     ): UpdateProfileResult {
         val trimmedDisplayName = displayName.trim()
         val trimmedSummary = summary.trim()
-
         val displayNameTooLong = trimmedDisplayName.length > DISPLAY_NAME_MAX_LENGTH
         val summaryTooLong = trimmedSummary.length > SUMMARY_MAX_LENGTH
-
         if (displayNameTooLong || summaryTooLong) {
-            return UpdateProfileResult.Failure(
-                unknownAccount = false,
-                displayNameTooLong = displayNameTooLong,
-                summaryTooLong = summaryTooLong,
-            )
+            return UpdateProfileResult.Failure(false, displayNameTooLong, summaryTooLong)
         }
-
         val account = accounts.findByUsername(username)
-            ?: return UpdateProfileResult.Failure(
-                unknownAccount = true,
-                displayNameTooLong = false,
-                summaryTooLong = false,
-            )
-
+            ?: return UpdateProfileResult.Failure(true, false, false)
         val updated = accounts.updateProfile(
             id = account.id,
             displayName = trimmedDisplayName.ifEmpty { null },
             summary = trimmedSummary.ifEmpty { null },
-        ) ?: return UpdateProfileResult.Failure(
-            unknownAccount = true,
-            displayNameTooLong = false,
-            summaryTooLong = false,
-        )
-
+        ) ?: return UpdateProfileResult.Failure(true, false, false)
         return UpdateProfileResult.Success(updated.toManaged())
+    }
+
+    /**
+     * アカウントを消して、消したことをフォロワーに配る。
+     *
+     * 配信した投稿とフォロワー、登録したフィードと取り込んだ記事も一緒に消える。
+     * 名前で持っているもの（投稿とフォロワー）を残すと、同じ名前で作り直したときに
+     * 引き継がれるので、消えるものはこの 1 回で消し切る。
+     *
+     * アカウントの行を先に消す。消えていればその名前は引き当てられなくなり、
+     * 投稿の配信や `Follow` の受理が止まる。後から入った行が消し漏れて、
+     * 作り直したアカウントに引き継がれることがなくなる。
+     * 消せた 1 つだけが以降に進むので、同時に呼ばれても配信は 1 回になる。
+     */
+    suspend fun delete(username: String): DeleteResult {
+        val account = accounts.findByUsername(username)
+            ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
+
+        if (!accounts.delete(account.id)) {
+            return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
+        }
+
+        actorPublisher.delete(ActorUrls(domain = domain, username = account.username))
+
+        return DeleteResult.Success
     }
 
     private fun Account.toManaged(): ManagedAccount = ManagedAccount(
@@ -142,10 +146,6 @@ class AccountService(
         summary = summary,
     )
 
-    /**
-     * @param displayName プロフィールの表示名。未設定なら null
-     * @param summary プロフィールの説明文。未設定なら null
-     */
     data class ManagedAccount(
         val urls: ActorUrls,
         val accountId: AccountId,
@@ -163,23 +163,31 @@ class AccountService(
         val nextUsername: String?,
     )
 
-    sealed interface UpdateProfileResult {
-        data class Success(
-            val account: ManagedAccount,
-        ) : UpdateProfileResult
+    sealed interface DeleteResult {
+        data object Success : DeleteResult
 
-        /**
-         * 通らなかった理由。1 回の入力で複数当てはまることがあるので並べて返す。
-         *
-         * @param unknownAccount その名前のアカウントが無い
-         * @param displayNameTooLong 表示名が上限を超えている
-         * @param summaryTooLong 説明文が上限を超えている
-         */
+        data class Failure(
+            val reason: DeleteFailure,
+        ) : DeleteResult
+    }
+
+    sealed interface UpdateProfileResult {
+        data class Success(val account: ManagedAccount) : UpdateProfileResult
+
         data class Failure(
             val unknownAccount: Boolean,
             val displayNameTooLong: Boolean,
             val summaryTooLong: Boolean,
         ) : UpdateProfileResult
+    }
+
+    enum class DeleteFailure {
+        UNKNOWN_ACCOUNT,
+    }
+
+    companion object {
+        const val DISPLAY_NAME_MAX_LENGTH: Int = 30
+        const val SUMMARY_MAX_LENGTH: Int = 500
     }
 
     sealed interface AddAccountResult {
@@ -201,17 +209,5 @@ class AccountService(
             val tooLong: Boolean,
             val duplicated: Boolean,
         ) : AddAccountResult
-    }
-
-    companion object {
-        /**
-         * Mastodon の表示名の上限に合わせる。長い名前は相手側で切られる
-         */
-        const val DISPLAY_NAME_MAX_LENGTH: Int = 30
-
-        /**
-         * Mastodon のプロフィール説明文の上限に合わせる
-         */
-        const val SUMMARY_MAX_LENGTH: Int = 500
     }
 }

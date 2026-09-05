@@ -25,9 +25,9 @@ data class AdminAccountScreenUiState(
          * @param account この画面が扱うアカウント
          * @param feed RSS フィードの登録状況と入力欄
          * @param post 投稿の入力欄
-         * @param profileDialog プロフィールの編集。出していなければ null
          * @param notes 配信した投稿。新しい順
          * @param deleteNoteDialog 投稿を消す前の確認。出していなければ null
+         * @param deleteAccountDialog アカウントを消す前の確認。出していなければ null
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
          * @param notesLoading 一覧を取っている最中
          * @param canLoadMore さらに古い投稿があるか
@@ -36,9 +36,9 @@ data class AdminAccountScreenUiState(
             val account: Account,
             val feed: Feed,
             val post: Post,
-            val profileDialog: ProfileDialog?,
             val notes: List<Note>,
             val deleteNoteDialog: DeleteNoteDialog?,
+            val deleteAccountDialog: DeleteAccountDialog?,
             val notesError: String?,
             val notesLoading: Boolean,
             val canLoadMore: Boolean,
@@ -53,8 +53,6 @@ data class AdminAccountScreenUiState(
     /**
      * @param acct Mastodon の検索窓に貼る形
      * @param createdAt 「追加: <値>」の形で出す
-     * @param displayName プロフィールの表示名。未設定なら null
-     * @param summary プロフィールの説明文。未設定なら null
      */
     data class Account(
         val username: String,
@@ -65,43 +63,6 @@ data class AdminAccountScreenUiState(
         val displayName: String?,
         val summary: String?,
     )
-
-    /**
-     * プロフィールの編集ダイアログ。
-     *
-     * @param saving 保存中。入力欄とボタンを押せなくする
-     * @param applyingFeed フィードから取ってきている最中
-     * @param canApplyFeed フィードが登録されていない間は押せない
-     * @param error 保存かフィードの取得に失敗した理由
-     */
-    data class ProfileDialog(
-        val displayName: String,
-        val summary: String,
-        val saving: Boolean,
-        val applyingFeed: Boolean,
-        val canApplyFeed: Boolean,
-        val error: String?,
-        val listener: ProfileDialogListener,
-    ) {
-        val busy: Boolean get() = saving || applyingFeed
-    }
-
-    @Immutable
-    interface ProfileDialogListener {
-        fun onDisplayNameChanged(text: String)
-
-        fun onSummaryChanged(text: String)
-
-        /**
-         * 登録済みフィードの題名と説明で入力欄を上書きする。
-         * 書きかけの入力は消える
-         */
-        fun onClickApplyFeed()
-
-        fun onClickSave()
-
-        fun onDismiss()
-    }
 
     sealed interface Feed {
         data class Registered(
@@ -115,20 +76,9 @@ data class AdminAccountScreenUiState(
         ) : Feed
 
         /**
-         * @param fetching 取得中。ボタンの文字が変わる
-         * @param canFetch false の間は取得のボタンを押せなくする
-         * @param canSave false の間は登録のボタンを押せなくする
+         * 追加はダイアログの画面に分けてあるので、ここに置くのは入口だけ
          */
-        data class Input(
-            val url: String,
-            val fetching: Boolean,
-            val canFetch: Boolean,
-            val saving: Boolean,
-            val canSave: Boolean,
-            val preview: FeedPreview?,
-            val previewError: String?,
-            val saveError: String?,
-        ) : Feed
+        data object NotRegistered : Feed
     }
 
     /**
@@ -159,21 +109,6 @@ data class AdminAccountScreenUiState(
         val publishedAt: String?,
     )
 
-    data class FeedPreview(
-        val title: String?,
-        val siteUrl: String?,
-        val format: String,
-        val description: String?,
-        val itemCount: Int,
-        val sampleItems: List<FeedPreviewItem>,
-    )
-
-    data class FeedPreviewItem(
-        val title: String?,
-        val link: String?,
-        val publishedAt: String?,
-    )
-
     /**
      * @param submitting true の間は入力欄とボタンを押せなくする
      * @param result 直前の投稿の結果。次の入力を始めたら消す
@@ -196,6 +131,14 @@ data class AdminAccountScreenUiState(
     data class DeleteNoteDialog(
         val hasSourceArticle: Boolean,
         val deleting: Boolean,
+    )
+
+    data class DeleteAccountDialog(
+        val message: String,
+        val confirmLabel: String,
+        val canConfirm: Boolean,
+        val canDismiss: Boolean,
+        val errorMessage: String?,
     )
 
     /**
@@ -229,16 +172,9 @@ data class AdminAccountScreenUiState(
 
         fun onClickBackToAdmin()
 
-        /**
-         * プロフィールの編集ダイアログを出す
-         */
+        fun onClickAddFeed()
+
         fun onClickEditProfile()
-
-        fun onFeedUrlChanged(text: String)
-
-        fun onClickFetchFeed()
-
-        fun onClickSaveFeed()
 
         fun onClickPostLatest()
 
@@ -247,6 +183,12 @@ data class AdminAccountScreenUiState(
         fun onClickPost()
 
         fun onClickLoadMore()
+
+        fun onClickDeleteAccount()
+
+        fun onDismissDeleteAccount()
+
+        fun onConfirmDeleteAccount()
 
         fun onDismissDeleteNote()
 

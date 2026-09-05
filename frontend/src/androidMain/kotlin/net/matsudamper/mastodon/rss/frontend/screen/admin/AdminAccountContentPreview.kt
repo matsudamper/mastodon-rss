@@ -20,8 +20,8 @@ private fun AdminAccountContentPreview() {
                         actorUrl = "https://example.com/users/$username",
                         createdAt = "2026-09-01 10:00",
                         followerCount = 128,
-                        displayName = "Kotlin Updates",
-                        summary = "Kotlin の更新を流す",
+                        displayName = null,
+                        summary = null,
                     ),
                     feed = AdminAccountScreenUiState.Feed.Registered(
                         url = "https://example.com/feed.xml",
@@ -38,7 +38,6 @@ private fun AdminAccountContentPreview() {
                         result = null,
                         error = null,
                     ),
-                    profileDialog = null,
                     notes = listOf(
                         AdminAccountScreenUiState.Note(
                             url = "https://example.com/notes/1",
@@ -49,9 +48,51 @@ private fun AdminAccountContentPreview() {
                         ),
                     ),
                     deleteNoteDialog = null,
+                    deleteAccountDialog = null,
                     notesError = null,
                     notesLoading = false,
                     canLoadMore = true,
+                    loadingMore = false,
+                ),
+                listener = AndroidPreviewAdminAccountListener,
+            ),
+            username = username,
+            platform = AndroidPreviewScreenPlatform,
+        )
+    }
+}
+
+@PreviewsMultiSize
+@Composable
+private fun AdminAccountContentNoFeedPreview() {
+    val username = "kotlin"
+    MaterialTheme {
+        AdminAccountContent(
+            uiState = AdminAccountScreenUiState(
+                acct = "@$username@example.com",
+                content = AdminAccountScreenUiState.Content.Loaded(
+                    account = AdminAccountScreenUiState.Account(
+                        username = username,
+                        acct = "@$username@example.com",
+                        actorUrl = "https://example.com/users/$username",
+                        createdAt = "2026-09-01 10:00",
+                        followerCount = 0,
+                        displayName = null,
+                        summary = null,
+                    ),
+                    feed = AdminAccountScreenUiState.Feed.NotRegistered,
+                    post = AdminAccountScreenUiState.Post(
+                        body = "",
+                        submitting = false,
+                        result = null,
+                        error = null,
+                    ),
+                    notes = emptyList(),
+                    deleteNoteDialog = null,
+                    deleteAccountDialog = null,
+                    notesError = null,
+                    notesLoading = false,
+                    canLoadMore = false,
                     loadingMore = false,
                 ),
                 listener = AndroidPreviewAdminAccountListener,
@@ -75,13 +116,9 @@ private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Li
 
     override fun onClickBackToAdmin() = Unit
 
+    override fun onClickAddFeed() = Unit
+
     override fun onClickEditProfile() = Unit
-
-    override fun onFeedUrlChanged(text: String) = Unit
-
-    override fun onClickFetchFeed() = Unit
-
-    override fun onClickSaveFeed() = Unit
 
     override fun onClickPostLatest() = Unit
 
@@ -90,6 +127,12 @@ private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Li
     override fun onClickPost() = Unit
 
     override fun onClickLoadMore() = Unit
+
+    override fun onClickDeleteAccount() = Unit
+
+    override fun onDismissDeleteAccount() = Unit
+
+    override fun onConfirmDeleteAccount() = Unit
 
     override fun onDismissDeleteNote() = Unit
 

@@ -6,6 +6,7 @@ import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
 import net.matsudamper.mastodon.rss.actor.ActorProfile
+import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.FeedLinks
 import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
 import net.matsudamper.mastodon.rss.actor.RemoteActors
@@ -88,15 +89,10 @@ class AppDependencies(
         }
     }
 
-    // 毎回引き直す。持ち回すと、編集したプロフィールが相手に出るまで間が空く
     val actorProfiles: StoredActorProfiles = object : StoredActorProfiles {
         override fun find(username: String): ActorProfile {
             val account = repositories.accounts.findByUsername(username) ?: return ActorProfile.EMPTY
-
-            return ActorProfile(
-                displayName = account.displayName,
-                summary = account.summary,
-            )
+            return ActorProfile(displayName = account.displayName, summary = account.summary)
         }
     }
 
@@ -114,6 +110,12 @@ class AppDependencies(
     )
 
     val notePublisher: NotePublisher = NotePublisher(
+        notes = noteStore,
+        followers = followerStore,
+        delivery = delivery,
+    )
+
+    val actorPublisher: ActorPublisher = ActorPublisher(
         notes = noteStore,
         followers = followerStore,
         delivery = delivery,

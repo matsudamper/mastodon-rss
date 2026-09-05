@@ -136,6 +136,7 @@ fun Application.module(deps: AppDependencies) {
             domain = env.domain,
             actorDirectory = deps.directory,
             notePublisher = deps.notePublisher,
+            actorPublisher = deps.actorPublisher,
             noteStore = deps.noteStore,
         ),
         openTelemetry = deps.openTelemetry,

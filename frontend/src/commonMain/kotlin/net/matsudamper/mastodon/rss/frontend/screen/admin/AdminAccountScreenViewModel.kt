@@ -13,21 +13,18 @@ import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteNoteResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeed
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedItem
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedUpdates
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItemsResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUpdateAccountProfileResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.shared.FeedItemId
 
@@ -40,43 +37,19 @@ class AdminAccountScreenViewModel(
     internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
-    private val profileDialogListener = object : AdminAccountScreenUiState.ProfileDialogListener {
-        override fun onDisplayNameChanged(text: String) {
-            viewModelStateFlow.update { state -> state.updateProfileEdit { it.copy(displayName = text, error = null) } }
-        }
-
-        override fun onSummaryChanged(text: String) {
-            viewModelStateFlow.update { state -> state.updateProfileEdit { it.copy(summary = text, error = null) } }
-        }
-
-        override fun onClickApplyFeed() {
-            applyFeedToProfile()
-        }
-
-        override fun onClickSave() {
-            saveProfile()
-        }
-
-        override fun onDismiss() {
-            dismissProfileDialog()
-        }
-    }
-
     private var reloadJob: Job? = null
     private var notesJob: Job? = null
     private var loadMoreJob: Job? = null
     private var postJob: Job? = null
-    private var fetchFeedJob: Job? = null
-    private var saveFeedJob: Job? = null
+    private var feedRegisteredJob: Job? = null
     private var unpublishedJob: Job? = null
     private var postUnpublishedJob: Job? = null
-    private var saveProfileJob: Job? = null
-    private var applyFeedProfileJob: Job? = null
 
     // 記事ごとに持つ。1 つにまとめると、次の削除を始めた時点で
     // 前の削除が送信前に中断され、消したつもりの記事が残る
     private val deleteFeedItemJobs: MutableMap<FeedItemId, Job> = mutableMapOf()
     private var deleteNoteJob: Job? = null
+    private var deleteAccountJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
         MutableStateFlow(
@@ -100,27 +73,12 @@ class AdminAccountScreenViewModel(
                         navigate(Screen.Admin)
                     }
 
+                    override fun onClickAddFeed() {
+                        navigate(Screen.AdminAccountFeedNew(username))
+                    }
+
                     override fun onClickEditProfile() {
-                        openProfileDialog()
-                    }
-
-                    override fun onFeedUrlChanged(text: String) {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedInputUrl = text,
-                                feedPreview = null,
-                                feedPreviewError = null,
-                                feedSaveError = null,
-                            )
-                        }
-                    }
-
-                    override fun onClickFetchFeed() {
-                        fetchFeed()
-                    }
-
-                    override fun onClickSaveFeed() {
-                        saveFeed()
+                        navigate(Screen.AdminAccountProfileEdit(username))
                     }
 
                     override fun onClickPostLatest() {
@@ -137,6 +95,23 @@ class AdminAccountScreenViewModel(
 
                     override fun onClickLoadMore() {
                         loadMore()
+                    }
+
+                    override fun onClickDeleteAccount() {
+                        viewModelStateFlow.update {
+                            it.copy(deleteAccountRequested = true, deleteAccountError = null)
+                        }
+                    }
+
+                    override fun onDismissDeleteAccount() {
+                        if (viewModelStateFlow.value.deletingAccount) return
+                        viewModelStateFlow.update {
+                            it.copy(deleteAccountRequested = false, deleteAccountError = null)
+                        }
+                    }
+
+                    override fun onConfirmDeleteAccount() {
+                        deleteAccount()
                     }
 
                     override fun onDismissDeleteNote() {
@@ -166,7 +141,20 @@ class AdminAccountScreenViewModel(
         }.asStateFlow()
 
     fun onStart() {
+        reloadWhenFeedRegistered()
         reload()
+    }
+
+    /**
+     * ダイアログを重ねている間もこの画面は残るので、閉じても作り直されない
+     */
+    private fun reloadWhenFeedRegistered() {
+        feedRegisteredJob?.cancel()
+        feedRegisteredJob = viewModelScope.launch {
+            AdminFeedUpdates.registeredUsernames.collect { registered ->
+                if (registered == username) reload()
+            }
+        }
     }
 
     private fun navigate(screen: Screen) {
@@ -178,22 +166,16 @@ class AdminAccountScreenViewModel(
     private fun reload() {
         reloadJob?.cancel()
         postJob?.cancel()
-        fetchFeedJob?.cancel()
-        saveFeedJob?.cancel()
         unpublishedJob?.cancel()
         postUnpublishedJob?.cancel()
-        saveProfileJob?.cancel()
-        applyFeedProfileJob?.cancel()
         deleteFeedItemJobs.values.forEach { it.cancel() }
         deleteFeedItemJobs.clear()
         deleteNoteJob?.cancel()
+        deleteAccountJob?.cancel()
         cancelNotesJobs()
 
         viewModelStateFlow.update {
-            ViewModelState(
-                body = it.body,
-                feedInputUrl = it.feedInputUrl,
-            )
+            ViewModelState(body = it.body)
         }
 
         reloadJob = viewModelScope.launch {
@@ -209,117 +191,6 @@ class AdminAccountScreenViewModel(
                 loadNotes()
                 if (account.account.feed != null) {
                     loadUnpublished(account.account.account.id)
-                }
-            }
-        }
-    }
-
-    private fun fetchFeed() {
-        val state = viewModelStateFlow.value
-        val url = state.feedInputUrl.trim()
-        if (state.loadedAccount == null) return
-        if (url.isEmpty() || state.feedFetching || state.feedSaving || state.savedFeed != null) return
-
-        fetchFeedJob?.cancel()
-        viewModelStateFlow.update {
-            it.copy(
-                feedFetching = true,
-                feedPreview = null,
-                feedPreviewError = null,
-                feedSaveError = null,
-            )
-        }
-
-        fetchFeedJob = viewModelScope.launch {
-            try {
-                when (val result = api.previewFeed(url)) {
-                    is AdminFeedPreviewResult.Success -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedFetching = false,
-                                feedPreview = result.preview,
-                                feedPreviewError = null,
-                            )
-                        }
-                    }
-
-                    is AdminFeedPreviewResult.Rejected -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedFetching = false,
-                                feedPreview = null,
-                                feedPreviewError = result.reason.toMessage(),
-                            )
-                        }
-                    }
-
-                    is AdminFeedPreviewResult.Failure -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedFetching = false,
-                                feedPreview = null,
-                                feedPreviewError = result.message,
-                            )
-                        }
-                    }
-                }
-            } finally {
-                if (!isActive) {
-                    viewModelStateFlow.update { it.copy(feedFetching = false) }
-                }
-            }
-        }
-    }
-
-    private fun saveFeed() {
-        val state = viewModelStateFlow.value
-        val loaded = state.loadedAccount ?: return
-        val accountId = loaded.account.id
-        val url = state.feedInputUrl.trim()
-        if (url.isEmpty() || state.feedPreview == null || state.feedSaving || state.feedFetching) {
-            return
-        }
-
-        saveFeedJob?.cancel()
-        viewModelStateFlow.update { it.copy(feedSaving = true, feedSaveError = null) }
-
-        saveFeedJob = viewModelScope.launch {
-            try {
-                when (val result = api.saveFeed(accountId = accountId, url = url)) {
-                    is AdminSaveFeedResult.Success -> {
-                        viewModelStateFlow.update { state ->
-                            state.copy(
-                                feedSaving = false,
-                                account = state.withSavedFeed(result.feed),
-                                feedPreview = null,
-                                feedPreviewError = null,
-                                feedSaveError = null,
-                            )
-                        }
-                        loadUnpublished(accountId)
-                    }
-
-                    is AdminSaveFeedResult.Rejected -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedSaving = false,
-                                feedSaveError = result.reason.toMessage(),
-                            )
-                        }
-                    }
-
-                    is AdminSaveFeedResult.Failure -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedSaving = false,
-                                feedSaveError = result.message,
-                            )
-                        }
-                    }
-                }
-            } finally {
-                if (!isActive) {
-                    viewModelStateFlow.update { it.copy(feedSaving = false) }
                 }
             }
         }
@@ -536,6 +407,43 @@ class AdminAccountScreenViewModel(
     }
 
     /**
+     * 消せたら一覧に戻る。この画面が扱う対象が無くなるので、状態は触らずに離れる
+     */
+    private fun deleteAccount() {
+        val state = viewModelStateFlow.value
+        if (state.loadedAccount == null || state.deletingAccount) return
+
+        deleteAccountJob?.cancel()
+        viewModelStateFlow.update { it.copy(deletingAccount = true, deleteAccountError = null) }
+
+        deleteAccountJob = viewModelScope.launch {
+            try {
+                when (val result = api.deleteAccount(username)) {
+                    AdminDeleteAccountResult.Success -> {
+                        events.send { it.navigate(Screen.AdminAccounts) }
+                    }
+
+                    is AdminDeleteAccountResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(deletingAccount = false, deleteAccountError = result.reason.toMessage())
+                        }
+                    }
+
+                    is AdminDeleteAccountResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(deletingAccount = false, deleteAccountError = result.message)
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(deletingAccount = false) }
+                }
+            }
+        }
+    }
+
+    /**
      * 投稿の一覧を先頭から取り直す。
      */
     private fun loadNotes(networkOnly: Boolean = false) {
@@ -620,129 +528,6 @@ class AdminAccountScreenViewModel(
         loadMoreJob = null
     }
 
-    private fun openProfileDialog() {
-        val account = viewModelStateFlow.value.loadedAccount ?: return
-
-        viewModelStateFlow.update {
-            it.copy(
-                profileEdit = ProfileEdit(
-                    displayName = account.displayName.orEmpty(),
-                    summary = account.summary.orEmpty(),
-                    saving = false,
-                    applyingFeed = false,
-                    error = null,
-                ),
-            )
-        }
-    }
-
-    private fun dismissProfileDialog() {
-        if (viewModelStateFlow.value.profileEdit?.saving == true) return
-
-        saveProfileJob?.cancel()
-        applyFeedProfileJob?.cancel()
-        viewModelStateFlow.update { it.copy(profileEdit = null) }
-    }
-
-    /**
-     * 登録済みフィードを取り直し、題名と説明で入力欄を上書きする
-     */
-    private fun applyFeedToProfile() {
-        val current = viewModelStateFlow.value
-        val feedUrl = current.savedFeed?.url ?: return
-        val edit = current.profileEdit ?: return
-        if (edit.saving || edit.applyingFeed) return
-
-        applyFeedProfileJob?.cancel()
-        viewModelStateFlow.update { state -> state.updateProfileEdit { it.copy(applyingFeed = true, error = null) } }
-
-        applyFeedProfileJob = viewModelScope.launch {
-            try {
-                when (val result = api.previewFeed(feedUrl)) {
-                    is AdminFeedPreviewResult.Success -> {
-                        val preview = result.preview
-                        viewModelStateFlow.update { state ->
-                            state.updateProfileEdit {
-                                it.copy(
-                                    displayName = preview.title.orEmpty(),
-                                    summary = preview.description.orEmpty(),
-                                    applyingFeed = false,
-                                    error = if (preview.title == null && preview.description == null) {
-                                        "このフィードには題名も説明も無い"
-                                    } else {
-                                        null
-                                    },
-                                )
-                            }
-                        }
-                    }
-
-                    is AdminFeedPreviewResult.Rejected -> {
-                        viewModelStateFlow.update { state ->
-                            state.updateProfileEdit { it.copy(applyingFeed = false, error = result.reason.toMessage()) }
-                        }
-                    }
-
-                    is AdminFeedPreviewResult.Failure -> {
-                        viewModelStateFlow.update { state ->
-                            state.updateProfileEdit { it.copy(applyingFeed = false, error = result.message) }
-                        }
-                    }
-                }
-            } finally {
-                if (!isActive) {
-                    viewModelStateFlow.update { state -> state.updateProfileEdit { it.copy(applyingFeed = false) } }
-                }
-            }
-        }
-    }
-
-    private fun saveProfile() {
-        val edit = viewModelStateFlow.value.profileEdit ?: return
-        if (edit.saving || edit.applyingFeed) return
-
-        saveProfileJob?.cancel()
-        viewModelStateFlow.update { state -> state.updateProfileEdit { it.copy(saving = true, error = null) } }
-
-        saveProfileJob = viewModelScope.launch {
-            try {
-                val result = api.updateAccountProfile(
-                    username = username,
-                    displayName = edit.displayName,
-                    summary = edit.summary,
-                )
-
-                when (result) {
-                    is AdminUpdateAccountProfileResult.Success -> {
-                        viewModelStateFlow.update { state ->
-                            state.copy(
-                                account = AdminAccountResult.Success(result.account),
-                                profileEdit = null,
-                            )
-                        }
-                        events.send { it.showSnackbar("プロフィールを保存した") }
-                    }
-
-                    is AdminUpdateAccountProfileResult.Rejected -> {
-                        viewModelStateFlow.update { state ->
-                            state.updateProfileEdit { it.copy(saving = false, error = result.toMessage()) }
-                        }
-                    }
-
-                    is AdminUpdateAccountProfileResult.Failure -> {
-                        viewModelStateFlow.update { state ->
-                            state.updateProfileEdit { it.copy(saving = false, error = result.message) }
-                        }
-                    }
-                }
-            } finally {
-                if (!isActive) {
-                    viewModelStateFlow.update { state -> state.updateProfileEdit { it.copy(saving = false) } }
-                }
-            }
-        }
-    }
-
     private fun post() {
         val state = viewModelStateFlow.value
         val body = state.body.trim()
@@ -797,12 +582,6 @@ class AdminAccountScreenViewModel(
         if (rejected.maxLength != null) add("${rejected.maxLength} 文字までにする")
     }.joinToString("\n").ifEmpty { "投稿できなかった" }
 
-    private fun AdminUpdateAccountProfileResult.Rejected.toMessage(): String = buildList {
-        if (unknownAccount) add("このアカウントは無い")
-        if (displayNameMaxLength != null) add("表示名は $displayNameMaxLength 文字までにする")
-        if (summaryMaxLength != null) add("説明文は $summaryMaxLength 文字までにする")
-    }.joinToString("\n").ifEmpty { "保存できなかった" }
-
     private fun createContent(state: ViewModelState): AdminAccountScreenUiState.Content {
         val session = state.session ?: return AdminAccountScreenUiState.Content.Loading
 
@@ -831,9 +610,9 @@ class AdminAccountScreenViewModel(
                         result = state.result,
                         error = state.error,
                     ),
-                    profileDialog = state.profileDialogUiState(found),
                     notes = state.notes.map { it.toUiState(state.deletingFeedItemIds) },
                     deleteNoteDialog = state.deleteNoteDialogUiState(),
+                    deleteAccountDialog = state.deleteAccountDialogUiState(),
                     notesError = state.notesError,
                     notesLoading = state.notesLoading,
                     canLoadMore = state.cursor != null,
@@ -842,25 +621,6 @@ class AdminAccountScreenViewModel(
             }
         }
     }
-
-    private fun AdminFeedPreviewResult.PreviewFailure.toMessage(): String =
-        when (this) {
-            AdminFeedPreviewResult.PreviewFailure.INVALID_URL -> "URL の形式が正しくない"
-            AdminFeedPreviewResult.PreviewFailure.FETCH_FAILED -> "フィードを取得できなかった"
-            AdminFeedPreviewResult.PreviewFailure.PARSE_FAILED -> "フィードを読み取れなかった"
-            AdminFeedPreviewResult.PreviewFailure.UNKNOWN -> "プレビューできなかった"
-        }
-
-    private fun AdminSaveFeedResult.SaveFailure.toMessage(): String =
-        when (this) {
-            AdminSaveFeedResult.SaveFailure.UNKNOWN_ACCOUNT -> "このアカウントには登録できない"
-            AdminSaveFeedResult.SaveFailure.DUPLICATE_URL -> "同じ URL は既に登録されている"
-            AdminSaveFeedResult.SaveFailure.ALREADY_HAS_FEED -> "このアカウントには既にフィードがある"
-            AdminSaveFeedResult.SaveFailure.INVALID_URL -> "URL の形式が正しくない"
-            AdminSaveFeedResult.SaveFailure.FETCH_FAILED -> "フィードを取得できなかった"
-            AdminSaveFeedResult.SaveFailure.PARSE_FAILED -> "フィードを読み取れなかった"
-            AdminSaveFeedResult.SaveFailure.UNKNOWN -> "保存できなかった"
-        }
 
     private fun AdminUnpublishedFeedItemsResult.FailureReason.toMessage(): String =
         when (this) {
@@ -901,6 +661,12 @@ class AdminAccountScreenViewModel(
             AdminDeleteNoteResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
             AdminDeleteNoteResult.FailureReason.NOT_FOUND -> "この投稿は既に消えている"
             AdminDeleteNoteResult.FailureReason.UNKNOWN -> "投稿を消せなかった"
+        }
+
+    private fun AdminDeleteAccountResult.FailureReason.toMessage(): String =
+        when (this) {
+            AdminDeleteAccountResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは既に消えている"
+            AdminDeleteAccountResult.FailureReason.UNKNOWN -> "アカウントを消せなかった"
         }
 
     private fun AdminDeleteFeedItemsResult.FailureReason.toMessage(): String =
@@ -944,19 +710,7 @@ class AdminAccountScreenViewModel(
                 unpublishedError = unpublishedError,
             )
 
-            else -> {
-                val busy = feedFetching || feedSaving
-                AdminAccountScreenUiState.Feed.Input(
-                    url = feedInputUrl,
-                    fetching = feedFetching,
-                    canFetch = !busy && feedInputUrl.isNotBlank(),
-                    saving = feedSaving,
-                    canSave = !busy && feedPreview != null,
-                    preview = feedPreview?.toUiState(),
-                    previewError = feedPreviewError,
-                    saveError = feedSaveError,
-                )
-            }
+            else -> AdminAccountScreenUiState.Feed.NotRegistered
         }
     }
 
@@ -970,42 +724,29 @@ class AdminAccountScreenViewModel(
         summary = summary,
     )
 
-    private fun AdminFeedPreview.toUiState(): AdminAccountScreenUiState.FeedPreview =
-        AdminAccountScreenUiState.FeedPreview(
-            title = title,
-            siteUrl = siteUrl,
-            format = format,
-            description = description,
-            itemCount = itemCount,
-            sampleItems = sampleItems.map { item ->
-                AdminAccountScreenUiState.FeedPreviewItem(
-                    title = item.title,
-                    link = item.link,
-                    publishedAt = item.publishedAt?.let { UnixTimeUtil.format(it) },
-                )
-            },
-        )
-
-    private fun ViewModelState.profileDialogUiState(account: AdminAccount): AdminAccountScreenUiState.ProfileDialog? {
-        val edit = profileEdit ?: return null
-
-        return AdminAccountScreenUiState.ProfileDialog(
-            displayName = edit.displayName,
-            summary = edit.summary,
-            saving = edit.saving,
-            applyingFeed = edit.applyingFeed,
-            canApplyFeed = account.feed != null,
-            error = edit.error,
-            listener = profileDialogListener,
-        )
-    }
-
     private fun ViewModelState.deleteNoteDialogUiState(): AdminAccountScreenUiState.DeleteNoteDialog? {
         val note = notes.firstOrNull { it.id == deleteNoteId } ?: return null
 
         return AdminAccountScreenUiState.DeleteNoteDialog(
             hasSourceArticle = note.feedItem != null,
             deleting = deletingNote,
+        )
+    }
+
+    private fun ViewModelState.deleteAccountDialogUiState(): AdminAccountScreenUiState.DeleteAccountDialog? {
+        val account = loadedAccount?.takeIf { deleteAccountRequested } ?: return null
+
+        return AdminAccountScreenUiState.DeleteAccountDialog(
+            message = buildString {
+                append("${account.account.acct} を消す。")
+                append("フォロワー ${account.followerCount} 人と配信した投稿、登録したフィードが消える。")
+                append("フォロワーのサーバーにも削除を伝えるが、届かなかった相手には残る。\n")
+                append("消した後は同じ名前と同じフィードで登録し直せる。")
+            },
+            confirmLabel = if (deletingAccount) "削除中" else "削除",
+            canConfirm = !deletingAccount,
+            canDismiss = !deletingAccount,
+            errorMessage = deleteAccountError,
         )
     }
 
@@ -1036,50 +777,19 @@ class AdminAccountScreenViewModel(
         val notesLoading: Boolean = false,
         val cursor: String? = null,
         val loadingMore: Boolean = false,
-        val feedInputUrl: String = "",
-        val feedFetching: Boolean = false,
-        val feedPreview: AdminFeedPreview? = null,
-        val feedPreviewError: String? = null,
-        val feedSaving: Boolean = false,
-        val feedSaveError: String? = null,
         val deletingFeedItemIds: Set<FeedItemId> = emptySet(),
         val deleteNoteId: String? = null,
         val deletingNote: Boolean = false,
+        val deleteAccountRequested: Boolean = false,
+        val deletingAccount: Boolean = false,
+        val deleteAccountError: String? = null,
         val unpublishedItems: List<AdminUnpublishedFeedItem> = emptyList(),
         val postedItems: List<AdminUnpublishedFeedItem>? = null,
         val postingUnpublished: Boolean = false,
         val unpublishedError: String? = null,
-        val profileEdit: ProfileEdit? = null,
     ) {
         val loadedAccount: AdminAccount? get() = (account as? AdminAccountResult.Success)?.account
-
-        val savedFeed: AdminFeed? get() = loadedAccount?.feed
-
-        /**
-         * ダイアログを閉じた後に届いた応答で開き直さないよう、
-         * 開いている間だけ書き換える
-         */
-        fun updateProfileEdit(update: (ProfileEdit) -> ProfileEdit): ViewModelState {
-            val edit = profileEdit ?: return this
-            return copy(profileEdit = update(edit))
-        }
-
-        fun withSavedFeed(feed: AdminFeed): AdminAccountResult? {
-            val loaded = loadedAccount ?: return account
-            return AdminAccountResult.Success(loaded.copy(feed = feed))
-        }
     }
-
-    /**
-     * 編集ダイアログの入力。開いていなければ null
-     */
-    private data class ProfileEdit(
-        val displayName: String,
-        val summary: String,
-        val saving: Boolean,
-        val applyingFeed: Boolean,
-        val error: String?,
-    )
 
     interface Event {
         suspend fun navigate(screen: Screen)

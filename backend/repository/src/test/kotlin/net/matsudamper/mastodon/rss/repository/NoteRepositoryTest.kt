@@ -125,6 +125,21 @@ class NoteRepositoryTest {
     }
 
     @Test
+    fun `アカウントの投稿をまとめて消せる`() {
+        withRepository { notes ->
+            notes.add(newNote("a", username = "Feed1"))
+            notes.add(newNote("b", username = "feed1"))
+            notes.add(newNote("c", username = "admin"))
+
+            // 消した名前でアカウントを作り直したときに前の投稿が残らないよう、
+            // 大文字小文字の違いは同じ名前として消す
+            assertEquals(2, notes.deleteByUsername("FEED1"))
+            assertEquals(0, notes.count("feed1"))
+            assertEquals(1, notes.count("admin"))
+        }
+    }
+
+    @Test
     fun `開き直しても投稿が残っている`() {
         withRepository { notes -> notes.add(newNote("abc")) }
 

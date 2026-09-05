@@ -32,7 +32,13 @@ class FakeRepositories : Repositories {
     var closed: Boolean = false
         private set
 
-    override val accounts: FakeAccountRepository = FakeAccountRepository()
+    // アカウントを消すとフィードと記事も消えるのは SQLite の ON DELETE CASCADE。
+    // ここで繋がないと、消したアカウントのフィード URL が埋まったままになる
+    override val accounts: FakeAccountRepository = FakeAccountRepository(
+        onDeleted = { accountId ->
+            feeds.deleteByAccountId(accountId)?.also { feedItems.deleteByFeed(it) }
+        },
+    )
 
     override val followers: FollowerRepository = FakeFollowerRepository()
 
@@ -53,7 +59,9 @@ class FakeRepositories : Repositories {
     }
 }
 
-class FakeAccountRepository : AccountRepository {
+class FakeAccountRepository(
+    private val onDeleted: (accountId: AccountId) -> Unit = {},
+) : AccountRepository {
     private val stored = mutableListOf<Account>()
     private var nextId = 1L
 
@@ -109,6 +117,12 @@ class FakeAccountRepository : AccountRepository {
         stored[index] = updated
         return updated
     }
+
+    override fun delete(id: AccountId): Boolean {
+        if (!stored.removeAll { it.id == id }) return false
+        onDeleted(id)
+        return true
+    }
 }
 
 /**
@@ -134,6 +148,15 @@ class FakeFollowerRepository : FollowerRepository {
         followerActorUri: String,
         followActivityUri: String?,
     ): Boolean = stored.removeAll { it.username == username && it.follower.actorUri == followerActorUri }
+
+    override fun removeAccount(username: String): Int {
+        val before = stored.size
+        stored.removeAll { it.username.equals(username, ignoreCase = true) }
+        // 行ごと消える本物と揃える。残すと、同じ名前で作り直した後の Follow が
+        // Accept を返す前から受理済みとして数えられる
+        accepted.removeAll { (acceptedUsername, _) -> acceptedUsername.equals(username, ignoreCase = true) }
+        return before - stored.size
+    }
 
     override fun removeRemoteActor(actorUri: String): Int {
         val before = stored.size
@@ -195,6 +218,13 @@ class FakeNoteRepository(
         if (stored.removeAll { it.publicId == publicId }) {
             onDeleted(publicId)
         }
+    }
+
+    override fun deleteByUsername(username: String): Int {
+        val targets = stored.filter { it.username.equals(username, ignoreCase = true) }
+        stored.removeAll(targets)
+        targets.forEach { onDeleted(it.publicId) }
+        return targets.size
     }
 
     override fun list(
@@ -324,6 +354,15 @@ class FakeFeedRepository : FeedRepository {
         stored.removeAll { it.id == id }
     }
 
+    /**
+     * @return 消したフィードの id。そのアカウントにフィードが無ければ null
+     */
+    fun deleteByAccountId(accountId: AccountId): FeedId? {
+        val feed = findByAccountId(accountId) ?: return null
+        stored.remove(feed)
+        return feed.id
+    }
+
     private fun update(
         id: FeedId,
         block: (Feed) -> Feed,
@@ -406,6 +445,10 @@ class FakeFeedItemRepository : FeedItemRepository {
     override fun countByFeed(feedId: FeedId): Long = stored.count { it.feedId == feedId }.toLong()
 
     fun items(): List<FeedItem> = stored.toList()
+
+    fun deleteByFeed(feedId: FeedId) {
+        stored.removeAll { it.feedId == feedId }
+    }
 
     fun clearNoteId(noteId: PublicNoteId) {
         stored.replaceAll { item -> if (item.noteId == noteId) item.copy(noteId = null) else item }

@@ -165,6 +165,54 @@ class AccountRepositoryTest {
         }
     }
 
+    @Test
+    fun `消すとフィードと記事も一緒に消える`() {
+        withRepositories { repositories ->
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val feed = assertNotNull(
+                repositories.feeds.add(
+                    NewFeed(
+                        accountId = account.id,
+                        url = FEED_URL,
+                        title = "サンプル",
+                        siteUrl = "https://example.com/",
+                        format = "RSS 2.0",
+                        pollIntervalSeconds = POLL_INTERVAL_SECONDS,
+                    ),
+                ),
+            )
+            repositories.feedItems.add(
+                NewFeedItem(
+                    feedId = feed.id,
+                    itemKey = "item-1",
+                    title = "1 本目",
+                    link = "https://example.com/1",
+                    contentHtml = "<p>記事</p>",
+                    publishedAt = CREATED_AT,
+                    importedAt = CREATED_AT,
+                    state = FeedItemState.PENDING,
+                ),
+            )
+
+            assertEquals(true, repositories.accounts.delete(account.id))
+
+            assertNull(repositories.accounts.findById(account.id))
+            // 消えていないと、同じフィードを登録し直せない
+            assertNull(repositories.feeds.findByUrl(FEED_URL))
+            assertEquals(0L, repositories.feedItems.countByFeed(feed.id))
+        }
+    }
+
+    @Test
+    fun `消えているアカウントを消しても false`() {
+        withRepositories { repositories ->
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            repositories.accounts.delete(account.id)
+
+            assertEquals(false, repositories.accounts.delete(account.id))
+        }
+    }
+
     private fun withRepositories(block: (Repositories) -> Unit) {
         val dbPath = tempDir.resolve("test.db")
         TestSchema.applyTo(dbPath)
@@ -173,6 +221,9 @@ class AccountRepositoryTest {
     }
 
     private companion object {
+        const val FEED_URL = "https://example.com/feed.xml"
+        const val POLL_INTERVAL_SECONDS = 900L
+
         // 秒未満まで持つ。文字列で保存しているので、桁が落ちるとここで分かる
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03.123456Z")
     }

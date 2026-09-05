@@ -51,25 +51,28 @@ interface AccountRepository {
         createdAt: Instant,
     ): Account?
 
-    /**
-     * プロフィールを書き換える。そのアカウントが無ければ null を返す。
-     *
-     * null を渡した項目は未設定に戻す。未設定のときに何を出すかは
-     * 表示側で決める
-     */
     fun updateProfile(
         id: AccountId,
         displayName: String?,
         summary: String?,
     ): Account?
+
+    /**
+     * 消す。フィードと記事も外部キーで一緒に消える。
+     *
+     * 投稿とフォロワーは `accounts` を参照していないのでここでは消えない。
+     * 名前で持っているものは、同じ名前で作り直したアカウントに引き継がれてしまうので、
+     * 呼び出し側でこれより先に消しておくこと。
+     *
+     * @return 消したら true。既に無ければ false
+     */
+    fun delete(id: AccountId): Boolean
 }
 
 /**
  * 応答するアカウント 1 つ。
  *
  * @param username `acct:<username>@<domain>` と `/users/<username>` に入る名前
- * @param displayName プロフィールの表示名。未設定なら null
- * @param summary プロフィールの説明文。未設定なら null
  */
 data class Account(
     val id: AccountId,

@@ -74,6 +74,15 @@ internal class SqliteFollowerRepository(
         dsl.deleteFrom(FOLLOWERS).where(condition).execute() > 0
     }
 
+    override fun removeAccount(username: String): Int = jooq.transaction { dsl ->
+        // `remote_actors` は残す。同じ相手が他のアカウントもフォローしていることがあり、
+        // ここで消すと外部キーでそちらのフォローまで消える
+        dsl
+            .deleteFrom(FOLLOWERS)
+            .where(FOLLOWERS.USERNAME.eq(username))
+            .execute()
+    }
+
     /**
      * `followers` を先に消してから `remote_actors` を消す。
      *

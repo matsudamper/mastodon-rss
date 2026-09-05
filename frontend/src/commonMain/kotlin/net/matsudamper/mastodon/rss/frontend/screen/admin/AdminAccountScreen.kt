@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -139,8 +140,8 @@ internal fun AdminAccountContent(
                             onDismissRequest = { showPostDialog = false },
                         )
                     }
-                    content.profileDialog?.let { ProfileDialog(it) }
                     content.deleteNoteDialog?.let { DeleteNoteDialog(it, uiState.listener) }
+                    content.deleteAccountDialog?.let { DeleteAccountDialog(it, uiState.listener) }
                 }
 
                 else -> {
@@ -251,6 +252,7 @@ private fun CompactLoadedAdminAccountContent(
                 account = content.account,
                 onClickOpenAccount = uiState.listener::onClickOpenAccount,
                 onClickEditProfile = uiState.listener::onClickEditProfile,
+                onClickDelete = uiState.listener::onClickDeleteAccount,
             )
         }
         item(key = "feed") {
@@ -332,6 +334,7 @@ private fun WideLoadedAdminAccountContent(
                             account = content.account,
                             onClickOpenAccount = uiState.listener::onClickOpenAccount,
                             onClickEditProfile = uiState.listener::onClickEditProfile,
+                            onClickDelete = uiState.listener::onClickDeleteAccount,
                         )
                         FeedCard(content.feed, uiState.listener)
                     }
@@ -496,6 +499,7 @@ private fun AccountCard(
     account: AdminAccountScreenUiState.Account,
     onClickOpenAccount: () -> Unit,
     onClickEditProfile: () -> Unit,
+    onClickDelete: () -> Unit,
 ) {
     AdminSectionCard(title = "このアカウント") {
         Row(
@@ -518,6 +522,15 @@ private fun AccountCard(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         LabeledValue(label = "Actor URL", value = account.actorUrl)
         LabeledValue(label = "追加日時", value = account.createdAt)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            OutlinedButton(
+                onClick = onClickDelete,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) {
+                Text("アカウントを削除")
+            }
+        }
     }
 }
 
@@ -560,11 +573,10 @@ private fun FeedCard(feed: AdminAccountScreenUiState.Feed, listener: AdminAccoun
             }
         }
 
-        is AdminAccountScreenUiState.Feed.Input -> AdminSectionCard(title = "RSS フィード") {
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                FeedInputPanel(feed, listener)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                FeedPreviewPanel(feed)
+        is AdminAccountScreenUiState.Feed.NotRegistered -> AdminSectionCard(title = "RSS フィード") {
+            Text("まだ登録されていない。配信元を決めると記事が流れる。", style = MaterialTheme.typography.bodyMedium)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Button(onClick = listener::onClickAddFeed) { Text("フィードを追加") }
             }
         }
     }
@@ -581,61 +593,6 @@ private fun FeedItemSummary(countText: String, items: List<AdminAccountScreenUiS
                     Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun FeedInputPanel(feed: AdminAccountScreenUiState.Feed.Input, listener: AdminAccountScreenUiState.Listener, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("RSS/Atom の URL を入れて取得し、登録する。", style = MaterialTheme.typography.bodyMedium)
-        OutlinedTextField(
-            value = feed.url,
-            onValueChange = listener::onFeedUrlChanged,
-            enabled = !feed.fetching && !feed.saving,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("フィード URL") },
-            singleLine = true,
-        )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Button(onClick = listener::onClickFetchFeed, enabled = feed.canFetch) { Text(if (feed.fetching) "取得中" else "取得") }
-        }
-        feed.preview?.let { preview ->
-            Text(if (preview.itemCount > 0) "このフィードには記事が ${preview.itemCount} 件ある。" else "このフィードには記事が無い。", style = MaterialTheme.typography.bodyMedium)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Button(onClick = listener::onClickSaveFeed, enabled = feed.canSave) { Text(if (feed.saving) "登録中" else "登録する") }
-            }
-        }
-        feed.previewError?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-        feed.saveError?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-    }
-}
-
-@Composable
-private fun FeedPreviewPanel(feed: AdminAccountScreenUiState.Feed.Input, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("プレビュー", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-        when {
-            feed.fetching -> Text("フィードを取ってきている。", style = MaterialTheme.typography.bodyMedium)
-
-            feed.preview != null -> {
-                val preview = feed.preview
-                preview.title?.let { Text(it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold) }
-                Text(preview.format, style = MaterialTheme.typography.bodySmall)
-                preview.siteUrl?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                preview.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                Text("記事 ${preview.itemCount} 件", style = MaterialTheme.typography.bodyMedium)
-                preview.sampleItems.forEach { item ->
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(item.title ?: "(題名なし)", style = MaterialTheme.typography.bodyMedium)
-                        listOfNotNull(item.publishedAt, item.link).joinToString("  ").takeIf(String::isNotEmpty)?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-
-            else -> Text("取得ボタンを押すとここに表示される。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -674,56 +631,28 @@ private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog,
 }
 
 @Composable
-private fun ProfileDialog(dialog: AdminAccountScreenUiState.ProfileDialog) {
-    val listener = dialog.listener
-
+private fun DeleteAccountDialog(
+    dialog: AdminAccountScreenUiState.DeleteAccountDialog,
+    listener: AdminAccountScreenUiState.Listener,
+) {
     AlertDialog(
-        onDismissRequest = { if (!dialog.saving) listener.onDismiss() },
-        title = { Text("プロフィールの編集") },
+        onDismissRequest = listener::onDismissDeleteAccount,
+        title = { Text("アカウントを削除する") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Mastodon のプロフィールに出る。空にすると未設定に戻る。", style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(
-                    value = dialog.displayName,
-                    onValueChange = listener::onDisplayNameChanged,
-                    enabled = !dialog.busy,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("表示名") },
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = dialog.summary,
-                    onValueChange = listener::onSummaryChanged,
-                    enabled = !dialog.busy,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("説明文") },
-                    minLines = 4,
-                    maxLines = 10,
-                )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    OutlinedButton(onClick = listener::onClickApplyFeed, enabled = dialog.canApplyFeed && !dialog.busy) {
-                        Text(if (dialog.applyingFeed) "取得中" else "フィードから追加")
-                    }
+                Text(dialog.message, style = MaterialTheme.typography.bodyMedium)
+                dialog.errorMessage?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                 }
-                Text(
-                    if (dialog.canApplyFeed) {
-                        "「フィードから追加」を押すと、登録済みフィードの題名と説明で入力を上書きする。"
-                    } else {
-                        "フィードを登録すると、その題名と説明で入力を上書きできる。"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                dialog.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
-            Button(onClick = listener::onClickSave, enabled = !dialog.busy) {
-                Text(if (dialog.saving) "保存中" else "保存")
+            TextButton(onClick = listener::onConfirmDeleteAccount, enabled = dialog.canConfirm) {
+                Text(dialog.confirmLabel)
             }
         },
         dismissButton = {
-            TextButton(onClick = listener::onDismiss, enabled = !dialog.saving) { Text("閉じる") }
+            TextButton(onClick = listener::onDismissDeleteAccount, enabled = dialog.canDismiss) { Text("やめる") }
         },
     )
 }

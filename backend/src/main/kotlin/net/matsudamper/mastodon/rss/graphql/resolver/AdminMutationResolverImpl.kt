@@ -14,6 +14,9 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountFailureReason
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailureReason
@@ -29,6 +32,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUpdateAccountProfileFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUpdateAccountProfileResult
+import net.matsudamper.mastodon.rss.graphql.model.QlDeleteAccountQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlDeleteFeedItemsQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlDeleteNoteQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPostFeedItemsQuery
@@ -125,36 +129,58 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
+    override fun deleteAccount(
+        adminMutation: QlAdminMutation,
+        query: QlDeleteAccountQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminDeleteAccountResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val result = when (val deleted = diContainer.accountService.delete(query.username)) {
+                AccountService.DeleteResult.Success -> QlAdminDeleteAccountResult(failure = null)
+
+                is AccountService.DeleteResult.Failure -> QlAdminDeleteAccountResult(
+                    failure = QlAdminDeleteAccountFailure(
+                        reason = when (deleted.reason) {
+                            AccountService.DeleteFailure.UNKNOWN_ACCOUNT ->
+                                QlAdminDeleteAccountFailureReason.UNKNOWN_ACCOUNT
+                        },
+                    ),
+                )
+            }
+
+            DataFetcherResult.Builder(result).build()
+        }
+    }
+
     override fun updateAccountProfile(
         adminMutation: QlAdminMutation,
         query: QlUpdateAccountProfileQuery,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminUpdateAccountProfileResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
-
         val updated = GraphQlEngine.diContainer(env).accountService.updateProfile(
             username = query.username,
             displayName = query.displayName,
             summary = query.summary,
         )
-
         val result = when (updated) {
-            is AccountService.UpdateProfileResult.Success -> {
-                QlAdminUpdateAccountProfileResult(adminAccount = updated.account.toGraphqlResponse(), failure = null)
-            }
-
-            is AccountService.UpdateProfileResult.Failure -> {
-                QlAdminUpdateAccountProfileResult(
-                    adminAccount = null,
-                    failure = QlAdminUpdateAccountProfileFailure(
-                        unknownAccount = updated.unknownAccount,
-                        displayNameMaxLength = AccountService.DISPLAY_NAME_MAX_LENGTH.takeIf { updated.displayNameTooLong },
-                        summaryMaxLength = AccountService.SUMMARY_MAX_LENGTH.takeIf { updated.summaryTooLong },
-                    ),
-                )
-            }
+            is AccountService.UpdateProfileResult.Success -> QlAdminUpdateAccountProfileResult(
+                adminAccount = updated.account.toGraphqlResponse(),
+                failure = null,
+            )
+            is AccountService.UpdateProfileResult.Failure -> QlAdminUpdateAccountProfileResult(
+                adminAccount = null,
+                failure = QlAdminUpdateAccountProfileFailure(
+                    unknownAccount = updated.unknownAccount,
+                    displayNameMaxLength = AccountService.DISPLAY_NAME_MAX_LENGTH.takeIf { updated.displayNameTooLong },
+                    summaryMaxLength = AccountService.SUMMARY_MAX_LENGTH.takeIf { updated.summaryTooLong },
+                ),
+            )
         }
-
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
