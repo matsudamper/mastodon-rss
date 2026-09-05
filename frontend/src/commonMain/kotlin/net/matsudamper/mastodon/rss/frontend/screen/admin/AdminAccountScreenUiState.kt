@@ -72,20 +72,9 @@ data class AdminAccountScreenUiState(
         ) : Feed
 
         /**
-         * @param fetching 取得中。ボタンの文字が変わる
-         * @param canFetch false の間は取得のボタンを押せなくする
-         * @param canSave false の間は登録のボタンを押せなくする
+         * 追加はダイアログの画面に分けてあるので、ここに置くのは入口だけ
          */
-        data class Input(
-            val url: String,
-            val fetching: Boolean,
-            val canFetch: Boolean,
-            val saving: Boolean,
-            val canSave: Boolean,
-            val preview: FeedPreview?,
-            val previewError: String?,
-            val saveError: String?,
-        ) : Feed
+        data object NotRegistered : Feed
     }
 
     /**
@@ -111,21 +100,6 @@ data class AdminAccountScreenUiState(
     }
 
     data class UnpublishedItem(
-        val title: String?,
-        val link: String?,
-        val publishedAt: String?,
-    )
-
-    data class FeedPreview(
-        val title: String?,
-        val siteUrl: String?,
-        val format: String,
-        val description: String?,
-        val itemCount: Int,
-        val sampleItems: List<FeedPreviewItem>,
-    )
-
-    data class FeedPreviewItem(
         val title: String?,
         val link: String?,
         val publishedAt: String?,
@@ -186,11 +160,7 @@ data class AdminAccountScreenUiState(
 
         fun onClickBackToAdmin()
 
-        fun onFeedUrlChanged(text: String)
-
-        fun onClickFetchFeed()
-
-        fun onClickSaveFeed()
+        fun onClickAddFeed()
 
         fun onClickPostLatest()
 

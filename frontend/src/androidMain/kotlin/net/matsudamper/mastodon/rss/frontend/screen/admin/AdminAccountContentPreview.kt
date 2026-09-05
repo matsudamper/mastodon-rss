@@ -59,6 +59,44 @@ private fun AdminAccountContentPreview() {
     }
 }
 
+@PreviewsMultiSize
+@Composable
+private fun AdminAccountContentNoFeedPreview() {
+    val username = "kotlin"
+    MaterialTheme {
+        AdminAccountContent(
+            uiState = AdminAccountScreenUiState(
+                acct = "@$username@example.com",
+                content = AdminAccountScreenUiState.Content.Loaded(
+                    account = AdminAccountScreenUiState.Account(
+                        username = username,
+                        acct = "@$username@example.com",
+                        actorUrl = "https://example.com/users/$username",
+                        createdAt = "2026-09-01 10:00",
+                        followerCount = 0,
+                    ),
+                    feed = AdminAccountScreenUiState.Feed.NotRegistered,
+                    post = AdminAccountScreenUiState.Post(
+                        body = "",
+                        submitting = false,
+                        result = null,
+                        error = null,
+                    ),
+                    notes = emptyList(),
+                    deleteNoteDialog = null,
+                    notesError = null,
+                    notesLoading = false,
+                    canLoadMore = false,
+                    loadingMore = false,
+                ),
+                listener = AndroidPreviewAdminAccountListener,
+            ),
+            username = username,
+            platform = AndroidPreviewScreenPlatform,
+        )
+    }
+}
+
 private object AndroidPreviewNoteListener : AdminAccountScreenUiState.NoteListener {
     override fun onClickDelete() = Unit
 }
@@ -72,11 +110,7 @@ private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Li
 
     override fun onClickBackToAdmin() = Unit
 
-    override fun onFeedUrlChanged(text: String) = Unit
-
-    override fun onClickFetchFeed() = Unit
-
-    override fun onClickSaveFeed() = Unit
+    override fun onClickAddFeed() = Unit
 
     override fun onClickPostLatest() = Unit
 
