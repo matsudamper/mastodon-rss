@@ -4,14 +4,9 @@ import androidx.compose.runtime.Immutable
 
 /**
  * @param acct どのアカウントに追加するか
- * @param url 入力中の URL
- * @param fetching 取得中。ボタンの文字が変わる
- * @param canFetch false の間は取得のボタンを押せなくする
- * @param saving 登録中。ボタンの文字が変わる
- * @param canSave false の間は登録のボタンを押せなくする
- * @param canClose false の間は閉じられない。閉じると登録の途中で打ち切られる
+ * @param canClose 閉じるとその画面ごと消えるので、登録の途中は false になる
  * @param preview 取得したフィードの中身。取得前は null
- * @param errorMessage 取得か登録に失敗した理由
+ * @param errorMessage 取得か登録に失敗した理由。どちらも同時には進まないので 1 つで足りる
  */
 data class AdminAccountFeedNewScreenUiState(
     val acct: String,

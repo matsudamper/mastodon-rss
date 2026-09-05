@@ -50,7 +50,6 @@ fun App() {
         NavDisplay(
             backStack = platformNavController.backStack,
             onBack = { platformNavController.back() },
-            // 重なる画面だけ、下の画面を残したまま描く。
             // 当てはまらない画面は NavDisplay の既定（1 画面）に落ちる
             sceneStrategies = listOf(TransparentScreenSceneStrategy()),
             entryProvider =

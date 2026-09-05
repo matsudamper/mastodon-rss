@@ -26,10 +26,10 @@ class AdminAccountFeedNewScreenViewModel(
     internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
-    private var fetchJob: Job? = null
+    private var previewJob: Job? = null
     private var saveJob: Job? = null
 
-    // uiStateFlow の組み立てから参照するので、先に用意しておく
+    // uiStateFlow より後ろに置くと、初期値を組み立てる時点でまだ入っていない
     private val listener = object : AdminAccountFeedNewScreenUiState.Listener {
         override fun onUrlChanged(text: String) {
             viewModelStateFlow.update {
@@ -38,11 +38,11 @@ class AdminAccountFeedNewScreenViewModel(
         }
 
         override fun onClickFetch() {
-            fetch()
+            fetchPreview()
         }
 
         override fun onClickSave() {
-            save()
+            saveAndClose()
         }
 
         override fun onClickClose() {
@@ -85,15 +85,15 @@ class AdminAccountFeedNewScreenViewModel(
         }
     }
 
-    private fun fetch() {
+    private fun fetchPreview() {
         val state = viewModelStateFlow.value
         val url = state.url.trim()
         if (url.isEmpty() || state.fetching || state.saving) return
 
-        fetchJob?.cancel()
+        previewJob?.cancel()
         viewModelStateFlow.update { it.copy(fetching = true, preview = null, errorMessage = null) }
 
-        fetchJob = viewModelScope.launch {
+        previewJob = viewModelScope.launch {
             try {
                 when (val result = api.previewFeed(url)) {
                     is AdminFeedPreviewResult.Success -> {
@@ -123,12 +123,10 @@ class AdminAccountFeedNewScreenViewModel(
     }
 
     /**
-     * 登録して閉じる。
-     *
      * どのアカウントに付けるかはここで引く。id は表示に使わないので画面が持たず、
      * URL にも載せない。押した時に 1 回引くだけなら、開いた時点で待たせずに済む
      */
-    private fun save() {
+    private fun saveAndClose() {
         val state = viewModelStateFlow.value
         val url = state.url.trim()
         if (url.isEmpty() || state.preview == null || state.fetching || state.saving) return
@@ -142,12 +140,12 @@ class AdminAccountFeedNewScreenViewModel(
                     is AdminAccountResult.Success -> account.account?.account?.id
 
                     is AdminAccountResult.Failure -> {
-                        failed(account.message)
+                        saveFailed(account.message)
                         return@launch
                     }
                 }
                 if (accountId == null) {
-                    failed("このアカウントは無い")
+                    saveFailed("このアカウントは無い")
                     return@launch
                 }
 
@@ -157,9 +155,9 @@ class AdminAccountFeedNewScreenViewModel(
                         events.send { it.close() }
                     }
 
-                    is AdminSaveFeedResult.Rejected -> failed(result.reason.toMessage())
+                    is AdminSaveFeedResult.Rejected -> saveFailed(result.reason.toMessage())
 
-                    is AdminSaveFeedResult.Failure -> failed(result.message)
+                    is AdminSaveFeedResult.Failure -> saveFailed(result.message)
                 }
             } finally {
                 if (!isActive) {
@@ -169,7 +167,7 @@ class AdminAccountFeedNewScreenViewModel(
         }
     }
 
-    private fun failed(message: String) {
+    private fun saveFailed(message: String) {
         viewModelStateFlow.update { it.copy(saving = false, errorMessage = message) }
     }
 
@@ -218,7 +216,7 @@ class AdminAccountFeedNewScreenViewModel(
 
     interface Event {
         /**
-         * ダイアログを閉じる。1 画面として積んでいるので、戻るのと同じ
+         * 1 画面として積んでいるので、戻るのと同じ
          */
         suspend fun close()
     }

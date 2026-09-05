@@ -62,7 +62,7 @@ internal fun AdminAccountFeedNewContent(
         onDismissRequest = { if (uiState.canClose) uiState.listener.onClickClose() },
         title = { Text("RSS フィードを追加") },
         text = {
-            // 中身はプレビューの分だけ縦に伸びる。枠に収まらないときは送る
+            // プレビューの件数だけ縦に伸びるので、枠に収まらないことがある
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),

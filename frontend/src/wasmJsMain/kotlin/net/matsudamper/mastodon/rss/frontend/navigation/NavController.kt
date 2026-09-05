@@ -60,22 +60,32 @@ class NavController internal constructor(
      * アドレスバーが古いパスのまま残り、再読み込みで別の画面が出る。
      * バックスタックは `popstate` を受けた [syncWithLocation] が組み直す。
      *
-     * ただし、その URL を直接開いた場合は戻れる履歴がこのサイトの中に無い。
-     * そのまま戻るとサイトの外に出るので、下の画面のパスに置き換える。
-     * 自分で積んだ履歴かどうかは [PUSHED_BY_APP] の目印で見分ける。
+     * この画面を直接開いた場合は戻れる履歴がこのサイトの中に無く、
+     * そのまま戻るとサイトの外に出る。
      */
     fun back() {
-        if (window.history.state != null) {
+        if (currentEntryPushedByApp) {
             window.history.back()
             return
         }
 
-        // 目印を付けずに置き換える。直接開いた履歴のままなので、ここから更に
-        // 戻ろうとしたときも同じ判断ができる
-        val below = backStack.getOrNull(backStack.lastIndex - 1) ?: return
-        window.history.replaceState(null, below.title, below.path)
-        applyStack(stackOf(below))
+        val screenBelow = backStack.getOrNull(backStack.lastIndex - 1) ?: return
+        replaceCurrentEntry(screenBelow)
     }
+
+    /**
+     * いま見えている履歴を [screen] のものに差し替える。目印は付けない。
+     *
+     * 直接開いた履歴のままにしておくと、ここから更に戻ろうとしたときも
+     * [currentEntryPushedByApp] が同じ判断をする。
+     */
+    private fun replaceCurrentEntry(screen: Screen) {
+        window.history.replaceState(null, screen.title, screen.path)
+        applyStack(stackOf(screen))
+    }
+
+    private val currentEntryPushedByApp: Boolean
+        get() = window.history.state != null
 
     /** 戻る / 進むで URL が変わったときに呼ぶ */
     internal fun syncWithLocation() {
@@ -91,7 +101,7 @@ class NavController internal constructor(
 
     private companion object {
         /**
-         * この画面遷移で積んだ履歴だという目印。直接開いた履歴と見分けるためだけに使う
+         * 中身は見ない。目印が付いているかどうかだけを見る
          */
         const val PUSHED_BY_APP: String = "pushed-by-app"
 

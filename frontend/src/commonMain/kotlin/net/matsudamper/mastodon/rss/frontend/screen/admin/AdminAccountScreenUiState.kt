@@ -72,7 +72,7 @@ data class AdminAccountScreenUiState(
         ) : Feed
 
         /**
-         * まだ登録されていない。追加はダイアログの画面に分けてある
+         * 追加はダイアログの画面に分けてあるので、ここに置くのは入口だけ
          */
         data object NotRegistered : Feed
     }

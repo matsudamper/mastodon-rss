@@ -118,16 +118,14 @@ class AdminAccountScreenViewModel(
         }.asStateFlow()
 
     fun onStart() {
-        observeFeedRegistered()
+        reloadWhenFeedRegistered()
         reload()
     }
 
     /**
-     * 追加のダイアログが登録したら取り直す。
-     *
      * ダイアログを重ねている間もこの画面は残るので、閉じても作り直されない
      */
-    private fun observeFeedRegistered() {
+    private fun reloadWhenFeedRegistered() {
         feedRegisteredJob?.cancel()
         feedRegisteredJob = viewModelScope.launch {
             AdminFeedUpdates.registeredUsernames.collect { registered ->
