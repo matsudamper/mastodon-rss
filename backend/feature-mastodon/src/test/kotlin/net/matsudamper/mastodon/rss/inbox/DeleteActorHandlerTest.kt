@@ -41,12 +41,12 @@ class DeleteActorHandlerTest {
         store: FakeFollowerStore,
         json: String,
     ) {
-        val raw = AppJson.parseToJsonElement(json) as JsonObject
+        val rawActivityJson = AppJson.parseToJsonElement(json) as JsonObject
         DeleteActorHandler(store).handle(
             recipient = TestLocalActor.urls,
-            signer = TestRemoteActor.ACTOR_ID,
-            activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), raw),
-            raw = raw,
+            verifiedSignerActorId = TestRemoteActor.ACTOR_ID,
+            activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), rawActivityJson),
+            rawActivityJson = rawActivityJson,
         )
     }
 

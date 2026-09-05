@@ -30,27 +30,26 @@ class DeleteActorHandler(
 
     override suspend fun handle(
         recipient: ActorUrls,
-        signer: String,
+        verifiedSignerActorId: String,
         activity: InboxActivity,
-        raw: JsonObject,
+        rawActivityJson: JsonObject,
     ) {
-        val deleted = activity.target?.id
-        if (deleted == null) {
-            logger.warn("Delete に object が無い: ${recipient.acct} ← $signer")
+        val deleteObjectId = activity.target?.id
+        if (deleteObjectId == null) {
+            logger.warn("Delete に object が無い: ${recipient.acct} ← $verifiedSignerActorId")
             return
         }
 
-        // 投稿の削除。フォロワーの話ではないので何もしない
-        if (deleted != signer) {
-            logger.info("Delete の対象がアクター自身ではないので何もしない: object=$deleted 署名者=$signer")
+        if (deleteObjectId != verifiedSignerActorId) {
+            logger.info("Delete の対象がアクター自身ではないので何もしない: object=$deleteObjectId 署名者=$verifiedSignerActorId")
             return
         }
 
         // こちらのどのアカウントをフォローしていたかに関わらず全部消える。
         // 宛先のアカウントだけを消すと、同じ相手が他のアカウントをフォローしていた分が
         // 残り、消えた相手に送り続けることになる
-        val removed = followers.removeRemoteActor(deleted)
+        val removed = followers.removeRemoteActor(deleteObjectId)
 
-        logger.info("アクターが削除されたのでフォロワーから外した: $deleted 解除したフォロー=$removed 件")
+        logger.info("アクターが削除されたのでフォロワーから外した: $deleteObjectId 解除したフォロー=$removed 件")
     }
 }

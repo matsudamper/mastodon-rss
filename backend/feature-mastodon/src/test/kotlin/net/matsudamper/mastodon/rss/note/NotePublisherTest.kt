@@ -55,7 +55,7 @@ class NotePublisherTest {
 
         val published = publisher.publish(sender, "<p>こんにちは</p>")
 
-        assertEquals(2, published.targets)
+        assertEquals(2, published.deliveryAttemptCount)
         assertEquals(2, published.delivered)
         assertEquals(
             listOf("https://a.example/users/alice/inbox", "https://b.example/users/bob/inbox"),
@@ -92,7 +92,7 @@ class NotePublisherTest {
         val published = publisher.publish(sender, "<p>まとめ</p>")
 
         // 同じインスタンスの 2 人は 1 通で済む
-        assertEquals(2, published.targets)
+        assertEquals(2, published.deliveryAttemptCount)
         assertEquals(
             listOf("https://a.example/inbox", "https://b.example/users/carol/inbox"),
             delivery.delivered.map { it.inbox },
@@ -125,7 +125,7 @@ class NotePublisherTest {
 
         val published = publisher.publish(sender, "<p>本文</p>")
 
-        assertEquals(1, published.targets)
+        assertEquals(1, published.deliveryAttemptCount)
         assertEquals(0, published.delivered)
         assertEquals(1, notes.added.size)
     }
@@ -150,7 +150,7 @@ class NotePublisherTest {
         val published = NotePublisher(FakeNoteStore(), pending, delivery).publish(sender, "<p>本文</p>")
 
         // 相手から見てフォローが成立していないので、送ると知らないアクターからの投稿になる
-        assertEquals(0, published.targets)
+        assertEquals(0, published.deliveryAttemptCount)
         assertEquals(emptyList(), delivery.delivered)
     }
 }

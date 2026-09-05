@@ -70,12 +70,23 @@ DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
 ```sh
 # 開発サーバーを起動する（http://localhost:8081、ホットリロードあり）
 ./gradlew :frontend:wasmJsBrowserDevelopmentRun
+```
 
-# 配布物を生成する
+#### production 用の配布物
+
+```sh
 ./gradlew :frontend:wasmJsBrowserDistribution
 ```
 
-配布物は `frontend/build/dist/wasmJs/productionExecutable/` に出力される。
+`frontend/build/dist/wasmJs/productionExecutable/` に出力される。
+
+#### development 用の配布物
+
+```sh
+./gradlew :frontend:wasmJsBrowserDevelopmentExecutableDistribution
+```
+
+`frontend/build/dist/wasmJs/developmentExecutable/` に出力される。デバッグ用。
 
 初回ビルドでは Kotlin/Wasm のツールチェイン（Node.js、yarn、webpack など）が
 ダウンロードされるため時間がかかる。

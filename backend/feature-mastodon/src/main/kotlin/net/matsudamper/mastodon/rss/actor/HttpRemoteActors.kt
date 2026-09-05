@@ -59,15 +59,14 @@ class HttpRemoteActors(
 
         val publicKey = document.publicKey ?: return null
 
-        // owner が無い文書もあるので、その場合はアクター自身の id を持ち主とみなす
-        val owner = publicKey.owner ?: document.id ?: return null
-        if (!isSameHost(owner, url)) return null
+        val keyOwnerActorId = publicKey.owner ?: document.id ?: return null
+        if (!isSameHost(keyOwnerActorId, url)) return null
 
-        val parsed =
+        val decodedPublicKey =
             runCatching { RsaKeys.decodePublicKeyPem(publicKey.publicKeyPem) }
                 .getOrNull() ?: return null
 
-        return SignatureKey(keyId = keyId, owner = owner, publicKey = parsed)
+        return SignatureKey(keyId = keyId, owner = keyOwnerActorId, publicKey = decodedPublicKey)
     }
 
     override suspend fun findActor(actorId: String): RemoteActor? {

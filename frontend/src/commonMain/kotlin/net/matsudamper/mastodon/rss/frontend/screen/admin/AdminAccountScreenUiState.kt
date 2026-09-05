@@ -184,13 +184,9 @@ data class AdminAccountScreenUiState(
         fun onClickDelete()
     }
 
-    /**
-     * @param targets 送った宛先の数
-     * @param delivered そのうち届いた数
-     */
     data class PostResult(
         val url: String,
-        val targets: Int,
+        val deliveryAttemptCount: Int,
         val delivered: Int,
     )
 

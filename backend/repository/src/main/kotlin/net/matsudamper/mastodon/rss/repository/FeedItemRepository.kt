@@ -104,7 +104,7 @@ interface FeedItemRepository {
 /**
  * 取り込んだ記事 1 件。
  *
- * @param itemKey 記事を区別する鍵。`:backend:rss` の `FeedItemKey.value`。
+ * @param itemKey 記事を区別する鍵。`:backend:rss` の `FeedItemKey.dedupeKey`。
  *   フィードの中で一意。フィードをまたぐと重なりうるので、一意制約は
  *   `(feed_id, item_key)` で張る
  * @param contentHtml 投稿する本文。サニタイズ済みの HTML を取り込みの時点で作って持つ。

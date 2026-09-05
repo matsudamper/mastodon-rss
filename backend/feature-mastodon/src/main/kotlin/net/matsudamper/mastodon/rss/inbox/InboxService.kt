@@ -47,7 +47,7 @@ class InboxService(
         recipient: ActorUrls,
         request: SignedRequest,
     ): InboxResult {
-        val owner =
+        val verifiedSignerActorId =
             when (val verification = verifier.verify(request)) {
                 is HttpSignatureResult.Rejected -> {
                     // 消えたアクターからの Delete だけは、検証できないことを理由に
@@ -67,32 +67,30 @@ class InboxService(
                 }
             }
 
-        // `Accept` には受け取ったアクティビティを丸ごと入れて返すので、
-        // 型に落とした後も元の JSON を捨てずに持っておく
-        val json =
+        val rawActivityJson =
             runCatching { AppJson.parseToJsonElement(request.body.decodeToString()) as? JsonObject }
                 .getOrNull()
         val activity =
-            json?.let {
+            rawActivityJson?.let {
                 runCatching { AppJson.decodeFromJsonElement(InboxActivity.serializer(), it) }.getOrNull()
             }
 
-        if (json == null || activity == null) {
-            logger.warn("inbox のボディを読めなかった: ${recipient.acct} 署名者=$owner")
+        if (rawActivityJson == null || activity == null) {
+            logger.warn("inbox のボディを読めなかった: ${recipient.acct} 署名者=$verifiedSignerActorId")
             return InboxResult.BadRequest
         }
 
         // 署名した鍵の持ち主と、アクティビティの実行者が別なら、なりすまし。
         // 署名だけ通る形は作れるので、ここを見ないと他人の Undo を送り込める
         val actorId = activity.actorId
-        if (actorId != null && actorId != owner) {
-            logger.warn("inbox の actor が署名者と違う: actor=$actorId 署名者=$owner")
+        if (actorId != null && actorId != verifiedSignerActorId) {
+            logger.warn("inbox の actor が署名者と違う: actor=$actorId 署名者=$verifiedSignerActorId")
             return InboxResult.Unauthorized
         }
 
         logger.info(
             "inbox で受信: 宛先=${recipient.acct} type=${activity.type} " +
-                "id=${activity.id} actor=$owner",
+                "id=${activity.id} actor=$verifiedSignerActorId",
         )
 
         // 引き当てられない type は何もしない。未対応のアクティビティに 5xx を返すと
@@ -100,9 +98,9 @@ class InboxService(
         val handled = runCatching {
             handlersByType[activity.type]?.handle(
                 recipient = recipient,
-                signer = owner,
+                verifiedSignerActorId = verifiedSignerActorId,
                 activity = activity,
-                raw = json,
+                rawActivityJson = rawActivityJson,
             )
         }
 
@@ -110,7 +108,10 @@ class InboxService(
         // こちらが書き込めない間ずっと同じ失敗を繰り返すことになる。
         // 何が起きたかはここに残っているものが唯一の手がかりになる
         handled.onFailure { failure ->
-            logger.warn("inbox の処理に失敗した: ${recipient.acct} type=${activity.type} actor=$owner", failure)
+            logger.warn(
+                "inbox の処理に失敗した: ${recipient.acct} type=${activity.type} actor=$verifiedSignerActorId",
+                failure,
+            )
         }
 
         return InboxResult.Accepted
