@@ -1,13 +1,16 @@
 package net.matsudamper.mastodon.rss.frontend.logic.account
 
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Optional
 import com.apollographql.cache.normalized.FetchPolicy
 import com.apollographql.cache.normalized.fetchPolicy
+import com.apollographql.cache.normalized.watch
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountNotesQuery
-import net.matsudamper.mastodon.rss.frontend.graphql.AccountScreenQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.HomeScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AccountNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountNotesQuery as AccountNotesQueryInput
@@ -43,47 +46,12 @@ class AccountApi(
         )
     }
 
-    suspend fun account(username: String, notesLimit: Int = PAGE_SIZE): AccountResult {
-        val response = client
-            .query(
-                AccountScreenQuery(
-                    username = username,
-                    query = AccountNotesQueryInput(
-                        username = username,
-                        cursor = Optional.absent(),
-                        limit = notesLimit,
-                    ),
-                ),
-            )
+    fun account(username: String): Flow<AccountResult> {
+        return client
+            .query(AccountQuery(username))
             .fetchPolicy(FetchPolicy.NetworkOnly)
-            .execute()
-
-        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
-            return AccountResult.Failure(response.failureMessage())
-        }
-
-        val data = response.data ?: return AccountResult.Failure(response.failureMessage())
-        val account = data.account ?: return AccountResult.NotFound
-        val notes = data.notes
-
-        return AccountResult.Success(
-            account = Account(
-                id = account.id,
-                username = account.username,
-                acct = account.acct,
-                actorUrl = account.actorUrl,
-            ),
-            followerCount = account.followerCount,
-            noteCount = account.noteCount,
-            feed = account.feed?.let { feed ->
-                AccountFeed(
-                    feedUrl = feed.url,
-                    siteUrl = feed.siteUrl,
-                )
-            },
-            notes = notes.nodes.map { it.accountNoteFields.toAccountNote() },
-            notesCursor = notes.pageInfo.nextCursor,
-        )
+            .watch()
+            .map { response -> response.toAccountResult() }
     }
 
     suspend fun notes(
@@ -114,6 +82,32 @@ class AccountApi(
         return AccountNotesResult.Success(
             notes = notes.nodes.map { it.accountNoteFields.toAccountNote() },
             cursor = notes.pageInfo.nextCursor,
+        )
+    }
+
+    private fun ApolloResponse<AccountQuery.Data>.toAccountResult(): AccountResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AccountResult.Failure(failureMessage())
+        }
+
+        val data = data ?: return AccountResult.Failure(failureMessage())
+        val account = data.account ?: return AccountResult.NotFound
+
+        return AccountResult.Success(
+            account = Account(
+                id = account.id,
+                username = account.username,
+                acct = account.acct,
+                actorUrl = account.actorUrl,
+            ),
+            followerCount = account.followerCount,
+            noteCount = account.noteCount,
+            feed = account.feed?.let { feed ->
+                AccountFeed(
+                    feedUrl = feed.url,
+                    siteUrl = feed.siteUrl,
+                )
+            },
         )
     }
 
