@@ -37,8 +37,7 @@ class TransparentScreenSceneStrategy<T : Any> : SceneStrategy<T> {
         val top = entries.lastOrNull() ?: return null
         if (TransparentScreen !in top.metadata) return null
 
-        // 下に敷く画面が無いなら普通の画面として出す。何も敷かずに重ねると、
-        // 閉じた先に何も無い画面になる
+        // 下に敷く画面が無いなら普通の画面として出す。何も敷かずに重ねると、閉じた先に何も無い画面になる
         val below = entries.dropLast(1)
         if (below.isEmpty()) return null
 

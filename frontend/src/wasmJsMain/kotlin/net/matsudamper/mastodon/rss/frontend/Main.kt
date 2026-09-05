@@ -50,7 +50,6 @@ fun App() {
         NavDisplay(
             backStack = platformNavController.backStack,
             onBack = { platformNavController.back() },
-            // 当てはまらない画面は NavDisplay の既定（1 画面）に落ちる
             sceneStrategies = listOf(TransparentScreenSceneStrategy()),
             entryProvider =
             entryProvider {
