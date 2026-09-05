@@ -12,12 +12,12 @@ import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountUpdates
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedItem
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedUpdates
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostFeedItemsResult
@@ -42,7 +42,7 @@ class AdminAccountScreenViewModel(
     private var notesJob: Job? = null
     private var loadMoreJob: Job? = null
     private var postJob: Job? = null
-    private var feedRegisteredJob: Job? = null
+    private var accountChangedJob: Job? = null
     private var unpublishedJob: Job? = null
     private var postUnpublishedJob: Job? = null
 
@@ -142,18 +142,18 @@ class AdminAccountScreenViewModel(
         }.asStateFlow()
 
     fun onStart() {
-        reloadWhenFeedRegistered()
+        reloadWhenAccountChanged()
         reload()
     }
 
     /**
      * ダイアログを重ねている間もこの画面は残るので、閉じても作り直されない
      */
-    private fun reloadWhenFeedRegistered() {
-        feedRegisteredJob?.cancel()
-        feedRegisteredJob = viewModelScope.launch {
-            AdminFeedUpdates.registeredUsernames.collect { registered ->
-                if (registered == username) reload()
+    private fun reloadWhenAccountChanged() {
+        accountChangedJob?.cancel()
+        accountChangedJob = viewModelScope.launch {
+            AdminAccountUpdates.changedUsernames.collect { changed ->
+                if (changed == username) reload()
             }
         }
     }

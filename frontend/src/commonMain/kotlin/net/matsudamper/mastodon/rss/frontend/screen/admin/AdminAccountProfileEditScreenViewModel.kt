@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountUpdates
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUpdateAccountProfileResult
@@ -69,6 +70,7 @@ class AdminAccountProfileEditScreenViewModel(
         viewModelScope.launch {
             when (val result = api.updateAccountProfile(username, state.value.displayName, state.value.summary)) {
                 is AdminUpdateAccountProfileResult.Success -> {
+                    AdminAccountUpdates.notifyChanged(username)
                     events.send { it.close() }
                 }
 
