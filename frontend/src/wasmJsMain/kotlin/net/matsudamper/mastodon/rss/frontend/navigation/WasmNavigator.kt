@@ -6,4 +6,8 @@ internal class WasmNavigator(
     override suspend fun navigate(screen: Screen) {
         navController.navigateTo(screen)
     }
+
+    override suspend fun back() {
+        navController.back()
+    }
 }

@@ -18,6 +18,21 @@ sealed interface Screen : NavKey {
     /** `document.title` に入れる文字列 */
     val title: String
 
+    /**
+     * 下に画面を敷いたまま重ねて出す画面。
+     *
+     * ダイアログも 1 つの画面として扱う。URL を持てるので直接開けるし、戻るで閉じられる。
+     * 出している間も [background] は生きたままなので、閉じた後に作り直されない。
+     * 結果を下の画面へ届ける必要があるものは、画面の外に置いた仕組みで伝える。
+     *
+     * ダイアログとして出すかどうかは画面自身が決める。ここが持つのは重なる位置と、
+     * 下に何を敷くかだけ。
+     */
+    sealed interface Overlay : Screen {
+        /** 下に敷く画面 */
+        val background: Screen
+    }
+
     /** トップ。何をするサーバーなのかと、各画面への入口だけを置く */
     data object Home : Screen {
         override val path: String = "/"

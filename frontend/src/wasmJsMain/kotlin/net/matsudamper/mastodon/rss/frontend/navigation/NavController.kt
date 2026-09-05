@@ -49,7 +49,7 @@ class NavController internal constructor(
     fun navigateTo(screen: Screen) {
         if (screen == current) return
 
-        window.history.pushState(null, screen.title, screen.path)
+        window.history.pushState(PUSHED_BY_APP.toJsString(), screen.title, screen.path)
         applyStack(stackOf(screen))
     }
 
@@ -59,9 +59,22 @@ class NavController internal constructor(
      * バックスタックを直接削らずブラウザの履歴を戻す。ここで削ると
      * アドレスバーが古いパスのまま残り、再読み込みで別の画面が出る。
      * バックスタックは `popstate` を受けた [syncWithLocation] が組み直す。
+     *
+     * ただし、その URL を直接開いた場合は戻れる履歴がこのサイトの中に無い。
+     * そのまま戻るとサイトの外に出るので、下の画面のパスに置き換える。
+     * 自分で積んだ履歴かどうかは [PUSHED_BY_APP] の目印で見分ける。
      */
     fun back() {
-        window.history.back()
+        if (window.history.state != null) {
+            window.history.back()
+            return
+        }
+
+        // 目印を付けずに置き換える。直接開いた履歴のままなので、ここから更に
+        // 戻ろうとしたときも同じ判断ができる
+        val below = backStack.getOrNull(backStack.lastIndex - 1) ?: return
+        window.history.replaceState(null, below.title, below.path)
+        applyStack(stackOf(below))
     }
 
     /** 戻る / 進むで URL が変わったときに呼ぶ */
@@ -78,16 +91,24 @@ class NavController internal constructor(
 
     private companion object {
         /**
+         * この画面遷移で積んだ履歴だという目印。直接開いた履歴と見分けるためだけに使う
+         */
+        const val PUSHED_BY_APP: String = "pushed-by-app"
+
+        /**
          * URL から決まるバックスタック。
          *
          * トップを常に下に敷いておくと、直接開いた URL からでも
          * 戻り先が画面の中に必ず 1 つある状態になる。
+         *
+         * 重ねて出す画面は下に敷く画面も一緒に積む。ダイアログの URL を
+         * 直接開いても、下の画面ごと組み上がる。
          */
         fun stackOf(screen: Screen): List<Screen> =
-            if (screen == Screen.Home) {
-                listOf(Screen.Home)
-            } else {
-                listOf(Screen.Home, screen)
+            when {
+                screen == Screen.Home -> listOf(Screen.Home)
+                screen is Screen.Overlay -> stackOf(screen.background) + screen
+                else -> listOf(Screen.Home, screen)
             }
     }
 }
