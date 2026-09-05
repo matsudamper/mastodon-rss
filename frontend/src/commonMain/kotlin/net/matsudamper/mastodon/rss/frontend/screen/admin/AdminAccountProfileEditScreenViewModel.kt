@@ -71,7 +71,9 @@ class AdminAccountProfileEditScreenViewModel(
                 is AdminUpdateAccountProfileResult.Success -> {
                     events.send { it.close() }
                 }
+
                 is AdminUpdateAccountProfileResult.Rejected -> state.update { it.copy(saving = false, errorMessage = result.toMessage()) }
+
                 is AdminUpdateAccountProfileResult.Failure -> state.update { it.copy(saving = false, errorMessage = result.message) }
             }
         }

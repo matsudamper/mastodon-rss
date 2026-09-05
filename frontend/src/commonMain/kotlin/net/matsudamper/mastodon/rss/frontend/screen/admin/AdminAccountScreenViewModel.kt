@@ -158,7 +158,6 @@ class AdminAccountScreenViewModel(
         }
     }
 
-
     private fun navigate(screen: Screen) {
         viewModelScope.launch {
             events.send { it.navigate(screen) }
