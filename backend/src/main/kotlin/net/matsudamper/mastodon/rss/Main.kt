@@ -36,13 +36,12 @@ import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
 
 fun main() {
-    // 環境変数を読むのはここだけ。以降は引数で配る。
     // DOMAIN が無ければこの時点で落ちる。サーバーを立てる前に止めたいので順番を変えないこと
-    val env = ServerEnv()
+    val serverEnv = ServerEnv()
 
     val telemetry = OpenTelemetryInitializer.start()
-    val deps = AppDependencies.create(env, telemetry = telemetry)
-    val server = embeddedServer(CIO, port = env.port, host = env.host) {
+    val deps = AppDependencies.create(serverEnv, telemetry = telemetry)
+    val server = embeddedServer(CIO, port = serverEnv.port, host = serverEnv.host) {
         module(deps)
     }
 

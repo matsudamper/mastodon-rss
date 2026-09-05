@@ -67,12 +67,6 @@ data class Actor(
 
 /**
  * プロフィールのリンク集の 1 項目。
- *
- * `value` は Mastodon 側で HTML として解釈される。リンクにするには
- * `<a href="...">` を入れる必要があり、素の URL を入れてもリンクにはならない。
- *
- * @param name 見出し
- * @param value 中身の HTML
  */
 @Serializable
 data class ActorAttachment(
@@ -81,7 +75,7 @@ data class ActorAttachment(
     @SerialName("name")
     val name: String,
     @SerialName("value")
-    val value: String,
+    val htmlContent: String,
 ) {
     companion object {
         const val TYPE_PROPERTY_VALUE: String = "PropertyValue"

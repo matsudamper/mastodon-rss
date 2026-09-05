@@ -55,7 +55,7 @@ private class AppFontState {
 
         HttpClient(Js).use { client ->
             FONTS.forEach { spec ->
-                val data =
+                val fontBytes =
                     runCatching { client.get("$FONT_DIRECTORY/${spec.fileName}").readRawBytes() }
                         .getOrNull()
                         // 読めなくても画面は出す。日本語が豆腐になるだけで、操作はできる
@@ -64,7 +64,7 @@ private class AppFontState {
                 loaded +=
                     Font(
                         identity = spec.fileName,
-                        data = data,
+                        data = fontBytes,
                         weight = spec.weight,
                         style = FontStyle.Normal,
                     )

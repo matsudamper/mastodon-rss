@@ -148,7 +148,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                             contentHtml = posted.published.contentHtml,
                             publishedAt = posted.published.publishedAt.epochSecond,
                         ),
-                        deliveryTargets = posted.published.targets,
+                        deliveryTargets = posted.published.deliveryAttemptCount,
                         delivered = posted.published.delivered,
                         failure = null,
                     )
