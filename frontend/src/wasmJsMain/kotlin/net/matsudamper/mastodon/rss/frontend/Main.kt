@@ -10,11 +10,14 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.navigation.TransparentScreen
+import net.matsudamper.mastodon.rss.frontend.navigation.TransparentScreenSceneStrategy
 import net.matsudamper.mastodon.rss.frontend.navigation.WasmNavigator
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavController
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundScreen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountScreen
+import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountFeedNewScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountNewScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountsScreen
@@ -47,6 +50,7 @@ fun App() {
         NavDisplay(
             backStack = platformNavController.backStack,
             onBack = { platformNavController.back() },
+            sceneStrategies = listOf(TransparentScreenSceneStrategy()),
             entryProvider =
             entryProvider {
                 entry<Screen.Home> {
@@ -68,6 +72,14 @@ fun App() {
                     AdminAccountScreen(
                         username = screen.username,
                         platform = WasmScreenPlatform,
+                        navController = navController,
+                    )
+                }
+                entry<Screen.AdminAccountFeedNew>(
+                    metadata = TransparentScreen.asMetadata(),
+                ) { screen ->
+                    AdminAccountFeedNewScreen(
+                        username = screen.username,
                         navController = navController,
                     )
                 }

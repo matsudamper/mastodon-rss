@@ -564,11 +564,10 @@ private fun FeedCard(feed: AdminAccountScreenUiState.Feed, listener: AdminAccoun
             }
         }
 
-        is AdminAccountScreenUiState.Feed.Input -> AdminSectionCard(title = "RSS フィード") {
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                FeedInputPanel(feed, listener)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                FeedPreviewPanel(feed)
+        is AdminAccountScreenUiState.Feed.NotRegistered -> AdminSectionCard(title = "RSS フィード") {
+            Text("まだ登録されていない。配信元を決めると記事が流れる。", style = MaterialTheme.typography.bodyMedium)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Button(onClick = listener::onClickAddFeed) { Text("フィードを追加") }
             }
         }
     }
@@ -585,61 +584,6 @@ private fun FeedItemSummary(countText: String, items: List<AdminAccountScreenUiS
                     Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun FeedInputPanel(feed: AdminAccountScreenUiState.Feed.Input, listener: AdminAccountScreenUiState.Listener, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("RSS/Atom の URL を入れて取得し、登録する。", style = MaterialTheme.typography.bodyMedium)
-        OutlinedTextField(
-            value = feed.url,
-            onValueChange = listener::onFeedUrlChanged,
-            enabled = !feed.fetching && !feed.saving,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("フィード URL") },
-            singleLine = true,
-        )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Button(onClick = listener::onClickFetchFeed, enabled = feed.canFetch) { Text(if (feed.fetching) "取得中" else "取得") }
-        }
-        feed.preview?.let { preview ->
-            Text(if (preview.itemCount > 0) "このフィードには記事が ${preview.itemCount} 件ある。" else "このフィードには記事が無い。", style = MaterialTheme.typography.bodyMedium)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Button(onClick = listener::onClickSaveFeed, enabled = feed.canSave) { Text(if (feed.saving) "登録中" else "登録する") }
-            }
-        }
-        feed.previewError?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-        feed.saveError?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-    }
-}
-
-@Composable
-private fun FeedPreviewPanel(feed: AdminAccountScreenUiState.Feed.Input, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("プレビュー", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-        when {
-            feed.fetching -> Text("フィードを取ってきている。", style = MaterialTheme.typography.bodyMedium)
-
-            feed.preview != null -> {
-                val preview = feed.preview
-                preview.title?.let { Text(it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold) }
-                Text(preview.format, style = MaterialTheme.typography.bodySmall)
-                preview.siteUrl?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                preview.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                Text("記事 ${preview.itemCount} 件", style = MaterialTheme.typography.bodyMedium)
-                preview.sampleItems.forEach { item ->
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(item.title ?: "(題名なし)", style = MaterialTheme.typography.bodyMedium)
-                        listOfNotNull(item.publishedAt, item.link).joinToString("  ").takeIf(String::isNotEmpty)?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-
-            else -> Text("取得ボタンを押すとここに表示される。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

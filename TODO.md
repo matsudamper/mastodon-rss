@@ -291,8 +291,10 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
       - `/` トップ / `/@ユーザー名` アカウント画面 / `/admin` 管理画面 / それ以外は見つからない。
         判定は `navigation/Screen.kt` の 1 箇所
       - 管理画面の中も操作ごとにパスを分ける（`/admin/accounts`、`/admin/accounts/new`、
-        `/admin/accounts/@{name}`）。
+        `/admin/accounts/@{name}`、`/admin/accounts/@{name}/feeds/new`）。
         1 画面に並べると、開いた時点で必要のない問い合わせが走り、URL でその操作を指せない
+      - ダイアログもパスを持つ 1 画面として積む。下に敷く画面は残したまま重ねる
+        （`Screen.Overlay` と `TransparentScreenSceneStrategy`）
       - 画面遷移は Navigation Compose 3（JetBrains 版）。履歴の持ち主はブラウザ側に一本化し、
         `popstate` を受けて URL からバックスタックを作り直す。両方で履歴を持つとずれる
       - [x] アカウント画面の中身を実データにする
@@ -338,9 +340,9 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む
 - [ ] Compose でフィード一覧 / 追加 / 削除
-      - フィードの追加と、投稿ごとの元記事の表示と、記事と投稿の削除、
-        アカウントごとの削除は `/admin/accounts/@{name}` に入れた。
-        フィードだけを消す口は未実装
+      - フィードの追加は `/admin/accounts/@{name}/feeds/new` のダイアログに入れた。
+        投稿ごとの元記事の表示と、記事と投稿の削除は `/admin/accounts/@{name}` に入れた。
+        フィード自体の削除は未実装
 - [ ] アクターごとのフォロワー数・最終投稿・配信エラーの表示
       - フォロワー数は `/admin/accounts/@{name}` に出している。最終投稿と配信エラーは未着手
 - [ ] フィードのプレビュー（投稿前にどう見えるか）

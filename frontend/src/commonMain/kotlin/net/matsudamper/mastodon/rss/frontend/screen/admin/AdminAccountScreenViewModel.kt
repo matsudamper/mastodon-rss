@@ -16,15 +16,12 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteNoteResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeed
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedItem
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedUpdates
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItemsResult
@@ -44,8 +41,7 @@ class AdminAccountScreenViewModel(
     private var notesJob: Job? = null
     private var loadMoreJob: Job? = null
     private var postJob: Job? = null
-    private var fetchFeedJob: Job? = null
-    private var saveFeedJob: Job? = null
+    private var feedRegisteredJob: Job? = null
     private var unpublishedJob: Job? = null
     private var postUnpublishedJob: Job? = null
 
@@ -77,23 +73,8 @@ class AdminAccountScreenViewModel(
                         navigate(Screen.Admin)
                     }
 
-                    override fun onFeedUrlChanged(text: String) {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedInputUrl = text,
-                                feedPreview = null,
-                                feedPreviewError = null,
-                                feedSaveError = null,
-                            )
-                        }
-                    }
-
-                    override fun onClickFetchFeed() {
-                        fetchFeed()
-                    }
-
-                    override fun onClickSaveFeed() {
-                        saveFeed()
+                    override fun onClickAddFeed() {
+                        navigate(Screen.AdminAccountFeedNew(username))
                     }
 
                     override fun onClickPostLatest() {
@@ -156,7 +137,20 @@ class AdminAccountScreenViewModel(
         }.asStateFlow()
 
     fun onStart() {
+        reloadWhenFeedRegistered()
         reload()
+    }
+
+    /**
+     * ダイアログを重ねている間もこの画面は残るので、閉じても作り直されない
+     */
+    private fun reloadWhenFeedRegistered() {
+        feedRegisteredJob?.cancel()
+        feedRegisteredJob = viewModelScope.launch {
+            AdminFeedUpdates.registeredUsernames.collect { registered ->
+                if (registered == username) reload()
+            }
+        }
     }
 
     private fun navigate(screen: Screen) {
@@ -168,8 +162,6 @@ class AdminAccountScreenViewModel(
     private fun reload() {
         reloadJob?.cancel()
         postJob?.cancel()
-        fetchFeedJob?.cancel()
-        saveFeedJob?.cancel()
         unpublishedJob?.cancel()
         postUnpublishedJob?.cancel()
         deleteFeedItemJobs.values.forEach { it.cancel() }
@@ -179,10 +171,7 @@ class AdminAccountScreenViewModel(
         cancelNotesJobs()
 
         viewModelStateFlow.update {
-            ViewModelState(
-                body = it.body,
-                feedInputUrl = it.feedInputUrl,
-            )
+            ViewModelState(body = it.body)
         }
 
         reloadJob = viewModelScope.launch {
@@ -198,117 +187,6 @@ class AdminAccountScreenViewModel(
                 loadNotes()
                 if (account.account.feed != null) {
                     loadUnpublished(account.account.account.id)
-                }
-            }
-        }
-    }
-
-    private fun fetchFeed() {
-        val state = viewModelStateFlow.value
-        val url = state.feedInputUrl.trim()
-        if (state.loadedAccount == null) return
-        if (url.isEmpty() || state.feedFetching || state.feedSaving || state.savedFeed != null) return
-
-        fetchFeedJob?.cancel()
-        viewModelStateFlow.update {
-            it.copy(
-                feedFetching = true,
-                feedPreview = null,
-                feedPreviewError = null,
-                feedSaveError = null,
-            )
-        }
-
-        fetchFeedJob = viewModelScope.launch {
-            try {
-                when (val result = api.previewFeed(url)) {
-                    is AdminFeedPreviewResult.Success -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedFetching = false,
-                                feedPreview = result.preview,
-                                feedPreviewError = null,
-                            )
-                        }
-                    }
-
-                    is AdminFeedPreviewResult.Rejected -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedFetching = false,
-                                feedPreview = null,
-                                feedPreviewError = result.reason.toMessage(),
-                            )
-                        }
-                    }
-
-                    is AdminFeedPreviewResult.Failure -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedFetching = false,
-                                feedPreview = null,
-                                feedPreviewError = result.message,
-                            )
-                        }
-                    }
-                }
-            } finally {
-                if (!isActive) {
-                    viewModelStateFlow.update { it.copy(feedFetching = false) }
-                }
-            }
-        }
-    }
-
-    private fun saveFeed() {
-        val state = viewModelStateFlow.value
-        val loaded = state.loadedAccount ?: return
-        val accountId = loaded.account.id
-        val url = state.feedInputUrl.trim()
-        if (url.isEmpty() || state.feedPreview == null || state.feedSaving || state.feedFetching) {
-            return
-        }
-
-        saveFeedJob?.cancel()
-        viewModelStateFlow.update { it.copy(feedSaving = true, feedSaveError = null) }
-
-        saveFeedJob = viewModelScope.launch {
-            try {
-                when (val result = api.saveFeed(accountId = accountId, url = url)) {
-                    is AdminSaveFeedResult.Success -> {
-                        viewModelStateFlow.update { state ->
-                            state.copy(
-                                feedSaving = false,
-                                account = state.withSavedFeed(result.feed),
-                                feedPreview = null,
-                                feedPreviewError = null,
-                                feedSaveError = null,
-                            )
-                        }
-                        loadUnpublished(accountId)
-                    }
-
-                    is AdminSaveFeedResult.Rejected -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedSaving = false,
-                                feedSaveError = result.reason.toMessage(),
-                            )
-                        }
-                    }
-
-                    is AdminSaveFeedResult.Failure -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                feedSaving = false,
-                                feedSaveError = result.message,
-                            )
-                        }
-                    }
-                }
-            } finally {
-                if (!isActive) {
-                    viewModelStateFlow.update { it.copy(feedSaving = false) }
                 }
             }
         }
@@ -740,25 +618,6 @@ class AdminAccountScreenViewModel(
         }
     }
 
-    private fun AdminFeedPreviewResult.PreviewFailure.toMessage(): String =
-        when (this) {
-            AdminFeedPreviewResult.PreviewFailure.INVALID_URL -> "URL の形式が正しくない"
-            AdminFeedPreviewResult.PreviewFailure.FETCH_FAILED -> "フィードを取得できなかった"
-            AdminFeedPreviewResult.PreviewFailure.PARSE_FAILED -> "フィードを読み取れなかった"
-            AdminFeedPreviewResult.PreviewFailure.UNKNOWN -> "プレビューできなかった"
-        }
-
-    private fun AdminSaveFeedResult.SaveFailure.toMessage(): String =
-        when (this) {
-            AdminSaveFeedResult.SaveFailure.UNKNOWN_ACCOUNT -> "このアカウントには登録できない"
-            AdminSaveFeedResult.SaveFailure.DUPLICATE_URL -> "同じ URL は既に登録されている"
-            AdminSaveFeedResult.SaveFailure.ALREADY_HAS_FEED -> "このアカウントには既にフィードがある"
-            AdminSaveFeedResult.SaveFailure.INVALID_URL -> "URL の形式が正しくない"
-            AdminSaveFeedResult.SaveFailure.FETCH_FAILED -> "フィードを取得できなかった"
-            AdminSaveFeedResult.SaveFailure.PARSE_FAILED -> "フィードを読み取れなかった"
-            AdminSaveFeedResult.SaveFailure.UNKNOWN -> "保存できなかった"
-        }
-
     private fun AdminUnpublishedFeedItemsResult.FailureReason.toMessage(): String =
         when (this) {
             AdminUnpublishedFeedItemsResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
@@ -847,19 +706,7 @@ class AdminAccountScreenViewModel(
                 unpublishedError = unpublishedError,
             )
 
-            else -> {
-                val busy = feedFetching || feedSaving
-                AdminAccountScreenUiState.Feed.Input(
-                    url = feedInputUrl,
-                    fetching = feedFetching,
-                    canFetch = !busy && feedInputUrl.isNotBlank(),
-                    saving = feedSaving,
-                    canSave = !busy && feedPreview != null,
-                    preview = feedPreview?.toUiState(),
-                    previewError = feedPreviewError,
-                    saveError = feedSaveError,
-                )
-            }
+            else -> AdminAccountScreenUiState.Feed.NotRegistered
         }
     }
 
@@ -870,22 +717,6 @@ class AdminAccountScreenViewModel(
         createdAt = UnixTimeUtil.format(createdAt),
         followerCount = followerCount,
     )
-
-    private fun AdminFeedPreview.toUiState(): AdminAccountScreenUiState.FeedPreview =
-        AdminAccountScreenUiState.FeedPreview(
-            title = title,
-            siteUrl = siteUrl,
-            format = format,
-            description = description,
-            itemCount = itemCount,
-            sampleItems = sampleItems.map { item ->
-                AdminAccountScreenUiState.FeedPreviewItem(
-                    title = item.title,
-                    link = item.link,
-                    publishedAt = item.publishedAt?.let { UnixTimeUtil.format(it) },
-                )
-            },
-        )
 
     private fun ViewModelState.deleteNoteDialogUiState(): AdminAccountScreenUiState.DeleteNoteDialog? {
         val note = notes.firstOrNull { it.id == deleteNoteId } ?: return null
@@ -940,12 +771,6 @@ class AdminAccountScreenViewModel(
         val notesLoading: Boolean = false,
         val cursor: String? = null,
         val loadingMore: Boolean = false,
-        val feedInputUrl: String = "",
-        val feedFetching: Boolean = false,
-        val feedPreview: AdminFeedPreview? = null,
-        val feedPreviewError: String? = null,
-        val feedSaving: Boolean = false,
-        val feedSaveError: String? = null,
         val deletingFeedItemIds: Set<FeedItemId> = emptySet(),
         val deleteNoteId: String? = null,
         val deletingNote: Boolean = false,
@@ -958,13 +783,6 @@ class AdminAccountScreenViewModel(
         val unpublishedError: String? = null,
     ) {
         val loadedAccount: AdminAccount? get() = (account as? AdminAccountResult.Success)?.account
-
-        val savedFeed: AdminFeed? get() = loadedAccount?.feed
-
-        fun withSavedFeed(feed: AdminFeed): AdminAccountResult? {
-            val loaded = loadedAccount ?: return account
-            return AdminAccountResult.Success(loaded.copy(feed = feed))
-        }
     }
 
     interface Event {
