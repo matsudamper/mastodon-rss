@@ -1,4 +1,4 @@
-# Compose / UiState / Paparazzi
+# Compose / UiState
 
 ## UiState
 - UI と ViewModel の接点は UiState（表示もイベントも）
@@ -50,8 +50,3 @@ OutlinedTextField(enabled = !uiState.fetching && !uiState.saving)
 // 組み立てた結果を UiState が持つ
 OutlinedTextField(enabled = uiState.urlInputEnabled)
 ```
-
-## Paparazzi / UI 変更
-- UI 変更時は `@Preview` を追加/更新しスナップショットを撮影する
-- スナップショット画像はコミットしない。PR とチャットに貼る
-- 画像なしで UI 作業完了にしない
