@@ -7,6 +7,8 @@ data class AdminAccountProfileEditScreenUiState(
     val summary: String,
     val inputEnabled: Boolean,
     val saving: Boolean,
+    val applyingFeed: Boolean,
+    val applyFeedButtonEnabled: Boolean,
     val saveButtonEnabled: Boolean,
     val closeEnabled: Boolean,
     val errorMessage: String?,
@@ -17,6 +19,7 @@ data class AdminAccountProfileEditScreenUiState(
         fun onDisplayNameChanged(text: String)
         fun onSummaryChanged(text: String)
         fun onClickSave()
+        fun onClickApplyFeed()
         fun onClickClose()
     }
 }

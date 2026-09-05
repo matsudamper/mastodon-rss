@@ -22,6 +22,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminPostNoteResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminProfileUpdates
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnpublishedFeedItemsResult
@@ -42,6 +43,7 @@ class AdminAccountScreenViewModel(
     private var loadMoreJob: Job? = null
     private var postJob: Job? = null
     private var feedRegisteredJob: Job? = null
+    private var profileUpdatedJob: Job? = null
     private var unpublishedJob: Job? = null
     private var postUnpublishedJob: Job? = null
 
@@ -142,6 +144,7 @@ class AdminAccountScreenViewModel(
 
     fun onStart() {
         reloadWhenFeedRegistered()
+        reloadWhenProfileUpdated()
         reload()
     }
 
@@ -153,6 +156,15 @@ class AdminAccountScreenViewModel(
         feedRegisteredJob = viewModelScope.launch {
             AdminFeedUpdates.registeredUsernames.collect { registered ->
                 if (registered == username) reload()
+            }
+        }
+    }
+
+    private fun reloadWhenProfileUpdated() {
+        profileUpdatedJob?.cancel()
+        profileUpdatedJob = viewModelScope.launch {
+            AdminProfileUpdates.updatedUsernames.collect { updated ->
+                if (updated == username) reload()
             }
         }
     }

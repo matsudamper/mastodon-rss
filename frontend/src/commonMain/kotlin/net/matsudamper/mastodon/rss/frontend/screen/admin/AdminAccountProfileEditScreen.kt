@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,11 @@ internal fun AdminAccountProfileEditScreen(username: String, navController: Navi
                 OutlinedTextField(value = uiState.summary, onValueChange = uiState.listener::onSummaryChanged, enabled = uiState.inputEnabled, modifier = Modifier.fillMaxWidth(), label = {
                     Text("説明文")
                 }, minLines = 4, maxLines = 10)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = uiState.listener::onClickApplyFeed, enabled = uiState.applyFeedButtonEnabled) {
+                        Text(if (uiState.applyingFeed) "取得中" else "フィードから反映")
+                    }
+                }
                 uiState.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },

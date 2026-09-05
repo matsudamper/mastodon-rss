@@ -123,6 +123,20 @@ class AccountServiceTest {
         assertEquals(emptyList(), delivery.delivered)
     }
 
+    @Test
+    fun `絵文字だけの表示名をコードポイント数で上限まで保存できる`() {
+        val repositories = FakeRepositories()
+        repositories.accounts.add(username = USERNAME, createdAt = CREATED_AT)
+
+        val result = serviceOf(repositories, TestDelivery()).updateProfile(
+            username = USERNAME,
+            displayName = "😀".repeat(AccountService.DISPLAY_NAME_MAX_LENGTH),
+            summary = "",
+        )
+
+        assertIs<AccountService.UpdateProfileResult.Success>(result)
+    }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         delivery: TestDelivery,

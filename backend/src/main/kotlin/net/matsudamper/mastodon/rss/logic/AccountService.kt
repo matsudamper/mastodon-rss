@@ -98,8 +98,8 @@ class AccountService(
     ): UpdateProfileResult {
         val trimmedDisplayName = displayName.trim()
         val trimmedSummary = summary.trim()
-        val displayNameTooLong = trimmedDisplayName.length > DISPLAY_NAME_MAX_LENGTH
-        val summaryTooLong = trimmedSummary.length > SUMMARY_MAX_LENGTH
+        val displayNameTooLong = trimmedDisplayName.codePointCount(0, trimmedDisplayName.length) > DISPLAY_NAME_MAX_LENGTH
+        val summaryTooLong = trimmedSummary.codePointCount(0, trimmedSummary.length) > SUMMARY_MAX_LENGTH
         if (displayNameTooLong || summaryTooLong) {
             return UpdateProfileResult.Failure(false, displayNameTooLong, summaryTooLong)
         }
