@@ -10,7 +10,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountIdResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
@@ -137,13 +137,15 @@ class AdminAccountFeedNewScreenViewModel(
 
         saveJob = viewModelScope.launch {
             try {
-                val accountId = when (val account = api.account(username)) {
-                    is AdminAccountResult.Success -> account.account?.account?.id
+                val accountId = when (val account = api.accountId(username)) {
+                    is AdminAccountIdResult.Success -> account.id
 
-                    is AdminAccountResult.Failure -> {
+                    is AdminAccountIdResult.Failure -> {
                         saveFailed(account.message)
                         return@launch
                     }
+
+                    AdminAccountIdResult.NotFound -> null
                 }
                 if (accountId == null) {
                     saveFailed("このアカウントは無い")

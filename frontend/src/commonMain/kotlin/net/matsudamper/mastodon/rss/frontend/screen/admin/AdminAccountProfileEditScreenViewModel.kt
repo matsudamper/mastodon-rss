@@ -4,13 +4,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminProfileUpdates
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUpdateAccountProfileResult
 
 class AdminAccountProfileEditScreenViewModel(
@@ -34,7 +34,7 @@ class AdminAccountProfileEditScreenViewModel(
 
     init {
         viewModelScope.launch {
-            when (val account = api.account(username)) {
+            when (val account = api.watchAccount(username).first()) {
                 is AdminAccountResult.Success -> state.update {
                     it.copy(
                         loaded = account.account != null,
@@ -69,7 +69,6 @@ class AdminAccountProfileEditScreenViewModel(
         viewModelScope.launch {
             when (val result = api.updateAccountProfile(username, state.value.displayName, state.value.summary)) {
                 is AdminUpdateAccountProfileResult.Success -> {
-                    AdminProfileUpdates.notifyUpdated(username)
                     events.send { it.close() }
                 }
                 is AdminUpdateAccountProfileResult.Rejected -> state.update { it.copy(saving = false, errorMessage = result.toMessage()) }

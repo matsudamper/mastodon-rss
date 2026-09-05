@@ -6,11 +6,6 @@ sealed interface AccountResult {
         val followerCount: Int,
         val noteCount: Int,
         val feed: AccountFeed?,
-        val notes: List<AccountNote>,
-        /**
-         * 次のページを取るときに渡す。null なら最後のページ
-         */
-        val notesCursor: String?,
     ) : AccountResult
 
     data object NotFound : AccountResult

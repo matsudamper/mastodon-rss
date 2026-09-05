@@ -31,7 +31,8 @@ class AccountScreenViewModel(
 
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
-    private var loadingJob: Job? = null
+    private var accountJob: Job? = null
+    private var notesJob: Job? = null
     private var loadMoreJob: Job? = null
 
     val uiStateFlow: StateFlow<AccountScreenUiState> =
@@ -86,31 +87,18 @@ class AccountScreenViewModel(
     }
 
     private fun reload() {
-        loadingJob?.cancel()
+        accountJob?.cancel()
+        notesJob?.cancel()
         loadMoreJob?.cancel()
         viewModelStateFlow.update { ViewModelState() }
 
-        loadingJob =
+        accountJob =
             viewModelScope.launch {
-                when (val result = api.account(username = username, notesLimit = PAGE_SIZE)) {
-                    is AccountResult.Success -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                account = result,
-                                notes = result.notes,
-                                notesCursor = result.notesCursor,
-                                notesError = null,
-                                notesLoading = false,
-                            )
-                        }
-                    }
-
-                    AccountResult.NotFound -> {
-                        viewModelStateFlow.update { it.copy(account = AccountResult.NotFound) }
-                    }
-
-                    is AccountResult.Failure -> {
-                        viewModelStateFlow.update { it.copy(account = result) }
+                api.account(username).collect { result ->
+                    val previousAccount = viewModelStateFlow.value.account
+                    viewModelStateFlow.update { it.copy(account = result) }
+                    if (result is AccountResult.Success && previousAccount == null) {
+                        reloadNotes()
                     }
                 }
             }
@@ -120,16 +108,16 @@ class AccountScreenViewModel(
         loadMoreJob?.cancel()
         viewModelStateFlow.update { it.copy(notesLoading = true, notesError = null) }
 
-        loadingJob?.cancel()
-        loadingJob =
+        notesJob?.cancel()
+        notesJob =
             viewModelScope.launch {
                 try {
-                    when (val result = api.account(username = username, notesLimit = PAGE_SIZE)) {
-                        is AccountResult.Success -> {
+                    when (val result = api.notes(username = username, limit = PAGE_SIZE)) {
+                        is AccountNotesResult.Success -> {
                             viewModelStateFlow.update {
                                 it.copy(
                                     notes = result.notes,
-                                    notesCursor = result.notesCursor,
+                                    notesCursor = result.cursor,
                                     notesError = null,
                                     notesLoading = false,
                                     loadingMore = false,
@@ -137,19 +125,10 @@ class AccountScreenViewModel(
                             }
                         }
 
-                        is AccountResult.Failure -> {
+                        is AccountNotesResult.Failure -> {
                             viewModelStateFlow.update {
                                 it.copy(
                                     notesError = result.message,
-                                    notesLoading = false,
-                                    loadingMore = false,
-                                )
-                            }
-                        }
-
-                        AccountResult.NotFound -> {
-                            viewModelStateFlow.update {
-                                it.copy(
                                     notesLoading = false,
                                     loadingMore = false,
                                 )
