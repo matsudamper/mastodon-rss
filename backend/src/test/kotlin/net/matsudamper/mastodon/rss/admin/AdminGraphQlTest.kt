@@ -237,6 +237,75 @@ class AdminGraphQlTest {
         }
 
     @Test
+    fun `プロフィールを保存すると引き直しても残る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+
+            val updated = mutateUpdateAccountProfile(
+                username = "feed1",
+                displayName = "フィード 1",
+                summary = "説明",
+                token = token,
+            ).updateAccountProfileResult().obj("adminAccount")
+
+            assertEquals("フィード 1", updated.string("displayName"))
+            assertEquals("説明", updated.string("summary"))
+
+            val queried = queryAccount("feed1", token).admin().obj("adminAccount")
+            assertEquals("フィード 1", queried.string("displayName"))
+            assertEquals("説明", queried.string("summary"))
+        }
+
+    @Test
+    fun `空文字で保存するとプロフィールは未設定に戻る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            mutateUpdateAccountProfile(username = "feed1", displayName = "フィード 1", summary = "説明", token = token)
+
+            val cleared = mutateUpdateAccountProfile(
+                username = "feed1",
+                displayName = "",
+                summary = "",
+                token = token,
+            ).updateAccountProfileResult().obj("adminAccount")
+
+            assertEquals(JsonNull, cleared.getValue("displayName"))
+            assertEquals(JsonNull, cleared.getValue("summary"))
+        }
+
+    @Test
+    fun `知らないアカウントのプロフィールは保存できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val failure = mutateUpdateAccountProfile(
+                username = "other",
+                displayName = "フィード 1",
+                summary = "説明",
+                token = token,
+            ).updateAccountProfileResult().failure()
+
+            assertTrue(failure.boolean("unknownAccount"))
+        }
+
+    @Test
+    fun `ログインしていなければ updateAccountProfile は拒否される`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            val errors = mutateUpdateAccountProfile(username = "feed1", displayName = "名前", summary = "説明")
+                .body()
+                .getValue("errors")
+                .jsonArray
+            assertTrue(errors.isNotEmpty())
+        }
+
+    @Test
     fun `ログインしていなければ previewFeed は拒否される`() =
         testApplication {
             applicationWith(passwordConfigured = true)
@@ -843,6 +912,22 @@ class AdminGraphQlTest {
             variables = """{"username":${JsonPrimitive(username)}}""",
         )
 
+    private suspend fun ApplicationTestBuilder.mutateUpdateAccountProfile(
+        username: String,
+        displayName: String,
+        summary: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation UpdateProfile(${'$'}query: UpdateAccountProfileQuery!) { admin { " +
+                "updateAccountProfile(query: ${'$'}query) { adminAccount { $ACCOUNT_FIELDS } " +
+                "failure { unknownAccount displayNameMaxLength summaryMaxLength } } } }",
+            token = token,
+            variables = """{"query":{"username":${JsonPrimitive(username)},""" +
+                """"displayName":${JsonPrimitive(displayName)},"summary":${JsonPrimitive(summary)}}}""",
+        )
+
     private suspend fun ApplicationTestBuilder.queryPreviewFeed(
         url: String,
         token: String? = null,
@@ -1037,7 +1122,8 @@ class AdminGraphQlTest {
 
         const val FEED_FIELDS = "id url title siteUrl format createdAt"
 
-        const val ACCOUNT_FIELDS = "account { id username acct actorUrl } createdAt feed { $FEED_FIELDS }"
+        const val ACCOUNT_FIELDS =
+            "account { id username acct actorUrl } createdAt displayName summary feed { $FEED_FIELDS }"
 
         /**
          * 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ
@@ -1058,6 +1144,8 @@ class AdminGraphQlTest {
         suspend fun HttpResponse.accounts(): List<JsonElement> = admin().getValue("adminAccounts").jsonArray
 
         suspend fun HttpResponse.addAccountResult(): JsonObject = admin().obj("addAccount")
+
+        suspend fun HttpResponse.updateAccountProfileResult(): JsonObject = admin().obj("updateAccountProfile")
 
         fun JsonObject.failure(): JsonObject = obj("failure")
 

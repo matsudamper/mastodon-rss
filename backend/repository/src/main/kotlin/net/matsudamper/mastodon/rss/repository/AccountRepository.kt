@@ -50,15 +50,31 @@ interface AccountRepository {
         username: String,
         createdAt: Instant,
     ): Account?
+
+    /**
+     * プロフィールを書き換える。そのアカウントが無ければ null を返す。
+     *
+     * null を渡した項目は未設定に戻す。未設定のときに何を出すかは
+     * 表示側で決める
+     */
+    fun updateProfile(
+        id: AccountId,
+        displayName: String?,
+        summary: String?,
+    ): Account?
 }
 
 /**
  * 応答するアカウント 1 つ。
  *
  * @param username `acct:<username>@<domain>` と `/users/<username>` に入る名前
+ * @param displayName プロフィールの表示名。未設定なら null
+ * @param summary プロフィールの説明文。未設定なら null
  */
 data class Account(
     val id: AccountId,
     val username: String,
     val createdAt: Instant,
+    val displayName: String?,
+    val summary: String?,
 )

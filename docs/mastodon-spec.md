@@ -87,6 +87,16 @@ curl -H 'Accept: application/activity+json' http://localhost:8080/users/admin
 外から見えるようにするには HTTPS が要る。開発中は Cloudflare Tunnel や ngrok で
 `DOMAIN` に指定したホスト名に向ける。
 
+## プロフィールの表示名と説明文
+
+Actor の `name` と `summary`。管理画面から設定でき、保存先は `accounts.display_name` と
+`accounts.summary`。未設定なら `name` はユーザー名、`summary` は既定の文言になる。
+
+`summary` は HTML として解釈されるので、保存はプレーンテキストで持ち、配信するときに
+空行で段落、行の切れ目を `<br>` にした HTML へ組み立てる。
+
+`attachment` と同じく、変えても相手側の表示はすぐには変わらない。`Update{Actor}` の配信は未実装。
+
 ## プロフィールのリンク
 
 アカウントにフィードが登録されていれば、Actor の `attachment` にサイトと

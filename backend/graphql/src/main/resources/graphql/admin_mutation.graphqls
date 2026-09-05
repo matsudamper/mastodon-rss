@@ -8,6 +8,9 @@ type AdminMutation {
     "アカウントを追加する"
     addAccount(username: String!): AdminAddAccountResult! @lazy
 
+    "アカウントのプロフィールを書き換える"
+    updateAccountProfile(query: UpdateAccountProfileQuery!): AdminUpdateAccountProfileResult! @lazy
+
     "アカウントとして投稿し、フォロワーに配る"
     postNote(username: String!, body: String!): AdminPostNoteResult! @lazy
 
@@ -22,6 +25,35 @@ type AdminMutation {
 
     "投稿を 1 件消す。元になった記事は消されない。"
     deleteNote(query: DeleteNoteQuery!): AdminDeleteNoteResult! @lazy
+}
+
+input UpdateAccountProfileQuery {
+    username: String!
+
+    "空文字を渡すと未設定に戻す"
+    displayName: String!
+
+    "空文字を渡すと未設定に戻す"
+    summary: String!
+}
+
+type AdminUpdateAccountProfileResult {
+    "書き換えた後のアカウント"
+    adminAccount: AdminAccount
+
+    "書き換えられなかった場合だけ入る"
+    failure: AdminUpdateAccountProfileFailure
+}
+
+type AdminUpdateAccountProfileFailure {
+    "その名前のアカウントが無い"
+    unknownAccount: Boolean!
+
+    "表示名が上限を超えている場合の上限"
+    displayNameMaxLength: Int
+
+    "説明文が上限を超えている場合の上限"
+    summaryMaxLength: Int
 }
 
 input DeleteNoteQuery {

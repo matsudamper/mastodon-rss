@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss
 
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorProfile
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.FeedLinks
 
@@ -32,6 +33,16 @@ object TestLocalActor {
             STORED_USERNAME to FeedLinks(
                 siteUrl = "https://feed1.example.org/",
                 feedUrl = "https://feed1.example.org/rss.xml",
+            ),
+        ),
+    )
+
+    /** [STORED_USERNAME] だけがプロフィールを設定している。未設定との差を見るため */
+    val profiles: FakeStoredActorProfiles = FakeStoredActorProfiles(
+        profiles = mapOf(
+            STORED_USERNAME to ActorProfile(
+                displayName = "フィード 1",
+                summary = "1 つ目のフィード\n<b>タグ</b>",
             ),
         ),
     )

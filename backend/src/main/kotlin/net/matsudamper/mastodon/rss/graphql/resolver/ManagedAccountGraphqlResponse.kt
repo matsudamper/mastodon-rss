@@ -6,4 +6,6 @@ import net.matsudamper.mastodon.rss.logic.AccountService
 internal fun AccountService.ManagedAccount.toGraphqlResponse(): QlAdminAccount = QlAdminAccount(
     account = urls.toGraphqlResponse(accountId = accountId),
     createdAt = createdAt.epochSecond,
+    displayName = displayName,
+    summary = summary,
 )

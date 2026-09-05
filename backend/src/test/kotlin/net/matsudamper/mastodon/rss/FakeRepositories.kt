@@ -88,7 +88,26 @@ class FakeAccountRepository : AccountRepository {
     ): Account? {
         if (findByUsername(username) != null) return null
 
-        return Account(id = AccountId(nextId++), username = username, createdAt = createdAt).also { stored += it }
+        return Account(
+            id = AccountId(nextId++),
+            username = username,
+            createdAt = createdAt,
+            displayName = null,
+            summary = null,
+        ).also { stored += it }
+    }
+
+    override fun updateProfile(
+        id: AccountId,
+        displayName: String?,
+        summary: String?,
+    ): Account? {
+        val index = stored.indexOfFirst { it.id == id }
+        if (index == -1) return null
+
+        val updated = stored[index].copy(displayName = displayName, summary = summary)
+        stored[index] = updated
+        return updated
     }
 }
 

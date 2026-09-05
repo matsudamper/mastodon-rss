@@ -23,7 +23,7 @@ class ActorRoutesTest {
     private fun ApplicationTestBuilder.installModule() {
         application {
             routing {
-                actorRoutes(TestLocalActor.directory, TestActorKey.value, TestLocalActor.feedLinks)
+                actorRoutes(TestLocalActor.directory, TestActorKey.value, TestLocalActor.feedLinks, TestLocalActor.profiles)
             }
         }
     }
@@ -137,6 +137,30 @@ class ActorRoutesTest {
 
             // 見出しだけの行がプロフィールに並ばないようにする
             assertTrue(actor.attachment.isEmpty())
+        }
+
+    @Test
+    fun `プロフィールを設定したアカウントは表示名と説明文が返る`() =
+        testApplication {
+            installModule()
+
+            val path = "/users/${TestLocalActor.STORED_USERNAME}"
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
+
+            assertEquals("フィード 1", actor.name)
+            // 説明文はプレーンテキストで持つ。相手に渡す HTML はここで組み立てる
+            assertEquals("<p>1 つ目のフィード<br>&lt;b&gt;タグ&lt;/b&gt;</p>", actor.summary)
+        }
+
+    @Test
+    fun `プロフィールが未設定なら表示名はユーザー名になる`() =
+        testApplication {
+            installModule()
+
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
+
+            assertEquals("admin", actor.name)
+            assertEquals("RSS/Atom フィードを ActivityPub で配信するアカウント", actor.summary)
         }
 
     @Test

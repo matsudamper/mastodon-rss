@@ -51,6 +51,12 @@ type AdminAccount {
     "管理画面から追加した時刻"
     createdAt: UnixTime!
 
+    "プロフィールの表示名。未設定なら null で、相手にはユーザー名が出る"
+    displayName: String
+
+    "プロフィールの説明文。未設定なら null で、相手には既定の文言が出る"
+    summary: String
+
     "Accept を返せたフォロワーの数"
     followerCount: Int! @lazy
 
