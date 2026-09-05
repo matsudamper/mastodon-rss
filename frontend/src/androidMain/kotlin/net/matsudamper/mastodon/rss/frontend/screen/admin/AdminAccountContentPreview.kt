@@ -85,6 +85,7 @@ private fun AdminAccountContentNoFeedPreview() {
                     ),
                     notes = emptyList(),
                     deleteNoteDialog = null,
+                    deleteAccountDialog = null,
                     notesError = null,
                     notesLoading = false,
                     canLoadMore = false,
