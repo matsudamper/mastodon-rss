@@ -241,10 +241,7 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 - [ ] アクターごとに鍵ペアを生成して保存
       - Phase 1 の鍵はファイル 1 本。ここで `actors.private_key` に移すかを決める
         （Phase 3 の「フォロワーがいるなら鍵の自動生成を拒否する」と合わせて判断する）
-- [ ] アクター作成 / 削除の API
-      - 作成は入れた（`Mutation.admin.addAccount`）。一覧は `Query.admin.adminAccounts`。
-        どちらもログインが要る
-      - 削除はまだ。`Delete{Actor}` を配信してから消す。黙って消すと相手側に残り続ける
+- [x] アクター作成 / 削除の API
 - [ ] アクター情報更新時に `Update{Actor}` を配信（アイコン・説明文の変更を伝播させる）
 - [ ] アイコン / ヘッダー画像（`icon` / `image`）の配信
 - [ ] フィードアクターのプロフィールに `admin` へのリンクを置く
@@ -317,10 +314,6 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 - [ ] `:frontend` の成果物を配置するデプロイスクリプトを用意する
       （インフラ側で用意する。このリポジトリの範囲外。「ビルドと配布の分け方」を参照）
 - [ ] 管理 API を GraphQL にする（スキーマ優先で、間の型は生成する）
-      - 口と結線は動いている。エンドポイントは `POST /graphql` の 1 つで、管理用は
-        `Query.admin` / `Mutation.admin` の下にまとめ、認可はエンドポイントではなく
-        フィールドごとに見る。載っているのはログインとアカウントの追加・一覧・参照だけなので、
-        フィード CRUD などが載ってからチェックを付ける
       - kickstart はリフレクションで結線するので、native-image 向けの登録が要る。
         リゾルバの実装は必ず `graphql.resolver` に置くこと（`GraphQlReflectionTargetsTest` が見ている）
       - native バイナリで query / mutation / 変数 / enum / `Set-Cookie` / スキーマ検証まで通した。
@@ -332,11 +325,6 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
       - 残っているのはハッシュ生成を画面から行えるようにすること（いまは
         `./gradlew --quiet :backend:crypto:passwordHash`）と、総当たり対策（Phase 7）
 - [ ] サーバー側に管理 API の残り（フィード CRUD、配信状況、手動再取得）
-      - アカウントの一覧 (`Query.admin.adminAccounts`)、1 件の参照 (`Query.admin.adminAccount`)、
-        追加 (`Mutation.admin.addAccount`)、投稿 (`Mutation.admin.postNote`) と
-        その一覧 (`Query.admin.notes`) は入れた
-      - 投稿から元の記事を引く `AdminNote.feedItem` と、記事と投稿の削除も入れた。
-        残っているのはフィード自体の削除、配信状況、手動再取得
 - [ ] 開発時は frontend の dev サーバー (8081) から backend (8080) を叩くので CORS か proxy 設定が要る
       - webpack の devServer proxy で `/graphql` を 8080 に転送する。
         オリジンが同じままなら CORS も Cookie の SameSite も緩めずに済む

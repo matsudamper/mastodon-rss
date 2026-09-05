@@ -13,6 +13,7 @@ import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedItem
@@ -48,6 +49,7 @@ class AdminAccountScreenViewModel(
     // 前の削除が送信前に中断され、消したつもりの記事が残る
     private val deleteFeedItemJobs: MutableMap<FeedItemId, Job> = mutableMapOf()
     private var deleteNoteJob: Job? = null
+    private var deleteAccountJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
         MutableStateFlow(
@@ -89,6 +91,23 @@ class AdminAccountScreenViewModel(
 
                     override fun onClickLoadMore() {
                         loadMore()
+                    }
+
+                    override fun onClickDeleteAccount() {
+                        viewModelStateFlow.update {
+                            it.copy(deleteAccountRequested = true, deleteAccountError = null)
+                        }
+                    }
+
+                    override fun onDismissDeleteAccount() {
+                        if (viewModelStateFlow.value.deletingAccount) return
+                        viewModelStateFlow.update {
+                            it.copy(deleteAccountRequested = false, deleteAccountError = null)
+                        }
+                    }
+
+                    override fun onConfirmDeleteAccount() {
+                        deleteAccount()
                     }
 
                     override fun onDismissDeleteNote() {
@@ -148,6 +167,7 @@ class AdminAccountScreenViewModel(
         deleteFeedItemJobs.values.forEach { it.cancel() }
         deleteFeedItemJobs.clear()
         deleteNoteJob?.cancel()
+        deleteAccountJob?.cancel()
         cancelNotesJobs()
 
         viewModelStateFlow.update {
@@ -383,6 +403,43 @@ class AdminAccountScreenViewModel(
     }
 
     /**
+     * 消せたら一覧に戻る。この画面が扱う対象が無くなるので、状態は触らずに離れる
+     */
+    private fun deleteAccount() {
+        val state = viewModelStateFlow.value
+        if (state.loadedAccount == null || state.deletingAccount) return
+
+        deleteAccountJob?.cancel()
+        viewModelStateFlow.update { it.copy(deletingAccount = true, deleteAccountError = null) }
+
+        deleteAccountJob = viewModelScope.launch {
+            try {
+                when (val result = api.deleteAccount(username)) {
+                    AdminDeleteAccountResult.Success -> {
+                        events.send { it.navigate(Screen.AdminAccounts) }
+                    }
+
+                    is AdminDeleteAccountResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(deletingAccount = false, deleteAccountError = result.reason.toMessage())
+                        }
+                    }
+
+                    is AdminDeleteAccountResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(deletingAccount = false, deleteAccountError = result.message)
+                        }
+                    }
+                }
+            } finally {
+                if (!isActive) {
+                    viewModelStateFlow.update { it.copy(deletingAccount = false) }
+                }
+            }
+        }
+    }
+
+    /**
      * 投稿の一覧を先頭から取り直す。
      */
     private fun loadNotes(networkOnly: Boolean = false) {
@@ -551,6 +608,7 @@ class AdminAccountScreenViewModel(
                     ),
                     notes = state.notes.map { it.toUiState(state.deletingFeedItemIds) },
                     deleteNoteDialog = state.deleteNoteDialogUiState(),
+                    deleteAccountDialog = state.deleteAccountDialogUiState(),
                     notesError = state.notesError,
                     notesLoading = state.notesLoading,
                     canLoadMore = state.cursor != null,
@@ -599,6 +657,12 @@ class AdminAccountScreenViewModel(
             AdminDeleteNoteResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは無い"
             AdminDeleteNoteResult.FailureReason.NOT_FOUND -> "この投稿は既に消えている"
             AdminDeleteNoteResult.FailureReason.UNKNOWN -> "投稿を消せなかった"
+        }
+
+    private fun AdminDeleteAccountResult.FailureReason.toMessage(): String =
+        when (this) {
+            AdminDeleteAccountResult.FailureReason.UNKNOWN_ACCOUNT -> "このアカウントは既に消えている"
+            AdminDeleteAccountResult.FailureReason.UNKNOWN -> "アカウントを消せなかった"
         }
 
     private fun AdminDeleteFeedItemsResult.FailureReason.toMessage(): String =
@@ -663,6 +727,23 @@ class AdminAccountScreenViewModel(
         )
     }
 
+    private fun ViewModelState.deleteAccountDialogUiState(): AdminAccountScreenUiState.DeleteAccountDialog? {
+        val account = loadedAccount?.takeIf { deleteAccountRequested } ?: return null
+
+        return AdminAccountScreenUiState.DeleteAccountDialog(
+            message = buildString {
+                append("${account.account.acct} を消す。")
+                append("フォロワー ${account.followerCount} 人と配信した投稿、登録したフィードが消える。")
+                append("フォロワーのサーバーにも削除を伝えるが、届かなかった相手には残る。\n")
+                append("消した後は同じ名前と同じフィードで登録し直せる。")
+            },
+            confirmLabel = if (deletingAccount) "削除中" else "削除",
+            canConfirm = !deletingAccount,
+            canDismiss = !deletingAccount,
+            errorMessage = deleteAccountError,
+        )
+    }
+
     private fun AdminNote.toUiState(deletingFeedItemIds: Set<FeedItemId>): AdminAccountScreenUiState.Note =
         AdminAccountScreenUiState.Note(
             url = url,
@@ -693,6 +774,9 @@ class AdminAccountScreenViewModel(
         val deletingFeedItemIds: Set<FeedItemId> = emptySet(),
         val deleteNoteId: String? = null,
         val deletingNote: Boolean = false,
+        val deleteAccountRequested: Boolean = false,
+        val deletingAccount: Boolean = false,
+        val deleteAccountError: String? = null,
         val unpublishedItems: List<AdminUnpublishedFeedItem> = emptyList(),
         val postedItems: List<AdminUnpublishedFeedItem>? = null,
         val postingUnpublished: Boolean = false,

@@ -220,3 +220,13 @@ mutation AdminDeleteNote($query: DeleteNoteQuery!) {
         }
     }
 }
+
+mutation AdminDeleteAccount($query: DeleteAccountQuery!) {
+    admin {
+        deleteAccount(query: $query) {
+            failure {
+                reason
+            }
+        }
+    }
+}

@@ -4,6 +4,8 @@ import kotlin.time.Instant
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Optional
+import com.apollographql.cache.normalized.FetchPolicy
+import com.apollographql.cache.normalized.fetchPolicy
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.HomeScreenQuery
@@ -15,7 +17,10 @@ class AccountApi(
     private val client: ApolloClient = GraphQlClient.apollo,
 ) {
     suspend fun accounts(cursor: String? = null, limit: Int = 20): AccountsResult {
-        val response = client.query(HomeScreenQuery(cursor = Optional.presentIfNotNull(cursor), limit = limit)).execute()
+        val response = client
+            .query(HomeScreenQuery(cursor = Optional.presentIfNotNull(cursor), limit = limit))
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .execute()
 
         if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
             return AccountsResult.Failure(response.failureMessage())
@@ -49,7 +54,9 @@ class AccountApi(
                         limit = notesLimit,
                     ),
                 ),
-            ).execute()
+            )
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .execute()
 
         if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
             return AccountResult.Failure(response.failureMessage())
@@ -93,7 +100,9 @@ class AccountApi(
                         limit = limit,
                     ),
                 ),
-            ).execute()
+            )
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .execute()
 
         if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
             return AccountNotesResult.Failure(response.failureMessage())

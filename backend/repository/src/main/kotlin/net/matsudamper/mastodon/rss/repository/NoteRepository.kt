@@ -34,6 +34,16 @@ interface NoteRepository {
     fun delete(publicId: PublicNoteId)
 
     /**
+     * そのアカウントの投稿を全部消す。アカウントを消すときに使う。
+     *
+     * 残すと、同じ名前でアカウントを作り直したときに前の投稿が並ぶ。
+     * `notes.username` はアカウントを参照していないので外部キーでは消えない。
+     *
+     * @return 消えた件数
+     */
+    fun deleteByUsername(username: String): Int
+
+    /**
      * 新しい順に返す。`outbox` と管理画面の一覧に使う。
      *
      * 位置を件数で数えず、直前のページの最後の 1 件で指す。件数で数えると、

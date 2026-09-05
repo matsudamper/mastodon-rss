@@ -10,6 +10,7 @@ import com.apollographql.cache.normalized.fetchPolicy
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemsMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteNoteMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
@@ -25,6 +26,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminFeedItemFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteAccountFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteNoteFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailureReason
@@ -32,6 +34,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminPostFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminUnpublishedFeedItemsFailureReason
+import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteNoteQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.PostFeedItemsQuery
@@ -76,8 +79,15 @@ class AdminApi(
             .toSessionResult { it.admin.logout.adminSessionFields }
     }
 
+    /**
+     * 一覧はキャッシュを見ない。消したアカウントがキャッシュに残っていると、
+     * 消した直後の一覧に並び続ける
+     */
     suspend fun accounts(): AdminAccountsResult {
-        val response = client.query(AdminAccountsQuery()).execute()
+        val response = client
+            .query(AdminAccountsQuery())
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .execute()
         val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
 
         return AdminAccountsResult.Success(
@@ -326,6 +336,17 @@ class AdminApi(
         )
     }
 
+    suspend fun deleteAccount(username: String): AdminDeleteAccountResult {
+        val response = client.mutation(
+            AdminDeleteAccountMutation(query = DeleteAccountQuery(username = username)),
+        ).execute()
+        val result = response.data?.admin?.deleteAccount
+            ?: return AdminDeleteAccountResult.Failure(response.failureMessage())
+
+        val failure = result.failure ?: return AdminDeleteAccountResult.Success
+        return AdminDeleteAccountResult.Rejected(reason = failure.reason.toDeleteAccountFailure())
+    }
+
     suspend fun postNote(
         username: String,
         body: String,
@@ -448,6 +469,12 @@ class AdminApi(
             AdminDeleteNoteFailureReason.UNKNOWN_ACCOUNT -> AdminDeleteNoteResult.FailureReason.UNKNOWN_ACCOUNT
             AdminDeleteNoteFailureReason.NOT_FOUND -> AdminDeleteNoteResult.FailureReason.NOT_FOUND
             AdminDeleteNoteFailureReason.UNKNOWN__ -> AdminDeleteNoteResult.FailureReason.UNKNOWN
+        }
+
+    private fun AdminDeleteAccountFailureReason.toDeleteAccountFailure(): AdminDeleteAccountResult.FailureReason =
+        when (this) {
+            AdminDeleteAccountFailureReason.UNKNOWN_ACCOUNT -> AdminDeleteAccountResult.FailureReason.UNKNOWN_ACCOUNT
+            AdminDeleteAccountFailureReason.UNKNOWN__ -> AdminDeleteAccountResult.FailureReason.UNKNOWN
         }
 
     private fun AdminFeedItemFields.toAdminFeedItem(): AdminFeedItem = AdminFeedItem(

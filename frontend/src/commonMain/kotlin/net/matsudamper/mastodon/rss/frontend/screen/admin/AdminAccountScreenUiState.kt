@@ -27,6 +27,7 @@ data class AdminAccountScreenUiState(
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
          * @param deleteNoteDialog 投稿を消す前の確認。出していなければ null
+         * @param deleteAccountDialog アカウントを消す前の確認。出していなければ null
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
          * @param notesLoading 一覧を取っている最中
          * @param canLoadMore さらに古い投稿があるか
@@ -37,6 +38,7 @@ data class AdminAccountScreenUiState(
             val post: Post,
             val notes: List<Note>,
             val deleteNoteDialog: DeleteNoteDialog?,
+            val deleteAccountDialog: DeleteAccountDialog?,
             val notesError: String?,
             val notesLoading: Boolean,
             val canLoadMore: Boolean,
@@ -129,6 +131,14 @@ data class AdminAccountScreenUiState(
         val deleting: Boolean,
     )
 
+    data class DeleteAccountDialog(
+        val message: String,
+        val confirmLabel: String,
+        val canConfirm: Boolean,
+        val canDismiss: Boolean,
+        val errorMessage: String?,
+    )
+
     /**
      * @param sourceArticle 元になった記事。無い投稿では出さない
      */
@@ -169,6 +179,12 @@ data class AdminAccountScreenUiState(
         fun onClickPost()
 
         fun onClickLoadMore()
+
+        fun onClickDeleteAccount()
+
+        fun onDismissDeleteAccount()
+
+        fun onConfirmDeleteAccount()
 
         fun onDismissDeleteNote()
 
