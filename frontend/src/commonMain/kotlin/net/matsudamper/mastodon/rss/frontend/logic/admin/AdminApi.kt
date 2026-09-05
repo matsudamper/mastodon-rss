@@ -153,6 +153,13 @@ class AdminApi(
                 ),
             ),
         ).execute()
+
+        // 部分応答では data と errors が同時に返る。data だけを見ると、
+        // 保存できていないのに成功として画面を閉じてしまう
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminUpdateAccountProfileResult.Failure(response.failureMessage())
+        }
+
         val result = response.data?.admin?.updateAccountProfile
             ?: return AdminUpdateAccountProfileResult.Failure(response.failureMessage())
         val failure = result.failure
