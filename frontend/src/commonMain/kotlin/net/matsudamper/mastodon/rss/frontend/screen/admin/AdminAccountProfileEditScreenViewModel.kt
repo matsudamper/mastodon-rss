@@ -35,6 +35,7 @@ class AdminAccountProfileEditScreenViewModel(
                 is AdminAccountResult.Success -> state.update {
                     it.copy(displayName = account.account?.displayName.orEmpty(), summary = account.account?.summary.orEmpty())
                 }
+
                 is AdminAccountResult.Failure -> state.update { it.copy(errorMessage = account.message) }
             }
         }
@@ -69,8 +70,8 @@ class AdminAccountProfileEditScreenViewModel(
 
     private fun AdminUpdateAccountProfileResult.Rejected.toMessage(): String = when {
         unknownAccount -> "このアカウントは無い"
-        displayNameMaxLength != null -> "表示名は ${displayNameMaxLength} 文字まで"
-        summaryMaxLength != null -> "説明文は ${summaryMaxLength} 文字まで"
+        displayNameMaxLength != null -> "表示名は $displayNameMaxLength 文字まで"
+        summaryMaxLength != null -> "説明文は $summaryMaxLength 文字まで"
         else -> "保存できなかった"
     }
 
@@ -81,5 +82,7 @@ class AdminAccountProfileEditScreenViewModel(
         val errorMessage: String? = null,
     )
 
-    interface Event { suspend fun close() }
+    interface Event {
+        suspend fun close()
+    }
 }

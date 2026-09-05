@@ -35,8 +35,12 @@ internal fun AdminAccountProfileEditScreen(username: String, navController: Navi
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Mastodon のプロフィールに出る。空にすると未設定に戻る。", style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(value = uiState.displayName, onValueChange = uiState.listener::onDisplayNameChanged, enabled = uiState.inputEnabled, modifier = Modifier.fillMaxWidth(), label = { Text("表示名") }, singleLine = true)
-                OutlinedTextField(value = uiState.summary, onValueChange = uiState.listener::onSummaryChanged, enabled = uiState.inputEnabled, modifier = Modifier.fillMaxWidth(), label = { Text("説明文") }, minLines = 4, maxLines = 10)
+                OutlinedTextField(value = uiState.displayName, onValueChange = uiState.listener::onDisplayNameChanged, enabled = uiState.inputEnabled, modifier = Modifier.fillMaxWidth(), label = {
+                    Text("表示名")
+                }, singleLine = true)
+                OutlinedTextField(value = uiState.summary, onValueChange = uiState.listener::onSummaryChanged, enabled = uiState.inputEnabled, modifier = Modifier.fillMaxWidth(), label = {
+                    Text("説明文")
+                }, minLines = 4, maxLines = 10)
                 uiState.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },

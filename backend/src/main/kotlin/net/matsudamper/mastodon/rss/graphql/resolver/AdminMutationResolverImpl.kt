@@ -172,6 +172,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                 adminAccount = updated.account.toGraphqlResponse(),
                 failure = null,
             )
+
             is AccountService.UpdateProfileResult.Failure -> QlAdminUpdateAccountProfileResult(
                 adminAccount = null,
                 failure = QlAdminUpdateAccountProfileFailure(
