@@ -139,6 +139,7 @@ internal fun AdminAccountContent(
                             onDismissRequest = { showPostDialog = false },
                         )
                     }
+                    content.profileDialog?.let { ProfileDialog(it) }
                     content.deleteNoteDialog?.let { DeleteNoteDialog(it, uiState.listener) }
                 }
 
@@ -249,6 +250,7 @@ private fun CompactLoadedAdminAccountContent(
             AccountCard(
                 account = content.account,
                 onClickOpenAccount = uiState.listener::onClickOpenAccount,
+                onClickEditProfile = uiState.listener::onClickEditProfile,
             )
         }
         item(key = "feed") {
@@ -329,6 +331,7 @@ private fun WideLoadedAdminAccountContent(
                         AccountCard(
                             account = content.account,
                             onClickOpenAccount = uiState.listener::onClickOpenAccount,
+                            onClickEditProfile = uiState.listener::onClickEditProfile,
                         )
                         FeedCard(content.feed, uiState.listener)
                     }
@@ -489,7 +492,11 @@ private fun AdminTextLink(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun AccountCard(account: AdminAccountScreenUiState.Account, onClickOpenAccount: () -> Unit) {
+private fun AccountCard(
+    account: AdminAccountScreenUiState.Account,
+    onClickOpenAccount: () -> Unit,
+    onClickEditProfile: () -> Unit,
+) {
     AdminSectionCard(title = "このアカウント") {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -501,6 +508,12 @@ private fun AccountCard(account: AdminAccountScreenUiState.Account, onClickOpenA
                 Text("${account.followerCount} 人", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             }
             OutlinedButton(onClick = onClickOpenAccount) { Text("公開画面") }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        LabeledValue(label = "表示名", value = account.displayName ?: "未設定（@${account.username} が出る）")
+        LabeledValue(label = "説明文", value = account.summary ?: "未設定（既定の文言が出る）")
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            OutlinedButton(onClick = onClickEditProfile) { Text("プロフィールを編集") }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         LabeledValue(label = "Actor URL", value = account.actorUrl)
@@ -656,6 +669,61 @@ private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog,
                 if (dialog.hasSourceArticle) TextButton(onClick = { listener.onConfirmDeleteNote(false) }, enabled = !dialog.deleting) { Text("投稿だけ削除") }
                 TextButton(onClick = listener::onDismissDeleteNote, enabled = !dialog.deleting) { Text("やめる") }
             }
+        },
+    )
+}
+
+@Composable
+private fun ProfileDialog(dialog: AdminAccountScreenUiState.ProfileDialog) {
+    val listener = dialog.listener
+
+    AlertDialog(
+        onDismissRequest = { if (!dialog.saving) listener.onDismiss() },
+        title = { Text("プロフィールの編集") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Mastodon のプロフィールに出る。空にすると未設定に戻る。", style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    value = dialog.displayName,
+                    onValueChange = listener::onDisplayNameChanged,
+                    enabled = !dialog.busy,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("表示名") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = dialog.summary,
+                    onValueChange = listener::onSummaryChanged,
+                    enabled = !dialog.busy,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("説明文") },
+                    minLines = 4,
+                    maxLines = 10,
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    OutlinedButton(onClick = listener::onClickApplyFeed, enabled = dialog.canApplyFeed && !dialog.busy) {
+                        Text(if (dialog.applyingFeed) "取得中" else "フィードから追加")
+                    }
+                }
+                Text(
+                    if (dialog.canApplyFeed) {
+                        "「フィードから追加」を押すと、登録済みフィードの題名と説明で入力を上書きする。"
+                    } else {
+                        "フィードを登録すると、その題名と説明で入力を上書きできる。"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                dialog.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            Button(onClick = listener::onClickSave, enabled = !dialog.busy) {
+                Text(if (dialog.saving) "保存中" else "保存")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = listener::onDismiss, enabled = !dialog.saving) { Text("閉じる") }
         },
     )
 }

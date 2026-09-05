@@ -25,6 +25,7 @@ data class AdminAccountScreenUiState(
          * @param account この画面が扱うアカウント
          * @param feed RSS フィードの登録状況と入力欄
          * @param post 投稿の入力欄
+         * @param profileDialog プロフィールの編集。出していなければ null
          * @param notes 配信した投稿。新しい順
          * @param deleteNoteDialog 投稿を消す前の確認。出していなければ null
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
@@ -35,6 +36,7 @@ data class AdminAccountScreenUiState(
             val account: Account,
             val feed: Feed,
             val post: Post,
+            val profileDialog: ProfileDialog?,
             val notes: List<Note>,
             val deleteNoteDialog: DeleteNoteDialog?,
             val notesError: String?,
@@ -51,6 +53,8 @@ data class AdminAccountScreenUiState(
     /**
      * @param acct Mastodon の検索窓に貼る形
      * @param createdAt 「追加: <値>」の形で出す
+     * @param displayName プロフィールの表示名。未設定なら null
+     * @param summary プロフィールの説明文。未設定なら null
      */
     data class Account(
         val username: String,
@@ -58,7 +62,46 @@ data class AdminAccountScreenUiState(
         val actorUrl: String,
         val createdAt: String,
         val followerCount: Int,
+        val displayName: String?,
+        val summary: String?,
     )
+
+    /**
+     * プロフィールの編集ダイアログ。
+     *
+     * @param saving 保存中。入力欄とボタンを押せなくする
+     * @param applyingFeed フィードから取ってきている最中
+     * @param canApplyFeed フィードが登録されていない間は押せない
+     * @param error 保存かフィードの取得に失敗した理由
+     */
+    data class ProfileDialog(
+        val displayName: String,
+        val summary: String,
+        val saving: Boolean,
+        val applyingFeed: Boolean,
+        val canApplyFeed: Boolean,
+        val error: String?,
+        val listener: ProfileDialogListener,
+    ) {
+        val busy: Boolean get() = saving || applyingFeed
+    }
+
+    @Immutable
+    interface ProfileDialogListener {
+        fun onDisplayNameChanged(text: String)
+
+        fun onSummaryChanged(text: String)
+
+        /**
+         * 登録済みフィードの題名と説明で入力欄を上書きする。
+         * 書きかけの入力は消える
+         */
+        fun onClickApplyFeed()
+
+        fun onClickSave()
+
+        fun onDismiss()
+    }
 
     sealed interface Feed {
         data class Registered(
@@ -185,6 +228,11 @@ data class AdminAccountScreenUiState(
         fun onClickOpenAccount()
 
         fun onClickBackToAdmin()
+
+        /**
+         * プロフィールの編集ダイアログを出す
+         */
+        fun onClickEditProfile()
 
         fun onFeedUrlChanged(text: String)
 

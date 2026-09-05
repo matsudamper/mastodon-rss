@@ -20,6 +20,8 @@ private fun AdminAccountContentPreview() {
                         actorUrl = "https://example.com/users/$username",
                         createdAt = "2026-09-01 10:00",
                         followerCount = 128,
+                        displayName = "Kotlin Updates",
+                        summary = "Kotlin の更新を流す",
                     ),
                     feed = AdminAccountScreenUiState.Feed.Registered(
                         url = "https://example.com/feed.xml",
@@ -36,6 +38,7 @@ private fun AdminAccountContentPreview() {
                         result = null,
                         error = null,
                     ),
+                    profileDialog = null,
                     notes = listOf(
                         AdminAccountScreenUiState.Note(
                             url = "https://example.com/notes/1",
@@ -71,6 +74,8 @@ private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Li
     override fun onClickOpenAccount() = Unit
 
     override fun onClickBackToAdmin() = Unit
+
+    override fun onClickEditProfile() = Unit
 
     override fun onFeedUrlChanged(text: String) = Unit
 
