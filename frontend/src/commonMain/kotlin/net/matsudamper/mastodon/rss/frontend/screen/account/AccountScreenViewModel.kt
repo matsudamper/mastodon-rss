@@ -223,7 +223,7 @@ class AccountScreenViewModel(
                     notes = state.notes.map { it.toUiState() },
                     notesError = state.notesError,
                     notesLoading = state.notesLoading,
-                    canLoadMore = state.notesCursor != null,
+                    loadMoreVisible = state.notesCursor != null,
                     loadingMore = state.loadingMore,
                 )
             }
