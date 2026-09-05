@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +21,8 @@ class AdminAccountsScreenViewModel(
     private val events = EventSender<Event>()
     internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+    private var sessionJob: Job? = null
+    private var accountsJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountsScreenUiState> =
         MutableStateFlow(
@@ -72,13 +75,27 @@ class AdminAccountsScreenViewModel(
     }
 
     private fun reload() {
+        sessionJob?.cancel()
+        accountsJob?.cancel()
+        accountsJob = null
         viewModelStateFlow.update { ViewModelState() }
-        viewModelScope.launch {
-            val session = api.session()
-            viewModelStateFlow.update { it.copy(session = session) }
+        sessionJob = viewModelScope.launch {
+            api.session().collect { session ->
+                viewModelStateFlow.update { it.copy(session = session) }
 
-            if (session is AdminSessionResult.Success && session.loggedIn) {
-                viewModelStateFlow.update { it.copy(accounts = api.accounts()) }
+                if (session is AdminSessionResult.Success && session.loggedIn) {
+                    if (accountsJob == null) {
+                        accountsJob = viewModelScope.launch {
+                            api.accounts().collect { accounts ->
+                                viewModelStateFlow.update { it.copy(accounts = accounts) }
+                            }
+                        }
+                    }
+                } else {
+                    accountsJob?.cancel()
+                    accountsJob = null
+                    viewModelStateFlow.update { it.copy(accounts = null) }
+                }
             }
         }
     }

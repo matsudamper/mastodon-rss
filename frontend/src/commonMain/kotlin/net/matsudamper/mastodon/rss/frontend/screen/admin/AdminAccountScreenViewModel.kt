@@ -38,6 +38,7 @@ class AdminAccountScreenViewModel(
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     private var reloadJob: Job? = null
+    private var accountJob: Job? = null
     private var notesJob: Job? = null
     private var loadMoreJob: Job? = null
     private var postJob: Job? = null
@@ -161,6 +162,8 @@ class AdminAccountScreenViewModel(
 
     private fun reload() {
         reloadJob?.cancel()
+        accountJob?.cancel()
+        accountJob = null
         postJob?.cancel()
         unpublishedJob?.cancel()
         postUnpublishedJob?.cancel()
@@ -175,18 +178,31 @@ class AdminAccountScreenViewModel(
         }
 
         reloadJob = viewModelScope.launch {
-            val session = api.session()
-            viewModelStateFlow.update { it.copy(session = session) }
+            api.session().collect { session ->
+                viewModelStateFlow.update { it.copy(session = session) }
 
-            if (session !is AdminSessionResult.Success || !session.loggedIn) return@launch
+                if (session !is AdminSessionResult.Success || !session.loggedIn) {
+                    accountJob?.cancel()
+                    accountJob = null
+                    return@collect
+                }
 
-            val account = api.account(username)
-            viewModelStateFlow.update { it.copy(account = account) }
+                if (accountJob == null) {
+                    accountJob = viewModelScope.launch {
+                        api.watchAccount(username).collect { account ->
+                            val previousAccount = viewModelStateFlow.value.loadedAccount
+                            viewModelStateFlow.update { it.copy(account = account) }
 
-            if (account is AdminAccountResult.Success && account.account != null) {
-                loadNotes()
-                if (account.account.feed != null) {
-                    loadUnpublished(account.account.account.id)
+                            val loadedAccount = (account as? AdminAccountResult.Success)?.account
+                                ?: return@collect
+                            if (previousAccount == null) {
+                                loadNotes()
+                            }
+                            if (loadedAccount.feed != null && previousAccount?.feed == null) {
+                                loadUnpublished(loadedAccount.account.id)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -197,31 +213,33 @@ class AdminAccountScreenViewModel(
         viewModelStateFlow.update { it.copy(unpublishedError = null) }
 
         unpublishedJob = viewModelScope.launch {
-            when (val result = api.unpublishedFeedItems(accountId)) {
-                is AdminUnpublishedFeedItemsResult.Success -> {
-                    viewModelStateFlow.update {
-                        it.copy(
-                            unpublishedItems = result.items,
-                            unpublishedError = null,
-                        )
+            api.unpublishedFeedItems(accountId).collect { result ->
+                when (result) {
+                    is AdminUnpublishedFeedItemsResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                unpublishedItems = result.items,
+                                unpublishedError = null,
+                            )
+                        }
                     }
-                }
 
-                is AdminUnpublishedFeedItemsResult.Rejected -> {
-                    viewModelStateFlow.update {
-                        it.copy(
-                            unpublishedItems = emptyList(),
-                            unpublishedError = result.reason.toMessage(),
-                        )
+                    is AdminUnpublishedFeedItemsResult.Rejected -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                unpublishedItems = emptyList(),
+                                unpublishedError = result.reason.toMessage(),
+                            )
+                        }
                     }
-                }
 
-                is AdminUnpublishedFeedItemsResult.Failure -> {
-                    viewModelStateFlow.update {
-                        it.copy(
-                            unpublishedItems = emptyList(),
-                            unpublishedError = result.message,
-                        )
+                    is AdminUnpublishedFeedItemsResult.Failure -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                unpublishedItems = emptyList(),
+                                unpublishedError = result.message,
+                            )
+                        }
                     }
                 }
             }
