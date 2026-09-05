@@ -6,23 +6,44 @@ query AdminSession {
     }
 }
 
-query AdminAccounts {
+query AdminAccountsScreen {
     admin {
         adminAccounts {
-            ...AdminAccountFields
+            ...AdminAccountListFields
         }
     }
 }
 
-query AdminAccount($username: String!) {
+query AdminAccountScreen($username: String!) {
     admin {
         adminAccount(username: $username) {
-            ...AdminAccountFields
+            ...AdminAccountScreenFields
         }
     }
 }
 
-fragment AdminAccountFields on AdminAccount {
+query AdminAccountId($username: String!) {
+    admin {
+        adminAccount(username: $username) {
+            account {
+                id
+            }
+        }
+    }
+}
+
+fragment AdminAccountListFields on AdminAccount {
+    account {
+        id
+        username
+        acct
+        actorUrl
+    }
+    createdAt
+    followerCount
+}
+
+fragment AdminAccountScreenFields on AdminAccount {
     account {
         id
         username

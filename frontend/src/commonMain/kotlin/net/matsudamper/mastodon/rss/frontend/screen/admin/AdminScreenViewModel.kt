@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +20,7 @@ internal class AdminScreenViewModel(
     private val events = EventSender<Event>()
     internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+    private var sessionJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminScreenUiState> =
         MutableStateFlow(
@@ -80,10 +82,12 @@ internal class AdminScreenViewModel(
     }
 
     private fun reload() {
+        sessionJob?.cancel()
         viewModelStateFlow.update { it.copy(session = null) }
-        viewModelScope.launch {
-            val session = api.session()
-            viewModelStateFlow.update { it.copy(session = session) }
+        sessionJob = viewModelScope.launch {
+            api.session().collect { session ->
+                viewModelStateFlow.update { it.copy(session = session) }
+            }
         }
     }
 
@@ -95,13 +99,12 @@ internal class AdminScreenViewModel(
         viewModelScope.launch {
             when (val result = api.login(state.password)) {
                 AdminLoginResult.Success -> {
-                    val session = api.session()
                     viewModelStateFlow.update {
                         it.copy(
                             submitting = false,
-                            session = session,
                         )
                     }
+                    reload()
                 }
 
                 AdminLoginResult.WrongPassword -> {

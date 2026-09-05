@@ -2,7 +2,7 @@ package net.matsudamper.mastodon.rss.frontend.logic.account
 
 sealed interface AccountsResult {
     data class Success(
-        val accounts: List<Account>,
+        val accounts: List<HomeAccount>,
         val hasMore: Boolean,
         val nextCursor: String?,
     ) : AccountsResult
@@ -11,3 +11,9 @@ sealed interface AccountsResult {
         val message: String,
     ) : AccountsResult
 }
+
+data class HomeAccount(
+    val id: Long,
+    val username: String,
+    val acct: String,
+)

@@ -1,4 +1,4 @@
-query AccountScreen($username: String!, $query: AccountNotesQuery!) {
+query AccountScreen($username: String!) {
     account(username: $username) {
         id
         username
@@ -9,15 +9,6 @@ query AccountScreen($username: String!, $query: AccountNotesQuery!) {
         feed {
             url
             siteUrl
-        }
-    }
-    notes(query: $query) {
-        nodes {
-            ...AccountNoteFields
-        }
-        pageInfo {
-            hasMore
-            nextCursor
         }
     }
 }
