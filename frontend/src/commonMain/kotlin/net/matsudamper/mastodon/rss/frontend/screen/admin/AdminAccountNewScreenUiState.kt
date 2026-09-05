@@ -26,7 +26,8 @@ data class AdminAccountNewScreenUiState(
             val submitting: Boolean,
             val error: String?,
         ) : Content {
-            val canSubmit: Boolean get() = !submitting && username.isNotBlank()
+            val usernameInputEnabled: Boolean get() = !submitting
+            val addButtonEnabled: Boolean get() = !submitting && username.isNotBlank()
         }
 
         /**
