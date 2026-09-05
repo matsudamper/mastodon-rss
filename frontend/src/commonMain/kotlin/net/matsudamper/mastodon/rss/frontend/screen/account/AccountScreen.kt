@@ -264,6 +264,10 @@ private fun WideLoadedAccountContent(
         notesListState = notesListState,
     )
 
+    LaunchedEffect(content.notes.size) {
+        pageScrollState.resyncNotesOverflowAfterAppend(notesListState)
+    }
+
     CoordinatedTwoPaneLayout(
         modifier = Modifier
             .fillMaxSize()

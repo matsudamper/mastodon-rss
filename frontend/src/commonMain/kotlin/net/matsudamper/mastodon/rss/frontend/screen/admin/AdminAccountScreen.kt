@@ -18,7 +18,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -121,41 +123,6 @@ internal fun AdminAccountContent(
                 .padding(horizontal = edgePadding),
         ) {
             when (val content = uiState.content) {
-                AdminAccountScreenUiState.Content.Loading -> {
-                    AdminSectionCard(
-                        modifier = Modifier.padding(vertical = edgePadding),
-                        title = "読み込み中",
-                    ) {
-                        Text("アカウントを取ってきている。", style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-
-                AdminAccountScreenUiState.Content.RequireLogin -> {
-                    Box(modifier = Modifier.padding(vertical = edgePadding)) {
-                        RequireLoginCard(onClickAdmin = uiState.listener::onClickAdmin)
-                    }
-                }
-
-                AdminAccountScreenUiState.Content.NotFound -> {
-                    AdminSectionCard(
-                        modifier = Modifier.padding(vertical = edgePadding),
-                        title = "このアカウントは無い",
-                    ) {
-                        Text("この名前では Mastodon からも見つからない。", style = MaterialTheme.typography.bodyMedium)
-                        AdminTextLink(text = "アカウントの一覧に戻る", onClick = uiState.listener::onClickBackToAdmin)
-                    }
-                }
-
-                is AdminAccountScreenUiState.Content.Error -> {
-                    AdminSectionCard(
-                        modifier = Modifier.padding(vertical = edgePadding),
-                        title = "この画面を出せない",
-                    ) {
-                        Text(content.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                        OutlinedButton(onClick = { uiState.listener.onClickReload() }) { Text("もう一度試す") }
-                    }
-                }
-
                 is AdminAccountScreenUiState.Content.Loaded -> {
                     LoadedAdminAccountContent(
                         uiState = uiState,
@@ -174,7 +141,58 @@ internal fun AdminAccountContent(
                     }
                     content.deleteNoteDialog?.let { DeleteNoteDialog(it, uiState.listener) }
                 }
+
+                else -> {
+                    AdminAccountNonLoadedContent(
+                        content = content,
+                        verticalPadding = edgePadding,
+                        listener = uiState.listener,
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun AdminAccountNonLoadedContent(
+    content: AdminAccountScreenUiState.Content,
+    verticalPadding: Dp,
+    listener: AdminAccountScreenUiState.Listener,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = verticalPadding),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        when (content) {
+            AdminAccountScreenUiState.Content.Loading -> {
+                AdminSectionCard(title = "読み込み中") {
+                    Text("アカウントを取ってきている。", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            AdminAccountScreenUiState.Content.RequireLogin -> {
+                RequireLoginCard(onClickAdmin = listener::onClickAdmin)
+            }
+
+            AdminAccountScreenUiState.Content.NotFound -> {
+                AdminSectionCard(title = "このアカウントは無い") {
+                    Text("この名前では Mastodon からも見つからない。", style = MaterialTheme.typography.bodyMedium)
+                    AdminTextLink(text = "アカウントの一覧に戻る", onClick = listener::onClickBackToAdmin)
+                }
+            }
+
+            is AdminAccountScreenUiState.Content.Error -> {
+                AdminSectionCard(title = "この画面を出せない") {
+                    Text(content.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                    OutlinedButton(onClick = { listener.onClickReload() }) { Text("もう一度試す") }
+                }
+            }
+
+            is AdminAccountScreenUiState.Content.Loaded -> Unit
         }
     }
 }
@@ -254,6 +272,10 @@ private fun WideLoadedAdminAccountContent(
         pageScrollState = pageScrollState,
         notesListState = notesListState,
     )
+
+    LaunchedEffect(content.notes.size) {
+        pageScrollState.resyncNotesOverflowAfterAppend(notesListState)
+    }
 
     CoordinatedTwoPaneLayout(
         modifier = Modifier

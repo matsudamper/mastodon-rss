@@ -56,6 +56,25 @@ internal class TwoPaneScrollState {
         viewportHeightPx = height
     }
 
+    /**
+     * 投稿を追加読み込みしたあと、終端超過分を LazyColumn のスクロールへ戻す。
+     *
+     * 投稿が尽きた先はカラムごとずらしている。追加で下に伸びた分は LazyColumn 側で
+     * 吸収できるので、ずらし量を減らして両ペインの位置を揃える。
+     */
+    fun resyncNotesOverflowAfterAppend(notesListState: LazyListState) {
+        if (notesOverflowPx <= 0f) return
+        val notesBelow = notesBelowViewportPx(notesListState)
+        if (notesBelow <= 0f) return
+        val target = when (notesBelow) {
+            Float.POSITIVE_INFINITY -> notesOverflowPx
+            else -> notesOverflowPx.coerceAtMost(notesBelow)
+        }
+        if (target <= 0f) return
+        val scrolled = notesListState.dispatchRawDelta(target)
+        notesOverflowPx -= scrolled
+    }
+
     fun scrollBy(delta: Float, notesListState: LazyListState): Float {
         return if (delta > 0f) {
             scrollForward(delta, notesListState)
