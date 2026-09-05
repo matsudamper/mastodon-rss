@@ -29,7 +29,6 @@ sealed interface Screen : NavKey {
      * 下に何を敷くかだけ。
      */
     sealed interface Overlay : Screen {
-        /** 下に敷く画面 */
         val background: Screen
     }
 
