@@ -85,6 +85,21 @@ sealed interface Screen : NavKey {
     }
 
     /**
+     * RSS フィードの追加。[AdminAccount] の上にダイアログとして出す。
+     *
+     * 追加は入力から登録まで手順があり、その間だけの状態を持つ。アカウントの画面に
+     * 混ぜると、開いただけでは使わない状態まで一緒に抱えることになる。
+     */
+    data class AdminAccountFeedNew(
+        val username: String,
+    ) : Overlay {
+        override val path: String =
+            "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$ACCOUNT_PREFIX$username/$FEEDS_SEGMENT/$NEW_SEGMENT"
+        override val title: String = "@$username のフィードを追加 | $SITE_NAME"
+        override val background: Screen = AdminAccount(username)
+    }
+
+    /**
      * アカウント画面。`/@feed1` のように `@` + ユーザー名で開く。
      *
      * ActivityPub の Actor JSON を返す `/users/{name}` とはパスを分ける。
@@ -122,6 +137,8 @@ sealed interface Screen : NavKey {
         private const val ACCOUNTS_SEGMENT: String = "accounts"
 
         private const val NEW_SEGMENT: String = "new"
+
+        private const val FEEDS_SEGMENT: String = "feeds"
 
         /** アカウント画面の目印。ユーザー名に `@` は使えないので、これで一意に判別できる */
         const val ACCOUNT_PREFIX: String = "@"
@@ -164,6 +181,11 @@ sealed interface Screen : NavKey {
 
                     rest.size == 2 && rest[0] == ACCOUNTS_SEGMENT -> {
                         accountNameOf(rest[1])?.let { AdminAccount(it) } ?: NotFound(path)
+                    }
+
+                    rest.size == 4 && rest[0] == ACCOUNTS_SEGMENT &&
+                        rest[2] == FEEDS_SEGMENT && rest[3] == NEW_SEGMENT -> {
+                        accountNameOf(rest[1])?.let { AdminAccountFeedNew(it) } ?: NotFound(path)
                     }
 
                     else -> NotFound(path)
