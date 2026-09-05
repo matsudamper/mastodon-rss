@@ -59,7 +59,7 @@ internal fun AdminAccountFeedNewContent(
     uiState: AdminAccountFeedNewScreenUiState,
 ) {
     AlertDialog(
-        onDismissRequest = { if (uiState.canClose) uiState.listener.onClickClose() },
+        onDismissRequest = { if (uiState.closeEnabled) uiState.listener.onClickClose() },
         title = { Text("RSS フィードを追加") },
         text = {
             // プレビューの件数だけ縦に伸びるので、枠に収まらないことがある
@@ -76,7 +76,7 @@ internal fun AdminAccountFeedNewContent(
                 OutlinedTextField(
                     value = uiState.url,
                     onValueChange = uiState.listener::onUrlChanged,
-                    enabled = !uiState.fetching && !uiState.saving,
+                    enabled = uiState.urlInputEnabled,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("フィード URL") },
                     singleLine = true,
@@ -86,7 +86,7 @@ internal fun AdminAccountFeedNewContent(
                 )
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = uiState.listener::onClickFetch, enabled = uiState.canFetch) {
+                    TextButton(onClick = uiState.listener::onClickFetch, enabled = uiState.fetchButtonEnabled) {
                         Text(if (uiState.fetching) "取得中" else "取得")
                     }
                 }
@@ -101,12 +101,12 @@ internal fun AdminAccountFeedNewContent(
             }
         },
         confirmButton = {
-            Button(onClick = uiState.listener::onClickSave, enabled = uiState.canSave) {
+            Button(onClick = uiState.listener::onClickSave, enabled = uiState.saveButtonEnabled) {
                 Text(if (uiState.saving) "登録中" else "登録する")
             }
         },
         dismissButton = {
-            TextButton(onClick = uiState.listener::onClickClose, enabled = uiState.canClose) {
+            TextButton(onClick = uiState.listener::onClickClose, enabled = uiState.closeEnabled) {
                 Text("やめる")
             }
         },
