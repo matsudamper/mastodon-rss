@@ -10,6 +10,7 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEEDS
 import net.matsudamper.mastodon.rss.repository.jooq.tables.records.FeedsRecord
 import net.matsudamper.mastodon.rss.shared.AccountId
+import org.jooq.DSLContext
 
 internal class SqliteFeedRepository(
     private val jooq: SqliteJooq,
@@ -100,7 +101,7 @@ internal class SqliteFeedRepository(
         dsl.insert(feed)
     }
 
-    private fun org.jooq.DSLContext.insert(feed: NewFeed): Feed {
+    private fun DSLContext.insert(feed: NewFeed): Feed {
         val createdAt = Instant.now()
         val id = insertInto(FEEDS)
             .set(FEEDS.ACCOUNT_ID, feed.accountId.value)
@@ -221,14 +222,14 @@ internal class SqliteFeedRepository(
         return lastFetchedAt.plusSeconds(pollIntervalSeconds) <= now
     }
 
-    private fun org.jooq.DSLContext.findByAccountId(accountId: AccountId): Feed? {
+    private fun DSLContext.findByAccountId(accountId: AccountId): Feed? {
         return selectFrom(FEEDS)
             .where(FEEDS.ACCOUNT_ID.eq(accountId.value))
             .fetchOne()
             ?.toFeed()
     }
 
-    private fun org.jooq.DSLContext.findByUrl(url: String): Feed? = selectFrom(FEEDS)
+    private fun DSLContext.findByUrl(url: String): Feed? = selectFrom(FEEDS)
         .where(FEEDS.URL.eq(url))
         .fetchOne()
         ?.toFeed()
