@@ -3,8 +3,8 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -67,49 +67,30 @@ internal fun AccountFollowersContent(
         onDismissRequest = uiState.listener::onClickClose,
         title = { Text("フォロワー") },
         text = {
-            // 人数の分だけ縦に伸びるので、画面に収まらないことがある
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                when (val content = uiState.content) {
-                    AccountFollowersScreenUiState.Content.Loading -> {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-                    }
+            when (val content = uiState.content) {
+                AccountFollowersScreenUiState.Content.Loading -> {
+                    CircularProgressIndicator()
+                }
 
-                    AccountFollowersScreenUiState.Content.Empty -> {
-                        Text("まだフォロワーがいません", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                AccountFollowersScreenUiState.Content.Empty -> {
+                    Text("まだフォロワーがいません", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
 
-                    is AccountFollowersScreenUiState.Content.Error -> {
+                AccountFollowersScreenUiState.Content.NotFound -> {
+                    Text("アカウントが見つかりません", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                is AccountFollowersScreenUiState.Content.Error -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text(content.message, color = MaterialTheme.colorScheme.error)
                         TextButton(onClick = uiState.listener::onClickReload) {
                             Text("もう一度試す")
                         }
                     }
+                }
 
-                    is AccountFollowersScreenUiState.Content.Loaded -> {
-                        for (follower in content.followers) {
-                            TextLink(
-                                text = follower.actorUrl,
-                                modifier = Modifier.fillMaxWidth(),
-                                onClick = follower.listener::onClick,
-                            )
-                        }
-
-                        if (content.loadMoreButtonVisible) {
-                            if (content.loadMoreButtonLoading) {
-                                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-                            } else {
-                                TextButton(
-                                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                                    onClick = uiState.listener::onClickLoadMore,
-                                ) {
-                                    Text("もっと見る")
-                                }
-                            }
-                        }
-                    }
+                is AccountFollowersScreenUiState.Content.Loaded -> {
+                    FollowerList(content = content, listener = uiState.listener)
                 }
             }
         },
@@ -119,4 +100,52 @@ internal fun AccountFollowersContent(
             }
         },
     )
+}
+
+/**
+ * 人数の分だけ縦に伸びるので、画面に収まらない。続きを足すたびに増えるので、
+ * 見えている分だけ配置する
+ */
+@Composable
+private fun FollowerList(
+    content: AccountFollowersScreenUiState.Content.Loaded,
+    listener: AccountFollowersScreenUiState.Listener,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        items(
+            items = content.followers,
+            key = FollowerUiState::actorUrl,
+        ) { follower ->
+            TextLink(
+                text = follower.actorUrl,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = follower.listener::onClick,
+            )
+        }
+
+        item(key = "footer") {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (content.loadMoreErrorMessage != null) {
+                    Text(content.loadMoreErrorMessage, color = MaterialTheme.colorScheme.error)
+                }
+
+                if (content.loadMoreButtonVisible) {
+                    if (content.loadMoreButtonLoading) {
+                        CircularProgressIndicator()
+                    } else {
+                        TextButton(onClick = listener::onClickLoadMore) {
+                            Text("もっと見る")
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

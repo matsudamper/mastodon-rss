@@ -388,6 +388,18 @@ class AccountGraphQlTest {
             assertEquals(false, page2.pageInfo().boolean("hasMore"))
         }
 
+    @Test
+    fun `無い名前のフォロワーは null になる`() =
+        testApplication {
+            application { module(testDependencies()) }
+
+            val response = queryFollowers("feed1").body()
+
+            // 0 人として返すと、無いアカウントがフォロワーのいないアカウントに見える
+            assertEquals(JsonNull, response.obj("data").getValue("followers"))
+            assertFalse(response.containsKey("errors"))
+        }
+
     private fun FollowerRepository.acceptFollow(username: String, actorUri: String) {
         record(
             IncomingFollow(

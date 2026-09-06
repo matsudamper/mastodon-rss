@@ -13,8 +13,8 @@ type Query {
     "アカウントが配信した投稿。新しい順"
     notes(query: AccountNotesQuery!): AccountNotesConnection! @lazy
 
-    "アカウントのフォロワー。アクター URL 順"
-    followers(query: AccountFollowersQuery!): AccountFollowersConnection! @lazy
+    "アカウントのフォロワー。アクター URL 順。応答しない名前なら null"
+    followers(query: AccountFollowersQuery!): AccountFollowersConnection @lazy
 
     "アカウントが配信した投稿 1 件"
     note(username: String!, id: PublicNoteId!): AccountNote

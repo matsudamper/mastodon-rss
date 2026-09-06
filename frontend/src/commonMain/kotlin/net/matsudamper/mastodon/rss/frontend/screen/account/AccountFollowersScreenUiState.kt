@@ -15,13 +15,20 @@ data class AccountFollowersScreenUiState(
         data object Empty : Content
 
         /**
+         * この名前のアカウントは無い。フォロワーがいないのとは分けて出す
+         */
+        data object NotFound : Content
+
+        /**
          * @param loadMoreButtonVisible 続きがあるうちだけ「もっと見る」を出す
          * @param loadMoreButtonLoading 続きを取っている間は待っていると分かるものに差し替える
+         * @param loadMoreErrorMessage 続きを取れなかった理由。取れた分は出したままにする
          */
         data class Loaded(
             val followers: List<FollowerUiState>,
             val loadMoreButtonVisible: Boolean,
             val loadMoreButtonLoading: Boolean,
+            val loadMoreErrorMessage: String?,
         ) : Content
 
         data class Error(

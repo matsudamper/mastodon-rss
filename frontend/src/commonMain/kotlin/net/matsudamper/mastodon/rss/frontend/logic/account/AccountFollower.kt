@@ -18,6 +18,11 @@ sealed interface AccountFollowersResult {
         val cursor: String?,
     ) : AccountFollowersResult
 
+    /**
+     * この名前のアカウントは無い
+     */
+    data object NotFound : AccountFollowersResult
+
     data class Failure(
         val message: String,
     ) : AccountFollowersResult

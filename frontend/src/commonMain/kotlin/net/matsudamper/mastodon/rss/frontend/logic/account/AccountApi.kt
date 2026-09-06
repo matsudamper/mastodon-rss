@@ -110,7 +110,7 @@ class AccountApi(
         }
 
         val data = response.data ?: return AccountFollowersResult.Failure(response.failureMessage())
-        val followers = data.followers
+        val followers = data.followers ?: return AccountFollowersResult.NotFound
 
         return AccountFollowersResult.Success(
             followers = followers.nodes.map { AccountFollower(actorUrl = it.actorUrl) },

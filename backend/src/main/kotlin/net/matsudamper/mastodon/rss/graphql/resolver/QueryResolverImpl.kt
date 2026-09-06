@@ -121,36 +121,50 @@ class QueryResolverImpl : QueryResolver {
         )
     }
 
+    /**
+     * 名前を引き当ててから返す。引けない名前で空の一覧を返すと、無いアカウントが
+     * フォロワー 0 人のアカウントとして見える
+     */
     override fun followers(
         query: QlAccountFollowersQuery,
         env: DataFetchingEnvironment,
-    ): CompletionStage<DataFetcherResult<QlAccountFollowersConnection>> {
+    ): CompletionStage<DataFetcherResult<QlAccountFollowersConnection?>> {
         val cursor = query.cursor?.let { FollowersCursor.decode(it) }
 
-        val connection = if (query.cursor != null && cursor == null) {
-            QlAccountFollowersConnection(
-                nodes = listOf(),
-                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
-            )
-        } else {
-            val page = GraphQlEngine.diContainer(env).accountService.followers(
-                username = query.username,
-                afterActorUrl = cursor?.afterActorUrl,
-                limit = query.limit.coerceIn(0, MAX_FOLLOWERS_LIMIT),
-            )
+        return GraphQlEngine
+            .dataLoaders(env)
+            .accountDataLoader
+            .get(env)
+            .load(query.username)
+            .thenApply { account ->
+                val connection = when {
+                    account == null -> null
 
-            QlAccountFollowersConnection(
-                nodes = page.actorUrls.map { QlAccountFollower(actorUrl = it) },
-                pageInfo = QlPageInfo(
-                    hasMore = page.hasMore,
-                    nextCursor = page.nextActorUrl?.let { FollowersCursor(afterActorUrl = it).encode() },
-                ),
-            )
-        }
+                    // 読めないカーソルは続きが無い扱い。開き直せば先頭から取れる
+                    query.cursor != null && cursor == null -> QlAccountFollowersConnection(
+                        nodes = listOf(),
+                        pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+                    )
 
-        return CompletableFuture.completedFuture(
-            DataFetcherResult.Builder(connection).build(),
-        )
+                    else -> {
+                        val page = GraphQlEngine.diContainer(env).accountService.followers(
+                            username = account.urls.username,
+                            afterActorUrl = cursor?.afterActorUrl,
+                            limit = query.limit.coerceIn(0, MAX_FOLLOWERS_LIMIT),
+                        )
+
+                        QlAccountFollowersConnection(
+                            nodes = page.actorUrls.map { QlAccountFollower(actorUrl = it) },
+                            pageInfo = QlPageInfo(
+                                hasMore = page.hasMore,
+                                nextCursor = page.nextActorUrl?.let { FollowersCursor(afterActorUrl = it).encode() },
+                            ),
+                        )
+                    }
+                }
+
+                DataFetcherResult.Builder<QlAccountFollowersConnection?>(connection).build()
+            }
     }
 
     override fun note(

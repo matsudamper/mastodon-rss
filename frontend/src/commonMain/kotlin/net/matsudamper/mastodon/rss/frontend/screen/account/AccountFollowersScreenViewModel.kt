@@ -65,9 +65,14 @@ class AccountFollowersScreenViewModel(
                             cursor = result.cursor,
                             loaded = true,
                             error = null,
+                            loadMoreError = null,
                             loadingMore = false,
                         )
                     }
+                }
+
+                AccountFollowersResult.NotFound -> {
+                    viewModelStateFlow.update { it.copy(notFound = true, loadingMore = false) }
                 }
 
                 is AccountFollowersResult.Failure -> {
@@ -89,14 +94,19 @@ class AccountFollowersScreenViewModel(
                         current.copy(
                             followers = current.followers + result.followers,
                             cursor = result.cursor,
-                            error = null,
+                            loadMoreError = null,
                             loadingMore = false,
                         )
                     }
                 }
 
+                // 途中でアカウントが消えた。取れた分を出したままにしても続きは取れない
+                AccountFollowersResult.NotFound -> {
+                    viewModelStateFlow.update { it.copy(notFound = true, loadingMore = false) }
+                }
+
                 is AccountFollowersResult.Failure -> {
-                    viewModelStateFlow.update { it.copy(error = result.message, loadingMore = false) }
+                    viewModelStateFlow.update { it.copy(loadMoreError = result.message, loadingMore = false) }
                 }
             }
         }
@@ -104,8 +114,9 @@ class AccountFollowersScreenViewModel(
 
     private fun createUiState(state: ViewModelState): AccountFollowersScreenUiState {
         val content = when {
-            // 1 ページ目が取れていれば、続きが取れなくても取れた分は出す
-            state.error != null && !state.loaded -> AccountFollowersScreenUiState.Content.Error(state.error)
+            state.notFound -> AccountFollowersScreenUiState.Content.NotFound
+
+            state.error != null -> AccountFollowersScreenUiState.Content.Error(state.error)
 
             !state.loaded -> AccountFollowersScreenUiState.Content.Loading
 
@@ -126,6 +137,7 @@ class AccountFollowersScreenViewModel(
                 },
                 loadMoreButtonVisible = state.cursor != null,
                 loadMoreButtonLoading = state.loadingMore,
+                loadMoreErrorMessage = state.loadMoreError,
             )
         }
 
@@ -138,13 +150,17 @@ class AccountFollowersScreenViewModel(
     /**
      * @param loaded 1 ページ目を取れたか。取れる前と、1 人もいないのとを分ける
      * @param cursor 続きを取るときに渡す。null なら最後まで取れている
+     * @param error 1 ページ目を取れなかった理由
+     * @param loadMoreError 続きを取れなかった理由。1 ページ目とは分けて持ち、取れた分は消さない
      */
     private data class ViewModelState(
         val followers: List<AccountFollower> = listOf(),
         val cursor: String? = null,
         val loaded: Boolean = false,
+        val notFound: Boolean = false,
         val loadingMore: Boolean = false,
         val error: String? = null,
+        val loadMoreError: String? = null,
     )
 
     interface Event {
