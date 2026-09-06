@@ -52,12 +52,15 @@ internal fun actorDocument(
     actorKey: ActorKey,
     feedLinks: FeedLinks,
     profile: ActorProfile,
-): Actor =
-    Actor(
+): Actor {
+    val storedSummary = profile.summary
+    val summary = if (storedSummary == null) SUMMARY else summaryHtml(storedSummary)
+
+    return Actor(
         id = urls.actorId,
         preferredUsername = urls.username,
         name = profile.displayName ?: urls.username,
-        summary = profile.summary?.let { summaryHtml(it) } ?: SUMMARY,
+        summary = summary,
         inbox = urls.inbox,
         outbox = urls.outbox,
         featured = urls.featured,
@@ -73,6 +76,7 @@ internal fun actorDocument(
             publicKeyPem = actorKey.publicKeyPem,
         ),
     )
+}
 
 /**
  * フィードの URL をプロフィールのリンク集にする。

@@ -18,12 +18,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 
 @Composable
 internal fun AdminAccountProfileEditScreen(username: String, navController: Navigator) {
     val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(username, viewModelScope) { AdminAccountProfileEditScreenViewModel(username, viewModelScope) }
+    val viewModel = remember(username, viewModelScope) { AdminAccountProfileEditScreenViewModel(username, viewModelScope, AdminApi()) }
     val uiState by viewModel.uiStateFlow.collectAsState()
     LaunchedEffect(viewModel.eventHandler, navController) {
         viewModel.eventHandler.collect(object : AdminAccountProfileEditScreenViewModel.Event {

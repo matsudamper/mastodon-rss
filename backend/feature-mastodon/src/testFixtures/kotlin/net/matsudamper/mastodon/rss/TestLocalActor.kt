@@ -37,7 +37,9 @@ object TestLocalActor {
         ),
     )
 
-    /** [STORED_USERNAME] だけがプロフィールを設定している。未設定との差を見るため */
+    /**
+     * [STORED_USERNAME] だけがプロフィールを設定している。未設定との差を見るため
+     */
     val profiles: FakeStoredActorProfiles = FakeStoredActorProfiles(
         profiles = mapOf(
             STORED_USERNAME to ActorProfile(

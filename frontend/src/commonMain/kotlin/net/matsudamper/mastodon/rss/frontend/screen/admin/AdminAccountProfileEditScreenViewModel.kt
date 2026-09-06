@@ -17,7 +17,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUpdateAccountProfi
 class AdminAccountProfileEditScreenViewModel(
     private val username: String,
     private val viewModelScope: CoroutineScope,
-    private val api: AdminApi = AdminApi(),
+    private val api: AdminApi,
 ) {
     private val events = EventSender<Event>()
     internal val eventHandler = events.asHandler()

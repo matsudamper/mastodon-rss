@@ -17,7 +17,9 @@ object AdminAccountUpdates {
     private val changedUsernameFlow: MutableSharedFlow<String> =
         MutableSharedFlow(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    /** 内容が変わったアカウントのユーザー名 */
+    /**
+     * 内容が変わったアカウントのユーザー名
+     */
     val changedUsernames: Flow<String> = changedUsernameFlow.asSharedFlow()
 
     fun notifyChanged(username: String) {
