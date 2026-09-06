@@ -3,6 +3,9 @@ package net.matsudamper.mastodon.rss.feed
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.measureTime
 
 class OpenGraphTest {
     @Test
@@ -130,6 +133,43 @@ class OpenGraphTest {
             """.trimIndent()
 
         assertEquals("https://example.com/c.png", OpenGraph.imageUrl(html))
+    }
+
+    @Test
+    fun `og image より og image secure url を優先する`() {
+        val html =
+            """
+            <head>
+            <meta property="og:image" content="http://example.com/plain.png">
+            <meta property="og:image:secure_url" content="https://example.com/secure.png">
+            </head>
+            """.trimIndent()
+
+        assertEquals("https://example.com/secure.png", OpenGraph.imageUrl(html))
+    }
+
+    @Test
+    fun `大文字で書かれたタグと属性も読む`() {
+        val html = """<HEAD><META PROPERTY="OG:IMAGE" CONTENT="https://example.com/a.png"></HEAD>"""
+
+        assertEquals("https://example.com/a.png", OpenGraph.imageUrl(html))
+    }
+
+    @Test
+    fun `body に入ったら読むのをやめる`() {
+        val html = """<head><title>題名</title><body><meta property="og:image" content="https://example.com/b.png">"""
+
+        assertNull(OpenGraph.imageUrl(html))
+    }
+
+    @Test
+    fun `閉じていないコメントやタグが並んでも待たされない`() {
+        // 位置ごとに終端を探し直す作りだと、この形で入力長の二乗になる
+        val unclosed = "<!--".repeat(200_000) + """<meta property="og:image" content="https://example.com/a.png">"""
+
+        val elapsed = measureTime { assertNull(OpenGraph.imageUrl(unclosed)) }
+
+        assertTrue(elapsed < 5.seconds, "閉じていないコメントの走査に $elapsed かかった")
     }
 
     @Test
