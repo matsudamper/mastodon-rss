@@ -447,10 +447,7 @@ class AdminGraphQlTest {
             val result = mutatePostFeedItems(accountId = accountId, token = token).admin().obj("postFeedItems")
 
             assertEquals(JsonNull, result.getValue("failure"))
-            assertEquals(
-                listOf("1 本目", "2 本目"),
-                result.getValue("items").jsonArray.map { it.jsonObject.string("title") },
-            )
+            assertEquals(2, result.getValue("importedCount").jsonPrimitive.int)
             assertEquals(2, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
         }
 
@@ -565,10 +562,7 @@ class AdminGraphQlTest {
 
             val result = mutatePostFeedItems(accountId = accountId, token = token).admin().obj("postFeedItems")
 
-            assertEquals(
-                listOf("1 本目"),
-                result.getValue("items").jsonArray.map { it.jsonObject.string("title") },
-            )
+            assertEquals(1, result.getValue("importedCount").jsonPrimitive.int)
             assertEquals(3, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
         }
 
@@ -603,12 +597,13 @@ class AdminGraphQlTest {
             assertEquals(1, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
             // 記事は残るので、消しただけでは投稿し直されない
             assertEquals(
-                emptyList(),
+                0,
                 mutatePostFeedItems(accountId = accountId, token = token)
                     .admin()
                     .obj("postFeedItems")
-                    .getValue("items")
-                    .jsonArray,
+                    .getValue("importedCount")
+                    .jsonPrimitive
+                    .int,
             )
         }
 
@@ -643,10 +638,7 @@ class AdminGraphQlTest {
 
             val result = mutatePostFeedItems(accountId = accountId, token = token).admin().obj("postFeedItems")
 
-            assertEquals(
-                listOf("1 本目"),
-                result.getValue("items").jsonArray.map { it.jsonObject.string("title") },
-            )
+            assertEquals(1, result.getValue("importedCount").jsonPrimitive.int)
             assertEquals(2, repositories.notes.list(username = "feed1", after = null, limit = 10).size)
         }
 
@@ -696,13 +688,13 @@ class AdminGraphQlTest {
             assertEquals(FEED_URL, saved.obj("feed").string("url"))
             // 前のアカウントの投稿を引き継がないので、取り込み直した記事をもう一度投稿できる
             assertEquals(
-                listOf("1 本目", "2 本目"),
+                2,
                 mutatePostFeedItems(accountId = newAccountId, token = token)
                     .admin()
                     .obj("postFeedItems")
-                    .getValue("items")
-                    .jsonArray
-                    .map { it.jsonObject.string("title") },
+                    .getValue("importedCount")
+                    .jsonPrimitive
+                    .int,
             )
         }
 
@@ -1079,7 +1071,7 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "mutation PostItems(${'$'}accountId: AccountId!) { admin { " +
-                "postFeedItems(query: { accountId: ${'$'}accountId }) { items { title link } failure { reason } } } }",
+                "postFeedItems(query: { accountId: ${'$'}accountId }) { importedCount failure { reason } } } }",
             token = token,
             variables = """{"accountId":${JsonPrimitive(accountId)}}""",
         )

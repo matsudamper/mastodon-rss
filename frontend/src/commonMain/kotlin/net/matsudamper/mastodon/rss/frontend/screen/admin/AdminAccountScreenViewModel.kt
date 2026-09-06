@@ -284,27 +284,15 @@ class AdminAccountScreenViewModel(
         if (viewModelStateFlow.value.postingUnpublished) return
 
         postUnpublishedJob?.cancel()
-        viewModelStateFlow.update { it.copy(postingUnpublished = true, unpublishedError = null, postedItems = null) }
+        viewModelStateFlow.update { it.copy(postingUnpublished = true, unpublishedError = null) }
 
         postUnpublishedJob = viewModelScope.launch {
             try {
                 when (val result = api.postFeedItems(accountId)) {
                     is AdminPostFeedItemsResult.Success -> {
-                        if (result.items.isEmpty()) {
-                            viewModelStateFlow.update {
-                                it.copy(
-                                    postingUnpublished = false,
-                                    postedItems = null,
-                                )
-                            }
-                            events.send { it.showSnackbar("今回投稿した記事 0 件") }
-                        } else {
-                            viewModelStateFlow.update {
-                                it.copy(
-                                    postingUnpublished = false,
-                                    postedItems = result.items,
-                                )
-                            }
+                        viewModelStateFlow.update { it.copy(postingUnpublished = false) }
+                        events.send { it.showSnackbar("取り込んだ記事 ${result.importedCount} 件") }
+                        if (result.importedCount > 0) {
                             loadNotes()
                         }
                         loadUnpublished(accountId)
@@ -744,7 +732,6 @@ class AdminAccountScreenViewModel(
                     ?.let { "最終チェック: ${UnixTimeUtil.format(it)}" }
                     ?: "最終チェック: まだ",
                 unpublishedItems = unpublishedItems.map { it.toUiState() },
-                postedItems = postedItems?.map { it.toUiState() },
                 postingUnpublished = postingUnpublished,
                 unpublishedError = unpublishedError,
                 listener = registeredFeedListener,
@@ -827,7 +814,6 @@ class AdminAccountScreenViewModel(
         val deletingAccount: Boolean = false,
         val deleteAccountError: String? = null,
         val unpublishedItems: List<AdminUnpublishedFeedItem> = emptyList(),
-        val postedItems: List<AdminUnpublishedFeedItem>? = null,
         val postingUnpublished: Boolean = false,
         val unpublishedError: String? = null,
     ) {

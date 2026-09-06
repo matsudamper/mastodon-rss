@@ -551,7 +551,6 @@ private fun FeedCard(feed: AdminAccountScreenUiState.Feed) {
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                feed.postedItems?.takeIf { it.isNotEmpty() }?.let { FeedItemSummary("今回投稿した記事 ${it.size} 件", it) }
                 if (feed.unpublishedItems.isNotEmpty()) FeedItemSummary("未投稿の記事 ${feed.unpublishedItems.size} 件", feed.unpublishedItems)
                 feed.unpublishedError?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
