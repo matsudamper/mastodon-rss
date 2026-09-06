@@ -21,6 +21,8 @@ import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
+import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.shared.AccountId
@@ -718,6 +720,29 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `1 本が例外で落ちても残りのフィードを続ける`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val broken = assertNotNull(repositories.accounts.add(username = TestLocalActor.USERNAME, createdAt = CREATED_AT))
+            val healthy = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = noteStore)
+            service.save(accountId = broken.id, url = FEED_URL)
+            service.save(accountId = healthy.id, url = OTHER_FEED_URL)
+            val brokenFeedId = assertNotNull(repositories.feeds.findByAccountId(broken.id)).id
+
+            val results = serviceOf(
+                repositories,
+                noteStore = noteStore,
+                accounts = ThrowingAccountRepository(delegate = repositories.accounts, brokenId = broken.id),
+            ).pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
+
+            val (failed, succeeded) = results.partition { it.feedId == brokenFeedId }
+            assertEquals("処理中に例外が出た", failed.single().error)
+            assertEquals(listOf("1 本目", "2 本目"), succeeded.single().postedItems.map { it.title })
+        }
+
+    @Test
     fun `取得の時期が来ていないフィードは取りに行かない`() =
         runTest {
             val repositories = FakeRepositories()
@@ -829,6 +854,7 @@ class FeedServiceTest {
 
     private fun serviceOf(
         repositories: FakeRepositories,
+        accounts: AccountRepository = repositories.accounts,
         status: HttpStatusCode = HttpStatusCode.OK,
         xml: String = FEED_XML,
         xmls: List<String>? = null,
@@ -852,7 +878,7 @@ class FeedServiceTest {
         }
 
         return FeedService(
-            accounts = repositories.accounts,
+            accounts = accounts,
             feeds = repositories.feeds,
             feedItems = repositories.feedItems,
             fetcher = FeedFetchService(HttpClient(mockEngine)),
@@ -865,12 +891,26 @@ class FeedServiceTest {
         )
     }
 
+    /**
+     * 1 つのアカウントだけ引けなくする。定期ポーリングの途中で投げられた場合を作る
+     */
+    private class ThrowingAccountRepository(
+        private val delegate: AccountRepository,
+        private val brokenId: AccountId,
+    ) : AccountRepository by delegate {
+        override fun findById(id: AccountId): Account? {
+            if (id == brokenId) error("アカウントを引けなかった")
+            return delegate.findById(id)
+        }
+    }
+
     private companion object {
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03Z")
 
         // 登録時の取得が記録されるので、その間隔を過ぎるまで次の取得は来ない
         const val DUE_AFTER_SECONDS = 901L
         const val FEED_URL = "https://example.com/feed.xml"
+        const val OTHER_FEED_URL = "https://example.com/other.xml"
         const val REDIRECTED_FEED_URL = "https://cdn.example.net/rss/feed.xml"
         val FEED_XML = """
             <?xml version="1.0" encoding="UTF-8"?>

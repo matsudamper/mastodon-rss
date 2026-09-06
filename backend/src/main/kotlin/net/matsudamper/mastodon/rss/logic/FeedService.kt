@@ -190,7 +190,18 @@ class FeedService(
     suspend fun pollDue(
         now: Instant,
         limit: Int,
-    ): List<PollResult> = feeds.findDue(now = now, limit = limit).map { feed -> poll(feed) }
+    ): List<PollResult> = feeds.findDue(now = now, limit = limit).map { feed ->
+        try {
+            poll(feed)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // 取得の失敗は poll が結果にして返すので、ここに来るのは DB や
+            // アクターの引き当てが投げた分。無人で動くので気付けるように残す
+            logger.warn("フィードを処理できなかった: フィード ${feed.id.value}", e)
+            PollResult(feedId = feed.id, host = feed.host(), postedItems = emptyList(), error = "処理中に例外が出た")
+        }
+    }
 
     /**
      * @param host 取得先のホスト。URL には購読者だけが知るトークンが入ることがあるので、
