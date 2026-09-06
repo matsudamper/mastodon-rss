@@ -52,6 +52,68 @@ class AdminAccountScreenViewModel(
     private var deleteNoteJob: Job? = null
     private var deleteAccountJob: Job? = null
 
+    private val accountListener = object : AdminAccountScreenUiState.AccountListener {
+        override fun onClickOpenAccount() {
+            navigate(Screen.Account(username))
+        }
+
+        override fun onClickEditProfile() {
+            navigate(Screen.AdminAccountProfileEdit(username))
+        }
+
+        override fun onClickDelete() {
+            viewModelStateFlow.update {
+                it.copy(deleteAccountRequested = true, deleteAccountError = null)
+            }
+        }
+    }
+
+    private val registeredFeedListener = object : AdminAccountScreenUiState.Feed.RegisteredListener {
+        override fun onClickPostLatest() {
+            postUnpublished()
+        }
+    }
+
+    private val notRegisteredFeedListener = object : AdminAccountScreenUiState.Feed.NotRegisteredListener {
+        override fun onClickAddFeed() {
+            navigate(Screen.AdminAccountFeedNew(username))
+        }
+    }
+
+    private val postListener = object : AdminAccountScreenUiState.PostListener {
+        override fun onBodyChanged(text: String) {
+            viewModelStateFlow.update { it.copy(body = text, error = null, result = null) }
+        }
+
+        override fun onClickPost() {
+            post()
+        }
+    }
+
+    private val deleteNoteDialogListener = object : AdminAccountScreenUiState.DeleteNoteDialogListener {
+        override fun onClickConfirm(deleteSourceArticle: Boolean) {
+            deleteNote(deleteSourceArticle = deleteSourceArticle)
+        }
+
+        override fun onDismiss() {
+            if (viewModelStateFlow.value.deletingNote) return
+            viewModelStateFlow.update { it.copy(deleteNoteId = null) }
+        }
+    }
+
+    private val deleteAccountDialogListener = object : AdminAccountScreenUiState.DeleteAccountDialogListener {
+        override fun onClickConfirm() {
+            deleteAccount()
+        }
+
+        override fun onDismiss() {
+            if (viewModelStateFlow.value.deletingAccount) return
+            viewModelStateFlow.update {
+                it.copy(deleteAccountRequested = false, deleteAccountError = null)
+            }
+        }
+    }
+
     val uiStateFlow: StateFlow<AdminAccountScreenUiState> =
         MutableStateFlow(
             AdminAccountScreenUiState(
@@ -66,62 +128,12 @@ class AdminAccountScreenViewModel(
                         navigate(Screen.Admin)
                     }
 
-                    override fun onClickOpenAccount() {
-                        navigate(Screen.Account(username))
-                    }
-
                     override fun onClickBackToAdmin() {
                         navigate(Screen.Admin)
                     }
 
-                    override fun onClickAddFeed() {
-                        navigate(Screen.AdminAccountFeedNew(username))
-                    }
-
-                    override fun onClickEditProfile() {
-                        navigate(Screen.AdminAccountProfileEdit(username))
-                    }
-
-                    override fun onClickPostLatest() {
-                        postUnpublished()
-                    }
-
-                    override fun onBodyChanged(text: String) {
-                        viewModelStateFlow.update { it.copy(body = text, error = null, result = null) }
-                    }
-
-                    override fun onClickPost() {
-                        post()
-                    }
-
                     override fun onClickLoadMore() {
                         loadMore()
-                    }
-
-                    override fun onClickDeleteAccount() {
-                        viewModelStateFlow.update {
-                            it.copy(deleteAccountRequested = true, deleteAccountError = null)
-                        }
-                    }
-
-                    override fun onDismissDeleteAccount() {
-                        if (viewModelStateFlow.value.deletingAccount) return
-                        viewModelStateFlow.update {
-                            it.copy(deleteAccountRequested = false, deleteAccountError = null)
-                        }
-                    }
-
-                    override fun onConfirmDeleteAccount() {
-                        deleteAccount()
-                    }
-
-                    override fun onDismissDeleteNote() {
-                        if (viewModelStateFlow.value.deletingNote) return
-                        viewModelStateFlow.update { it.copy(deleteNoteId = null) }
-                    }
-
-                    override fun onConfirmDeleteNote(deleteSourceArticle: Boolean) {
-                        deleteNote(deleteSourceArticle = deleteSourceArticle)
                     }
 
                     override fun onClickReloadNotes() {
@@ -627,6 +639,7 @@ class AdminAccountScreenViewModel(
                         submitting = state.submitting,
                         result = state.result,
                         error = state.error,
+                        listener = postListener,
                     ),
                     notes = state.notes.map { it.toUiState(state.deletingFeedItemIds) },
                     deleteNoteDialog = state.deleteNoteDialogUiState(),
@@ -726,9 +739,10 @@ class AdminAccountScreenViewModel(
                 postedItems = postedItems?.map { it.toUiState() },
                 postingUnpublished = postingUnpublished,
                 unpublishedError = unpublishedError,
+                listener = registeredFeedListener,
             )
 
-            else -> AdminAccountScreenUiState.Feed.NotRegistered
+            else -> AdminAccountScreenUiState.Feed.NotRegistered(listener = notRegisteredFeedListener)
         }
     }
 
@@ -740,6 +754,7 @@ class AdminAccountScreenViewModel(
         followerCount = followerCount,
         displayName = displayName,
         summary = summary,
+        listener = accountListener,
     )
 
     private fun ViewModelState.deleteNoteDialogUiState(): AdminAccountScreenUiState.DeleteNoteDialog? {
@@ -748,6 +763,7 @@ class AdminAccountScreenViewModel(
         return AdminAccountScreenUiState.DeleteNoteDialog(
             hasSourceArticle = note.feedItem != null,
             deleting = deletingNote,
+            listener = deleteNoteDialogListener,
         )
     }
 
@@ -765,6 +781,7 @@ class AdminAccountScreenViewModel(
             confirmButtonEnabled = !deletingAccount,
             closeEnabled = !deletingAccount,
             errorMessage = deleteAccountError,
+            listener = deleteAccountDialogListener,
         )
     }
 
