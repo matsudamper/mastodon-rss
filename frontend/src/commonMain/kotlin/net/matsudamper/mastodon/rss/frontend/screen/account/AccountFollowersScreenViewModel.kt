@@ -67,34 +67,26 @@ class AccountFollowersScreenViewModel(
         viewModelStateFlow.update { ViewModelState() }
         followersJob = viewModelScope.launch {
             followersPaging.watch().collect { result ->
-                when (result) {
-                    is AccountFollowersResult.Success -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                followers = result.followers,
-                                cursor = result.cursor,
-                                loaded = true,
-                                error = null,
-                                loadMoreError = null,
-                                loadingMore = false,
-                            )
-                        }
-                    }
+                val followers = when (result) {
+                    is AccountFollowersResult.Success -> Followers.Loaded(
+                        followers = result.followers,
+                        cursor = result.cursor,
+                    )
 
-                    AccountFollowersResult.NotFound -> {
-                        viewModelStateFlow.update { it.copy(notFound = true, loadingMore = false) }
-                    }
+                    AccountFollowersResult.NotFound -> Followers.NotFound
 
-                    is AccountFollowersResult.Failure -> {
-                        viewModelStateFlow.update { it.copy(error = result.message, loadingMore = false) }
-                    }
+                    is AccountFollowersResult.Failure -> Followers.Failure(result.message)
+                }
+
+                viewModelStateFlow.update {
+                    it.copy(followers = followers, loadingMore = false, loadMoreError = null)
                 }
             }
         }
     }
 
     private fun loadMore() {
-        val cursor = viewModelStateFlow.value.cursor ?: return
+        val cursor = (viewModelStateFlow.value.followers as? Followers.Loaded)?.cursor ?: return
         if (viewModelStateFlow.value.loadingMore) return
 
         viewModelStateFlow.update { it.copy(loadingMore = true) }
@@ -115,36 +107,39 @@ class AccountFollowersScreenViewModel(
     }
 
     private fun createUiState(state: ViewModelState): AccountFollowersScreenUiState {
-        val content = when {
-            state.notFound -> AccountFollowersScreenUiState.Content.NotFound
+        val content = when (val followers = state.followers) {
+            Followers.Loading -> AccountFollowersScreenUiState.Content.Loading
 
-            // 一度出せているなら、後から来た失敗で一覧ごと消さない
-            state.error != null && !state.loaded -> AccountFollowersScreenUiState.Content.Error(state.error)
+            Followers.NotFound -> AccountFollowersScreenUiState.Content.NotFound
 
-            !state.loaded -> AccountFollowersScreenUiState.Content.Loading
+            is Followers.Failure -> AccountFollowersScreenUiState.Content.Error(followers.message)
 
-            state.followers.isEmpty() -> AccountFollowersScreenUiState.Content.Empty
-
-            else -> AccountFollowersScreenUiState.Content.Loaded(
-                followers = state.followers.map { follower ->
-                    FollowerUiState(
-                        actorUrl = follower.actorUrl,
-                        listener = object : FollowerUiState.Listener {
-                            override fun onClick() {
-                                viewModelScope.launch {
-                                    events.send { it.openExternalLink(follower.actorUrl) }
-                                }
-                            }
+            is Followers.Loaded -> {
+                if (followers.followers.isEmpty()) {
+                    AccountFollowersScreenUiState.Content.Empty
+                } else {
+                    AccountFollowersScreenUiState.Content.Loaded(
+                        followers = followers.followers.map { follower ->
+                            FollowerUiState(
+                                actorUrl = follower.actorUrl,
+                                listener = object : FollowerUiState.Listener {
+                                    override fun onClick() {
+                                        viewModelScope.launch {
+                                            events.send { it.openExternalLink(follower.actorUrl) }
+                                        }
+                                    }
+                                },
+                            )
                         },
+                        loadMore = when {
+                            followers.cursor == null -> AccountFollowersScreenUiState.LoadMore.Hidden
+                            state.loadingMore -> AccountFollowersScreenUiState.LoadMore.Loading
+                            else -> AccountFollowersScreenUiState.LoadMore.Button
+                        },
+                        loadMoreErrorMessage = state.loadMoreError,
                     )
-                },
-                loadMore = when {
-                    state.cursor == null -> AccountFollowersScreenUiState.LoadMore.Hidden
-                    state.loadingMore -> AccountFollowersScreenUiState.LoadMore.Loading
-                    else -> AccountFollowersScreenUiState.LoadMore.Button
-                },
-                loadMoreErrorMessage = state.loadMoreError,
-            )
+                }
+            }
         }
 
         return AccountFollowersScreenUiState(
@@ -154,20 +149,34 @@ class AccountFollowersScreenViewModel(
     }
 
     /**
-     * @param loaded 1 ページ目を取れたか。取れる前と、1 人もいないのとを分ける
-     * @param cursor 続きを取るときに渡す。null なら最後まで取れている
-     * @param error 1 ページ目を取れなかった理由
-     * @param loadMoreError 続きを取れなかった理由。1 ページ目とは分けて持ち、取れた分は消さない
+     * @param loadMoreError 続きを取れなかった理由。一覧とは分けて持ち、取れた分は消さない
      */
     private data class ViewModelState(
-        val followers: List<AccountFollower> = listOf(),
-        val cursor: String? = null,
-        val loaded: Boolean = false,
-        val notFound: Boolean = false,
+        val followers: Followers = Followers.Loading,
         val loadingMore: Boolean = false,
-        val error: String? = null,
         val loadMoreError: String? = null,
     )
+
+    /**
+     * 一覧の状態。1 回の問い合わせの結果はこのうちの 1 つなので、分けて持たない
+     */
+    private sealed interface Followers {
+        data object Loading : Followers
+
+        data object NotFound : Followers
+
+        data class Failure(
+            val message: String,
+        ) : Followers
+
+        /**
+         * @param cursor 続きを取るときに渡す。null なら最後まで取れている
+         */
+        data class Loaded(
+            val followers: List<AccountFollower>,
+            val cursor: String?,
+        ) : Followers
+    }
 
     private companion object {
         const val PAGE_SIZE: Int = 20
