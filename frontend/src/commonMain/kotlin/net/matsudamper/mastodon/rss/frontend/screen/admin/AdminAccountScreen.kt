@@ -545,7 +545,7 @@ private fun FeedCard(feed: AdminAccountScreenUiState.Feed) {
             }
             Text(feed.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                feed.lastFetchedAt?.let { "最終チェック: $it" } ?: "最終チェック: まだ",
+                feed.lastFetchedText,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

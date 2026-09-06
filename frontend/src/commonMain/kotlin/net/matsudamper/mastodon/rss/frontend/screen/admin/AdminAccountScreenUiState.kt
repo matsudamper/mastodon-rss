@@ -79,13 +79,13 @@ data class AdminAccountScreenUiState(
 
     sealed interface Feed {
         /**
-         * @param lastFetchedAt 「最終チェック: <値>」の形で出す。まだ取りに行っていなければ null
+         * @param lastFetchedText 最後に取りに行ったのがいつかを出す一行
          */
         data class Registered(
             val url: String,
             val title: String?,
             val format: String?,
-            val lastFetchedAt: String?,
+            val lastFetchedText: String,
             val unpublishedItems: List<UnpublishedItem>,
             val postedItems: List<UnpublishedItem>?,
             val postingUnpublished: Boolean,
