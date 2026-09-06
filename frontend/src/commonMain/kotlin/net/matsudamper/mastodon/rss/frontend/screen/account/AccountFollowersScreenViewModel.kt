@@ -123,7 +123,7 @@ class AccountFollowersScreenViewModel(
                     AccountFollowersScreenUiState.Content.Loaded(
                         followers = followersState.followers.map { follower ->
                             AccountFollowersScreenUiState.Follower(
-                                acct = follower.acct ?: NOT_FETCHED_ACCT,
+                                acct = follower.acct,
                                 listener = object : AccountFollowersScreenUiState.Follower.Listener {
                                     override fun onClick() {
                                         viewModelScope.launch {
@@ -183,10 +183,5 @@ class AccountFollowersScreenViewModel(
 
     private companion object {
         const val PAGE_SIZE: Int = 20
-
-        /**
-         * 相手の名前をまだ保存していないので出せない
-         */
-        const val NOT_FETCHED_ACCT: String = "未取得"
     }
 }

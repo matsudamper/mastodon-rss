@@ -359,7 +359,7 @@ class AccountGraphQlTest {
                 followers.nodes().map { it.string("url") },
             )
             // 相手の名前はまだ保存していない
-            assertEquals(JsonNull, followers.nodes()[0].getValue("acct"))
+            assertEquals("未取得", followers.nodes()[0].string("acct"))
             assertEquals(false, followers.pageInfo().boolean("hasMore"))
         }
 
