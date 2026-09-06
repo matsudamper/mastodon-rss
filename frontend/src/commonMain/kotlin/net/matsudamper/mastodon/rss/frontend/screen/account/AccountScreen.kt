@@ -2,7 +2,6 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,6 +56,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
@@ -72,7 +72,6 @@ import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.TwoPaneScrollState
 import net.matsudamper.mastodon.rss.frontend.ui.rememberCoordinatedTwoPaneScrollableModifier
-import net.matsudamper.mastodon.rss.frontend.ui.rememberRemoteImage
 import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
 @Composable
@@ -379,23 +378,20 @@ private fun ProfileHeader(
                                 .background(Brush.linearGradient(colors.reversed())),
                             contentAlignment = Alignment.Center,
                         ) {
-                            val icon = rememberRemoteImage(state.iconUrl)
-                            if (icon != null) {
-                                Image(
-                                    bitmap = icon,
-                                    // 読み上げるものが無い。名前は隣に文字で出ている
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop,
-                                )
-                            } else {
-                                Text(
-                                    text = state.initial,
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
+                            Text(
+                                text = state.initial,
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            // 読めるまでと読めなかったときは下の頭文字がそのまま見える
+                            AsyncImage(
+                                model = state.iconUrl,
+                                // 読み上げるものが無い。名前は隣に文字で出ている
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
                         }
                     },
                 ) { measurables, constraints ->

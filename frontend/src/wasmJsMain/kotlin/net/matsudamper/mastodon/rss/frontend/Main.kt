@@ -8,6 +8,11 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import kotlinx.browser.document
 import kotlinx.browser.window
+import coil3.ImageLoader
+import coil3.compose.setSingletonImageLoaderFactory
+import coil3.network.ktor3.KtorNetworkFetcherFactory
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.js.Js
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.TransparentScreen
@@ -43,6 +48,14 @@ fun main() {
  */
 @Composable
 fun App() {
+    // 画像の取得を Ktor に通す。ブラウザ向けの Coil は取得の口を持たないので、
+    // 使うエンジンをここで決めて渡す
+    setSingletonImageLoaderFactory { context ->
+        ImageLoader.Builder(context)
+            .components { add(KtorNetworkFetcherFactory(httpClient = { HttpClient(Js) })) }
+            .build()
+    }
+
     AppTheme {
         val platformNavController = rememberNavController()
         val navController: Navigator = remember(platformNavController) {
