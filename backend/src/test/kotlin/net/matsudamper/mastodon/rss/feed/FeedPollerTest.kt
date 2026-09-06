@@ -15,6 +15,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.FakeFeedIcons
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
@@ -85,6 +86,7 @@ class FeedPollerTest {
                 followers = FakeFollowerStore(),
                 delivery = TestDelivery(),
             ),
+            icons = FakeFeedIcons(),
         )
     }
 

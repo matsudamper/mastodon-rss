@@ -13,6 +13,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondRedirect
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.FakeFeedIcons
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
@@ -726,17 +727,25 @@ class FeedServiceTest {
         runTest {
             val repositories = FakeRepositories()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val icons = FakeFeedIcons()
             val service = serviceOf(
                 repositories,
                 xmls = listOf(ICON_XML, CHANGED_ICON_XML),
+                icons = icons,
             )
             service.save(accountId = account.id, url = FEED_URL)
 
             service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
 
+            val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
+            assertEquals("https://example.com/icon2.png", feed.iconUrl)
+            // 中身も取り込みに合わせて入れ替える。見に来たときには取りに行かない
             assertEquals(
-                "https://example.com/icon2.png",
-                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+                listOf(
+                    feed.id to "https://example.com/icon.png",
+                    feed.id to "https://example.com/icon2.png",
+                ),
+                icons.refreshed,
             )
         }
 
@@ -921,6 +930,7 @@ class FeedServiceTest {
         noteStore: FakeNoteStore = FakeNoteStore(),
         actorDirectory: ActorDirectory = TestLocalActor.directory,
         engine: MockEngine? = null,
+        icons: FakeFeedIcons = FakeFeedIcons(),
     ): FeedService {
         val mockEngine = engine ?: run {
             val bodies = ArrayDeque(xmls ?: listOf(xml))
@@ -947,6 +957,7 @@ class FeedServiceTest {
                 followers = FakeFollowerStore(),
                 delivery = TestDelivery(),
             ),
+            icons = icons,
         )
     }
 

@@ -36,6 +36,7 @@ class FeedService(
     private val fetcher: FeedFetchService,
     private val actorDirectory: ActorDirectory,
     private val notePublisher: NotePublisher,
+    private val icons: FeedIcons,
 ) {
     private val publishLock = Mutex()
 
@@ -98,6 +99,7 @@ class FeedService(
                     validators = FeedFetchValidators.NONE,
                 )
                 feeds.markInitialImportDone(feed.id)
+                icons.refresh(feedId = feed.id, iconUrl = newFeed.iconUrl)
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)
                 SaveResult.Success(feed = saved)
             }
@@ -342,13 +344,15 @@ class FeedService(
         // 条件付き GET はまだ送っていないので、保存されている値はそのまま残す
         feeds.recordFetchSuccess(id = feed.id, fetchedAt = Instant.now(), validators = feed.fetch.validators)
 
+        val iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl)
         feeds.updateMetadata(
             id = feed.id,
             title = fetched.parsed.title,
             siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
             format = fetched.parsed.format.toDisplayName(),
-            iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl),
+            iconUrl = iconUrl,
         )
+        icons.refresh(feedId = feed.id, iconUrl = iconUrl)
 
         importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
 
@@ -458,13 +462,15 @@ class FeedService(
     private suspend fun importLatest(feed: Feed): ImportLatestResult {
         return when (val fetched = fetcher.fetch(feed.url)) {
             is FeedFetchService.FetchResult.Success -> {
+                val iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl)
                 feeds.updateMetadata(
                     id = feed.id,
                     title = fetched.parsed.title,
                     siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
                     format = fetched.parsed.format.toDisplayName(),
-                    iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl),
+                    iconUrl = iconUrl,
                 )
+                icons.refresh(feedId = feed.id, iconUrl = iconUrl)
                 importExistingItems(
                     feed = feed,
                     items = fetched.parsed.items,

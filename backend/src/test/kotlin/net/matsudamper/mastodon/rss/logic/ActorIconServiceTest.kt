@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
-import java.net.InetAddress
 import java.nio.file.Path
+import java.time.Duration
 import java.time.Instant
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
@@ -12,21 +12,15 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.headersOf
-import net.matsudamper.mastodon.rss.FakeFeedIconRepository
 import net.matsudamper.mastodon.rss.FakeRepositories
-import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.repository.FeedIcon
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 
-// /users/{name}/icon は無認証で誰でも叩ける。叩かれた数だけ配信元へ出ていかないことを見る。
+// /users/{name}/icon が返す中身。ここからは配信元へ取りに行かない。
 class ActorIconServiceTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-icon-test")
+    private val store = FeedIconStore(tempDir)
 
     @OptIn(kotlin.io.path.ExperimentalPathApi::class)
     @AfterTest
@@ -35,170 +29,75 @@ class ActorIconServiceTest {
     }
 
     @Test
-    fun `2 回目は置いてあるものを出す`() =
+    fun `置いてあるものを返す`() =
         runTest {
             val repositories = FakeRepositories()
             val feedId = repositories.addFeed(iconUrl = ICON_URL)
-            val engine = imageEngine()
-            val service = serviceOf(repositories, engine)
+            repositories.store(feedId = feedId, sourceUrl = ICON_URL, expiresAt = Instant.now().plusSeconds(60))
 
-            assertEquals(BYTES.toList(), assertNotNull(service.find(USERNAME)).bytes.toList())
-            assertEquals(BYTES.toList(), assertNotNull(service.find(USERNAME)).bytes.toList())
+            val icon = assertNotNull(serviceOf(repositories).find(USERNAME))
 
-            assertEquals(1, engine.requestHistory.size)
-            assertEquals(ICON_URL, assertNotNull(repositories.feedIcons.find(feedId)).sourceUrl)
+            assertEquals(BYTES.toList(), icon.bytes.toList())
+            assertTrue(icon.cacheFor <= Duration.ofSeconds(60), "実際の持たせる時間: ${icon.cacheFor}")
         }
 
     @Test
-    fun `期限が切れたら取り直す`() =
+    fun `期限が切れていても返すが持たせない`() =
         runTest {
             val repositories = FakeRepositories()
             val feedId = repositories.addFeed(iconUrl = ICON_URL)
-            val engine = imageEngine()
-            val service = serviceOf(repositories, engine)
+            repositories.store(feedId = feedId, sourceUrl = ICON_URL, expiresAt = Instant.now().minusSeconds(1))
 
-            service.find(USERNAME)
-            repositories.feedIcons.expire(feedId)
-            service.find(USERNAME)
+            val icon = assertNotNull(serviceOf(repositories).find(USERNAME))
 
-            assertEquals(2, engine.requestHistory.size)
+            assertEquals(Duration.ZERO, icon.cacheFor)
         }
 
     @Test
-    fun `取得元が変わったら取り直す`() =
+    fun `取得元が変わったものは返さない`() =
         runTest {
             val repositories = FakeRepositories()
-            val feedId = repositories.addFeed(iconUrl = ICON_URL)
-            val engine = imageEngine()
-            val service = serviceOf(repositories, engine)
+            val feedId = repositories.addFeed(iconUrl = OTHER_ICON_URL)
+            repositories.store(feedId = feedId, sourceUrl = ICON_URL, expiresAt = Instant.now().plusSeconds(60))
 
-            service.find(USERNAME)
-            repositories.feeds.updateMetadata(
-                id = feedId,
-                title = "サンプル",
-                siteUrl = SITE_URL,
-                format = "RSS 2.0",
-                iconUrl = OTHER_ICON_URL,
-            )
-            service.find(USERNAME)
-
-            assertEquals(
-                listOf("/icon.png", "/icon2.png"),
-                engine.requestHistory.map { it.url.encodedPath },
-            )
+            assertNull(serviceOf(repositories).find(USERNAME))
         }
 
     @Test
-    fun `配信元が言う期限に従う`() =
+    fun `まだ取れていないアカウントは返さない`() =
         runTest {
             val repositories = FakeRepositories()
-            val feedId = repositories.addFeed(iconUrl = ICON_URL)
-            val engine = MockEngine {
-                respond(
-                    content = BYTES.decodeToString(),
-                    headers = headersOf(
-                        "Content-Type" to listOf("image/png"),
-                        "Cache-Control" to listOf("public, max-age=60"),
-                    ),
-                )
-            }
+            repositories.addFeed(iconUrl = ICON_URL)
 
-            val before = Instant.now()
-            serviceOf(repositories, engine).find(USERNAME)
-            val after = Instant.now()
-
-            // 取ってきた時刻は before から after の間なので、期限もその 60 秒後の間に入る
-            val expiresAt = assertNotNull(repositories.feedIcons.find(feedId)).expiresAt
-            assertTrue(
-                expiresAt in before.plusSeconds(60)..after.plusSeconds(60),
-                "実際の期限: $expiresAt",
-            )
+            assertNull(serviceOf(repositories).find(USERNAME))
         }
 
     @Test
-    fun `取り直せなければ期限が切れていても置いてあるものを出す`() =
+    fun `アイコンを名乗っていないフィードは返さない`() =
         runTest {
             val repositories = FakeRepositories()
-            val feedId = repositories.addFeed(iconUrl = ICON_URL)
-            var served = false
-            val engine = MockEngine {
-                if (served) {
-                    respond(content = "", status = HttpStatusCode.InternalServerError)
-                } else {
-                    served = true
-                    respond(content = BYTES.decodeToString(), headers = headersOf("Content-Type", "image/png"))
-                }
-            }
-            val service = serviceOf(repositories, engine)
+            val feedId = repositories.addFeed(iconUrl = null)
+            repositories.store(feedId = feedId, sourceUrl = ICON_URL, expiresAt = Instant.now().plusSeconds(60))
 
-            service.find(USERNAME)
-            repositories.feedIcons.expire(feedId)
-
-            assertEquals(BYTES.toList(), assertNotNull(service.find(USERNAME)).bytes.toList())
-            assertEquals(2, engine.requestHistory.size)
+            assertNull(serviceOf(repositories).find(USERNAME))
         }
 
-    @Test
-    fun `毎回取り直せと言われたものは置かない`() =
-        runTest {
-            val repositories = FakeRepositories()
-            val feedId = repositories.addFeed(iconUrl = ICON_URL)
-            val engine = MockEngine {
-                respond(
-                    content = BYTES.decodeToString(),
-                    headers = headersOf(
-                        "Content-Type" to listOf("image/png"),
-                        "Cache-Control" to listOf("no-store"),
-                    ),
-                )
-            }
-            val service = serviceOf(repositories, engine)
-
-            assertEquals(BYTES.toList(), assertNotNull(service.find(USERNAME)).bytes.toList())
-            assertNull(repositories.feedIcons.find(feedId))
-
-            service.find(USERNAME)
-            assertEquals(2, engine.requestHistory.size)
-        }
-
-    @Test
-    fun `取得元が変わって取り直せなければ出さない`() =
-        runTest {
-            val repositories = FakeRepositories()
-            val feedId = repositories.addFeed(iconUrl = ICON_URL)
-            val engine = MockEngine { request ->
-                if (request.url.encodedPath == "/icon.png") {
-                    respond(content = BYTES.decodeToString(), headers = headersOf("Content-Type", "image/png"))
-                } else {
-                    respond(content = "", status = HttpStatusCode.InternalServerError)
-                }
-            }
-            val service = serviceOf(repositories, engine)
-
-            service.find(USERNAME)
-            repositories.feeds.updateMetadata(
-                id = feedId,
-                title = "サンプル",
-                siteUrl = SITE_URL,
-                format = "RSS 2.0",
-                iconUrl = OTHER_ICON_URL,
-            )
-
-            // 前のアイコンを出すと、別のものに変えた後も変える前のものが出続ける
-            assertNull(service.find(USERNAME))
-        }
-
-    @Test
-    fun `アイコンを名乗っていないフィードは取りに行かない`() =
-        runTest {
-            val repositories = FakeRepositories()
-            repositories.addFeed(iconUrl = null)
-            val engine = imageEngine()
-
-            assertNull(serviceOf(repositories, engine).find(USERNAME))
-
-            assertEquals(0, engine.requestHistory.size)
-        }
+    private fun FakeRepositories.store(
+        feedId: FeedId,
+        sourceUrl: String,
+        expiresAt: Instant,
+    ) {
+        feedIcons.save(
+            feedId = feedId,
+            icon = FeedIcon(
+                sourceUrl = sourceUrl,
+                contentType = "image/png",
+                path = store.write(feedId = feedId, bytes = BYTES),
+                fetchedAt = Instant.now(),
+                expiresAt = expiresAt,
+            ),
+        )
+    }
 
     private fun FakeRepositories.addFeed(iconUrl: String?): FeedId {
         val account = assertNotNull(accounts.add(username = USERNAME, createdAt = Instant.now()))
@@ -218,37 +117,11 @@ class ActorIconServiceTest {
         return feed.id
     }
 
-    /** 置いてあるものの期限を過ぎた時刻に書き換える */
-    private fun FakeFeedIconRepository.expire(feedId: FeedId) {
-        val stored = assertNotNull(find(feedId))
-        save(
-            feedId = feedId,
-            icon = FeedIcon(
-                sourceUrl = stored.sourceUrl,
-                contentType = stored.contentType,
-                path = stored.path,
-                fetchedAt = stored.fetchedAt,
-                expiresAt = Instant.now().minusSeconds(1),
-            ),
-        )
-    }
-
-    private fun imageEngine(): MockEngine = MockEngine {
-        respond(content = BYTES.decodeToString(), headers = headersOf("Content-Type", "image/png"))
-    }
-
-    private fun serviceOf(
-        repositories: FakeRepositories,
-        engine: MockEngine,
-    ): ActorIconService = ActorIconService(
+    private fun serviceOf(repositories: FakeRepositories): ActorIconService = ActorIconService(
         accounts = repositories.accounts,
         feeds = repositories.feeds,
         icons = repositories.feedIcons,
-        store = FeedIconStore(tempDir),
-        fetcher = IconFetchService(
-            client = HttpClient(engine) { followRedirects = false },
-            resolveAddresses = { listOf(InetAddress.getByName("93.184.216.34")) },
-        ),
+        store = store,
     )
 
     private companion object {
