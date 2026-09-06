@@ -10,6 +10,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
+import net.matsudamper.mastodon.rss.frontend.logic.PagedQueryLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountUpdates
@@ -302,7 +303,7 @@ class AdminAccountScreenViewModel(
                                     postedItems = result.items,
                                 )
                             }
-                            loadNotes(networkOnly = true)
+                            loadNotes()
                         }
                         loadUnpublished(accountId)
                     }
@@ -354,7 +355,7 @@ class AdminAccountScreenViewModel(
                         }
                         // 消すと未投稿の数も変わる。最新情報の投稿で流れ直すのはこの後
                         loadUnpublished(accountId)
-                        loadNotes(networkOnly = true)
+                        loadNotes()
                     }
 
                     is AdminDeleteFeedItemsResult.Rejected -> {
@@ -423,7 +424,7 @@ class AdminAccountScreenViewModel(
                             )
                         }
                         loadUnpublished(accountId)
-                        loadNotes(networkOnly = true)
+                        loadNotes()
                     }
 
                     is AdminDeleteNoteResult.Rejected -> {
@@ -489,14 +490,16 @@ class AdminAccountScreenViewModel(
 
     /**
      * 投稿の一覧を先頭から取り直す。
+     *
+     * 一覧は先頭のページを watch して受け取る。続きを足したときもここに流れてくる
      */
-    private fun loadNotes(networkOnly: Boolean = false) {
+    private fun loadNotes() {
         cancelNotesJobs()
         viewModelStateFlow.update { it.copy(notesLoading = true, notesError = null) }
 
         notesJob = viewModelScope.launch {
-            try {
-                when (val result = api.notes(username = username, limit = PAGE_SIZE, networkOnly = networkOnly)) {
+            api.notes(username = username, limit = PAGE_SIZE).collect { result ->
+                when (result) {
                     is AdminNotesResult.Success -> {
                         viewModelStateFlow.update {
                             it.copy(
@@ -519,10 +522,6 @@ class AdminAccountScreenViewModel(
                         }
                     }
                 }
-            } finally {
-                if (!isActive) {
-                    viewModelStateFlow.update { it.copy(notesLoading = false, loadingMore = false) }
-                }
             }
         }
     }
@@ -536,24 +535,16 @@ class AdminAccountScreenViewModel(
 
         loadMoreJob = viewModelScope.launch {
             try {
-                when (val result = api.notes(username = username, cursor = cursor, limit = PAGE_SIZE)) {
-                    is AdminNotesResult.Success -> {
-                        viewModelStateFlow.update { current ->
-                            current.copy(
-                                notes = current.notes + result.notes,
-                                notesError = null,
-                                cursor = result.cursor,
-                                loadingMore = false,
-                            )
+                when (val result = api.loadMoreNotes(username = username, cursor = cursor, limit = PAGE_SIZE)) {
+                    PagedQueryLoadMoreResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(notesError = null, loadingMore = false)
                         }
                     }
 
-                    is AdminNotesResult.Failure -> {
+                    is PagedQueryLoadMoreResult.Failure -> {
                         viewModelStateFlow.update {
-                            it.copy(
-                                notesError = result.message,
-                                loadingMore = false,
-                            )
+                            it.copy(notesError = result.message, loadingMore = false)
                         }
                     }
                 }
@@ -596,7 +587,7 @@ class AdminAccountScreenViewModel(
                                 error = null,
                             )
                         }
-                        loadNotes(networkOnly = true)
+                        loadNotes()
                     }
 
                     is AdminPostNoteResult.Rejected -> {

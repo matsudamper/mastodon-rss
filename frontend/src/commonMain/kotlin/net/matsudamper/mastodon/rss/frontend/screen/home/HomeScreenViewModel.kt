@@ -1,12 +1,14 @@
 package net.matsudamper.mastodon.rss.frontend.screen.home
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.logic.PagedQueryLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
@@ -18,6 +20,9 @@ class HomeScreenViewModel(
     private val events = EventSender<Event>()
     internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+
+    private var accountsJob: Job? = null
+    private var loadMoreJob: Job? = null
 
     val uiStateFlow: StateFlow<HomeScreenUiState> =
         MutableStateFlow(
@@ -69,15 +74,22 @@ class HomeScreenViewModel(
         }
     }
 
+    /**
+     * 一覧は先頭のページを watch して受け取る。続きを足したときもここに流れてくる
+     */
     private fun reload() {
         viewModelStateFlow.update { ViewModelState(isLoading = true) }
-        viewModelScope.launch {
-            val result = api.accounts(limit = PAGE_SIZE)
-            viewModelStateFlow.update {
-                it.copy(
-                    isLoading = false,
-                    accounts = result,
-                )
+
+        accountsJob?.cancel()
+        accountsJob = viewModelScope.launch {
+            api.accounts(limit = PAGE_SIZE).collect { result ->
+                viewModelStateFlow.update {
+                    it.copy(
+                        isLoading = false,
+                        accounts = result,
+                        loadingMore = false,
+                    )
+                }
             }
         }
     }
@@ -90,28 +102,16 @@ class HomeScreenViewModel(
         val cursor = currentAccounts.nextCursor ?: return
         viewModelStateFlow.update { it.copy(loadingMore = true, loadMoreErrorMessage = null) }
 
-        viewModelScope.launch {
-            val result = api.accounts(cursor = cursor, limit = PAGE_SIZE)
-            viewModelStateFlow.update { state ->
-                when (result) {
-                    is AccountsResult.Success -> {
-                        val prev = state.accounts as? AccountsResult.Success
-                        val merged = if (prev == null) {
-                            result
-                        } else {
-                            AccountsResult.Success(
-                                accounts = prev.accounts + result.accounts,
-                                hasMore = result.hasMore,
-                                nextCursor = result.nextCursor,
-                            )
-                        }
-                        state.copy(loadingMore = false, accounts = merged, loadMoreErrorMessage = null)
-                    }
+        loadMoreJob?.cancel()
+        loadMoreJob = viewModelScope.launch {
+            when (val result = api.loadMoreAccounts(cursor = cursor, limit = PAGE_SIZE)) {
+                PagedQueryLoadMoreResult.Success -> {
+                    viewModelStateFlow.update { it.copy(loadingMore = false, loadMoreErrorMessage = null) }
+                }
 
-                    // 続きが取れなくても既に出ている一覧は消さない
-                    is AccountsResult.Failure -> {
-                        state.copy(loadingMore = false, loadMoreErrorMessage = result.message)
-                    }
+                // 続きが取れなくても既に出ている一覧は消さない
+                is PagedQueryLoadMoreResult.Failure -> {
+                    viewModelStateFlow.update { it.copy(loadingMore = false, loadMoreErrorMessage = result.message) }
                 }
             }
         }

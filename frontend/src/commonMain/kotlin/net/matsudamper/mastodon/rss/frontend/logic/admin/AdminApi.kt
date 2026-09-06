@@ -48,6 +48,8 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UnpublishedFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UpdateAccountProfileQuery
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
+import net.matsudamper.mastodon.rss.frontend.logic.PagedQuery
+import net.matsudamper.mastodon.rss.frontend.logic.PagedQueryLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 import net.matsudamper.mastodon.rss.shared.FeedItemId
 
@@ -179,35 +181,58 @@ class AdminApi(
         return AdminUpdateAccountProfileResult.Success(account.adminAccountScreenFields.toAdminAccount())
     }
 
+    fun notes(username: String, limit: Int): Flow<AdminNotesResult> {
+        return notesPaging(username = username, limit = limit)
+            .watch()
+            .map { response -> response.toAdminNotesResult() }
+    }
+
     /**
-     * @param cursor 直前のページの続きから取る。null なら先頭から
+     * @param cursor 直前のページの続きから取る
      * @param limit 要求する件数。上限はサーバー側で決まる
      */
-    suspend fun notes(
+    suspend fun loadMoreNotes(
         username: String,
-        cursor: String? = null,
+        cursor: String,
         limit: Int,
-        networkOnly: Boolean = false,
-    ): AdminNotesResult {
-        val query = client
-            .query(
+    ): PagedQueryLoadMoreResult {
+        return notesPaging(username = username, limit = limit).loadMore(cursor)
+    }
+
+    private fun notesPaging(username: String, limit: Int): PagedQuery<AdminNotesQuery.Data> {
+        return PagedQuery(
+            client = client,
+            firstPage = AdminNotesQuery(
+                username = username,
+                cursor = Optional.absent(),
+                limit = limit,
+            ),
+            nextPage = { cursor ->
                 AdminNotesQuery(
                     username = username,
-                    cursor = Optional.presentIfNotNull(cursor),
+                    cursor = Optional.present(cursor),
                     limit = limit,
-                ),
-            )
-        val response = if (networkOnly) {
-            query.fetchPolicy(FetchPolicy.NetworkOnly).execute()
-        } else {
-            query.execute()
+                )
+            },
+            appendPage = { cached, fetched ->
+                cached.copy(
+                    admin = cached.admin.copy(
+                        notes = cached.admin.notes.copy(
+                            nodes = cached.admin.notes.nodes + fetched.admin.notes.nodes,
+                            pageInfo = fetched.admin.notes.pageInfo,
+                        ),
+                    ),
+                )
+            },
+        )
+    }
+
+    private fun ApolloResponse<AdminNotesQuery.Data>.toAdminNotesResult(): AdminNotesResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AdminNotesResult.Failure(failureMessage())
         }
 
-        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
-            return AdminNotesResult.Failure(response.failureMessage())
-        }
-
-        val data = response.data ?: return AdminNotesResult.Failure(response.failureMessage())
+        val data = data ?: return AdminNotesResult.Failure(failureMessage())
 
         return AdminNotesResult.Success(
             notes = data.admin.notes.nodes.map { it.adminNoteFields.toAdminNote() },
