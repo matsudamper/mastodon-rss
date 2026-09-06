@@ -33,6 +33,7 @@ internal fun Feed.toGraphqlResponse(): QlFeed = QlFeed(
     siteUrl = siteUrl,
     format = format,
     createdAt = createdAt.epochSecond,
+    lastFetchedAt = fetch.lastFetchedAt?.epochSecond,
 )
 
 internal fun FeedService.FeedPreview.toGraphqlResponse(): QlAdminFeedPreview = QlAdminFeedPreview(

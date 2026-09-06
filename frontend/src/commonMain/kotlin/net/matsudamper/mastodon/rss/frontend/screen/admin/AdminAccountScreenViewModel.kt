@@ -749,6 +749,7 @@ class AdminAccountScreenViewModel(
                 url = feed.url,
                 title = feed.title,
                 format = feed.format,
+                lastFetchedAt = feed.lastFetchedAt?.let { UnixTimeUtil.format(it) },
                 unpublishedItems = unpublishedItems.map { it.toUiState() },
                 postedItems = postedItems?.map { it.toUiState() },
                 postingUnpublished = postingUnpublished,

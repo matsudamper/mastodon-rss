@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -802,6 +803,8 @@ class AdminGraphQlTest {
 
             assertEquals(FEED_URL, feed.string("url"))
             assertEquals("サンプル", feed.string("title"))
+            // 登録のために取りに行った分も最終チェックとして出す
+            assertNotEquals(JsonNull, feed.getValue("lastFetchedAt"))
         }
 
     @Test
@@ -1237,7 +1240,7 @@ class AdminGraphQlTest {
             return FeedFetchService(HttpClient(engine))
         }
 
-        const val FEED_FIELDS = "id url title siteUrl format createdAt"
+        const val FEED_FIELDS = "id url title siteUrl format createdAt lastFetchedAt"
 
         const val ACCOUNT_FIELDS =
             "account { id username acct actorUrl displayName summary } createdAt feed { $FEED_FIELDS }"
