@@ -62,42 +62,39 @@ class AccountFollowersScreenViewModel(
         reload()
     }
 
-    /**
-     * 一覧は先頭のページを watch して受け取る。続きを足したときもここに流れてくる
-     */
     private fun reload() {
         loadMoreJob?.cancel()
         followersJob?.cancel()
         viewModelStateFlow.update { ViewModelState() }
         followersJob = viewModelScope.launch {
             followersPaging.watch().collect { result ->
-                val followers = when (result) {
-                    is AccountFollowersResult.Success -> Followers.Loaded(
+                val followersState = when (result) {
+                    is AccountFollowersResult.Success -> FollowersState.Loaded(
                         followers = result.followers,
-                        cursor = result.cursor,
+                        nextCursor = result.nextCursor,
                     )
 
-                    AccountFollowersResult.NotFound -> Followers.NotFound
+                    AccountFollowersResult.NotFound -> FollowersState.NotFound
 
-                    is AccountFollowersResult.Failure -> Followers.Failure(result.message)
+                    is AccountFollowersResult.Failure -> FollowersState.Failure(result.message)
                 }
 
                 viewModelStateFlow.update {
-                    it.copy(followers = followers, loadingMore = false, loadMoreError = null)
+                    it.copy(followers = followersState, loadingMore = false, loadMoreError = null)
                 }
             }
         }
     }
 
     private fun loadMore() {
-        val cursor = (viewModelStateFlow.value.followers as? Followers.Loaded)?.cursor ?: return
+        val nextCursor = (viewModelStateFlow.value.followers as? FollowersState.Loaded)?.nextCursor ?: return
         if (viewModelStateFlow.value.loadingMore) return
 
         viewModelStateFlow.update { it.copy(loadingMore = true) }
 
         loadMoreJob?.cancel()
         loadMoreJob = viewModelScope.launch {
-            when (val result = followersPaging.loadMore(cursor)) {
+            when (val result = followersPaging.loadMore(nextCursor)) {
                 PagingLoadMoreResult.Success -> {
                     viewModelStateFlow.update { it.copy(loadMoreError = null, loadingMore = false) }
                 }
@@ -110,22 +107,22 @@ class AccountFollowersScreenViewModel(
     }
 
     private fun createUiState(state: ViewModelState): AccountFollowersScreenUiState {
-        val content = when (val followers = state.followers) {
-            Followers.Loading -> AccountFollowersScreenUiState.Content.Loading
+        val content = when (val followersState = state.followers) {
+            FollowersState.Loading -> AccountFollowersScreenUiState.Content.Loading
 
-            Followers.NotFound -> AccountFollowersScreenUiState.Content.NotFound
+            FollowersState.NotFound -> AccountFollowersScreenUiState.Content.NotFound
 
-            is Followers.Failure -> AccountFollowersScreenUiState.Content.Error(
-                message = followers.message,
+            is FollowersState.Failure -> AccountFollowersScreenUiState.Content.Error(
+                message = followersState.message,
                 listener = errorListener,
             )
 
-            is Followers.Loaded -> {
-                if (followers.followers.isEmpty()) {
+            is FollowersState.Loaded -> {
+                if (followersState.followers.isEmpty()) {
                     AccountFollowersScreenUiState.Content.Empty
                 } else {
                     AccountFollowersScreenUiState.Content.Loaded(
-                        followers = followers.followers.map { follower ->
+                        followers = followersState.followers.map { follower ->
                             AccountFollowersScreenUiState.Follower(
                                 actorUrl = follower.actorUrl,
                                 listener = object : AccountFollowersScreenUiState.Follower.Listener {
@@ -138,7 +135,7 @@ class AccountFollowersScreenViewModel(
                             )
                         },
                         loadMore = when {
-                            followers.cursor == null -> AccountFollowersScreenUiState.LoadMore.Hidden
+                            followersState.nextCursor == null -> AccountFollowersScreenUiState.LoadMore.Hidden
                             state.loadingMore -> AccountFollowersScreenUiState.LoadMore.Loading
                             else -> AccountFollowersScreenUiState.LoadMore.Button
                         },
@@ -155,34 +152,25 @@ class AccountFollowersScreenViewModel(
         )
     }
 
-    /**
-     * @param loadMoreError 続きを取れなかった理由。一覧とは分けて持ち、取れた分は消さない
-     */
     private data class ViewModelState(
-        val followers: Followers = Followers.Loading,
+        val followers: FollowersState = FollowersState.Loading,
         val loadingMore: Boolean = false,
         val loadMoreError: String? = null,
     )
 
-    /**
-     * 一覧の状態。1 回の問い合わせの結果はこのうちの 1 つなので、分けて持たない
-     */
-    private sealed interface Followers {
-        data object Loading : Followers
+    private sealed interface FollowersState {
+        data object Loading : FollowersState
 
-        data object NotFound : Followers
+        data object NotFound : FollowersState
 
         data class Failure(
             val message: String,
-        ) : Followers
+        ) : FollowersState
 
-        /**
-         * @param cursor 続きを取るときに渡す。null なら最後まで取れている
-         */
         data class Loaded(
             val followers: List<AccountFollower>,
-            val cursor: String?,
-        ) : Followers
+            val nextCursor: String?,
+        ) : FollowersState
     }
 
     interface Event {

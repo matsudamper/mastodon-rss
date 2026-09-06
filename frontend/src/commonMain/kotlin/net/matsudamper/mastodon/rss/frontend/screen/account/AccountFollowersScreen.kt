@@ -102,10 +102,6 @@ internal fun AccountFollowersContent(
     )
 }
 
-/**
- * 人数の分だけ縦に伸びるので、画面に収まらない。続きを足すたびに増えるので、
- * 見えている分だけ配置する
- */
 @Composable
 private fun FollowerList(
     content: AccountFollowersScreenUiState.Content.Loaded,

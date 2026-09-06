@@ -9,9 +9,6 @@ data class AccountFollowersScreenUiState(
     sealed interface Content {
         data object Loading : Content
 
-        /**
-         * フォロワーが 1 人もいない
-         */
         data object Empty : Content
 
         /**
@@ -19,9 +16,6 @@ data class AccountFollowersScreenUiState(
          */
         data object NotFound : Content
 
-        /**
-         * @param loadMoreErrorMessage 続きを取れなかった理由。取れた分は出したままにする
-         */
         data class Loaded(
             val followers: List<Follower>,
             val loadMore: LoadMore,
@@ -45,9 +39,6 @@ data class AccountFollowersScreenUiState(
         }
     }
 
-    /**
-     * 一覧の下に出すもの
-     */
     sealed interface LoadMore {
         /**
          * 最後まで出している
@@ -72,7 +63,7 @@ data class AccountFollowersScreenUiState(
      */
     data class Follower(
         val actorUrl: String,
-        val listener: Listener,
+        val listener: Follower.Listener,
     ) {
         @Immutable
         interface Listener {

@@ -176,7 +176,7 @@ class AccountApi(
 
         return AccountFollowersResult.Success(
             followers = followers.nodes.map { AccountFollower(actorUrl = it.actorUrl) },
-            cursor = followers.pageInfo.nextCursor,
+            nextCursor = followers.pageInfo.nextCursor,
         )
     }
 
