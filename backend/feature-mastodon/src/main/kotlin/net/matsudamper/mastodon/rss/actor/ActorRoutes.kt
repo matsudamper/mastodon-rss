@@ -68,8 +68,6 @@ internal fun actorDocument(
         following = urls.following,
         url = urls.actorId,
         attachment = feedAttachments(feedLinks),
-        // 中身は /users/{username}/icon が返す。フィードがアイコンを名乗っていなければ
-        // 出さない。空の URL を渡すと相手側で取得に失敗した扱いになる
         icon = if (feedLinks.iconUrl == null) null else Actor.Image(url = urls.icon),
         showFeatured = false,
         publicKey =
