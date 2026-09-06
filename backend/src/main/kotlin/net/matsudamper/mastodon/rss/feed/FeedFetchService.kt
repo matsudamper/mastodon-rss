@@ -2,7 +2,10 @@ package net.matsudamper.mastodon.rss.feed
 
 import java.io.Closeable
 import java.net.URI
+import java.nio.charset.Charset
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
@@ -18,6 +21,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.URLBuilder
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
+import io.ktor.http.charset
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readRemaining
@@ -125,7 +129,9 @@ class FeedFetchService(
             }
 
             val bytes = response.readBodyUpTo(MAX_PAGE_BYTES) ?: return null
-            val imageUrl = OpenGraph.imageUrl(bytes.decodeToString()) ?: return null
+            // 相手のスレッドを借りない。ページを読むのは CPU の仕事で、中断点も無い
+            val html = String(bytes, response.bodyCharset() ?: Charsets.UTF_8)
+            val imageUrl = withContext(Dispatchers.Default) { OpenGraph.imageUrl(html) } ?: return null
 
             // og:image は相対 URL でもよい。基準は飛んだ先のページ
             return HttpUrl.sanitize(imageUrl, target)
@@ -133,6 +139,14 @@ class FeedFetchService(
 
         return null
     }
+
+    /**
+     * 本文の文字コード。名乗っていなければ null。
+     *
+     * 名乗りが読めない綴りでも取り込みは続けたいので、例外にはしない
+     */
+    private fun HttpResponse.bodyCharset(): Charset? =
+        runCatching { contentType()?.charset() }.getOrNull()
 
     /**
      * HTML として読める応答か。XHTML を配るページがあるので両方を通す
