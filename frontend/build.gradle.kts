@@ -68,7 +68,6 @@ kotlin {
                 // 画面遷移。JetBrains 版の Navigation 3（wasmJs 向けの成果物がある）。
                 // runtime は推移的に androidx.navigation3 から入る
                 implementation(libs.navigation3.ui)
-                // Coil の取得を Ktor に通す。wasmJs では自前で組み立てて渡す必要がある
                 implementation(libs.coil.network.ktor3)
                 // 日本語フォントを配信元から取ってくるのに使う。詳細は ui/Font.kt を参照
                 implementation(libs.ktor.client.core)
