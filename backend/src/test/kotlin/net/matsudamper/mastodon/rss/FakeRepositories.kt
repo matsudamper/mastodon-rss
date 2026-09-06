@@ -293,6 +293,7 @@ class FakeFeedRepository : FeedRepository {
             title = feed.title,
             siteUrl = feed.siteUrl,
             format = feed.format,
+            iconUrl = feed.iconUrl,
             pollIntervalSeconds = feed.pollIntervalSeconds,
             fetch = FeedFetchStatus(
                 validators = FeedFetchValidators.NONE,
@@ -310,8 +311,9 @@ class FakeFeedRepository : FeedRepository {
         title: String?,
         siteUrl: String?,
         format: String?,
+        iconUrl: String?,
     ) {
-        update(id) { it.copy(title = title, siteUrl = siteUrl, format = format) }
+        update(id) { it.copy(title = title, siteUrl = siteUrl, format = format, iconUrl = iconUrl) }
     }
 
     override fun recordFetchSuccess(

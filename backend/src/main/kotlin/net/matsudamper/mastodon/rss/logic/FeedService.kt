@@ -66,6 +66,7 @@ class FeedService(
                         title = fetched.parsed.title,
                         siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
                         format = fetched.parsed.format.toDisplayName(),
+                        iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl),
                         pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS,
                     ),
                 ) ?: return SaveResult.Failure(
@@ -295,6 +296,14 @@ class FeedService(
     private suspend fun importLatest(feed: Feed): ImportLatestResult {
         return when (val fetched = fetcher.fetch(feed.url)) {
             is FeedFetchService.FetchResult.Success -> {
+                // 登録した後にアイコンや題名を足す配信元があるので、取り込みのたびに反映する
+                feeds.updateMetadata(
+                    id = feed.id,
+                    title = fetched.parsed.title,
+                    siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
+                    format = fetched.parsed.format.toDisplayName(),
+                    iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl),
+                )
                 importExistingItems(
                     feed = feed,
                     items = fetched.parsed.items,

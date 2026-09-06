@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.actor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -126,6 +127,28 @@ class ActorRoutesTest {
                     """https://feed1.example.org/rss.xml</a>""",
                 actor.attachment[1].htmlContent,
             )
+        }
+
+    @Test
+    fun `フィードがアイコンを名乗っていれば icon にこちらの URL が入る`() =
+        testApplication {
+            installModule()
+
+            val path = "/users/${TestLocalActor.STORED_USERNAME}"
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
+
+            assertEquals("https://example.com$path/icon", actor.icon?.url)
+            assertEquals("Image", actor.icon?.type)
+        }
+
+    @Test
+    fun `フィードを持たないアカウントは icon が入らない`() =
+        testApplication {
+            installModule()
+
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
+
+            assertNull(actor.icon)
         }
 
     @Test

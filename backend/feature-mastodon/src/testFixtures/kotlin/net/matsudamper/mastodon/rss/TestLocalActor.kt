@@ -33,6 +33,7 @@ object TestLocalActor {
             STORED_USERNAME to FeedLinks(
                 siteUrl = "https://feed1.example.org/",
                 feedUrl = "https://feed1.example.org/rss.xml",
+                iconUrl = "https://feed1.example.org/icon.png",
             ),
         ),
     )

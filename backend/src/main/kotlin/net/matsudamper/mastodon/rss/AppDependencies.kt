@@ -2,6 +2,8 @@ package net.matsudamper.mastodon.rss
 
 import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorIcon
+import net.matsudamper.mastodon.rss.actor.ActorIcons
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
@@ -18,6 +20,7 @@ import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.HttpUrl
+import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
@@ -53,6 +56,7 @@ class AppDependencies(
     val remoteActors: RemoteActors,
     val delivery: ActivityDelivery,
     val feedFetcher: FeedFetchService = FeedFetchService(),
+    val iconFetcher: IconFetchService = IconFetchService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
     val openTelemetry: OpenTelemetry? = null,
     private val telemetry: OpenTelemetryInitializer.Handler? = null,
@@ -85,7 +89,21 @@ class AppDependencies(
             return FeedLinks(
                 siteUrl = HttpUrl.sanitize(feed.siteUrl, feed.url),
                 feedUrl = HttpUrl.sanitize(feed.url),
+                iconUrl = HttpUrl.sanitize(feed.iconUrl, feed.url),
             )
+        }
+    }
+
+    val actorIcons: ActorIcons = object : ActorIcons {
+        override suspend fun find(username: String): ActorIcon? {
+            val source = feedLinks.find(username).iconUrl ?: return null
+
+            return when (val fetched = iconFetcher.fetch(source)) {
+                is IconFetchService.FetchResult.Success ->
+                    ActorIcon(bytes = fetched.bytes, contentType = fetched.contentType)
+
+                IconFetchService.FetchResult.Failure -> null
+            }
         }
     }
 
@@ -132,15 +150,19 @@ class AppDependencies(
             feedFetcher.close()
         } finally {
             try {
-                delivery.close()
+                iconFetcher.close()
             } finally {
                 try {
-                    remoteActors.close()
+                    delivery.close()
                 } finally {
                     try {
-                        repositories.close()
+                        remoteActors.close()
                     } finally {
-                        telemetry?.close()
+                        try {
+                            repositories.close()
+                        } finally {
+                            telemetry?.close()
+                        }
                     }
                 }
             }

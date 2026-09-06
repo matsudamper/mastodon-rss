@@ -32,6 +32,14 @@ data class ActorUrls(
     val followers: String = "$actorId/followers"
     val following: String = "$actorId/following"
 
+    /**
+     * プロフィール画像。フィードのアイコンをこちらで中継して返す。
+     *
+     * 配信元の URL をそのまま渡さないのは、フィードを差し替えてもアイコンの URL が
+     * 変わらないようにするため。相手はアイコンを URL で覚える
+     */
+    val icon: String = "$actorId/icon"
+
     /** Actor JSON の `publicKey.id`。署名の `keyId` としても飛んでくる */
     val publicKeyId: String = "$actorId#main-key"
 }

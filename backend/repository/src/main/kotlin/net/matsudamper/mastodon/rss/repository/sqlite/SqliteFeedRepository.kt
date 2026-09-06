@@ -88,6 +88,7 @@ internal class SqliteFeedRepository(
             .set(FEEDS.TITLE, feed.title)
             .set(FEEDS.SITE_URL, feed.siteUrl)
             .set(FEEDS.FORMAT, feed.format)
+            .set(FEEDS.ICON_URL, feed.iconUrl)
             .set(FEEDS.POLL_INTERVAL_SECONDS, feed.pollIntervalSeconds)
             .set(FEEDS.INITIAL_IMPORT_DONE, 0L)
             .set(FEEDS.CREATED_AT, StoredInstant.format(createdAt))
@@ -103,6 +104,7 @@ internal class SqliteFeedRepository(
             title = feed.title,
             siteUrl = feed.siteUrl,
             format = feed.format,
+            iconUrl = feed.iconUrl,
             pollIntervalSeconds = feed.pollIntervalSeconds,
             fetch = FeedFetchStatus(
                 validators = FeedFetchValidators.NONE,
@@ -120,6 +122,7 @@ internal class SqliteFeedRepository(
         title: String?,
         siteUrl: String?,
         format: String?,
+        iconUrl: String?,
     ) {
         jooq.transaction { dsl ->
 
@@ -128,6 +131,7 @@ internal class SqliteFeedRepository(
                 .set(FEEDS.TITLE, title)
                 .set(FEEDS.SITE_URL, siteUrl)
                 .set(FEEDS.FORMAT, format)
+                .set(FEEDS.ICON_URL, iconUrl)
                 .where(FEEDS.ID.eq(id.value))
                 .execute()
         }
@@ -213,6 +217,7 @@ internal class SqliteFeedRepository(
         title = title,
         siteUrl = siteUrl,
         format = format,
+        iconUrl = iconUrl,
         pollIntervalSeconds = pollIntervalSeconds!!,
         fetch = FeedFetchStatus(
             validators = FeedFetchValidators(

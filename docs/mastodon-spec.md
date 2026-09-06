@@ -17,6 +17,7 @@
 | `GET /users/{name}/followers` | フォロワーの OrderedCollection。`?cursor=` で中身 |
 | `GET /users/{name}/outbox` | 配信した `Create` の OrderedCollection。`?cursor=` で中身 |
 | `GET /users/{name}/collections/featured` | プロフィールに載せる投稿の OrderedCollection |
+| `GET /users/{name}/icon` | プロフィール画像。フィードのアイコンを取り直して返す |
 | `GET /notes/{id}` | 配信した投稿。相手がパーマリンクとして引きに来る |
 | `GET /.well-known/nodeinfo` | NodeInfo の discovery document |
 | `GET /nodeinfo/2.1` | サーバーの実装と規模。調査用 |
@@ -127,6 +128,23 @@ Actor の `name` と `summary`。管理画面から設定でき、保存先は `
 相手のプロフィールに見出しだけの行が並ぶ。
 
 `attachment` を変えても相手側の表示は変わらない。`Update{Actor}` の配信は未実装。
+
+## プロフィール画像
+
+Actor の `icon`。中身はフィードが名乗っているアイコンで、`webfeeds:icon`、
+`webfeeds:logo`、RSS の `image` の `url`、Atom の `icon` と `logo` の順に探す。
+取得元は `feeds.icon_url` に保存し、フィードを取り込み直すたびに入れ替える。
+
+相手に渡す URL は取得元ではなく `/users/{name}/icon`。配信元の URL をそのまま渡すと、
+フィードを差し替えたときに古いアイコンの URL が相手に残る。相手はアイコンを URL で
+覚えるので、こちらのパスを固定しておくと差し替えても指す先が変わらない。
+
+中身は要求のたびに取得元から取り直して返す。画像でない応答は返さず 404 にする。
+配信元がエラーページを 200 で返すことがあり、そのまま流すと他所の HTML を
+こちらのドメインで配ることになる。
+
+アイコンを名乗っていないフィードと、フィードを持たないアカウントでは `icon` を出さない。
+空の URL を入れると相手側では取得に失敗した扱いになる。
 
 ## アカウントの引き当て
 

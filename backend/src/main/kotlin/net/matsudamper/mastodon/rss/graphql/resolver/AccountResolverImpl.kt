@@ -37,6 +37,25 @@ class AccountResolverImpl : AccountResolver {
             }
     }
 
+    /**
+     * 中身を返すのはこの GraphQL ではなく Actor と同じ `/users/{username}/icon`。
+     * Mastodon に渡しているものと同じ URL を返して、出るものを揃える
+     */
+    override fun iconUrl(
+        account: QlAccount,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<String?>> {
+        return GraphQlEngine
+            .dataLoaders(env)
+            .feedByAccountIdDataLoader
+            .get(env)
+            .load(account.id)
+            .thenApply { feed ->
+                val iconUrl = if (feed?.iconUrl == null) null else "${account.actorUrl}/icon"
+                DataFetcherResult.Builder<String?>(iconUrl).build()
+            }
+    }
+
     override fun feed(
         account: QlAccount,
         env: DataFetchingEnvironment,
