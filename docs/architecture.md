@@ -39,8 +39,9 @@ sqlite-jdbc と jOOQ も `implementation` で入れているため、JDBC と jO
 バイトコード書き換えに依存するので native-image では動かない。JCA の確認を
 そこに同居させると確認できなくなる。
 
-`:backend:rss` は RSS/Atom の XML を読んで値を取り出すだけのモジュール。
-HTTP も DB も知らず、入力はバイト列で出力は `ParsedFeed`。分けた理由は 2 つある。
+`:backend:rss` は配信元が返した中身を読んで値を取り出すだけのモジュール。
+RSS/Atom の XML が主で、記事のリンク先の HTML から OGP を読むのもここに置く。
+HTTP も DB も知らない。分けた理由は 2 つある。
 
 1 つは `:backend:crypto` と同じで、テストを native バイナリとして実行するため。
 StAX (`javax.xml`) はパーサの実装を実行時に探すので、native-image で解決に失敗すると
