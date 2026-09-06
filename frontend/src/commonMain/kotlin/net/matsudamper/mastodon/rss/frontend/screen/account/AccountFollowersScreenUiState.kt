@@ -26,11 +26,23 @@ data class AccountFollowersScreenUiState(
             val followers: List<Follower>,
             val loadMore: LoadMore,
             val loadMoreErrorMessage: String?,
-        ) : Content
+            val listener: Loaded.Listener,
+        ) : Content {
+            @Immutable
+            interface Listener {
+                fun onClickLoadMore()
+            }
+        }
 
         data class Error(
             val message: String,
-        ) : Content
+            val listener: Error.Listener,
+        ) : Content {
+            @Immutable
+            interface Listener {
+                fun onClickReload()
+            }
+        }
     }
 
     /**
@@ -47,13 +59,12 @@ data class AccountFollowersScreenUiState(
         data object Loading : LoadMore
     }
 
+    /**
+     * どの状態でもできること
+     */
     @Immutable
     interface Listener {
         fun onClickClose()
-
-        fun onClickReload()
-
-        fun onClickLoadMore()
     }
 
     /**

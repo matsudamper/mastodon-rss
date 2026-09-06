@@ -34,11 +34,15 @@ class AccountFollowersScreenViewModel(
         override fun onClickClose() {
             viewModelScope.launch { events.send { it.close() } }
         }
+    }
 
+    private val errorListener = object : AccountFollowersScreenUiState.Content.Error.Listener {
         override fun onClickReload() {
             reload()
         }
+    }
 
+    private val loadedListener = object : AccountFollowersScreenUiState.Content.Loaded.Listener {
         override fun onClickLoadMore() {
             loadMore()
         }
@@ -112,7 +116,10 @@ class AccountFollowersScreenViewModel(
 
             Followers.NotFound -> AccountFollowersScreenUiState.Content.NotFound
 
-            is Followers.Failure -> AccountFollowersScreenUiState.Content.Error(followers.message)
+            is Followers.Failure -> AccountFollowersScreenUiState.Content.Error(
+                message = followers.message,
+                listener = errorListener,
+            )
 
             is Followers.Loaded -> {
                 if (followers.followers.isEmpty()) {
@@ -137,6 +144,7 @@ class AccountFollowersScreenViewModel(
                             else -> AccountFollowersScreenUiState.LoadMore.Button
                         },
                         loadMoreErrorMessage = state.loadMoreError,
+                        listener = loadedListener,
                     )
                 }
             }

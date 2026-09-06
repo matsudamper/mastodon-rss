@@ -83,14 +83,14 @@ internal fun AccountFollowersContent(
                 is AccountFollowersScreenUiState.Content.Error -> {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text(content.message, color = MaterialTheme.colorScheme.error)
-                        TextButton(onClick = uiState.listener::onClickReload) {
+                        TextButton(onClick = content.listener::onClickReload) {
                             Text("もう一度試す")
                         }
                     }
                 }
 
                 is AccountFollowersScreenUiState.Content.Loaded -> {
-                    FollowerList(content = content, listener = uiState.listener)
+                    FollowerList(content = content)
                 }
             }
         },
@@ -109,7 +109,6 @@ internal fun AccountFollowersContent(
 @Composable
 private fun FollowerList(
     content: AccountFollowersScreenUiState.Content.Loaded,
-    listener: AccountFollowersScreenUiState.Listener,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
@@ -144,7 +143,7 @@ private fun FollowerList(
                     }
 
                     AccountFollowersScreenUiState.LoadMore.Button -> {
-                        TextButton(onClick = listener::onClickLoadMore) {
+                        TextButton(onClick = content.listener::onClickLoadMore) {
                             Text("もっと見る")
                         }
                     }
