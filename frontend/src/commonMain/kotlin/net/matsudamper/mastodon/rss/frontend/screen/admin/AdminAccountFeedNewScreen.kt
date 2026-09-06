@@ -62,7 +62,6 @@ internal fun AdminAccountFeedNewContent(
         onDismissRequest = { if (uiState.closeEnabled) uiState.listener.onClickClose() },
         title = { Text("RSS フィードを追加") },
         text = {
-            // プレビューの件数だけ縦に伸びるので、枠に収まらないことがある
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -135,7 +134,7 @@ private fun FeedPreview(uiState: AdminAccountFeedNewScreenUiState, modifier: Mod
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 preview.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                Text("記事 ${preview.itemCount} 件", style = MaterialTheme.typography.bodyMedium)
+                Text("${preview.itemCount}件の記事", style = MaterialTheme.typography.bodyMedium)
                 preview.sampleItems.forEach { item ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(item.title ?: "(題名なし)", style = MaterialTheme.typography.bodyMedium)
