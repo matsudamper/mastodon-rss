@@ -122,6 +122,21 @@ sealed interface Screen : NavKey {
     }
 
     /**
+     * 投稿 1 件。[Account] の上にダイアログとして出す。
+     *
+     * 一覧の上に重ねるので、閉じたときに一覧を読み直さずに済む。
+     * URL を持つので、投稿だけを直接開くこともできる。
+     */
+    data class AccountNote(
+        val username: String,
+        val noteId: String,
+    ) : Overlay {
+        override val path: String = "/$ACCOUNT_PREFIX$username/$noteId"
+        override val title: String = "@$username の投稿 | $SITE_NAME"
+        override val background: Screen = Account(username)
+    }
+
+    /**
      * 知らないパス。
      *
      * [path] は要求されたパスのまま持つ。ここで `/` に書き換えると、
@@ -204,8 +219,11 @@ sealed interface Screen : NavKey {
                 }
             }
 
-            if (segments.size == 1) {
-                accountNameOf(first)?.let { return Account(it) }
+            accountNameOf(first)?.let { username ->
+                when (segments.size) {
+                    1 -> return Account(username)
+                    2 -> return AccountNote(username = username, noteId = segments[1])
+                }
             }
 
             return NotFound(path)
