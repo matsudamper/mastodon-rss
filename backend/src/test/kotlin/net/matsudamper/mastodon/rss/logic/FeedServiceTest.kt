@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -616,6 +617,45 @@ class FeedServiceTest {
             assertEquals(listOf("1 本目", "2 本目", "3 本目"), success.items.map { it.title })
         }
 
+    @Test
+    fun `投稿前の再取得でアイコンを最新に入れ替える`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(ICON_XML, CHANGED_ICON_XML),
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+            assertEquals(
+                "https://example.com/icon.png",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
+
+            service.postUnpublished(account.id)
+
+            assertEquals(
+                "https://example.com/icon2.png",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
+        }
+
+    @Test
+    fun `アイコンを取り下げたフィードは保存したアイコンも消す`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(ICON_XML, FEED_XML),
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            service.postUnpublished(account.id)
+
+            assertNull(assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl)
+        }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         status: HttpStatusCode = HttpStatusCode.OK,
@@ -666,6 +706,28 @@ class FeedServiceTest {
                 <link>https://example.com/</link>
                 <item><title>1 本目</title><link>https://example.com/1</link></item>
                 <item><title>2 本目</title><link>https://example.com/2</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val ICON_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:webfeeds="http://webfeeds.org/rss/1.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <webfeeds:icon>https://example.com/icon.png</webfeeds:icon>
+                <item><title>1 本目</title><link>https://example.com/1</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val CHANGED_ICON_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:webfeeds="http://webfeeds.org/rss/1.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <webfeeds:icon>https://example.com/icon2.png</webfeeds:icon>
+                <item><title>1 本目</title><link>https://example.com/1</link></item>
               </channel>
             </rss>
         """.trimIndent()
