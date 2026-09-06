@@ -47,9 +47,9 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.PostFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UnpublishedFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UpdateAccountProfileQuery
+import net.matsudamper.mastodon.rss.frontend.logic.CachedPaging
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
-import net.matsudamper.mastodon.rss.frontend.logic.PagedQuery
-import net.matsudamper.mastodon.rss.frontend.logic.PagedQueryLoadMoreResult
+import net.matsudamper.mastodon.rss.frontend.logic.Paging
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 import net.matsudamper.mastodon.rss.shared.FeedItemId
 
@@ -181,26 +181,11 @@ class AdminApi(
         return AdminUpdateAccountProfileResult.Success(account.adminAccountScreenFields.toAdminAccount())
     }
 
-    fun notes(username: String, limit: Int): Flow<AdminNotesResult> {
-        return notesPaging(username = username, limit = limit)
-            .watch()
-            .map { response -> response.toAdminNotesResult() }
-    }
-
     /**
-     * @param cursor 直前のページの続きから取る
-     * @param limit 要求する件数。上限はサーバー側で決まる
+     * @param limit 1 ページで要求する件数。上限はサーバー側で決まる
      */
-    suspend fun loadMoreNotes(
-        username: String,
-        cursor: String,
-        limit: Int,
-    ): PagedQueryLoadMoreResult {
-        return notesPaging(username = username, limit = limit).loadMore(cursor)
-    }
-
-    private fun notesPaging(username: String, limit: Int): PagedQuery<AdminNotesQuery.Data> {
-        return PagedQuery(
+    fun notes(username: String, limit: Int): Paging<AdminNotesResult> {
+        return CachedPaging(
             client = client,
             firstPage = AdminNotesQuery(
                 username = username,
@@ -224,6 +209,7 @@ class AdminApi(
                     ),
                 )
             },
+            toResult = { response -> response.toAdminNotesResult() },
         )
     }
 

@@ -15,23 +15,15 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.HomeScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AccountNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountNotesQuery as AccountNotesQueryInput
+import net.matsudamper.mastodon.rss.frontend.logic.CachedPaging
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
-import net.matsudamper.mastodon.rss.frontend.logic.PagedQuery
-import net.matsudamper.mastodon.rss.frontend.logic.PagedQueryLoadMoreResult
+import net.matsudamper.mastodon.rss.frontend.logic.Paging
 
 class AccountApi(
     private val client: ApolloClient = GraphQlClient.apollo,
 ) {
-    fun accounts(limit: Int): Flow<AccountsResult> {
-        return accountsPaging(limit).watch().map { response -> response.toAccountsResult() }
-    }
-
-    suspend fun loadMoreAccounts(cursor: String, limit: Int): PagedQueryLoadMoreResult {
-        return accountsPaging(limit).loadMore(cursor)
-    }
-
-    private fun accountsPaging(limit: Int): PagedQuery<HomeScreenQuery.Data> {
-        return PagedQuery(
+    fun accounts(limit: Int): Paging<AccountsResult> {
+        return CachedPaging(
             client = client,
             firstPage = HomeScreenQuery(cursor = Optional.absent(), limit = limit),
             nextPage = { cursor -> HomeScreenQuery(cursor = Optional.present(cursor), limit = limit) },
@@ -43,6 +35,7 @@ class AccountApi(
                     ),
                 )
             },
+            toResult = { response -> response.toAccountsResult() },
         )
     }
 
@@ -54,22 +47,8 @@ class AccountApi(
             .map { response -> response.toAccountResult() }
     }
 
-    fun notes(username: String, limit: Int): Flow<AccountNotesResult> {
-        return notesPaging(username = username, limit = limit)
-            .watch()
-            .map { response -> response.toAccountNotesResult() }
-    }
-
-    suspend fun loadMoreNotes(
-        username: String,
-        cursor: String,
-        limit: Int,
-    ): PagedQueryLoadMoreResult {
-        return notesPaging(username = username, limit = limit).loadMore(cursor)
-    }
-
-    private fun notesPaging(username: String, limit: Int): PagedQuery<AccountNotesQuery.Data> {
-        return PagedQuery(
+    fun notes(username: String, limit: Int): Paging<AccountNotesResult> {
+        return CachedPaging(
             client = client,
             firstPage = AccountNotesQuery(
                 query = AccountNotesQueryInput(
@@ -95,6 +74,7 @@ class AccountApi(
                     ),
                 )
             },
+            toResult = { response -> response.toAccountNotesResult() },
         )
     }
 

@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
-import net.matsudamper.mastodon.rss.frontend.logic.PagedQueryLoadMoreResult
+import net.matsudamper.mastodon.rss.frontend.logic.PagingLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
@@ -20,6 +20,8 @@ class HomeScreenViewModel(
     private val events = EventSender<Event>()
     internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+
+    private val accountsPaging = api.accounts(limit = PAGE_SIZE)
 
     private var accountsJob: Job? = null
     private var loadMoreJob: Job? = null
@@ -78,16 +80,16 @@ class HomeScreenViewModel(
      * 一覧は先頭のページを watch して受け取る。続きを足したときもここに流れてくる
      */
     private fun reload() {
+        loadMoreJob?.cancel()
         viewModelStateFlow.update { ViewModelState(isLoading = true) }
 
         accountsJob?.cancel()
         accountsJob = viewModelScope.launch {
-            api.accounts(limit = PAGE_SIZE).collect { result ->
+            accountsPaging.watch().collect { result ->
                 viewModelStateFlow.update {
                     it.copy(
                         isLoading = false,
                         accounts = result,
-                        loadingMore = false,
                     )
                 }
             }
@@ -104,13 +106,13 @@ class HomeScreenViewModel(
 
         loadMoreJob?.cancel()
         loadMoreJob = viewModelScope.launch {
-            when (val result = api.loadMoreAccounts(cursor = cursor, limit = PAGE_SIZE)) {
-                PagedQueryLoadMoreResult.Success -> {
+            when (val result = accountsPaging.loadMore(cursor)) {
+                PagingLoadMoreResult.Success -> {
                     viewModelStateFlow.update { it.copy(loadingMore = false, loadMoreErrorMessage = null) }
                 }
 
                 // 続きが取れなくても既に出ている一覧は消さない
-                is PagedQueryLoadMoreResult.Failure -> {
+                is PagingLoadMoreResult.Failure -> {
                     viewModelStateFlow.update { it.copy(loadingMore = false, loadMoreErrorMessage = result.message) }
                 }
             }

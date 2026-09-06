@@ -10,7 +10,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
-import net.matsudamper.mastodon.rss.frontend.logic.PagedQueryLoadMoreResult
+import net.matsudamper.mastodon.rss.frontend.logic.PagingLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccount
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountUpdates
@@ -37,6 +37,8 @@ class AdminAccountScreenViewModel(
     private val events = EventSender<Event>()
     internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+
+    private val notesPaging = api.notes(username = username, limit = PAGE_SIZE)
 
     private var reloadJob: Job? = null
     private var accountJob: Job? = null
@@ -495,10 +497,10 @@ class AdminAccountScreenViewModel(
      */
     private fun loadNotes() {
         cancelNotesJobs()
-        viewModelStateFlow.update { it.copy(notesLoading = true, notesError = null) }
+        viewModelStateFlow.update { it.copy(notesLoading = true, notesError = null, loadingMore = false) }
 
         notesJob = viewModelScope.launch {
-            api.notes(username = username, limit = PAGE_SIZE).collect { result ->
+            notesPaging.watch().collect { result ->
                 when (result) {
                     is AdminNotesResult.Success -> {
                         viewModelStateFlow.update {
@@ -506,7 +508,6 @@ class AdminAccountScreenViewModel(
                                 notes = result.notes,
                                 notesError = null,
                                 cursor = result.cursor,
-                                loadingMore = false,
                                 notesLoading = false,
                             )
                         }
@@ -516,7 +517,6 @@ class AdminAccountScreenViewModel(
                         viewModelStateFlow.update {
                             it.copy(
                                 notesError = result.message,
-                                loadingMore = false,
                                 notesLoading = false,
                             )
                         }
@@ -535,14 +535,14 @@ class AdminAccountScreenViewModel(
 
         loadMoreJob = viewModelScope.launch {
             try {
-                when (val result = api.loadMoreNotes(username = username, cursor = cursor, limit = PAGE_SIZE)) {
-                    PagedQueryLoadMoreResult.Success -> {
+                when (val result = notesPaging.loadMore(cursor)) {
+                    PagingLoadMoreResult.Success -> {
                         viewModelStateFlow.update {
                             it.copy(notesError = null, loadingMore = false)
                         }
                     }
 
-                    is PagedQueryLoadMoreResult.Failure -> {
+                    is PagingLoadMoreResult.Failure -> {
                         viewModelStateFlow.update {
                             it.copy(notesError = result.message, loadingMore = false)
                         }
