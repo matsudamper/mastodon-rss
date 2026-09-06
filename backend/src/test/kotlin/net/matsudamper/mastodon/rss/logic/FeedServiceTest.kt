@@ -15,6 +15,7 @@ import io.ktor.http.headersOf
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
+import net.matsudamper.mastodon.rss.FakeStoredActorNames
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
@@ -692,6 +693,28 @@ class FeedServiceTest {
                 listOf(FeedItemState.POSTED, FeedItemState.POSTED),
                 repositories.feedItems.items().map { it.state },
             )
+        }
+
+    @Test
+    fun `投稿できなかった記事は次の取得で投稿し直す`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val unknownActor = ActorDirectory(
+                domain = TestLocalActor.DOMAIN,
+                stored = FakeStoredActorNames(storedUserNames = emptyList()),
+            )
+            val failing = serviceOf(repositories, noteStore = noteStore, actorDirectory = unknownActor)
+            failing.save(accountId = account.id, url = FEED_URL)
+            failing.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
+            assertEquals(0, noteStore.added.size)
+
+            val results = serviceOf(repositories, noteStore = noteStore)
+                .pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS * 2), limit = 10)
+
+            assertEquals(listOf("1 本目", "2 本目"), results.single().postedItems.map { it.title })
+            assertEquals(2, noteStore.added.size)
         }
 
     @Test

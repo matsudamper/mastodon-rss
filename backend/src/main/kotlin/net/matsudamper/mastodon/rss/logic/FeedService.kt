@@ -330,7 +330,7 @@ class FeedService(
         // 条件付き GET はまだ送っていないので、保存されている値はそのまま残す
         feeds.recordFetchSuccess(id = feed.id, fetchedAt = Instant.now(), validators = feed.fetch.validators)
 
-        val imported = importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
+        importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
 
         if (!feed.initialImportDone) {
             // 登録が途中で終わったフィード。ここで登録を終わらせる。
@@ -348,7 +348,6 @@ class FeedService(
                 feed = feed,
                 username = account.username,
                 htmlByKey = htmlByKey(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl),
-                only = imported.map { it.id }.toSet(),
             ),
             error = null,
         )
@@ -401,21 +400,18 @@ class FeedService(
      * 投稿済みにするまでを直列化しないと、両方が同じ記事を取り出してフォロワーに
      * 2 回配信する。取り消す手段は無いので、入口を 1 本に絞って防ぐ
      *
-     * @param only 投稿する記事を絞る。null なら未投稿を全部投稿する。
-     *   定期ポーリングは今回取り込んだ分だけを渡す。投稿できずに残っている記事は
-     *   同じ理由で失敗し続けるので、取得のたびに投稿し直さない
+     * 今回取り込んだ分に絞らず、未投稿を全部投稿する。投稿できずに残る理由は
+     * 配信先の不調や停止で消えるものが多く、取り込んだ回を逃すと二度と拾えない
      */
     private suspend fun publishPending(
         feed: Feed,
         username: String,
         htmlByKey: Map<String, String?>,
-        only: Set<FeedItemId>? = null,
     ): List<UnpublishedItem> = publishLock.withLock {
         val sender = actorDirectory.resolve(username) ?: return@withLock emptyList()
         val posted = mutableListOf<UnpublishedItem>()
         feedItems
             .findPending(feed.id, Int.MAX_VALUE)
-            .filter { only == null || it.id in only }
             .forEach { stored ->
                 val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
                 val published = try {
@@ -532,9 +528,9 @@ class FeedService(
         feed: Feed,
         items: List<ParsedFeedItem>,
         feedUrl: String,
-    ): List<FeedItem> {
+    ) {
         val now = Instant.now()
-        return items.mapNotNull { item ->
+        items.forEach { item ->
             val contentHtml = composeItemHtml(item, feedUrl)
             feedItems.add(
                 NewFeedItem(
