@@ -38,6 +38,8 @@ class FollowerRepositoryTest {
         actorUri: String = "https://remote.example/users/alice",
         followActivityUri: String = "https://remote.example/activities/1",
         sharedInbox: String? = null,
+        profileUrl: String? = null,
+        preferredUsername: String? = null,
     ): IncomingFollow = IncomingFollow(
         username = username,
         follower = NewRemoteActor(
@@ -45,6 +47,8 @@ class FollowerRepositoryTest {
             inbox = "$actorUri/inbox",
             sharedInbox = sharedInbox,
             publicKeyPem = "pem",
+            profileUrl = profileUrl,
+            preferredUsername = preferredUsername,
         ),
         followActivityUri = followActivityUri,
         receivedAt = now,
@@ -64,8 +68,51 @@ class FollowerRepositoryTest {
             assertEquals(1, followers.count("admin"))
             assertEquals(
                 listOf("https://remote.example/users/alice"),
+                followers.list("admin", after = null, limit = 10).map { it.actorUri },
+            )
+        }
+    }
+
+    @Test
+    fun `プロフィールの URL と名前は保存して返す`() {
+        withRepository { followers ->
+            followers.record(
+                incomingFollow(
+                    profileUrl = "https://remote.example/@alice",
+                    preferredUsername = "alice",
+                ),
+            )
+            followers.markAccepted("admin", "https://remote.example/users/alice", now)
+
+            assertEquals(
+                listOf(
+                    Follower(
+                        actorUri = "https://remote.example/users/alice",
+                        profileUrl = "https://remote.example/@alice",
+                        preferredUsername = "alice",
+                    ),
+                ),
                 followers.list("admin", after = null, limit = 10),
             )
+        }
+    }
+
+    @Test
+    fun `プロフィールの URL と名前は取り直したもので上書きする`() {
+        withRepository { followers ->
+            followers.record(incomingFollow())
+            followers.record(
+                incomingFollow(
+                    followActivityUri = "https://remote.example/activities/2",
+                    profileUrl = "https://remote.example/@alice",
+                    preferredUsername = "alice",
+                ),
+            )
+            followers.markAccepted("admin", "https://remote.example/users/alice", now)
+
+            val stored = followers.list("admin", after = null, limit = 10).single()
+            assertEquals("https://remote.example/@alice", stored.profileUrl)
+            assertEquals("alice", stored.preferredUsername)
         }
     }
 
@@ -220,18 +267,18 @@ class FollowerRepositoryTest {
             val first = followers.list("admin", after = null, limit = 2)
             assertEquals(
                 listOf("https://remote.example/users/u0", "https://remote.example/users/u1"),
-                first,
+                first.map { it.actorUri },
             )
 
-            val second = followers.list("admin", after = first.last(), limit = 2)
+            val second = followers.list("admin", after = first.last().actorUri, limit = 2)
             assertEquals(
                 listOf("https://remote.example/users/u2", "https://remote.example/users/u3"),
-                second,
+                second.map { it.actorUri },
             )
 
             assertEquals(
                 listOf("https://remote.example/users/u4"),
-                followers.list("admin", after = second.last(), limit = 2),
+                followers.list("admin", after = second.last().actorUri, limit = 2).map { it.actorUri },
             )
             assertEquals(
                 emptyList(),

@@ -86,6 +86,10 @@ class HttpRemoteActors(
             // sharedInbox が無くても inbox に 1 通ずつ送れば配信自体はできる
             sharedInbox = document.endpoints?.sharedInbox?.takeIf { isDeliverable(it, url) },
             publicKeyPem = publicKeyPem,
+            // 管理画面から人が開くリンクになる。https で、アクターと同じホストのものに限る。
+            // 他所のホストを指せると、フォローするだけでこちらの画面に任意のリンクを載せられる
+            profileUrl = document.url?.takeIf { parseHttpsUrl(it) != null && isSameHost(it, url) },
+            preferredUsername = document.preferredUsername,
         )
     }
 
@@ -199,6 +203,10 @@ private data class RemoteActorDocument(
     val id: String? = null,
     @SerialName("inbox")
     val inbox: String? = null,
+    @SerialName("url")
+    val url: String? = null,
+    @SerialName("preferredUsername")
+    val preferredUsername: String? = null,
     @SerialName("publicKey")
     val publicKey: RemoteActorPublicKey? = null,
     @SerialName("endpoints")

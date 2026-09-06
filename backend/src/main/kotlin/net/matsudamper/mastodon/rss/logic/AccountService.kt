@@ -1,11 +1,13 @@
 package net.matsudamper.mastodon.rss.logic
 
+import java.net.URI
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.Follower
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.shared.AccountId
 import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
@@ -43,11 +45,11 @@ class AccountService(
     fun followerCounts(usernames: Set<String>): Map<String, Long> = followers.counts(usernames)
 
     /**
-     * フォロワーのアクター URL を、URL 順で `afterActorUrl` の次から `limit` 件返す
+     * フォロワーを、アクター URL 順で `afterActorUrl` の次から `limit` 件返す
      */
     fun followers(username: String, afterActorUrl: String?, limit: Int): FollowersPage {
         if (limit <= 0) {
-            return FollowersPage(actorUrls = listOf(), hasMore = false, nextActorUrl = null)
+            return FollowersPage(followers = listOf(), hasMore = false, nextActorUrl = null)
         }
 
         // 続きがあるかは 1 件多く引いて見る。数え直すと、読んでいる間に増減した分だけ食い違う
@@ -56,9 +58,27 @@ class AccountService(
         val page = fetched.take(limit)
 
         return FollowersPage(
-            actorUrls = page,
+            followers = page.map { it.toProfile() },
             hasMore = hasMore,
-            nextActorUrl = if (hasMore) page.last() else null,
+            nextActorUrl = if (hasMore) page.last().actorUri else null,
+        )
+    }
+
+    /**
+     * 保存してあるものから、画面に出す形を作る。
+     *
+     * URL は相手が `url` を持たなければアクター文書の URL を出す。実装によっては
+     * JSON が開くが、開ける先が何も無いよりは辿れる。
+     *
+     * acct のホストはアクター文書の URL のホストから取る。名前は URL の形が
+     * 実装ごとに違って取り出せないので、保存したものが無ければ null にする。
+     */
+    private fun Follower.toProfile(): FollowerProfile {
+        val host = runCatching { URI(actorUri).host }.getOrNull()
+
+        return FollowerProfile(
+            url = profileUrl ?: actorUri,
+            acct = if (preferredUsername != null && host != null) "@$preferredUsername@$host" else null,
         )
     }
 
@@ -179,9 +199,21 @@ class AccountService(
      * @param nextActorUrl 続きがある場合の、次に渡す `afterActorUrl`
      */
     data class FollowersPage(
-        val actorUrls: List<String>,
+        val followers: List<FollowerProfile>,
         val hasMore: Boolean,
         val nextActorUrl: String?,
+    )
+
+    /**
+     * 一覧に出すフォロワー 1 人。
+     *
+     * @param url 人が開くリンク
+     * @param acct Mastodon の検索窓に貼る `@name@host` の形。相手の名前を保存する前から
+     *   居るフォロワーは名前が無いので null
+     */
+    data class FollowerProfile(
+        val url: String,
+        val acct: String?,
     )
 
     /**

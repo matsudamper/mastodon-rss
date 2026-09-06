@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
 import java.util.TreeMap
+import net.matsudamper.mastodon.rss.repository.Follower
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
@@ -104,9 +105,9 @@ internal class SqliteFollowerRepository(
         username: String,
         after: String?,
         limit: Int,
-    ): List<String> = jooq.withConnection { dsl ->
+    ): List<Follower> = jooq.withConnection { dsl ->
         dsl
-            .select(REMOTE_ACTORS.ACTOR_URI)
+            .select(REMOTE_ACTORS.ACTOR_URI, REMOTE_ACTORS.PROFILE_URL, REMOTE_ACTORS.PREFERRED_USERNAME)
             .from(FOLLOWERS)
             .join(REMOTE_ACTORS)
             .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
@@ -116,7 +117,14 @@ internal class SqliteFollowerRepository(
             // URL 順。位置を指す鍵が返す値そのもので済む
             .orderBy(REMOTE_ACTORS.ACTOR_URI)
             .limit(limit)
-            .fetch(REMOTE_ACTORS.ACTOR_URI)
+            .fetch()
+            .map {
+                Follower(
+                    actorUri = it.value1(),
+                    profileUrl = it.value2(),
+                    preferredUsername = it.value3(),
+                )
+            }
     }
 
     override fun count(username: String): Long = jooq.withConnection { dsl ->
@@ -183,12 +191,16 @@ internal class SqliteFollowerRepository(
             .set(REMOTE_ACTORS.INBOX, actor.inbox)
             .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
             .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
+            .set(REMOTE_ACTORS.PROFILE_URL, actor.profileUrl)
+            .set(REMOTE_ACTORS.PREFERRED_USERNAME, actor.preferredUsername)
             .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
             .onConflict(REMOTE_ACTORS.ACTOR_URI)
             .doUpdate()
             .set(REMOTE_ACTORS.INBOX, actor.inbox)
             .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
             .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
+            .set(REMOTE_ACTORS.PROFILE_URL, actor.profileUrl)
+            .set(REMOTE_ACTORS.PREFERRED_USERNAME, actor.preferredUsername)
             .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
             .execute()
 

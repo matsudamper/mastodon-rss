@@ -154,7 +154,9 @@ class QueryResolverImpl : QueryResolver {
                         )
 
                         QlAccountFollowersConnection(
-                            nodes = page.actorUrls.map { QlAccountFollower(url = it, acct = NOT_FETCHED_ACCT) },
+                            nodes = page.followers.map {
+                                QlAccountFollower(url = it.url, acct = it.acct ?: NOT_FETCHED_ACCT)
+                            },
                             pageInfo = QlPageInfo(
                                 hasMore = page.hasMore,
                                 nextCursor = page.nextActorUrl?.let { FollowersCursor(afterActorUrl = it).encode() },
@@ -184,7 +186,8 @@ class QueryResolverImpl : QueryResolver {
         const val MAX_FOLLOWERS_LIMIT = 100
 
         /**
-         * 相手の名前を保存するまでの間に返すもの（#197）
+         * 相手の名前を保存するようになる前から居るフォロワーに返すもの。
+         * フォローし直してもらうまで名前は埋まらない
          */
         const val NOT_FETCHED_ACCT = "未取得"
     }

@@ -160,6 +160,8 @@ class AccountGraphQlTest {
                         inbox = "https://mastodon.example/users/alice/inbox",
                         sharedInbox = null,
                         publicKeyPem = "pem",
+                        profileUrl = null,
+                        preferredUsername = null,
                     ),
                     followActivityUri = "https://mastodon.example/activities/1",
                     receivedAt = Instant.now(),
@@ -334,7 +336,12 @@ class AccountGraphQlTest {
         testApplication {
             val repositories = FakeRepositories()
             repositories.accounts.add(username = "feed1", createdAt = Instant.now())
-            repositories.followers.acceptFollow("feed1", "https://mastodon.example/users/alice")
+            repositories.followers.acceptFollow(
+                username = "feed1",
+                actorUri = "https://mastodon.example/users/alice",
+                profileUrl = "https://mastodon.example/@alice",
+                preferredUsername = "alice",
+            )
             // Accept を返せていない相手はフォロワーではないので出ない
             repositories.followers.record(
                 IncomingFollow(
@@ -344,6 +351,8 @@ class AccountGraphQlTest {
                         inbox = "https://mastodon.example/users/bob/inbox",
                         sharedInbox = null,
                         publicKeyPem = "pem",
+                        profileUrl = null,
+                        preferredUsername = null,
                     ),
                     followActivityUri = "https://mastodon.example/activities/bob",
                     receivedAt = Instant.now(),
@@ -353,14 +362,35 @@ class AccountGraphQlTest {
 
             val followers = queryFollowers("feed1", limit = 10).followers()
 
-            // プロフィールを保存していないので、いまはアクター文書の URL が返る
+            assertEquals(
+                listOf("https://mastodon.example/@alice"),
+                followers.nodes().map { it.string("url") },
+            )
+            assertEquals("@alice@mastodon.example", followers.nodes()[0].string("acct"))
+            assertEquals(false, followers.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `プロフィールを保存する前から居るフォロワーはアクターの URL と未取得で出る`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            repositories.followers.acceptFollow(
+                username = "feed1",
+                actorUri = "https://mastodon.example/users/alice",
+                profileUrl = null,
+                preferredUsername = null,
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val followers = queryFollowers("feed1", limit = 10).followers()
+
+            // 開ける先が何も無いよりは辿れる
             assertEquals(
                 listOf("https://mastodon.example/users/alice"),
                 followers.nodes().map { it.string("url") },
             )
-            // 相手の名前はまだ保存していない
             assertEquals("未取得", followers.nodes()[0].string("acct"))
-            assertEquals(false, followers.pageInfo().boolean("hasMore"))
         }
 
     @Test
@@ -368,13 +398,23 @@ class AccountGraphQlTest {
         testApplication {
             val repositories = FakeRepositories()
             repositories.accounts.add(username = "feed1", createdAt = Instant.now())
-            repositories.followers.acceptFollow("feed1", "https://mastodon.example/users/alice")
-            repositories.followers.acceptFollow("feed1", "https://mastodon.example/users/bob")
+            repositories.followers.acceptFollow(
+                username = "feed1",
+                actorUri = "https://mastodon.example/users/alice",
+                profileUrl = "https://mastodon.example/@alice",
+                preferredUsername = "alice",
+            )
+            repositories.followers.acceptFollow(
+                username = "feed1",
+                actorUri = "https://mastodon.example/users/bob",
+                profileUrl = "https://mastodon.example/@bob",
+                preferredUsername = "bob",
+            )
             application { module(testDependencies(repositories = repositories)) }
 
             val page1 = queryFollowers("feed1", limit = 1).followers()
             assertEquals(
-                listOf("https://mastodon.example/users/alice"),
+                listOf("https://mastodon.example/@alice"),
                 page1.nodes().map { it.string("url") },
             )
             assertEquals(true, page1.pageInfo().boolean("hasMore"))
@@ -385,7 +425,7 @@ class AccountGraphQlTest {
                 limit = 1,
             ).followers()
             assertEquals(
-                listOf("https://mastodon.example/users/bob"),
+                listOf("https://mastodon.example/@bob"),
                 page2.nodes().map { it.string("url") },
             )
             assertEquals(false, page2.pageInfo().boolean("hasMore"))
@@ -403,7 +443,12 @@ class AccountGraphQlTest {
             assertFalse(response.containsKey("errors"))
         }
 
-    private fun FollowerRepository.acceptFollow(username: String, actorUri: String) {
+    private fun FollowerRepository.acceptFollow(
+        username: String,
+        actorUri: String,
+        profileUrl: String?,
+        preferredUsername: String?,
+    ) {
         record(
             IncomingFollow(
                 username = username,
@@ -412,6 +457,8 @@ class AccountGraphQlTest {
                     inbox = "$actorUri/inbox",
                     sharedInbox = null,
                     publicKeyPem = "pem",
+                    profileUrl = profileUrl,
+                    preferredUsername = preferredUsername,
                 ),
                 followActivityUri = "$actorUri/activities/1",
                 receivedAt = Instant.now(),

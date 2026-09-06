@@ -37,9 +37,9 @@ type AccountFollowersConnection {
 
 "このアカウントをフォローしている相手 1 人"
 type AccountFollower {
-    "相手のプロフィールの URL。まだ保存していないので、今はアクター文書の URL を返す（#197）"
+    "相手のプロフィールの URL。相手が持たない場合はアクター文書の URL を返す"
     url: String!
 
-    "Mastodon の検索窓に貼る形。相手の名前をまだ保存していないので、今は「未取得」を返す（#197）"
+    "Mastodon の検索窓に貼る @name@host の形。名前を保存する前から居るフォロワーは「未取得」を返す"
     acct: String!
 }

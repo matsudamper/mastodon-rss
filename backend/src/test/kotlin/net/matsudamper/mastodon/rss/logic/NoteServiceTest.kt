@@ -113,6 +113,8 @@ class NoteServiceTest {
             inbox = "https://remote.example/users/follower/inbox",
             sharedInbox = null,
             publicKeyPem = "pem",
+            profileUrl = null,
+            preferredUsername = null,
         )
         val followers = FakeFollowerStore()
         followers.record(

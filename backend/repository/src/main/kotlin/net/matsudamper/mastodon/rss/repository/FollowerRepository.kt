@@ -78,7 +78,7 @@ interface FollowerRepository {
     fun removeRemoteActor(actorUri: String): Int
 
     /**
-     * フォロワーのアクター URL を返す。`followers` コレクションに使う。
+     * フォロワーを返す。`followers` コレクションと管理画面の一覧に使う。
      *
      * 並びは URL 順。位置を件数で数えず、直前のページの最後の 1 件で指す。
      * 件数で数えると、読んでいる間にフォローや解除が入るたびに位置がずれて、
@@ -93,7 +93,7 @@ interface FollowerRepository {
         username: String,
         after: String?,
         limit: Int,
-    ): List<String>
+    ): List<Follower>
 
     fun count(username: String): Long
 
@@ -149,10 +149,29 @@ data class IncomingFollow(
  *
  * @param actorUri 相手のアクター文書の URL。相手を指す識別子
  * @param sharedInbox 同じインスタンス宛をまとめて送れる inbox。持たない実装もある
+ * @param profileUrl 人が見るプロフィールのページ。持たない実装もある
+ * @param preferredUsername acct の名前の部分。持たない実装もある
  */
 data class NewRemoteActor(
     val actorUri: String,
     val inbox: String,
     val sharedInbox: String?,
     val publicKeyPem: String,
+    val profileUrl: String?,
+    val preferredUsername: String?,
+)
+
+/**
+ * 一覧に出すフォロワー 1 人。
+ *
+ * [profileUrl] と [preferredUsername] は、保存を始める前から居るフォロワーでは null になる。
+ * アクター文書を読み直すのはフォローを受けたときだけなので、埋まるのは
+ * フォローし直してもらった後になる。
+ *
+ * @param actorUri 相手を指す識別子。ページの位置を指す鍵でもある
+ */
+data class Follower(
+    val actorUri: String,
+    val profileUrl: String?,
+    val preferredUsername: String?,
 )
