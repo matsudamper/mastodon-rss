@@ -85,10 +85,10 @@ class HomeScreenViewModel(
     private fun loadMore() {
         val currentState = viewModelStateFlow.value
         val currentAccounts = currentState.accounts as? AccountsResult.Success ?: return
-        if (!currentAccounts.hasMore || currentState.isLoadingMore) return
+        if (!currentAccounts.hasMore || currentState.loadingMore) return
 
         val cursor = currentAccounts.nextCursor ?: return
-        viewModelStateFlow.update { it.copy(isLoadingMore = true, loadMoreErrorMessage = null) }
+        viewModelStateFlow.update { it.copy(loadingMore = true, loadMoreErrorMessage = null) }
 
         viewModelScope.launch {
             val result = api.accounts(cursor = cursor, limit = PAGE_SIZE)
@@ -105,12 +105,12 @@ class HomeScreenViewModel(
                                 nextCursor = result.nextCursor,
                             )
                         }
-                        state.copy(isLoadingMore = false, accounts = merged, loadMoreErrorMessage = null)
+                        state.copy(loadingMore = false, accounts = merged, loadMoreErrorMessage = null)
                     }
 
                     // 続きが取れなくても既に出ている一覧は消さない
                     is AccountsResult.Failure -> {
-                        state.copy(isLoadingMore = false, loadMoreErrorMessage = result.message)
+                        state.copy(loadingMore = false, loadMoreErrorMessage = result.message)
                     }
                 }
             }
@@ -137,7 +137,7 @@ class HomeScreenViewModel(
                         )
                     },
                     hasMore = accounts.hasMore,
-                    isLoadingMore = state.isLoadingMore,
+                    loadingMore = state.loadingMore,
                     loadMoreErrorMessage = state.loadMoreErrorMessage,
                 )
             }
@@ -146,7 +146,7 @@ class HomeScreenViewModel(
 
     private data class ViewModelState(
         val isLoading: Boolean = false,
-        val isLoadingMore: Boolean = false,
+        val loadingMore: Boolean = false,
         val accounts: AccountsResult? = null,
         val loadMoreErrorMessage: String? = null,
     )

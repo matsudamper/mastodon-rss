@@ -22,7 +22,7 @@ private fun HomeContentPreview() {
                         ),
                     ),
                     hasMore = true,
-                    isLoadingMore = false,
+                    loadingMore = false,
                     loadMoreErrorMessage = null,
                 ),
                 listener = AndroidPreviewHomeListener,

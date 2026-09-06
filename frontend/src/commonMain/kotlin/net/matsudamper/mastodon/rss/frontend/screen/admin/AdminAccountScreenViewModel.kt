@@ -629,7 +629,7 @@ class AdminAccountScreenViewModel(
                     deleteAccountDialog = state.deleteAccountDialogUiState(),
                     notesError = state.notesError,
                     notesLoading = state.notesLoading,
-                    canLoadMore = state.cursor != null,
+                    loadMoreVisible = state.cursor != null,
                     loadingMore = state.loadingMore,
                 )
             }
