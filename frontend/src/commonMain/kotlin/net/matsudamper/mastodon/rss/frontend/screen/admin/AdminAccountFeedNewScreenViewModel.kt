@@ -11,10 +11,10 @@ import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountIdResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountUpdates
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreview
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedPreviewResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedUpdates
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveFeedResult
 
 class AdminAccountFeedNewScreenViewModel(
@@ -154,7 +154,7 @@ class AdminAccountFeedNewScreenViewModel(
 
                 when (val result = api.saveFeed(accountId = accountId, url = url)) {
                     is AdminSaveFeedResult.Success -> {
-                        AdminFeedUpdates.notifyRegistered(username)
+                        AdminAccountUpdates.notifyChanged(username)
                         events.send { it.close() }
                     }
 

@@ -41,6 +41,7 @@ import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
 import net.matsudamper.mastodon.rss.testDependencies
 
@@ -234,6 +235,101 @@ class AdminGraphQlTest {
 
             val account = queryAccount("feed1", token).admin().obj("adminAccount").obj("account")
             assertNotNull(account.getValue("id").jsonPrimitive.long)
+        }
+
+    @Test
+    fun `プロフィールを保存すると引き直しても残る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+
+            val updated = mutateUpdateAccountProfile(
+                username = "feed1",
+                displayName = "フィード 1",
+                summary = "説明",
+                token = token,
+            ).updateAccountProfileResult().obj("adminAccount").obj("account")
+
+            assertEquals("フィード 1", updated.string("displayName"))
+            assertEquals("説明", updated.string("summary"))
+
+            val queried = queryAccount("feed1", token).admin().obj("adminAccount").obj("account")
+            assertEquals("フィード 1", queried.string("displayName"))
+            assertEquals("説明", queried.string("summary"))
+        }
+
+    @Test
+    fun `空文字で保存するとプロフィールは未設定に戻る`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            mutateUpdateAccountProfile(username = "feed1", displayName = "フィード 1", summary = "説明", token = token)
+
+            val cleared = mutateUpdateAccountProfile(
+                username = "feed1",
+                displayName = "",
+                summary = "",
+                token = token,
+            ).updateAccountProfileResult().obj("adminAccount").obj("account")
+
+            assertEquals("", cleared.string("displayName"))
+            assertEquals("", cleared.string("summary"))
+        }
+
+    @Test
+    fun `入力上限ちょうどの説明文は保存できて、超えると拒否される`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+
+            val summaryMaxLength = AccountProfileLimits.SUMMARY_MAX_LENGTH
+
+            val saved = mutateUpdateAccountProfile(
+                username = "feed1",
+                displayName = "フィード 1",
+                summary = "あ".repeat(summaryMaxLength),
+                token = token,
+            ).updateAccountProfileResult()
+            assertEquals(JsonNull, saved.getValue("failure"))
+
+            val rejected = mutateUpdateAccountProfile(
+                username = "feed1",
+                displayName = "フィード 1",
+                summary = "あ".repeat(summaryMaxLength + 1),
+                token = token,
+            ).updateAccountProfileResult().failure()
+            assertEquals(summaryMaxLength, rejected.int("summaryMaxLength"))
+        }
+
+    @Test
+    fun `知らないアカウントのプロフィールは保存できない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val failure = mutateUpdateAccountProfile(
+                username = "other",
+                displayName = "フィード 1",
+                summary = "説明",
+                token = token,
+            ).updateAccountProfileResult().failure()
+
+            assertTrue(failure.boolean("unknownAccount"))
+        }
+
+    @Test
+    fun `ログインしていなければ updateAccountProfile は拒否される`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            val errors = mutateUpdateAccountProfile(username = "feed1", displayName = "名前", summary = "説明")
+                .body()
+                .getValue("errors")
+                .jsonArray
+            assertTrue(errors.isNotEmpty())
         }
 
     @Test
@@ -920,6 +1016,22 @@ class AdminGraphQlTest {
             variables = """{"username":${JsonPrimitive(username)}}""",
         )
 
+    private suspend fun ApplicationTestBuilder.mutateUpdateAccountProfile(
+        username: String,
+        displayName: String,
+        summary: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation UpdateProfile(${'$'}query: UpdateAccountProfileQuery!) { admin { " +
+                "updateAccountProfile(query: ${'$'}query) { adminAccount { $ACCOUNT_FIELDS } " +
+                "failure { unknownAccount displayNameMaxLength summaryMaxLength } } } }",
+            token = token,
+            variables = """{"query":{"username":${JsonPrimitive(username)},""" +
+                """"displayName":${JsonPrimitive(displayName)},"summary":${JsonPrimitive(summary)}}}""",
+        )
+
     private suspend fun ApplicationTestBuilder.queryPreviewFeed(
         url: String,
         token: String? = null,
@@ -1127,7 +1239,8 @@ class AdminGraphQlTest {
 
         const val FEED_FIELDS = "id url title siteUrl format createdAt"
 
-        const val ACCOUNT_FIELDS = "account { id username acct actorUrl } createdAt feed { $FEED_FIELDS }"
+        const val ACCOUNT_FIELDS =
+            "account { id username acct actorUrl displayName summary } createdAt feed { $FEED_FIELDS }"
 
         /**
          * 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ
@@ -1149,6 +1262,8 @@ class AdminGraphQlTest {
 
         suspend fun HttpResponse.addAccountResult(): JsonObject = admin().obj("addAccount")
 
+        suspend fun HttpResponse.updateAccountProfileResult(): JsonObject = admin().obj("updateAccountProfile")
+
         fun JsonObject.failure(): JsonObject = obj("failure")
 
         fun JsonObject.obj(name: String): JsonObject = getValue(name).jsonObject
@@ -1156,6 +1271,8 @@ class AdminGraphQlTest {
         fun JsonObject.boolean(name: String): Boolean = getValue(name).jsonPrimitive.boolean
 
         fun JsonObject.string(name: String): String = getValue(name).jsonPrimitive.content
+
+        fun JsonObject.int(name: String): Int = getValue(name).jsonPrimitive.int
 
         /**
          * Set-Cookie のセッション。無ければ null

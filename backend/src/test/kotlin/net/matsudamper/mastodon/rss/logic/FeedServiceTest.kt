@@ -203,6 +203,26 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `プレビューは切り詰めた説明と配信元のままの説明を両方返す`() =
+        runTest {
+            val service = serviceOf(FakeRepositories(), xml = LONG_DESCRIPTION_XML)
+
+            val result = service.preview(FEED_URL)
+
+            val success = assertIs<FeedService.PreviewResult.Success>(result)
+            val description = assertNotNull(success.preview.description)
+            val fullDescription = assertNotNull(success.preview.fullDescription)
+
+            // 一覧に並べる方は 1 行に潰して切り詰める
+            assertEquals(false, description.contains("\n"))
+            assertEquals(true, description.length < fullDescription.length)
+
+            // プロフィールに取り込む方は段落を残したまま渡す
+            assertEquals(true, fullDescription.contains("\n"))
+            assertEquals(true, fullDescription.endsWith("最後の段落"))
+        }
+
+    @Test
     fun `スキームの無い YouTube の URL もプレビューできる`() =
         runTest {
             val service = serviceOf(FakeRepositories())
@@ -646,6 +666,19 @@ class FeedServiceTest {
                 <link>https://example.com/</link>
                 <item><title>1 本目</title><link>https://example.com/1</link></item>
                 <item><title>2 本目</title><link>https://example.com/2</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val LONG_DESCRIPTION_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <description>${"あ".repeat(300)}
+
+            最後の段落</description>
+                <item><title>1 本目</title><link>https://example.com/1</link></item>
               </channel>
             </rss>
         """.trimIndent()
