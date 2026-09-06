@@ -15,8 +15,10 @@ private fun AccountContentPreview() {
                 content = AccountScreenUiState.Content.Loaded(
                     account = AccountUiState(
                         username = username,
+                        displayName = "Kotlin Updates",
                         acct = "@$username@example.com",
                         actorUrl = "https://example.com/users/$username",
+                        summary = "Kotlin の更新を流す",
                         followerCount = "12",
                         noteCount = "3",
                         feed = FeedUiState(
