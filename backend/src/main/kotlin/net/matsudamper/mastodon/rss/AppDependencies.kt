@@ -1,5 +1,12 @@
 package net.matsudamper.mastodon.rss
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorKey
@@ -17,9 +24,11 @@ import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
+import net.matsudamper.mastodon.rss.feed.FeedPoller
 import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
+import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
 import net.matsudamper.mastodon.rss.note.NotePublisher
@@ -115,6 +124,41 @@ class AppDependencies(
         delivery = delivery,
     )
 
+    val feedService: FeedService = FeedService(
+        accounts = repositories.accounts,
+        feeds = repositories.feeds,
+        feedItems = repositories.feedItems,
+        fetcher = feedFetcher,
+        actorDirectory = directory,
+        notePublisher = notePublisher,
+    )
+
+    private val feedPollingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * フィードの定期ポーリングを始める。
+     *
+     * 呼ぶまで動かない。止めるのは [stopFeedPolling]
+     */
+    fun startFeedPolling() {
+        FeedPoller(feedService).start(feedPollingScope)
+    }
+
+    /**
+     * 定期ポーリングを止めて、走っている取り込みが終わるまで待つ。
+     *
+     * 待ち受けを止める前に呼ぶ。投稿を受け取った相手はその場で Note やアクターの
+     * URL を引きに来るので、止めた後に投稿すると相手は繋げずに終わる。
+     * 何度呼んでもよい。待ち時間は docker stop の既定の猶予（10 秒）に収まる範囲にする
+     */
+    fun stopFeedPolling() {
+        runBlocking {
+            withTimeoutOrNull(3_000) {
+                feedPollingScope.coroutineContext.job.cancelAndJoin()
+            }
+        }
+    }
+
     val actorPublisher: ActorPublisher = ActorPublisher(
         notes = noteStore,
         followers = followerStore,
@@ -128,6 +172,9 @@ class AppDependencies(
      * 最初の close が投げた時点で後ろが開いたままになる。
      */
     override fun close() {
+        // 取り込みの途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ
+        stopFeedPolling()
+
         try {
             feedFetcher.close()
         } finally {

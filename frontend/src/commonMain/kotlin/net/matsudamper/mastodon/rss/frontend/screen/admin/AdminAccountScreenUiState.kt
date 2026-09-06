@@ -78,10 +78,14 @@ data class AdminAccountScreenUiState(
     }
 
     sealed interface Feed {
+        /**
+         * @param lastFetchedText 最後に取りに行ったのがいつかを出す一行
+         */
         data class Registered(
             val url: String,
             val title: String?,
             val format: String?,
+            val lastFetchedText: String,
             val unpublishedItems: List<UnpublishedItem>,
             val postedItems: List<UnpublishedItem>?,
             val postingUnpublished: Boolean,

@@ -42,7 +42,9 @@ class FakeRepositories : Repositories {
 
     override val followers: FollowerRepository = FakeFollowerRepository()
 
-    override val feeds: FakeFeedRepository = FakeFeedRepository()
+    // フィードを消すと記事も消えるのは SQLite の ON DELETE CASCADE。
+    // ここで繋がないと、消したフィードの記事が残って重複判定に効いてしまう
+    override val feeds: FakeFeedRepository = FakeFeedRepository(onDeleted = { feedItems.deleteByFeed(it) })
 
     override val feedItems: FakeFeedItemRepository = FakeFeedItemRepository()
 
@@ -254,7 +256,9 @@ class FakeNoteRepository(
         usernames.associateWith { count(it) }
 }
 
-class FakeFeedRepository : FeedRepository {
+class FakeFeedRepository(
+    private val onDeleted: (feedId: FeedId) -> Unit = {},
+) : FeedRepository {
     private val stored = mutableListOf<Feed>()
     private var nextId = 1L
 
@@ -276,7 +280,9 @@ class FakeFeedRepository : FeedRepository {
         stored
             .filter {
                 val lastFetchedAt = it.fetch.lastFetchedAt
-                lastFetchedAt == null || lastFetchedAt.plusSeconds(it.pollIntervalSeconds) <= now
+                val due = lastFetchedAt == null || lastFetchedAt.plusSeconds(it.pollIntervalSeconds) <= now
+                val registrationTimedOut = it.createdAt.plusSeconds(it.pollIntervalSeconds) <= now
+                due && (it.initialImportDone || registrationTimedOut)
             }
             .sortedBy { it.fetch.lastFetchedAt ?: Instant.MIN }
             .take(limit)
@@ -303,6 +309,19 @@ class FakeFeedRepository : FeedRepository {
             initialImportDone = false,
             createdAt = createdAt,
         ).also { stored += it }
+    }
+
+    override fun replace(
+        existingId: FeedId,
+        feed: NewFeed,
+    ): Feed? {
+        val existing = find(existingId) ?: return null
+        if (existing.initialImportDone) return null
+        if (findByAccountId(feed.accountId)?.id?.let { it != existingId } == true) return null
+        if (findByUrl(feed.url)?.id?.let { it != existingId } == true) return null
+
+        delete(existingId)
+        return add(feed)
     }
 
     override fun updateMetadata(
@@ -350,8 +369,15 @@ class FakeFeedRepository : FeedRepository {
         update(id) { it.copy(initialImportDone = true) }
     }
 
+    /** 登録の取り込みが終わっていない状態を作る。本物には無い、テストのための口 */
+    fun clearInitialImportDone(id: FeedId) {
+        update(id) { it.copy(initialImportDone = false) }
+    }
+
     override fun delete(id: FeedId) {
-        stored.removeAll { it.id == id }
+        if (stored.removeAll { it.id == id }) {
+            onDeleted(id)
+        }
     }
 
     /**
