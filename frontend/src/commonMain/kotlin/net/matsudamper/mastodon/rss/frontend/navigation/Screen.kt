@@ -196,7 +196,8 @@ sealed interface Screen : NavKey {
                     }
 
                     rest.size == 3 && rest[0] == ACCOUNTS_SEGMENT && rest[2] == "profile" -> {
-                        accountNameOf(rest[1])?.let { AdminAccountProfileEdit(it) } ?: NotFound(path)
+                        val username = accountNameOf(rest[1])
+                        if (username == null) NotFound(path) else AdminAccountProfileEdit(username)
                     }
 
                     else -> NotFound(path)
