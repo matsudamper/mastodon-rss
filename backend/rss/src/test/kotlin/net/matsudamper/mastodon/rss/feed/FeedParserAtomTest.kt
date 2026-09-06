@@ -176,4 +176,29 @@ class FeedParserAtomTest {
 
         assertEquals("https://example.com/1", item.link)
     }
+
+    @Test
+    fun `icon があればそれを、無ければ logo をアイコンにする`() {
+        val withIcon =
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <title>技術ブログ</title>
+              <icon>https://example.com/icon.png</icon>
+              <logo>https://example.com/logo.png</logo>
+            </feed>
+            """.trimIndent()
+
+        val withoutIcon =
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <title>技術ブログ</title>
+              <logo>https://example.com/logo.png</logo>
+            </feed>
+            """.trimIndent()
+
+        assertEquals("https://example.com/icon.png", FeedParser.parse(withIcon).iconUrl)
+        assertEquals("https://example.com/logo.png", FeedParser.parse(withoutIcon).iconUrl)
+    }
 }

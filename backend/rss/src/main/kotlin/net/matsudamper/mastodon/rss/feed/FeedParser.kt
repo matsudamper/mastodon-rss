@@ -114,6 +114,7 @@ object FeedParser {
         var link: String? = null
         var description: FeedContent? = null
         var updatedAt: Instant? = null
+        val iconCandidates = FeedIconCandidates()
         val items = mutableListOf<ParsedFeedItem>()
 
         // 直近の親を見るための積み。`image` や `textInput` の中にも
@@ -130,6 +131,13 @@ object FeedParser {
                     if (name == "item" && (parent == "channel" || parent == "RDF")) {
                         if (items.size >= limits.maxItems) break
                         items.add(parseRssItem(reader = reader, limits = limits))
+                        continue
+                    }
+
+                    // `image` は RSS 2.0 では channel の中、RSS 1.0 では channel と並ぶので、
+                    // どちらの位置でも `url` を拾えるよう親が `image` かどうかだけを見る
+                    if (name == "url" && parent == "image") {
+                        iconCandidates.image = readTextContent(reader, limits).trim()
                         continue
                     }
 
@@ -169,6 +177,16 @@ object FeedParser {
                             if (updatedAt == null) updatedAt = parsedDate
                         }
 
+                        // webfeeds:icon / webfeeds:logo。RSS には配信元のアイコンを入れる
+                        // 標準の要素が無いので、この拡張で名乗る配信元がある
+                        "icon" -> {
+                            iconCandidates.icon = readTextContent(reader, limits).trim()
+                        }
+
+                        "logo" -> {
+                            iconCandidates.logo = readTextContent(reader, limits).trim()
+                        }
+
                         else -> {
                             path.addLast(name)
                         }
@@ -187,6 +205,7 @@ object FeedParser {
             link = link,
             description = description?.takeIf { it.text.isNotBlank() },
             updatedAt = updatedAt,
+            iconUrl = iconCandidates.best(),
             items = items,
         )
     }
@@ -287,6 +306,7 @@ object FeedParser {
         var title: String? = null
         var subtitle: FeedContent? = null
         var updatedAt: Instant? = null
+        val iconCandidates = FeedIconCandidates()
         val links = mutableListOf<AtomLink>()
         val items = mutableListOf<ParsedFeedItem>()
 
@@ -321,6 +341,16 @@ object FeedParser {
                             updatedAt = FeedDates.parse(readTextContent(reader, limits))
                         }
 
+                        // Atom の icon は小さい正方形、logo は横長の画像。
+                        // アイコンに使うなら icon が先
+                        "icon" -> {
+                            iconCandidates.icon = readTextContent(reader, limits).trim()
+                        }
+
+                        "logo" -> {
+                            iconCandidates.logo = readTextContent(reader, limits).trim()
+                        }
+
                         else -> {
                             remainingElementDepth++
                         }
@@ -339,6 +369,7 @@ object FeedParser {
             link = chooseAtomLink(links),
             description = subtitle?.takeIf { it.text.isNotBlank() },
             updatedAt = updatedAt,
+            iconUrl = iconCandidates.best(),
             items = items,
         )
     }
@@ -595,6 +626,25 @@ class FeedParseException(
     message: String,
     cause: Throwable? = null,
 ) : RuntimeException(message, cause)
+
+/**
+ * アイコンとして使えそうな URL の候補。
+ *
+ * 同じフィードが複数の要素で名乗ることがあるので、読めたものを全部持っておき、
+ * 読み終わってから [best] で 1 つ選ぶ。要素の順番で結果が変わらないようにするため。
+ */
+private class FeedIconCandidates {
+    /** webfeeds:icon / Atom の icon。アイコン向けの正方形 */
+    var icon: String? = null
+
+    /** webfeeds:logo / Atom の logo。横長のこともあるが、icon が無ければ使う */
+    var logo: String? = null
+
+    /** RSS の `image` の `url`。配信元が昔から持っている画像で、最後の手段 */
+    var image: String? = null
+
+    fun best(): String? = listOfNotNull(icon, logo, image).firstOrNull { it.isNotEmpty() }
+}
 
 /** Atom の `link` 要素。どれを記事の URL にするかを選ぶための材料 */
 private class AtomLink(
