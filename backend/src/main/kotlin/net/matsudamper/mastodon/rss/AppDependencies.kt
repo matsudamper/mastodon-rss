@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss
 
 import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.actor.ActorIcon
 import net.matsudamper.mastodon.rss.actor.ActorIcons
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
@@ -23,6 +22,8 @@ import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
+import net.matsudamper.mastodon.rss.logic.ActorIconService
+import net.matsudamper.mastodon.rss.logic.FeedIconStore
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
 import net.matsudamper.mastodon.rss.note.NotePublisher
@@ -94,18 +95,13 @@ class AppDependencies(
         }
     }
 
-    val actorIcons: ActorIcons = object : ActorIcons {
-        override suspend fun find(username: String): ActorIcon? {
-            val source = feedLinks.find(username).iconUrl ?: return null
-
-            return when (val fetched = iconFetcher.fetch(source)) {
-                is IconFetchService.FetchResult.Success ->
-                    ActorIcon(bytes = fetched.bytes, contentType = fetched.contentType)
-
-                IconFetchService.FetchResult.Failure -> null
-            }
-        }
-    }
+    val actorIcons: ActorIcons = ActorIconService(
+        accounts = repositories.accounts,
+        feeds = repositories.feeds,
+        icons = repositories.feedIcons,
+        store = FeedIconStore(env.iconCacheDir),
+        fetcher = iconFetcher,
+    )
 
     val actorProfiles: StoredActorProfiles = object : StoredActorProfiles {
         override fun find(username: String): ActorProfile {

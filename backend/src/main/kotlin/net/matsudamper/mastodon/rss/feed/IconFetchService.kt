@@ -4,6 +4,7 @@ import java.io.Closeable
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.URI
+import java.time.Duration
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
@@ -88,7 +89,24 @@ class IconFetchService(
             return FetchResult.Failure
         }
 
-        return FetchResult.Success(bytes = bytes, contentType = contentType)
+        return FetchResult.Success(
+            bytes = bytes,
+            contentType = contentType,
+            freshFor = cacheControlMaxAge(),
+        )
+    }
+
+    /**
+     * 配信元が言う「取り直さなくてよい時間」。言っていなければ null。
+     *
+     * `no-store` と `no-cache` は毎回取り直せという意味なので 0 にする
+     */
+    private fun HttpResponse.cacheControlMaxAge(): Duration? {
+        val directives = headers[HttpHeaders.CacheControl]?.lowercase() ?: return null
+        if (directives.contains("no-store") || directives.contains("no-cache")) return Duration.ZERO
+
+        val seconds = MAX_AGE.find(directives)?.groupValues?.get(1)?.toLongOrNull() ?: return null
+        return Duration.ofSeconds(seconds)
     }
 
     private fun HttpResponse.redirectLocation(): String? {
@@ -140,9 +158,13 @@ class IconFetchService(
     }
 
     sealed interface FetchResult {
+        /**
+         * @param freshFor 配信元が言う、取り直さなくてよい時間。言っていなければ null
+         */
         data class Success(
             val bytes: ByteArray,
             val contentType: ContentType,
+            val freshFor: Duration?,
         ) : FetchResult
 
         data object Failure : FetchResult
@@ -153,6 +175,7 @@ class IconFetchService(
         private const val MAX_BYTES = 1024 * 1024
         private const val MAX_HOPS = 4
         private val REDIRECT_STATUS_RANGE = 300..399
+        private val MAX_AGE = Regex("max-age\\s*=\\s*(\\d+)")
 
         private val ALLOWED_CONTENT_TYPES = setOf(
             ContentType.Image.PNG,

@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.feed
 
 import java.net.InetAddress
 import java.net.UnknownHostException
+import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -101,6 +102,42 @@ class IconFetchServiceTest {
                 listOf("example.com", "cdn.example.net"),
                 engine.requestHistory.map { it.url.host },
             )
+        }
+
+    @Test
+    fun `配信元が言う max-age を返す`() =
+        runTest {
+            val engine = MockEngine {
+                respond(
+                    content = "PNG",
+                    headers = headersOf(
+                        "Content-Type" to listOf("image/png"),
+                        "Cache-Control" to listOf("public, max-age=600"),
+                    ),
+                )
+            }
+
+            val result = serviceOf(engine).fetch("https://example.com/icon.png")
+
+            assertEquals(Duration.ofSeconds(600), assertIs<IconFetchService.FetchResult.Success>(result).freshFor)
+        }
+
+    @Test
+    fun `no-store のときは持ち越さない`() =
+        runTest {
+            val engine = MockEngine {
+                respond(
+                    content = "PNG",
+                    headers = headersOf(
+                        "Content-Type" to listOf("image/png"),
+                        "Cache-Control" to listOf("no-store"),
+                    ),
+                )
+            }
+
+            val result = serviceOf(engine).fetch("https://example.com/icon.png")
+
+            assertEquals(Duration.ZERO, assertIs<IconFetchService.FetchResult.Success>(result).freshFor)
         }
 
     private fun pngEngine(): MockEngine = MockEngine {
