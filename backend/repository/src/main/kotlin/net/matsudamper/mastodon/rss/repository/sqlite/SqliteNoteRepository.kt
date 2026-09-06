@@ -22,13 +22,14 @@ internal class SqliteNoteRepository(
                 .set(NOTES.PUBLIC_ID, note.publicId.value)
                 .set(NOTES.CONTENT_HTML, note.contentHtml)
                 .set(NOTES.PUBLISHED_AT, StoredInstant.format(note.publishedAt))
+                .set(NOTES.ATTACHMENT_IMAGE_URL, note.attachmentImageUrl)
                 .execute()
         }
     }
 
     override fun find(publicId: PublicNoteId): Note? = jooq.withConnection { dsl ->
         dsl
-            .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT)
+            .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT, NOTES.ATTACHMENT_IMAGE_URL)
             .from(NOTES)
             .where(NOTES.PUBLIC_ID.eq(publicId.value))
             .fetchOne()
@@ -40,7 +41,7 @@ internal class SqliteNoteRepository(
 
         return jooq.withConnection { dsl ->
             dsl
-                .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT)
+                .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT, NOTES.ATTACHMENT_IMAGE_URL)
                 .from(NOTES)
                 .where(NOTES.PUBLIC_ID.`in`(publicIds.map { it.value }))
                 .fetch()
@@ -71,7 +72,7 @@ internal class SqliteNoteRepository(
         limit: Int,
     ): List<Note> = jooq.withConnection { dsl ->
         dsl
-            .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT)
+            .select(NOTES.PUBLIC_ID, NOTES.USERNAME, NOTES.CONTENT_HTML, NOTES.PUBLISHED_AT, NOTES.ATTACHMENT_IMAGE_URL)
             .from(NOTES)
             .where(NOTES.USERNAME.eq(username))
             .and(after?.let { olderThan(it) } ?: DSL.noCondition())
@@ -148,5 +149,6 @@ internal class SqliteNoteRepository(
         username = get(NOTES.USERNAME),
         contentHtml = get(NOTES.CONTENT_HTML),
         publishedAt = StoredInstant.parse(get(NOTES.PUBLISHED_AT)),
+        attachmentImageUrl = get(NOTES.ATTACHMENT_IMAGE_URL),
     )
 }

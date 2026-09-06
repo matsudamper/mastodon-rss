@@ -94,12 +94,14 @@ data class NotePosition(
  * @param username 投稿したこちらのアカウントの名前
  * @param contentHtml 配信した本文の HTML。サニタイズ済みのものが入っている
  * @param publishedAt 相手に見せる公開日時
+ * @param attachmentImageUrl 添付した画像の URL。無ければ null
  */
 data class Note(
     val publicId: PublicNoteId,
     val username: String,
     val contentHtml: String,
     val publishedAt: Instant,
+    val attachmentImageUrl: String?,
 )
 
 /**
@@ -110,4 +112,5 @@ data class NewNote(
     val publicId: PublicNoteId,
     val contentHtml: String,
     val publishedAt: Instant,
+    val attachmentImageUrl: String?,
 )

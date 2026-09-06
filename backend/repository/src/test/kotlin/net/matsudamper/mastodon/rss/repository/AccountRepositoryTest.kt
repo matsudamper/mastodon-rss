@@ -191,6 +191,7 @@ class AccountRepositoryTest {
                     publishedAt = CREATED_AT,
                     importedAt = CREATED_AT,
                     state = FeedItemState.PENDING,
+                    ogImageUrl = null,
                 ),
             )
 

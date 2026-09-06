@@ -205,6 +205,7 @@ class FakeNoteRepository(
             username = note.username,
             contentHtml = note.contentHtml,
             publishedAt = note.publishedAt,
+            attachmentImageUrl = note.attachmentImageUrl,
         )
     }
 
@@ -401,6 +402,7 @@ class FakeFeedItemRepository : FeedItemRepository {
             state = item.state,
             postedAt = null,
             noteId = null,
+            ogImageUrl = item.ogImageUrl,
         ).also { stored += it }
     }
 

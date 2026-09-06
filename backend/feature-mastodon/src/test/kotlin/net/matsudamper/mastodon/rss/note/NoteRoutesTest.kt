@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.note
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import io.ktor.client.request.get
@@ -46,11 +47,13 @@ class NoteRoutesTest {
         username: String = TestLocalActor.USERNAME,
         publishedAt: Instant = this.publishedAt,
         contentHtml: String = "<p>$publicId</p>",
+        attachmentImageUrl: String? = null,
     ): StoredNote = StoredNote(
         publicId = PublicNoteId(publicId),
         username = username,
         contentHtml = contentHtml,
         publishedAt = publishedAt,
+        attachmentImageUrl = attachmentImageUrl,
     )
 
     @Test
@@ -76,6 +79,20 @@ class NoteRoutesTest {
             assertEquals(listOf("https://example.com/users/admin/followers"), body.cc)
             assertEquals("https://example.com/notes/abc", body.url)
             assertEquals(listOf("https://www.w3.org/ns/activitystreams"), body.context)
+        }
+
+    @Test
+    fun `添えた画像がパーマリンクにも attachment として出る`() =
+        testApplication {
+            val notes = FakeNoteStore()
+            notes.add(note("abc", attachmentImageUrl = "https://example.com/ogp.png"))
+            installModule(notes)
+
+            val body = AppJson.decodeFromString(Note.serializer(), client.get("/notes/abc").bodyAsText())
+
+            val attachment = assertNotNull(body.attachment).single()
+            assertEquals("Image", attachment.type)
+            assertEquals("https://example.com/ogp.png", attachment.url)
         }
 
     @Test

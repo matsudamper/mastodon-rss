@@ -4,6 +4,7 @@ import java.time.Instant
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -53,7 +54,7 @@ class NotePublisherTest {
             delivery,
         )
 
-        val published = publisher.publish(sender, "<p>こんにちは</p>")
+        val published = publisher.publish(sender, "<p>こんにちは</p>", attachmentImageUrl = null)
 
         assertEquals(2, published.deliveryAttemptCount)
         assertEquals(2, published.delivered)
@@ -77,6 +78,38 @@ class NotePublisherTest {
     }
 
     @Test
+    fun `画像を渡すと attachment を付けて配る`() = runBlocking {
+        val delivery = TestDelivery()
+        val notes = FakeNoteStore()
+        val publisher = NotePublisher(notes, followers("https://a.example/users/alice" to null), delivery)
+
+        val published = publisher.publish(
+            sender,
+            "<p>本文</p>",
+            attachmentImageUrl = "https://example.com/ogp.png",
+        )
+
+        val activity = AppJson.decodeFromString(CreateNoteActivity.serializer(), delivery.delivered.first().body)
+        val attachment = assertNotNull(activity.target.attachment).single()
+        assertEquals("Image", attachment.type)
+        assertEquals("https://example.com/ogp.png", attachment.url)
+
+        // パーマリンクを引きに来たときも同じ形で返せるよう、添付は記録にも残す
+        assertEquals("https://example.com/ogp.png", assertNotNull(notes.find(published.publicId)).attachmentImageUrl)
+    }
+
+    @Test
+    fun `画像が無ければ attachment を付けない`() = runBlocking {
+        val delivery = TestDelivery()
+        val publisher = NotePublisher(FakeNoteStore(), followers("https://a.example/users/alice" to null), delivery)
+
+        publisher.publish(sender, "<p>本文</p>", attachmentImageUrl = null)
+
+        val activity = AppJson.decodeFromString(CreateNoteActivity.serializer(), delivery.delivered.first().body)
+        assertNull(activity.target.attachment)
+    }
+
+    @Test
     fun `sharedInbox があればまとめて 1 通にする`() = runBlocking {
         val delivery = TestDelivery()
         val publisher = NotePublisher(
@@ -89,7 +122,7 @@ class NotePublisherTest {
             delivery,
         )
 
-        val published = publisher.publish(sender, "<p>まとめ</p>")
+        val published = publisher.publish(sender, "<p>まとめ</p>", attachmentImageUrl = null)
 
         // 同じインスタンスの 2 人は 1 通で済む
         assertEquals(2, published.deliveryAttemptCount)
@@ -104,7 +137,7 @@ class NotePublisherTest {
         val notes = FakeNoteStore()
         val publisher = NotePublisher(notes, followers("https://a.example/users/alice" to null), TestDelivery())
 
-        val published = publisher.publish(sender, "<p>本文</p>")
+        val published = publisher.publish(sender, "<p>本文</p>", attachmentImageUrl = null)
 
         // 相手は受け取った直後にパーマリンクを引きに来ることがある。
         // 配信が先だとそこで 404 を返してしまう
@@ -123,7 +156,7 @@ class NotePublisherTest {
             TestDelivery(result = DeliveryResult.Failed("届かない")),
         )
 
-        val published = publisher.publish(sender, "<p>本文</p>")
+        val published = publisher.publish(sender, "<p>本文</p>", attachmentImageUrl = null)
 
         assertEquals(1, published.deliveryAttemptCount)
         assertEquals(0, published.delivered)
@@ -147,7 +180,7 @@ class NotePublisherTest {
             )
         }
 
-        val published = NotePublisher(FakeNoteStore(), pending, delivery).publish(sender, "<p>本文</p>")
+        val published = NotePublisher(FakeNoteStore(), pending, delivery).publish(sender, "<p>本文</p>", attachmentImageUrl = null)
 
         // 相手から見てフォローが成立していないので、送ると知らないアクターからの投稿になる
         assertEquals(0, published.deliveryAttemptCount)

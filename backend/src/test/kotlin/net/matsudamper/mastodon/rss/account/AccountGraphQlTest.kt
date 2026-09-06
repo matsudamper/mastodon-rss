@@ -175,6 +175,7 @@ class AccountGraphQlTest {
                     publicId = PublicNoteId("note1"),
                     contentHtml = "<p>本文</p>",
                     publishedAt = Instant.parse("2026-08-09T11:02:00Z"),
+                    attachmentImageUrl = null,
                 ),
             )
             repositories.feeds.add(
@@ -210,6 +211,7 @@ class AccountGraphQlTest {
                     publicId = PublicNoteId("abc123"),
                     contentHtml = "<p>本文</p>",
                     publishedAt = publishedAt,
+                    attachmentImageUrl = null,
                 ),
             )
             application { module(testDependencies(repositories = repositories)) }
@@ -237,6 +239,7 @@ class AccountGraphQlTest {
                     publicId = PublicNoteId("abc123"),
                     contentHtml = "<p>本文</p>",
                     publishedAt = publishedAt,
+                    attachmentImageUrl = null,
                 ),
             )
             application { module(testDependencies(repositories = repositories)) }
@@ -260,6 +263,7 @@ class AccountGraphQlTest {
                     publicId = PublicNoteId("abc123"),
                     contentHtml = "<p>本文</p>",
                     publishedAt = Instant.parse("2026-08-09T11:02:00Z"),
+                    attachmentImageUrl = null,
                 ),
             )
             application { module(testDependencies(repositories = repositories)) }
@@ -281,6 +285,7 @@ class AccountGraphQlTest {
                     publicId = PublicNoteId("older"),
                     contentHtml = "<p>古い</p>",
                     publishedAt = Instant.parse("2026-08-08T10:00:00Z"),
+                    attachmentImageUrl = null,
                 ),
             )
             repositories.notes.add(
@@ -289,6 +294,7 @@ class AccountGraphQlTest {
                     publicId = PublicNoteId("newer"),
                     contentHtml = "<p>新しい</p>",
                     publishedAt = Instant.parse("2026-08-09T11:00:00Z"),
+                    attachmentImageUrl = null,
                 ),
             )
             application { module(testDependencies(repositories = repositories)) }
@@ -310,6 +316,7 @@ class AccountGraphQlTest {
                         publicId = PublicNoteId("note$index"),
                         contentHtml = "<p>$index</p>",
                         publishedAt = Instant.parse("2026-08-09T1$index:00:00Z"),
+                        attachmentImageUrl = null,
                     ),
                 )
             }

@@ -166,7 +166,11 @@ class FeedService(
         feedItems.findPending(feed.id, Int.MAX_VALUE).forEach { stored ->
             val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
             val published = try {
-                notePublisher.publish(sender = sender, contentHtml = html)
+                notePublisher.publish(
+                    sender = sender,
+                    contentHtml = html,
+                    attachmentImageUrl = stored.ogImageUrl,
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -354,24 +358,38 @@ class FeedService(
         return FeedText.truncate(normalized, DESCRIPTION_LIMIT)
     }
 
-    private fun importExistingItems(
+    /**
+     * 新着だけを保存する。
+     *
+     * 保存の前に既にある鍵を引くのは、記事ごとにリンク先のページまで取りに行くため。
+     * [FeedItemRepository.add] は既にある鍵なら保存せず戻るので、先に確かめないと
+     * 取り込みのたびに配信元のサイト全体を取り直すことになる
+     */
+    private suspend fun importExistingItems(
         feed: Feed,
         items: List<ParsedFeedItem>,
         feedUrl: String,
     ) {
         val now = Instant.now()
-        items.forEach { item ->
+        val keyed = items.map { FeedItemKey.of(feed.url, it).dedupeKey to it }
+        val existingKeys = feedItems.findExistingKeys(feed.id, keyed.map { (key, _) -> key })
+
+        keyed.forEach { (itemKey, item) ->
+            if (itemKey in existingKeys) return@forEach
+
             val contentHtml = composeItemHtml(item, feedUrl)
+            val link = resolveItemLink(item.link, feedUrl)
             feedItems.add(
                 NewFeedItem(
                     feedId = feed.id,
-                    itemKey = FeedItemKey.of(feed.url, item).dedupeKey,
+                    itemKey = itemKey,
                     title = item.title,
                     link = item.link,
                     contentHtml = contentHtml,
                     publishedAt = item.publishedAt ?: item.updatedAt,
                     importedAt = now,
                     state = if (contentHtml == null) FeedItemState.SKIPPED else FeedItemState.PENDING,
+                    ogImageUrl = if (link.isBlank()) null else fetcher.fetchOpenGraphImageUrl(link),
                 ),
             )
         }

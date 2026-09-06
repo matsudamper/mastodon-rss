@@ -38,6 +38,15 @@ class AccountNoteResolverImpl : AccountNoteResolver {
         }
     }
 
+    override fun imageUrl(
+        accountNote: QlAccountNote,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<String?>> {
+        return loadNote(accountNote, env).thenApply { note ->
+            DataFetcherResult.Builder<String?>(note.attachmentImageUrl).build()
+        }
+    }
+
     private fun loadNote(
         accountNote: QlAccountNote,
         env: DataFetchingEnvironment,

@@ -35,6 +35,9 @@ CREATE TABLE feed_items (
     -- 記事を消しても投稿は残す（投稿は相手がパーマリンクを引きに来る）ので、
     -- 参照はこちらから持つ
     note_id TEXT REFERENCES notes (public_id) ON DELETE SET NULL,
+    -- リンク先のページの og:image。取り込みのときに 1 回だけ取りに行く。
+    -- 取れなければ NULL のままにして、記事は取り込む
+    og_image_url TEXT,
     UNIQUE (feed_id, item_key)
 );
 
@@ -94,7 +97,10 @@ CREATE TABLE notes (
     -- 配信した本文の HTML。サニタイズ済みのものを入れる
     content_html TEXT NOT NULL,
     -- 相手に見せる公開日時。並び順もこれで決まる
-    published_at TEXT NOT NULL
+    published_at TEXT NOT NULL,
+    -- 添付した画像の URL。記事のリンク先の og:image を入れる。
+    -- 配信した中身を後から同じ形で返すために、本文と一緒にこちらへ残す
+    attachment_image_url TEXT
 );
 
 CREATE TABLE remote_actors (

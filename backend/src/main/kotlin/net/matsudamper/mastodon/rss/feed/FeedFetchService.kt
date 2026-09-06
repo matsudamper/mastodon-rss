@@ -12,10 +12,12 @@ import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.request
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.URLBuilder
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
+import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readRemaining
 import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.channelIdFromPageHtml
@@ -64,6 +66,48 @@ class FeedFetchService(
                 else -> FetchResult.HttpError(message = error.message ?: "取得に失敗した")
             }
         }
+    }
+
+    /**
+     * 記事のリンク先のページを取って `og:image` を返す。
+     *
+     * 取れなければ null を返して、記事の取り込みはそのまま続ける。画像は投稿の
+     * 飾りなので、配信元のページが落ちているだけで記事を落とすほうが困る。
+     *
+     * @return 絶対化した http / https の URL。見つからなければ null
+     */
+    suspend fun fetchOpenGraphImageUrl(url: String): String? {
+        val target = HttpUrl.sanitize(url) ?: return null
+
+        return runCatching {
+            val response = client.get(target) {
+                header(HttpHeaders.UserAgent, USER_AGENT)
+                // OGP は HTML にしか無い。PDF や画像を指す link を取りに行かないよう先に伝える
+                header(HttpHeaders.Accept, "text/html;q=1.0, application/xhtml+xml;q=0.9, */*;q=0.1")
+            }
+
+            if (!response.status.isSuccess() || !response.isHtml()) {
+                response.discardBody()
+                return null
+            }
+
+            val bytes = response.readBodyUpTo(MAX_PAGE_BYTES) ?: return null
+            val imageUrl = OpenGraph.imageUrl(bytes.decodeToString()) ?: return null
+
+            // og:image は相対 URL でもよい。基準は飛んだ先のページ
+            HttpUrl.sanitize(imageUrl, response.request.url.toString())
+        }.getOrElse { error ->
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
+    /**
+     * HTML として読める応答か。XHTML を配るページがあるので両方を通す
+     */
+    private fun HttpResponse.isHtml(): Boolean {
+        val type = contentType() ?: return false
+        return type.match(ContentType.Text.Html) || type.match(XHTML)
     }
 
     private suspend fun resolveFeedUrl(url: String): String? {
@@ -194,6 +238,7 @@ class FeedFetchService(
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val MAX_BODY_BYTES = 5 * 1024 * 1024
         private const val MAX_PAGE_BYTES = 2 * 1024 * 1024
+        private val XHTML = ContentType("application", "xhtml+xml")
 
         fun defaultClient(): HttpClient =
             HttpClient(CIO) {

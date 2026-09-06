@@ -52,6 +52,7 @@ internal class SqliteFeedItemRepository(
             .set(FEED_ITEMS.STATE, FeedItemStateDbValue.of(item.state).dbValue)
             .set(FEED_ITEMS.POSTED_AT, null as String?)
             .set(FEED_ITEMS.NOTE_ID, null as String?)
+            .set(FEED_ITEMS.OG_IMAGE_URL, item.ogImageUrl)
             .returning(FEED_ITEMS.ID)
             .fetchOne()
             ?.id
@@ -69,6 +70,7 @@ internal class SqliteFeedItemRepository(
             state = item.state,
             postedAt = null,
             noteId = null,
+            ogImageUrl = item.ogImageUrl,
         )
     }
 
@@ -193,6 +195,7 @@ internal class SqliteFeedItemRepository(
         state = FeedItemStateDbValue.parse(state!!).toFeedItemState(),
         postedAt = postedAt?.let(StoredInstant::parse),
         noteId = noteId?.let(::PublicNoteId),
+        ogImageUrl = ogImageUrl,
     )
 }
 

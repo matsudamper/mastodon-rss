@@ -31,10 +31,13 @@ class NotePublisher(
 
     /**
      * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと。ここでは中身を検査しない
+     * @param attachmentImageUrl 添える画像の URL。無ければ null。
+     *   http / https の URL であることは呼び出し側で確かめてから渡すこと
      */
     suspend fun publish(
         sender: ActorUrls,
         contentHtml: String,
+        attachmentImageUrl: String?,
     ): PublishedNote {
         val publishedAt = Instant.now()
         val publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli()))
@@ -46,12 +49,19 @@ class NotePublisher(
                 username = sender.username,
                 contentHtml = contentHtml,
                 publishedAt = publishedAt,
+                attachmentImageUrl = attachmentImageUrl,
             ),
         )
 
         val activityBodyBytes = AppJson.encodeToString(
             CreateNoteActivity.serializer(),
-            createActivity(sender = sender, urls = urls, contentHtml = contentHtml, publishedAt = publishedAt),
+            createActivity(
+                sender = sender,
+                urls = urls,
+                contentHtml = contentHtml,
+                publishedAt = publishedAt,
+                attachmentImageUrl = attachmentImageUrl,
+            ),
         ).toByteArray()
 
         val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
@@ -149,6 +159,7 @@ class NotePublisher(
         urls: NoteUrls,
         contentHtml: String,
         publishedAt: Instant,
+        attachmentImageUrl: String?,
     ): CreateNoteActivity {
         val published = publishedAt.toActivityPubPublished()
 
@@ -167,6 +178,7 @@ class NotePublisher(
                 cc = listOf(sender.followers),
                 url = urls.noteUrl,
                 atomUri = urls.noteUrl,
+                attachment = attachmentImageUrl?.let { listOf(NoteAttachment(url = it)) },
             ),
         )
     }

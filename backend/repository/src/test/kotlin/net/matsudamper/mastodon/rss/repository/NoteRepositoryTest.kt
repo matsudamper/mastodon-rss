@@ -41,6 +41,7 @@ class NoteRepositoryTest {
         publicId = PublicNoteId(publicId),
         contentHtml = "<p>$publicId</p>",
         publishedAt = publishedAt,
+        attachmentImageUrl = null,
     )
 
     @Test

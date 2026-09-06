@@ -56,6 +56,11 @@ data class Note(
      */
     @SerialName("url")
     val url: String? = null,
+    /**
+     * 添える画像。記事のリンク先の `og:image` を 1 枚だけ入れる
+     */
+    @SerialName("attachment")
+    val attachment: List<NoteAttachment>? = null,
 ) {
     /**
      * 相手はこの値を見て投稿だと判断する。`Note` 以外は入らない

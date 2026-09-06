@@ -20,4 +20,7 @@ type AccountNote {
     contentHtml: String! @lazy
 
     publishedAt: UnixTime! @lazy
+
+    "投稿に添えた画像の URL。記事のリンク先の og:image。無ければ null"
+    imageUrl: String @lazy
 }

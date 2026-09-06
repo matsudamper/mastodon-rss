@@ -10,6 +10,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondRedirect
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import net.matsudamper.mastodon.rss.FakeFollowerStore
@@ -616,6 +618,45 @@ class FeedServiceTest {
             assertEquals(listOf("1 本目", "2 本目", "3 本目"), success.items.map { it.title })
         }
 
+    @Test
+    fun `記事のリンク先の og image を取り込んで投稿に添える`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val engine = MockEngine { request ->
+                if (request.url.encodedPath.endsWith("feed.xml")) {
+                    respond(
+                        content = FEED_XML,
+                        status = HttpStatusCode.OK,
+                        headers = headersOf("Content-Type", "application/rss+xml"),
+                    )
+                } else {
+                    respond(
+                        content = """<html><head><meta property="og:image" content="/ogp${request.url.encodedPath}.png"></head></html>""",
+                        status = HttpStatusCode.OK,
+                        headers = headersOf("Content-Type", "text/html; charset=utf-8"),
+                    )
+                }
+            }
+            val service = serviceOf(repositories, noteStore = noteStore, engine = engine)
+
+            service.save(accountId = account.id, url = FEED_URL)
+
+            // og:image は相対 URL でもよいので、記事のページを基準に絶対化する
+            assertEquals(
+                listOf("https://example.com/ogp/1.png", "https://example.com/ogp/2.png"),
+                repositories.feedItems.items().map { it.ogImageUrl },
+            )
+
+            service.postUnpublished(account.id)
+
+            assertEquals(
+                listOf("https://example.com/ogp/1.png", "https://example.com/ogp/2.png"),
+                noteStore.added.map { it.attachmentImageUrl },
+            )
+        }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         status: HttpStatusCode = HttpStatusCode.OK,
@@ -629,7 +670,12 @@ class FeedServiceTest {
         val mockEngine = engine ?: run {
             val bodies = ArrayDeque(xmls ?: listOf(xml))
             val codes = ArrayDeque(statuses ?: listOf(status))
-            MockEngine {
+            MockEngine { request ->
+                // 記事のリンク先を取りに行く OGP の取得。フィードの応答を消費させない
+                if (request.headers[HttpHeaders.Accept]?.contains(ContentType.Text.Html.toString()) == true) {
+                    return@MockEngine respond(content = "", status = HttpStatusCode.NotFound)
+                }
+
                 val code = if (codes.size > 1) codes.removeFirst() else codes.first()
                 val body = if (bodies.size > 1) bodies.removeFirst() else bodies.first()
                 respond(

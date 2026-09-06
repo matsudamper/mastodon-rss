@@ -206,5 +206,6 @@ private fun noteDocument(
         cc = listOf(urls.followers),
         atomUri = noteUrls.noteUrl,
         url = noteUrls.noteUrl,
+        attachment = note.attachmentImageUrl?.let { listOf(NoteAttachment(url = it)) },
     )
 }
