@@ -71,6 +71,7 @@ query AdminPreviewFeed($url: String!) {
                 siteUrl
                 format
                 description
+                fullDescription
                 itemCount
                 sampleItems {
                     title

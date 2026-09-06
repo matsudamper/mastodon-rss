@@ -87,10 +87,12 @@ class AdminAccountProfileEditScreenViewModel(
         state.update { it.copy(applyingFeed = true, errorMessage = null) }
         viewModelScope.launch {
             when (val result = api.previewFeed(feedUrl)) {
+                // プロフィールは 500 文字まで入るので、一覧用に切り詰めた description ではなく
+                // 配信元が書いたままの説明を入れる
                 is AdminFeedPreviewResult.Success -> state.update {
                     it.copy(
                         displayName = result.preview.title.orEmpty(),
-                        summary = result.preview.description.orEmpty(),
+                        summary = result.preview.fullDescription.orEmpty(),
                         applyingFeed = false,
                     )
                 }

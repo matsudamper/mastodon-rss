@@ -228,6 +228,7 @@ class AdminApi(
                     siteUrl = preview.siteUrl,
                     format = preview.format,
                     description = preview.description,
+                    fullDescription = preview.fullDescription,
                     itemCount = preview.itemCount,
                     sampleItems = preview.sampleItems.map { item ->
                         AdminFeedPreviewItem(

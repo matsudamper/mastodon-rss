@@ -182,11 +182,16 @@ class FeedService(
         return PostUnpublishedResult.Success(items = posted)
     }
 
+    /**
+     * @param description 一覧に並べる用に 1 行へ潰して切り詰めた説明
+     * @param fullDescription 配信元が書いたままの説明。プロフィールに取り込むときに使う
+     */
     data class FeedPreview(
         val title: String?,
         val siteUrl: String?,
         val format: String,
         val description: String?,
+        val fullDescription: String?,
         val itemCount: Int,
         val sampleItems: List<FeedPreviewItem>,
     )
@@ -325,11 +330,14 @@ class FeedService(
     }
 
     private fun FeedFetchService.FetchResult.Success.toPreview(): FeedPreview {
+        val description = parsed.description?.toPlainText()
+
         return FeedPreview(
             title = parsed.title,
             siteUrl = HttpUrl.sanitize(parsed.link, feedUrl),
             format = parsed.format.toDisplayName(),
-            description = parsed.description?.toPlainText()?.let { truncateDescription(it) },
+            description = if (description == null) null else truncateDescription(description),
+            fullDescription = description,
             itemCount = parsed.items.size,
             sampleItems = parsed.items.take(PREVIEW_ITEM_LIMIT).map { it.toPreviewItem() },
         )
