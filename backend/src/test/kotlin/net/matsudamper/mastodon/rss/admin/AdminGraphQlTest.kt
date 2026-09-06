@@ -278,6 +278,44 @@ class AdminGraphQlTest {
         }
 
     @Test
+    fun `返した入力上限ちょうどの説明文は保存できて、超えると拒否される`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+
+            val summaryMaxLength = queryAccountProfileLimits(token)
+                .admin()
+                .obj("accountProfileLimits")
+                .int("summaryMaxLength")
+
+            val saved = mutateUpdateAccountProfile(
+                username = "feed1",
+                displayName = "フィード 1",
+                summary = "あ".repeat(summaryMaxLength),
+                token = token,
+            ).updateAccountProfileResult()
+            assertEquals(JsonNull, saved.getValue("failure"))
+
+            val rejected = mutateUpdateAccountProfile(
+                username = "feed1",
+                displayName = "フィード 1",
+                summary = "あ".repeat(summaryMaxLength + 1),
+                token = token,
+            ).updateAccountProfileResult().failure()
+            assertEquals(summaryMaxLength, rejected.int("summaryMaxLength"))
+        }
+
+    @Test
+    fun `ログインしていなければ accountProfileLimits は拒否される`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            val errors = queryAccountProfileLimits().body().getValue("errors").jsonArray
+            assertTrue(errors.isNotEmpty())
+        }
+
+    @Test
     fun `知らないアカウントのプロフィールは保存できない`() =
         testApplication {
             applicationWith(passwordConfigured = true)
@@ -1005,6 +1043,12 @@ class AdminGraphQlTest {
                 """"displayName":${JsonPrimitive(displayName)},"summary":${JsonPrimitive(summary)}}}""",
         )
 
+    private suspend fun ApplicationTestBuilder.queryAccountProfileLimits(token: String? = null): HttpResponse =
+        graphQl(
+            query = "query Limits { admin { accountProfileLimits { displayNameMaxLength summaryMaxLength } } }",
+            token = token,
+        )
+
     private suspend fun ApplicationTestBuilder.queryPreviewFeed(
         url: String,
         token: String? = null,
@@ -1244,6 +1288,8 @@ class AdminGraphQlTest {
         fun JsonObject.boolean(name: String): Boolean = getValue(name).jsonPrimitive.boolean
 
         fun JsonObject.string(name: String): String = getValue(name).jsonPrimitive.content
+
+        fun JsonObject.int(name: String): Int = getValue(name).jsonPrimitive.int
 
         /**
          * Set-Cookie のセッション。無ければ null
