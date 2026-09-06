@@ -13,13 +13,17 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 interface FeedIconRepository {
     fun find(feedId: FeedId): FeedIcon?
 
-    /** 入れ替える。フィードに 1 つしか持たない */
+    /**
+     * 入れ替える。フィードに 1 つしか持たない
+     */
     fun save(
         feedId: FeedId,
         icon: FeedIcon,
     )
 
-    /** 記録を消す。ファイルの後始末は呼び出し側が行う */
+    /**
+     * 記録を消す。ファイルの後始末は呼び出し側が行う
+     */
     fun delete(feedId: FeedId)
 }
 

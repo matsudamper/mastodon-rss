@@ -52,7 +52,9 @@ data class Actor(
     val url: String? = null,
     @SerialName("attachment")
     val attachment: List<ActorAttachment> = listOf(),
-    /** プロフィール画像。無ければ相手側の既定の画像が出る */
+    /**
+     * プロフィール画像。無ければ相手側の既定の画像が出る
+     */
     @SerialName("icon")
     val icon: Image? = null,
     @SerialName("publicKey")

@@ -44,7 +44,9 @@ data class ActorUrls(
     val publicKeyId: String = "$actorId#main-key"
 
     companion object {
-        /** アクターの id から見たプロフィール画像のパス。GraphQL も同じ綴りを使う */
+        /**
+         * アクターの id から見たプロフィール画像のパス。GraphQL も同じ綴りを使う
+         */
         const val ICON_PATH: String = "/icon"
     }
 }

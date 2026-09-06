@@ -634,13 +634,19 @@ class FeedParseException(
  * 読み終わってから [best] で 1 つ選ぶ。要素の順番で結果が変わらないようにするため。
  */
 private class FeedIconCandidates {
-    /** webfeeds:icon / Atom の icon。アイコン向けの正方形 */
+    /**
+     * webfeeds:icon / Atom の icon。アイコン向けの正方形
+     */
     var icon: String? = null
 
-    /** webfeeds:logo / Atom の logo。横長のこともあるが、icon が無ければ使う */
+    /**
+     * webfeeds:logo / Atom の logo。横長のこともあるが、icon が無ければ使う
+     */
     var logo: String? = null
 
-    /** RSS の `image` の `url`。配信元が昔から持っている画像で、最後の手段 */
+    /**
+     * RSS の `image` の `url`。配信元が昔から持っている画像で、最後の手段
+     */
     var image: String? = null
 
     fun best(): String? = listOfNotNull(icon, logo, image).firstOrNull { it.isNotEmpty() }
