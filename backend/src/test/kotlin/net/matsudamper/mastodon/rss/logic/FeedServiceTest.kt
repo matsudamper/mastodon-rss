@@ -41,10 +41,7 @@ class FeedServiceTest {
             assertEquals("RSS 2.0", success.feed.format)
             assertEquals(true, success.feed.initialImportDone)
             assertEquals(success.feed, repositories.feeds.findByAccountId(account.id))
-            assertEquals(
-                listOf(FeedItemState.PENDING, FeedItemState.PENDING),
-                repositories.feedItems.items().map { it.state },
-            )
+            assertEquals(emptyList(), repositories.feedItems.items())
         }
 
     @Test
@@ -200,7 +197,18 @@ class FeedServiceTest {
             val success = assertIs<FeedService.PreviewResult.Success>(result)
             assertEquals("サンプル", success.preview.title)
             assertEquals(2, success.preview.itemCount)
-            assertEquals(listOf("1 本目", "2 本目"), success.preview.sampleItems.map { it.title })
+            assertEquals(listOf("1 本目"), success.preview.sampleItems.map { it.title })
+        }
+
+    @Test
+    fun `プレビューの見本は古い順のフィードでも最新の記事になる`() =
+        runTest {
+            val service = serviceOf(FakeRepositories(), xml = OLDEST_FIRST_XML)
+
+            val result = service.preview(FEED_URL)
+
+            val success = assertIs<FeedService.PreviewResult.Success>(result)
+            assertEquals(listOf("新しい記事"), success.preview.sampleItems.map { it.title })
         }
 
     @Test
@@ -234,7 +242,7 @@ class FeedServiceTest {
         }
 
     @Test
-    fun `登録した記事は未投稿のまま残る`() =
+    fun `登録時に既存の記事を保存しない`() =
         runTest {
             val repositories = FakeRepositories()
             val noteStore = FakeNoteStore()
@@ -245,10 +253,7 @@ class FeedServiceTest {
 
             val success = assertIs<FeedService.SaveResult.Success>(result)
             assertEquals(true, success.feed.initialImportDone)
-            assertEquals(
-                listOf(FeedItemState.PENDING, FeedItemState.PENDING),
-                repositories.feedItems.items().map { it.state },
-            )
+            assertEquals(emptyList(), repositories.feedItems.items())
             assertEquals(0, noteStore.added.size)
         }
 
@@ -289,7 +294,7 @@ class FeedServiceTest {
         }
 
     @Test
-    fun `未投稿の記事を取得できる`() =
+    fun `登録直後の記事は未投稿として扱わない`() =
         runTest {
             val repositories = FakeRepositories()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
@@ -299,8 +304,7 @@ class FeedServiceTest {
             val result = service.unpublishedItems(account.id)
 
             val success = assertIs<FeedService.UnpublishedResult.Success>(result)
-            assertEquals(listOf("1 本目", "2 本目"), success.items.map { it.title })
-            assertEquals(listOf("https://example.com/1", "https://example.com/2"), success.items.map { it.link })
+            assertEquals(emptyList(), success.items)
         }
 
     @Test
@@ -354,6 +358,7 @@ class FeedServiceTest {
             val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
             val service = serviceOf(repositories)
             service.save(accountId = account.id, url = FEED_URL)
+            service.postUnpublished(account.id)
             val items = repositories.feedItems.items()
 
             val result = service.deleteItems(accountId = account.id, feedItemIds = items.map { it.id })
@@ -374,6 +379,8 @@ class FeedServiceTest {
             val service = serviceOf(repositories)
             service.save(accountId = owner.id, url = FEED_URL)
             service.save(accountId = other.id, url = "https://example.com/other.xml")
+            service.postUnpublished(owner.id)
+            service.postUnpublished(other.id)
             val ownerFeedId = assertNotNull(repositories.feeds.findByAccountId(owner.id)).id
             val mine = repositories.feedItems.items().first { it.feedId == ownerFeedId }
             val theirs = repositories.feedItems.items().first { it.feedId != ownerFeedId }
@@ -397,6 +404,7 @@ class FeedServiceTest {
             val service = serviceOf(repositories)
             service.save(accountId = owner.id, url = FEED_URL)
             service.save(accountId = other.id, url = "https://example.com/other.xml")
+            service.postUnpublished(owner.id)
             val item = repositories.feedItems.items().first { it.feedId == assertNotNull(repositories.feeds.findByAccountId(owner.id)).id }
 
             val result = service.deleteItems(accountId = other.id, feedItemIds = listOf(item.id))
@@ -447,7 +455,7 @@ class FeedServiceTest {
             service.save(accountId = account.id, url = FEED_URL)
 
             val unpublished = assertIs<FeedService.UnpublishedResult.Success>(service.unpublishedItems(account.id))
-            assertEquals(listOf("1 本目"), unpublished.items.map { it.title })
+            assertEquals(emptyList(), unpublished.items)
 
             val result = service.postUnpublished(account.id)
 
@@ -483,32 +491,6 @@ class FeedServiceTest {
                 ),
                 noteStore.added.map { it.contentHtml },
             )
-        }
-
-    @Test
-    fun `取り込み時に無かった説明も投稿直前の再取得で載せる`() =
-        runTest {
-            val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
-            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(
-                repositories,
-                xmls = listOf(FEED_XML, DESCRIPTION_ITEM_XML),
-                noteStore = noteStore,
-            )
-            service.save(accountId = account.id, url = FEED_URL)
-
-            val result = service.postUnpublished(account.id)
-
-            val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(
-                listOf(
-                    """<p>1 本目<br>記事の要約<br><a href="https://example.com/1">https://example.com/1</a></p>""",
-                    """<p>2 本目<br><a href="https://example.com/2">https://example.com/2</a></p>""",
-                ),
-                noteStore.added.map { it.contentHtml },
-            )
-            assertEquals(listOf("1 本目", "2 本目"), success.items.map { it.title })
         }
 
     @Test
@@ -568,10 +550,7 @@ class FeedServiceTest {
 
             val failure = assertIs<FeedService.PostUnpublishedResult.Failure>(result)
             assertEquals(FeedService.PostUnpublishedFailure.FETCH_FAILED, failure.reason)
-            assertEquals(
-                listOf(FeedItemState.PENDING, FeedItemState.PENDING),
-                repositories.feedItems.items().map { it.state },
-            )
+            assertEquals(emptyList(), repositories.feedItems.items())
             assertEquals(0, noteStore.added.size)
         }
 
@@ -741,6 +720,25 @@ class FeedServiceTest {
 
             最後の段落</description>
                 <item><title>1 本目</title><link>https://example.com/1</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val OLDEST_FIRST_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <item>
+                  <title>古い記事</title>
+                  <link>https://example.com/1</link>
+                  <pubDate>Tue, 01 Sep 2026 00:00:00 +0000</pubDate>
+                </item>
+                <item>
+                  <title>新しい記事</title>
+                  <link>https://example.com/2</link>
+                  <pubDate>Thu, 03 Sep 2026 00:00:00 +0000</pubDate>
+                </item>
               </channel>
             </rss>
         """.trimIndent()
