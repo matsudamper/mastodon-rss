@@ -385,7 +385,7 @@ private fun ProfileHeader(
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                             )
-                            // 読めるまでと読めなかったときは下の頭文字がそのまま見える
+                            // 読めるまでと読めなかったときは下の頭文字を出す
                             AsyncImage(
                                 model = state.iconUrl,
                                 // 読み上げるものが無い。名前は隣に文字で出ている
