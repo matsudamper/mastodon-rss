@@ -20,8 +20,7 @@ private fun AccountFollowersContentPreview() {
                             listener = AndroidPreviewFollowerListener,
                         )
                     },
-                    loadMoreButtonVisible = true,
-                    loadMoreButtonLoading = false,
+                    loadMore = AccountFollowersScreenUiState.LoadMore.Button,
                     loadMoreErrorMessage = null,
                 ),
                 listener = AndroidPreviewAccountFollowersListener,

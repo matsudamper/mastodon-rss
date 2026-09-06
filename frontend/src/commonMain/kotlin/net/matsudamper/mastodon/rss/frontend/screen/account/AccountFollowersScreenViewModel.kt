@@ -138,8 +138,11 @@ class AccountFollowersScreenViewModel(
                         },
                     )
                 },
-                loadMoreButtonVisible = state.cursor != null,
-                loadMoreButtonLoading = state.loadingMore,
+                loadMore = when {
+                    state.cursor == null -> AccountFollowersScreenUiState.LoadMore.Hidden
+                    state.loadingMore -> AccountFollowersScreenUiState.LoadMore.Loading
+                    else -> AccountFollowersScreenUiState.LoadMore.Button
+                },
                 loadMoreErrorMessage = state.loadMoreError,
             )
         }

@@ -20,20 +20,31 @@ data class AccountFollowersScreenUiState(
         data object NotFound : Content
 
         /**
-         * @param loadMoreButtonVisible 続きがあるうちだけ「もっと見る」を出す
-         * @param loadMoreButtonLoading 続きを取っている間は待っていると分かるものに差し替える
          * @param loadMoreErrorMessage 続きを取れなかった理由。取れた分は出したままにする
          */
         data class Loaded(
             val followers: List<FollowerUiState>,
-            val loadMoreButtonVisible: Boolean,
-            val loadMoreButtonLoading: Boolean,
+            val loadMore: LoadMore,
             val loadMoreErrorMessage: String?,
         ) : Content
 
         data class Error(
             val message: String,
         ) : Content
+    }
+
+    /**
+     * 一覧の下に出すもの
+     */
+    sealed interface LoadMore {
+        /**
+         * 最後まで出している
+         */
+        data object Hidden : LoadMore
+
+        data object Button : LoadMore
+
+        data object Loading : LoadMore
     }
 
     @Immutable

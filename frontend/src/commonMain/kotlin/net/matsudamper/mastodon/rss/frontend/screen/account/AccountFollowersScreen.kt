@@ -136,10 +136,14 @@ private fun FollowerList(
                     Text(content.loadMoreErrorMessage, color = MaterialTheme.colorScheme.error)
                 }
 
-                if (content.loadMoreButtonVisible) {
-                    if (content.loadMoreButtonLoading) {
+                when (content.loadMore) {
+                    AccountFollowersScreenUiState.LoadMore.Hidden -> Unit
+
+                    AccountFollowersScreenUiState.LoadMore.Loading -> {
                         CircularProgressIndicator()
-                    } else {
+                    }
+
+                    AccountFollowersScreenUiState.LoadMore.Button -> {
                         TextButton(onClick = listener::onClickLoadMore) {
                             Text("もっと見る")
                         }
