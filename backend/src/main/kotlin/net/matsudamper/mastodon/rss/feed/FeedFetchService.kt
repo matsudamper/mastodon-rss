@@ -88,17 +88,22 @@ class FeedFetchService(
      * 打ち切りをフィードより短くするのは、記事の数だけ繰り返すため。1 本が
      * 黙り込んだだけで取り込み全体が待たされる。打ち切れるのは取得までで、
      * 読むほうは中断点を持たないので外に出してある。走査は入力長に比例する
-     * ([OpenGraph]) ので、そこで待たされることはない。
+     * ([OpenGraph]) ので、そこで待たされることはない
      *
      * @return 絶対化した http / https の URL。見つからなければ null
      */
     suspend fun fetchOpenGraphImageUrl(url: String): String? {
-        val page = withTimeoutOrNull(PAGE_TIMEOUT_MILLIS) {
-            runCatching { loadPage(url) }
-                .getOrElse { error ->
-                    if (error is CancellationException) throw error
-                    null
-                }
+        // 打ち切りは呼び出し元とは別の時計で測る。仮想時間で回っている相手の
+        // 上で測ると、こちらが応答を待っている間に時計が進んで、取りに行く前に
+        // 打ち切られたことになる
+        val page = withContext(Dispatchers.IO) {
+            withTimeoutOrNull(PAGE_TIMEOUT_MILLIS) {
+                runCatching { loadPage(url) }
+                    .getOrElse { error ->
+                        if (error is CancellationException) throw error
+                        null
+                    }
+            }
         } ?: return null
 
         // 呼び出し元のスレッドを借りない。ページを読むのは CPU の仕事
