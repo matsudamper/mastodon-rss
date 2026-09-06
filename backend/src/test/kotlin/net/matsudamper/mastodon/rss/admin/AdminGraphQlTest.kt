@@ -396,7 +396,7 @@ class AdminGraphQlTest {
         }
 
     @Test
-    fun `unpublishedFeedItems は未投稿の記事を返す`() =
+    fun `unpublishedFeedItems は登録直後の記事を返さない`() =
         testApplication {
             val repositories = FakeRepositories()
             applicationWith(
@@ -420,10 +420,7 @@ class AdminGraphQlTest {
                 .obj("unpublishedFeedItems")
 
             assertEquals(JsonNull, result.getValue("failure"))
-            assertEquals(
-                listOf("1 本目", "2 本目"),
-                result.getValue("items").jsonArray.map { it.jsonObject.string("title") },
-            )
+            assertEquals(emptyList(), result.getValue("items").jsonArray)
         }
 
     @Test
