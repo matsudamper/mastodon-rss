@@ -38,7 +38,7 @@ object InternalHosts : ExternalHosts {
             try {
                 InetAddress.getAllByName(host).toList()
             } catch (_: UnknownHostException) {
-                emptyList()
+                listOf()
             }
         }
         if (addresses.isEmpty()) return false
@@ -46,6 +46,34 @@ object InternalHosts : ExternalHosts {
         // 1 つでも内部を指していれば断る。名前が複数のアドレスを持つとき、
         // どれで繋ぐかはこちらでは決められない
         return addresses.none { isInternal(it) }
+    }
+
+    /**
+     * 外に出せない IPv4 の範囲。private と loopback は [InetAddress] が見るので、
+     * ここに書くのはそれ以外
+     */
+    private fun isInternalIpv4(bytes: ByteArray): Boolean {
+        val first = bytes[0].toInt() and 0xFF
+        val second = bytes[1].toInt() and 0xFF
+
+        return when {
+            // 0.0.0.0/8。宛先には使えない
+            first == 0 -> true
+
+            // 100.64.0.0/10。ISP が加入者に配る範囲で、外に見えて外ではない
+            first == 100 && (second and 0xC0) == 0x40 -> true
+
+            // 192.0.0.0/24。IETF がプロトコルの割り当てに使う
+            first == 192 && second == 0 && (bytes[2].toInt() and 0xFF) == 0 -> true
+
+            // 198.18.0.0/15。機器の性能測定用で、外には出ない
+            first == 198 && (second and 0xFE) == 18 -> true
+
+            // 240.0.0.0/4。予約されていて経路が無い
+            first >= 240 -> true
+
+            else -> false
+        }
     }
 
     internal fun isInternal(address: InetAddress): Boolean {
@@ -57,8 +85,7 @@ object InternalHosts : ExternalHosts {
 
         val bytes = address.address
         return when (bytes.size) {
-            // 100.64.0.0/10。ISP が加入者に配る範囲で、外に見えて外ではない
-            4 -> bytes[0].toInt() and 0xFF == 100 && (bytes[1].toInt() and 0xC0) == 0x40
+            4 -> isInternalIpv4(bytes)
 
             // fc00::/7。IPv6 のプライベートアドレス。isSiteLocalAddress は
             // 非推奨の fec0::/10 しか見ないのでここで見る
