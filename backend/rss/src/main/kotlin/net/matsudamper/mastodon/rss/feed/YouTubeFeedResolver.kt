@@ -82,6 +82,15 @@ object YouTubeFeedResolver {
         )
 
     /**
+     * URL の中に URL が入っている形を辿る回数の上限。
+     *
+     * `/attribution_link?u=` は `u` の中身をもう一度読み直すので、`u` に
+     * `attribution_link` を入れ子にすると入力の長さの分だけ再帰する。
+     * 実在の共有リンクは 1 段しかないので、少ない回数で打ち切る。
+     */
+    private const val MAX_NESTED_LINK_HOPS = 3
+
+    /**
      * URL を読んでフィードの引き方を決める。
      *
      * YouTube の URL でない場合と、YouTube だがフィードに繋げられない形
@@ -89,7 +98,9 @@ object YouTubeFeedResolver {
      * 「対応していない」と「YouTube ですらない」を呼び出し側で出し分ける必要が出たら、
      * そのときに戻り値を分ければよい。いまはどちらも登録できないという意味で同じ。
      */
-    fun resolve(input: String): YouTubeFeedSource? {
+    fun resolve(input: String): YouTubeFeedSource? = resolve(input, MAX_NESTED_LINK_HOPS)
+
+    private fun resolve(input: String, remainingHops: Int): YouTubeFeedSource? {
         val uri = parseUri(input) ?: return null
         if (uri.scheme != null && uri.scheme.lowercase() !in setOf("http", "https")) return null
 
@@ -158,7 +169,8 @@ object YouTubeFeedResolver {
 
             // 旧い共有リンク。`u` に `/watch?v=...` が percent-encoding で入っている
             first == "attribution_link" -> {
-                query["u"]?.takeIf { it.startsWith("/") }?.let { resolve("$SITE$it") }
+                if (remainingHops <= 0) return null
+                query["u"]?.takeIf { it.startsWith("/") }?.let { resolve("$SITE$it", remainingHops - 1) }
             }
 
             // `/c/` を挟まない旧来のカスタム URL。綴りからは ID が分からない

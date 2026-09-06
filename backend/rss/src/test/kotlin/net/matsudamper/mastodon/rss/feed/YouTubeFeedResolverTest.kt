@@ -169,6 +169,14 @@ class YouTubeFeedResolverTest {
     }
 
     @Test
+    fun `入れ子の共有リンクは途中で諦める`() {
+        // u に共有リンクを入れ子にすると、入力の長さの分だけ再帰する
+        val nested = "/attribution_link?u=".repeat(10) + "/watch?v=XiSMWonFuQQ"
+
+        assertNull(YouTubeFeedResolver.resolve("https://www.youtube.com/attribution_link?u=$nested"))
+    }
+
+    @Test
     fun `名前だけのカスタム URL もページを引く`() {
         // /c/ を挟まない旧来の形
         assertEquals(
