@@ -80,34 +80,41 @@ class AccountApi(
         )
     }
 
-    suspend fun followers(
-        username: String,
-        cursor: String? = null,
-        limit: Int = PAGE_SIZE,
-    ): AccountFollowersResult {
-        val response = client
-            .query(
+    fun followers(username: String, limit: Int): Paging<AccountFollowersResult> {
+        return CachedPaging(
+            client = client,
+            firstPage = AccountFollowersQuery(
+                query = AccountFollowersQueryInput(
+                    username = username,
+                    cursor = Optional.absent(),
+                    limit = limit,
+                ),
+            ),
+            nextPage = { cursor ->
                 AccountFollowersQuery(
                     query = AccountFollowersQueryInput(
                         username = username,
-                        cursor = Optional.presentIfNotNull(cursor),
+                        cursor = Optional.present(cursor),
                         limit = limit,
                     ),
-                ),
-            )
-            .fetchPolicy(FetchPolicy.NetworkOnly)
-            .execute()
-
-        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
-            return AccountFollowersResult.Failure(response.failureMessage())
-        }
-
-        val data = response.data ?: return AccountFollowersResult.Failure(response.failureMessage())
-        val followers = data.followers ?: return AccountFollowersResult.NotFound
-
-        return AccountFollowersResult.Success(
-            followers = followers.nodes.map { AccountFollower(actorUrl = it.actorUrl) },
-            cursor = followers.pageInfo.nextCursor,
+                )
+            },
+            appendPage = { cached, fetched ->
+                val cachedFollowers = cached.followers
+                val fetchedFollowers = fetched.followers
+                if (cachedFollowers == null || fetchedFollowers == null) {
+                    // アカウントが消えた。足せるものが無いので取ってきた方をそのまま流す
+                    fetched
+                } else {
+                    cached.copy(
+                        followers = cachedFollowers.copy(
+                            nodes = cachedFollowers.nodes + fetchedFollowers.nodes,
+                            pageInfo = fetchedFollowers.pageInfo,
+                        ),
+                    )
+                }
+            },
+            toResult = { response -> response.toAccountFollowersResult() },
         )
     }
 
@@ -156,6 +163,20 @@ class AccountApi(
         return AccountNotesResult.Success(
             notes = data.notes.nodes.map { it.accountNoteFields.toAccountNote() },
             cursor = data.notes.pageInfo.nextCursor,
+        )
+    }
+
+    private fun ApolloResponse<AccountFollowersQuery.Data>.toAccountFollowersResult(): AccountFollowersResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AccountFollowersResult.Failure(failureMessage())
+        }
+
+        val data = data ?: return AccountFollowersResult.Failure(failureMessage())
+        val followers = data.followers ?: return AccountFollowersResult.NotFound
+
+        return AccountFollowersResult.Success(
+            followers = followers.nodes.map { AccountFollower(actorUrl = it.actorUrl) },
+            cursor = followers.pageInfo.nextCursor,
         )
     }
 

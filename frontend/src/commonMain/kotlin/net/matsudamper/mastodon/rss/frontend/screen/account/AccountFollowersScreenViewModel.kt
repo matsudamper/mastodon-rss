@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.logic.PagingLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountFollower
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountFollowersResult
@@ -20,9 +21,13 @@ class AccountFollowersScreenViewModel(
     private val events = EventSender<Event>()
     internal val eventHandler = events.asHandler()
 
+    private val followersPaging = api.followers(username = username, limit = PAGE_SIZE)
+
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
     private var followersJob: Job? = null
+
+    private var loadMoreJob: Job? = null
 
     // uiStateFlow より後ろに置くと、初期値を組み立てる時点でまだ入っていない
     private val listener = object : AccountFollowersScreenUiState.Listener {
@@ -53,30 +58,36 @@ class AccountFollowersScreenViewModel(
         reload()
     }
 
+    /**
+     * 一覧は先頭のページを watch して受け取る。続きを足したときもここに流れてくる
+     */
     private fun reload() {
+        loadMoreJob?.cancel()
         followersJob?.cancel()
         viewModelStateFlow.update { ViewModelState() }
         followersJob = viewModelScope.launch {
-            when (val result = api.followers(username = username)) {
-                is AccountFollowersResult.Success -> {
-                    viewModelStateFlow.update {
-                        it.copy(
-                            followers = result.followers,
-                            cursor = result.cursor,
-                            loaded = true,
-                            error = null,
-                            loadMoreError = null,
-                            loadingMore = false,
-                        )
+            followersPaging.watch().collect { result ->
+                when (result) {
+                    is AccountFollowersResult.Success -> {
+                        viewModelStateFlow.update {
+                            it.copy(
+                                followers = result.followers,
+                                cursor = result.cursor,
+                                loaded = true,
+                                error = null,
+                                loadMoreError = null,
+                                loadingMore = false,
+                            )
+                        }
                     }
-                }
 
-                AccountFollowersResult.NotFound -> {
-                    viewModelStateFlow.update { it.copy(notFound = true, loadingMore = false) }
-                }
+                    AccountFollowersResult.NotFound -> {
+                        viewModelStateFlow.update { it.copy(notFound = true, loadingMore = false) }
+                    }
 
-                is AccountFollowersResult.Failure -> {
-                    viewModelStateFlow.update { it.copy(error = result.message, loadingMore = false) }
+                    is AccountFollowersResult.Failure -> {
+                        viewModelStateFlow.update { it.copy(error = result.message, loadingMore = false) }
+                    }
                 }
             }
         }
@@ -87,25 +98,16 @@ class AccountFollowersScreenViewModel(
         if (viewModelStateFlow.value.loadingMore) return
 
         viewModelStateFlow.update { it.copy(loadingMore = true) }
-        followersJob = viewModelScope.launch {
-            when (val result = api.followers(username = username, cursor = cursor)) {
-                is AccountFollowersResult.Success -> {
-                    viewModelStateFlow.update { current ->
-                        current.copy(
-                            followers = current.followers + result.followers,
-                            cursor = result.cursor,
-                            loadMoreError = null,
-                            loadingMore = false,
-                        )
-                    }
+
+        loadMoreJob?.cancel()
+        loadMoreJob = viewModelScope.launch {
+            when (val result = followersPaging.loadMore(cursor)) {
+                // 足した一覧は watch から流れてくるので、ここでは待っている印だけ下ろす
+                PagingLoadMoreResult.Success -> {
+                    viewModelStateFlow.update { it.copy(loadMoreError = null, loadingMore = false) }
                 }
 
-                // 途中でアカウントが消えた。取れた分を出したままにしても続きは取れない
-                AccountFollowersResult.NotFound -> {
-                    viewModelStateFlow.update { it.copy(notFound = true, loadingMore = false) }
-                }
-
-                is AccountFollowersResult.Failure -> {
+                is PagingLoadMoreResult.Failure -> {
                     viewModelStateFlow.update { it.copy(loadMoreError = result.message, loadingMore = false) }
                 }
             }
@@ -116,7 +118,8 @@ class AccountFollowersScreenViewModel(
         val content = when {
             state.notFound -> AccountFollowersScreenUiState.Content.NotFound
 
-            state.error != null -> AccountFollowersScreenUiState.Content.Error(state.error)
+            // 一度出せているなら、後から来た失敗で一覧ごと消さない
+            state.error != null && !state.loaded -> AccountFollowersScreenUiState.Content.Error(state.error)
 
             !state.loaded -> AccountFollowersScreenUiState.Content.Loading
 
@@ -162,6 +165,10 @@ class AccountFollowersScreenViewModel(
         val error: String? = null,
         val loadMoreError: String? = null,
     )
+
+    private companion object {
+        const val PAGE_SIZE: Int = 20
+    }
 
     interface Event {
         /**
