@@ -27,6 +27,7 @@ import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
 import net.matsudamper.mastodon.rss.repository.FeedItemState
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.shared.AccountId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
@@ -748,6 +749,33 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `アイコンを入れ替えられなくても記事は取り込む`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(ICON_XML, ICON_XML),
+                noteStore = noteStore,
+                icons = object : FeedIcons {
+                    override suspend fun refresh(
+                        feedId: FeedId,
+                        iconUrl: String?,
+                    ) {
+                        error("アイコンを置けなかった")
+                    }
+                },
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val results = service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
+
+            assertEquals(listOf(null), results.map { it.error })
+            assertEquals(1, noteStore.added.size)
+        }
+
+    @Test
     fun `アイコンを取り下げたフィードは保存したアイコンも消す`() =
         runTest {
             val repositories = FakeRepositories()
@@ -928,7 +956,7 @@ class FeedServiceTest {
         noteStore: FakeNoteStore = FakeNoteStore(),
         actorDirectory: ActorDirectory = TestLocalActor.directory,
         engine: MockEngine? = null,
-        icons: FakeFeedIcons = FakeFeedIcons(),
+        icons: FeedIcons = FakeFeedIcons(),
     ): FeedService {
         val mockEngine = engine ?: run {
             val bodies = ArrayDeque(xmls ?: listOf(xml))

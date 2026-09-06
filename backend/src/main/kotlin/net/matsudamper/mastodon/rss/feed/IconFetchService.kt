@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.feed
 
 import java.io.Closeable
+import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.URI
@@ -141,8 +142,21 @@ class IconFetchService(
                 address.isLinkLocalAddress ||
                 address.isSiteLocalAddress ||
                 address.isMulticastAddress ||
-                address.isUniqueLocalAddress()
+                address.isUniqueLocalAddress() ||
+                address.isSharedAddressSpace()
         }
+    }
+
+    /**
+     * 事業者やクラスタの内側で使う `100.64.0.0/10`。
+     *
+     * RFC 1918 の範囲ではないので [InetAddress.isSiteLocalAddress] では拾えないが、
+     * Kubernetes などがここを内部のアドレスに使う
+     */
+    private fun InetAddress.isSharedAddressSpace(): Boolean {
+        if (this !is Inet4Address) return false
+        val bytes = address
+        return bytes[0].toInt() and 0xFF == 100 && (bytes[1].toInt() and 0xC0) == 0x40
     }
 
     /**

@@ -28,10 +28,16 @@ class FeedIconStore(
 
         val path = fileName(feedId)
         val target = root.resolve(path)
-        val temporary = root.resolve("$path.tmp")
+        // 同じフィードの取り込みが重なることがある。名前を分けないと、
+        // 片方が move した後にもう片方の move が落ちる
+        val temporary = Files.createTempFile(root, path, ".tmp")
 
-        Files.write(temporary, bytes)
-        Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING)
+        try {
+            Files.write(temporary, bytes)
+            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING)
+        } finally {
+            Files.deleteIfExists(temporary)
+        }
 
         return path
     }

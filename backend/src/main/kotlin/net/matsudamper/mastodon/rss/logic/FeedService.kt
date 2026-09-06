@@ -99,7 +99,7 @@ class FeedService(
                     validators = FeedFetchValidators.NONE,
                 )
                 feeds.markInitialImportDone(feed.id)
-                icons.refresh(feedId = feed.id, iconUrl = newFeed.iconUrl)
+                refreshIcon(feedId = feed.id, iconUrl = newFeed.iconUrl)
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)
                 SaveResult.Success(feed = saved)
             }
@@ -352,9 +352,9 @@ class FeedService(
             format = fetched.parsed.format.toDisplayName(),
             iconUrl = iconUrl,
         )
-        icons.refresh(feedId = feed.id, iconUrl = iconUrl)
-
         importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
+
+        refreshIcon(feedId = feed.id, iconUrl = iconUrl)
 
         if (!feed.initialImportDone) {
             // 登録が途中で終わったフィード。ここで登録を終わらせる。
@@ -388,6 +388,23 @@ class FeedService(
         FeedFetchService.FetchResult.TooLarge -> "応答が大きすぎる"
         is FeedFetchService.FetchResult.HttpError -> status?.let { "HTTP $it" } ?: message ?: "取得に失敗した"
         is FeedFetchService.FetchResult.ParseError -> "パースに失敗した"
+    }
+
+    /**
+     * アイコンの入れ替え。落ちても記事の取り込みは進める。
+     *
+     * 置き場が読めないなどで書けないことがある。アイコンが出ないだけの話なので、
+     * ここで投げると記事が配られなくなるほうが困る
+     */
+    private suspend fun refreshIcon(
+        feedId: FeedId,
+        iconUrl: String?,
+    ) {
+        runCatching { icons.refresh(feedId = feedId, iconUrl = iconUrl) }
+            .onFailure { error ->
+                if (error is CancellationException) throw error
+                logger.warn("アイコンを入れ替えられなかった: feedId={}", feedId.value, error)
+            }
     }
 
     private fun Feed.recordFailure(error: String): PollResult {
@@ -470,12 +487,12 @@ class FeedService(
                     format = fetched.parsed.format.toDisplayName(),
                     iconUrl = iconUrl,
                 )
-                icons.refresh(feedId = feed.id, iconUrl = iconUrl)
                 importExistingItems(
                     feed = feed,
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
                 )
+                refreshIcon(feedId = feed.id, iconUrl = iconUrl)
                 // 記録しないと定期ポーリングが直後に取り直し、成功した後も前の失敗が残る
                 feeds.recordFetchSuccess(
                     id = feed.id,
