@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss.logic
 
 import java.net.InetAddress
 import java.nio.file.Path
-import java.time.Duration
 import java.time.Instant
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
@@ -106,9 +105,14 @@ class ActorIconServiceTest {
 
             val before = Instant.now()
             serviceOf(repositories, engine).find(USERNAME)
+            val after = Instant.now()
 
-            val freshFor = Duration.between(before, assertNotNull(repositories.feedIcons.find(feedId)).expiresAt)
-            assertTrue(freshFor <= Duration.ofSeconds(60), "実際の期限: $freshFor")
+            // 取ってきた時刻は before から after の間なので、期限もその 60 秒後の間に入る
+            val expiresAt = assertNotNull(repositories.feedIcons.find(feedId)).expiresAt
+            assertTrue(
+                expiresAt in before.plusSeconds(60)..after.plusSeconds(60),
+                "実際の期限: $expiresAt",
+            )
         }
 
     @Test
