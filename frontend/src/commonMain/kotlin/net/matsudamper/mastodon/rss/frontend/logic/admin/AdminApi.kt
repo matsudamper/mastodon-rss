@@ -92,6 +92,10 @@ class AdminApi(
             .fetchPolicy(FetchPolicy.NetworkOnly)
             .watch()
             .map { response ->
+                if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+                    return@map AdminAccountsResult.Failure(response.failureMessage())
+                }
+
                 val data = response.data
                     ?: return@map AdminAccountsResult.Failure(response.failureMessage())
 
@@ -451,6 +455,10 @@ class AdminApi(
     }
 
     private fun ApolloResponse<AdminUnpublishedFeedItemsQuery.Data>.toUnpublishedFeedItemsResult(): AdminUnpublishedFeedItemsResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AdminUnpublishedFeedItemsResult.Failure(failureMessage())
+        }
+
         val result = data?.admin?.unpublishedFeedItems
             ?: return AdminUnpublishedFeedItemsResult.Failure(failureMessage())
         val items = result.items
