@@ -82,10 +82,12 @@ class FeedService(
                 } else {
                     feeds.add(newFeed)
                 } ?: return SaveResult.Failure(
-                    if (feeds.findByAccountId(accountId) != null) {
-                        SaveFailure.ALREADY_HAS_FEED
-                    } else {
+                    // 入れ替えの失敗では自分のフィードが残っているので、
+                    // フィードの有無ではなく URL の取られ方で理由を決める
+                    if (feeds.findByUrl(fetched.feedUrl)?.accountId?.let { it != accountId } == true) {
                         SaveFailure.DUPLICATE_URL
+                    } else {
+                        SaveFailure.ALREADY_HAS_FEED
                     },
                 )
                 importExistingItems(
