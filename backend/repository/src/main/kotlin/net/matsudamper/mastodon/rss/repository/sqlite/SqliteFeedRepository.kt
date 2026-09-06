@@ -89,7 +89,11 @@ internal class SqliteFeedRepository(
         feed: NewFeed,
     ): Feed? = jooq.transaction { dsl ->
         // 入れ替えられると分かってから消す。消してから入らないと、記事ごと失う
-        if (dsl.selectFrom(FEEDS).where(FEEDS.ID.eq(existingId.value)).fetchOne() == null) return@transaction null
+        val existing = dsl.selectFrom(FEEDS).where(FEEDS.ID.eq(existingId.value)).fetchOne()?.toFeed()
+            ?: return@transaction null
+        // 登録が済んだフィードは入れ替えない。やり直しの取得を待っている間に定期ポーリングが
+        // 取り込みを引き取っていると、配信した記事ごと消して次の取得で配り直す
+        if (existing.initialImportDone) return@transaction null
         if (dsl.findByAccountId(feed.accountId)?.id?.let { it != existingId } == true) return@transaction null
         if (dsl.findByUrl(feed.url)?.id?.let { it != existingId } == true) return@transaction null
 

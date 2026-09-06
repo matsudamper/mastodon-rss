@@ -290,6 +290,20 @@ class FeedRepositoryTest {
     }
 
     @Test
+    fun `登録が済んだフィードは入れ替えない`() {
+        withRepositories { repositories ->
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val before = assertNotNull(repositories.feeds.add(newFeed(account.id, "https://example.com/feed.xml")))
+            repositories.feeds.markInitialImportDone(before.id)
+
+            val replaced = repositories.feeds.replace(existingId = before.id, feed = newFeed(account.id, "https://example.com/other.xml"))
+
+            assertNull(replaced)
+            assertEquals("https://example.com/feed.xml", assertNotNull(repositories.feeds.find(before.id)).url)
+        }
+    }
+
+    @Test
     fun `他のアカウントが使っている URL には入れ替えない`() {
         withRepositories { repositories ->
             val account1 = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))

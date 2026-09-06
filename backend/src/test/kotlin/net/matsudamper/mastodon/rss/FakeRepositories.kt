@@ -315,7 +315,8 @@ class FakeFeedRepository(
         existingId: FeedId,
         feed: NewFeed,
     ): Feed? {
-        if (find(existingId) == null) return null
+        val existing = find(existingId) ?: return null
+        if (existing.initialImportDone) return null
         if (findByAccountId(feed.accountId)?.id?.let { it != existingId } == true) return null
         if (findByUrl(feed.url)?.id?.let { it != existingId } == true) return null
 
