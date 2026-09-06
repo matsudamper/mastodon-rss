@@ -122,6 +122,20 @@ sealed interface Screen : NavKey {
     }
 
     /**
+     * フォロワーの一覧。[Account] の上にダイアログとして出す。
+     *
+     * アカウントの画面に並べると、開いただけで一覧の問い合わせまで走る。
+     * URL を持つので、一覧を開いた状態を指せる。
+     */
+    data class AccountFollowers(
+        val username: String,
+    ) : Overlay {
+        override val path: String = "/$ACCOUNT_PREFIX$username/$FOLLOWERS_SEGMENT"
+        override val title: String = "@$username のフォロワー | $SITE_NAME"
+        override val background: Screen = Account(username)
+    }
+
+    /**
      * 投稿 1 件。[Account] の上にダイアログとして出す。
      *
      * 一覧の上に重ねるので、閉じたときに一覧を読み直さずに済む。
@@ -161,6 +175,11 @@ sealed interface Screen : NavKey {
         private const val NEW_SEGMENT: String = "new"
 
         private const val FEEDS_SEGMENT: String = "feeds"
+
+        /**
+         * 投稿 1 件と同じ階層に並ぶ。投稿の id は UUIDv7 なのでこの綴りにはならない
+         */
+        private const val FOLLOWERS_SEGMENT: String = "followers"
 
         /** アカウント画面の目印。ユーザー名に `@` は使えないので、これで一意に判別できる */
         const val ACCOUNT_PREFIX: String = "@"
@@ -220,9 +239,10 @@ sealed interface Screen : NavKey {
             }
 
             accountNameOf(first)?.let { username ->
-                when (segments.size) {
-                    1 -> return Account(username)
-                    2 -> return AccountNote(username = username, noteId = segments[1])
+                when {
+                    segments.size == 1 -> return Account(username)
+                    segments.size == 2 && segments[1] == FOLLOWERS_SEGMENT -> return AccountFollowers(username)
+                    segments.size == 2 -> return AccountNote(username = username, noteId = segments[1])
                 }
             }
 

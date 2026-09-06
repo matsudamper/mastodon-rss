@@ -6,8 +6,12 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.data.AccountsCursor
+import net.matsudamper.mastodon.rss.graphql.data.FollowersCursor
 import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAccountFollower
+import net.matsudamper.mastodon.rss.graphql.model.QlAccountFollowersConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAccountFollowersQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNote
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNotesQuery
@@ -117,6 +121,52 @@ class QueryResolverImpl : QueryResolver {
         )
     }
 
+    /**
+     * 名前を引き当ててから返す。引けない名前で空の一覧を返すと、無いアカウントが
+     * フォロワー 0 人のアカウントとして見える
+     */
+    override fun followers(
+        query: QlAccountFollowersQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAccountFollowersConnection?>> {
+        val cursor = query.cursor?.let { FollowersCursor.decode(it) }
+
+        return GraphQlEngine
+            .dataLoaders(env)
+            .accountDataLoader
+            .get(env)
+            .load(query.username)
+            .thenApply { account ->
+                val connection = when {
+                    account == null -> null
+
+                    // 読めないカーソルは続きが無い扱い。開き直せば先頭から取れる
+                    query.cursor != null && cursor == null -> QlAccountFollowersConnection(
+                        nodes = listOf(),
+                        pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+                    )
+
+                    else -> {
+                        val page = GraphQlEngine.diContainer(env).accountService.followers(
+                            username = account.urls.username,
+                            afterActorUrl = cursor?.afterActorUrl,
+                            limit = query.limit.coerceIn(0, MAX_FOLLOWERS_LIMIT),
+                        )
+
+                        QlAccountFollowersConnection(
+                            nodes = page.actorUrls.map { QlAccountFollower(url = it, acct = NOT_FETCHED_ACCT) },
+                            pageInfo = QlPageInfo(
+                                hasMore = page.hasMore,
+                                nextCursor = page.nextActorUrl?.let { FollowersCursor(afterActorUrl = it).encode() },
+                            ),
+                        )
+                    }
+                }
+
+                DataFetcherResult.Builder<QlAccountFollowersConnection?>(connection).build()
+            }
+    }
+
     override fun note(
         username: String,
         id: PublicNoteId,
@@ -130,5 +180,12 @@ class QueryResolverImpl : QueryResolver {
 
     private companion object {
         const val MAX_ACCOUNTS_LIMIT = 100
+
+        const val MAX_FOLLOWERS_LIMIT = 100
+
+        /**
+         * 相手の名前を保存するまでの間に返すもの（#197）
+         */
+        const val NOT_FETCHED_ACCT = "未取得"
     }
 }
