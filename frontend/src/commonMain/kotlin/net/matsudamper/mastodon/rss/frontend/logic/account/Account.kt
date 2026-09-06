@@ -6,7 +6,6 @@ package net.matsudamper.mastodon.rss.frontend.logic.account
  * @param actorUrl ActivityPub の Actor の URL
  * @param displayName プロフィールの表示名。未設定なら空文字
  * @param summary プロフィールの説明文。未設定なら空文字
- * @param iconUrl プロフィール画像の URL。無ければ null
  */
 data class Account(
     val id: Long,
@@ -15,7 +14,6 @@ data class Account(
     val actorUrl: String,
     val displayName: String,
     val summary: String,
-    val iconUrl: String?,
 )
 
 data class AccountFeed(
