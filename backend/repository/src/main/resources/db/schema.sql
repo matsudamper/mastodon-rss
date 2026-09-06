@@ -52,10 +52,8 @@ CREATE TABLE feeds (
     last_succeeded_at TEXT,
     last_error TEXT,
     initial_import_done INTEGER NOT NULL DEFAULT 0 CHECK (initial_import_done IN (0, 1)),
-    created_at TEXT NOT NULL,
-    -- フィードが名乗っているアイコンの URL。Actor の icon と公開画面のアバターに出す
-    icon_url TEXT
-);
+    created_at TEXT NOT NULL
+, icon_url TEXT);
 
 CREATE TABLE followers (
     -- 1 行が「username のアカウントを remote_actor_id がフォローしている」ことを表す

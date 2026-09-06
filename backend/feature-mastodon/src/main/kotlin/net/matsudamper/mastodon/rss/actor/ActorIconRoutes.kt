@@ -39,6 +39,9 @@ fun Route.actorIconRoutes(
         // 配信元に毎回取りに行かないよう、見に来た側に持たせる。
         // 差し替えてもすぐには反映されないが、頻繁に変わるものではない
         call.response.header(HttpHeaders.CacheControl, CACHE_CONTROL)
+        // 名乗った種類で解釈させる。中身から推測されると、画像として受けたものが
+        // 別の種類として動きうる
+        call.response.header(CONTENT_TYPE_OPTIONS_HEADER, CONTENT_TYPE_OPTIONS)
         call.respondBytes(bytes = icon.bytes, contentType = icon.contentType)
     }
 }
@@ -69,3 +72,5 @@ class ActorIcon(
 )
 
 private const val CACHE_CONTROL = "public, max-age=3600"
+private const val CONTENT_TYPE_OPTIONS_HEADER = "X-Content-Type-Options"
+private const val CONTENT_TYPE_OPTIONS = "nosniff"
