@@ -27,23 +27,40 @@ class ActorIconService(
     private val mutex = Mutex()
     private val cached = mutableMapOf<String, Entry>()
 
+    /**
+     * 取得を 1 本にまとめるための鍵。アカウントごとに持つ。
+     *
+     * [mutex] を取得の間も持ったままにすると、1 つの配信元の遅さが
+     * 他のアカウントのアイコンまで止める
+     */
+    private val fetching = mutableMapOf<String, Mutex>()
+
     override suspend fun find(username: String): ActorIcon? {
         val source = feedLinks.find(username).iconUrl ?: return null
-        val now = Instant.now()
 
         // 取得元が変わったら持っているものは使わない。フィードを差し替えても
         // URL が変わらないぶん、中身の切り替えはここでしか起きない
-        readCache(username = username, source = source, now = now)?.let { return it.icon }
+        readCache(username = username, source = source, now = Instant.now())?.let { return it.icon }
 
-        val icon = when (val fetched = icons.fetch(source)) {
-            is IconFetchService.FetchResult.Success ->
-                ActorIcon(bytes = fetched.bytes, contentType = fetched.contentType)
+        // 同じアカウントへの要求が重なっても、配信元に取りに行くのは 1 本にする。
+        // ここを素通りさせると、外から並べて叩くだけで同じ数の取得が出ていく
+        return fetchLock(username).withLock {
+            readCache(username = username, source = source, now = Instant.now())?.let { return@withLock it.icon }
 
-            IconFetchService.FetchResult.Failure -> null
+            val icon = when (val fetched = icons.fetch(source)) {
+                is IconFetchService.FetchResult.Success ->
+                    ActorIcon(bytes = fetched.bytes, contentType = fetched.contentType)
+
+                IconFetchService.FetchResult.Failure -> null
+            }
+
+            writeCache(username = username, source = source, icon = icon, now = Instant.now())
+            icon
         }
+    }
 
-        writeCache(username = username, source = source, icon = icon, now = Instant.now())
-        return icon
+    private suspend fun fetchLock(username: String): Mutex = mutex.withLock {
+        fetching.getOrPut(username) { Mutex() }
     }
 
     private suspend fun readCache(

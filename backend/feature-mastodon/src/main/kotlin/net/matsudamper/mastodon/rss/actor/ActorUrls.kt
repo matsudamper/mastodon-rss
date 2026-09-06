@@ -38,8 +38,13 @@ data class ActorUrls(
      * 配信元の URL をそのまま渡さないのは、フィードを差し替えてもアイコンの URL が
      * 変わらないようにするため。相手はアイコンを URL で覚える
      */
-    val icon: String = "$actorId/icon"
+    val icon: String = "$actorId$ICON_PATH"
 
     /** Actor JSON の `publicKey.id`。署名の `keyId` としても飛んでくる */
     val publicKeyId: String = "$actorId#main-key"
+
+    companion object {
+        /** アクターの id から見たプロフィール画像のパス。GraphQL も同じ綴りを使う */
+        const val ICON_PATH: String = "/icon"
+    }
 }

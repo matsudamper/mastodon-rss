@@ -5,6 +5,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -28,6 +31,29 @@ class ActorIconServiceTest {
             assertNotNull(service.find(USERNAME))
             assertNotNull(service.find(USERNAME))
 
+            assertEquals(1, engine.requestHistory.size)
+        }
+
+    @Test
+    fun `同じアカウントへの要求が重なっても取りに行くのは 1 本`() =
+        runTest {
+            val holding = CompletableDeferred<Unit>()
+            val engine = MockEngine {
+                holding.await()
+                respond(content = "PNG", headers = headersOf("Content-Type", "image/png"))
+            }
+            val service = ActorIconService(
+                feedLinks = MutableFeedLinks(feedLinks("https://example.com/icon.png")),
+                icons = iconsOf(engine),
+            )
+
+            val first = async { service.find(USERNAME) }
+            val second = async { service.find(USERNAME) }
+            advanceUntilIdle()
+            holding.complete(Unit)
+
+            assertNotNull(first.await())
+            assertNotNull(second.await())
             assertEquals(1, engine.requestHistory.size)
         }
 
