@@ -144,8 +144,8 @@ data class AdminAccountScreenUiState(
     data class DeleteAccountDialog(
         val message: String,
         val confirmLabel: String,
-        val canConfirm: Boolean,
-        val canDismiss: Boolean,
+        val confirmButtonEnabled: Boolean,
+        val closeEnabled: Boolean,
         val errorMessage: String?,
     )
 

@@ -136,7 +136,7 @@ class HomeScreenViewModel(
                             acct = account.acct,
                         )
                     },
-                    hasMore = accounts.hasMore,
+                    loadMoreVisible = accounts.hasMore,
                     loadingMore = state.loadingMore,
                     loadMoreErrorMessage = state.loadMoreErrorMessage,
                 )

@@ -131,14 +131,14 @@ private fun LoginCard(
             formId = LOGIN_FORM_ID,
             inputId = LOGIN_PASSWORD_INPUT_ID,
             inputName = "password",
-            enabled = content.inputEnabled && !content.submitting,
+            enabled = content.passwordInputEnabled,
             hasError = content.error != null,
             modifier = Modifier.fillMaxWidth(),
         )
         content.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
             onClick = listener::onClickLogin,
-            enabled = content.inputEnabled && !content.submitting && content.password.isNotEmpty(),
+            enabled = content.loginButtonEnabled,
         ) {
             Text(if (content.submitting) "確認中..." else "ログイン")
         }

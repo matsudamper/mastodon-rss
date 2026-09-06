@@ -153,7 +153,7 @@ private fun LoadedContent(
             }
         }
 
-        if (content.hasMore) {
+        if (content.loadMoreVisible) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
