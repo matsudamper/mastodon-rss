@@ -357,6 +357,8 @@ class AccountGraphQlTest {
                 listOf("https://mastodon.example/users/alice"),
                 followers.nodes().map { it.string("actorUrl") },
             )
+            // 相手の名前はまだ保存していない
+            assertEquals(JsonNull, followers.nodes()[0].getValue("acct"))
             assertEquals(false, followers.pageInfo().boolean("hasMore"))
         }
 
@@ -428,7 +430,7 @@ class AccountGraphQlTest {
             val query =
                 "query AccountFollowers(${'$'}username: String!, ${'$'}cursor: String, ${'$'}limit: Int!) { " +
                     "followers(query: { username: ${'$'}username, cursor: ${'$'}cursor, limit: ${'$'}limit }) { " +
-                    "nodes { actorUrl } pageInfo { hasMore nextCursor } } }"
+                    "nodes { actorUrl acct } pageInfo { hasMore nextCursor } } }"
 
             val variables = buildString {
                 append("{")

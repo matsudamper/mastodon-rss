@@ -2,6 +2,7 @@ query AccountFollowersQuery($query: AccountFollowersQuery!) {
     followers(query: $query) {
         nodes {
             actorUrl
+            acct
         }
         pageInfo {
             hasMore

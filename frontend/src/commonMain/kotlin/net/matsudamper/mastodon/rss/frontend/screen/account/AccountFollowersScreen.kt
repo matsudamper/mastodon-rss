@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
@@ -114,11 +115,21 @@ private fun FollowerList(
             items = content.followers,
             key = AccountFollowersScreenUiState.Follower::actorUrl,
         ) { follower ->
-            TextLink(
-                text = follower.actorUrl,
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = follower.listener::onClick,
-            )
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = follower.acct,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = FontFamily.Monospace,
+                )
+                TextLink(
+                    text = follower.actorUrl,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = follower.listener::onClick,
+                )
+            }
         }
 
         item(key = "footer") {

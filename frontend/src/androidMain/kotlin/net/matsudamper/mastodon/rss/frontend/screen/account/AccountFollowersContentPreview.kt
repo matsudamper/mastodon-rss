@@ -12,10 +12,11 @@ private fun AccountFollowersContentPreview() {
             uiState = AccountFollowersScreenUiState(
                 content = AccountFollowersScreenUiState.Content.Loaded(
                     followers = listOf(
-                        "https://mastodon.example/users/alice",
-                        "https://social.example/users/bob",
-                    ).map { actorUrl ->
+                        "@alice@mastodon.example" to "https://mastodon.example/users/alice",
+                        "未取得" to "https://social.example/users/bob",
+                    ).map { (acct, actorUrl) ->
                         AccountFollowersScreenUiState.Follower(
+                            acct = acct,
                             actorUrl = actorUrl,
                             listener = AndroidPreviewFollowerListener,
                         )

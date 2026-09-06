@@ -58,10 +58,8 @@ data class AccountFollowersScreenUiState(
         fun onClickClose()
     }
 
-    /**
-     * フォロワー 1 人。名前もアイコンも分からないので、相手を指す URL だけを出す
-     */
     data class Follower(
+        val acct: String,
         val actorUrl: String,
         val listener: Follower.Listener,
     ) {
