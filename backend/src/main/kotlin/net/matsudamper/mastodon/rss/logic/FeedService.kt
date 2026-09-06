@@ -75,11 +75,6 @@ class FeedService(
                         SaveFailure.DUPLICATE_URL
                     },
                 )
-                importExistingItems(
-                    feed = feed,
-                    items = fetched.parsed.items,
-                    feedUrl = fetched.feedUrl,
-                )
                 feeds.markInitialImportDone(feed.id)
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)
                 SaveResult.Success(feed = saved)
@@ -431,7 +426,7 @@ class FeedService(
 
     private companion object {
         const val DEFAULT_POLL_INTERVAL_SECONDS = 900L
-        const val PREVIEW_ITEM_LIMIT = 5
+        const val PREVIEW_ITEM_LIMIT = 1
         const val DESCRIPTION_LIMIT = 200
         const val POST_TITLE_MAX_CHARS = 200
         const val POST_DESCRIPTION_MAX_CHARS = 200
