@@ -23,7 +23,7 @@ data class AccountFollowersScreenUiState(
          * @param loadMoreErrorMessage 続きを取れなかった理由。取れた分は出したままにする
          */
         data class Loaded(
-            val followers: List<FollowerUiState>,
+            val followers: List<Follower>,
             val loadMore: LoadMore,
             val loadMoreErrorMessage: String?,
         ) : Content
@@ -55,17 +55,17 @@ data class AccountFollowersScreenUiState(
 
         fun onClickLoadMore()
     }
-}
 
-/**
- * フォロワー 1 人。名前もアイコンも分からないので、相手を指す URL だけを出す
- */
-data class FollowerUiState(
-    val actorUrl: String,
-    val listener: Listener,
-) {
-    @Immutable
-    interface Listener {
-        fun onClick()
+    /**
+     * フォロワー 1 人。名前もアイコンも分からないので、相手を指す URL だけを出す
+     */
+    data class Follower(
+        val actorUrl: String,
+        val listener: Listener,
+    ) {
+        @Immutable
+        interface Listener {
+            fun onClick()
+        }
     }
 }

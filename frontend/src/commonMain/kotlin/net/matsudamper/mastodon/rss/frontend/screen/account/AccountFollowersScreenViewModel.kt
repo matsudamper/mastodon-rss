@@ -120,9 +120,9 @@ class AccountFollowersScreenViewModel(
                 } else {
                     AccountFollowersScreenUiState.Content.Loaded(
                         followers = followers.followers.map { follower ->
-                            FollowerUiState(
+                            AccountFollowersScreenUiState.Follower(
                                 actorUrl = follower.actorUrl,
-                                listener = object : FollowerUiState.Listener {
+                                listener = object : AccountFollowersScreenUiState.Follower.Listener {
                                     override fun onClick() {
                                         viewModelScope.launch {
                                             events.send { it.openExternalLink(follower.actorUrl) }

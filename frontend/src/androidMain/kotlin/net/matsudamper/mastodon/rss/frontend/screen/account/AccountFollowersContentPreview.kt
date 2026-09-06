@@ -15,7 +15,7 @@ private fun AccountFollowersContentPreview() {
                         "https://mastodon.example/users/alice",
                         "https://social.example/users/bob",
                     ).map { actorUrl ->
-                        FollowerUiState(
+                        AccountFollowersScreenUiState.Follower(
                             actorUrl = actorUrl,
                             listener = AndroidPreviewFollowerListener,
                         )
@@ -50,6 +50,6 @@ private object AndroidPreviewAccountFollowersListener : AccountFollowersScreenUi
     override fun onClickLoadMore() = Unit
 }
 
-private object AndroidPreviewFollowerListener : FollowerUiState.Listener {
+private object AndroidPreviewFollowerListener : AccountFollowersScreenUiState.Follower.Listener {
     override fun onClick() = Unit
 }

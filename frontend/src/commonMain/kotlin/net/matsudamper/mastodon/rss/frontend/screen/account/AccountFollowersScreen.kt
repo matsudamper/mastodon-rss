@@ -117,7 +117,7 @@ private fun FollowerList(
     ) {
         items(
             items = content.followers,
-            key = FollowerUiState::actorUrl,
+            key = AccountFollowersScreenUiState.Follower::actorUrl,
         ) { follower ->
             TextLink(
                 text = follower.actorUrl,
