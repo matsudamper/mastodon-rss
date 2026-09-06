@@ -200,6 +200,17 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `プレビューの見本は古い順のフィードでも最新の記事になる`() =
+        runTest {
+            val service = serviceOf(FakeRepositories(), xml = OLDEST_FIRST_XML)
+
+            val result = service.preview(FEED_URL)
+
+            val success = assertIs<FeedService.PreviewResult.Success>(result)
+            assertEquals(listOf("新しい記事"), success.preview.sampleItems.map { it.title })
+        }
+
+    @Test
     fun `プレビューは切り詰めた説明と配信元のままの説明を両方返す`() =
         runTest {
             val service = serviceOf(FakeRepositories(), xml = LONG_DESCRIPTION_XML)
@@ -647,6 +658,25 @@ class FeedServiceTest {
 
             最後の段落</description>
                 <item><title>1 本目</title><link>https://example.com/1</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val OLDEST_FIRST_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <item>
+                  <title>古い記事</title>
+                  <link>https://example.com/1</link>
+                  <pubDate>Mon, 01 Sep 2026 00:00:00 +0000</pubDate>
+                </item>
+                <item>
+                  <title>新しい記事</title>
+                  <link>https://example.com/2</link>
+                  <pubDate>Wed, 03 Sep 2026 00:00:00 +0000</pubDate>
+                </item>
               </channel>
             </rss>
         """.trimIndent()
