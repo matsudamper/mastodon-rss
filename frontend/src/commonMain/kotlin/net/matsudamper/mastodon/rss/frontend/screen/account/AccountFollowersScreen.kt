@@ -111,23 +111,20 @@ private fun FollowerList(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        items(
-            items = content.followers,
-            key = AccountFollowersScreenUiState.Follower::actorUrl,
-        ) { follower ->
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
+        items(items = content.followers) { follower ->
+            val listener = follower.listener
+            if (listener == null) {
                 Text(
                     text = follower.acct,
+                    modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodyMedium,
                     fontFamily = FontFamily.Monospace,
                 )
+            } else {
                 TextLink(
-                    text = follower.actorUrl,
+                    text = follower.acct,
                     modifier = Modifier.fillMaxWidth(),
-                    onClick = follower.listener::onClick,
+                    onClick = listener::onClick,
                 )
             }
         }

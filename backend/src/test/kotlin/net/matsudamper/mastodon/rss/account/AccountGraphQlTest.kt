@@ -353,11 +353,9 @@ class AccountGraphQlTest {
 
             val followers = queryFollowers("feed1", limit = 10).followers()
 
-            assertEquals(
-                listOf("https://mastodon.example/users/alice"),
-                followers.nodes().map { it.string("actorUrl") },
-            )
-            // 相手の名前はまだ保存していない
+            assertEquals(1, followers.nodes().size)
+            // 相手のプロフィールも名前もまだ保存していない
+            assertEquals(JsonNull, followers.nodes()[0].getValue("url"))
             assertEquals(JsonNull, followers.nodes()[0].getValue("acct"))
             assertEquals(false, followers.pageInfo().boolean("hasMore"))
         }
@@ -372,10 +370,7 @@ class AccountGraphQlTest {
             application { module(testDependencies(repositories = repositories)) }
 
             val page1 = queryFollowers("feed1", limit = 1).followers()
-            assertEquals(
-                listOf("https://mastodon.example/users/alice"),
-                page1.nodes().map { it.string("actorUrl") },
-            )
+            assertEquals(1, page1.nodes().size)
             assertEquals(true, page1.pageInfo().boolean("hasMore"))
 
             val page2 = queryFollowers(
@@ -383,10 +378,7 @@ class AccountGraphQlTest {
                 cursor = page1.pageInfo().string("nextCursor"),
                 limit = 1,
             ).followers()
-            assertEquals(
-                listOf("https://mastodon.example/users/bob"),
-                page2.nodes().map { it.string("actorUrl") },
-            )
+            assertEquals(1, page2.nodes().size)
             assertEquals(false, page2.pageInfo().boolean("hasMore"))
         }
 
@@ -430,7 +422,7 @@ class AccountGraphQlTest {
             val query =
                 "query AccountFollowers(${'$'}username: String!, ${'$'}cursor: String, ${'$'}limit: Int!) { " +
                     "followers(query: { username: ${'$'}username, cursor: ${'$'}cursor, limit: ${'$'}limit }) { " +
-                    "nodes { actorUrl acct } pageInfo { hasMore nextCursor } } }"
+                    "nodes { url acct } pageInfo { hasMore nextCursor } } }"
 
             val variables = buildString {
                 append("{")

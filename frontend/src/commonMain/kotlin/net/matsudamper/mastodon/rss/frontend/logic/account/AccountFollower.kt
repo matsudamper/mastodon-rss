@@ -3,10 +3,11 @@ package net.matsudamper.mastodon.rss.frontend.logic.account
 /**
  * このアカウントをフォローしている相手。
  *
+ * @param url 相手のプロフィール。取れていなければ null
  * @param acct Mastodon の検索窓に貼る形。取れていなければ null
  */
 data class AccountFollower(
-    val actorUrl: String,
+    val url: String?,
     val acct: String?,
 )
 

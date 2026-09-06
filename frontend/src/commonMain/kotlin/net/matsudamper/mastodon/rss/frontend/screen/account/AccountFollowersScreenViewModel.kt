@@ -124,11 +124,12 @@ class AccountFollowersScreenViewModel(
                         followers = followersState.followers.map { follower ->
                             AccountFollowersScreenUiState.Follower(
                                 acct = follower.acct ?: NOT_FETCHED_ACCT,
-                                actorUrl = follower.actorUrl,
-                                listener = object : AccountFollowersScreenUiState.Follower.Listener {
-                                    override fun onClick() {
-                                        viewModelScope.launch {
-                                            events.send { it.openExternalLink(follower.actorUrl) }
+                                listener = follower.url?.let { url ->
+                                    object : AccountFollowersScreenUiState.Follower.Listener {
+                                        override fun onClick() {
+                                            viewModelScope.launch {
+                                                events.send { it.openExternalLink(url) }
+                                            }
                                         }
                                     }
                                 },

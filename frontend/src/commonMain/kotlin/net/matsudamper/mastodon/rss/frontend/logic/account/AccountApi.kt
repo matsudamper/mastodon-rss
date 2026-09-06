@@ -175,7 +175,7 @@ class AccountApi(
         val followers = data.followers ?: return AccountFollowersResult.NotFound
 
         return AccountFollowersResult.Success(
-            followers = followers.nodes.map { AccountFollower(actorUrl = it.actorUrl, acct = it.acct) },
+            followers = followers.nodes.map { AccountFollower(url = it.url, acct = it.acct) },
             nextCursor = followers.pageInfo.nextCursor,
         )
     }
