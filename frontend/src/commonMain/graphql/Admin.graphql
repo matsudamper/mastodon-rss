@@ -65,6 +65,15 @@ fragment AdminAccountScreenFields on AdminAccount {
     }
 }
 
+query AdminAccountProfileLimits {
+    admin {
+        accountProfileLimits {
+            displayNameMaxLength
+            summaryMaxLength
+        }
+    }
+}
+
 query AdminPreviewFeed($url: String!) {
     admin {
         previewFeed(url: $url) {

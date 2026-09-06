@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountProfileLimitsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountUpdates
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
@@ -49,6 +50,19 @@ class AdminAccountProfileEditScreenViewModel(
                 is AdminAccountResult.Failure -> state.update { it.copy(errorMessage = account.message) }
             }
         }
+        viewModelScope.launch {
+            when (val limits = api.accountProfileLimits()) {
+                is AdminAccountProfileLimitsResult.Success -> state.update {
+                    it.copy(
+                        displayNameMaxLength = limits.displayNameMaxLength,
+                        summaryMaxLength = limits.summaryMaxLength,
+                    )
+                }
+
+                // 上限が取れなくても入力と保存はできる。長すぎる入力は保存時に弾かれて理由が出る
+                is AdminAccountProfileLimitsResult.Failure -> Unit
+            }
+        }
     }
 
     private fun createUiState(value: ViewModelState) = AdminAccountProfileEditScreenUiState(
@@ -87,12 +101,12 @@ class AdminAccountProfileEditScreenViewModel(
         state.update { it.copy(applyingFeed = true, errorMessage = null) }
         viewModelScope.launch {
             when (val result = api.previewFeed(feedUrl)) {
-                // プロフィールは 500 文字まで入るので、一覧用に切り詰めた description ではなく
-                // 配信元が書いたままの説明を入れる
+                // 一覧用に切り詰めた description ではなく配信元が書いたままの説明を入れる。
+                // フィードの文量は入力上限と関係なく決まるので、保存が拒まれないように上限で切る
                 is AdminFeedPreviewResult.Success -> state.update {
                     it.copy(
-                        displayName = result.preview.title.orEmpty(),
-                        summary = result.preview.fullDescription.orEmpty(),
+                        displayName = result.preview.title.orEmpty().truncateToLimit(it.displayNameMaxLength),
+                        summary = result.preview.fullDescription.orEmpty().truncateToLimit(it.summaryMaxLength),
                         applyingFeed = false,
                     )
                 }
@@ -106,6 +120,26 @@ class AdminAccountProfileEditScreenViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * 上限のコードポイント数までを残す。上限が分からないうちは何もしない。
+     *
+     * サロゲートペアの途中で切ると壊れた文字になるので、ペアは 1 文字として数える。
+     */
+    private fun String.truncateToLimit(maxLength: Int?): String {
+        if (maxLength == null) return this
+        var count = 0
+        var index = 0
+        while (index < length) {
+            if (count == maxLength) return substring(0, index)
+            val surrogatePair = this[index].isHighSurrogate() &&
+                index + 1 < length &&
+                this[index + 1].isLowSurrogate()
+            index += if (surrogatePair) 2 else 1
+            count += 1
+        }
+        return this
     }
 
     private fun close() {
@@ -126,6 +160,8 @@ class AdminAccountProfileEditScreenViewModel(
         val saving: Boolean = false,
         val applyingFeed: Boolean = false,
         val feedUrl: String? = null,
+        val displayNameMaxLength: Int? = null,
+        val summaryMaxLength: Int? = null,
         val errorMessage: String? = null,
     )
 
