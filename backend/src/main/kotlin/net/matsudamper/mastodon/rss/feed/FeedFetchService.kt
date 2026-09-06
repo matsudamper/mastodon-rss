@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.feed
 import java.io.Closeable
 import java.net.URI
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -25,7 +26,13 @@ import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.resolve
 
 class FeedFetchService(
     private val client: HttpClient = defaultClient(),
+    private val externalHosts: ExternalHosts = InternalHosts,
 ) : Closeable {
+    /**
+     * 記事のリンク先を取る口。飛ばされた先を自分で見るために、client には追わせない
+     */
+    private val pageClient: HttpClient = client.config { followRedirects = false }
+
     suspend fun fetch(url: String): FetchResult {
         val trimmed = url.trim()
         if (trimmed.isEmpty()) return FetchResult.InvalidUrl
@@ -74,16 +81,42 @@ class FeedFetchService(
      * 取れなければ null を返して、記事の取り込みはそのまま続ける。画像は投稿の
      * 飾りなので、配信元のページが落ちているだけで記事を落とすほうが困る。
      *
+     * 打ち切りをフィードより短くするのは、記事の数だけ繰り返すため。1 本が
+     * 黙り込んだだけで取り込み全体が待たされる。
+     *
      * @return 絶対化した http / https の URL。見つからなければ null
      */
-    suspend fun fetchOpenGraphImageUrl(url: String): String? {
-        val target = HttpUrl.sanitize(url) ?: return null
+    suspend fun fetchOpenGraphImageUrl(url: String): String? =
+        withTimeoutOrNull(PAGE_TIMEOUT_MILLIS) {
+            runCatching { loadOpenGraphImageUrl(url) }
+                .getOrElse { error ->
+                    if (error is CancellationException) throw error
+                    null
+                }
+        }
 
-        return runCatching {
-            val response = client.get(target) {
+    /**
+     * リンク先はフィードの配信元が自由に書けるので、取りに行く前に
+     * [externalHosts] で内部向けかどうかを見る。飛ばされた先も同じなので、
+     * リダイレクトは client に任せず自分で辿って毎回見る。
+     */
+    private suspend fun loadOpenGraphImageUrl(url: String): String? {
+        var target = HttpUrl.sanitize(url) ?: return null
+
+        repeat(MAX_PAGE_REDIRECTS + 1) {
+            if (!externalHosts.isExternal(target)) return null
+
+            val response = pageClient.get(target) {
                 header(HttpHeaders.UserAgent, USER_AGENT)
                 // OGP は HTML にしか無い。PDF や画像を指す link を取りに行かないよう先に伝える
                 header(HttpHeaders.Accept, "text/html;q=1.0, application/xhtml+xml;q=0.9, */*;q=0.1")
+            }
+
+            val location = response.headers[HttpHeaders.Location]
+            if (response.status.value in 300..399 && location != null) {
+                response.discardBody()
+                target = HttpUrl.sanitize(location, target) ?: return null
+                return@repeat
             }
 
             if (!response.status.isSuccess() || !response.isHtml()) {
@@ -95,11 +128,10 @@ class FeedFetchService(
             val imageUrl = OpenGraph.imageUrl(bytes.decodeToString()) ?: return null
 
             // og:image は相対 URL でもよい。基準は飛んだ先のページ
-            HttpUrl.sanitize(imageUrl, response.request.url.toString())
-        }.getOrElse { error ->
-            if (error is CancellationException) throw error
-            null
+            return HttpUrl.sanitize(imageUrl, target)
         }
+
+        return null
     }
 
     /**
@@ -209,6 +241,8 @@ class FeedFetchService(
     }
 
     override fun close() {
+        // engine は client のものなので、こちらを先に閉じても取りに行けなくならない
+        pageClient.close()
         client.close()
     }
 
@@ -238,6 +272,8 @@ class FeedFetchService(
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val MAX_BODY_BYTES = 5 * 1024 * 1024
         private const val MAX_PAGE_BYTES = 2 * 1024 * 1024
+        private const val MAX_PAGE_REDIRECTS = 3
+        private const val PAGE_TIMEOUT_MILLIS = 10_000L
         private val XHTML = ContentType("application", "xhtml+xml")
 
         fun defaultClient(): HttpClient =

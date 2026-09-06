@@ -21,6 +21,7 @@ import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
+import net.matsudamper.mastodon.rss.feed.TestExternalHosts
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.shared.AccountId
@@ -669,7 +670,8 @@ class FeedServiceTest {
             accounts = repositories.accounts,
             feeds = repositories.feeds,
             feedItems = repositories.feedItems,
-            fetcher = FeedFetchService(HttpClient(mockEngine)),
+            // 実際の DNS を引かせない。引けるかどうかでテストの結果が変わる
+            fetcher = FeedFetchService(HttpClient(mockEngine), externalHosts = TestExternalHosts),
             actorDirectory = actorDirectory,
             notePublisher = NotePublisher(
                 notes = noteStore,
