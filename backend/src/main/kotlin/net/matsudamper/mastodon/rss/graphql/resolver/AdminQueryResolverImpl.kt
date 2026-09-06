@@ -11,7 +11,6 @@ import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
-import net.matsudamper.mastodon.rss.graphql.model.QlAccountProfileLimits
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
@@ -20,7 +19,6 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnpublishedFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
 import net.matsudamper.mastodon.rss.graphql.model.QlUnpublishedFeedItemsQuery
-import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AdminQueryResolverImpl : AdminQueryResolver {
@@ -36,22 +34,6 @@ class AdminQueryResolverImpl : AdminQueryResolver {
                 QlAdminSession(
                     loggedIn = context.isAdminLoggedIn(),
                     passwordConfigured = adminLoginService.adminPasswordConfigured,
-                ),
-            ).build(),
-        )
-    }
-
-    override fun accountProfileLimits(
-        adminQuery: QlAdminQuery,
-        env: DataFetchingEnvironment,
-    ): CompletionStage<DataFetcherResult<QlAccountProfileLimits>> {
-        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
-
-        return CompletableFuture.completedFuture(
-            DataFetcherResult.Builder(
-                QlAccountProfileLimits(
-                    displayNameMaxLength = AccountService.DISPLAY_NAME_MAX_LENGTH,
-                    summaryMaxLength = AccountService.SUMMARY_MAX_LENGTH,
                 ),
             ).build(),
         )

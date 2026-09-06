@@ -19,6 +19,7 @@ import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 // 管理画面からアカウントを消す経路。
@@ -130,7 +131,7 @@ class AccountServiceTest {
 
         val result = serviceOf(repositories, TestDelivery()).updateProfile(
             username = USERNAME,
-            displayName = "😀".repeat(AccountService.DISPLAY_NAME_MAX_LENGTH),
+            displayName = "😀".repeat(AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH),
             summary = "",
         )
 

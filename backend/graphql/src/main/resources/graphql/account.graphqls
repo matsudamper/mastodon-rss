@@ -23,10 +23,3 @@ type Account {
     "登録済みの RSS フィード。未登録なら null"
     feed: Feed @lazy
 }
-
-"プロフィールに入れられる文字数。数え方はコードポイント"
-type AccountProfileLimits {
-    displayNameMaxLength: Int!
-
-    summaryMaxLength: Int!
-}

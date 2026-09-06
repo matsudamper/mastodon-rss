@@ -43,6 +43,7 @@ import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteService
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
+import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
@@ -177,8 +178,8 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                 adminAccount = null,
                 failure = QlAdminUpdateAccountProfileFailure(
                     unknownAccount = updated.unknownAccount,
-                    displayNameMaxLength = AccountService.DISPLAY_NAME_MAX_LENGTH.takeIf { updated.displayNameTooLong },
-                    summaryMaxLength = AccountService.SUMMARY_MAX_LENGTH.takeIf { updated.summaryTooLong },
+                    displayNameMaxLength = AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH.takeIf { updated.displayNameTooLong },
+                    summaryMaxLength = AccountProfileLimits.SUMMARY_MAX_LENGTH.takeIf { updated.summaryTooLong },
                 ),
             )
         }

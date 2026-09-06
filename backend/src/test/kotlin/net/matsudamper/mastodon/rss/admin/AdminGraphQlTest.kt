@@ -41,6 +41,7 @@ import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
 import net.matsudamper.mastodon.rss.testDependencies
 
@@ -278,16 +279,13 @@ class AdminGraphQlTest {
         }
 
     @Test
-    fun `返した入力上限ちょうどの説明文は保存できて、超えると拒否される`() =
+    fun `入力上限ちょうどの説明文は保存できて、超えると拒否される`() =
         testApplication {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
             mutateAddAccount("feed1", token)
 
-            val summaryMaxLength = queryAccountProfileLimits(token)
-                .admin()
-                .obj("accountProfileLimits")
-                .int("summaryMaxLength")
+            val summaryMaxLength = AccountProfileLimits.SUMMARY_MAX_LENGTH
 
             val saved = mutateUpdateAccountProfile(
                 username = "feed1",
@@ -304,15 +302,6 @@ class AdminGraphQlTest {
                 token = token,
             ).updateAccountProfileResult().failure()
             assertEquals(summaryMaxLength, rejected.int("summaryMaxLength"))
-        }
-
-    @Test
-    fun `ログインしていなければ accountProfileLimits は拒否される`() =
-        testApplication {
-            applicationWith(passwordConfigured = true)
-
-            val errors = queryAccountProfileLimits().body().getValue("errors").jsonArray
-            assertTrue(errors.isNotEmpty())
         }
 
     @Test
@@ -1041,12 +1030,6 @@ class AdminGraphQlTest {
             token = token,
             variables = """{"query":{"username":${JsonPrimitive(username)},""" +
                 """"displayName":${JsonPrimitive(displayName)},"summary":${JsonPrimitive(summary)}}}""",
-        )
-
-    private suspend fun ApplicationTestBuilder.queryAccountProfileLimits(token: String? = null): HttpResponse =
-        graphQl(
-            query = "query Limits { admin { accountProfileLimits { displayNameMaxLength summaryMaxLength } } }",
-            token = token,
         )
 
     private suspend fun ApplicationTestBuilder.queryPreviewFeed(

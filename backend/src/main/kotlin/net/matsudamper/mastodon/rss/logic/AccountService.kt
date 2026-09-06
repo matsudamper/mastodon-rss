@@ -8,6 +8,7 @@ import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.shared.AccountId
+import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 
 /**
  * 管理画面から見たアカウントの操作。
@@ -98,8 +99,8 @@ class AccountService(
     ): UpdateProfileResult {
         val trimmedDisplayName = displayName.trim()
         val trimmedSummary = summary.trim()
-        val displayNameTooLong = trimmedDisplayName.codePointCount(0, trimmedDisplayName.length) > DISPLAY_NAME_MAX_LENGTH
-        val summaryTooLong = trimmedSummary.codePointCount(0, trimmedSummary.length) > SUMMARY_MAX_LENGTH
+        val displayNameTooLong = trimmedDisplayName.codePointCount(0, trimmedDisplayName.length) > AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH
+        val summaryTooLong = trimmedSummary.codePointCount(0, trimmedSummary.length) > AccountProfileLimits.SUMMARY_MAX_LENGTH
         if (displayNameTooLong || summaryTooLong) {
             return UpdateProfileResult.Failure(false, displayNameTooLong, summaryTooLong)
         }
@@ -183,11 +184,6 @@ class AccountService(
 
     enum class DeleteFailure {
         UNKNOWN_ACCOUNT,
-    }
-
-    companion object {
-        const val DISPLAY_NAME_MAX_LENGTH: Int = 30
-        const val SUMMARY_MAX_LENGTH: Int = 500
     }
 
     sealed interface AddAccountResult {

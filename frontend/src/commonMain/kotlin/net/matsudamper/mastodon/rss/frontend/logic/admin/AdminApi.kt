@@ -11,7 +11,6 @@ import com.apollographql.cache.normalized.FetchPolicy
 import com.apollographql.cache.normalized.fetchPolicy
 import com.apollographql.cache.normalized.watch
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountIdQuery
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountProfileLimitsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
@@ -141,22 +140,6 @@ class AdminApi(
             maxLength = failure.maxLength,
             minLength = failure.minLength,
             isDuplicated = failure.isDuplicated,
-        )
-    }
-
-    suspend fun accountProfileLimits(): AdminAccountProfileLimitsResult {
-        val response = client.query(AdminAccountProfileLimitsQuery()).execute()
-
-        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
-            return AdminAccountProfileLimitsResult.Failure(response.failureMessage())
-        }
-
-        val limits = response.data?.admin?.accountProfileLimits
-            ?: return AdminAccountProfileLimitsResult.Failure(response.failureMessage())
-
-        return AdminAccountProfileLimitsResult.Success(
-            displayNameMaxLength = limits.displayNameMaxLength,
-            summaryMaxLength = limits.summaryMaxLength,
         )
     }
 
