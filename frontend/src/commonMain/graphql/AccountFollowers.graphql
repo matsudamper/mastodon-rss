@@ -1,0 +1,12 @@
+query AccountFollowersQuery($query: AccountFollowersQuery!) {
+    followers(query: $query) {
+        nodes {
+            url
+            acct
+        }
+        pageInfo {
+            hasMore
+            nextCursor
+        }
+    }
+}

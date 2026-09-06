@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -467,8 +469,12 @@ private fun ProfileHeader(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    Stat(value = state.followerCount, label = "フォロワー")
-                    Stat(value = state.noteCount, label = "配信した投稿")
+                    Stat(
+                        value = state.followerCount,
+                        label = "フォロワー",
+                        onClick = listener::onClickFollowerCount,
+                    )
+                    Stat(value = state.noteCount, label = "配信した投稿", onClick = null)
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -487,16 +493,30 @@ private fun ProfileHeader(
     }
 }
 
+/**
+ * 数値と、それが何の数かのラベル。
+ *
+ * 押せるものは同じ画面のリンクと同じ色と下線にする。canvas に描いているので、
+ * 押せてもカーソルは変わらない。見た目が同じだと隣の押せない数値と区別が付かない。
+ *
+ * @param onClick 押せないなら null
+ */
 @Composable
 private fun Stat(
     value: String,
     label: String,
+    onClick: (() -> Unit)?,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(
+        modifier = if (onClick == null) Modifier else Modifier.clickable(onClick = onClick),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
+            color = if (onClick == null) Color.Unspecified else MaterialTheme.colorScheme.primary,
+            textDecoration = if (onClick == null) null else TextDecoration.Underline,
         )
         Text(
             text = label,

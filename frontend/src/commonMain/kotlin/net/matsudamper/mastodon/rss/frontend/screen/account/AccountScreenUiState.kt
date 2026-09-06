@@ -38,5 +38,7 @@ data class AccountScreenUiState(
         fun onClickLoadMore()
 
         fun onClickCopyAcct()
+
+        fun onClickFollowerCount()
     }
 }
