@@ -98,6 +98,14 @@ sealed interface Screen : NavKey {
         override val background: Screen = AdminAccount(username)
     }
 
+    data class AdminAccountProfileEdit(
+        val username: String,
+    ) : Overlay {
+        override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$ACCOUNT_PREFIX$username/profile"
+        override val title: String = "@$username のプロフィールを編集 | $SITE_NAME"
+        override val background: Screen = AdminAccount(username)
+    }
+
     /**
      * アカウント画面。`/@feed1` のように `@` + ユーザー名で開く。
      *
@@ -111,6 +119,21 @@ sealed interface Screen : NavKey {
     ) : Screen {
         override val path: String = "/$ACCOUNT_PREFIX$username"
         override val title: String = "@$username | $SITE_NAME"
+    }
+
+    /**
+     * 投稿 1 件。[Account] の上にダイアログとして出す。
+     *
+     * 一覧の上に重ねるので、閉じたときに一覧を読み直さずに済む。
+     * URL を持つので、投稿だけを直接開くこともできる。
+     */
+    data class AccountNote(
+        val username: String,
+        val noteId: String,
+    ) : Overlay {
+        override val path: String = "/$ACCOUNT_PREFIX$username/$noteId"
+        override val title: String = "@$username の投稿 | $SITE_NAME"
+        override val background: Screen = Account(username)
     }
 
     /**
@@ -187,12 +210,20 @@ sealed interface Screen : NavKey {
                         accountNameOf(rest[1])?.let { AdminAccountFeedNew(it) } ?: NotFound(path)
                     }
 
+                    rest.size == 3 && rest[0] == ACCOUNTS_SEGMENT && rest[2] == "profile" -> {
+                        val username = accountNameOf(rest[1])
+                        if (username == null) NotFound(path) else AdminAccountProfileEdit(username)
+                    }
+
                     else -> NotFound(path)
                 }
             }
 
-            if (segments.size == 1) {
-                accountNameOf(first)?.let { return Account(it) }
+            accountNameOf(first)?.let { username ->
+                when (segments.size) {
+                    1 -> return Account(username)
+                    2 -> return AccountNote(username = username, noteId = segments[1])
+                }
             }
 
             return NotFound(path)

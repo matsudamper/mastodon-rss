@@ -10,11 +10,16 @@ data class AdminFeed(
     val format: String?,
 )
 
+/**
+ * @param description 一覧に並べる用に 1 行へ潰して切り詰めた説明
+ * @param fullDescription 配信元が書いたままの説明。プロフィールに取り込むときに使う
+ */
 data class AdminFeedPreview(
     val title: String?,
     val siteUrl: String?,
     val format: String,
     val description: String?,
+    val fullDescription: String?,
     val itemCount: Int,
     val sampleItems: List<AdminFeedPreviewItem>,
 )

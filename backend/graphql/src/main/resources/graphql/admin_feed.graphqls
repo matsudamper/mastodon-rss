@@ -2,7 +2,13 @@ type AdminFeedPreview {
     title: String
     siteUrl: String
     format: String!
+
+    "一覧に並べる用に 1 行へ潰して切り詰めた説明"
     description: String
+
+    "配信元が書いたままの説明。プロフィールに取り込むときに使う"
+    fullDescription: String
+
     itemCount: Int!
     sampleItems: [AdminFeedPreviewItem!]!
 }

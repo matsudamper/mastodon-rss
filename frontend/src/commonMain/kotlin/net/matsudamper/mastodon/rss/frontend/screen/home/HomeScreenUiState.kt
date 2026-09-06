@@ -13,8 +13,8 @@ data class HomeScreenUiState(
 
         data class Loaded(
             val accounts: List<Account>,
-            val hasMore: Boolean,
-            val isLoadingMore: Boolean,
+            val loadMoreVisible: Boolean,
+            val loadingMore: Boolean,
             val loadMoreErrorMessage: String?,
         ) : Content
     }

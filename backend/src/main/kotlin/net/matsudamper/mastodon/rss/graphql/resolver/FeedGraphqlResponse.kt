@@ -40,6 +40,7 @@ internal fun FeedService.FeedPreview.toGraphqlResponse(): QlAdminFeedPreview = Q
     siteUrl = siteUrl,
     format = format,
     description = description,
+    fullDescription = fullDescription,
     itemCount = itemCount,
     sampleItems = sampleItems.map { item ->
         QlAdminFeedPreviewItem(

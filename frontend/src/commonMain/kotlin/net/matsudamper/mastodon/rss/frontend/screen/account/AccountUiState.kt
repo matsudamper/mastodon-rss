@@ -3,6 +3,10 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 data class AccountUiState(
     val username: String,
     /**
+     * 見出しに出す名前。プロフィールが未設定ならユーザー名
+     */
+    val displayName: String,
+    /**
      * Mastodon の検索窓に貼る形
      */
     val acct: String,
@@ -10,6 +14,10 @@ data class AccountUiState(
      * ActivityPub の Actor JSON の URL。この画面と対になるもの
      */
     val actorUrl: String,
+    /**
+     * プロフィールの説明文。出すものが無ければ null
+     */
+    val summary: String?,
     val followerCount: String,
     val noteCount: String,
     val feed: FeedUiState?,
@@ -32,4 +40,9 @@ data class NoteUiState(
     val url: String,
     val contentHtml: String,
     val publishedAt: String,
-)
+    val listener: Listener,
+) {
+    interface Listener {
+        fun onClick()
+    }
+}

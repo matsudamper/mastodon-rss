@@ -15,7 +15,7 @@ internal class SqliteAccountRepository(
     @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
     override fun list(): List<Account> = jooq.withConnection { dsl ->
         dsl
-            .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+            .select(ACCOUNT_COLUMNS)
             .from(ACCOUNTS)
             // 同じ時刻に入った 2 件は時刻だけでは順が決まらないので id で揃える
             .orderBy(ACCOUNTS.CREATED_AT, ACCOUNTS.ID)
@@ -44,7 +44,7 @@ internal class SqliteAccountRepository(
         }
 
         dsl
-            .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+            .select(ACCOUNT_COLUMNS)
             .from(ACCOUNTS)
             .where(after)
             .orderBy(ACCOUNTS.CREATED_AT.asc(), ACCOUNTS.ID.asc())
@@ -55,7 +55,7 @@ internal class SqliteAccountRepository(
 
     override fun findById(id: AccountId): Account? = jooq.withConnection { dsl ->
         dsl
-            .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+            .select(ACCOUNT_COLUMNS)
             .from(ACCOUNTS)
             .where(ACCOUNTS.ID.eq(id.value))
             .fetchOne()
@@ -68,7 +68,7 @@ internal class SqliteAccountRepository(
         if (usernames.isEmpty()) return emptyMap()
         return jooq.withConnection { dsl ->
             val records = dsl
-                .select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+                .select(ACCOUNT_COLUMNS)
                 .from(ACCOUNTS)
                 .where(ACCOUNTS.USERNAME.`in`(usernames))
                 .fetch()
@@ -100,7 +100,35 @@ internal class SqliteAccountRepository(
             ?.get(ACCOUNTS.ID)
             ?: return@transaction null
 
-        Account(id = AccountId(id), username = username, createdAt = createdAt)
+        Account(
+            id = AccountId(id),
+            username = username,
+            createdAt = createdAt,
+            displayName = null,
+            summary = null,
+        )
+    }
+
+    override fun updateProfile(
+        id: AccountId,
+        displayName: String?,
+        summary: String?,
+    ): Account? = jooq.transaction { dsl ->
+        val updated = dsl
+            .update(ACCOUNTS)
+            .set(ACCOUNTS.DISPLAY_NAME, displayName)
+            .set(ACCOUNTS.SUMMARY, summary)
+            .where(ACCOUNTS.ID.eq(id.value))
+            .execute()
+
+        if (updated == 0) return@transaction null
+
+        dsl
+            .select(ACCOUNT_COLUMNS)
+            .from(ACCOUNTS)
+            .where(ACCOUNTS.ID.eq(id.value))
+            .fetchOne()
+            ?.toAccount()
     }
 
     override fun delete(id: AccountId): Boolean = jooq.transaction { dsl ->
@@ -113,7 +141,7 @@ internal class SqliteAccountRepository(
     /**
      * 列に COLLATE NOCASE が付いているので、綴りの揺れは SQLite 側で吸収される
      */
-    private fun DSLContext.selectByUsername(username: String): Account? = select(ACCOUNTS.ID, ACCOUNTS.USERNAME, ACCOUNTS.CREATED_AT)
+    private fun DSLContext.selectByUsername(username: String): Account? = select(ACCOUNT_COLUMNS)
         .from(ACCOUNTS)
         .where(ACCOUNTS.USERNAME.eq(username))
         .fetchOne()
@@ -123,5 +151,17 @@ internal class SqliteAccountRepository(
         id = AccountId(get(ACCOUNTS.ID)),
         username = get(ACCOUNTS.USERNAME),
         createdAt = StoredInstant.parse(get(ACCOUNTS.CREATED_AT)),
+        displayName = get(ACCOUNTS.DISPLAY_NAME),
+        summary = get(ACCOUNTS.SUMMARY),
     )
+
+    private companion object {
+        val ACCOUNT_COLUMNS = listOf(
+            ACCOUNTS.ID,
+            ACCOUNTS.USERNAME,
+            ACCOUNTS.CREATED_AT,
+            ACCOUNTS.DISPLAY_NAME,
+            ACCOUNTS.SUMMARY,
+        )
+    }
 }

@@ -30,7 +30,7 @@ data class AdminAccountScreenUiState(
          * @param deleteAccountDialog アカウントを消す前の確認。出していなければ null
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
          * @param notesLoading 一覧を取っている最中
-         * @param canLoadMore さらに古い投稿があるか
+         * @param loadMoreVisible 「もっと見る」を出すか
          */
         data class Loaded(
             val account: Account,
@@ -41,7 +41,7 @@ data class AdminAccountScreenUiState(
             val deleteAccountDialog: DeleteAccountDialog?,
             val notesError: String?,
             val notesLoading: Boolean,
-            val canLoadMore: Boolean,
+            val loadMoreVisible: Boolean,
             val loadingMore: Boolean,
         ) : Content
 
@@ -60,7 +60,22 @@ data class AdminAccountScreenUiState(
         val actorUrl: String,
         val createdAt: String,
         val followerCount: Int,
+        val displayName: String,
+        val summary: String,
+        val listener: AccountListener,
     )
+
+    @Immutable
+    interface AccountListener {
+        fun onClickOpenAccount()
+
+        fun onClickEditProfile()
+
+        /**
+         * このアカウントを消す確認を出す
+         */
+        fun onClickDelete()
+    }
 
     sealed interface Feed {
         data class Registered(
@@ -71,12 +86,30 @@ data class AdminAccountScreenUiState(
             val postedItems: List<UnpublishedItem>?,
             val postingUnpublished: Boolean,
             val unpublishedError: String?,
-        ) : Feed
+            val listener: RegisteredListener,
+        ) : Feed {
+            val postLatestButtonEnabled: Boolean get() = !postingUnpublished
+        }
 
         /**
          * 追加はダイアログの画面に分けてあるので、ここに置くのは入口だけ
          */
-        data object NotRegistered : Feed
+        data class NotRegistered(
+            val listener: NotRegisteredListener,
+        ) : Feed
+
+        @Immutable
+        interface RegisteredListener {
+            /**
+             * フィードの最新を取り込み、未投稿を投稿する
+             */
+            fun onClickPostLatest()
+        }
+
+        @Immutable
+        interface NotRegisteredListener {
+            fun onClickAddFeed()
+        }
     }
 
     /**
@@ -90,7 +123,9 @@ data class AdminAccountScreenUiState(
         val publishedAt: String?,
         val deleting: Boolean,
         val listener: SourceArticleListener,
-    )
+    ) {
+        val deleteButtonEnabled: Boolean get() = !deleting
+    }
 
     @Immutable
     interface SourceArticleListener {
@@ -116,8 +151,18 @@ data class AdminAccountScreenUiState(
         val submitting: Boolean,
         val result: PostResult?,
         val error: String?,
+        val listener: PostListener,
     ) {
-        val canSubmit: Boolean get() = !submitting && body.isNotBlank()
+        val bodyInputEnabled: Boolean get() = !submitting
+        val postButtonEnabled: Boolean get() = !submitting && body.isNotBlank()
+        val closeEnabled: Boolean get() = !submitting
+    }
+
+    @Immutable
+    interface PostListener {
+        fun onBodyChanged(text: String)
+
+        fun onClickPost()
     }
 
     /**
@@ -129,15 +174,39 @@ data class AdminAccountScreenUiState(
     data class DeleteNoteDialog(
         val hasSourceArticle: Boolean,
         val deleting: Boolean,
-    )
+        val listener: DeleteNoteDialogListener,
+    ) {
+        val confirmButtonEnabled: Boolean get() = !deleting
+        val deleteNoteOnlyButtonEnabled: Boolean get() = !deleting
+        val closeEnabled: Boolean get() = !deleting
+    }
+
+    @Immutable
+    interface DeleteNoteDialogListener {
+        /**
+         * @param deleteSourceArticle 元になった記事も消す。消すと最新情報を投稿したときに
+         *   取り込み直されてもう一度流れる
+         */
+        fun onClickConfirm(deleteSourceArticle: Boolean)
+
+        fun onDismiss()
+    }
 
     data class DeleteAccountDialog(
         val message: String,
         val confirmLabel: String,
-        val canConfirm: Boolean,
-        val canDismiss: Boolean,
+        val confirmButtonEnabled: Boolean,
+        val closeEnabled: Boolean,
         val errorMessage: String?,
+        val listener: DeleteAccountDialogListener,
     )
+
+    @Immutable
+    interface DeleteAccountDialogListener {
+        fun onClickConfirm()
+
+        fun onDismiss()
+    }
 
     /**
      * @param sourceArticle 元になった記事。無い投稿では出さない
@@ -164,35 +233,14 @@ data class AdminAccountScreenUiState(
         val delivered: Int,
     )
 
+    /**
+     * 画面全体に関わる操作。1 つの部品に閉じるものはその UiState が持つ
+     */
     @Immutable
     interface Listener : AdminScaffoldListener {
-        fun onClickOpenAccount()
-
         fun onClickBackToAdmin()
 
-        fun onClickAddFeed()
-
-        fun onClickPostLatest()
-
-        fun onBodyChanged(text: String)
-
-        fun onClickPost()
-
         fun onClickLoadMore()
-
-        fun onClickDeleteAccount()
-
-        fun onDismissDeleteAccount()
-
-        fun onConfirmDeleteAccount()
-
-        fun onDismissDeleteNote()
-
-        /**
-         * @param deleteSourceArticle 元になった記事も消す。消すと最新情報を投稿したときに
-         *   取り込み直されてもう一度流れる
-         */
-        fun onConfirmDeleteNote(deleteSourceArticle: Boolean)
 
         /**
          * 一覧だけ取り直す

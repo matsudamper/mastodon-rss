@@ -209,8 +209,10 @@ class AccountScreenViewModel(
                 AccountScreenUiState.Content.Loaded(
                     account = AccountUiState(
                         username = account.account.username,
+                        displayName = account.account.displayName.ifEmpty { account.account.username },
                         acct = account.account.acct,
                         actorUrl = account.account.actorUrl,
+                        summary = account.summaryText(),
                         followerCount = account.followerCount.toString(),
                         noteCount = account.noteCount.toString(),
                         feed = account.feed?.let { feed ->
@@ -223,18 +225,36 @@ class AccountScreenViewModel(
                     notes = state.notes.map { it.toUiState() },
                     notesError = state.notesError,
                     notesLoading = state.notesLoading,
-                    canLoadMore = state.notesCursor != null,
+                    loadMoreVisible = state.notesCursor != null,
                     loadingMore = state.loadingMore,
                 )
             }
         }
     }
 
-    private fun AccountNote.toUiState(): NoteUiState = NoteUiState(
-        url = url,
-        contentHtml = contentHtml,
-        publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
-    )
+    /**
+     * 説明文が未設定のフィードのアカウントには、Actor が返すのと同じ既定の文言を出す。
+     * フィードを持たないアカウントは、何も設定していなければ何も出さない
+     */
+    private fun AccountResult.Success.summaryText(): String? {
+        val summary = account.summary
+        if (summary.isNotEmpty()) return summary
+        if (feed == null) return null
+        return DEFAULT_FEED_SUMMARY
+    }
+
+    private fun AccountNote.toUiState(): NoteUiState {
+        return NoteUiState(
+            url = url,
+            contentHtml = contentHtml,
+            publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
+            listener = object : NoteUiState.Listener {
+                override fun onClick() {
+                    navigate(Screen.AccountNote(username = username, noteId = id))
+                }
+            },
+        )
+    }
 
     private data class ViewModelState(
         val account: AccountResult? = null,
@@ -253,5 +273,10 @@ class AccountScreenViewModel(
 
     private companion object {
         const val PAGE_SIZE: Int = 20
+
+        /**
+         * 説明文が未設定のときに Actor が返すのと同じ文言
+         */
+        const val DEFAULT_FEED_SUMMARY: String = "RSS/Atom フィードを ActivityPub で配信するアカウント"
     }
 }

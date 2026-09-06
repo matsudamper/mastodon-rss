@@ -20,6 +20,9 @@ private fun AdminAccountContentPreview() {
                         actorUrl = "https://example.com/users/$username",
                         createdAt = "2026-09-01 10:00",
                         followerCount = 128,
+                        displayName = "",
+                        summary = "",
+                        listener = AndroidPreviewAccountListener,
                     ),
                     feed = AdminAccountScreenUiState.Feed.Registered(
                         url = "https://example.com/feed.xml",
@@ -29,12 +32,14 @@ private fun AdminAccountContentPreview() {
                         postedItems = null,
                         postingUnpublished = false,
                         unpublishedError = null,
+                        listener = AndroidPreviewRegisteredFeedListener,
                     ),
                     post = AdminAccountScreenUiState.Post(
                         body = "新しい記事を公開しました。",
                         submitting = false,
                         result = null,
                         error = null,
+                        listener = AndroidPreviewPostListener,
                     ),
                     notes = listOf(
                         AdminAccountScreenUiState.Note(
@@ -49,7 +54,7 @@ private fun AdminAccountContentPreview() {
                     deleteAccountDialog = null,
                     notesError = null,
                     notesLoading = false,
-                    canLoadMore = true,
+                    loadMoreVisible = true,
                     loadingMore = false,
                 ),
                 listener = AndroidPreviewAdminAccountListener,
@@ -75,20 +80,24 @@ private fun AdminAccountContentNoFeedPreview() {
                         actorUrl = "https://example.com/users/$username",
                         createdAt = "2026-09-01 10:00",
                         followerCount = 0,
+                        displayName = "",
+                        summary = "",
+                        listener = AndroidPreviewAccountListener,
                     ),
-                    feed = AdminAccountScreenUiState.Feed.NotRegistered,
+                    feed = AdminAccountScreenUiState.Feed.NotRegistered(listener = AndroidPreviewNotRegisteredFeedListener),
                     post = AdminAccountScreenUiState.Post(
                         body = "",
                         submitting = false,
                         result = null,
                         error = null,
+                        listener = AndroidPreviewPostListener,
                     ),
                     notes = emptyList(),
                     deleteNoteDialog = null,
                     deleteAccountDialog = null,
                     notesError = null,
                     notesLoading = false,
-                    canLoadMore = false,
+                    loadMoreVisible = false,
                     loadingMore = false,
                 ),
                 listener = AndroidPreviewAdminAccountListener,
@@ -103,34 +112,36 @@ private object AndroidPreviewNoteListener : AdminAccountScreenUiState.NoteListen
     override fun onClickDelete() = Unit
 }
 
+private object AndroidPreviewAccountListener : AdminAccountScreenUiState.AccountListener {
+    override fun onClickOpenAccount() = Unit
+
+    override fun onClickEditProfile() = Unit
+
+    override fun onClickDelete() = Unit
+}
+
+private object AndroidPreviewRegisteredFeedListener : AdminAccountScreenUiState.Feed.RegisteredListener {
+    override fun onClickPostLatest() = Unit
+}
+
+private object AndroidPreviewNotRegisteredFeedListener : AdminAccountScreenUiState.Feed.NotRegisteredListener {
+    override fun onClickAddFeed() = Unit
+}
+
+private object AndroidPreviewPostListener : AdminAccountScreenUiState.PostListener {
+    override fun onBodyChanged(text: String) = Unit
+
+    override fun onClickPost() = Unit
+}
+
 private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Listener {
     override fun onClickHome() = Unit
 
     override fun onClickAdmin() = Unit
 
-    override fun onClickOpenAccount() = Unit
-
     override fun onClickBackToAdmin() = Unit
 
-    override fun onClickAddFeed() = Unit
-
-    override fun onClickPostLatest() = Unit
-
-    override fun onBodyChanged(text: String) = Unit
-
-    override fun onClickPost() = Unit
-
     override fun onClickLoadMore() = Unit
-
-    override fun onClickDeleteAccount() = Unit
-
-    override fun onDismissDeleteAccount() = Unit
-
-    override fun onConfirmDeleteAccount() = Unit
-
-    override fun onDismissDeleteNote() = Unit
-
-    override fun onConfirmDeleteNote(deleteSourceArticle: Boolean) = Unit
 
     override fun onClickReloadNotes() = Unit
 

@@ -410,7 +410,7 @@ private fun ProfileHeader(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(
-                            text = state.username,
+                            text = state.displayName,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                         )
@@ -459,9 +459,9 @@ private fun ProfileHeader(
                     }
                 }
 
-                if (state.feed != null) {
+                state.summary?.let { summary ->
                     Text(
-                        text = "RSS/Atom フィードを ActivityPub で配信するアカウント",
+                        text = summary,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -627,6 +627,7 @@ private fun NoteCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
+        onClick = note.listener::onClick,
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -656,7 +657,7 @@ private fun NotesPagingFooter(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
 ) {
-    if (!content.canLoadMore && content.notesError == null) return
+    if (!content.loadMoreVisible && content.notesError == null) return
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -675,7 +676,7 @@ private fun NotesPagingFooter(
             }
         }
 
-        if (content.canLoadMore) {
+        if (content.loadMoreVisible) {
             if (content.loadingMore) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
             } else {

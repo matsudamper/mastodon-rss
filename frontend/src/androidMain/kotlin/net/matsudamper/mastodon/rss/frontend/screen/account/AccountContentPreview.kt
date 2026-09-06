@@ -15,8 +15,10 @@ private fun AccountContentPreview() {
                 content = AccountScreenUiState.Content.Loaded(
                     account = AccountUiState(
                         username = username,
+                        displayName = "Kotlin Updates",
                         acct = "@$username@example.com",
                         actorUrl = "https://example.com/users/$username",
+                        summary = "Kotlin の更新を流す",
                         followerCount = "12",
                         noteCount = "3",
                         feed = FeedUiState(
@@ -29,11 +31,12 @@ private fun AccountContentPreview() {
                             url = "https://example.com/notes/1",
                             contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
                             publishedAt = "2026-09-02 12:00",
+                            listener = AndroidPreviewNoteListener,
                         ),
                     ),
                     notesError = null,
                     notesLoading = false,
-                    canLoadMore = true,
+                    loadMoreVisible = true,
                     loadingMore = false,
                 ),
                 listener = AndroidPreviewAccountListener,
@@ -42,6 +45,10 @@ private fun AccountContentPreview() {
             platform = AndroidPreviewScreenPlatform,
         )
     }
+}
+
+private object AndroidPreviewNoteListener : NoteUiState.Listener {
+    override fun onClick() = Unit
 }
 
 private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
