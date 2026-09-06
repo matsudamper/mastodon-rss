@@ -185,6 +185,24 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `やり直した登録が他のアカウントと重複したら前のフィードを残す`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account1 = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val account2 = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            val saved = assertIs<FeedService.SaveResult.Success>(service.save(accountId = account1.id, url = "https://example.com/other.xml"))
+            repositories.feeds.clearInitialImportDone(saved.feed.id)
+            service.save(accountId = account2.id, url = FEED_URL)
+
+            val result = service.save(accountId = account1.id, url = FEED_URL)
+
+            val failure = assertIs<FeedService.SaveResult.Failure>(result)
+            assertEquals(FeedService.SaveFailure.DUPLICATE_URL, failure.reason)
+            assertEquals(saved.feed.id, assertNotNull(repositories.feeds.findByAccountId(account1.id)).id)
+        }
+
+    @Test
     fun `同じ URL は別のアカウントにも登録できない`() =
         runTest {
             val repositories = FakeRepositories()

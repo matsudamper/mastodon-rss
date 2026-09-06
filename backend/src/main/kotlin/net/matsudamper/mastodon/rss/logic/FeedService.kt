@@ -65,14 +65,17 @@ class FeedService(
 
         return when (val fetched = fetcher.fetch(url)) {
             is FeedFetchService.FetchResult.Success -> {
+                // 同じ URL で登録し直すときは、消す予定の自分のフィードが引っかかる
+                val duplicated = feeds.findByUrl(fetched.feedUrl)
+                if (duplicated != null && duplicated.id != existing?.id) {
+                    return SaveResult.Failure(SaveFailure.DUPLICATE_URL)
+                }
+
                 // 登録は保存と取り込みが別々に確定する。途中で終わったものは同じ URL で
-                // 登録し直せないので、取り直せたことを確かめてから消す。先に消すと、
-                // 取得に失敗したときに取り込み済みの記事と取得状態まで失う
+                // 登録し直せないので、新しく保存できると分かってから消す。先に消すと、
+                // 保存できなかったときに取り込み済みの記事と取得状態まで失う
                 if (existing != null) {
                     feeds.delete(existing.id)
-                }
-                if (feeds.findByUrl(fetched.feedUrl) != null) {
-                    return SaveResult.Failure(SaveFailure.DUPLICATE_URL)
                 }
 
                 val feed = feeds.add(
