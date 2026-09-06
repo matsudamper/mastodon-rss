@@ -36,7 +36,7 @@ data class CreateNoteActivity(
 ) {
     @SerialName("@context")
     @Serializable(with = StringListSerializer::class)
-    val context: List<String> = OutgoingActivity.DEFAULT_CONTEXT
+    val context: List<String> = ActivityStreamsIri.DEFAULT_CONTEXT
 
     /**
      * 相手はこの値を見て投稿の追加だと判断する。`Create` 以外は入らない

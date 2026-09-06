@@ -15,6 +15,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAccountsConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
 import net.matsudamper.mastodon.rss.graphql.model.QueryResolver
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 class QueryResolverImpl : QueryResolver {
     override fun admin(env: DataFetchingEnvironment): CompletionStage<DataFetcherResult<QlAdminQuery>> {
@@ -101,6 +102,17 @@ class QueryResolverImpl : QueryResolver {
 
         return CompletableFuture.completedFuture(
             DataFetcherResult.Builder(connection).build(),
+        )
+    }
+
+    override fun note(
+        username: String,
+        id: PublicNoteId,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAccountNote?>> {
+        val note = GraphQlEngine.diContainer(env).noteService.note(username = username, publicId = id)
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder<QlAccountNote?>(note?.let { QlAccountNote(id = id) }).build(),
         )
     }
 

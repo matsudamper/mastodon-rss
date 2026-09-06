@@ -25,13 +25,11 @@ class WebpackBundleHashPlugin : Plugin<Project> {
         val hashedName = "${bundle.nameWithoutExtension}.${contentHashOf(bundle)}.${bundle.extension}"
         check(bundle.renameTo(distDir.resolve(hashedName))) { "$bundle の名前を $hashedName に変えられない" }
 
-        // 読み込みは root 絶対。相対にすると深いパスから引けなくなる。
-        // 名前だけで探すと同じ名前を書いた説明文まで書き換わるので、読み込みの形ごと見る
-        val reference = "src=\"/$BUNDLE_FILE_NAME\""
+        val originalBundleScriptTag = "src=\"/$BUNDLE_FILE_NAME\""
         val index = distDir.resolve(INDEX_FILE_NAME)
         val html = index.readText()
-        check(html.contains(reference)) { "$index に $reference が無い" }
-        index.writeText(html.replace(reference, "src=\"/$hashedName\""))
+        check(html.contains(originalBundleScriptTag)) { "$index に $originalBundleScriptTag が無い" }
+        index.writeText(html.replace(originalBundleScriptTag, "src=\"/$hashedName\""))
     }
 
     private fun contentHashOf(file: File): String =

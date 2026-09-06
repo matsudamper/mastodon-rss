@@ -34,7 +34,7 @@ data class DeleteNoteActivity(
 ) {
     @SerialName("@context")
     @Serializable(with = StringListSerializer::class)
-    val context: List<String> = OutgoingActivity.DEFAULT_CONTEXT
+    val context: List<String> = ActivityStreamsIri.DEFAULT_CONTEXT
 
     /**
      * 相手はこの値を見て削除だと判断する。`Delete` 以外は入らない

@@ -147,14 +147,14 @@ object FeedParser {
                         // ローカル名で見ているので同じ `link` として届く。中身が空なので
                         // 先に読んだ `<link>` を消さないよう、空でないものだけを採る
                         "link" -> {
-                            val value = readTextContent(reader, limits).trim()
-                            if (link == null && value.isNotEmpty()) link = value
+                            val linkText = readTextContent(reader, limits).trim()
+                            if (link == null && linkText.isNotEmpty()) link = linkText
                         }
 
                         "description" -> {
                             description =
                                 FeedContent(
-                                    value = readTextContent(reader, limits),
+                                    text = readTextContent(reader, limits),
                                     type = FeedContent.Type.HTML,
                                 )
                         }
@@ -165,8 +165,8 @@ object FeedParser {
                         }
 
                         "pubDate", "date" -> {
-                            val value = FeedDates.parse(readTextContent(reader, limits))
-                            if (updatedAt == null) updatedAt = value
+                            val parsedDate = FeedDates.parse(readTextContent(reader, limits))
+                            if (updatedAt == null) updatedAt = parsedDate
                         }
 
                         else -> {
@@ -185,7 +185,7 @@ object FeedParser {
             format = format,
             title = title?.takeIf { it.isNotEmpty() },
             link = link,
-            description = description?.takeIf { it.value.isNotBlank() },
+            description = description?.takeIf { it.text.isNotBlank() },
             updatedAt = updatedAt,
             items = items,
         )
@@ -202,18 +202,15 @@ object FeedParser {
         var content: FeedContent? = null
         var publishedAt: Instant? = null
 
-        // RSS 1.0 の `<item rdf:about="...">`。記事を指す URI で、guid の代わりになる。
-        // 名前空間を null で渡すと接頭辞を問わずに引ける
-        val about = reader.getAttributeValue(null, "about")?.trim()?.takeIf { it.isNotEmpty() }
+        val rdfAboutUri = reader.getAttributeValue(null, "about")?.trim()?.takeIf { it.isNotEmpty() }
 
-        // `item` の中に入った状態から始める。0 になったら `item` を抜けたということ
-        var depth = 1
+        var remainingElementDepth = 1
 
-        while (reader.hasNext() && depth > 0) {
+        while (reader.hasNext() && remainingElementDepth > 0) {
             when (reader.next()) {
                 XMLStreamConstants.START_ELEMENT -> {
-                    if (depth != 1) {
-                        depth++
+                    if (remainingElementDepth != 1) {
+                        remainingElementDepth++
                         continue
                     }
                     when (reader.localName) {
@@ -222,8 +219,8 @@ object FeedParser {
                         }
 
                         "link" -> {
-                            val value = readTextContent(reader, limits).trim()
-                            if (link == null && value.isNotEmpty()) link = value
+                            val linkText = readTextContent(reader, limits).trim()
+                            if (link == null && linkText.isNotEmpty()) link = linkText
                         }
 
                         // guid は isPermaLink 属性で URL かどうかを名乗るが、
@@ -235,7 +232,7 @@ object FeedParser {
                         "description" -> {
                             summary =
                                 FeedContent(
-                                    value = readTextContent(reader, limits),
+                                    text = readTextContent(reader, limits),
                                     type = FeedContent.Type.HTML,
                                 )
                         }
@@ -245,7 +242,7 @@ object FeedParser {
                         "encoded" -> {
                             content =
                                 FeedContent(
-                                    value = readTextContent(reader, limits),
+                                    text = readTextContent(reader, limits),
                                     type = FeedContent.Type.HTML,
                                 )
                         }
@@ -256,28 +253,28 @@ object FeedParser {
 
                         // dc:date。RSS 1.0 の日時はこちら
                         "date" -> {
-                            val value = FeedDates.parse(readTextContent(reader, limits))
-                            if (publishedAt == null) publishedAt = value
+                            val parsedDate = FeedDates.parse(readTextContent(reader, limits))
+                            if (publishedAt == null) publishedAt = parsedDate
                         }
 
                         else -> {
-                            depth++
+                            remainingElementDepth++
                         }
                     }
                 }
 
                 XMLStreamConstants.END_ELEMENT -> {
-                    depth--
+                    remainingElementDepth--
                 }
             }
         }
 
         return ParsedFeedItem(
-            id = guid ?: about,
+            id = guid ?: rdfAboutUri,
             title = title?.takeIf { it.isNotEmpty() },
             link = link,
-            summary = summary?.takeIf { it.value.isNotBlank() },
-            content = content?.takeIf { it.value.isNotBlank() },
+            summary = summary?.takeIf { it.text.isNotBlank() },
+            content = content?.takeIf { it.text.isNotBlank() },
             publishedAt = publishedAt,
             updatedAt = null,
         )
@@ -293,13 +290,13 @@ object FeedParser {
         val links = mutableListOf<AtomLink>()
         val items = mutableListOf<ParsedFeedItem>()
 
-        var depth = 1
+        var remainingElementDepth = 1
 
-        while (reader.hasNext() && depth > 0) {
+        while (reader.hasNext() && remainingElementDepth > 0) {
             when (reader.next()) {
                 XMLStreamConstants.START_ELEMENT -> {
-                    if (depth != 1) {
-                        depth++
+                    if (remainingElementDepth != 1) {
+                        remainingElementDepth++
                         continue
                     }
                     when (reader.localName) {
@@ -325,13 +322,13 @@ object FeedParser {
                         }
 
                         else -> {
-                            depth++
+                            remainingElementDepth++
                         }
                     }
                 }
 
                 XMLStreamConstants.END_ELEMENT -> {
-                    depth--
+                    remainingElementDepth--
                 }
             }
         }
@@ -340,7 +337,7 @@ object FeedParser {
             format = FeedFormat.ATOM_1_0,
             title = title?.takeIf { it.isNotEmpty() },
             link = chooseAtomLink(links),
-            description = subtitle?.takeIf { it.value.isNotBlank() },
+            description = subtitle?.takeIf { it.text.isNotBlank() },
             updatedAt = updatedAt,
             items = items,
         )
@@ -358,13 +355,13 @@ object FeedParser {
         var updatedAt: Instant? = null
         val links = mutableListOf<AtomLink>()
 
-        var depth = 1
+        var remainingElementDepth = 1
 
-        while (reader.hasNext() && depth > 0) {
+        while (reader.hasNext() && remainingElementDepth > 0) {
             when (reader.next()) {
                 XMLStreamConstants.START_ELEMENT -> {
-                    if (depth != 1) {
-                        depth++
+                    if (remainingElementDepth != 1) {
+                        remainingElementDepth++
                         continue
                     }
                     when (reader.localName) {
@@ -375,12 +372,12 @@ object FeedParser {
                         "link" -> links.add(readAtomLink(reader))
                         "published" -> publishedAt = FeedDates.parse(readTextContent(reader, limits))
                         "updated" -> updatedAt = FeedDates.parse(readTextContent(reader, limits))
-                        else -> depth++
+                        else -> remainingElementDepth++
                     }
                 }
 
                 XMLStreamConstants.END_ELEMENT -> {
-                    depth--
+                    remainingElementDepth--
                 }
             }
         }
@@ -389,8 +386,8 @@ object FeedParser {
             id = id,
             title = title?.takeIf { it.isNotEmpty() },
             link = chooseAtomLink(links),
-            summary = summary?.takeIf { it.value.isNotBlank() },
-            content = content?.takeIf { it.value.isNotBlank() },
+            summary = summary?.takeIf { it.text.isNotBlank() },
+            content = content?.takeIf { it.text.isNotBlank() },
             // published が無い配信元がある。その場合は updated を公開日時として扱う
             publishedAt = publishedAt ?: updatedAt,
             updatedAt = updatedAt,
@@ -445,21 +442,21 @@ object FeedParser {
         return when {
             type == "xhtml" -> {
                 FeedContent(
-                    value = readInnerXml(reader = reader, limits = limits),
+                    text = readInnerXml(reader = reader, limits = limits),
                     type = FeedContent.Type.HTML,
                 )
             }
 
             type != null && type.contains("html") -> {
                 FeedContent(
-                    value = readTextContent(reader, limits),
+                    text = readTextContent(reader, limits),
                     type = FeedContent.Type.HTML,
                 )
             }
 
             else -> {
                 FeedContent(
-                    value = readTextContent(reader, limits),
+                    text = readTextContent(reader, limits),
                     type = FeedContent.Type.TEXT,
                 )
             }
@@ -478,16 +475,16 @@ object FeedParser {
         limits: FeedParserLimits,
     ): String {
         val builder = StringBuilder()
-        var depth = 1
+        var remainingElementDepth = 1
 
-        while (reader.hasNext() && depth > 0) {
+        while (reader.hasNext() && remainingElementDepth > 0) {
             when (reader.next()) {
                 XMLStreamConstants.START_ELEMENT -> {
-                    depth++
+                    remainingElementDepth++
                 }
 
                 XMLStreamConstants.END_ELEMENT -> {
-                    depth--
+                    remainingElementDepth--
                 }
 
                 XMLStreamConstants.CHARACTERS, XMLStreamConstants.CDATA, XMLStreamConstants.SPACE -> {
@@ -514,12 +511,12 @@ object FeedParser {
         limits: FeedParserLimits,
     ): String {
         val builder = StringBuilder()
-        var depth = 1
+        var remainingElementDepth = 1
 
-        while (reader.hasNext() && depth > 0) {
+        while (reader.hasNext() && remainingElementDepth > 0) {
             when (reader.next()) {
                 XMLStreamConstants.START_ELEMENT -> {
-                    depth++
+                    remainingElementDepth++
                     if (builder.length >= limits.maxTextLength) continue
                     builder.append('<').append(reader.localName)
                     for (index in 0 until reader.attributeCount) {
@@ -534,9 +531,9 @@ object FeedParser {
                 }
 
                 XMLStreamConstants.END_ELEMENT -> {
-                    depth--
+                    remainingElementDepth--
                     // 一番外側の要素（div など）自身の閉じタグは出力に含めない
-                    if (depth > 0 && builder.length < limits.maxTextLength) {
+                    if (remainingElementDepth > 0 && builder.length < limits.maxTextLength) {
                         builder.append("</").append(reader.localName).append('>')
                     }
                 }
@@ -554,11 +551,11 @@ object FeedParser {
 
     /** いま開いている要素を、中身ごと終わりまで読み飛ばす */
     private fun skipElement(reader: XMLStreamReader) {
-        var depth = 1
-        while (reader.hasNext() && depth > 0) {
+        var remainingElementDepth = 1
+        while (reader.hasNext() && remainingElementDepth > 0) {
             when (reader.next()) {
-                XMLStreamConstants.START_ELEMENT -> depth++
-                XMLStreamConstants.END_ELEMENT -> depth--
+                XMLStreamConstants.START_ELEMENT -> remainingElementDepth++
+                XMLStreamConstants.END_ELEMENT -> remainingElementDepth--
             }
         }
     }

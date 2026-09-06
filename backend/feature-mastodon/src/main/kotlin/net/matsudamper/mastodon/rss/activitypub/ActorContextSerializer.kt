@@ -20,6 +20,7 @@ object ActorContextSerializer : KSerializer<ActorContext> {
     private const val ACTIVITY_STREAMS = "https://www.w3.org/ns/activitystreams"
     private const val SECURITY = "https://w3id.org/security/v1"
     private const val TOOT_NAMESPACE = "http://joinmastodon.org/ns#"
+    private const val SCHEMA_NAMESPACE = "http://schema.org#"
 
     override val descriptor: SerialDescriptor =
         SerialDescriptor("net.matsudamper.mastodon.rss.activitypub.ActorContext", JsonPrimitive.serializer().descriptor)
@@ -55,6 +56,10 @@ object ActorContextSerializer : KSerializer<ActorContext> {
                             },
                         )
                         put("showFeatured", JsonPrimitive("toot:showFeatured"))
+                        // attachment の PropertyValue は ActivityStreams の語彙に無い
+                        put("schema", JsonPrimitive(SCHEMA_NAMESPACE))
+                        put("PropertyValue", JsonPrimitive("schema:PropertyValue"))
+                        put("value", JsonPrimitive("schema:value"))
                     },
                 )
             },

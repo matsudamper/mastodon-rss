@@ -37,18 +37,23 @@ class InboxServiceTest {
 
         override suspend fun handle(
             recipient: ActorUrls,
-            signer: String,
+            verifiedSignerActorId: String,
             activity: InboxActivity,
-            raw: JsonObject,
+            rawActivityJson: JsonObject,
         ) {
-            calls += Call(recipient = recipient, signer = signer, activity = activity, raw = raw)
+            calls += Call(
+                recipient = recipient,
+                verifiedSignerActorId = verifiedSignerActorId,
+                activity = activity,
+                rawActivityJson = rawActivityJson,
+            )
         }
 
         class Call(
             val recipient: ActorUrls,
-            val signer: String,
+            val verifiedSignerActorId: String,
             val activity: InboxActivity,
-            val raw: JsonObject,
+            val rawActivityJson: JsonObject,
         )
     }
 
@@ -110,10 +115,10 @@ class InboxServiceTest {
             val call = handler.calls.single()
             assertEquals(recipient, call.recipient)
             // 渡すのは署名を検証した結果の持ち主で、ボディの自称ではない
-            assertEquals(TestRemoteActor.ACTOR_ID, call.signer)
+            assertEquals(TestRemoteActor.ACTOR_ID, call.verifiedSignerActorId)
             assertEquals("Follow", call.activity.type)
             // Accept に丸ごと入れるので、元の JSON も渡っている必要がある
-            assertEquals("https://remote.example/activities/1", call.raw["id"]?.jsonPrimitive?.content)
+            assertEquals("https://remote.example/activities/1", call.rawActivityJson["id"]?.jsonPrimitive?.content)
         }
 
     @Test
@@ -193,7 +198,7 @@ class InboxServiceTest {
             assertEquals(InboxResult.Accepted, result)
             val call = handler.calls.singleOrNull() ?: fail("ハンドラが呼ばれていない")
             assertNull(call.activity.actorId)
-            assertEquals(TestRemoteActor.ACTOR_ID, call.signer)
+            assertEquals(TestRemoteActor.ACTOR_ID, call.verifiedSignerActorId)
         }
 
     @Test

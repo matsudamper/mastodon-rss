@@ -18,6 +18,7 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.graphQlRoutes
 import net.matsudamper.mastodon.rss.graphql.resolver.AccountNoteResolverImpl
+import net.matsudamper.mastodon.rss.graphql.resolver.AccountResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminAccountResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminMutationResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.AdminNoteResolverImpl
@@ -36,13 +37,12 @@ import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
 
 fun main() {
-    // 環境変数を読むのはここだけ。以降は引数で配る。
     // DOMAIN が無ければこの時点で落ちる。サーバーを立てる前に止めたいので順番を変えないこと
-    val env = ServerEnv()
+    val serverEnv = ServerEnv()
 
     val telemetry = OpenTelemetryInitializer.start()
-    val deps = AppDependencies.create(env, telemetry = telemetry)
-    val server = embeddedServer(CIO, port = env.port, host = env.host) {
+    val deps = AppDependencies.create(serverEnv, telemetry = telemetry)
+    val server = embeddedServer(CIO, port = serverEnv.port, host = serverEnv.host) {
         module(deps)
     }
 
@@ -122,6 +122,7 @@ fun Application.module(deps: AppDependencies) {
         domain = env.domain,
         actorDirectory = deps.directory,
         notePublisher = deps.notePublisher,
+        actorPublisher = deps.actorPublisher,
         noteStore = deps.noteStore,
         feedService = deps.feedService,
     )
@@ -130,6 +131,7 @@ fun Application.module(deps: AppDependencies) {
         resolvers = listOf(
             QueryResolverImpl(),
             AccountNoteResolverImpl(),
+            AccountResolverImpl(),
             MutationResolverImpl(),
             AdminQueryResolverImpl(),
             AdminAccountResolverImpl(),
@@ -162,7 +164,7 @@ fun Application.module(deps: AppDependencies) {
 
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
         webFingerRoutes(deps.directory)
-        actorRoutes(deps.directory, actorKey)
+        actorRoutes(deps.directory, actorKey, deps.feedLinks)
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)

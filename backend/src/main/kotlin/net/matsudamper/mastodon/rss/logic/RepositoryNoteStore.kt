@@ -38,6 +38,8 @@ class RepositoryNoteStore(
         notes.delete(PublicNoteId(publicId.value))
     }
 
+    override fun deleteByUsername(username: String): Int = notes.deleteByUsername(username)
+
     override fun list(
         username: String,
         after: NotePosition?,
@@ -68,6 +70,8 @@ class RepositoryNoteStore(
         }
 
     override fun count(username: String): Long = notes.count(username)
+
+    override fun counts(usernames: Set<String>): Map<String, Long> = notes.counts(usernames)
 
     private fun NotePosition.toRepository(): net.matsudamper.mastodon.rss.repository.NotePosition =
         net.matsudamper.mastodon.rss.repository.NotePosition(

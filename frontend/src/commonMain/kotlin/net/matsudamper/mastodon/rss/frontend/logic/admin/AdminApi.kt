@@ -1,15 +1,20 @@
 package net.matsudamper.mastodon.rss.frontend.logic.admin
 
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.ApolloResponse
 import com.apollographql.apollo.api.Operation
 import com.apollographql.apollo.api.Optional
 import com.apollographql.cache.normalized.FetchPolicy
 import com.apollographql.cache.normalized.fetchPolicy
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountQuery
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsQuery
+import com.apollographql.cache.normalized.watch
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountIdQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountScreenQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemsMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteNoteMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
@@ -21,10 +26,12 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnpublishedFeedItemsQuery
-import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountFields
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountListFields
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountScreenFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminFeedItemFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteAccountFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminDeleteNoteFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminFeedPreviewFailureReason
@@ -32,6 +39,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminLoginFailure
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminPostFeedItemsFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminSaveFeedFailureReason
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AdminUnpublishedFeedItemsFailureReason
+import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteNoteQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.PostFeedItemsQuery
@@ -44,12 +52,12 @@ import net.matsudamper.mastodon.rss.shared.FeedItemId
 class AdminApi(
     private val client: ApolloClient = GraphQlClient.apollo,
 ) {
-    suspend fun session(): AdminSessionResult {
+    fun session(): Flow<AdminSessionResult> {
         return client
             .query(AdminSessionQuery())
             .fetchPolicy(FetchPolicy.NetworkOnly)
-            .execute()
-            .toSessionResult { it.admin.session.adminSessionFields }
+            .watch()
+            .map { response -> response.toSessionResult { it.admin.session.adminSessionFields } }
     }
 
     suspend fun login(password: String): AdminLoginResult {
@@ -76,31 +84,40 @@ class AdminApi(
             .toSessionResult { it.admin.logout.adminSessionFields }
     }
 
-    suspend fun accounts(): AdminAccountsResult {
-        val response = client.query(AdminAccountsQuery()).execute()
-        val data = response.data ?: return AdminAccountsResult.Failure(response.failureMessage())
+    fun accounts(): Flow<AdminAccountsResult> {
+        return client
+            .query(AdminAccountsScreenQuery())
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .watch()
+            .map { response ->
+                val data = response.data
+                    ?: return@map AdminAccountsResult.Failure(response.failureMessage())
 
-        return AdminAccountsResult.Success(
-            data.admin.adminAccounts.map { it.adminAccountFields.toAdminAccount() },
-        )
+                AdminAccountsResult.Success(
+                    data.admin.adminAccounts.map { it.adminAccountListFields.toAdminAccount() },
+                )
+            }
     }
 
-    suspend fun account(username: String): AdminAccountResult {
+    fun watchAccount(username: String): Flow<AdminAccountResult> {
+        return client
+            .query(AdminAccountScreenQuery(username))
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .watch()
+            .map { response -> response.toAdminAccountResult() }
+    }
+
+    suspend fun accountId(username: String): AdminAccountIdResult {
         val response = client
-            .query(AdminAccountQuery(username))
+            .query(AdminAccountIdQuery(username))
             .fetchPolicy(FetchPolicy.NetworkOnly)
             .execute()
 
-        // 失敗を先に見る。null は「そのアカウントが無い」の意味なので、
-        // エラーで返ってきた null と混ぜると、繋がらないだけの状態を
-        // アカウントが無いと表示してしまう
         if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
-            return AdminAccountResult.Failure(response.failureMessage())
+            return AdminAccountIdResult.Failure(response.failureMessage())
         }
-
-        val data = response.data ?: return AdminAccountResult.Failure(response.failureMessage())
-
-        return AdminAccountResult.Success(data.admin.adminAccount?.adminAccountFields?.toAdminAccount())
+        val id = response.data?.admin?.adminAccount?.account?.id ?: return AdminAccountIdResult.NotFound
+        return AdminAccountIdResult.Success(id)
     }
 
     suspend fun addAccount(username: String): AdminAddAccountResult {
@@ -219,33 +236,16 @@ class AdminApi(
         )
     }
 
-    suspend fun unpublishedFeedItems(accountId: Long): AdminUnpublishedFeedItemsResult {
-        val response = client
+    fun unpublishedFeedItems(accountId: Long): Flow<AdminUnpublishedFeedItemsResult> {
+        return client
             .query(
                 AdminUnpublishedFeedItemsQuery(
                     query = UnpublishedFeedItemsQuery(accountId = accountId),
                 ),
             )
             .fetchPolicy(FetchPolicy.NetworkOnly)
-            .execute()
-        val result = response.data?.admin?.unpublishedFeedItems
-            ?: return AdminUnpublishedFeedItemsResult.Failure(response.failureMessage())
-        val items = result.items
-        if (items != null) {
-            return AdminUnpublishedFeedItemsResult.Success(
-                items = items.map { item ->
-                    AdminUnpublishedFeedItem(
-                        title = item.title,
-                        link = item.link,
-                        publishedAt = item.publishedAt,
-                    )
-                },
-            )
-        }
-        return AdminUnpublishedFeedItemsResult.Rejected(
-            reason = result.failure?.reason?.toUnpublishedFailure()
-                ?: AdminUnpublishedFeedItemsResult.FailureReason.UNKNOWN,
-        )
+            .watch()
+            .map { response -> response.toUnpublishedFeedItemsResult() }
     }
 
     suspend fun postFeedItems(accountId: Long): AdminPostFeedItemsResult {
@@ -326,6 +326,17 @@ class AdminApi(
         )
     }
 
+    suspend fun deleteAccount(username: String): AdminDeleteAccountResult {
+        val response = client.mutation(
+            AdminDeleteAccountMutation(query = DeleteAccountQuery(username = username)),
+        ).execute()
+        val result = response.data?.admin?.deleteAccount
+            ?: return AdminDeleteAccountResult.Failure(response.failureMessage())
+
+        val failure = result.failure ?: return AdminDeleteAccountResult.Success
+        return AdminDeleteAccountResult.Rejected(reason = failure.reason.toDeleteAccountFailure())
+    }
+
     suspend fun postNote(
         username: String,
         body: String,
@@ -356,7 +367,7 @@ class AdminApi(
         )
     }
 
-    private fun AdminAccountFields.toAdminAccount(): AdminAccount = AdminAccount(
+    private fun AdminAccountScreenFields.toAdminAccount(): AdminAccount = AdminAccount(
         account = Account(
             id = account.id,
             username = account.username,
@@ -375,6 +386,48 @@ class AdminApi(
             )
         },
     )
+
+    private fun AdminAccountListFields.toAdminAccount(): AdminAccount = AdminAccount(
+        account = Account(
+            id = account.id,
+            username = account.username,
+            acct = account.acct,
+            actorUrl = account.actorUrl,
+        ),
+        createdAt = createdAt,
+        followerCount = followerCount,
+        feed = null,
+    )
+
+    private fun ApolloResponse<AdminAccountScreenQuery.Data>.toAdminAccountResult(): AdminAccountResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AdminAccountResult.Failure(failureMessage())
+        }
+
+        val data = data ?: return AdminAccountResult.Failure(failureMessage())
+        return AdminAccountResult.Success(data.admin.adminAccount?.adminAccountScreenFields?.toAdminAccount())
+    }
+
+    private fun ApolloResponse<AdminUnpublishedFeedItemsQuery.Data>.toUnpublishedFeedItemsResult(): AdminUnpublishedFeedItemsResult {
+        val result = data?.admin?.unpublishedFeedItems
+            ?: return AdminUnpublishedFeedItemsResult.Failure(failureMessage())
+        val items = result.items
+        if (items != null) {
+            return AdminUnpublishedFeedItemsResult.Success(
+                items = items.map { item ->
+                    AdminUnpublishedFeedItem(
+                        title = item.title,
+                        link = item.link,
+                        publishedAt = item.publishedAt,
+                    )
+                },
+            )
+        }
+        return AdminUnpublishedFeedItemsResult.Rejected(
+            reason = result.failure?.reason?.toUnpublishedFailure()
+                ?: AdminUnpublishedFeedItemsResult.FailureReason.UNKNOWN,
+        )
+    }
 
     private fun AdminFeedPreviewFailureReason.toPreviewFailure(): AdminFeedPreviewResult.PreviewFailure =
         when (this) {
@@ -448,6 +501,12 @@ class AdminApi(
             AdminDeleteNoteFailureReason.UNKNOWN_ACCOUNT -> AdminDeleteNoteResult.FailureReason.UNKNOWN_ACCOUNT
             AdminDeleteNoteFailureReason.NOT_FOUND -> AdminDeleteNoteResult.FailureReason.NOT_FOUND
             AdminDeleteNoteFailureReason.UNKNOWN__ -> AdminDeleteNoteResult.FailureReason.UNKNOWN
+        }
+
+    private fun AdminDeleteAccountFailureReason.toDeleteAccountFailure(): AdminDeleteAccountResult.FailureReason =
+        when (this) {
+            AdminDeleteAccountFailureReason.UNKNOWN_ACCOUNT -> AdminDeleteAccountResult.FailureReason.UNKNOWN_ACCOUNT
+            AdminDeleteAccountFailureReason.UNKNOWN__ -> AdminDeleteAccountResult.FailureReason.UNKNOWN
         }
 
     private fun AdminFeedItemFields.toAdminFeedItem(): AdminFeedItem = AdminFeedItem(

@@ -1,27 +1,54 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 class AdminAccountsScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+    private var sessionJob: Job? = null
+    private var accountsJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountsScreenUiState> =
         MutableStateFlow(
             AdminAccountsScreenUiState(
                 content = AdminAccountsScreenUiState.Content.Loading,
                 listener = object : AdminAccountsScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
+                    override fun onClickNewAccount() {
+                        navigate(Screen.AdminAccountNew)
+                    }
+
+                    override fun onClickPublic(username: String) {
+                        navigate(Screen.Account(username))
+                    }
+
+                    override fun onClickAccount(username: String) {
+                        navigate(Screen.AdminAccount(username))
+                    }
+
                     override fun onClickReload() {
                         reload()
                     }
@@ -41,14 +68,34 @@ class AdminAccountsScreenViewModel(
         reload()
     }
 
-    private fun reload() {
-        viewModelStateFlow.update { ViewModelState() }
+    private fun navigate(screen: Screen) {
         viewModelScope.launch {
-            val session = api.session()
-            viewModelStateFlow.update { it.copy(session = session) }
+            events.send { it.navigate(screen) }
+        }
+    }
 
-            if (session is AdminSessionResult.Success && session.loggedIn) {
-                viewModelStateFlow.update { it.copy(accounts = api.accounts()) }
+    private fun reload() {
+        sessionJob?.cancel()
+        accountsJob?.cancel()
+        accountsJob = null
+        viewModelStateFlow.update { ViewModelState() }
+        sessionJob = viewModelScope.launch {
+            api.session().collect { session ->
+                viewModelStateFlow.update { it.copy(session = session) }
+
+                if (session is AdminSessionResult.Success && session.loggedIn) {
+                    if (accountsJob == null) {
+                        accountsJob = viewModelScope.launch {
+                            api.accounts().collect { accounts ->
+                                viewModelStateFlow.update { it.copy(accounts = accounts) }
+                            }
+                        }
+                    }
+                } else {
+                    accountsJob?.cancel()
+                    accountsJob = null
+                    viewModelStateFlow.update { it.copy(accounts = null) }
+                }
             }
         }
     }
@@ -91,4 +138,8 @@ class AdminAccountsScreenViewModel(
         val session: AdminSessionResult? = null,
         val accounts: AdminAccountsResult? = null,
     )
+
+    interface Event {
+        suspend fun navigate(screen: Screen)
+    }
 }

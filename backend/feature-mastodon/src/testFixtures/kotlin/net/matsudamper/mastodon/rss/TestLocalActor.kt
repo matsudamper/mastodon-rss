@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss
 
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.actor.FeedLinks
 
 /**
  * テストで配信側に立つ、こちらのアクター。
@@ -23,5 +24,15 @@ object TestLocalActor {
     val directory: ActorDirectory = ActorDirectory(
         domain = DOMAIN,
         stored = FakeStoredActorNames(storedUserNames = listOf(USERNAME, STORED_USERNAME)),
+    )
+
+    /** [STORED_USERNAME] だけがフィードを持つ。持たないアカウントとの差を見るため */
+    val feedLinks: FakeStoredFeedLinks = FakeStoredFeedLinks(
+        links = mapOf(
+            STORED_USERNAME to FeedLinks(
+                siteUrl = "https://feed1.example.org/",
+                feedUrl = "https://feed1.example.org/rss.xml",
+            ),
+        ),
     )
 }

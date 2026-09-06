@@ -103,6 +103,13 @@ internal class SqliteAccountRepository(
         Account(id = AccountId(id), username = username, createdAt = createdAt)
     }
 
+    override fun delete(id: AccountId): Boolean = jooq.transaction { dsl ->
+        dsl
+            .deleteFrom(ACCOUNTS)
+            .where(ACCOUNTS.ID.eq(id.value))
+            .execute() > 0
+    }
+
     /**
      * 列に COLLATE NOCASE が付いているので、綴りの揺れは SQLite 側で吸収される
      */

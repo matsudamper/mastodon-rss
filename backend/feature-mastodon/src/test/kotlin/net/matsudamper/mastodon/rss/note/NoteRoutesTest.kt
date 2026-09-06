@@ -16,6 +16,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.collection.COLLECTION_CURSOR_PARAM
 import net.matsudamper.mastodon.rss.collection.COLLECTION_PAGE_SIZE
@@ -71,7 +72,7 @@ class NoteRoutesTest {
             assertEquals("<p>abc</p>", body.content)
             assertEquals(publishedAt.toActivityPubPublished(), body.published)
             assertEquals("https://example.com/notes/abc", body.atomUri)
-            assertEquals(listOf(PUBLIC_AUDIENCE), body.to)
+            assertEquals(listOf(ActivityStreamsIri.PUBLIC_AUDIENCE), body.to)
             assertEquals(listOf("https://example.com/users/admin/followers"), body.cc)
             assertEquals("https://example.com/notes/abc", body.url)
             assertEquals(listOf("https://www.w3.org/ns/activitystreams"), body.context)
@@ -129,7 +130,7 @@ class NoteRoutesTest {
             assertEquals("Create", create.type)
             assertEquals("https://example.com/notes/note-1#create", create.id.value)
             assertEquals("https://example.com/users/admin", create.actor)
-            assertEquals(listOf(PUBLIC_AUDIENCE), create.to)
+            assertEquals(listOf(ActivityStreamsIri.PUBLIC_AUDIENCE), create.to)
             assertEquals(listOf("https://example.com/users/admin/followers"), create.cc)
             assertNull(create.target.context)
             assertEquals("https://example.com/notes/note-1", create.target.id.value)

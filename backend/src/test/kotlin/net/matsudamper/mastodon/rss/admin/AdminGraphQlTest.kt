@@ -557,6 +557,83 @@ class AdminGraphQlTest {
         }
 
     @Test
+    fun `deleteAccount で消したアカウントは同じフィードで登録し直せる`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(
+                passwordConfigured = true,
+                repositories = repositories,
+                feedFetcher = feedFetcherOf(FEED_XML),
+            )
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val accountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            mutateSaveFeed(accountId = accountId, url = FEED_URL, token = token)
+            mutatePostFeedItems(accountId = accountId, token = token)
+
+            val result = mutateDeleteAccount("feed1", token).admin().obj("deleteAccount")
+
+            assertEquals(JsonNull, result.getValue("failure"))
+            assertEquals(
+                emptyList(),
+                repositories.notes.list(username = "feed1", after = null, limit = 10),
+            )
+
+            // 同じ名前と同じ URL で最初から登録し直せる
+            mutateAddAccount("feed1", token)
+            val newAccountId = queryAccount("feed1", token)
+                .admin()
+                .obj("adminAccount")
+                .obj("account")
+                .getValue("id")
+                .jsonPrimitive
+                .long
+            val saved = mutateSaveFeed(accountId = newAccountId, url = FEED_URL, token = token)
+                .admin()
+                .obj("saveFeed")
+
+            assertEquals(JsonNull, saved.getValue("failure"))
+            assertEquals(FEED_URL, saved.obj("feed").string("url"))
+            // 前のアカウントの投稿を引き継がないので、取り込み直した記事をもう一度投稿できる
+            assertEquals(
+                listOf("1 本目", "2 本目"),
+                mutatePostFeedItems(accountId = newAccountId, token = token)
+                    .admin()
+                    .obj("postFeedItems")
+                    .getValue("items")
+                    .jsonArray
+                    .map { it.jsonObject.string("title") },
+            )
+        }
+
+    @Test
+    fun `知らないアカウントは deleteAccount で消せない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val result = mutateDeleteAccount("nobody", token).admin().obj("deleteAccount")
+
+            assertEquals("UNKNOWN_ACCOUNT", result.obj("failure").string("reason"))
+        }
+
+    @Test
+    fun `ログインしていなければ deleteAccount は拒否される`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            val errors = mutateDeleteAccount("feed1").body().getValue("errors").jsonArray
+
+            assertTrue(errors.isNotEmpty())
+        }
+
+    @Test
     fun `無い投稿は消せない`() =
         testApplication {
             applicationWith(passwordConfigured = true)
@@ -934,6 +1011,19 @@ class AdminGraphQlTest {
             token = token,
             variables =
             """{"username":${JsonPrimitive(username)},"noteId":${JsonPrimitive(noteId)}}""",
+        )
+
+    private suspend fun ApplicationTestBuilder.mutateDeleteAccount(
+        username: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "mutation DeleteAccount(${'$'}username: String!) { admin { " +
+                "deleteAccount(query: { username: ${'$'}username }) { " +
+                "failure { reason } } } }",
+            token = token,
+            variables = """{"username":${JsonPrimitive(username)}}""",
         )
 
     /**

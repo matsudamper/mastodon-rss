@@ -12,14 +12,18 @@ import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
+import net.matsudamper.mastodon.rss.actor.ActorPublisher
+import net.matsudamper.mastodon.rss.actor.FeedLinks
 import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.actor.StoredActorNames
+import net.matsudamper.mastodon.rss.actor.StoredFeedLinks
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
+import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.logic.FeedService
@@ -78,6 +82,20 @@ class AppDependencies(
         },
     )
 
+    // 毎回引き直す。持ち回すと、フィードの URL を変えた後も古い URL を返し続ける
+    val feedLinks: StoredFeedLinks = object : StoredFeedLinks {
+        override fun find(username: String): FeedLinks {
+            val account = repositories.accounts.findByUsername(username) ?: return FeedLinks.EMPTY
+            val feed = repositories.feeds.findByAccountId(account.id) ?: return FeedLinks.EMPTY
+
+            // 相手のプロフィールに出る外部リンクになるので、http / https 以外は落とす
+            return FeedLinks(
+                siteUrl = HttpUrl.sanitize(feed.siteUrl, feed.url),
+                feedUrl = HttpUrl.sanitize(feed.url),
+            )
+        }
+    }
+
     /**
      * inbox が受け取ったアクティビティの検証と振り分け。
      *
@@ -116,6 +134,12 @@ class AppDependencies(
     fun startFeedPolling() {
         FeedPoller(feedService).start(feedPollingScope)
     }
+
+    val actorPublisher: ActorPublisher = ActorPublisher(
+        notes = noteStore,
+        followers = followerStore,
+        delivery = delivery,
+    )
 
     /**
      * 抱えているものを作った順の逆に閉じる。

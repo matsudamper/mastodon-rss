@@ -1,20 +1,26 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAddAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 class AdminAccountNewScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+    private var sessionJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminAccountNewScreenUiState> =
         MutableStateFlow(
@@ -22,6 +28,18 @@ class AdminAccountNewScreenViewModel(
                 content = AdminAccountNewScreenUiState.Content.Loading,
                 listener =
                 object : AdminAccountNewScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
+                    override fun onClickAccounts() {
+                        navigate(Screen.AdminAccounts)
+                    }
+
                     override fun onUsernameChanged(text: String) {
                         viewModelStateFlow.update { it.copy(username = text, error = null) }
                     }
@@ -46,9 +64,17 @@ class AdminAccountNewScreenViewModel(
         }.asStateFlow()
 
     fun onStart() {
+        sessionJob?.cancel()
+        sessionJob = viewModelScope.launch {
+            api.session().collect { session ->
+                viewModelStateFlow.update { it.copy(session = session) }
+            }
+        }
+    }
+
+    private fun navigate(screen: Screen) {
         viewModelScope.launch {
-            val session = api.session()
-            viewModelStateFlow.update { it.copy(session = session) }
+            events.send { it.navigate(screen) }
         }
     }
 
@@ -121,4 +147,8 @@ class AdminAccountNewScreenViewModel(
         val error: String? = null,
         val added: String? = null,
     )
+
+    interface Event {
+        suspend fun navigate(screen: Screen)
+    }
 }

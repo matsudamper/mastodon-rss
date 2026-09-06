@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.runtime.Immutable
+import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffoldListener
 
 data class AdminAccountScreenUiState(
     val acct: String,
@@ -26,6 +27,7 @@ data class AdminAccountScreenUiState(
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
          * @param deleteNoteDialog 投稿を消す前の確認。出していなければ null
+         * @param deleteAccountDialog アカウントを消す前の確認。出していなければ null
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
          * @param notesLoading 一覧を取っている最中
          * @param canLoadMore さらに古い投稿があるか
@@ -36,6 +38,7 @@ data class AdminAccountScreenUiState(
             val post: Post,
             val notes: List<Note>,
             val deleteNoteDialog: DeleteNoteDialog?,
+            val deleteAccountDialog: DeleteAccountDialog?,
             val notesError: String?,
             val notesLoading: Boolean,
             val canLoadMore: Boolean,
@@ -71,20 +74,9 @@ data class AdminAccountScreenUiState(
         ) : Feed
 
         /**
-         * @param fetching 取得中。ボタンの文字が変わる
-         * @param canFetch false の間は取得のボタンを押せなくする
-         * @param canSave false の間は登録のボタンを押せなくする
+         * 追加はダイアログの画面に分けてあるので、ここに置くのは入口だけ
          */
-        data class Input(
-            val url: String,
-            val fetching: Boolean,
-            val canFetch: Boolean,
-            val saving: Boolean,
-            val canSave: Boolean,
-            val preview: FeedPreview?,
-            val previewError: String?,
-            val saveError: String?,
-        ) : Feed
+        data object NotRegistered : Feed
     }
 
     /**
@@ -115,21 +107,6 @@ data class AdminAccountScreenUiState(
         val publishedAt: String?,
     )
 
-    data class FeedPreview(
-        val title: String?,
-        val siteUrl: String?,
-        val format: String,
-        val description: String?,
-        val itemCount: Int,
-        val sampleItems: List<FeedPreviewItem>,
-    )
-
-    data class FeedPreviewItem(
-        val title: String?,
-        val link: String?,
-        val publishedAt: String?,
-    )
-
     /**
      * @param submitting true の間は入力欄とボタンを押せなくする
      * @param result 直前の投稿の結果。次の入力を始めたら消す
@@ -154,6 +131,14 @@ data class AdminAccountScreenUiState(
         val deleting: Boolean,
     )
 
+    data class DeleteAccountDialog(
+        val message: String,
+        val confirmLabel: String,
+        val canConfirm: Boolean,
+        val canDismiss: Boolean,
+        val errorMessage: String?,
+    )
+
     /**
      * @param sourceArticle 元になった記事。無い投稿では出さない
      */
@@ -173,23 +158,19 @@ data class AdminAccountScreenUiState(
         fun onClickDelete()
     }
 
-    /**
-     * @param targets 送った宛先の数
-     * @param delivered そのうち届いた数
-     */
     data class PostResult(
         val url: String,
-        val targets: Int,
+        val deliveryAttemptCount: Int,
         val delivered: Int,
     )
 
     @Immutable
-    interface Listener {
-        fun onFeedUrlChanged(text: String)
+    interface Listener : AdminScaffoldListener {
+        fun onClickOpenAccount()
 
-        fun onClickFetchFeed()
+        fun onClickBackToAdmin()
 
-        fun onClickSaveFeed()
+        fun onClickAddFeed()
 
         fun onClickPostLatest()
 
@@ -198,6 +179,12 @@ data class AdminAccountScreenUiState(
         fun onClickPost()
 
         fun onClickLoadMore()
+
+        fun onClickDeleteAccount()
+
+        fun onDismissDeleteAccount()
+
+        fun onConfirmDeleteAccount()
 
         fun onDismissDeleteNote()
 

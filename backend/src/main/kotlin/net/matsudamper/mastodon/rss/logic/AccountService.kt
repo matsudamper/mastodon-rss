@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.Account
@@ -14,6 +15,7 @@ import net.matsudamper.mastodon.rss.shared.AccountId
 class AccountService(
     private val accounts: AccountRepository,
     private val followers: FollowerRepository,
+    private val actorPublisher: ActorPublisher,
     private val domain: String,
 ) {
     /**
@@ -89,6 +91,31 @@ class AccountService(
         return AddAccountResult.Success(added.toManaged())
     }
 
+    /**
+     * アカウントを消して、消したことをフォロワーに配る。
+     *
+     * 配信した投稿とフォロワー、登録したフィードと取り込んだ記事も一緒に消える。
+     * 名前で持っているもの（投稿とフォロワー）を残すと、同じ名前で作り直したときに
+     * 引き継がれるので、消えるものはこの 1 回で消し切る。
+     *
+     * アカウントの行を先に消す。消えていればその名前は引き当てられなくなり、
+     * 投稿の配信や `Follow` の受理が止まる。後から入った行が消し漏れて、
+     * 作り直したアカウントに引き継がれることがなくなる。
+     * 消せた 1 つだけが以降に進むので、同時に呼ばれても配信は 1 回になる。
+     */
+    suspend fun delete(username: String): DeleteResult {
+        val account = accounts.findByUsername(username)
+            ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
+
+        if (!accounts.delete(account.id)) {
+            return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
+        }
+
+        actorPublisher.delete(ActorUrls(domain = domain, username = account.username))
+
+        return DeleteResult.Success
+    }
+
     private fun Account.toManaged(): ManagedAccount = ManagedAccount(
         urls = ActorUrls(domain = domain, username = username),
         accountId = id,
@@ -109,6 +136,18 @@ class AccountService(
         val hasMore: Boolean,
         val nextUsername: String?,
     )
+
+    sealed interface DeleteResult {
+        data object Success : DeleteResult
+
+        data class Failure(
+            val reason: DeleteFailure,
+        ) : DeleteResult
+    }
+
+    enum class DeleteFailure {
+        UNKNOWN_ACCOUNT,
+    }
 
     sealed interface AddAccountResult {
         data class Success(

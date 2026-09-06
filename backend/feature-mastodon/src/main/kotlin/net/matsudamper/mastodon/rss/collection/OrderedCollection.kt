@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.collection
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activitypub.StringListSerializer
 
 /**
@@ -14,7 +15,7 @@ import net.matsudamper.mastodon.rss.activitypub.StringListSerializer
 data class OrderedCollection(
     @SerialName("@context")
     @Serializable(with = StringListSerializer::class)
-    val context: List<String> = DEFAULT_CONTEXT,
+    val context: List<String> = ActivityStreamsIri.DEFAULT_CONTEXT,
     @SerialName("id")
     val id: String,
     @SerialName("type")
@@ -29,8 +30,6 @@ data class OrderedCollection(
 ) {
     companion object {
         const val TYPE: String = "OrderedCollection"
-
-        val DEFAULT_CONTEXT: List<String> = listOf("https://www.w3.org/ns/activitystreams")
     }
 }
 
@@ -49,7 +48,7 @@ data class OrderedCollection(
 data class OrderedCollectionPage<T>(
     @SerialName("@context")
     @Serializable(with = StringListSerializer::class)
-    val context: List<String> = OrderedCollection.DEFAULT_CONTEXT,
+    val context: List<String> = ActivityStreamsIri.DEFAULT_CONTEXT,
     @SerialName("id")
     val id: String,
     @SerialName("type")
@@ -91,7 +90,7 @@ const val FEATURED_COLLECTION_SIZE: Int = 20
 data class OrderedCollectionWithItems<T>(
     @SerialName("@context")
     @Serializable(with = StringListSerializer::class)
-    val context: List<String> = OrderedCollection.DEFAULT_CONTEXT,
+    val context: List<String> = ActivityStreamsIri.DEFAULT_CONTEXT,
     @SerialName("id")
     val id: String,
     @SerialName("type")

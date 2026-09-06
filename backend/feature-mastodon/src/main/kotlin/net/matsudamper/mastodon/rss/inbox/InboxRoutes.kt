@@ -51,8 +51,8 @@ fun Route.inboxRoutes(
         }
 
         // Digest はバイト列に対して計算されているので、文字列にせずそのまま受ける
-        val body = call.receive<ByteArray>()
-        if (body.size > MAX_BODY_BYTES) {
+        val requestBodyBytes = call.receive<ByteArray>()
+        if (requestBodyBytes.size > MAX_BODY_BYTES) {
             call.respondText("ボディが大きすぎる", status = HttpStatusCode.PayloadTooLarge)
             return@post
         }
@@ -64,7 +64,7 @@ fun Route.inboxRoutes(
                 // パスを組み直すと末尾やクエリの差で合わなくなる
                 requestTarget = call.request.uri,
                 headers = call.request.headers,
-                body = body,
+                body = requestBodyBytes,
             )
 
         // 落ちた理由は相手に返さない。どこで落ちたかを教えると通る形を探す助けになるので、

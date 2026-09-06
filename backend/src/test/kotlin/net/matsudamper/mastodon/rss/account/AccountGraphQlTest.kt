@@ -24,7 +24,10 @@ import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.repository.IncomingFollow
+import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import net.matsudamper.mastodon.rss.testDependencies
@@ -144,6 +147,58 @@ class AccountGraphQlTest {
         }
 
     @Test
+    fun `フォロワー数と投稿数とフィードを引ける`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            val account = repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            repositories.followers.record(
+                IncomingFollow(
+                    username = "feed1",
+                    follower = NewRemoteActor(
+                        actorUri = "https://mastodon.example/users/alice",
+                        inbox = "https://mastodon.example/users/alice/inbox",
+                        sharedInbox = null,
+                        publicKeyPem = "pem",
+                    ),
+                    followActivityUri = "https://mastodon.example/activities/1",
+                    receivedAt = Instant.now(),
+                ),
+            )
+            repositories.followers.markAccepted(
+                username = "feed1",
+                followerActorUri = "https://mastodon.example/users/alice",
+                acceptedAt = Instant.now(),
+            )
+            repositories.notes.add(
+                NewNote(
+                    username = "feed1",
+                    publicId = PublicNoteId("note1"),
+                    contentHtml = "<p>本文</p>",
+                    publishedAt = Instant.parse("2026-08-09T11:02:00Z"),
+                ),
+            )
+            repositories.feeds.add(
+                NewFeed(
+                    accountId = account!!.id,
+                    url = "https://example.com/feed.xml",
+                    title = "サンプル",
+                    siteUrl = "https://example.com",
+                    format = "RSS 2.0",
+                    pollIntervalSeconds = 900,
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val result = queryAccount("feed1").account()
+
+            assertEquals(1, result.int("followerCount"))
+            assertEquals(1, result.int("noteCount"))
+            val feed = result.obj("feed")
+            assertEquals("https://example.com/feed.xml", feed.string("url"))
+            assertEquals("https://example.com", feed.string("siteUrl"))
+        }
+
+    @Test
     fun `配信した投稿はログインなしで引ける`() =
         testApplication {
             val repositories = FakeRepositories()
@@ -168,6 +223,51 @@ class AccountGraphQlTest {
             assertEquals("<p>本文</p>", nodes[0].string("contentHtml"))
             assertEquals(publishedAt.epochSecond, nodes[0].long("publishedAt"))
             assertEquals(false, notes.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `配信した投稿を公開 id で単体取得できる`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = TestServerEnv.USERNAME, createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+            val publishedAt = Instant.parse("2026-08-09T11:02:00Z")
+            repositories.notes.add(
+                NewNote(
+                    username = TestServerEnv.USERNAME,
+                    publicId = PublicNoteId("abc123"),
+                    contentHtml = "<p>本文</p>",
+                    publishedAt = publishedAt,
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val note = queryNote(TestServerEnv.USERNAME, "abc123").body().obj("data").obj("note")
+
+            assertEquals("abc123", note.string("id"))
+            assertEquals("<p>本文</p>", note.string("contentHtml"))
+            assertEquals(publishedAt.epochSecond, note.long("publishedAt"))
+        }
+
+    @Test
+    fun `別のアカウントの投稿は単体取得できない`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = TestServerEnv.USERNAME, createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+            repositories.accounts.add(username = "other", createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+            repositories.notes.add(
+                NewNote(
+                    username = TestServerEnv.USERNAME,
+                    publicId = PublicNoteId("abc123"),
+                    contentHtml = "<p>本文</p>",
+                    publishedAt = Instant.parse("2026-08-09T11:02:00Z"),
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val response = queryNote("other", "abc123").body()
+
+            assertEquals(JsonNull, response.obj("data").getValue("note"))
+            assertFalse(response.containsKey("errors"))
         }
 
     @Test
@@ -254,6 +354,18 @@ class AccountGraphQlTest {
             setBody("""{"query":${JsonPrimitive(query)},"variables":$variables}""")
         }
 
+    private suspend fun ApplicationTestBuilder.queryNote(username: String, id: String): HttpResponse =
+        client.post(GRAPHQL_PATH) {
+            contentType(ContentType.Application.Json)
+
+            val query =
+                "query AccountNote(${'$'}username: String!, ${'$'}id: PublicNoteId!) { " +
+                    "note(username: ${'$'}username, id: ${'$'}id) { id url contentHtml publishedAt } }"
+            val variables = """{"username":${JsonPrimitive(username)},"id":${JsonPrimitive(id)}}"""
+
+            setBody("""{"query":${JsonPrimitive(query)},"variables":$variables}""")
+        }
+
     private suspend fun ApplicationTestBuilder.queryAccounts(cursor: String? = null, limit: Int = 20): HttpResponse =
         client.post(GRAPHQL_PATH) {
             contentType(ContentType.Application.Json)
@@ -281,7 +393,8 @@ class AccountGraphQlTest {
 
             val query =
                 "query Account(${'$'}username: String!) { " +
-                    "account(username: ${'$'}username) { id username acct actorUrl } }"
+                    "account(username: ${'$'}username) { " +
+                    "id username acct actorUrl followerCount noteCount feed { url siteUrl } } }"
 
             setBody(
                 """{"query":${JsonPrimitive(query)},"variables":{"username":${JsonPrimitive(username)}}}""",
@@ -314,5 +427,7 @@ class AccountGraphQlTest {
         fun JsonObject.boolean(name: String): Boolean = getValue(name).jsonPrimitive.boolean
 
         fun JsonObject.long(name: String): Long = getValue(name).jsonPrimitive.content.toLong()
+
+        fun JsonObject.int(name: String): Int = getValue(name).jsonPrimitive.content.toInt()
     }
 }

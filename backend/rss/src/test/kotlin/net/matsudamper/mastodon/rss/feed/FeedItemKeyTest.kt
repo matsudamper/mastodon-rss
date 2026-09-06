@@ -14,24 +14,24 @@ class FeedItemKeyTest {
     fun `id があれば id を使う`() {
         val key = FeedItemKey.of(feedUrl, item(id = "tag:example.com,2024:1", link = "https://example.com/1"))
 
-        assertEquals("tag:example.com,2024:1", key.value)
-        assertEquals(FeedItemKey.Source.ID, key.source)
+        assertEquals("tag:example.com,2024:1", key.dedupeKey)
+        assertEquals(FeedItemKey.Source.ID, key.keySource)
     }
 
     @Test
     fun `id が無ければ link を使う`() {
         val key = FeedItemKey.of(feedUrl, item(link = "https://example.com/1"))
 
-        assertEquals("https://example.com/1", key.value)
-        assertEquals(FeedItemKey.Source.LINK, key.source)
+        assertEquals("https://example.com/1", key.dedupeKey)
+        assertEquals(FeedItemKey.Source.LINK, key.keySource)
     }
 
     @Test
     fun `id も link も無ければ URL と題名のハッシュを使う`() {
         val key = FeedItemKey.of(feedUrl, item(title = "記事の題名"))
 
-        assertEquals(FeedItemKey.Source.HASH, key.source)
-        assertEquals(64, key.value.length, "SHA-256 の 16 進表記になっていない: ${key.value}")
+        assertEquals(FeedItemKey.Source.HASH, key.keySource)
+        assertEquals(64, key.dedupeKey.length, "SHA-256 の 16 進表記になっていない: ${key.dedupeKey}")
         // 同じ入力からは同じ鍵が出る
         assertEquals(key, FeedItemKey.of(feedUrl, item(title = "記事の題名")))
     }
@@ -57,7 +57,7 @@ class FeedItemKeyTest {
         val first = FeedItemKey.of(feedUrl, item(summary = FeedContent("本文 1", FeedContent.Type.TEXT)))
         val second = FeedItemKey.of(feedUrl, item(summary = FeedContent("本文 2", FeedContent.Type.TEXT)))
 
-        assertEquals(FeedItemKey.Source.HASH, first.source)
+        assertEquals(FeedItemKey.Source.HASH, first.keySource)
         assertNotEquals(first, second)
     }
 
@@ -65,7 +65,7 @@ class FeedItemKeyTest {
     fun `空白だけの id は無いものとして扱う`() {
         val key = FeedItemKey.of(feedUrl, item(id = "   ", link = "https://example.com/1"))
 
-        assertEquals(FeedItemKey.Source.LINK, key.source)
+        assertEquals(FeedItemKey.Source.LINK, key.keySource)
     }
 
     @Test

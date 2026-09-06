@@ -14,6 +14,9 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountFailureReason
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailureReason
@@ -27,6 +30,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
+import net.matsudamper.mastodon.rss.graphql.model.QlDeleteAccountQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlDeleteFeedItemsQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlDeleteNoteQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPostFeedItemsQuery
@@ -122,6 +126,33 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
+    override fun deleteAccount(
+        adminMutation: QlAdminMutation,
+        query: QlDeleteAccountQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminDeleteAccountResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val result = when (val deleted = diContainer.accountService.delete(query.username)) {
+                AccountService.DeleteResult.Success -> QlAdminDeleteAccountResult(failure = null)
+
+                is AccountService.DeleteResult.Failure -> QlAdminDeleteAccountResult(
+                    failure = QlAdminDeleteAccountFailure(
+                        reason = when (deleted.reason) {
+                            AccountService.DeleteFailure.UNKNOWN_ACCOUNT ->
+                                QlAdminDeleteAccountFailureReason.UNKNOWN_ACCOUNT
+                        },
+                    ),
+                )
+            }
+
+            DataFetcherResult.Builder(result).build()
+        }
+    }
+
     /**
      * 配信の成否は投稿の成否と別に返す。相手のサーバーが受け取らなくても
      * こちらの記録は残るので、どちらも分かる形にしないと画面で説明できない
@@ -148,7 +179,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                             contentHtml = posted.published.contentHtml,
                             publishedAt = posted.published.publishedAt.epochSecond,
                         ),
-                        deliveryTargets = posted.published.targets,
+                        deliveryTargets = posted.published.deliveryAttemptCount,
                         delivered = posted.published.delivered,
                         failure = null,
                     )

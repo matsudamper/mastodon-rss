@@ -57,6 +57,17 @@ interface FollowerRepository {
     ): Boolean
 
     /**
+     * こちらのアカウントのフォローを全部消す。アカウントを消すときに使う。
+     *
+     * `Accept` を返せていないものも消える。`followers.username` はアカウントを
+     * 参照していないので外部キーでは消えず、残すと同じ名前で作り直したアカウントを
+     * 前のフォロワーがフォローしている状態になる。
+     *
+     * @return 消えた件数
+     */
+    fun removeAccount(username: String): Int
+
+    /**
      * 相手のアクターごと消す。`Delete{Actor}` で呼ぶ。
      *
      * こちらのどのアカウントをフォローしていたかに関わらず全部消える。

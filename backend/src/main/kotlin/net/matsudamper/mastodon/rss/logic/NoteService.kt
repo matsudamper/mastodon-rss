@@ -107,6 +107,26 @@ class NoteService(
         )
     }
 
+    fun note(
+        username: String,
+        publicId: PublicNoteId,
+    ): StoredNote? {
+        val urls = directory.resolve(username) ?: return null
+        return notes.find(MastodonPublicNoteId(publicId.value))?.takeIf { it.username == urls.username }
+    }
+
+    fun noteCounts(usernames: Set<String>): Map<String, Long> {
+        if (usernames.isEmpty()) return emptyMap()
+
+        val resolved = directory.resolve(usernames)
+        val counts = notes.counts(resolved.values.map { it.username }.toSet())
+
+        return usernames.associateWith { username ->
+            val urls = resolved[username] ?: return@associateWith 0L
+            counts[urls.username] ?: 0L
+        }
+    }
+
     /**
      * @param nextPosition 次のページを取るときに渡す位置。null なら最後のページ
      */
