@@ -544,6 +544,11 @@ private fun FeedCard(feed: AdminAccountScreenUiState.Feed) {
                 feed.format?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
             }
             Text(feed.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                feed.lastFetchedText,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 feed.postedItems?.takeIf { it.isNotEmpty() }?.let { FeedItemSummary("今回投稿した記事 ${it.size} 件", it) }
