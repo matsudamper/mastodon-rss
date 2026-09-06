@@ -11,6 +11,8 @@ class YouTubeFeedResolverTest {
     private val channelId = "UCXuqSBlHAE6Xw-yeJA0Tunw"
     private val channelFeed = "https://www.youtube.com/feeds/videos.xml?channel_id=$channelId"
     private val playlistId = "PLIivdWyY5sqIij_cgINUHZDMnGjVx3rxi"
+    private val channelPage = YouTubeFeedSource.NeedsPageLookup.Page.CHANNEL
+    private val videoPage = YouTubeFeedSource.NeedsPageLookup.Page.VIDEO
 
     @Test
     fun `チャンネルの URL からフィードを作る`() {
@@ -70,14 +72,14 @@ class YouTubeFeedResolverTest {
     fun `ハンドルはページを引かないと分からない`() {
         val source = YouTubeFeedResolver.resolve("https://www.youtube.com/@LinusTechTips")
 
-        assertEquals(YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/@LinusTechTips"), source)
+        assertEquals(channelLookup("https://www.youtube.com/@LinusTechTips"), source)
     }
 
     @Test
     fun `ハンドルの後ろにタブが付いていても落とす`() {
         val source = YouTubeFeedResolver.resolve("https://www.youtube.com/@LinusTechTips/videos")
 
-        assertEquals(YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/@LinusTechTips"), source)
+        assertEquals(channelLookup("https://www.youtube.com/@LinusTechTips"), source)
     }
 
     @Test
@@ -85,28 +87,28 @@ class YouTubeFeedResolverTest {
         // ?user=<名前> のフィードは、同じ綴りの別チャンネルを 200 で返すことがある
         val source = YouTubeFeedResolver.resolve("https://www.youtube.com/user/LinusTechTips")
 
-        assertEquals(YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/user/LinusTechTips"), source)
+        assertEquals(channelLookup("https://www.youtube.com/user/LinusTechTips"), source)
     }
 
     @Test
     fun `旧ユーザー名のフィード URL を貼られてもページを引き直す`() {
         val source = YouTubeFeedResolver.resolve("https://www.youtube.com/feeds/videos.xml?user=LinusTechTips")
 
-        assertEquals(YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/user/LinusTechTips"), source)
+        assertEquals(channelLookup("https://www.youtube.com/user/LinusTechTips"), source)
     }
 
     @Test
     fun `カスタム URL もページを引く`() {
         val source = YouTubeFeedResolver.resolve("https://www.youtube.com/c/LinusTechTips")
 
-        assertEquals(YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/c/LinusTechTips"), source)
+        assertEquals(channelLookup("https://www.youtube.com/c/LinusTechTips"), source)
     }
 
     @Test
     fun `動画の URL は動画のページを引く`() {
         val source = YouTubeFeedResolver.resolve("https://www.youtube.com/watch?v=XiSMWonFuQQ")
 
-        assertEquals(YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/watch?v=XiSMWonFuQQ"), source)
+        assertEquals(videoLookup("https://www.youtube.com/watch?v=XiSMWonFuQQ"), source)
     }
 
     @Test
@@ -114,7 +116,7 @@ class YouTubeFeedResolverTest {
         // list が付いていても、貼った人が見ていたのは v の動画
         val source = YouTubeFeedResolver.resolve("https://www.youtube.com/watch?v=XiSMWonFuQQ&list=PLIivdWyY5sqIij")
 
-        assertEquals(YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/watch?v=XiSMWonFuQQ"), source)
+        assertEquals(videoLookup("https://www.youtube.com/watch?v=XiSMWonFuQQ"), source)
     }
 
     @Test
@@ -126,7 +128,7 @@ class YouTubeFeedResolverTest {
 
     @Test
     fun `短縮 URL と shorts と埋め込みも動画として扱う`() {
-        val expected = YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/watch?v=XiSMWonFuQQ")
+        val expected = videoLookup("https://www.youtube.com/watch?v=XiSMWonFuQQ")
 
         assertEquals(expected, YouTubeFeedResolver.resolve("https://youtu.be/XiSMWonFuQQ"))
         assertEquals(expected, YouTubeFeedResolver.resolve("https://youtu.be/XiSMWonFuQQ?si=abcdef"))
@@ -165,7 +167,7 @@ class YouTubeFeedResolverTest {
                 "https://www.youtube.com/attribution_link?a=abc&u=%2Fwatch%3Fv%3DXiSMWonFuQQ%26feature%3Dshare",
             )
 
-        assertEquals(YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/watch?v=XiSMWonFuQQ"), source)
+        assertEquals(videoLookup("https://www.youtube.com/watch?v=XiSMWonFuQQ"), source)
     }
 
     @Test
@@ -180,11 +182,11 @@ class YouTubeFeedResolverTest {
     fun `名前だけのカスタム URL もページを引く`() {
         // /c/ を挟まない旧来の形
         assertEquals(
-            YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/LinusTechTips"),
+            channelLookup("https://www.youtube.com/LinusTechTips"),
             YouTubeFeedResolver.resolve("https://www.youtube.com/LinusTechTips"),
         )
         assertEquals(
-            YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/LinusTechTips"),
+            channelLookup("https://www.youtube.com/LinusTechTips"),
             YouTubeFeedResolver.resolve("https://www.youtube.com/LinusTechTips/videos"),
         )
     }
@@ -254,32 +256,48 @@ class YouTubeFeedResolverTest {
             """<link rel="alternate" type="application/rss+xml" title="RSS" """ +
                 """href="https://www.youtube.com/feeds/videos.xml?channel_id=$channelId">"""
 
-        assertEquals(channelId, YouTubeFeedResolver.channelIdFromPageHtml(html))
+        assertEquals(channelId, YouTubeFeedResolver.channelIdFromPageHtml(channelPage, html))
     }
 
     @Test
     fun `canonical からチャンネル ID を拾う`() {
         val html = """<link rel="canonical" href="https://www.youtube.com/channel/$channelId">"""
 
-        assertEquals(channelId, YouTubeFeedResolver.channelIdFromPageHtml(html))
+        assertEquals(channelId, YouTubeFeedResolver.channelIdFromPageHtml(channelPage, html))
     }
 
     @Test
-    fun `埋め込まれた JSON からチャンネル ID を拾う`() {
-        assertEquals(channelId, YouTubeFeedResolver.channelIdFromPageHtml("""{"externalId":"$channelId"}"""))
-        assertEquals(channelId, YouTubeFeedResolver.channelIdFromPageHtml("""{"channelId":"$channelId"}"""))
-        // JSON の中の URL はエスケープされていることがある
+    fun `動画のページは埋め込まれた JSON からチャンネル ID を拾う`() {
+        assertEquals(channelId, YouTubeFeedResolver.channelIdFromPageHtml(videoPage, """{"externalId":"$channelId"}"""))
+        assertEquals(channelId, YouTubeFeedResolver.channelIdFromPageHtml(videoPage, """{"channelId":"$channelId"}"""))
+    }
+
+    @Test
+    fun `JSON の中の URL はエスケープされていても拾う`() {
         assertEquals(
             channelId,
-            YouTubeFeedResolver.channelIdFromPageHtml("""{"url":"https:\/\/www.youtube.com\/channel\/$channelId"}"""),
+            YouTubeFeedResolver.channelIdFromPageHtml(channelPage, """{"url":"https:\/\/www.youtube.com\/channel\/$channelId"}"""),
         )
     }
 
     @Test
+    fun `チャンネルのページは自分で名乗っていない ID を拾わない`() {
+        // 一覧のページには並んでいる動画の投稿者の channelId も入っている。
+        // 拾うと、貼られたものと関係の無いチャンネルを購読することになる
+        assertNull(YouTubeFeedResolver.channelIdFromPageHtml(channelPage, """{"channelId":"$channelId"}"""))
+    }
+
+    @Test
     fun `チャンネル ID が無ければ拾えない`() {
-        assertNull(YouTubeFeedResolver.channelIdFromPageHtml("<html><body>同意画面</body></html>"))
-        assertNull(YouTubeFeedResolver.channelIdFromPageHtml(""))
+        assertNull(YouTubeFeedResolver.channelIdFromPageHtml(channelPage, "<html><body>同意画面</body></html>"))
+        assertNull(YouTubeFeedResolver.channelIdFromPageHtml(channelPage, ""))
     }
 
     private fun feedUrlOf(input: String): String? = (YouTubeFeedResolver.resolve(input) as? YouTubeFeedSource.Feed)?.url
+
+    private fun channelLookup(pageUrl: String): YouTubeFeedSource.NeedsPageLookup =
+        YouTubeFeedSource.NeedsPageLookup(pageUrl, YouTubeFeedSource.NeedsPageLookup.Page.CHANNEL)
+
+    private fun videoLookup(pageUrl: String): YouTubeFeedSource.NeedsPageLookup =
+        YouTubeFeedSource.NeedsPageLookup(pageUrl, YouTubeFeedSource.NeedsPageLookup.Page.VIDEO)
 }

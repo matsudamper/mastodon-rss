@@ -70,7 +70,11 @@ object YouTubeFeedResolver {
      * YouTube 自身のページに使われていて、チャンネルの名前にはならないパス。
      *
      * 先頭が名前だけの `/<名前>` は旧来のカスタム URL だが、`/results` や `/feed` のような
-     * 自前のページと綴りの上では区別が付かない。ここに挙げたものは名前として読まない。
+     * 自前のページと綴りの上では区別が付かない。ここに挙げたものは引きに行かない。
+     *
+     * これは無駄な取得を省くためのもので、正しさはここでは担保していない。
+     * 挙げ漏らした自前のページを引いてしまっても、チャンネルのページは
+     * [channelIdFromPageHtml] で自分をチャンネルとして名乗ったものだけを通す。
      */
     private val reservedPaths =
         setOf(
@@ -134,13 +138,13 @@ object YouTubeFeedResolver {
 
             first.startsWith("@") -> {
                 if (!handlePattern.matches(first)) return null
-                YouTubeFeedSource.NeedsPageLookup("$SITE/$first")
+                channelPageLookup("$SITE/$first")
             }
 
             // カスタム URL と旧ユーザー名。どちらも綴りからは ID が分からない
             first == "c" || first == "user" -> {
                 if (second == null || !namePattern.matches(second)) return null
-                YouTubeFeedSource.NeedsPageLookup("$SITE/$first/$second")
+                channelPageLookup("$SITE/$first/$second")
             }
 
             first == "playlist" -> {
@@ -175,7 +179,7 @@ object YouTubeFeedResolver {
 
             // `/c/` を挟まない旧来のカスタム URL。綴りからは ID が分からない
             first.lowercase() !in reservedPaths && namePattern.matches(first) -> {
-                YouTubeFeedSource.NeedsPageLookup("$SITE/$first")
+                channelPageLookup("$SITE/$first")
             }
 
             else -> {
@@ -197,26 +201,44 @@ object YouTubeFeedResolver {
     }
 
     /**
-     * チャンネルや動画のページの HTML からチャンネル ID を抜き出す。
+     * 取ってきたページの HTML からチャンネル ID を抜き出す。
      *
-     * [YouTubeFeedSource.NeedsPageLookup] を受け取った側が、ページを取ってから呼ぶ。
-     * HTML を組み立て直さずに正規表現で拾うのは、相手が YouTube の描画する巨大な
-     * ページで、構造が変わっても ID の書き方は変わりにくいため。
+     * [YouTubeFeedSource.NeedsPageLookup] を受け取った側が、ページを取ってから
+     * [YouTubeFeedSource.NeedsPageLookup.page] と一緒に呼ぶ。HTML を組み立て直さずに
+     * 正規表現で拾うのは、相手が YouTube の描画する巨大なページで、構造が変わっても
+     * ID の書き方は変わりにくいため。
      *
-     * 探す順は次のとおりで、どれも実際のページで確認している。
+     * 手掛かりは次の 3 つで、どれも実際のページで確認している。
      *
      * 1. ページが自分で名乗っているフィードの URL（`rel="alternate"` の RSS リンク）
      * 2. `rel="canonical"` と `og:url` の `/channel/<id>`
      * 3. 埋め込まれた JSON の `externalId` と `channelId`
      *
-     * 3 は動画のページ用。チャンネルのページなら 1 で当たる。
+     * 1 と 2 はそのページ自身が名乗ったチャンネルなので、どちらのページでも信じてよい。
+     * 3 を使うのは動画のページだけにする。一覧のページには並んでいる動画の投稿者の
+     * `channelId` も入っていて、チャンネルのつもりで引いたページでこれを拾うと、
+     * 貼られたものと関係の無いチャンネルを黙って購読することになる。
+     *
      * 見つからなければ null を返す。ページの取得に失敗した（同意画面やレート制限に
      * 飛ばされた）場合もここに落ちるので、呼び出し側は取得の成否と分けて扱わないこと。
      */
-    fun channelIdFromPageHtml(html: String): String? =
-        feedLinkInPage.find(html)?.groupValues?.get(1)
-            ?: channelPathInPage.find(html)?.groupValues?.get(1)
-            ?: channelIdInJson.find(html)?.groupValues?.get(1)
+    fun channelIdFromPageHtml(page: YouTubeFeedSource.NeedsPageLookup.Page, html: String): String? {
+        val declared =
+            feedLinkInPage.find(html)?.groupValues?.get(1)
+                ?: channelPathInPage.find(html)?.groupValues?.get(1)
+        if (declared != null) return declared
+
+        return when (page) {
+            YouTubeFeedSource.NeedsPageLookup.Page.VIDEO -> channelIdInJson.find(html)?.groupValues?.get(1)
+            YouTubeFeedSource.NeedsPageLookup.Page.CHANNEL -> null
+        }
+    }
+
+    private fun channelPageLookup(pageUrl: String): YouTubeFeedSource.NeedsPageLookup =
+        YouTubeFeedSource.NeedsPageLookup(
+            pageUrl = pageUrl,
+            page = YouTubeFeedSource.NeedsPageLookup.Page.CHANNEL,
+        )
 
     private fun fromFeedQuery(query: Map<String, String>): YouTubeFeedSource? {
         query["channel_id"]?.let { return channelFeed(it) }
@@ -224,7 +246,7 @@ object YouTubeFeedResolver {
         // 旧ユーザー名のフィードは当てにならないので、ページから引き直す
         query["user"]?.let {
             if (!namePattern.matches(it)) return null
-            return YouTubeFeedSource.NeedsPageLookup("$SITE/user/$it")
+            return channelPageLookup("$SITE/user/$it")
         }
         return null
     }
@@ -249,7 +271,10 @@ object YouTubeFeedResolver {
 
     private fun videoLookup(videoId: String): YouTubeFeedSource? {
         if (!videoIdPattern.matches(videoId)) return null
-        return YouTubeFeedSource.NeedsPageLookup("$WATCH_ENDPOINT?v=$videoId")
+        return YouTubeFeedSource.NeedsPageLookup(
+            pageUrl = "$WATCH_ENDPOINT?v=$videoId",
+            page = YouTubeFeedSource.NeedsPageLookup.Page.VIDEO,
+        )
     }
 
     /**
@@ -345,12 +370,21 @@ sealed interface YouTubeFeedSource {
     /**
      * チャンネル ID がページの中にしか無い状態。
      *
-     * [pageUrl] を取得して [YouTubeFeedResolver.channelIdFromPageHtml] に渡し、
+     * [pageUrl] を取得して [page] と一緒に [YouTubeFeedResolver.channelIdFromPageHtml] に渡し、
      * 得られた ID を [YouTubeFeedResolver.feedUrlForChannel] に入れるとフィードの URL になる。
+     *
+     * @param pageUrl 取得するページの URL
+     * @param page 何のページとして引くか。ID を信じてよい手掛かりが変わる
      */
     data class NeedsPageLookup(
         val pageUrl: String,
-    ) : YouTubeFeedSource
+        val page: Page,
+    ) : YouTubeFeedSource {
+        enum class Page {
+            CHANNEL,
+            VIDEO,
+        }
+    }
 
     enum class Kind {
         CHANNEL,
