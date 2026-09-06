@@ -369,6 +369,7 @@ class FeedRepositoryTest {
         title = null,
         siteUrl = null,
         format = null,
+        iconUrl = null,
         pollIntervalSeconds = 900,
     )
 
