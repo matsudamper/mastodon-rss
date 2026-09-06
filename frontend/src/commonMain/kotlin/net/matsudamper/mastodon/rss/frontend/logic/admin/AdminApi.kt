@@ -216,7 +216,10 @@ class AdminApi(
     }
 
     suspend fun previewFeed(url: String): AdminFeedPreviewResult {
-        val response = client.query(AdminPreviewFeedQuery(url)).execute()
+        // 配信元を取り直す操作なので、前に見た内容を返さない
+        val response = client.query(AdminPreviewFeedQuery(url))
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .execute()
         val result = response.data?.admin?.previewFeed
             ?: return AdminFeedPreviewResult.Failure(response.failureMessage())
 
