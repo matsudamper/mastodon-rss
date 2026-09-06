@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.actor
 
+import java.time.Duration
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -36,9 +37,9 @@ fun Route.actorIconRoutes(
             return@get
         }
 
-        // 配信元に毎回取りに行かないよう、見に来た側に持たせる。
-        // 差し替えてもすぐには反映されないが、頻繁に変わるものではない
-        call.response.header(HttpHeaders.CacheControl, CACHE_CONTROL)
+        // 持たせる時間は配信元の言い分に合わせる。ここで長く持たせると、
+        // こちらが取り直した後も見に来た側には古いものが出続ける
+        call.response.header(HttpHeaders.CacheControl, icon.cacheControl())
         call.response.header(CONTENT_TYPE_OPTIONS_HEADER, CONTENT_TYPE_OPTIONS)
         call.respondBytes(bytes = icon.bytes, contentType = icon.contentType)
     }
@@ -63,12 +64,20 @@ interface ActorIcons {
  * プロフィール画像の中身。
  *
  * @param contentType 取得元が名乗った種類。そのまま返す
+ * @param cacheFor 見に来た側に持たせてよい時間。0 なら持たせない
  */
 class ActorIcon(
     val bytes: ByteArray,
     val contentType: ContentType,
+    val cacheFor: Duration,
 )
 
-private const val CACHE_CONTROL = "public, max-age=3600"
+private fun ActorIcon.cacheControl(): String {
+    val seconds = cacheFor.seconds
+    if (seconds <= 0) return NO_STORE
+    return "public, max-age=$seconds"
+}
+
+private const val NO_STORE = "no-store"
 private const val CONTENT_TYPE_OPTIONS_HEADER = "X-Content-Type-Options"
 private const val CONTENT_TYPE_OPTIONS = "nosniff"

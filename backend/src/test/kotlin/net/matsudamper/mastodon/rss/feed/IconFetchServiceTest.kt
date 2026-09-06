@@ -123,6 +123,25 @@ class IconFetchServiceTest {
         }
 
     @Test
+    fun `長すぎる max-age は 1 日で切る`() =
+        runTest {
+            val engine = MockEngine {
+                respond(
+                    content = "PNG",
+                    headers = headersOf(
+                        "Content-Type" to listOf("image/png"),
+                        // そのまま足すと期限の計算が溢れる大きさ
+                        "Cache-Control" to listOf("public, max-age=9000000000000000000"),
+                    ),
+                )
+            }
+
+            val result = serviceOf(engine).fetch("https://example.com/icon.png")
+
+            assertEquals(Duration.ofDays(1), assertIs<IconFetchService.FetchResult.Success>(result).freshFor)
+        }
+
+    @Test
     fun `no-store のときは持ち越さない`() =
         runTest {
             val engine = MockEngine {

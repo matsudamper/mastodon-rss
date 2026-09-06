@@ -99,14 +99,16 @@ class IconFetchService(
     /**
      * 配信元が言う「取り直さなくてよい時間」。言っていなければ null。
      *
-     * `no-store` と `no-cache` は毎回取り直せという意味なので 0 にする
+     * `no-store` と `no-cache` は毎回取り直せという意味なので 0 にする。
+     * 長い側は [MAX_FRESH_FOR] で切る。桁の大きい値をそのまま足すと期限の計算が
+     * 溢れるうえ、事実上取り直さなくなる
      */
     private fun HttpResponse.cacheControlMaxAge(): Duration? {
         val directives = headers[HttpHeaders.CacheControl]?.lowercase() ?: return null
         if (directives.contains("no-store") || directives.contains("no-cache")) return Duration.ZERO
 
         val seconds = MAX_AGE.find(directives)?.groupValues?.get(1)?.toLongOrNull() ?: return null
-        return Duration.ofSeconds(seconds)
+        return Duration.ofSeconds(seconds).coerceAtMost(MAX_FRESH_FOR)
     }
 
     private fun HttpResponse.redirectLocation(): String? {
@@ -176,6 +178,7 @@ class IconFetchService(
         private const val MAX_HOPS = 4
         private val REDIRECT_STATUS_RANGE = 300..399
         private val MAX_AGE = Regex("max-age\\s*=\\s*(\\d+)")
+        private val MAX_FRESH_FOR: Duration = Duration.ofDays(1)
 
         private val ALLOWED_CONTENT_TYPES = setOf(
             ContentType.Image.PNG,

@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.actor
 
+import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import io.ktor.client.request.get
@@ -31,7 +32,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG)
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, cacheFor = Duration.ofSeconds(60))
                 },
             )
 
@@ -40,8 +41,23 @@ class ActorIconRoutesTest {
             assertEquals(HttpStatusCode.OK, response.status)
             assertEquals(ContentType.Image.PNG, response.contentType()?.withoutParameters())
             assertEquals(png.toList(), response.readRawBytes().toList())
-            assertEquals("public, max-age=3600", response.headers[HttpHeaders.CacheControl])
+            assertEquals("public, max-age=60", response.headers[HttpHeaders.CacheControl])
             assertEquals("nosniff", response.headers["X-Content-Type-Options"])
+        }
+
+    @Test
+    fun `持たせる時間が無いアイコンは持たせない`() =
+        testApplication {
+            installModule(
+                object : ActorIcons {
+                    override suspend fun find(username: String): ActorIcon =
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, cacheFor = Duration.ZERO)
+                },
+            )
+
+            val response = client.get("/users/admin/icon")
+
+            assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
         }
 
     @Test
@@ -62,7 +78,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG)
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, cacheFor = Duration.ofSeconds(60))
                 },
             )
 

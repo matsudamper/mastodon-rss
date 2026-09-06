@@ -60,8 +60,10 @@ class ActorIconService(
     ): ActorIcon? {
         val stored = icons.find(feedId) ?: return null
         if (stored.sourceUrl != source) return null
-        if (stored.expiresAt <= Instant.now()) return null
-        return stored.toActorIcon()
+
+        val cacheFor = Duration.between(Instant.now(), stored.expiresAt)
+        if (cacheFor <= Duration.ZERO) return null
+        return stored.toActorIcon(cacheFor)
     }
 
     private suspend fun refresh(
@@ -74,17 +76,16 @@ class ActorIconService(
             // 配信元が落ちている間だけアイコンが消えるのは、見ている側からは壊れて見える
             return icons.find(feedId)
                 ?.takeIf { it.sourceUrl == source }
-                ?.toActorIcon()
+                ?.toActorIcon(Duration.ZERO)
         }
-
-        val icon = ActorIcon(bytes = fetched.bytes, contentType = fetched.contentType)
 
         // 毎回取り直せと言われているものは置かない。前に置いたものも残さない
         if (fetched.freshFor == Duration.ZERO) {
             discard(feedId)
-            return icon
+            return ActorIcon(bytes = fetched.bytes, contentType = fetched.contentType, cacheFor = Duration.ZERO)
         }
 
+        val freshFor = fetched.freshFor ?: defaultFreshFor
         val now = Instant.now()
         icons.save(
             feedId = feedId,
@@ -93,11 +94,11 @@ class ActorIconService(
                 contentType = fetched.contentType.toString(),
                 path = store.write(feedId = feedId, bytes = fetched.bytes),
                 fetchedAt = now,
-                expiresAt = now.plus(fetched.freshFor ?: defaultFreshFor),
+                expiresAt = now.plus(freshFor),
             ),
         )
 
-        return icon
+        return ActorIcon(bytes = fetched.bytes, contentType = fetched.contentType, cacheFor = freshFor)
     }
 
     private fun discard(feedId: FeedId) {
@@ -109,9 +110,9 @@ class ActorIconService(
     /**
      * 置いてあるものを読む。消えていれば null で、取り直す側に倒れる
      */
-    private fun FeedIcon.toActorIcon(): ActorIcon? {
+    private fun FeedIcon.toActorIcon(cacheFor: Duration): ActorIcon? {
         val bytes = store.read(path) ?: return null
-        return ActorIcon(bytes = bytes, contentType = ContentType.parse(contentType))
+        return ActorIcon(bytes = bytes, contentType = ContentType.parse(contentType), cacheFor = cacheFor)
     }
 
     private companion object {
