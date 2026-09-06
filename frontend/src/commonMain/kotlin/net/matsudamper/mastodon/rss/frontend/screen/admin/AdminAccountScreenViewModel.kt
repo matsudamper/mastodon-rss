@@ -159,13 +159,19 @@ class AdminAccountScreenViewModel(
     }
 
     /**
-     * ダイアログを重ねている間もこの画面は残るので、閉じても作り直されない
+     * ダイアログを重ねている間もこの画面は残るので、閉じても作り直されない。
+     *
+     * 画面ごと作り直すと、投稿や削除が走っている最中にその job まで止めてしまい、
+     * 配信や削除だけ進んで結果を受け取れない状態になる。取り直すのはアカウントだけにする
      */
     private fun reloadWhenAccountChanged() {
         accountChangedJob?.cancel()
         accountChangedJob = viewModelScope.launch {
             AdminAccountUpdates.changedUsernames.collect { changed ->
-                if (changed == username) reload()
+                if (changed != username) return@collect
+                // まだ読み込めていないなら、この後の読み込みが最新を持ってくる
+                if (accountJob == null) return@collect
+                watchAccount()
             }
         }
     }
@@ -204,21 +210,29 @@ class AdminAccountScreenViewModel(
                 }
 
                 if (accountJob == null) {
-                    accountJob = viewModelScope.launch {
-                        api.watchAccount(username).collect { account ->
-                            val previousAccount = viewModelStateFlow.value.loadedAccount
-                            viewModelStateFlow.update { it.copy(account = account) }
+                    watchAccount()
+                }
+            }
+        }
+    }
 
-                            val loadedAccount = (account as? AdminAccountResult.Success)?.account
-                                ?: return@collect
-                            if (previousAccount == null) {
-                                loadNotes()
-                            }
-                            if (loadedAccount.feed != null && previousAccount?.feed == null) {
-                                loadUnpublished(loadedAccount.account.id)
-                            }
-                        }
-                    }
+    /**
+     * アカウントの問い合わせを張り直す。既に張っていれば最新を取り直すことになる
+     */
+    private fun watchAccount() {
+        accountJob?.cancel()
+        accountJob = viewModelScope.launch {
+            api.watchAccount(username).collect { account ->
+                val previousAccount = viewModelStateFlow.value.loadedAccount
+                viewModelStateFlow.update { it.copy(account = account) }
+
+                val loadedAccount = (account as? AdminAccountResult.Success)?.account
+                    ?: return@collect
+                if (previousAccount == null) {
+                    loadNotes()
+                }
+                if (loadedAccount.feed != null && previousAccount?.feed == null) {
+                    loadUnpublished(loadedAccount.account.id)
                 }
             }
         }
