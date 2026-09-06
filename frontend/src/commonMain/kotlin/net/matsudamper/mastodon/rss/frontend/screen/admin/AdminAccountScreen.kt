@@ -428,7 +428,7 @@ private fun AdminNotesPagingFooter(
     content: AdminAccountScreenUiState.Content.Loaded,
     listener: AdminAccountScreenUiState.Listener,
 ) {
-    if (!content.canLoadMore && content.notesError == null) return
+    if (!content.loadMoreVisible && content.notesError == null) return
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -447,7 +447,7 @@ private fun AdminNotesPagingFooter(
             }
         }
 
-        if (content.canLoadMore) {
+        if (content.loadMoreVisible) {
             if (content.loadingMore) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
             } else {
@@ -557,7 +557,7 @@ private fun FeedCard(feed: AdminAccountScreenUiState.Feed, listener: AdminAccoun
                 if (feed.unpublishedItems.isNotEmpty()) FeedItemSummary("未投稿の記事 ${feed.unpublishedItems.size} 件", feed.unpublishedItems)
                 feed.unpublishedError?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    Button(onClick = { listener.onClickPostLatest() }, enabled = !feed.postingUnpublished) {
+                    Button(onClick = { listener.onClickPostLatest() }, enabled = feed.postLatestButtonEnabled) {
                         Text(if (feed.postingUnpublished) "投稿中" else "最新情報を投稿")
                     }
                 }
@@ -591,7 +591,7 @@ private fun FeedItemSummary(countText: String, items: List<AdminAccountScreenUiS
 @Composable
 private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog, listener: AdminAccountScreenUiState.Listener) {
     AlertDialog(
-        onDismissRequest = listener::onDismissDeleteNote,
+        onDismissRequest = { if (dialog.closeEnabled) listener.onDismissDeleteNote() },
         title = { Text("投稿を削除する") },
         text = {
             Text(
@@ -600,7 +600,7 @@ private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog,
             )
         },
         confirmButton = {
-            TextButton(onClick = { listener.onConfirmDeleteNote(dialog.hasSourceArticle) }, enabled = !dialog.deleting) {
+            TextButton(onClick = { listener.onConfirmDeleteNote(dialog.hasSourceArticle) }, enabled = dialog.confirmButtonEnabled) {
                 Text(
                     if (dialog.deleting) {
                         "削除中"
@@ -614,8 +614,8 @@ private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog,
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (dialog.hasSourceArticle) TextButton(onClick = { listener.onConfirmDeleteNote(false) }, enabled = !dialog.deleting) { Text("投稿だけ削除") }
-                TextButton(onClick = listener::onDismissDeleteNote, enabled = !dialog.deleting) { Text("やめる") }
+                if (dialog.hasSourceArticle) TextButton(onClick = { listener.onConfirmDeleteNote(false) }, enabled = dialog.deleteNoteOnlyButtonEnabled) { Text("投稿だけ削除") }
+                TextButton(onClick = listener::onDismissDeleteNote, enabled = dialog.closeEnabled) { Text("やめる") }
             }
         },
     )
@@ -638,12 +638,12 @@ private fun DeleteAccountDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = listener::onConfirmDeleteAccount, enabled = dialog.canConfirm) {
+            TextButton(onClick = listener::onConfirmDeleteAccount, enabled = dialog.confirmButtonEnabled) {
                 Text(dialog.confirmLabel)
             }
         },
         dismissButton = {
-            TextButton(onClick = listener::onDismissDeleteAccount, enabled = dialog.canDismiss) { Text("やめる") }
+            TextButton(onClick = listener::onDismissDeleteAccount, enabled = dialog.closeEnabled) { Text("やめる") }
         },
     )
 }
@@ -655,7 +655,7 @@ private fun PostDialog(
     onDismissRequest: () -> Unit,
 ) {
     AlertDialog(
-        onDismissRequest = { if (!post.submitting) onDismissRequest() },
+        onDismissRequest = { if (post.closeEnabled) onDismissRequest() },
         title = { Text("新しい投稿") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -663,7 +663,7 @@ private fun PostDialog(
                 OutlinedTextField(
                     value = post.body,
                     onValueChange = listener::onBodyChanged,
-                    enabled = !post.submitting,
+                    enabled = post.bodyInputEnabled,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("本文") },
                     minLines = 5,
@@ -679,12 +679,12 @@ private fun PostDialog(
             }
         },
         confirmButton = {
-            Button(onClick = listener::onClickPost, enabled = post.canSubmit) {
+            Button(onClick = listener::onClickPost, enabled = post.postButtonEnabled) {
                 Text(if (post.submitting) "配信中" else "投稿する")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismissRequest, enabled = !post.submitting) { Text("閉じる") }
+            TextButton(onClick = onDismissRequest, enabled = post.closeEnabled) { Text("閉じる") }
         },
     )
 }
@@ -750,7 +750,7 @@ private fun NoteSourceArticle(article: AdminAccountScreenUiState.SourceArticle) 
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                OutlinedButton(onClick = article.listener::onClickDelete, enabled = !article.deleting) {
+                OutlinedButton(onClick = article.listener::onClickDelete, enabled = article.deleteButtonEnabled) {
                     Text(if (article.deleting) "記事を削除中" else "記事を削除")
                 }
             }

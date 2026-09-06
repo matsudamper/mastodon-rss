@@ -30,7 +30,7 @@ data class AdminAccountScreenUiState(
          * @param deleteAccountDialog アカウントを消す前の確認。出していなければ null
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
          * @param notesLoading 一覧を取っている最中
-         * @param canLoadMore さらに古い投稿があるか
+         * @param loadMoreVisible 「もっと見る」を出すか
          */
         data class Loaded(
             val account: Account,
@@ -41,7 +41,7 @@ data class AdminAccountScreenUiState(
             val deleteAccountDialog: DeleteAccountDialog?,
             val notesError: String?,
             val notesLoading: Boolean,
-            val canLoadMore: Boolean,
+            val loadMoreVisible: Boolean,
             val loadingMore: Boolean,
         ) : Content
 
@@ -71,7 +71,9 @@ data class AdminAccountScreenUiState(
             val postedItems: List<UnpublishedItem>?,
             val postingUnpublished: Boolean,
             val unpublishedError: String?,
-        ) : Feed
+        ) : Feed {
+            val postLatestButtonEnabled: Boolean get() = !postingUnpublished
+        }
 
         /**
          * 追加はダイアログの画面に分けてあるので、ここに置くのは入口だけ
@@ -90,7 +92,9 @@ data class AdminAccountScreenUiState(
         val publishedAt: String?,
         val deleting: Boolean,
         val listener: SourceArticleListener,
-    )
+    ) {
+        val deleteButtonEnabled: Boolean get() = !deleting
+    }
 
     @Immutable
     interface SourceArticleListener {
@@ -117,7 +121,9 @@ data class AdminAccountScreenUiState(
         val result: PostResult?,
         val error: String?,
     ) {
-        val canSubmit: Boolean get() = !submitting && body.isNotBlank()
+        val bodyInputEnabled: Boolean get() = !submitting
+        val postButtonEnabled: Boolean get() = !submitting && body.isNotBlank()
+        val closeEnabled: Boolean get() = !submitting
     }
 
     /**
@@ -129,13 +135,17 @@ data class AdminAccountScreenUiState(
     data class DeleteNoteDialog(
         val hasSourceArticle: Boolean,
         val deleting: Boolean,
-    )
+    ) {
+        val confirmButtonEnabled: Boolean get() = !deleting
+        val deleteNoteOnlyButtonEnabled: Boolean get() = !deleting
+        val closeEnabled: Boolean get() = !deleting
+    }
 
     data class DeleteAccountDialog(
         val message: String,
         val confirmLabel: String,
-        val canConfirm: Boolean,
-        val canDismiss: Boolean,
+        val confirmButtonEnabled: Boolean,
+        val closeEnabled: Boolean,
         val errorMessage: String?,
     )
 

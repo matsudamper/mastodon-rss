@@ -657,7 +657,7 @@ private fun NotesPagingFooter(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
 ) {
-    if (!content.canLoadMore && content.notesError == null) return
+    if (!content.loadMoreVisible && content.notesError == null) return
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -676,7 +676,7 @@ private fun NotesPagingFooter(
             }
         }
 
-        if (content.canLoadMore) {
+        if (content.loadMoreVisible) {
             if (content.loadingMore) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
             } else {

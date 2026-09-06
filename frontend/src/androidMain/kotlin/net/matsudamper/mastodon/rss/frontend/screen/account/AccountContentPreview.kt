@@ -34,7 +34,7 @@ private fun AccountContentPreview() {
                     ),
                     notesError = null,
                     notesLoading = false,
-                    canLoadMore = true,
+                    loadMoreVisible = true,
                     loadingMore = false,
                 ),
                 listener = AndroidPreviewAccountListener,

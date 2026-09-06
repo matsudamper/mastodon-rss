@@ -629,7 +629,7 @@ class AdminAccountScreenViewModel(
                     deleteAccountDialog = state.deleteAccountDialogUiState(),
                     notesError = state.notesError,
                     notesLoading = state.notesLoading,
-                    canLoadMore = state.cursor != null,
+                    loadMoreVisible = state.cursor != null,
                     loadingMore = state.loadingMore,
                 )
             }
@@ -756,8 +756,8 @@ class AdminAccountScreenViewModel(
                 append("消した後は同じ名前と同じフィードで登録し直せる。")
             },
             confirmLabel = if (deletingAccount) "削除中" else "削除",
-            canConfirm = !deletingAccount,
-            canDismiss = !deletingAccount,
+            confirmButtonEnabled = !deletingAccount,
+            closeEnabled = !deletingAccount,
             errorMessage = deleteAccountError,
         )
     }
