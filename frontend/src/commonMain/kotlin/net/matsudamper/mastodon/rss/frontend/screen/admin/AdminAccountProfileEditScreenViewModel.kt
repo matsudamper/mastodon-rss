@@ -39,8 +39,8 @@ class AdminAccountProfileEditScreenViewModel(
                 is AdminAccountResult.Success -> state.update {
                     it.copy(
                         loaded = account.account != null,
-                        displayName = account.account?.displayName.orEmpty(),
-                        summary = account.account?.summary.orEmpty(),
+                        displayName = account.account?.account?.displayName.orEmpty(),
+                        summary = account.account?.account?.summary.orEmpty(),
                         feedUrl = account.account?.feed?.url,
                         errorMessage = if (account.account == null) "このアカウントは無い" else null,
                     )

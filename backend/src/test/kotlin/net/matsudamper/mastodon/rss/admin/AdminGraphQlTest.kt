@@ -248,12 +248,12 @@ class AdminGraphQlTest {
                 displayName = "フィード 1",
                 summary = "説明",
                 token = token,
-            ).updateAccountProfileResult().obj("adminAccount")
+            ).updateAccountProfileResult().obj("adminAccount").obj("account")
 
             assertEquals("フィード 1", updated.string("displayName"))
             assertEquals("説明", updated.string("summary"))
 
-            val queried = queryAccount("feed1", token).admin().obj("adminAccount")
+            val queried = queryAccount("feed1", token).admin().obj("adminAccount").obj("account")
             assertEquals("フィード 1", queried.string("displayName"))
             assertEquals("説明", queried.string("summary"))
         }
@@ -271,7 +271,7 @@ class AdminGraphQlTest {
                 displayName = "",
                 summary = "",
                 token = token,
-            ).updateAccountProfileResult().obj("adminAccount")
+            ).updateAccountProfileResult().obj("adminAccount").obj("account")
 
             assertEquals(JsonNull, cleared.getValue("displayName"))
             assertEquals(JsonNull, cleared.getValue("summary"))
@@ -1213,7 +1213,7 @@ class AdminGraphQlTest {
         const val FEED_FIELDS = "id url title siteUrl format createdAt"
 
         const val ACCOUNT_FIELDS =
-            "account { id username acct actorUrl } createdAt displayName summary feed { $FEED_FIELDS }"
+            "account { id username acct actorUrl displayName summary } createdAt feed { $FEED_FIELDS }"
 
         /**
          * 反復回数は検証にも使われるので、落としても経路は同じ。既定だとテストのたびに待つ

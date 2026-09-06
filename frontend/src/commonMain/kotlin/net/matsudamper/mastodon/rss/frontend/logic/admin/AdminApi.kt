@@ -416,10 +416,10 @@ class AdminApi(
             username = account.username,
             acct = account.acct,
             actorUrl = account.actorUrl,
+            displayName = account.displayName,
+            summary = account.summary,
         ),
         createdAt = createdAt,
-        displayName = displayName,
-        summary = summary,
         followerCount = followerCount,
         feed = feed?.let {
             AdminFeed(
@@ -438,10 +438,10 @@ class AdminApi(
             username = account.username,
             acct = account.acct,
             actorUrl = account.actorUrl,
+            displayName = account.displayName,
+            summary = account.summary,
         ),
         createdAt = createdAt,
-        displayName = null,
-        summary = null,
         followerCount = followerCount,
         feed = null,
     )

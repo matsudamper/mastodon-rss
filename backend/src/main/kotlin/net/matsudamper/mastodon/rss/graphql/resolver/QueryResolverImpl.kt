@@ -44,7 +44,13 @@ class QueryResolverImpl : QueryResolver {
                 )
 
             QlAccountsConnection(
-                nodes = result.accounts.map { it.urls.toGraphqlResponse(it.accountId) },
+                nodes = result.accounts.map {
+                    it.urls.toGraphqlResponse(
+                        accountId = it.accountId,
+                        displayName = it.displayName,
+                        summary = it.summary,
+                    )
+                },
                 pageInfo = QlPageInfo(
                     hasMore = result.hasMore,
                     nextCursor = result.nextUsername?.let { AccountsCursor(afterUsername = it).encode() },
@@ -68,7 +74,13 @@ class QueryResolverImpl : QueryResolver {
             .load(username)
             .thenApply { account ->
                 DataFetcherResult.Builder<QlAccount?>(
-                    account?.let { it.urls.toGraphqlResponse(it.accountId) },
+                    account?.let {
+                        it.urls.toGraphqlResponse(
+                            accountId = it.accountId,
+                            displayName = it.displayName,
+                            summary = it.summary,
+                        )
+                    },
                 ).build()
             }
     }
