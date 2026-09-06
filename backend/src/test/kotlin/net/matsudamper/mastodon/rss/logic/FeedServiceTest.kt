@@ -165,8 +165,10 @@ class FeedServiceTest {
     fun `やり直した登録が取れなければ前のフィードを残す`() =
         runTest {
             val repositories = FakeRepositories()
-            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
-            val saved = assertIs<FeedService.SaveResult.Success>(serviceOf(repositories).save(accountId = account.id, url = FEED_URL))
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories)
+            val saved = assertIs<FeedService.SaveResult.Success>(service.save(accountId = account.id, url = FEED_URL))
+            service.postUnpublished(account.id)
             repositories.feeds.clearInitialImportDone(saved.feed.id)
             val before = assertNotNull(repositories.feeds.findByAccountId(account.id))
 
@@ -176,7 +178,7 @@ class FeedServiceTest {
             assertEquals(FeedService.SaveFailure.FETCH_FAILED, failure.reason)
             assertEquals(before, repositories.feeds.findByAccountId(account.id))
             assertEquals(
-                listOf(FeedItemState.PENDING, FeedItemState.PENDING),
+                listOf(FeedItemState.POSTED, FeedItemState.POSTED),
                 repositories.feedItems.items().map { it.state },
             )
         }
@@ -701,12 +703,13 @@ class FeedServiceTest {
             val service = serviceOf(repositories, noteStore = noteStore)
             service.save(accountId = account.id, url = FEED_URL)
             service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
+            val postedByFirstPoll = noteStore.added.size
 
             // 取得した時刻を基準にするので、その 60 秒後はまだ来ていない
             val results = service.pollDue(now = Instant.now().plusSeconds(60), limit = 10)
 
             assertEquals(emptyList(), results)
-            assertEquals(0, noteStore.added.size)
+            assertEquals(postedByFirstPoll, noteStore.added.size)
         }
 
     @Test
