@@ -740,6 +740,9 @@ class AdminAccountScreenViewModel(
                 url = feed.url,
                 title = feed.title,
                 format = feed.format,
+                lastFetchedText = feed.lastFetchedAt
+                    ?.let { "最終チェック: ${UnixTimeUtil.format(it)}" }
+                    ?: "最終チェック: まだ",
                 unpublishedItems = unpublishedItems.map { it.toUiState() },
                 postedItems = postedItems?.map { it.toUiState() },
                 postingUnpublished = postingUnpublished,

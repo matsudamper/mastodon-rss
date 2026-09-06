@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import net.matsudamper.mastodon.rss.shared.AccountId
 
 class FeedRepositoryTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-feed-test")
@@ -199,6 +200,53 @@ class FeedRepositoryTest {
     }
 
     @Test
+    fun `findDue は登録の取り込み中のフィードを返さない`() {
+        withRepositories { repositories ->
+            val importing = repositories.addFeed(
+                username = "feed1",
+                url = "https://example.com/1.xml",
+                initialImportDone = false,
+            )
+            val done = repositories.addFeed(username = "feed2", url = "https://example.com/2.xml")
+
+            val found = repositories.feeds.findDue(now = CREATED_AT, limit = 10)
+
+            assertEquals(listOf(done.id), found.map { it.id })
+
+            repositories.feeds.markInitialImportDone(importing.id)
+
+            assertEquals(2, repositories.feeds.findDue(now = CREATED_AT, limit = 10).size)
+        }
+    }
+
+    @Test
+    fun `findDue は取り込みが終わらないまま間隔を過ぎたものを返す`() {
+        withRepositories { repositories ->
+            val importing = repositories.addFeed(
+                username = "feed1",
+                url = "https://example.com/1.xml",
+                initialImportDone = false,
+            )
+
+            assertEquals(emptyList(), repositories.feeds.findDue(now = Instant.now(), limit = 10).map { it.id })
+            assertEquals(
+                listOf(importing.id),
+                repositories.feeds.findDue(now = Instant.now().plusSeconds(901), limit = 10).map { it.id },
+            )
+        }
+    }
+
+    @Test
+    fun `findDue は取り込みが済んでいないものに枠を取られない`() {
+        withRepositories { repositories ->
+            repositories.addFeed(username = "feed1", url = "https://example.com/1.xml", initialImportDone = false)
+            val done = repositories.addFeed(username = "feed2", url = "https://example.com/2.xml")
+
+            assertEquals(listOf(done.id), repositories.feeds.findDue(now = CREATED_AT, limit = 1).map { it.id })
+        }
+    }
+
+    @Test
     fun `findDue は limit で件数を抑える`() {
         withRepositories { repositories ->
             repositories.addFeed(username = "feed1", url = "https://example.com/1.xml")
@@ -238,12 +286,17 @@ class FeedRepositoryTest {
         }
     }
 
+    /**
+     * @param initialImportDone 登録時の取り込みが済んだことにするか。
+     *   `findDue` はここが済んでいるものだけを返す
+     */
     private fun Repositories.addFeed(
         username: String,
         url: String,
+        initialImportDone: Boolean = true,
     ): Feed {
         val account = assertNotNull(accounts.add(username = username, createdAt = CREATED_AT))
-        return assertNotNull(
+        val feed = assertNotNull(
             feeds.add(
                 NewFeed(
                     accountId = account.id,
@@ -256,7 +309,68 @@ class FeedRepositoryTest {
                 ),
             ),
         )
+        if (initialImportDone) {
+            feeds.markInitialImportDone(feed.id)
+        }
+        return feed
     }
+
+    @Test
+    fun `入れ替えると新しいフィードになる`() {
+        withRepositories { repositories ->
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val before = assertNotNull(repositories.feeds.add(newFeed(account.id, "https://example.com/feed.xml")))
+
+            val after = assertNotNull(
+                repositories.feeds.replace(existingId = before.id, feed = newFeed(account.id, "https://example.com/other.xml")),
+            )
+
+            assertEquals("https://example.com/other.xml", after.url)
+            assertEquals(after, repositories.feeds.findByAccountId(account.id))
+            assertNull(repositories.feeds.find(before.id))
+        }
+    }
+
+    @Test
+    fun `登録が済んだフィードは入れ替えない`() {
+        withRepositories { repositories ->
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val before = assertNotNull(repositories.feeds.add(newFeed(account.id, "https://example.com/feed.xml")))
+            repositories.feeds.markInitialImportDone(before.id)
+
+            val replaced = repositories.feeds.replace(existingId = before.id, feed = newFeed(account.id, "https://example.com/other.xml"))
+
+            assertNull(replaced)
+            assertEquals("https://example.com/feed.xml", assertNotNull(repositories.feeds.find(before.id)).url)
+        }
+    }
+
+    @Test
+    fun `他のアカウントが使っている URL には入れ替えない`() {
+        withRepositories { repositories ->
+            val account1 = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val account2 = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+            val before = assertNotNull(repositories.feeds.add(newFeed(account1.id, "https://example.com/feed1.xml")))
+            repositories.feeds.add(newFeed(account2.id, "https://example.com/feed2.xml"))
+
+            val replaced = repositories.feeds.replace(existingId = before.id, feed = newFeed(account1.id, "https://example.com/feed2.xml"))
+
+            assertNull(replaced)
+            assertEquals(before, repositories.feeds.find(before.id))
+        }
+    }
+
+    private fun newFeed(
+        accountId: AccountId,
+        url: String,
+    ): NewFeed = NewFeed(
+        accountId = accountId,
+        url = url,
+        title = null,
+        siteUrl = null,
+        format = null,
+        pollIntervalSeconds = 900,
+    )
 
     private fun withRepositories(block: (Repositories) -> Unit) {
         val dbPath = tempDir.resolve("test.db")

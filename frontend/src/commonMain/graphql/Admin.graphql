@@ -62,6 +62,7 @@ fragment AdminAccountScreenFields on AdminAccount {
         title
         siteUrl
         format
+        lastFetchedAt
     }
 }
 
@@ -97,6 +98,7 @@ mutation AdminSaveFeed($saveFeedQuery: SaveFeedQuery!) {
                 title
                 siteUrl
                 format
+                lastFetchedAt
             }
             failure {
                 reason

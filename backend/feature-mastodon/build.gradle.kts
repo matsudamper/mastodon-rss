@@ -36,6 +36,10 @@ dependencies {
     // 送信のテストだけは本物のサーバーを立てて往復させるので、engine が要る。
     // 実装側は engine を選ばないため main には入れない
     testImplementation(libs.ktor.server.cio)
+
+    // 送信の途中で止める場面は本物のサーバーでは狙って作れないので、
+    // 応答を返さない engine を差し替えて確かめる
+    testImplementation(libs.ktor.client.mock)
 }
 
 kotlin {

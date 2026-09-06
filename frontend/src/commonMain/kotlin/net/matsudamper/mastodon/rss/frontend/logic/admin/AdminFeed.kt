@@ -2,12 +2,16 @@ package net.matsudamper.mastodon.rss.frontend.logic.admin
 
 import net.matsudamper.mastodon.rss.shared.FeedItemId
 
+/**
+ * @param lastFetchedAt 最後に取りに行った時刻。一度も取りに行っていなければ null
+ */
 data class AdminFeed(
     val id: Long,
     val url: String,
     val title: String?,
     val siteUrl: String?,
     val format: String?,
+    val lastFetchedAt: Long?,
 )
 
 /**

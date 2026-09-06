@@ -28,6 +28,7 @@ private fun AdminAccountContentPreview() {
                         url = "https://example.com/feed.xml",
                         title = "Kotlin Updates",
                         format = "Atom 1.0",
+                        lastFetchedText = "最終チェック: 2026-09-06 12:34",
                         unpublishedItems = emptyList(),
                         postedItems = null,
                         postingUnpublished = false,

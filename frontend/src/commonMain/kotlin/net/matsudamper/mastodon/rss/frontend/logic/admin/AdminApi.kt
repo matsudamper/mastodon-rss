@@ -284,6 +284,7 @@ class AdminApi(
                     title = feed.title,
                     siteUrl = feed.siteUrl,
                     format = feed.format,
+                    lastFetchedAt = feed.lastFetchedAt,
                 ),
             )
         }
@@ -442,6 +443,7 @@ class AdminApi(
                 title = it.title,
                 siteUrl = it.siteUrl,
                 format = it.format,
+                lastFetchedAt = it.lastFetchedAt,
             )
         },
     )
