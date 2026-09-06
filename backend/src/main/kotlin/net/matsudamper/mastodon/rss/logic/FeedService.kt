@@ -291,7 +291,6 @@ class FeedService(
     private suspend fun importLatest(feed: Feed): ImportLatestResult {
         return when (val fetched = fetcher.fetch(feed.url)) {
             is FeedFetchService.FetchResult.Success -> {
-                // 登録した後にアイコンや題名を足す配信元があるので、取り込みのたびに反映する
                 feeds.updateMetadata(
                     id = feed.id,
                     title = fetched.parsed.title,
