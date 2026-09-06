@@ -116,6 +116,7 @@ class AccountApi(
                 actorUrl = account.actorUrl,
                 displayName = account.displayName,
                 summary = account.summary,
+                iconUrl = account.iconUrl,
             ),
             followerCount = account.followerCount,
             noteCount = account.noteCount,

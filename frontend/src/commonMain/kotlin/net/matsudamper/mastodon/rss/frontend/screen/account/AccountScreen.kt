@@ -2,6 +2,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontFamily
@@ -70,6 +72,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.TwoPaneScrollState
 import net.matsudamper.mastodon.rss.frontend.ui.rememberCoordinatedTwoPaneScrollableModifier
+import net.matsudamper.mastodon.rss.frontend.ui.rememberRemoteImage
 import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
 @Composable
@@ -376,12 +379,23 @@ private fun ProfileHeader(
                                 .background(Brush.linearGradient(colors.reversed())),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text = state.initial,
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                            )
+                            val icon = rememberRemoteImage(state.iconUrl)
+                            if (icon != null) {
+                                Image(
+                                    bitmap = icon,
+                                    // 読み上げるものが無い。名前は隣に文字で出ている
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            } else {
+                                Text(
+                                    text = state.initial,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
                         }
                     },
                 ) { measurables, constraints ->
