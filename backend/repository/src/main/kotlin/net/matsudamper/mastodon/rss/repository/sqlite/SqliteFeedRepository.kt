@@ -80,9 +80,29 @@ internal class SqliteFeedRepository(
         if (dsl.findByAccountId(feed.accountId) != null) return@transaction null
         if (dsl.findByUrl(feed.url) != null) return@transaction null
 
+        dsl.insert(feed)
+    }
+
+    override fun replace(
+        existingId: FeedId,
+        feed: NewFeed,
+    ): Feed? = jooq.transaction { dsl ->
+        // 入れ替えられると分かってから消す。消してから入らないと、記事ごと失う
+        if (dsl.selectFrom(FEEDS).where(FEEDS.ID.eq(existingId.value)).fetchOne() == null) return@transaction null
+        if (dsl.findByAccountId(feed.accountId)?.id?.let { it != existingId } == true) return@transaction null
+        if (dsl.findByUrl(feed.url)?.id?.let { it != existingId } == true) return@transaction null
+
+        dsl
+            .deleteFrom(FEEDS)
+            .where(FEEDS.ID.eq(existingId.value))
+            .execute()
+
+        dsl.insert(feed)
+    }
+
+    private fun org.jooq.DSLContext.insert(feed: NewFeed): Feed {
         val createdAt = Instant.now()
-        val id = dsl
-            .insertInto(FEEDS)
+        val id = insertInto(FEEDS)
             .set(FEEDS.ACCOUNT_ID, feed.accountId.value)
             .set(FEEDS.URL, feed.url)
             .set(FEEDS.TITLE, feed.title)
@@ -96,7 +116,7 @@ internal class SqliteFeedRepository(
             ?.id
             ?: error("フィードの追加に失敗した")
 
-        Feed(
+        return Feed(
             id = FeedId(id),
             accountId = feed.accountId,
             url = feed.url,

@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import net.matsudamper.mastodon.rss.shared.AccountId
 
 class FeedRepositoryTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-feed-test")
@@ -271,6 +272,49 @@ class FeedRepositoryTest {
         }
         return feed
     }
+
+    @Test
+    fun `入れ替えると新しいフィードになる`() {
+        withRepositories { repositories ->
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val before = assertNotNull(repositories.feeds.add(newFeed(account.id, "https://example.com/feed.xml")))
+
+            val after = assertNotNull(
+                repositories.feeds.replace(existingId = before.id, feed = newFeed(account.id, "https://example.com/other.xml")),
+            )
+
+            assertEquals("https://example.com/other.xml", after.url)
+            assertEquals(after, repositories.feeds.findByAccountId(account.id))
+            assertNull(repositories.feeds.find(before.id))
+        }
+    }
+
+    @Test
+    fun `他のアカウントが使っている URL には入れ替えない`() {
+        withRepositories { repositories ->
+            val account1 = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val account2 = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+            val before = assertNotNull(repositories.feeds.add(newFeed(account1.id, "https://example.com/feed1.xml")))
+            repositories.feeds.add(newFeed(account2.id, "https://example.com/feed2.xml"))
+
+            val replaced = repositories.feeds.replace(existingId = before.id, feed = newFeed(account1.id, "https://example.com/feed2.xml"))
+
+            assertNull(replaced)
+            assertEquals(before, repositories.feeds.find(before.id))
+        }
+    }
+
+    private fun newFeed(
+        accountId: AccountId,
+        url: String,
+    ): NewFeed = NewFeed(
+        accountId = accountId,
+        url = url,
+        title = null,
+        siteUrl = null,
+        format = null,
+        pollIntervalSeconds = 900,
+    )
 
     private fun withRepositories(block: (Repositories) -> Unit) {
         val dbPath = tempDir.resolve("test.db")

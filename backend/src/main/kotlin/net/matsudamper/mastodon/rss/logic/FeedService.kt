@@ -65,29 +65,23 @@ class FeedService(
 
         return when (val fetched = fetcher.fetch(url)) {
             is FeedFetchService.FetchResult.Success -> {
-                // 同じ URL で登録し直すときは、消す予定の自分のフィードが引っかかる
-                val duplicated = feeds.findByUrl(fetched.feedUrl)
-                if (duplicated != null && duplicated.id != existing?.id) {
-                    return SaveResult.Failure(SaveFailure.DUPLICATE_URL)
-                }
+                val newFeed = NewFeed(
+                    accountId = accountId,
+                    url = fetched.feedUrl,
+                    title = fetched.parsed.title,
+                    siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
+                    format = fetched.parsed.format.toDisplayName(),
+                    pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS,
+                )
 
                 // 登録は保存と取り込みが別々に確定する。途中で終わったものは同じ URL で
-                // 登録し直せないので、新しく保存できると分かってから消す。先に消すと、
-                // 保存できなかったときに取り込み済みの記事と取得状態まで失う
-                if (existing != null) {
-                    feeds.delete(existing.id)
-                }
-
-                val feed = feeds.add(
-                    NewFeed(
-                        accountId = accountId,
-                        url = fetched.feedUrl,
-                        title = fetched.parsed.title,
-                        siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
-                        format = fetched.parsed.format.toDisplayName(),
-                        pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS,
-                    ),
-                ) ?: return SaveResult.Failure(
+                // 登録し直せないので消してやり直すが、消すのと入れるのを分けると、
+                // 入らなかったときに取り込み済みの記事ごと失う
+                val feed = if (existing != null) {
+                    feeds.replace(existingId = existing.id, feed = newFeed)
+                } else {
+                    feeds.add(newFeed)
+                } ?: return SaveResult.Failure(
                     if (feeds.findByAccountId(accountId) != null) {
                         SaveFailure.ALREADY_HAS_FEED
                     } else {
