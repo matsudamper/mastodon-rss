@@ -98,7 +98,6 @@ class AccountFollowersScreenViewModel(
         loadMoreJob?.cancel()
         loadMoreJob = viewModelScope.launch {
             when (val result = followersPaging.loadMore(cursor)) {
-                // 足した一覧は watch から流れてくるので、ここでは待っている印だけ下ろす
                 PagingLoadMoreResult.Success -> {
                     viewModelStateFlow.update { it.copy(loadMoreError = null, loadingMore = false) }
                 }
