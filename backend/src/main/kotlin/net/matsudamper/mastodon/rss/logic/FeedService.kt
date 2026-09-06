@@ -342,6 +342,14 @@ class FeedService(
         // 条件付き GET はまだ送っていないので、保存されている値はそのまま残す
         feeds.recordFetchSuccess(id = feed.id, fetchedAt = Instant.now(), validators = feed.fetch.validators)
 
+        feeds.updateMetadata(
+            id = feed.id,
+            title = fetched.parsed.title,
+            siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
+            format = fetched.parsed.format.toDisplayName(),
+            iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl),
+        )
+
         importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
 
         if (!feed.initialImportDone) {

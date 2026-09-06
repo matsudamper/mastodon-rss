@@ -722,6 +722,25 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `定期ポーリングでもアイコンを最新に入れ替える`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(ICON_XML, CHANGED_ICON_XML),
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
+
+            assertEquals(
+                "https://example.com/icon2.png",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
+        }
+
+    @Test
     fun `アイコンを取り下げたフィードは保存したアイコンも消す`() =
         runTest {
             val repositories = FakeRepositories()
