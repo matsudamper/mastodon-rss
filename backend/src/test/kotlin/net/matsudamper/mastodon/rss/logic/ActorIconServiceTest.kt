@@ -135,6 +135,56 @@ class ActorIconServiceTest {
         }
 
     @Test
+    fun `毎回取り直せと言われたものは置かない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val feedId = repositories.addFeed(iconUrl = ICON_URL)
+            val engine = MockEngine {
+                respond(
+                    content = BYTES.decodeToString(),
+                    headers = headersOf(
+                        "Content-Type" to listOf("image/png"),
+                        "Cache-Control" to listOf("no-store"),
+                    ),
+                )
+            }
+            val service = serviceOf(repositories, engine)
+
+            assertEquals(BYTES.toList(), assertNotNull(service.find(USERNAME)).bytes.toList())
+            assertNull(repositories.feedIcons.find(feedId))
+
+            service.find(USERNAME)
+            assertEquals(2, engine.requestHistory.size)
+        }
+
+    @Test
+    fun `取得元が変わって取り直せなければ出さない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val feedId = repositories.addFeed(iconUrl = ICON_URL)
+            val engine = MockEngine { request ->
+                if (request.url.encodedPath == "/icon.png") {
+                    respond(content = BYTES.decodeToString(), headers = headersOf("Content-Type", "image/png"))
+                } else {
+                    respond(content = "", status = HttpStatusCode.InternalServerError)
+                }
+            }
+            val service = serviceOf(repositories, engine)
+
+            service.find(USERNAME)
+            repositories.feeds.updateMetadata(
+                id = feedId,
+                title = "サンプル",
+                siteUrl = SITE_URL,
+                format = "RSS 2.0",
+                iconUrl = OTHER_ICON_URL,
+            )
+
+            // 前のアイコンを出すと、別のものに変えた後も変える前のものが出続ける
+            assertNull(service.find(USERNAME))
+        }
+
+    @Test
     fun `アイコンを名乗っていないフィードは取りに行かない`() =
         runTest {
             val repositories = FakeRepositories()

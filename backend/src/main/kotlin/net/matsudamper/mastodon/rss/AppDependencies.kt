@@ -30,6 +30,7 @@ import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
+import net.matsudamper.mastodon.rss.logic.AccountIconFiles
 import net.matsudamper.mastodon.rss.logic.ActorIconService
 import net.matsudamper.mastodon.rss.logic.FeedIconStore
 import net.matsudamper.mastodon.rss.logic.FeedService
@@ -104,12 +105,20 @@ class AppDependencies(
         }
     }
 
+    private val feedIconStore: FeedIconStore = FeedIconStore(env.iconCacheDir)
+
     val actorIcons: ActorIcons = ActorIconService(
         accounts = repositories.accounts,
         feeds = repositories.feeds,
         icons = repositories.feedIcons,
-        store = FeedIconStore(env.iconCacheDir),
+        store = feedIconStore,
         fetcher = iconFetcher,
+    )
+
+    val accountIconFiles: AccountIconFiles = AccountIconFiles(
+        feeds = repositories.feeds,
+        icons = repositories.feedIcons,
+        store = feedIconStore,
     )
 
     val actorProfiles: StoredActorProfiles = object : StoredActorProfiles {

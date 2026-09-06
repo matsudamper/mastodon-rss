@@ -128,6 +128,7 @@ fun Application.module(deps: AppDependencies) {
         actorDirectory = deps.directory,
         notePublisher = deps.notePublisher,
         actorPublisher = deps.actorPublisher,
+        accountIconFiles = deps.accountIconFiles,
         noteStore = deps.noteStore,
         feedService = deps.feedService,
     )
