@@ -20,7 +20,7 @@ data class AccountScreenUiState(
             val notes: List<NoteUiState>,
             val notesError: String?,
             val notesLoading: Boolean,
-            val canLoadMore: Boolean,
+            val loadMoreVisible: Boolean,
             val loadingMore: Boolean,
         ) : Content
 

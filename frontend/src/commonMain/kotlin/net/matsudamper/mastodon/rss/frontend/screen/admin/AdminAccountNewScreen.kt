@@ -97,13 +97,13 @@ private fun InputCard(content: AdminAccountNewScreenUiState.Content.Input, liste
             modifier = Modifier.fillMaxWidth(),
             label = { Text("ユーザー名") },
             singleLine = true,
-            enabled = !content.submitting,
+            enabled = content.usernameInputEnabled,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { listener.onClickAdd() }),
             isError = content.error != null,
         )
         content.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Button(onClick = listener::onClickAdd, enabled = content.canSubmit) {
+        Button(onClick = listener::onClickAdd, enabled = content.addButtonEnabled) {
             Text(if (content.submitting) "追加中..." else "追加")
         }
     }

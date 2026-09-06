@@ -153,7 +153,7 @@ private fun LoadedContent(
             }
         }
 
-        if (content.hasMore) {
+        if (content.loadMoreVisible) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -162,7 +162,7 @@ private fun LoadedContent(
                 content.loadMoreErrorMessage?.let {
                     Text(it, color = MaterialTheme.colorScheme.error)
                 }
-                if (content.isLoadingMore) {
+                if (content.loadingMore) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
                     Button(onClick = listener::onClickLoadMore) {
