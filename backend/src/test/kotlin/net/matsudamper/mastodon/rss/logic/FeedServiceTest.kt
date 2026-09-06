@@ -740,12 +740,10 @@ class FeedServiceTest {
             val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
             assertEquals("https://example.com/icon2.png", feed.iconUrl)
             // 中身も取り込みに合わせて入れ替える。見に来たときには取りに行かない
+            assertEquals(listOf(feed.id, feed.id), icons.refreshed.map { it.first })
             assertEquals(
-                listOf(
-                    feed.id to "https://example.com/icon.png",
-                    feed.id to "https://example.com/icon2.png",
-                ),
-                icons.refreshed,
+                listOf<String?>("https://example.com/icon.png", "https://example.com/icon2.png"),
+                icons.refreshed.map { it.second },
             )
         }
 
