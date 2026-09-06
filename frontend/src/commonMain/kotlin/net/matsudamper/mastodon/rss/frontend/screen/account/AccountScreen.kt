@@ -410,7 +410,7 @@ private fun ProfileHeader(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(
-                            text = state.username,
+                            text = state.displayName,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                         )
@@ -459,9 +459,9 @@ private fun ProfileHeader(
                     }
                 }
 
-                if (state.feed != null) {
+                state.summary?.let { summary ->
                     Text(
-                        text = "RSS/Atom フィードを ActivityPub で配信するアカウント",
+                        text = summary,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

@@ -20,6 +20,7 @@ import net.matsudamper.mastodon.rss.frontend.screen.account.AccountNoteScreen
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountFeedNewScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountNewScreen
+import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountProfileEditScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountsScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreen
@@ -83,6 +84,9 @@ fun App() {
                         username = screen.username,
                         navController = navController,
                     )
+                }
+                entry<Screen.AdminAccountProfileEdit>(metadata = TransparentScreen.asMetadata()) { screen ->
+                    AdminAccountProfileEditScreen(username = screen.username, navController = navController)
                 }
                 entry<Screen.Account> { screen ->
                     AccountScreen(

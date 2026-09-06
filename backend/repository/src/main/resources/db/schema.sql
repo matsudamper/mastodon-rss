@@ -9,7 +9,11 @@ CREATE TABLE accounts (
     -- acct とパスに入る名前。大文字小文字だけが違う名前を別々に持てると、
     -- 相手からはどちらを指しているか決まらないので NOCASE で一意にする
     username TEXT COLLATE NOCASE NOT NULL UNIQUE,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    -- Actor の name。未設定なら username を出す
+    display_name TEXT,
+    -- Actor の summary。未設定なら既定の文言を出す
+    summary TEXT
 );
 
 CREATE TABLE feed_items (

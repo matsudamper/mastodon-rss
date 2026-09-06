@@ -8,6 +8,9 @@ type AdminMutation {
     "アカウントを追加する"
     addAccount(username: String!): AdminAddAccountResult! @lazy
 
+    "アカウントのプロフィールを書き換える"
+    updateAccountProfile(query: UpdateAccountProfileQuery!): AdminUpdateAccountProfileResult! @lazy
+
     "アカウントを消す。フォロワーと配信した投稿、登録したフィードと取り込んだ記事も消える。"
     deleteAccount(query: DeleteAccountQuery!): AdminDeleteAccountResult! @lazy
 
@@ -25,6 +28,23 @@ type AdminMutation {
 
     "投稿を 1 件消す。元になった記事は消されない。"
     deleteNote(query: DeleteNoteQuery!): AdminDeleteNoteResult! @lazy
+}
+
+input UpdateAccountProfileQuery {
+    username: String!
+    displayName: String!
+    summary: String!
+}
+
+type AdminUpdateAccountProfileResult {
+    adminAccount: AdminAccount
+    failure: AdminUpdateAccountProfileFailure
+}
+
+type AdminUpdateAccountProfileFailure {
+    unknownAccount: Boolean!
+    displayNameMaxLength: Int
+    summaryMaxLength: Int
 }
 
 input DeleteAccountQuery {

@@ -26,6 +26,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnpublishedFeedItemsQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminUpdateAccountProfileMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountListFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountScreenFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminFeedItemFields
@@ -45,6 +46,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteNoteQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.PostFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UnpublishedFeedItemsQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.type.UpdateAccountProfileQuery
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 import net.matsudamper.mastodon.rss.shared.FeedItemId
@@ -90,6 +92,10 @@ class AdminApi(
             .fetchPolicy(FetchPolicy.NetworkOnly)
             .watch()
             .map { response ->
+                if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+                    return@map AdminAccountsResult.Failure(response.failureMessage())
+                }
+
                 val data = response.data
                     ?: return@map AdminAccountsResult.Failure(response.failureMessage())
 
@@ -137,6 +143,42 @@ class AdminApi(
         )
     }
 
+    suspend fun updateAccountProfile(
+        username: String,
+        displayName: String,
+        summary: String,
+    ): AdminUpdateAccountProfileResult {
+        val response = client.mutation(
+            AdminUpdateAccountProfileMutation(
+                query = UpdateAccountProfileQuery(
+                    username = username,
+                    displayName = displayName,
+                    summary = summary,
+                ),
+            ),
+        ).execute()
+
+        // 部分応答では data と errors が同時に返る。data だけを見ると、
+        // 保存できていないのに成功として画面を閉じてしまう
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminUpdateAccountProfileResult.Failure(response.failureMessage())
+        }
+
+        val result = response.data?.admin?.updateAccountProfile
+            ?: return AdminUpdateAccountProfileResult.Failure(response.failureMessage())
+        val failure = result.failure
+        if (failure != null) {
+            return AdminUpdateAccountProfileResult.Rejected(
+                unknownAccount = failure.unknownAccount,
+                displayNameMaxLength = failure.displayNameMaxLength,
+                summaryMaxLength = failure.summaryMaxLength,
+            )
+        }
+        val account = result.adminAccount
+            ?: return AdminUpdateAccountProfileResult.Failure("保存できたが内容が返ってこない")
+        return AdminUpdateAccountProfileResult.Success(account.adminAccountScreenFields.toAdminAccount())
+    }
+
     /**
      * @param cursor 直前のページの続きから取る。null なら先頭から
      * @param limit 要求する件数。上限はサーバー側で決まる
@@ -174,7 +216,10 @@ class AdminApi(
     }
 
     suspend fun previewFeed(url: String): AdminFeedPreviewResult {
-        val response = client.query(AdminPreviewFeedQuery(url)).execute()
+        // 配信元を取り直す操作なので、前に見た内容を返さない
+        val response = client.query(AdminPreviewFeedQuery(url))
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .execute()
         val result = response.data?.admin?.previewFeed
             ?: return AdminFeedPreviewResult.Failure(response.failureMessage())
 
@@ -186,6 +231,7 @@ class AdminApi(
                     siteUrl = preview.siteUrl,
                     format = preview.format,
                     description = preview.description,
+                    fullDescription = preview.fullDescription,
                     itemCount = preview.itemCount,
                     sampleItems = preview.sampleItems.map { item ->
                         AdminFeedPreviewItem(
@@ -373,6 +419,8 @@ class AdminApi(
             username = account.username,
             acct = account.acct,
             actorUrl = account.actorUrl,
+            displayName = account.displayName,
+            summary = account.summary,
         ),
         createdAt = createdAt,
         followerCount = followerCount,
@@ -393,6 +441,8 @@ class AdminApi(
             username = account.username,
             acct = account.acct,
             actorUrl = account.actorUrl,
+            displayName = account.displayName,
+            summary = account.summary,
         ),
         createdAt = createdAt,
         followerCount = followerCount,
@@ -409,6 +459,10 @@ class AdminApi(
     }
 
     private fun ApolloResponse<AdminUnpublishedFeedItemsQuery.Data>.toUnpublishedFeedItemsResult(): AdminUnpublishedFeedItemsResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AdminUnpublishedFeedItemsResult.Failure(failureMessage())
+        }
+
         val result = data?.admin?.unpublishedFeedItems
             ?: return AdminUnpublishedFeedItemsResult.Failure(failureMessage())
         val items = result.items

@@ -19,6 +19,7 @@ import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 // 管理画面からアカウントを消す経路。
@@ -121,6 +122,20 @@ class AccountServiceTest {
         val failure = assertIs<AccountService.DeleteResult.Failure>(result)
         assertEquals(AccountService.DeleteFailure.UNKNOWN_ACCOUNT, failure.reason)
         assertEquals(emptyList(), delivery.delivered)
+    }
+
+    @Test
+    fun `絵文字だけの表示名をコードポイント数で上限まで保存できる`() {
+        val repositories = FakeRepositories()
+        repositories.accounts.add(username = USERNAME, createdAt = CREATED_AT)
+
+        val result = serviceOf(repositories, TestDelivery()).updateProfile(
+            username = USERNAME,
+            displayName = "😀".repeat(AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH),
+            summary = "",
+        )
+
+        assertIs<AccountService.UpdateProfileResult.Success>(result)
     }
 
     private fun serviceOf(
