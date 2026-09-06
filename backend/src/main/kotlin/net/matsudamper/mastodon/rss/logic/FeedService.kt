@@ -74,7 +74,7 @@ class FeedService(
                     pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS,
                 )
 
-                // 登録は保存と取り込みが別々に確定する。途中で終わったものは同じ URL で
+                // 登録は保存と完了の記録が別々に確定する。途中で終わったものは同じ URL で
                 // 登録し直せないので消してやり直すが、消すのと入れるのを分けると、
                 // 入らなかったときに取り込み済みの記事ごと失う
                 val feed = if (existing != null) {
@@ -89,11 +89,6 @@ class FeedService(
                     } else {
                         SaveFailure.ALREADY_HAS_FEED
                     },
-                )
-                importExistingItems(
-                    feed = feed,
-                    items = fetched.parsed.items,
-                    feedUrl = fetched.feedUrl,
                 )
                 // 記録しないと、定期ポーリングが取得の時期を過ぎていると見なしてすぐ取り直す
                 feeds.recordFetchSuccess(
@@ -338,10 +333,9 @@ class FeedService(
         val imported = importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
 
         if (!feed.initialImportDone) {
-            // 登録が途中で終わったフィード。ここで取り込みを終わらせる。既存記事は
-            // 未投稿のまま残し、登録できたときと同じで自動では流さない
+            // 登録が途中で終わったフィード。ここで登録を終わらせる。
+            // 記事は登録できたときと同じで、この後まとめて投稿する
             feeds.markInitialImportDone(feed.id)
-            return PollResult(feedId = feed.id, host = feed.host(), postedItems = emptyList(), error = null)
         }
 
         val account = accounts.findById(feed.accountId)
@@ -408,8 +402,8 @@ class FeedService(
      * 2 回配信する。取り消す手段は無いので、入口を 1 本に絞って防ぐ
      *
      * @param only 投稿する記事を絞る。null なら未投稿を全部投稿する。
-     *   定期ポーリングは今回取り込んだ分だけを渡す。登録時に取り込んだ既存記事は
-     *   確認してから手動で投稿するもので、自動では流さない
+     *   定期ポーリングは今回取り込んだ分だけを渡す。投稿できずに残っている記事は
+     *   同じ理由で失敗し続けるので、取得のたびに投稿し直さない
      */
     private suspend fun publishPending(
         feed: Feed,
@@ -505,9 +499,18 @@ class FeedService(
             description = if (description == null) null else truncateDescription(description),
             fullDescription = description,
             itemCount = parsed.items.size,
-            sampleItems = parsed.items.take(PREVIEW_ITEM_LIMIT).map { it.toPreviewItem() },
+            sampleItems = parsed.items.newestFirst().take(PREVIEW_ITEM_LIMIT).map { it.toPreviewItem() },
         )
     }
+
+    /**
+     * 記事を新しい順に並べ替える。
+     *
+     * `ParsedFeed.items` は XML の出現順のままで、古い順に並べる配信元もある。
+     * 日時を持たない記事は判断材料が無いので、元の順のまま後ろへ送る。
+     */
+    private fun List<ParsedFeedItem>.newestFirst(): List<ParsedFeedItem> =
+        sortedByDescending { it.publishedAt ?: it.updatedAt ?: Instant.MIN }
 
     private fun ParsedFeedItem.toPreviewItem(): FeedPreviewItem = FeedPreviewItem(
         title = title,
@@ -602,7 +605,7 @@ class FeedService(
 
     private companion object {
         const val DEFAULT_POLL_INTERVAL_SECONDS = 900L
-        const val PREVIEW_ITEM_LIMIT = 5
+        const val PREVIEW_ITEM_LIMIT = 1
         const val DESCRIPTION_LIMIT = 200
         const val POST_TITLE_MAX_CHARS = 200
         const val POST_DESCRIPTION_MAX_CHARS = 200
