@@ -52,7 +52,11 @@ fun main() {
     // start が例外で終わった場合も含めてここ 1 か所で閉じられる
     Runtime.getRuntime().addShutdownHook(
         Thread {
-            // 処理中のリクエストが DB を触っている最中に閉じないよう、先にサーバーを止める。
+            // 待ち受けを止める前にポーリングを止める。投稿を受け取った相手はその場で
+            // Note やアクターの URL を引きに来るので、止めた後に投稿すると繋げずに終わる
+            deps.stopFeedPolling()
+
+            // 処理中のリクエストが DB を触っている最中に閉じないよう、次にサーバーを止める。
             // 待ち時間は docker stop の既定の猶予（10 秒）に収まる範囲にする
             server.stop(gracePeriodMillis = 1_000, timeoutMillis = 5_000)
             deps.close()

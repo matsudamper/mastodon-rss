@@ -138,10 +138,25 @@ class AppDependencies(
     /**
      * フィードの定期ポーリングを始める。
      *
-     * 呼ぶまで動かない。止めるのは [close]
+     * 呼ぶまで動かない。止めるのは [stopFeedPolling]
      */
     fun startFeedPolling() {
         FeedPoller(feedService).start(feedPollingScope)
+    }
+
+    /**
+     * 定期ポーリングを止めて、走っている取り込みが終わるまで待つ。
+     *
+     * 待ち受けを止める前に呼ぶ。投稿を受け取った相手はその場で Note やアクターの
+     * URL を引きに来るので、止めた後に投稿すると相手は繋げずに終わる。
+     * 何度呼んでもよい。待ち時間は docker stop の既定の猶予（10 秒）に収まる範囲にする
+     */
+    fun stopFeedPolling() {
+        runBlocking {
+            withTimeoutOrNull(3_000) {
+                feedPollingScope.coroutineContext.job.cancelAndJoin()
+            }
+        }
     }
 
     val actorPublisher: ActorPublisher = ActorPublisher(
@@ -157,14 +172,8 @@ class AppDependencies(
      * 最初の close が投げた時点で後ろが開いたままになる。
      */
     override fun close() {
-        // 取り込みの途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ。
-        // サーバーの停止を待った後にここへ来るので、docker stop の既定の猶予（10 秒）に
-        // 収まるよう待ち時間は短くする
-        runBlocking {
-            withTimeoutOrNull(3_000) {
-                feedPollingScope.coroutineContext.job.cancelAndJoin()
-            }
-        }
+        // 取り込みの途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ
+        stopFeedPolling()
 
         try {
             feedFetcher.close()
