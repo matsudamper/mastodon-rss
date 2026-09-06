@@ -375,20 +375,25 @@ class FeedService(
         feedUrl: String,
     ) {
         val now = Instant.now()
-        val keyed = items.map { FeedItemKey.of(feed.url, it).dedupeKey to it }
-        val existingKeys = feedItems.findExistingKeys(feed.id, keyed.map { (key, _) -> key })
-        // 応答しないリンクが続いても取り込みが止まらないよう、画像を探すのは
-        // ここまでにする。過ぎた分は画像無しで取り込む
-        val openGraphDeadline = now.plusMillis(OPEN_GRAPH_BUDGET_MILLIS)
+        // 同じ鍵が 2 度出てくるフィードがある。潰さないと同じリンク先を 2 回取りに行く
+        val keyed = items.associateBy { FeedItemKey.of(feed.url, it).dedupeKey }
+        val existingKeys = feedItems.findExistingKeys(feed.id, keyed.keys)
+        // 応答しないリンクが続いても取り込みが止まらないようにする。
+        // 過ぎた分と溢れた分は画像無しで取り込む
+        val openGraphDeadline = Instant.now().plusMillis(OPEN_GRAPH_BUDGET_MILLIS)
+        var openGraphLookups = 0
 
         keyed.forEach { (itemKey, item) ->
             if (itemKey in existingKeys) return@forEach
 
             val contentHtml = composeItemHtml(item, feedUrl)
             val link = resolveItemLink(item.link, feedUrl)
-            val ogImageUrl = if (link.isBlank() || Instant.now().isAfter(openGraphDeadline)) {
+            val withinOpenGraphLimits =
+                openGraphLookups < OPEN_GRAPH_MAX_LOOKUPS && Instant.now().isBefore(openGraphDeadline)
+            val ogImageUrl = if (link.isBlank() || !withinOpenGraphLimits) {
                 null
             } else {
+                openGraphLookups++
                 fetcher.fetchOpenGraphImageUrl(link)
             }
             feedItems.add(
@@ -466,5 +471,6 @@ class FeedService(
         const val POST_TITLE_MAX_CHARS = 200
         const val POST_DESCRIPTION_MAX_CHARS = 200
         const val OPEN_GRAPH_BUDGET_MILLIS = 30_000L
+        const val OPEN_GRAPH_MAX_LOOKUPS = 20
     }
 }

@@ -637,6 +637,40 @@ class FeedServiceTest {
             )
         }
 
+    @Test
+    fun `取り込み済みの記事のリンク先は取り直さない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val pages = mutableListOf<String>()
+            val engine = MockEngine { request ->
+                if (request.url.encodedPath.endsWith("feed.xml")) {
+                    respond(
+                        content = FEED_XML,
+                        status = HttpStatusCode.OK,
+                        headers = headersOf("Content-Type", "application/rss+xml"),
+                    )
+                } else {
+                    pages += request.url.toString()
+                    respond(
+                        content = """<html><head><meta property="og:image" content="/ogp.png"></head></html>""",
+                        status = HttpStatusCode.OK,
+                        headers = headersOf("Content-Type", "text/html; charset=utf-8"),
+                    )
+                }
+            }
+            val service = serviceOf(repositories, engine = engine)
+            service.save(accountId = account.id, url = FEED_URL)
+            service.postUnpublished(account.id)
+            val first = pages.toList()
+
+            service.postUnpublished(account.id)
+
+            // 2 回目は記事が増えていないので、リンク先を取り直さない
+            assertEquals(first, pages)
+            assertEquals(listOf("https://example.com/1", "https://example.com/2"), first)
+        }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         status: HttpStatusCode = HttpStatusCode.OK,
