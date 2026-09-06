@@ -670,12 +670,12 @@ class FeedServiceTest {
                 <item>
                   <title>古い記事</title>
                   <link>https://example.com/1</link>
-                  <pubDate>Mon, 01 Sep 2026 00:00:00 +0000</pubDate>
+                  <pubDate>Tue, 01 Sep 2026 00:00:00 +0000</pubDate>
                 </item>
                 <item>
                   <title>新しい記事</title>
                   <link>https://example.com/2</link>
-                  <pubDate>Wed, 03 Sep 2026 00:00:00 +0000</pubDate>
+                  <pubDate>Thu, 03 Sep 2026 00:00:00 +0000</pubDate>
                 </item>
               </channel>
             </rss>
