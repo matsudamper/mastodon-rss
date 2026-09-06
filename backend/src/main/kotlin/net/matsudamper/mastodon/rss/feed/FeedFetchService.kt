@@ -86,25 +86,34 @@ class FeedFetchService(
      * 飾りなので、配信元のページが落ちているだけで記事を落とすほうが困る。
      *
      * 打ち切りをフィードより短くするのは、記事の数だけ繰り返すため。1 本が
-     * 黙り込んだだけで取り込み全体が待たされる。
+     * 黙り込んだだけで取り込み全体が待たされる。打ち切れるのは取得までで、
+     * 読むほうは中断点を持たないので外に出してある。走査は入力長に比例する
+     * ([OpenGraph]) ので、そこで待たされることはない。
      *
      * @return 絶対化した http / https の URL。見つからなければ null
      */
-    suspend fun fetchOpenGraphImageUrl(url: String): String? =
-        withTimeoutOrNull(PAGE_TIMEOUT_MILLIS) {
-            runCatching { loadOpenGraphImageUrl(url) }
+    suspend fun fetchOpenGraphImageUrl(url: String): String? {
+        val page = withTimeoutOrNull(PAGE_TIMEOUT_MILLIS) {
+            runCatching { loadPage(url) }
                 .getOrElse { error ->
                     if (error is CancellationException) throw error
                     null
                 }
-        }
+        } ?: return null
+
+        // 呼び出し元のスレッドを借りない。ページを読むのは CPU の仕事
+        val imageUrl = withContext(Dispatchers.Default) { OpenGraph.imageUrl(page.html) } ?: return null
+
+        // og:image は相対 URL でもよい。基準は飛んだ先のページ
+        return HttpUrl.sanitize(imageUrl, page.url)
+    }
 
     /**
      * リンク先はフィードの配信元が自由に書けるので、取りに行く前に
      * [externalHosts] で内部向けかどうかを見る。飛ばされた先も同じなので、
      * リダイレクトは client に任せず自分で辿って毎回見る。
      */
-    private suspend fun loadOpenGraphImageUrl(url: String): String? {
+    private suspend fun loadPage(url: String): FetchedPage? {
         var target = HttpUrl.sanitize(url) ?: return null
 
         repeat(MAX_PAGE_REDIRECTS + 1) {
@@ -129,16 +138,19 @@ class FeedFetchService(
             }
 
             val bytes = response.readBodyUpTo(MAX_PAGE_BYTES) ?: return null
-            // 相手のスレッドを借りない。ページを読むのは CPU の仕事で、中断点も無い
-            val html = String(bytes, response.bodyCharset() ?: Charsets.UTF_8)
-            val imageUrl = withContext(Dispatchers.Default) { OpenGraph.imageUrl(html) } ?: return null
-
-            // og:image は相対 URL でもよい。基準は飛んだ先のページ
-            return HttpUrl.sanitize(imageUrl, target)
+            return FetchedPage(url = target, html = String(bytes, response.bodyCharset() ?: Charsets.UTF_8))
         }
 
         return null
     }
+
+    /**
+     * 取れたページ。[url] は飛んだ先で、相対 URL を解決する基準になる
+     */
+    private data class FetchedPage(
+        val url: String,
+        val html: String,
+    )
 
     /**
      * 本文の文字コード。名乗っていなければ null。
