@@ -131,31 +131,22 @@ class AppDependencies(
     /**
      * 抱えているものを作った順の逆に閉じる。
      *
-     * 途中で例外が出ても残りを閉じられるよう finally で繋ぐ。並べて呼ぶだけだと、
-     * 最初の close が投げた時点で後ろが開いたままになる。
+     * 1 つが投げても残りは閉じ切る。並べて呼ぶだけだと、最初の close が投げた時点で
+     * 後ろが開いたままになる。投げられたものは最初の 1 つにまとめて上げ直す。
      */
     override fun close() {
-        try {
-            feedFetcher.close()
-        } finally {
-            try {
-                iconFetcher.close()
-            } finally {
-                try {
-                    delivery.close()
-                } finally {
-                    try {
-                        remoteActors.close()
-                    } finally {
-                        try {
-                            repositories.close()
-                        } finally {
-                            telemetry?.close()
-                        }
-                    }
-                }
-            }
-        }
+        val failures = listOf<() -> Unit>(
+            { feedFetcher.close() },
+            { iconFetcher.close() },
+            { delivery.close() },
+            { remoteActors.close() },
+            { repositories.close() },
+            { telemetry?.close() },
+        ).mapNotNull { close -> runCatching(close).exceptionOrNull() }
+
+        val failure = failures.firstOrNull() ?: return
+        failures.drop(1).forEach { failure.addSuppressed(it) }
+        throw failure
     }
 
     companion object {
