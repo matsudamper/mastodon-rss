@@ -1,17 +1,14 @@
-query AccountScreen($username: String!, $query: AccountNotesQuery!) {
+query AccountScreen($username: String!) {
     account(username: $username) {
         id
         username
         acct
         actorUrl
-    }
-    notes(query: $query) {
-        nodes {
-            ...AccountNoteFields
-        }
-        pageInfo {
-            hasMore
-            nextCursor
+        followerCount
+        noteCount
+        feed {
+            url
+            siteUrl
         }
     }
 }

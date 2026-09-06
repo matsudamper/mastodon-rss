@@ -26,6 +26,13 @@ interface NoteStore {
      */
     fun delete(publicId: PublicNoteId)
 
+    /**
+     * そのアカウントの投稿を全部消す。アカウントを消すときに使う
+     *
+     * @return 消えた件数
+     */
+    fun deleteByUsername(username: String): Int
+
     fun findByPublicIds(publicIds: Set<PublicNoteId>): Map<PublicNoteId, StoredNote>
 
     /**
@@ -53,6 +60,8 @@ interface NoteStore {
     ): List<NotePosition>
 
     fun count(username: String): Long
+
+    fun counts(usernames: Set<String>): Map<String, Long>
 }
 
 /**

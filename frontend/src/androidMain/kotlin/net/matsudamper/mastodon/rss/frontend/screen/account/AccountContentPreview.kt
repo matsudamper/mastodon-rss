@@ -3,9 +3,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
-import net.matsudamper.mastodon.rss.frontend.screen.MultiSizePreview
+import net.matsudamper.mastodon.rss.frontend.screen.PreviewsMultiSize
 
-@MultiSizePreview
+@PreviewsMultiSize
 @Composable
 private fun AccountContentPreview() {
     val username = "kotlin"
@@ -13,17 +13,23 @@ private fun AccountContentPreview() {
         AccountContent(
             uiState = AccountScreenUiState(
                 content = AccountScreenUiState.Content.Loaded(
-                    account = AccountUiState.placeholder(
+                    account = AccountUiState(
                         username = username,
                         acct = "@$username@example.com",
                         actorUrl = "https://example.com/users/$username",
-                        host = AndroidPreviewScreenPlatform.host,
+                        followerCount = "12",
+                        noteCount = "3",
+                        feed = FeedUiState(
+                            feedUrl = "https://example.com/blog/feed.xml",
+                            siteUrl = "https://example.com/blog",
+                        ),
                     ),
                     notes = listOf(
                         NoteUiState(
+                            url = "https://example.com/notes/1",
                             contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
                             publishedAt = "2026-09-02 12:00",
-                            listener = PreviewNoteListener,
+                            listener = AndroidPreviewNoteListener,
                         ),
                     ),
                     notesError = null,
@@ -31,24 +37,23 @@ private fun AccountContentPreview() {
                     canLoadMore = true,
                     loadingMore = false,
                 ),
-                noteDialog = null,
                 listener = AndroidPreviewAccountListener,
             ),
             username = username,
             platform = AndroidPreviewScreenPlatform,
-            onClickHome = {},
-            onClickAdmin = {},
-            onClickOperator = {},
-            onDismissNote = {},
         )
     }
 }
 
-private object PreviewNoteListener : NoteUiState.Listener {
+private object AndroidPreviewNoteListener : NoteUiState.Listener {
     override fun onClick() = Unit
 }
 
 private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
+    override fun onClickHome() = Unit
+
+    override fun onClickAdmin() = Unit
+
     override fun onClickReload() = Unit
 
     override fun onClickReloadNotes() = Unit
@@ -56,6 +61,4 @@ private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
     override fun onClickLoadMore() = Unit
 
     override fun onClickCopyAcct() = Unit
-
-    override fun onClickReloadNote() = Unit
 }

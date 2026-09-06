@@ -35,6 +35,19 @@ internal class SqliteFeedRepository(
         dsl.findByAccountId(accountId)
     }
 
+    override fun findByAccountIds(accountIds: Set<AccountId>): Map<AccountId, Feed> {
+        if (accountIds.isEmpty()) return emptyMap()
+
+        return jooq.withConnection { dsl ->
+            dsl
+                .selectFrom(FEEDS)
+                .where(FEEDS.ACCOUNT_ID.`in`(accountIds.map { it.value }))
+                .fetch()
+                .map { it.toFeed() }
+                .associateBy { it.accountId }
+        }
+    }
+
     override fun findByUrl(url: String): Feed? = jooq.withConnection { dsl ->
         dsl
             .selectFrom(FEEDS)

@@ -22,14 +22,9 @@ enum class FeedFormat {
 
 /**
  * 本文の中身と、それが HTML なのかプレーンテキストなのか。
- *
- * RSS の `description` は HTML が入っている前提で、Atom は `type` 属性で
- * どちらなのかを名乗る。区別を落として全部 HTML として扱うと、
- * プレーンテキストに含まれる `<` が壊れたタグとして解釈される。
- * 逆に全部テキストとして扱うと、記事本文のタグがそのまま見えてしまう。
  */
 data class FeedContent(
-    val value: String,
+    val text: String,
     val type: Type,
 ) {
     enum class Type {
@@ -40,8 +35,8 @@ data class FeedContent(
     /** 表示用のプレーンテキスト。HTML ならタグを落とし、実体参照を戻す */
     fun toPlainText(): String =
         when (type) {
-            Type.TEXT -> FeedText.normalizeWhitespace(value)
-            Type.HTML -> HtmlSanitizer.toPlainText(value)
+            Type.TEXT -> FeedText.normalizeWhitespace(text)
+            Type.HTML -> HtmlSanitizer.toPlainText(text)
         }
 
     /**
@@ -52,8 +47,8 @@ data class FeedContent(
      */
     fun toSafeHtml(): String =
         when (type) {
-            Type.TEXT -> HtmlSanitizer.escapeText(FeedText.normalizeWhitespace(value)).replace("\n", "<br>")
-            Type.HTML -> HtmlSanitizer.sanitize(value)
+            Type.TEXT -> HtmlSanitizer.escapeText(FeedText.normalizeWhitespace(text)).replace("\n", "<br>")
+            Type.HTML -> HtmlSanitizer.sanitize(text)
         }
 }
 

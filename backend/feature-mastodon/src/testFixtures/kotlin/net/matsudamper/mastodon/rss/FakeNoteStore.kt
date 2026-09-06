@@ -25,6 +25,12 @@ class FakeNoteStore : NoteStore {
         added.removeAll { it.publicId == publicId }
     }
 
+    override fun deleteByUsername(username: String): Int {
+        val before = added.size
+        added.removeAll { it.username.equals(username, ignoreCase = true) }
+        return before - added.size
+    }
+
     override fun list(
         username: String,
         after: NotePosition?,
@@ -47,4 +53,7 @@ class FakeNoteStore : NoteStore {
         .map { it.position }
 
     override fun count(username: String): Long = added.count { it.username == username }.toLong()
+
+    override fun counts(usernames: Set<String>): Map<String, Long> =
+        usernames.associateWith { count(it) }
 }

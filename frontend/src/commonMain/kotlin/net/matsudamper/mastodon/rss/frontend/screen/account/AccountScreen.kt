@@ -7,21 +7,27 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,56 +40,68 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
+import net.matsudamper.mastodon.rss.frontend.ui.CoordinatedTwoPaneLayout
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
-import net.matsudamper.mastodon.rss.frontend.ui.LocalSnackbarEvents
-import net.matsudamper.mastodon.rss.frontend.ui.OutlinedBox
+import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
-import net.matsudamper.mastodon.rss.frontend.ui.StatusDot
+import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
-import net.matsudamper.mastodon.rss.frontend.ui.dividerColor
+import net.matsudamper.mastodon.rss.frontend.ui.TwoPaneScrollState
+import net.matsudamper.mastodon.rss.frontend.ui.rememberCoordinatedTwoPaneScrollableModifier
+import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
 @Composable
 internal fun AccountScreen(
     username: String,
-    selectedNoteId: String?,
     platform: ScreenPlatform,
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickOperator: (String) -> Unit,
-    onClickNote: (String) -> Unit,
-    onDismissNote: () -> Unit,
+    navController: Navigator,
 ) {
     val viewModelScope = rememberCoroutineScope()
-    val snackbarEvents = LocalSnackbarEvents.current
-    val viewModel = remember(viewModelScope, username, selectedNoteId, snackbarEvents, platform) {
+    val viewModel = remember(viewModelScope, username, platform) {
         AccountScreenViewModel(
             username = username,
-            selectedNoteId = selectedNoteId,
-            host = platform.host,
             viewModelScope = viewModelScope,
             copyToClipboard = platform::copyToClipboard,
-            snackbarEvents = snackbarEvents,
-            onClickNote = onClickNote,
         )
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
+
+    val snackbarHostState = rememberSnackbarHostState()
+    LaunchedEffect(viewModel.eventHandler, navController, snackbarHostState) {
+        viewModel.eventHandler.collect(
+            object : AccountScreenViewModel.Event {
+                override suspend fun navigate(screen: Screen) {
+                    navController.navigate(screen)
+                }
+
+                override fun showSnackbar(message: String) {
+                    snackbarHostState.show(message)
+                }
+            },
+        )
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
@@ -93,10 +111,7 @@ internal fun AccountScreen(
         uiState = uiState,
         username = username,
         platform = platform,
-        onClickHome = onClickHome,
-        onClickAdmin = onClickAdmin,
-        onClickOperator = onClickOperator,
-        onDismissNote = onDismissNote,
+        snackbarHostState = snackbarHostState,
     )
 }
 
@@ -105,22 +120,26 @@ internal fun AccountContent(
     uiState: AccountScreenUiState,
     username: String,
     platform: ScreenPlatform,
-    onClickHome: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickOperator: (String) -> Unit,
-    onDismissNote: () -> Unit,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
 ) {
-    PublicScaffold(onClickHome = onClickHome, onClickAdmin = onClickAdmin) { wide ->
-        Column(
+    PublicScaffold(
+        listener = uiState.listener,
+        snackbarHostState = snackbarHostState,
+    ) { wide ->
+        val edgePadding = if (wide) 24.dp else 12.dp
+        Box(
             modifier = Modifier
+                .fillMaxSize()
                 .widthIn(max = ContentMaxWidth)
                 .fillMaxWidth()
-                .padding(if (wide) 24.dp else 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = edgePadding),
         ) {
             when (val content = uiState.content) {
                 AccountScreenUiState.Content.Loading -> {
-                    SectionCard(title = "読み込み中") {
+                    SectionCard(
+                        modifier = Modifier.padding(vertical = edgePadding),
+                        title = "読み込み中",
+                    ) {
                         Text(
                             text = "アカウントを取ってきている。",
                             style = MaterialTheme.typography.bodyMedium,
@@ -131,12 +150,16 @@ internal fun AccountContent(
                 AccountScreenUiState.Content.NotFound -> {
                     NotFoundContent(
                         requestedPath = "/@$username",
+                        modifier = Modifier.padding(vertical = edgePadding),
                         description = "ユーザーが存在しません",
                     )
                 }
 
                 is AccountScreenUiState.Content.Error -> {
-                    SectionCard(title = "アカウントを出せない") {
+                    SectionCard(
+                        modifier = Modifier.padding(vertical = edgePadding),
+                        title = "アカウントを出せない",
+                    ) {
                         Text(
                             text = content.message,
                             style = MaterialTheme.typography.bodyMedium,
@@ -153,24 +176,14 @@ internal fun AccountContent(
                     LoadedAccountContent(
                         content = content,
                         wide = wide,
-                        onClickOperator = onClickOperator,
+                        verticalPadding = edgePadding,
                         onOpenExternal = platform::openExternalLink,
-                        noteContent = platform::NoteContent,
+                        noteContent = ::NoteContent,
                         listener = uiState.listener,
                     )
                 }
             }
         }
-    }
-
-    uiState.noteDialog?.let { dialog ->
-        NoteDialog(
-            state = dialog,
-            listener = uiState.listener,
-            onDismiss = onDismissNote,
-            onOpenExternal = platform::openExternalLink,
-            noteContent = platform::NoteContent,
-        )
     }
 }
 
@@ -178,83 +191,143 @@ internal fun AccountContent(
 private fun LoadedAccountContent(
     content: AccountScreenUiState.Content.Loaded,
     wide: Boolean,
-    onClickOperator: (String) -> Unit,
+    verticalPadding: Dp,
     onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
     listener: AccountScreenUiState.Listener,
 ) {
+    if (!wide) {
+        CompactLoadedAccountContent(
+            content = content,
+            listener = listener,
+            verticalPadding = verticalPadding,
+            onOpenExternal = onOpenExternal,
+            noteContent = noteContent,
+        )
+        return
+    }
+
+    WideLoadedAccountContent(
+        content = content,
+        listener = listener,
+        verticalPadding = verticalPadding,
+        onOpenExternal = onOpenExternal,
+        noteContent = noteContent,
+    )
+}
+
+@Composable
+private fun CompactLoadedAccountContent(
+    content: AccountScreenUiState.Content.Loaded,
+    listener: AccountScreenUiState.Listener,
+    verticalPadding: Dp,
+    onOpenExternal: (String) -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
+) {
     val state = content.account
 
-    Column(
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = verticalPadding),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if (state.placeholder) {
-            PlaceholderNotice()
+        item(key = "profile") {
+            ProfileHeader(
+                state = state,
+                wide = false,
+                listener = listener,
+                onOpenExternal = onOpenExternal,
+            )
         }
-
-        ProfileHeader(
-            state = state,
-            wide = wide,
-            listener = listener,
-            onOpenExternal = onOpenExternal,
-        )
-
-        if (wide) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Column(
-                    modifier = Modifier.weight(1.5f),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    NotesSection(content, listener, noteContent)
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    FeedSection(state, onOpenExternal)
-                    DeliverySection(state)
-                    FollowSection(state, onClickOperator, onOpenExternal, listener)
-                }
+        state.feed?.let { feed ->
+            item(key = "feed") {
+                FeedSection(feed, onOpenExternal)
             }
-        } else {
-            FeedSection(state, onOpenExternal)
-            FollowSection(state, onClickOperator, onOpenExternal, listener)
-            NotesSection(content, listener, noteContent)
-            DeliverySection(state)
         }
+        notesItems(content, listener, onOpenExternal, noteContent)
     }
 }
 
-/**
- * 仮の値であることの断り。
- *
- * 画面を先に作っているので、繋ぐ先がまだ無い。断りが無いと、フォロワー数や
- * 最終取得を実際の値だと思って運用の判断に使われる
- */
 @Composable
-private fun PlaceholderNotice() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(12.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = "この画面の数値とフィード情報は仮のもの",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = "実際の値になるのは、フィードの取り込み（Phase 5）と管理 API（Phase 8）を繋いでから。" +
-                    "ユーザー名と acct と配信した投稿は本物。",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
+private fun WideLoadedAccountContent(
+    content: AccountScreenUiState.Content.Loaded,
+    listener: AccountScreenUiState.Listener,
+    verticalPadding: Dp,
+    onOpenExternal: (String) -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
+) {
+    val state = content.account
+    val notesListState = rememberLazyListState()
+    val pageScrollState = remember { TwoPaneScrollState() }
+    val coordinatedScrollModifier = rememberCoordinatedTwoPaneScrollableModifier(
+        pageScrollState = pageScrollState,
+        notesListState = notesListState,
+    )
+
+    LaunchedEffect(content.notes.size) {
+        pageScrollState.resyncNotesOverflowAfterAppend(notesListState)
     }
+
+    CoordinatedTwoPaneLayout(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(coordinatedScrollModifier),
+        headerCollapsePx = pageScrollState.headerCollapsePx,
+        onHeaderHeightChange = pageScrollState::updateHeaderHeight,
+        header = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = verticalPadding, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                ProfileHeader(
+                    state = state,
+                    wide = true,
+                    listener = listener,
+                    onOpenExternal = onOpenExternal,
+                )
+            }
+        },
+        panes = {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1.5f)
+                        .fillMaxHeight()
+                        .offset { IntOffset(x = 0, y = -pageScrollState.notesShiftPx()) },
+                    state = notesListState,
+                    contentPadding = PaddingValues(bottom = verticalPadding),
+                    userScrollEnabled = false,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    notesItems(content, listener, onOpenExternal, noteContent)
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                ) {
+                    state.feed?.let { feed ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                                .onSizeChanged { pageScrollState.updateSideHeight(it.height) }
+                                .offset { IntOffset(x = 0, y = -pageScrollState.sideShiftPx()) }
+                                .padding(bottom = verticalPadding),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            FeedSection(feed, onOpenExternal)
+                        }
+                    }
+                }
+            }
+        },
+    )
 }
 
 /**
@@ -319,7 +392,6 @@ private fun ProfileHeader(
                         ),
                     )
                     layout(placeable.width, 0) {
-                        println("constraints.maxHeight=${constraints.maxHeight}, placeable.measuredHeight=${placeable.measuredHeight}")
                         placeable.place(
                             x = 0,
                             y = constraints.maxHeight - placeable.measuredHeight,
@@ -338,7 +410,7 @@ private fun ProfileHeader(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(
-                            text = state.displayName,
+                            text = state.username,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                         )
@@ -378,27 +450,33 @@ private fun ProfileHeader(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    AppBadge(
-                        text = "フィード",
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    if (state.feed != null) {
+                        AppBadge(
+                            text = "フィード",
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+
+                if (state.feed != null) {
+                    Text(
+                        text = "RSS/Atom フィードを ActivityPub で配信するアカウント",
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
 
-                Text(
-                    text = state.summary,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-
                 Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    Stat(value = state.followers, label = "フォロワー")
-                    Stat(value = state.deliveredCount, label = "配信した記事")
-                    Stat(value = state.lastDeliveredAt, label = "最終配信")
+                    Stat(value = state.followerCount, label = "フォロワー")
+                    Stat(value = state.noteCount, label = "配信した投稿")
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { onOpenExternal(state.feed.feedUrl) }) {
-                        Text("フィードを開く")
+                    val feedUrl = state.feed?.feedUrl
+                    if (feedUrl != null) {
+                        Button(onClick = { onOpenExternal(feedUrl) }) {
+                            Text("フィードを開く")
+                        }
                     }
                     OutlinedButton(onClick = { onOpenExternal(state.actorUrl) }) {
                         Text("Actor JSON")
@@ -432,21 +510,8 @@ private fun Stat(
  * 配信元のフィード。このアカウントが何を流すものなのかを示す部分。
  */
 @Composable
-private fun FeedSection(state: AccountUiState, onOpenExternal: (String) -> Unit) {
-    val feed = state.feed
-
+private fun FeedSection(feed: FeedUiState, onOpenExternal: (String) -> Unit) {
     SectionCard(title = "配信元のフィード") {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            StatusDot(color = statusColor(feed.status))
-            Text(
-                text = feed.status.label,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-
         LabeledValue(
             label = "フィード",
             value = feed.feedUrl,
@@ -459,122 +524,32 @@ private fun FeedSection(state: AccountUiState, onOpenExternal: (String) -> Unit)
                 onClick = { onOpenExternal(feed.siteUrl) },
             )
         }
-        LabeledValue(label = "形式", value = feed.format)
-        LabeledValue(label = "取得間隔", value = feed.interval)
-        LabeledValue(label = "最終取得", value = feed.lastFetchedAt)
-        LabeledValue(label = "次回取得", value = feed.nextFetchAt)
-    }
-}
-
-/**
- * 配信の状況。届いていないときに、どこで止まっているかを見る部分。
- */
-@Composable
-private fun DeliverySection(state: AccountUiState) {
-    SectionCard(title = "配信の状況") {
-        LabeledValue(label = "フォロワー", value = state.followers)
-        LabeledValue(label = "未配信", value = state.delivery.queued)
-        LabeledValue(label = "失敗", value = state.delivery.failed)
-
-        val lastError = state.delivery.lastError
-        if (lastError == null) {
-            Text(
-                text = "直近の配信エラーは無い",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            Text(
-                text = lastError,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-    }
-}
-
-/**
- * フォローの仕方。
- *
- * ここにフォローボタンは置けない。フォローは相手のインスタンス側で始まる操作で、
- * このサーバーには押した人のアカウントが無いため。acct を貼ってもらうのが確実。
- */
-@Composable
-private fun FollowSection(
-    state: AccountUiState,
-    onClickOperator: (String) -> Unit,
-    onOpenExternal: (String) -> Unit,
-    listener: AccountScreenUiState.Listener,
-) {
-    SectionCard(title = "フォローする") {
-        Text(
-            text = "使っている Mastodon の検索窓にこの文字列を貼ると、このアカウントが出る。",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-
-        OutlinedBox {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SelectionContainer(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = state.acct,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = FontFamily.Monospace,
-                    )
-                }
-                IconButton(onClick = listener::onClickCopyAcct) {
-                    Icon(
-                        imageVector = Icons.Outlined.ContentCopy,
-                        contentDescription = "コピー",
-                    )
-                }
-            }
-        }
-
-        LabeledValue(
-            label = "Actor",
-            value = state.actorUrl,
-            onClick = { onOpenExternal(state.actorUrl) },
-        )
-
-        HorizontalDivider(color = dividerColor())
-
-        Text(
-            text = "このアカウントについての問い合わせ先",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        TextLink(
-            text = state.operatorAcct,
-            onClick = { onClickOperator(state.operatorUsername) },
-        )
     }
 }
 
 /**
  * 配信した投稿。1 件ずつカードに分け、続きはページングで取る。
  */
-@Composable
-private fun NotesSection(
+private fun LazyListScope.notesItems(
     content: AccountScreenUiState.Content.Loaded,
     listener: AccountScreenUiState.Listener,
+    onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    item(key = "notes-title") {
         Text(
             text = "配信した投稿",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
+    }
 
-        val notes = content.notes
-        val error = content.notesError
+    val notes = content.notes
+    val error = content.notesError
 
-        when {
-            content.notesLoading && notes.isEmpty() -> {
+    when {
+        content.notesLoading && notes.isEmpty() -> {
+            item(key = "notes-loading") {
                 NoteListPlaceholder {
                     Text(
                         text = "配信した投稿を取ってきている。",
@@ -582,8 +557,10 @@ private fun NotesSection(
                     )
                 }
             }
+        }
 
-            notes.isEmpty() && error != null -> {
+        notes.isEmpty() && error != null -> {
+            item(key = "notes-error") {
                 NoteListPlaceholder {
                     Text(
                         text = error,
@@ -595,8 +572,10 @@ private fun NotesSection(
                     }
                 }
             }
+        }
 
-            notes.isEmpty() -> {
+        notes.isEmpty() -> {
+            item(key = "notes-empty") {
                 NoteListPlaceholder {
                     Text(
                         text = "まだ投稿していない",
@@ -605,15 +584,20 @@ private fun NotesSection(
                     )
                 }
             }
-
-            else -> {
-                notes.forEach { note ->
-                    NoteCard(note, noteContent)
-                }
-            }
         }
 
-        if (notes.isNotEmpty()) {
+        else -> {
+            items(
+                items = notes,
+                key = NoteUiState::url,
+            ) { note ->
+                NoteCard(note, onOpenExternal, noteContent)
+            }
+        }
+    }
+
+    if (notes.isNotEmpty()) {
+        item(key = "notes-footer") {
             NotesPagingFooter(content = content, listener = listener)
         }
     }
@@ -638,6 +622,7 @@ private fun NoteListPlaceholder(content: @Composable () -> Unit) {
 @Composable
 private fun NoteCard(
     note: NoteUiState,
+    onOpenExternal: (String) -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     Surface(
@@ -659,79 +644,10 @@ private fun NoteCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Text(
-                text = "投稿を開く",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
+            TextLink(
+                text = note.url,
+                onClick = { onOpenExternal(note.url) },
             )
-        }
-    }
-}
-
-@Composable
-private fun NoteDialog(
-    state: NoteDialogUiState,
-    listener: AccountScreenUiState.Listener,
-    onDismiss: () -> Unit,
-    onOpenExternal: (String) -> Unit,
-    noteContent: @Composable (String, Modifier) -> Unit,
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "投稿",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Outlined.Close, contentDescription = "閉じる")
-                    }
-                }
-
-                when (state) {
-                    NoteDialogUiState.Loading -> {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-                    }
-
-                    NoteDialogUiState.NotFound -> {
-                        Text("投稿が見つかりません", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-
-                    is NoteDialogUiState.Error -> {
-                        Text(state.message, color = MaterialTheme.colorScheme.error)
-                        OutlinedButton(onClick = listener::onClickReloadNote) {
-                            Text("もう一度試す")
-                        }
-                    }
-
-                    is NoteDialogUiState.Loaded -> {
-                        noteContent(state.contentHtml, Modifier.fillMaxWidth())
-                        Text(
-                            text = state.publishedAt,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        TextLink(
-                            text = "ActivityPub の投稿を開く",
-                            onClick = { onOpenExternal(state.activityPubUrl) },
-                        )
-                    }
-                }
-            }
         }
     }
 }
@@ -771,14 +687,6 @@ private fun NotesPagingFooter(
         }
     }
 }
-
-@Composable
-private fun statusColor(status: FetchStatus): Color =
-    when (status) {
-        FetchStatus.Ok -> MaterialTheme.colorScheme.secondary
-        FetchStatus.Failed -> MaterialTheme.colorScheme.error
-        FetchStatus.Unknown -> MaterialTheme.colorScheme.outline
-    }
 
 /**
  * ユーザー名から決まる 2 色。アイコンとヘッダーの代わりに使う。

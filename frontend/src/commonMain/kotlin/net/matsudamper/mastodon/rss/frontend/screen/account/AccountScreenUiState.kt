@@ -1,10 +1,10 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.runtime.Immutable
+import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffoldListener
 
 data class AccountScreenUiState(
     val content: Content,
-    val noteDialog: NoteDialogUiState?,
     val listener: Listener,
 ) {
     sealed interface Content {
@@ -30,7 +30,7 @@ data class AccountScreenUiState(
     }
 
     @Immutable
-    interface Listener {
+    interface Listener : PublicScaffoldListener {
         fun onClickReload()
 
         fun onClickReloadNotes()
@@ -38,23 +38,5 @@ data class AccountScreenUiState(
         fun onClickLoadMore()
 
         fun onClickCopyAcct()
-
-        fun onClickReloadNote()
     }
-}
-
-sealed interface NoteDialogUiState {
-    data object Loading : NoteDialogUiState
-
-    data object NotFound : NoteDialogUiState
-
-    data class Loaded(
-        val contentHtml: String,
-        val publishedAt: String,
-        val activityPubUrl: String,
-    ) : NoteDialogUiState
-
-    data class Error(
-        val message: String,
-    ) : NoteDialogUiState
 }

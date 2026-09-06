@@ -288,6 +288,33 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `アカウントのフォローをまとめて消せる`() {
+        withRepository { followers ->
+            followers.record(incomingFollow())
+            followers.markAccepted("admin", "https://remote.example/users/alice", now)
+            followers.record(
+                incomingFollow(
+                    actorUri = "https://remote.example/users/bob",
+                    followActivityUri = "https://remote.example/activities/2",
+                ),
+            )
+            followers.record(
+                incomingFollow(
+                    username = "feed1",
+                    followActivityUri = "https://remote.example/activities/3",
+                ),
+            )
+            followers.markAccepted("feed1", "https://remote.example/users/alice", now)
+
+            // Accept を返せていないものも消える
+            assertEquals(2, followers.removeAccount("admin"))
+            assertEquals(0, followers.count("admin"))
+            // 同じ相手が他のアカウントをフォローしている分は残る
+            assertEquals(1, followers.count("feed1"))
+        }
+    }
+
+    @Test
     fun `記録が無い相手の操作は false`() {
         withRepository { followers ->
             assertFalse(followers.remove("admin", "https://remote.example/users/nobody", null))

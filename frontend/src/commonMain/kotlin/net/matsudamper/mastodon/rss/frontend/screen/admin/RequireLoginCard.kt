@@ -6,9 +6,14 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
 @Composable
-internal fun RequireLoginCard(onClickAdmin: () -> Unit) {
+internal fun RequireLoginCard(
+    onClickAdmin: () -> Unit,
+) {
     SectionCard(title = "ログインが要る") {
         Text("管理画面のトップでログインしてから開く。")
-        TextLink("管理画面のトップへ", onClickAdmin)
+        TextLink(
+            text = "管理画面のトップへ",
+            onClick = onClickAdmin,
+        )
     }
 }

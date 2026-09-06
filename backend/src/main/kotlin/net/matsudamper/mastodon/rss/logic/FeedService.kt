@@ -8,6 +8,7 @@ import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedItemKey
 import net.matsudamper.mastodon.rss.feed.FeedText
 import net.matsudamper.mastodon.rss.feed.HtmlSanitizer
+import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.feed.ParsedFeedItem
 import net.matsudamper.mastodon.rss.feed.toDisplayName
 import net.matsudamper.mastodon.rss.note.NotePublisher
@@ -63,7 +64,7 @@ class FeedService(
                         accountId = accountId,
                         url = fetched.feedUrl,
                         title = fetched.parsed.title,
-                        siteUrl = fetched.parsed.link,
+                        siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
                         format = fetched.parsed.format.toDisplayName(),
                         pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS,
                     ),
@@ -95,6 +96,9 @@ class FeedService(
     }
 
     fun findByAccountId(accountId: AccountId): Feed? = feeds.findByAccountId(accountId)
+
+    fun findByAccountIds(accountIds: Set<AccountId>): Map<AccountId, Feed> =
+        feeds.findByAccountIds(accountIds)
 
     fun unpublishedItems(accountId: AccountId): UnpublishedResult {
         accounts.findById(accountId)
@@ -154,7 +158,7 @@ class FeedService(
             is ImportLatestResult.Success -> result
         }
         val htmlByKey = imported.items.associate { item ->
-            FeedItemKey.of(feed.url, item).value to composeItemHtml(item, imported.feedUrl)
+            FeedItemKey.of(feed.url, item).dedupeKey to composeItemHtml(item, imported.feedUrl)
         }
         val sender = actorDirectory.resolve(account.username)
             ?: return PostUnpublishedResult.Success(items = emptyList())
@@ -323,7 +327,7 @@ class FeedService(
     private fun FeedFetchService.FetchResult.Success.toPreview(): FeedPreview {
         return FeedPreview(
             title = parsed.title,
-            siteUrl = parsed.link,
+            siteUrl = HttpUrl.sanitize(parsed.link, feedUrl),
             format = parsed.format.toDisplayName(),
             description = parsed.description?.toPlainText()?.let { truncateDescription(it) },
             itemCount = parsed.items.size,
@@ -353,7 +357,7 @@ class FeedService(
             feedItems.add(
                 NewFeedItem(
                     feedId = feed.id,
-                    itemKey = FeedItemKey.of(feed.url, item).value,
+                    itemKey = FeedItemKey.of(feed.url, item).dedupeKey,
                     title = item.title,
                     link = item.link,
                     contentHtml = contentHtml,

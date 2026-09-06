@@ -58,6 +58,14 @@ interface FollowerStore {
     ): Boolean
 
     /**
+     * こちらのアカウントのフォローを全部消す。アカウントを消すときに使う。
+     * `Accept` を返せていないものも消える
+     *
+     * @return 消えた件数
+     */
+    fun removeAccount(username: String): Int
+
+    /**
      * 相手のアクターごと消す。こちらのどのアカウントをフォローしていたかに関わらず消える。
      *
      * @return 消えたフォローの数

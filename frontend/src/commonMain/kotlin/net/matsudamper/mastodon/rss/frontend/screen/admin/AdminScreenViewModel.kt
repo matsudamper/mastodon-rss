@@ -1,20 +1,26 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminLoginResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 internal class AdminScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AdminApi = AdminApi(),
 ) {
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+    private var sessionJob: Job? = null
 
     val uiStateFlow: StateFlow<AdminScreenUiState> =
         MutableStateFlow(
@@ -22,6 +28,22 @@ internal class AdminScreenViewModel(
                 content = AdminScreenUiState.Content.Loading,
                 listener =
                 object : AdminScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
+                    override fun onClickAccounts() {
+                        navigate(Screen.AdminAccounts)
+                    }
+
+                    override fun onClickNewAccount() {
+                        navigate(Screen.AdminAccountNew)
+                    }
+
                     override fun onPasswordChanged(text: String) {
                         viewModelStateFlow.update { it.copy(password = text, error = null) }
                     }
@@ -53,11 +75,19 @@ internal class AdminScreenViewModel(
         reload()
     }
 
-    private fun reload() {
-        viewModelStateFlow.update { it.copy(session = null) }
+    private fun navigate(screen: Screen) {
         viewModelScope.launch {
-            val session = api.session()
-            viewModelStateFlow.update { it.copy(session = session) }
+            events.send { it.navigate(screen) }
+        }
+    }
+
+    private fun reload() {
+        sessionJob?.cancel()
+        viewModelStateFlow.update { it.copy(session = null) }
+        sessionJob = viewModelScope.launch {
+            api.session().collect { session ->
+                viewModelStateFlow.update { it.copy(session = session) }
+            }
         }
     }
 
@@ -69,13 +99,12 @@ internal class AdminScreenViewModel(
         viewModelScope.launch {
             when (val result = api.login(state.password)) {
                 AdminLoginResult.Success -> {
-                    val session = api.session()
                     viewModelStateFlow.update {
                         it.copy(
                             submitting = false,
-                            session = session,
                         )
                     }
+                    reload()
                 }
 
                 AdminLoginResult.WrongPassword -> {
@@ -146,6 +175,10 @@ internal class AdminScreenViewModel(
         val submitting: Boolean = false,
         val error: String? = null,
     )
+
+    interface Event {
+        suspend fun navigate(screen: Screen)
+    }
 
     private companion object {
         const val LOGIN_DISABLED_MESSAGE = "ログインが無効化されている"

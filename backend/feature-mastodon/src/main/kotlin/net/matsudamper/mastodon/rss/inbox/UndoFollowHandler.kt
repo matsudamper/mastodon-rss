@@ -31,36 +31,35 @@ class UndoFollowHandler(
 
     override suspend fun handle(
         recipient: ActorUrls,
-        signer: String,
+        verifiedSignerActorId: String,
         activity: InboxActivity,
-        raw: JsonObject,
+        rawActivityJson: JsonObject,
     ) {
-        val followActivityUri = when (val target = activity.target) {
+        val followActivityUri = when (val undoObject = activity.target) {
             null -> {
-                logger.warn("Undo に object が無い: ${recipient.acct} ← $signer")
+                logger.warn("Undo に object が無い: ${recipient.acct} ← $verifiedSignerActorId")
                 return
             }
 
-            // id だけ。記録している Follow の id と突き合わせて絞る
-            is LinkOrObject.Link -> target.href
+            is LinkOrObject.Link -> undoObject.href
 
-            is LinkOrObject.Embedded -> embeddedFollowId(recipient, signer, target.json) ?: return
+            is LinkOrObject.Embedded -> embeddedFollowId(recipient, verifiedSignerActorId, undoObject.json) ?: return
         }
 
         // 消せるのは署名した本人のフォローだけ。他人のフォローを消す Undo は
         // 名前を差し替えれば書けてしまうので、相手は署名の持ち主で固定する
         val removed = followers.remove(
             username = recipient.username,
-            followerActorUri = signer,
+            followerActorUri = verifiedSignerActorId,
             followActivityUri = followActivityUri,
         )
 
         if (removed) {
-            logger.info("フォローを解除した: ${recipient.acct} ← $signer")
+            logger.info("フォローを解除した: ${recipient.acct} ← $verifiedSignerActorId")
         } else {
             // 記録が無いのは異常ではない。こちらが Accept を返せなかったフォローや、
             // 既に Delete で消えた相手からも Undo は届く
-            logger.info("解除するフォローが記録に無い: ${recipient.acct} ← $signer")
+            logger.info("解除するフォローが記録に無い: ${recipient.acct} ← $verifiedSignerActorId")
         }
     }
 
@@ -74,29 +73,33 @@ class UndoFollowHandler(
      */
     private fun embeddedFollowId(
         recipient: ActorUrls,
-        signer: String,
-        json: JsonObject,
+        verifiedSignerActorId: String,
+        embeddedObjectJson: JsonObject,
     ): String? {
-        val inner = runCatching { AppJson.decodeFromJsonElement(InboxActivity.serializer(), json) }.getOrNull()
-        if (inner == null) {
-            logger.warn("Undo の object を読めなかった: ${recipient.acct} ← $signer")
+        val embeddedFollowActivity =
+            runCatching { AppJson.decodeFromJsonElement(InboxActivity.serializer(), embeddedObjectJson) }.getOrNull()
+        if (embeddedFollowActivity == null) {
+            logger.warn("Undo の object を読めなかった: ${recipient.acct} ← $verifiedSignerActorId")
             return null
         }
 
         // Undo{Like} などをフォロー解除として扱わない
-        if (inner.type != FOLLOW_TYPE) {
-            logger.info("Undo の対象が Follow ではないので何もしない: type=${inner.type} ${recipient.acct} ← $signer")
+        if (embeddedFollowActivity.type != FOLLOW_TYPE) {
+            logger.info(
+                "Undo の対象が Follow ではないので何もしない: type=${embeddedFollowActivity.type} " +
+                    "${recipient.acct} ← $verifiedSignerActorId",
+            )
             return null
         }
 
         // 別のアクター宛の Follow を取り消す Undo は、こちらのフォローとは関係が無い
-        val followTarget = inner.target?.id
+        val followTarget = embeddedFollowActivity.target?.id
         if (followTarget != null && followTarget != recipient.actorId) {
             logger.info("Undo の対象が別のアクターへの Follow: object=$followTarget 宛先=${recipient.actorId}")
             return null
         }
 
-        return inner.id
+        return embeddedFollowActivity.id
     }
 
     private companion object {

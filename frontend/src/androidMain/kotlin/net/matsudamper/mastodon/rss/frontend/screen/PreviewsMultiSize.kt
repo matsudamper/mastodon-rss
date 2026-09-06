@@ -12,4 +12,4 @@ import androidx.compose.ui.tooling.preview.Preview
     widthDp = 1440,
     heightDp = 900,
 )
-internal annotation class MultiSizePreview
+internal annotation class PreviewsMultiSize

@@ -2,17 +2,29 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -24,37 +36,59 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collect
+import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
+import net.matsudamper.mastodon.rss.frontend.ui.CoordinatedTwoPaneLayout
+import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
+import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
+import net.matsudamper.mastodon.rss.frontend.ui.TwoPaneScrollState
+import net.matsudamper.mastodon.rss.frontend.ui.rememberCoordinatedTwoPaneScrollableModifier
+import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
 @Composable
 internal fun AdminAccountScreen(
     username: String,
     platform: ScreenPlatform,
-    onClickOpenAccount: () -> Unit,
-    onClickLogin: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
+    navController: Navigator,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(username, viewModelScope) {
-        AdminAccountScreenViewModel(username = username, viewModelScope = viewModelScope)
+        AdminAccountScreenViewModel(
+            username = username,
+            viewModelScope = viewModelScope,
+        )
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
+    val snackbarHostState = rememberSnackbarHostState()
+
+    LaunchedEffect(viewModel.eventHandler, navController, snackbarHostState) {
+        viewModel.eventHandler.collect(
+            object : AdminAccountScreenViewModel.Event {
+                override suspend fun navigate(screen: Screen) {
+                    navController.navigate(screen)
+                }
+
+                override fun showSnackbar(message: String) {
+                    snackbarHostState.show(message)
+                }
+            },
+        )
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.onStart()
@@ -64,10 +98,7 @@ internal fun AdminAccountScreen(
         uiState = uiState,
         username = username,
         platform = platform,
-        onClickOpenAccount = onClickOpenAccount,
-        onClickLogin = onClickLogin,
-        onClickAdmin = onClickAdmin,
-        onClickHome = onClickHome,
+        snackbarHostState = snackbarHostState,
     )
 }
 
@@ -76,94 +107,32 @@ internal fun AdminAccountContent(
     uiState: AdminAccountScreenUiState,
     username: String,
     platform: ScreenPlatform,
-    onClickOpenAccount: () -> Unit,
-    onClickLogin: () -> Unit,
-    onClickAdmin: () -> Unit,
-    onClickHome: () -> Unit,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
 ) {
     var showPostDialog by remember(username) { mutableStateOf(false) }
-    var autoLoadAttemptedAtItemCount by remember(username) { mutableStateOf<Int?>(null) }
-    val scrollState = rememberScrollState()
 
     AdminScaffold(
         title = "@$username の管理",
-        onClickAdmin = onClickAdmin,
-        onClickHome = onClickHome,
+        listener = uiState.listener,
+        snackbarHostState = snackbarHostState,
     ) { wide ->
-        Column(
+        val edgePadding = if (wide) 24.dp else 12.dp
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .fillMaxWidth()
-                .verticalScroll(scrollState)
-                .padding(if (wide) 24.dp else 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = edgePadding),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = uiState.acct,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-                if (uiState.content is AdminAccountScreenUiState.Content.Loaded) {
-                    Button(onClick = { showPostDialog = true }) { Text("新しい投稿") }
-                }
-            }
-
             when (val content = uiState.content) {
-                AdminAccountScreenUiState.Content.Loading -> AdminSectionCard(title = "読み込み中") {
-                    Text("アカウントを取ってきている。", style = MaterialTheme.typography.bodyMedium)
-                }
-
-                AdminAccountScreenUiState.Content.RequireLogin -> AdminRequireLoginCard(onClickLogin)
-
-                AdminAccountScreenUiState.Content.NotFound -> AdminSectionCard(title = "このアカウントは無い") {
-                    Text("この名前では Mastodon からも見つからない。", style = MaterialTheme.typography.bodyMedium)
-                    AdminTextLink(text = "アカウントの一覧に戻る", onClick = onClickLogin)
-                }
-
-                is AdminAccountScreenUiState.Content.Error -> AdminSectionCard(title = "この画面を出せない") {
-                    Text(content.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                    OutlinedButton(onClick = { uiState.listener.onClickReload() }) { Text("もう一度試す") }
-                }
-
                 is AdminAccountScreenUiState.Content.Loaded -> {
-                    AutoLoadMoreNotes(
+                    LoadedAdminAccountContent(
+                        uiState = uiState,
                         content = content,
-                        scrollState = scrollState,
-                        attemptedAtItemCount = autoLoadAttemptedAtItemCount,
-                        onAttempted = { autoLoadAttemptedAtItemCount = it },
-                        onLoadMore = uiState.listener::onClickLoadMore,
+                        wide = wide,
+                        verticalPadding = edgePadding,
+                        onOpenPostDialog = { showPostDialog = true },
+                        noteContent = ::NoteContent,
                     )
-                    if (wide) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(20.dp),
-                            verticalAlignment = Alignment.Top,
-                        ) {
-                            NotesSection(
-                                content = content,
-                                listener = uiState.listener,
-                                noteContent = platform::NoteContent,
-                                modifier = Modifier.weight(3f),
-                            )
-                            Column(
-                                modifier = Modifier.weight(2f),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                            ) {
-                                AccountCard(content.account, onClickOpenAccount)
-                                FeedCard(content.feed, uiState.listener)
-                            }
-                        }
-                    } else {
-                        AccountCard(content.account, onClickOpenAccount)
-                        FeedCard(content.feed, uiState.listener)
-                        NotesSection(content, uiState.listener, platform::NoteContent)
-                    }
                     if (showPostDialog) {
                         PostDialog(
                             post = content.post,
@@ -172,6 +141,15 @@ internal fun AdminAccountContent(
                         )
                     }
                     content.deleteNoteDialog?.let { DeleteNoteDialog(it, uiState.listener) }
+                    content.deleteAccountDialog?.let { DeleteAccountDialog(it, uiState.listener) }
+                }
+
+                else -> {
+                    AdminAccountNonLoadedContent(
+                        content = content,
+                        verticalPadding = edgePadding,
+                        listener = uiState.listener,
+                    )
                 }
             }
         }
@@ -179,41 +157,305 @@ internal fun AdminAccountContent(
 }
 
 @Composable
-private fun AutoLoadMoreNotes(
-    content: AdminAccountScreenUiState.Content.Loaded,
-    scrollState: androidx.compose.foundation.ScrollState,
-    attemptedAtItemCount: Int?,
-    onAttempted: (Int?) -> Unit,
-    onLoadMore: () -> Unit,
+private fun AdminAccountNonLoadedContent(
+    content: AdminAccountScreenUiState.Content,
+    verticalPadding: Dp,
+    listener: AdminAccountScreenUiState.Listener,
 ) {
-    val loadMoreThreshold = with(LocalDensity.current) { 240.dp.roundToPx() }
-
-    LaunchedEffect(content.notesLoading) {
-        if (content.notesLoading) onAttempted(null)
-    }
-    LaunchedEffect(
-        scrollState,
-        content.notes.size,
-        content.canLoadMore,
-        content.loadingMore,
-        content.notesLoading,
-        attemptedAtItemCount,
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = verticalPadding),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        snapshotFlow { scrollState.value >= scrollState.maxValue - loadMoreThreshold }
-            .collect { nearBottom ->
-                val itemCount = content.notes.size
-                if (
-                    nearBottom &&
-                    itemCount > 0 &&
-                    content.canLoadMore &&
-                    !content.loadingMore &&
-                    !content.notesLoading &&
-                    attemptedAtItemCount != itemCount
-                ) {
-                    onAttempted(itemCount)
-                    onLoadMore()
+        when (content) {
+            AdminAccountScreenUiState.Content.Loading -> {
+                AdminSectionCard(title = "読み込み中") {
+                    Text("アカウントを取ってきている。", style = MaterialTheme.typography.bodyMedium)
                 }
             }
+
+            AdminAccountScreenUiState.Content.RequireLogin -> {
+                RequireLoginCard(onClickAdmin = listener::onClickAdmin)
+            }
+
+            AdminAccountScreenUiState.Content.NotFound -> {
+                AdminSectionCard(title = "このアカウントは無い") {
+                    Text("この名前では Mastodon からも見つからない。", style = MaterialTheme.typography.bodyMedium)
+                    AdminTextLink(text = "アカウントの一覧に戻る", onClick = listener::onClickBackToAdmin)
+                }
+            }
+
+            is AdminAccountScreenUiState.Content.Error -> {
+                AdminSectionCard(title = "この画面を出せない") {
+                    Text(content.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                    OutlinedButton(onClick = { listener.onClickReload() }) { Text("もう一度試す") }
+                }
+            }
+
+            is AdminAccountScreenUiState.Content.Loaded -> Unit
+        }
+    }
+}
+
+@Composable
+private fun LoadedAdminAccountContent(
+    uiState: AdminAccountScreenUiState,
+    content: AdminAccountScreenUiState.Content.Loaded,
+    wide: Boolean,
+    verticalPadding: Dp,
+    onOpenPostDialog: () -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
+) {
+    if (!wide) {
+        CompactLoadedAdminAccountContent(
+            uiState = uiState,
+            content = content,
+            verticalPadding = verticalPadding,
+            onOpenPostDialog = onOpenPostDialog,
+            noteContent = noteContent,
+        )
+        return
+    }
+
+    WideLoadedAdminAccountContent(
+        uiState = uiState,
+        content = content,
+        verticalPadding = verticalPadding,
+        onOpenPostDialog = onOpenPostDialog,
+        noteContent = noteContent,
+    )
+}
+
+@Composable
+private fun CompactLoadedAdminAccountContent(
+    uiState: AdminAccountScreenUiState,
+    content: AdminAccountScreenUiState.Content.Loaded,
+    verticalPadding: Dp,
+    onOpenPostDialog: () -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = verticalPadding),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item(key = "header") {
+            AdminAccountHeaderRow(
+                acct = uiState.acct,
+                onOpenPostDialog = onOpenPostDialog,
+            )
+        }
+        item(key = "account") {
+            AccountCard(
+                account = content.account,
+                onClickOpenAccount = uiState.listener::onClickOpenAccount,
+                onClickDelete = uiState.listener::onClickDeleteAccount,
+            )
+        }
+        item(key = "feed") {
+            FeedCard(content.feed, uiState.listener)
+        }
+        adminNotesItems(content, uiState.listener, noteContent)
+    }
+}
+
+@Composable
+private fun WideLoadedAdminAccountContent(
+    uiState: AdminAccountScreenUiState,
+    content: AdminAccountScreenUiState.Content.Loaded,
+    verticalPadding: Dp,
+    onOpenPostDialog: () -> Unit,
+    noteContent: @Composable (String, Modifier) -> Unit,
+) {
+    val notesListState = rememberLazyListState()
+    val pageScrollState = remember { TwoPaneScrollState() }
+    val coordinatedScrollModifier = rememberCoordinatedTwoPaneScrollableModifier(
+        pageScrollState = pageScrollState,
+        notesListState = notesListState,
+    )
+
+    LaunchedEffect(content.notes.size) {
+        pageScrollState.resyncNotesOverflowAfterAppend(notesListState)
+    }
+
+    CoordinatedTwoPaneLayout(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(coordinatedScrollModifier),
+        headerCollapsePx = pageScrollState.headerCollapsePx,
+        onHeaderHeightChange = pageScrollState::updateHeaderHeight,
+        header = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = verticalPadding, bottom = 16.dp),
+            ) {
+                AdminAccountHeaderRow(
+                    acct = uiState.acct,
+                    onOpenPostDialog = onOpenPostDialog,
+                )
+            }
+        },
+        panes = {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(3f)
+                        .fillMaxHeight()
+                        .offset { IntOffset(x = 0, y = -pageScrollState.notesShiftPx()) },
+                    state = notesListState,
+                    contentPadding = PaddingValues(bottom = verticalPadding),
+                    userScrollEnabled = false,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    adminNotesItems(content, uiState.listener, noteContent)
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(2f)
+                        .fillMaxHeight(),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                            .onSizeChanged { pageScrollState.updateSideHeight(it.height) }
+                            .offset { IntOffset(x = 0, y = -pageScrollState.sideShiftPx()) }
+                            .padding(bottom = verticalPadding),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        AccountCard(
+                            account = content.account,
+                            onClickOpenAccount = uiState.listener::onClickOpenAccount,
+                            onClickDelete = uiState.listener::onClickDeleteAccount,
+                        )
+                        FeedCard(content.feed, uiState.listener)
+                    }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun AdminAccountHeaderRow(
+    acct: String,
+    onOpenPostDialog: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = acct,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+        )
+        Button(onClick = onOpenPostDialog) { Text("新しい投稿") }
+    }
+}
+
+private fun LazyListScope.adminNotesItems(
+    content: AdminAccountScreenUiState.Content.Loaded,
+    listener: AdminAccountScreenUiState.Listener,
+    noteContent: @Composable (String, Modifier) -> Unit,
+) {
+    item(key = "notes-title") {
+        Text(
+            text = "配信した投稿",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+
+    val notes = content.notes
+    val error = content.notesError
+
+    when {
+        content.notesLoading && notes.isEmpty() -> {
+            item(key = "notes-loading") {
+                NotesMessageCard {
+                    Text("配信した投稿を取ってきている。", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+
+        notes.isEmpty() && error != null -> {
+            item(key = "notes-error") {
+                NotesMessageCard {
+                    Text(error, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        OutlinedButton(onClick = listener::onClickReloadNotes) { Text("もう一度試す") }
+                    }
+                }
+            }
+        }
+
+        notes.isEmpty() -> {
+            item(key = "notes-empty") {
+                NotesMessageCard {
+                    Text("まだ投稿していない。", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+
+        else -> {
+            items(
+                items = notes,
+                key = AdminAccountScreenUiState.Note::url,
+            ) { note ->
+                NoteCard(note = note, noteContent = noteContent)
+            }
+        }
+    }
+
+    if (notes.isNotEmpty()) {
+        item(key = "notes-footer") {
+            AdminNotesPagingFooter(content = content, listener = listener)
+        }
+    }
+}
+
+@Composable
+private fun AdminNotesPagingFooter(
+    content: AdminAccountScreenUiState.Content.Loaded,
+    listener: AdminAccountScreenUiState.Listener,
+) {
+    if (!content.canLoadMore && content.notesError == null) return
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        val error = content.notesError
+        if (error != null) {
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+            OutlinedButton(onClick = listener::onClickReloadNotes) {
+                Text("もう一度試す")
+            }
+        }
+
+        if (content.canLoadMore) {
+            if (content.loadingMore) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                Button(onClick = listener::onClickLoadMore) {
+                    Text("もっと見る")
+                }
+            }
+        }
     }
 }
 
@@ -251,15 +493,11 @@ private fun AdminTextLink(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun AdminRequireLoginCard(onClickLogin: () -> Unit) {
-    AdminSectionCard(title = "ログインが要る") {
-        Text("管理画面のトップでログインしてから開く。", style = MaterialTheme.typography.bodyMedium)
-        AdminTextLink(text = "管理画面のトップへ", onClick = onClickLogin)
-    }
-}
-
-@Composable
-private fun AccountCard(account: AdminAccountScreenUiState.Account, onClickOpenAccount: () -> Unit) {
+private fun AccountCard(
+    account: AdminAccountScreenUiState.Account,
+    onClickOpenAccount: () -> Unit,
+    onClickDelete: () -> Unit,
+) {
     AdminSectionCard(title = "このアカウント") {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -275,6 +513,15 @@ private fun AccountCard(account: AdminAccountScreenUiState.Account, onClickOpenA
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         LabeledValue(label = "Actor URL", value = account.actorUrl)
         LabeledValue(label = "追加日時", value = account.createdAt)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            OutlinedButton(
+                onClick = onClickDelete,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) {
+                Text("アカウントを削除")
+            }
+        }
     }
 }
 
@@ -306,7 +553,7 @@ private fun FeedCard(feed: AdminAccountScreenUiState.Feed, listener: AdminAccoun
             Text(feed.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                feed.postedItems?.let { FeedItemSummary("今回投稿した記事 ${it.size} 件", it) }
+                feed.postedItems?.takeIf { it.isNotEmpty() }?.let { FeedItemSummary("今回投稿した記事 ${it.size} 件", it) }
                 if (feed.unpublishedItems.isNotEmpty()) FeedItemSummary("未投稿の記事 ${feed.unpublishedItems.size} 件", feed.unpublishedItems)
                 feed.unpublishedError?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -317,11 +564,10 @@ private fun FeedCard(feed: AdminAccountScreenUiState.Feed, listener: AdminAccoun
             }
         }
 
-        is AdminAccountScreenUiState.Feed.Input -> AdminSectionCard(title = "RSS フィード") {
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                FeedInputPanel(feed, listener)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                FeedPreviewPanel(feed)
+        is AdminAccountScreenUiState.Feed.NotRegistered -> AdminSectionCard(title = "RSS フィード") {
+            Text("まだ登録されていない。配信元を決めると記事が流れる。", style = MaterialTheme.typography.bodyMedium)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Button(onClick = listener::onClickAddFeed) { Text("フィードを追加") }
             }
         }
     }
@@ -338,61 +584,6 @@ private fun FeedItemSummary(countText: String, items: List<AdminAccountScreenUiS
                     Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun FeedInputPanel(feed: AdminAccountScreenUiState.Feed.Input, listener: AdminAccountScreenUiState.Listener, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("RSS/Atom の URL を入れて取得し、登録する。", style = MaterialTheme.typography.bodyMedium)
-        OutlinedTextField(
-            value = feed.url,
-            onValueChange = listener::onFeedUrlChanged,
-            enabled = !feed.fetching && !feed.saving,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("フィード URL") },
-            singleLine = true,
-        )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Button(onClick = listener::onClickFetchFeed, enabled = feed.canFetch) { Text(if (feed.fetching) "取得中" else "取得") }
-        }
-        feed.preview?.let { preview ->
-            Text(if (preview.itemCount > 0) "このフィードには記事が ${preview.itemCount} 件ある。" else "このフィードには記事が無い。", style = MaterialTheme.typography.bodyMedium)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Button(onClick = listener::onClickSaveFeed, enabled = feed.canSave) { Text(if (feed.saving) "登録中" else "登録する") }
-            }
-        }
-        feed.previewError?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-        feed.saveError?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-    }
-}
-
-@Composable
-private fun FeedPreviewPanel(feed: AdminAccountScreenUiState.Feed.Input, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("プレビュー", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-        when {
-            feed.fetching -> Text("フィードを取ってきている。", style = MaterialTheme.typography.bodyMedium)
-
-            feed.preview != null -> {
-                val preview = feed.preview
-                preview.title?.let { Text(it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold) }
-                Text(preview.format, style = MaterialTheme.typography.bodySmall)
-                preview.siteUrl?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                preview.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                Text("記事 ${preview.itemCount} 件", style = MaterialTheme.typography.bodyMedium)
-                preview.sampleItems.forEach { item ->
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(item.title ?: "(題名なし)", style = MaterialTheme.typography.bodyMedium)
-                        listOfNotNull(item.publishedAt, item.link).joinToString("  ").takeIf(String::isNotEmpty)?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-
-            else -> Text("取得ボタンを押すとここに表示される。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -431,6 +622,33 @@ private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog,
 }
 
 @Composable
+private fun DeleteAccountDialog(
+    dialog: AdminAccountScreenUiState.DeleteAccountDialog,
+    listener: AdminAccountScreenUiState.Listener,
+) {
+    AlertDialog(
+        onDismissRequest = listener::onDismissDeleteAccount,
+        title = { Text("アカウントを削除する") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(dialog.message, style = MaterialTheme.typography.bodyMedium)
+                dialog.errorMessage?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = listener::onConfirmDeleteAccount, enabled = dialog.canConfirm) {
+                Text(dialog.confirmLabel)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = listener::onDismissDeleteAccount, enabled = dialog.canDismiss) { Text("やめる") }
+        },
+    )
+}
+
+@Composable
 private fun PostDialog(
     post: AdminAccountScreenUiState.Post,
     listener: AdminAccountScreenUiState.Listener,
@@ -454,7 +672,7 @@ private fun PostDialog(
                 post.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
                 post.result?.let { result ->
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("投稿した。宛先 ${result.targets} 件のうち ${result.delivered} 件に届いた。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                        Text("投稿した。宛先 ${result.deliveryAttemptCount} 件のうち ${result.delivered} 件に届いた。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                         Text(result.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -469,67 +687,6 @@ private fun PostDialog(
             TextButton(onClick = onDismissRequest, enabled = !post.submitting) { Text("閉じる") }
         },
     )
-}
-
-@Composable
-private fun NotesSection(
-    content: AdminAccountScreenUiState.Content.Loaded,
-    listener: AdminAccountScreenUiState.Listener,
-    noteContent: @Composable (String, Modifier) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("配信した投稿", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        when {
-            content.notesLoading && content.notes.isEmpty() -> NotesMessageCard {
-                Text("配信した投稿を取ってきている。", style = MaterialTheme.typography.bodyMedium)
-            }
-
-            content.notes.isEmpty() && content.notesError != null -> NotesMessageCard {
-                Text(content.notesError, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    OutlinedButton(onClick = listener::onClickReloadNotes) { Text("もう一度試す") }
-                }
-            }
-
-            content.notes.isEmpty() -> NotesMessageCard {
-                Text("まだ投稿していない。", style = MaterialTheme.typography.bodyMedium)
-            }
-
-            else -> {
-                content.notes.forEach { note ->
-                    key(note.url) {
-                        NoteCard(note = note, noteContent = noteContent)
-                    }
-                }
-                content.notesError?.let {
-                    NotesMessageCard {
-                        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            OutlinedButton(onClick = listener::onClickReloadNotes) { Text("もう一度試す") }
-                        }
-                    }
-                }
-                if (content.loadingMore) {
-                    Text(
-                        "続きを読み込んでいる。",
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                } else if (!content.canLoadMore && content.notesError == null) {
-                    Text(
-                        "これ以上投稿はない。",
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-        }
-    }
 }
 
 @Composable

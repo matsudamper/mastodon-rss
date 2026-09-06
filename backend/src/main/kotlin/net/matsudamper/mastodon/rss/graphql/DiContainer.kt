@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.graphql
 
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.logic.AccountService
@@ -24,6 +25,7 @@ class DiContainer(
     val domain: String,
     val actorDirectory: ActorDirectory,
     notePublisher: NotePublisher,
+    actorPublisher: ActorPublisher,
     val noteStore: NoteStore,
 ) {
     val adminLoginService: AdminLoginService = AdminLoginService(passwordHash)
@@ -31,6 +33,7 @@ class DiContainer(
     val accountService: AccountService = AccountService(
         accounts = accountRepository,
         followers = followerRepository,
+        actorPublisher = actorPublisher,
         domain = domain,
     )
 

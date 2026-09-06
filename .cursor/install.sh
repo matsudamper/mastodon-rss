@@ -3,6 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 bash .cursor/write-gradle-credentials.sh
+bash .cursor/install-android-sdk.sh
 
 # 依存とツールチェイン(ビルド用 JDK25 / GraalVM / Kotlin-Wasm の Node・yarn・webpack)を
 # 先に取得し、全モジュールのコンパイルとフロントエンドのバンドル生成まで通しておく。

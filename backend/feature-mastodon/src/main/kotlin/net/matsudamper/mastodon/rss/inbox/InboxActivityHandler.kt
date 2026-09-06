@@ -13,7 +13,7 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
  * 未対応のアクティビティを受けても相手に再送させない。
  *
  * 呼ばれる時点で、署名の検証と「署名した鍵の持ち主とアクティビティの実行者が同じか」の
- * 確認は済んでいる。実装は [signer] を本人として扱ってよい。
+ * 確認は済んでいる。
  */
 interface InboxActivityHandler {
     /** 処理するアクティビティの `type`。`"Follow"` のように綴りそのものを返す */
@@ -24,17 +24,11 @@ interface InboxActivityHandler {
      *
      * 戻り値を持たないのは、inbox が処理の成否に関わらず 202 を返すため。
      * 失敗しても相手に伝える口が無いので、何が起きたかを残すのは実装側の責任になる。
-     *
-     * @param recipient 受け取ったこちらのアクター
-     * @param signer 送ってきた相手のアクター id。署名を検証した結果の持ち主で、自称ではない
-     * @param activity 型に落としたアクティビティ
-     * @param raw 受け取った JSON そのもの。`Accept` の `object` のように、
-     *   相手に返すときに元の形のまま入れる必要があるものがあるので捨てずに渡す
      */
     suspend fun handle(
         recipient: ActorUrls,
-        signer: String,
+        verifiedSignerActorId: String,
         activity: InboxActivity,
-        raw: JsonObject,
+        rawActivityJson: JsonObject,
     )
 }

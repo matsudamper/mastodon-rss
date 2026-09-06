@@ -50,6 +50,17 @@ interface AccountRepository {
         username: String,
         createdAt: Instant,
     ): Account?
+
+    /**
+     * 消す。フィードと記事も外部キーで一緒に消える。
+     *
+     * 投稿とフォロワーは `accounts` を参照していないのでここでは消えない。
+     * 名前で持っているものは、同じ名前で作り直したアカウントに引き継がれてしまうので、
+     * 呼び出し側でこれより先に消しておくこと。
+     *
+     * @return 消したら true。既に無ければ false
+     */
+    fun delete(id: AccountId): Boolean
 }
 
 /**

@@ -3,9 +3,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
-import net.matsudamper.mastodon.rss.frontend.screen.MultiSizePreview
+import net.matsudamper.mastodon.rss.frontend.screen.PreviewsMultiSize
 
-@MultiSizePreview
+@PreviewsMultiSize
 @Composable
 private fun AdminAccountContentPreview() {
     val username = "kotlin"
@@ -46,6 +46,7 @@ private fun AdminAccountContentPreview() {
                         ),
                     ),
                     deleteNoteDialog = null,
+                    deleteAccountDialog = null,
                     notesError = null,
                     notesLoading = false,
                     canLoadMore = true,
@@ -55,10 +56,45 @@ private fun AdminAccountContentPreview() {
             ),
             username = username,
             platform = AndroidPreviewScreenPlatform,
-            onClickOpenAccount = {},
-            onClickLogin = {},
-            onClickAdmin = {},
-            onClickHome = {},
+        )
+    }
+}
+
+@PreviewsMultiSize
+@Composable
+private fun AdminAccountContentNoFeedPreview() {
+    val username = "kotlin"
+    MaterialTheme {
+        AdminAccountContent(
+            uiState = AdminAccountScreenUiState(
+                acct = "@$username@example.com",
+                content = AdminAccountScreenUiState.Content.Loaded(
+                    account = AdminAccountScreenUiState.Account(
+                        username = username,
+                        acct = "@$username@example.com",
+                        actorUrl = "https://example.com/users/$username",
+                        createdAt = "2026-09-01 10:00",
+                        followerCount = 0,
+                    ),
+                    feed = AdminAccountScreenUiState.Feed.NotRegistered,
+                    post = AdminAccountScreenUiState.Post(
+                        body = "",
+                        submitting = false,
+                        result = null,
+                        error = null,
+                    ),
+                    notes = emptyList(),
+                    deleteNoteDialog = null,
+                    deleteAccountDialog = null,
+                    notesError = null,
+                    notesLoading = false,
+                    canLoadMore = false,
+                    loadingMore = false,
+                ),
+                listener = AndroidPreviewAdminAccountListener,
+            ),
+            username = username,
+            platform = AndroidPreviewScreenPlatform,
         )
     }
 }
@@ -68,11 +104,15 @@ private object AndroidPreviewNoteListener : AdminAccountScreenUiState.NoteListen
 }
 
 private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Listener {
-    override fun onFeedUrlChanged(text: String) = Unit
+    override fun onClickHome() = Unit
 
-    override fun onClickFetchFeed() = Unit
+    override fun onClickAdmin() = Unit
 
-    override fun onClickSaveFeed() = Unit
+    override fun onClickOpenAccount() = Unit
+
+    override fun onClickBackToAdmin() = Unit
+
+    override fun onClickAddFeed() = Unit
 
     override fun onClickPostLatest() = Unit
 
@@ -81,6 +121,12 @@ private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Li
     override fun onClickPost() = Unit
 
     override fun onClickLoadMore() = Unit
+
+    override fun onClickDeleteAccount() = Unit
+
+    override fun onDismissDeleteAccount() = Unit
+
+    override fun onConfirmDeleteAccount() = Unit
 
     override fun onDismissDeleteNote() = Unit
 

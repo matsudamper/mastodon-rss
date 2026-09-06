@@ -2,9 +2,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import net.matsudamper.mastodon.rss.frontend.screen.MultiSizePreview
+import net.matsudamper.mastodon.rss.frontend.screen.PreviewsMultiSize
 
-@MultiSizePreview
+@PreviewsMultiSize
 @Composable
 private fun AdminAccountNewContentPreview() {
     MaterialTheme {
@@ -17,17 +17,20 @@ private fun AdminAccountNewContentPreview() {
                 ),
                 listener = AndroidPreviewAdminAccountNewListener,
             ),
-            onClickAccounts = {},
-            onClickAdmin = {},
-            onClickHome = {},
         )
     }
 }
 
 private object AndroidPreviewAdminAccountNewListener : AdminAccountNewScreenUiState.Listener {
+    override fun onClickHome() = Unit
+
+    override fun onClickAdmin() = Unit
+
     override fun onUsernameChanged(text: String) = Unit
 
     override fun onClickAdd() = Unit
 
     override fun onClickAddAnother() = Unit
+
+    override fun onClickAccounts() = Unit
 }

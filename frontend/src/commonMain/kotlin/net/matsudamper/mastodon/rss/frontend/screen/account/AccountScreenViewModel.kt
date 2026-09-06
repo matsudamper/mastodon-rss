@@ -12,39 +12,43 @@ import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
-import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
-import net.matsudamper.mastodon.rss.frontend.ui.SnackbarReceiver
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 /**
  * @param username URL に入っていた名前。綴りが違っていても引けるので、
  *   画面に出すのは取ってきた方の名前にする
- * @param host 画面を開いているホスト。仮の値の組み立てにだけ使う
  */
 class AccountScreenViewModel(
     private val username: String,
-    private val selectedNoteId: String?,
-    private val host: String,
     private val viewModelScope: CoroutineScope,
     private val api: AccountApi = AccountApi(),
     private val copyToClipboard: (String, (Boolean) -> Unit) -> Unit,
-    private val snackbarEvents: EventSender<SnackbarReceiver>,
-    private val onClickNote: (String) -> Unit,
 ) {
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
+
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
-    private var loadingJob: Job? = null
+    private var accountJob: Job? = null
+    private var notesJob: Job? = null
     private var loadMoreJob: Job? = null
-    private var noteJob: Job? = null
 
     val uiStateFlow: StateFlow<AccountScreenUiState> =
         MutableStateFlow(
             AccountScreenUiState(
                 content = AccountScreenUiState.Content.Loading,
-                noteDialog = createNoteDialog(viewModelStateFlow.value),
                 listener =
                 object : AccountScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
                     override fun onClickReload() {
                         reload()
                     }
@@ -60,20 +64,13 @@ class AccountScreenViewModel(
                     override fun onClickCopyAcct() {
                         copyAcct()
                     }
-
-                    override fun onClickReloadNote() {
-                        reloadNote()
-                    }
                 },
             ),
         ).also { uiStateFlow ->
             viewModelScope.launch {
                 viewModelStateFlow.collect { viewModelState ->
                     uiStateFlow.update { uiState ->
-                        uiState.copy(
-                            content = createContent(viewModelState),
-                            noteDialog = createNoteDialog(viewModelState),
-                        )
+                        uiState.copy(content = createContent(viewModelState))
                     }
                 }
             }
@@ -81,45 +78,27 @@ class AccountScreenViewModel(
 
     fun onStart() {
         reload()
-        reloadNote()
     }
 
-    private fun reloadNote() {
-        val noteId = selectedNoteId ?: return
-        noteJob?.cancel()
-        viewModelStateFlow.update { it.copy(selectedNote = null) }
-        noteJob = viewModelScope.launch {
-            val result = api.note(username = username, id = noteId)
-            viewModelStateFlow.update { it.copy(selectedNote = result) }
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
         }
     }
 
     private fun reload() {
-        loadingJob?.cancel()
+        accountJob?.cancel()
+        notesJob?.cancel()
         loadMoreJob?.cancel()
-        viewModelStateFlow.update { ViewModelState(selectedNote = it.selectedNote) }
+        viewModelStateFlow.update { ViewModelState() }
 
-        loadingJob =
+        accountJob =
             viewModelScope.launch {
-                when (val result = api.account(username = username, notesLimit = PAGE_SIZE)) {
-                    is AccountResult.Success -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                account = result,
-                                notes = result.notes,
-                                notesCursor = result.notesCursor,
-                                notesError = null,
-                                notesLoading = false,
-                            )
-                        }
-                    }
-
-                    AccountResult.NotFound -> {
-                        viewModelStateFlow.update { it.copy(account = AccountResult.NotFound) }
-                    }
-
-                    is AccountResult.Failure -> {
-                        viewModelStateFlow.update { it.copy(account = result) }
+                api.account(username).collect { result ->
+                    val previousAccount = viewModelStateFlow.value.account
+                    viewModelStateFlow.update { it.copy(account = result) }
+                    if (result is AccountResult.Success && previousAccount == null) {
+                        reloadNotes()
                     }
                 }
             }
@@ -129,16 +108,16 @@ class AccountScreenViewModel(
         loadMoreJob?.cancel()
         viewModelStateFlow.update { it.copy(notesLoading = true, notesError = null) }
 
-        loadingJob?.cancel()
-        loadingJob =
+        notesJob?.cancel()
+        notesJob =
             viewModelScope.launch {
                 try {
-                    when (val result = api.account(username = username, notesLimit = PAGE_SIZE)) {
-                        is AccountResult.Success -> {
+                    when (val result = api.notes(username = username, limit = PAGE_SIZE)) {
+                        is AccountNotesResult.Success -> {
                             viewModelStateFlow.update {
                                 it.copy(
                                     notes = result.notes,
-                                    notesCursor = result.notesCursor,
+                                    notesCursor = result.cursor,
                                     notesError = null,
                                     notesLoading = false,
                                     loadingMore = false,
@@ -146,19 +125,10 @@ class AccountScreenViewModel(
                             }
                         }
 
-                        is AccountResult.Failure -> {
+                        is AccountNotesResult.Failure -> {
                             viewModelStateFlow.update {
                                 it.copy(
                                     notesError = result.message,
-                                    notesLoading = false,
-                                    loadingMore = false,
-                                )
-                            }
-                        }
-
-                        AccountResult.NotFound -> {
-                            viewModelStateFlow.update {
-                                it.copy(
                                     notesLoading = false,
                                     loadingMore = false,
                                 )
@@ -221,7 +191,7 @@ class AccountScreenViewModel(
         copyToClipboard(acct) { copied ->
             if (copied) {
                 viewModelScope.launch {
-                    snackbarEvents.send { it.show("コピーしました") }
+                    events.send { it.showSnackbar("コピーしました") }
                 }
             }
         }
@@ -237,11 +207,18 @@ class AccountScreenViewModel(
 
             is AccountResult.Success -> {
                 AccountScreenUiState.Content.Loaded(
-                    account = AccountUiState.placeholder(
+                    account = AccountUiState(
                         username = account.account.username,
                         acct = account.account.acct,
                         actorUrl = account.account.actorUrl,
-                        host = host,
+                        followerCount = account.followerCount.toString(),
+                        noteCount = account.noteCount.toString(),
+                        feed = account.feed?.let { feed ->
+                            FeedUiState(
+                                feedUrl = feed.feedUrl,
+                                siteUrl = feed.siteUrl,
+                            )
+                        },
                     ),
                     notes = state.notes.map { it.toUiState() },
                     notesError = state.notesError,
@@ -253,31 +230,17 @@ class AccountScreenViewModel(
         }
     }
 
-    private fun AccountNote.toUiState(): NoteUiState = NoteUiState(
-        contentHtml = contentHtml,
-        publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
-        listener = object : NoteUiState.Listener {
-            override fun onClick() {
-                onClickNote(id)
-            }
-        },
-    )
-
-    private fun createNoteDialog(state: ViewModelState): NoteDialogUiState? {
-        if (selectedNoteId == null) return null
-        return when (val result = state.selectedNote) {
-            null -> NoteDialogUiState.Loading
-
-            AccountNoteResult.NotFound -> NoteDialogUiState.NotFound
-
-            is AccountNoteResult.Failure -> NoteDialogUiState.Error(result.message)
-
-            is AccountNoteResult.Success -> NoteDialogUiState.Loaded(
-                contentHtml = result.note.contentHtml,
-                publishedAt = UnixTimeUtil.format(result.note.publishedAt.epochSeconds),
-                activityPubUrl = result.note.url,
-            )
-        }
+    private fun AccountNote.toUiState(): NoteUiState {
+        return NoteUiState(
+            url = url,
+            contentHtml = contentHtml,
+            publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
+            listener = object : NoteUiState.Listener {
+                override fun onClick() {
+                    navigate(Screen.AccountNote(username = username, noteId = id))
+                }
+            },
+        )
     }
 
     private data class ViewModelState(
@@ -287,8 +250,13 @@ class AccountScreenViewModel(
         val notesLoading: Boolean = false,
         val notesCursor: String? = null,
         val loadingMore: Boolean = false,
-        val selectedNote: AccountNoteResult? = null,
     )
+
+    interface Event {
+        suspend fun navigate(screen: Screen)
+
+        fun showSnackbar(message: String)
+    }
 
     private companion object {
         const val PAGE_SIZE: Int = 20

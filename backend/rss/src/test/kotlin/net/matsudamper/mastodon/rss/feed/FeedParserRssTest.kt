@@ -41,7 +41,7 @@ class FeedParserRssTest {
         assertEquals(FeedFormat.RSS_2_0, feed.format)
         assertEquals("技術ブログ", feed.title)
         assertEquals("https://example.com/", feed.link)
-        assertEquals("更新情報", feed.description?.value)
+        assertEquals("更新情報", feed.description?.text)
         assertEquals(Instant.parse("2024-10-01T23:00:00Z"), feed.updatedAt)
         assertEquals(2, feed.items.size)
 
@@ -49,7 +49,7 @@ class FeedParserRssTest {
         assertEquals("1 本目の記事", first.title)
         assertEquals("https://example.com/1", first.link)
         assertEquals("tag:example.com,2024:1", first.id)
-        assertEquals("要約", first.summary?.value)
+        assertEquals("要約", first.summary?.text)
         assertEquals(Instant.parse("2024-10-01T23:00:00Z"), first.publishedAt)
 
         val second = feed.items[1]
@@ -116,8 +116,8 @@ class FeedParserRssTest {
 
         val item = FeedParser.parse(xml).items.single()
 
-        assertEquals("要約だけ", item.summary?.value)
-        assertEquals("""<p>本文の<a href="https://example.com">リンク</a></p>""", item.content?.value)
+        assertEquals("要約だけ", item.summary?.text)
+        assertEquals("""<p>本文の<a href="https://example.com">リンク</a></p>""", item.content?.text)
         // 本文があるなら本文を優先する
         assertEquals(item.content, item.bodyOrSummary())
     }
@@ -269,7 +269,7 @@ class FeedParserRssTest {
         val feed = FeedParser.parse(xml, FeedParserLimits(maxTextLength = 10))
 
         val item = feed.items.single()
-        val summary = item.summary?.value.orEmpty()
+        val summary = item.summary?.text.orEmpty()
         assertTrue(summary.length <= 10, "切り捨てられていない: ${summary.length} 文字")
     }
 }
