@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -467,7 +468,11 @@ private fun ProfileHeader(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    Stat(value = state.followerCount, label = "フォロワー")
+                    Stat(
+                        value = state.followerCount,
+                        label = "フォロワー",
+                        modifier = Modifier.clickable(onClick = listener::onClickFollowerCount),
+                    )
                     Stat(value = state.noteCount, label = "配信した投稿")
                 }
 
@@ -491,8 +496,12 @@ private fun ProfileHeader(
 private fun Stat(
     value: String,
     label: String,
+    modifier: Modifier = Modifier,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,

@@ -43,6 +43,26 @@ class AccountService(
     fun followerCounts(usernames: Set<String>): Map<String, Long> = followers.counts(usernames)
 
     /**
+     * フォロワーのアクター URL を、URL 順で `afterActorUrl` の次から `limit` 件返す
+     */
+    fun followers(username: String, afterActorUrl: String?, limit: Int): FollowersPage {
+        if (limit <= 0) {
+            return FollowersPage(actorUrls = listOf(), hasMore = false, nextActorUrl = null)
+        }
+
+        // 続きがあるかは 1 件多く引いて見る。数え直すと、読んでいる間に増減した分だけ食い違う
+        val fetched = followers.list(username = username, after = afterActorUrl, limit = limit + 1)
+        val hasMore = fetched.size > limit
+        val page = fetched.take(limit)
+
+        return FollowersPage(
+            actorUrls = page,
+            hasMore = hasMore,
+            nextActorUrl = if (hasMore) page.last() else null,
+        )
+    }
+
+    /**
      * 追加した順で `afterUsername` の次から `limit` 件返す
      */
     fun accounts(afterUsername: String?, limit: Int): ManagedAccountsPage {
@@ -153,6 +173,15 @@ class AccountService(
         val createdAt: Instant,
         val displayName: String?,
         val summary: String?,
+    )
+
+    /**
+     * @param nextActorUrl 続きがある場合の、次に渡す `afterActorUrl`
+     */
+    data class FollowersPage(
+        val actorUrls: List<String>,
+        val hasMore: Boolean,
+        val nextActorUrl: String?,
     )
 
     /**

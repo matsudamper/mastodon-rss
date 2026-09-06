@@ -6,8 +6,12 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.data.AccountsCursor
+import net.matsudamper.mastodon.rss.graphql.data.FollowersCursor
 import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAccountFollower
+import net.matsudamper.mastodon.rss.graphql.model.QlAccountFollowersConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAccountFollowersQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNote
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNotesQuery
@@ -117,6 +121,38 @@ class QueryResolverImpl : QueryResolver {
         )
     }
 
+    override fun followers(
+        query: QlAccountFollowersQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAccountFollowersConnection>> {
+        val cursor = query.cursor?.let { FollowersCursor.decode(it) }
+
+        val connection = if (query.cursor != null && cursor == null) {
+            QlAccountFollowersConnection(
+                nodes = listOf(),
+                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+            )
+        } else {
+            val page = GraphQlEngine.diContainer(env).accountService.followers(
+                username = query.username,
+                afterActorUrl = cursor?.afterActorUrl,
+                limit = query.limit.coerceIn(0, MAX_FOLLOWERS_LIMIT),
+            )
+
+            QlAccountFollowersConnection(
+                nodes = page.actorUrls.map { QlAccountFollower(actorUrl = it) },
+                pageInfo = QlPageInfo(
+                    hasMore = page.hasMore,
+                    nextCursor = page.nextActorUrl?.let { FollowersCursor(afterActorUrl = it).encode() },
+                ),
+            )
+        }
+
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(connection).build(),
+        )
+    }
+
     override fun note(
         username: String,
         id: PublicNoteId,
@@ -130,5 +166,7 @@ class QueryResolverImpl : QueryResolver {
 
     private companion object {
         const val MAX_ACCOUNTS_LIMIT = 100
+
+        const val MAX_FOLLOWERS_LIMIT = 100
     }
 }

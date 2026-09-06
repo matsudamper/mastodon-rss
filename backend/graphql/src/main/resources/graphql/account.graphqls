@@ -23,3 +23,20 @@ type Account {
     "登録済みの RSS フィード。未登録なら null"
     feed: Feed @lazy
 }
+
+input AccountFollowersQuery {
+    username: String!
+    cursor: String
+    limit: Int!
+}
+
+type AccountFollowersConnection {
+    nodes: [AccountFollower!]!
+    pageInfo: PageInfo!
+}
+
+"このアカウントをフォローしている相手 1 人"
+type AccountFollower {
+    "相手のアクター文書の URL。相手を指す識別子でもある"
+    actorUrl: String!
+}

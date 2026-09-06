@@ -9,11 +9,13 @@ import com.apollographql.apollo.api.Optional
 import com.apollographql.cache.normalized.FetchPolicy
 import com.apollographql.cache.normalized.fetchPolicy
 import com.apollographql.cache.normalized.watch
+import net.matsudamper.mastodon.rss.frontend.graphql.AccountFollowersQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountNoteQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.HomeScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AccountNoteFields
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountFollowersQuery as AccountFollowersQueryInput
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountNotesQuery as AccountNotesQueryInput
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 
@@ -82,6 +84,37 @@ class AccountApi(
         return AccountNotesResult.Success(
             notes = notes.nodes.map { it.accountNoteFields.toAccountNote() },
             cursor = notes.pageInfo.nextCursor,
+        )
+    }
+
+    suspend fun followers(
+        username: String,
+        cursor: String? = null,
+        limit: Int = PAGE_SIZE,
+    ): AccountFollowersResult {
+        val response = client
+            .query(
+                AccountFollowersQuery(
+                    query = AccountFollowersQueryInput(
+                        username = username,
+                        cursor = Optional.presentIfNotNull(cursor),
+                        limit = limit,
+                    ),
+                ),
+            )
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .execute()
+
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AccountFollowersResult.Failure(response.failureMessage())
+        }
+
+        val data = response.data ?: return AccountFollowersResult.Failure(response.failureMessage())
+        val followers = data.followers
+
+        return AccountFollowersResult.Success(
+            followers = followers.nodes.map { AccountFollower(actorUrl = it.actorUrl) },
+            cursor = followers.pageInfo.nextCursor,
         )
     }
 

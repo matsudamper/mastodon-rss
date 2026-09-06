@@ -24,6 +24,7 @@ import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewNote
@@ -328,6 +329,108 @@ class AccountGraphQlTest {
             assertEquals(false, page2.pageInfo().boolean("hasMore"))
         }
 
+    @Test
+    fun `フォロワーの一覧はログインなしで引ける`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            repositories.followers.acceptFollow("feed1", "https://mastodon.example/users/alice")
+            // Accept を返せていない相手はフォロワーではないので出ない
+            repositories.followers.record(
+                IncomingFollow(
+                    username = "feed1",
+                    follower = NewRemoteActor(
+                        actorUri = "https://mastodon.example/users/bob",
+                        inbox = "https://mastodon.example/users/bob/inbox",
+                        sharedInbox = null,
+                        publicKeyPem = "pem",
+                    ),
+                    followActivityUri = "https://mastodon.example/activities/bob",
+                    receivedAt = Instant.now(),
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val followers = queryFollowers("feed1", limit = 10).followers()
+
+            assertEquals(
+                listOf("https://mastodon.example/users/alice"),
+                followers.nodes().map { it.string("actorUrl") },
+            )
+            assertEquals(false, followers.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `フォロワーの続きはカーソルで引ける`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            repositories.followers.acceptFollow("feed1", "https://mastodon.example/users/alice")
+            repositories.followers.acceptFollow("feed1", "https://mastodon.example/users/bob")
+            application { module(testDependencies(repositories = repositories)) }
+
+            val page1 = queryFollowers("feed1", limit = 1).followers()
+            assertEquals(
+                listOf("https://mastodon.example/users/alice"),
+                page1.nodes().map { it.string("actorUrl") },
+            )
+            assertEquals(true, page1.pageInfo().boolean("hasMore"))
+
+            val page2 = queryFollowers(
+                "feed1",
+                cursor = page1.pageInfo().string("nextCursor"),
+                limit = 1,
+            ).followers()
+            assertEquals(
+                listOf("https://mastodon.example/users/bob"),
+                page2.nodes().map { it.string("actorUrl") },
+            )
+            assertEquals(false, page2.pageInfo().boolean("hasMore"))
+        }
+
+    private fun FollowerRepository.acceptFollow(username: String, actorUri: String) {
+        record(
+            IncomingFollow(
+                username = username,
+                follower = NewRemoteActor(
+                    actorUri = actorUri,
+                    inbox = "$actorUri/inbox",
+                    sharedInbox = null,
+                    publicKeyPem = "pem",
+                ),
+                followActivityUri = "$actorUri/activities/1",
+                receivedAt = Instant.now(),
+            ),
+        )
+        markAccepted(username = username, followerActorUri = actorUri, acceptedAt = Instant.now())
+    }
+
+    private suspend fun ApplicationTestBuilder.queryFollowers(
+        username: String,
+        cursor: String? = null,
+        limit: Int = 20,
+    ): HttpResponse =
+        client.post(GRAPHQL_PATH) {
+            contentType(ContentType.Application.Json)
+
+            val query =
+                "query AccountFollowers(${'$'}username: String!, ${'$'}cursor: String, ${'$'}limit: Int!) { " +
+                    "followers(query: { username: ${'$'}username, cursor: ${'$'}cursor, limit: ${'$'}limit }) { " +
+                    "nodes { actorUrl } pageInfo { hasMore nextCursor } } }"
+
+            val variables = buildString {
+                append("{")
+                append(""""username":${JsonPrimitive(username)},""")
+                if (cursor != null) {
+                    append(""""cursor":${JsonPrimitive(cursor)},""")
+                }
+                append(""""limit":${JsonPrimitive(limit)}""")
+                append("}")
+            }
+
+            setBody("""{"query":${JsonPrimitive(query)},"variables":$variables}""")
+        }
+
     private suspend fun ApplicationTestBuilder.queryAccountNotes(
         username: String,
         cursor: String? = null,
@@ -410,6 +513,8 @@ class AccountGraphQlTest {
         suspend fun HttpResponse.account(): JsonObject = body().obj("data").obj("account")
 
         suspend fun HttpResponse.accountNotes(): JsonObject = body().obj("data").obj("notes")
+
+        suspend fun HttpResponse.followers(): JsonObject = body().obj("data").obj("followers")
 
         /**
          * `data.accounts` まで降りる。errors が入っていたらここで落ちる

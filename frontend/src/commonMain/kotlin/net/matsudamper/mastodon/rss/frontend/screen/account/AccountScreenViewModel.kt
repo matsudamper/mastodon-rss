@@ -64,6 +64,10 @@ class AccountScreenViewModel(
                     override fun onClickCopyAcct() {
                         copyAcct()
                     }
+
+                    override fun onClickFollowerCount() {
+                        navigate(Screen.AccountFollowers(username))
+                    }
                 },
             ),
         ).also { uiStateFlow ->
