@@ -106,6 +106,33 @@ class OpenGraphTest {
     }
 
     @Test
+    fun `script の中の閉じタグで打ち切らない`() {
+        val html =
+            """
+            <head>
+            <script>const marker = "</head>";</script>
+            <meta property="og:image" content="https://example.com/a.png">
+            </head>
+            """.trimIndent()
+
+        assertEquals("https://example.com/a.png", OpenGraph.imageUrl(html))
+    }
+
+    @Test
+    fun `script やコメントの中の meta は読まない`() {
+        val html =
+            """
+            <head>
+            <script>document.write('<meta property="og:image" content="https://evil.example/a.png">')</script>
+            <!-- <meta property="og:image" content="https://old.example/b.png"> -->
+            <meta property="og:image" content="https://example.com/c.png">
+            </head>
+            """.trimIndent()
+
+        assertEquals("https://example.com/c.png", OpenGraph.imageUrl(html))
+    }
+
+    @Test
     fun `og image が無ければ null`() {
         val html = """<head><meta name="description" content="説明"><meta property="og:title" content="題名"></head>"""
 

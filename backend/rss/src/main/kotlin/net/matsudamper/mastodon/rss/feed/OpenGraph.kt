@@ -9,6 +9,9 @@ package net.matsudamper.mastodon.rss.feed
  * HTML を組み立て直さずに `<meta>` だけを正規表現で拾う。相手のページは壊れた入れ子や
  * 閉じ忘れを含むことがあり、木にできないと何も読めないのでは取りこぼしが多すぎる。
  * `<meta>` は中に別のタグを持たないので、タグ 1 つの範囲だけ見れば属性は揃う。
+ *
+ * ただし `<script>` とコメントの中身はタグに見えてもタグではない。落とさずに探すと、
+ * 中に書かれた `</head>` で打ち切ったり、中の `<meta>` を拾ったりする。
  */
 object OpenGraph {
     /** 画像を探す順。前にあるものを優先する */
@@ -21,6 +24,15 @@ object OpenGraph {
     private val attribute = Regex("""([A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))""")
 
     private val headEnd = Regex("</head", RegexOption.IGNORE_CASE)
+
+    /**
+     * タグとして読んではいけない範囲。コメントと、中身が文字列として扱われる要素。
+     * 閉じ忘れているものは落とせないが、その場合は元から木にもできない
+     */
+    private val ignoredRegions = Regex(
+        """<!--.*?-->|<(script|style|template|noscript)\b[^>]*>.*?</\1\s*>""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
 
     private val numericEntity = Regex("&#([xX][0-9A-Fa-f]+|[0-9]+);")
 
@@ -43,7 +55,8 @@ object OpenGraph {
      * 複数枚あるページでは最初の 1 枚を採る。OGP は先頭を代表の画像とする決まり。
      */
     fun imageUrl(html: String): String? {
-        val head = html.substring(0, headEnd.find(html)?.range?.first ?: html.length)
+        val scannable = ignoredRegions.replace(html, "")
+        val head = scannable.substring(0, headEnd.find(scannable)?.range?.first ?: scannable.length)
         val images = mutableMapOf<String, String>()
 
         metaTag.findAll(head).forEach { tag ->
