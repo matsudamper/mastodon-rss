@@ -52,11 +52,6 @@ private fun AdminAccountFeedNewContentFetchedPreview() {
                             link = "https://example.com/articles/1",
                             publishedAt = "2026-09-02 12:00",
                         ),
-                        AdminAccountFeedNewScreenUiState.PreviewItem(
-                            title = null,
-                            link = "https://example.com/articles/2",
-                            publishedAt = null,
-                        ),
                     ),
                 ),
                 errorMessage = null,

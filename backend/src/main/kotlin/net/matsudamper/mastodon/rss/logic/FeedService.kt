@@ -75,11 +75,6 @@ class FeedService(
                         SaveFailure.DUPLICATE_URL
                     },
                 )
-                importExistingItems(
-                    feed = feed,
-                    items = fetched.parsed.items,
-                    feedUrl = fetched.feedUrl,
-                )
                 feeds.markInitialImportDone(feed.id)
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)
                 SaveResult.Success(feed = saved)
@@ -339,9 +334,18 @@ class FeedService(
             description = if (description == null) null else truncateDescription(description),
             fullDescription = description,
             itemCount = parsed.items.size,
-            sampleItems = parsed.items.take(PREVIEW_ITEM_LIMIT).map { it.toPreviewItem() },
+            sampleItems = parsed.items.newestFirst().take(PREVIEW_ITEM_LIMIT).map { it.toPreviewItem() },
         )
     }
+
+    /**
+     * 記事を新しい順に並べ替える。
+     *
+     * `ParsedFeed.items` は XML の出現順のままで、古い順に並べる配信元もある。
+     * 日時を持たない記事は判断材料が無いので、元の順のまま後ろへ送る。
+     */
+    private fun List<ParsedFeedItem>.newestFirst(): List<ParsedFeedItem> =
+        sortedByDescending { it.publishedAt ?: it.updatedAt ?: Instant.MIN }
 
     private fun ParsedFeedItem.toPreviewItem(): FeedPreviewItem = FeedPreviewItem(
         title = title,
@@ -431,7 +435,7 @@ class FeedService(
 
     private companion object {
         const val DEFAULT_POLL_INTERVAL_SECONDS = 900L
-        const val PREVIEW_ITEM_LIMIT = 5
+        const val PREVIEW_ITEM_LIMIT = 1
         const val DESCRIPTION_LIMIT = 200
         const val POST_TITLE_MAX_CHARS = 200
         const val POST_DESCRIPTION_MAX_CHARS = 200
