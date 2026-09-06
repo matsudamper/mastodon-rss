@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss.frontend.ui
 
-import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.decodeToImageBitmap
+import kotlinx.coroutines.CancellationException
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.js.Js
 import io.ktor.client.request.get
