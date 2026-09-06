@@ -16,7 +16,8 @@ data class AdminScreenUiState(
             val error: String?,
             val input: Input,
         ) : Content {
-            val inputEnabled: Boolean get() = input is Input.Enabled
+            val passwordInputEnabled: Boolean get() = input is Input.Enabled && !submitting
+            val loginButtonEnabled: Boolean get() = passwordInputEnabled && password.isNotEmpty()
 
             sealed interface Input {
                 data object Enabled : Input

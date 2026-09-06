@@ -638,12 +638,12 @@ private fun DeleteAccountDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = listener::onConfirmDeleteAccount, enabled = dialog.canConfirm) {
+            TextButton(onClick = listener::onConfirmDeleteAccount, enabled = dialog.confirmButtonEnabled) {
                 Text(dialog.confirmLabel)
             }
         },
         dismissButton = {
-            TextButton(onClick = listener::onDismissDeleteAccount, enabled = dialog.canDismiss) { Text("やめる") }
+            TextButton(onClick = listener::onDismissDeleteAccount, enabled = dialog.closeEnabled) { Text("やめる") }
         },
     )
 }

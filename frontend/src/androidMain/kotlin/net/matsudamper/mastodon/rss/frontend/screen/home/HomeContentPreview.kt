@@ -21,7 +21,7 @@ private fun HomeContentPreview() {
                             acct = "@android@example.com",
                         ),
                     ),
-                    hasMore = true,
+                    loadMoreVisible = true,
                     loadingMore = false,
                     loadMoreErrorMessage = null,
                 ),
