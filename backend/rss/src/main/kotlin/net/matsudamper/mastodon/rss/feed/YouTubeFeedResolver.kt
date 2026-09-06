@@ -58,13 +58,28 @@ object YouTubeFeedResolver {
     private val channelIdInJson = Regex(""""(?:externalId|channelId)"\s*:\s*"(UC[A-Za-z0-9_-]{22})"""")
 
     /**
-     * ホスト。`www.` `m.` `music.` は落としてから突き合わせる。
+     * ホスト。`www.` `m.` `music.` `gaming.` は落としてから突き合わせる。
      * `youtube-nocookie.com` は埋め込みプレイヤーの URL に出てくる
      */
     private val hosts = setOf("youtube.com", "youtu.be", "youtube-nocookie.com")
 
     /** `/shorts/<id>` のように、2 つめの区切りに動画 ID が入るパス */
     private val videoPathPrefixes = setOf("shorts", "live", "embed", "v")
+
+    /**
+     * YouTube 自身のページに使われていて、チャンネルの名前にはならないパス。
+     *
+     * 先頭が名前だけの `/<名前>` は旧来のカスタム URL だが、`/results` や `/feed` のような
+     * 自前のページと綴りの上では区別が付かない。ここに挙げたものは名前として読まない。
+     */
+    private val reservedPaths =
+        setOf(
+            "about", "account", "ads", "attribution_link", "c", "channel", "clip", "creators",
+            "embed", "feed", "feeds", "hashtag", "howyoutubeworks", "live", "live_chat",
+            "logout", "movies", "new", "oops", "playlist", "playlists", "podcasts", "post",
+            "premium", "redirect", "reporthistory", "results", "shorts", "signin", "source",
+            "sports", "t", "trending", "upload", "user", "v", "watch", "watch_videos",
+        )
 
     /**
      * URL を読んでフィードの引き方を決める。
@@ -127,8 +142,28 @@ object YouTubeFeedResolver {
                 query["v"]?.let { videoLookup(it) } ?: query["list"]?.let { playlistFeed(it) }
             }
 
+            // 埋め込みプレイヤーの再生リストと配信。どちらも 2 つめがちょうど 11 文字で、
+            // videoIdPattern に通ってしまう。動画として読む前に外す
+            first == "embed" && second == "videoseries" -> {
+                query["list"]?.let { playlistFeed(it) }
+            }
+
+            first == "embed" && second == "live_stream" -> {
+                query["channel"]?.let { channelFeed(it) }
+            }
+
             first in videoPathPrefixes -> {
                 second?.let { videoLookup(it) }
+            }
+
+            // 旧い共有リンク。`u` に `/watch?v=...` が percent-encoding で入っている
+            first == "attribution_link" -> {
+                query["u"]?.takeIf { it.startsWith("/") }?.let { resolve("$SITE$it") }
+            }
+
+            // `/c/` を挟まない旧来のカスタム URL。綴りからは ID が分からない
+            first.lowercase() !in reservedPaths && namePattern.matches(first) -> {
+                YouTubeFeedSource.NeedsPageLookup("$SITE/$first")
             }
 
             else -> {
@@ -238,7 +273,7 @@ object YouTubeFeedResolver {
 
     private fun normalizeHost(host: String?): String? {
         val lower = host?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
-        for (prefix in listOf("www.", "m.", "music.")) {
+        for (prefix in listOf("www.", "m.", "music.", "gaming.")) {
             if (lower.startsWith(prefix)) return lower.removePrefix(prefix)
         }
         return lower

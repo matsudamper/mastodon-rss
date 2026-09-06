@@ -136,9 +136,63 @@ class YouTubeFeedResolverTest {
     }
 
     @Test
-    fun `スマホと音楽のホストも同じ扱いにする`() {
+    fun `埋め込みの再生リストは動画 ID と間違えない`() {
+        // videoseries はちょうど 11 文字で、動画 ID の形に通ってしまう
+        val source = YouTubeFeedResolver.resolve("https://www.youtube.com/embed/videoseries?list=$playlistId")
+
+        assertEquals(
+            YouTubeFeedSource.Feed(
+                url = "https://www.youtube.com/feeds/videos.xml?playlist_id=$playlistId",
+                kind = YouTubeFeedSource.Kind.PLAYLIST,
+                id = playlistId,
+            ),
+            source,
+        )
+    }
+
+    @Test
+    fun `埋め込みの配信はチャンネルとして読む`() {
+        // live_stream もちょうど 11 文字。チャンネルはクエリに入っている
+        val source = YouTubeFeedResolver.resolve("https://www.youtube.com/embed/live_stream?channel=$channelId")
+
+        assertEquals(channelFeed, (source as YouTubeFeedSource.Feed).url)
+    }
+
+    @Test
+    fun `旧い共有リンクは中の URL を読み直す`() {
+        val source =
+            YouTubeFeedResolver.resolve(
+                "https://www.youtube.com/attribution_link?a=abc&u=%2Fwatch%3Fv%3DXiSMWonFuQQ%26feature%3Dshare",
+            )
+
+        assertEquals(YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/watch?v=XiSMWonFuQQ"), source)
+    }
+
+    @Test
+    fun `名前だけのカスタム URL もページを引く`() {
+        // /c/ を挟まない旧来の形
+        assertEquals(
+            YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/LinusTechTips"),
+            YouTubeFeedResolver.resolve("https://www.youtube.com/LinusTechTips"),
+        )
+        assertEquals(
+            YouTubeFeedSource.NeedsPageLookup("https://www.youtube.com/LinusTechTips"),
+            YouTubeFeedResolver.resolve("https://www.youtube.com/LinusTechTips/videos"),
+        )
+    }
+
+    @Test
+    fun `YouTube 自身のページは名前として読まない`() {
+        assertNull(YouTubeFeedResolver.resolve("https://www.youtube.com/feed/subscriptions"))
+        assertNull(YouTubeFeedResolver.resolve("https://www.youtube.com/account"))
+        assertNull(YouTubeFeedResolver.resolve("https://www.youtube.com/watch_videos?video_ids=XiSMWonFuQQ"))
+    }
+
+    @Test
+    fun `スマホと音楽とゲームのホストも同じ扱いにする`() {
         assertEquals(channelFeed, feedUrlOf("https://m.youtube.com/channel/$channelId"))
         assertEquals(channelFeed, feedUrlOf("https://music.youtube.com/channel/$channelId"))
+        assertEquals(channelFeed, feedUrlOf("https://gaming.youtube.com/channel/$channelId"))
     }
 
     @Test
