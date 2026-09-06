@@ -622,13 +622,13 @@ class FeedServiceTest {
 
             service.save(accountId = account.id, url = FEED_URL)
 
+            service.postUnpublished(account.id)
+
             // og:image は相対 URL でもよいので、記事のページを基準に絶対化する
             assertEquals(
                 listOf("https://example.com/ogp/1.png", "https://example.com/ogp/2.png"),
                 repositories.feedItems.items().map { it.ogImageUrl },
             )
-
-            service.postUnpublished(account.id)
 
             assertEquals(
                 listOf("https://example.com/ogp/1.png", "https://example.com/ogp/2.png"),
