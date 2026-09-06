@@ -58,12 +58,9 @@ data class AccountFollowersScreenUiState(
         fun onClickClose()
     }
 
-    /**
-     * @param listener 開ける URL が無いなら null
-     */
     data class Follower(
         val acct: String,
-        val listener: Follower.Listener?,
+        val listener: Follower.Listener,
     ) {
         @Immutable
         interface Listener {

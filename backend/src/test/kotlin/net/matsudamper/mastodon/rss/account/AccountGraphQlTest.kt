@@ -353,9 +353,12 @@ class AccountGraphQlTest {
 
             val followers = queryFollowers("feed1", limit = 10).followers()
 
-            assertEquals(1, followers.nodes().size)
-            // 相手のプロフィールも名前もまだ保存していない
-            assertEquals(JsonNull, followers.nodes()[0].getValue("url"))
+            // プロフィールを保存していないので、いまはアクター文書の URL が返る
+            assertEquals(
+                listOf("https://mastodon.example/users/alice"),
+                followers.nodes().map { it.string("url") },
+            )
+            // 相手の名前はまだ保存していない
             assertEquals(JsonNull, followers.nodes()[0].getValue("acct"))
             assertEquals(false, followers.pageInfo().boolean("hasMore"))
         }
@@ -370,7 +373,10 @@ class AccountGraphQlTest {
             application { module(testDependencies(repositories = repositories)) }
 
             val page1 = queryFollowers("feed1", limit = 1).followers()
-            assertEquals(1, page1.nodes().size)
+            assertEquals(
+                listOf("https://mastodon.example/users/alice"),
+                page1.nodes().map { it.string("url") },
+            )
             assertEquals(true, page1.pageInfo().boolean("hasMore"))
 
             val page2 = queryFollowers(
@@ -378,7 +384,10 @@ class AccountGraphQlTest {
                 cursor = page1.pageInfo().string("nextCursor"),
                 limit = 1,
             ).followers()
-            assertEquals(1, page2.nodes().size)
+            assertEquals(
+                listOf("https://mastodon.example/users/bob"),
+                page2.nodes().map { it.string("url") },
+            )
             assertEquals(false, page2.pageInfo().boolean("hasMore"))
         }
 

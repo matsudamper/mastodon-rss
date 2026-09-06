@@ -18,7 +18,7 @@ private fun AccountFollowersContentPreview() {
                         ),
                         AccountFollowersScreenUiState.Follower(
                             acct = "未取得",
-                            listener = null,
+                            listener = AndroidPreviewFollowerListener,
                         ),
                     ),
                     loadMore = AccountFollowersScreenUiState.LoadMore.Button,

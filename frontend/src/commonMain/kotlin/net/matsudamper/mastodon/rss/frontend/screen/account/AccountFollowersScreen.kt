@@ -18,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
@@ -112,21 +111,11 @@ private fun FollowerList(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         items(items = content.followers) { follower ->
-            val listener = follower.listener
-            if (listener == null) {
-                Text(
-                    text = follower.acct,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = FontFamily.Monospace,
-                )
-            } else {
-                TextLink(
-                    text = follower.acct,
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = listener::onClick,
-                )
-            }
+            TextLink(
+                text = follower.acct,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = follower.listener::onClick,
+            )
         }
 
         item(key = "footer") {

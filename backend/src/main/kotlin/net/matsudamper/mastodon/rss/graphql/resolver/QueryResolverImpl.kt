@@ -154,7 +154,7 @@ class QueryResolverImpl : QueryResolver {
                         )
 
                         QlAccountFollowersConnection(
-                            nodes = page.actorUrls.map { QlAccountFollower(url = null, acct = null) },
+                            nodes = page.actorUrls.map { QlAccountFollower(url = it, acct = null) },
                             pageInfo = QlPageInfo(
                                 hasMore = page.hasMore,
                                 nextCursor = page.nextActorUrl?.let { FollowersCursor(afterActorUrl = it).encode() },
