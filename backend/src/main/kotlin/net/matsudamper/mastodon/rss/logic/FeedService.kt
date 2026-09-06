@@ -377,12 +377,20 @@ class FeedService(
         val now = Instant.now()
         val keyed = items.map { FeedItemKey.of(feed.url, it).dedupeKey to it }
         val existingKeys = feedItems.findExistingKeys(feed.id, keyed.map { (key, _) -> key })
+        // 応答しないリンクが続いても取り込みが止まらないよう、画像を探すのは
+        // ここまでにする。過ぎた分は画像無しで取り込む
+        val openGraphDeadline = now.plusMillis(OPEN_GRAPH_BUDGET_MILLIS)
 
         keyed.forEach { (itemKey, item) ->
             if (itemKey in existingKeys) return@forEach
 
             val contentHtml = composeItemHtml(item, feedUrl)
             val link = resolveItemLink(item.link, feedUrl)
+            val ogImageUrl = if (link.isBlank() || Instant.now().isAfter(openGraphDeadline)) {
+                null
+            } else {
+                fetcher.fetchOpenGraphImageUrl(link)
+            }
             feedItems.add(
                 NewFeedItem(
                     feedId = feed.id,
@@ -393,7 +401,7 @@ class FeedService(
                     publishedAt = item.publishedAt ?: item.updatedAt,
                     importedAt = now,
                     state = if (contentHtml == null) FeedItemState.SKIPPED else FeedItemState.PENDING,
-                    ogImageUrl = if (link.isBlank()) null else fetcher.fetchOpenGraphImageUrl(link),
+                    ogImageUrl = ogImageUrl,
                 ),
             )
         }
@@ -457,5 +465,6 @@ class FeedService(
         const val DESCRIPTION_LIMIT = 200
         const val POST_TITLE_MAX_CHARS = 200
         const val POST_DESCRIPTION_MAX_CHARS = 200
+        const val OPEN_GRAPH_BUDGET_MILLIS = 30_000L
     }
 }

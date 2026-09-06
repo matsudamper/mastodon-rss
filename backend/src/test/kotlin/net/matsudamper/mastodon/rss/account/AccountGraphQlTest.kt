@@ -249,6 +249,28 @@ class AccountGraphQlTest {
             assertEquals("abc123", note.string("id"))
             assertEquals("<p>本文</p>", note.string("contentHtml"))
             assertEquals(publishedAt.epochSecond, note.long("publishedAt"))
+            assertEquals(JsonNull, note.getValue("imageUrl"))
+        }
+
+    @Test
+    fun `投稿に添えた画像の URL を返す`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = TestServerEnv.USERNAME, createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+            repositories.notes.add(
+                NewNote(
+                    username = TestServerEnv.USERNAME,
+                    publicId = PublicNoteId("abc123"),
+                    contentHtml = "<p>本文</p>",
+                    publishedAt = Instant.parse("2026-08-09T11:02:00Z"),
+                    attachmentImageUrl = "https://example.com/ogp.png",
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val note = queryNote(TestServerEnv.USERNAME, "abc123").body().obj("data").obj("note")
+
+            assertEquals("https://example.com/ogp.png", note.string("imageUrl"))
         }
 
     @Test
@@ -367,7 +389,7 @@ class AccountGraphQlTest {
 
             val query =
                 "query AccountNote(${'$'}username: String!, ${'$'}id: PublicNoteId!) { " +
-                    "note(username: ${'$'}username, id: ${'$'}id) { id url contentHtml publishedAt } }"
+                    "note(username: ${'$'}username, id: ${'$'}id) { id url contentHtml publishedAt imageUrl } }"
             val variables = """{"username":${JsonPrimitive(username)},"id":${JsonPrimitive(id)}}"""
 
             setBody("""{"query":${JsonPrimitive(query)},"variables":$variables}""")
