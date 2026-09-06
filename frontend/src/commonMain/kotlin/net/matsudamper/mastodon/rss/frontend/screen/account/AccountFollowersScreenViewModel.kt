@@ -178,10 +178,6 @@ class AccountFollowersScreenViewModel(
         ) : Followers
     }
 
-    private companion object {
-        const val PAGE_SIZE: Int = 20
-    }
-
     interface Event {
         /**
          * 1 画面として積んでいるので、戻るのと同じ
@@ -189,5 +185,9 @@ class AccountFollowersScreenViewModel(
         suspend fun close()
 
         suspend fun openExternalLink(url: String)
+    }
+
+    private companion object {
+        const val PAGE_SIZE: Int = 20
     }
 }
