@@ -243,11 +243,18 @@ class AccountScreenViewModel(
         return DEFAULT_FEED_SUMMARY
     }
 
-    private fun AccountNote.toUiState(): NoteUiState = NoteUiState(
-        url = url,
-        contentHtml = contentHtml,
-        publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
-    )
+    private fun AccountNote.toUiState(): NoteUiState {
+        return NoteUiState(
+            url = url,
+            contentHtml = contentHtml,
+            publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
+            listener = object : NoteUiState.Listener {
+                override fun onClick() {
+                    navigate(Screen.AccountNote(username = username, noteId = id))
+                }
+            },
+        )
+    }
 
     private data class ViewModelState(
         val account: AccountResult? = null,

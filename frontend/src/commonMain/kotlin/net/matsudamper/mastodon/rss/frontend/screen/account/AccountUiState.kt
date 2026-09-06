@@ -40,4 +40,9 @@ data class NoteUiState(
     val url: String,
     val contentHtml: String,
     val publishedAt: String,
-)
+    val listener: Listener,
+) {
+    interface Listener {
+        fun onClick()
+    }
+}

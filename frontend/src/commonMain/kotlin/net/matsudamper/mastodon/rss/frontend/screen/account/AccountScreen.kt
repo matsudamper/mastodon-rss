@@ -627,6 +627,7 @@ private fun NoteCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
+        onClick = note.listener::onClick,
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
