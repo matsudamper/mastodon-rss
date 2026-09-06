@@ -6,8 +6,8 @@ import net.matsudamper.mastodon.rss.shared.AccountId
 
 internal fun ActorUrls.toGraphqlResponse(
     accountId: AccountId,
-    displayName: String? = null,
-    summary: String? = null,
+    displayName: String?,
+    summary: String?,
 ): QlAccount = QlAccount(
     id = accountId,
     username = username,
