@@ -58,6 +58,21 @@ object YouTubeFeedResolver {
     private val channelIdInJson = Regex(""""(?:externalId|channelId)"\s*:\s*"(UC[A-Za-z0-9_-]{22})"""")
 
     /**
+     * チャンネルのページに埋め込まれた JSON の説明文。
+     *
+     * `<meta name="description">` にも同じ文言が入っているが、あちらは 160 文字ほどで
+     * 切られて末尾が `...` になる。`channelMetadataRenderer` は改行を含む全文が入る。
+     * `description` は同じページに何度も出てくるので、必ずこの入れ物から辿る。
+     * 入れ物の先頭からの距離に上限を置いているのは、当たらなかったときに
+     * ページ全体を走査させないため。
+     */
+    private val channelDescriptionInJson =
+        Regex(""""channelMetadataRenderer"\s*:\s*\{[\s\S]{0,4000}?"description"\s*:\s*"((?:[^"\\]|\\.)*)"""")
+
+    /** JSON 文字列のエスケープ。`\uXXXX` は 4 桁で固定 */
+    private val jsonEscape = Regex("""\\(u[0-9A-Fa-f]{4}|.)""")
+
+    /**
      * ホスト。`www.` `m.` `music.` は落としてから突き合わせる。
      * `youtube-nocookie.com` は埋め込みプレイヤーの URL に出てくる
      */
@@ -170,6 +185,49 @@ object YouTubeFeedResolver {
         feedLinkInPage.find(html)?.groupValues?.get(1)
             ?: channelPathInPage.find(html)?.groupValues?.get(1)
             ?: channelIdInJson.find(html)?.groupValues?.get(1)
+
+    /** チャンネル ID からチャンネルのページの URL を作る。ID の形が違えば null */
+    fun channelPageUrl(channelId: String): String? {
+        if (!channelIdPattern.matches(channelId)) return null
+        return "$SITE/channel/$channelId"
+    }
+
+    /**
+     * チャンネルのページの HTML から説明文を抜き出す。
+     *
+     * YouTube の Atom には `subtitle` が無く、フィードだけではチャンネルの説明文が
+     * 手に入らない。チャンネル名は `title` にあるので、説明文だけページから補う。
+     *
+     * 動画のページには [channelDescriptionInJson] の入れ物が無いので null になる。
+     * 動画の説明文をチャンネルの説明文として拾わせないための境目でもある。
+     */
+    fun channelDescriptionFromPageHtml(html: String): String? =
+        channelDescriptionInJson
+            .find(html)
+            ?.groupValues
+            ?.get(1)
+            ?.let { unescapeJsonString(it) }
+            ?.takeIf { it.isNotBlank() }
+
+    /**
+     * JSON 文字列のエスケープを戻す。
+     *
+     * 説明文は正規表現で切り出すので JSON の解析器を通っておらず、`\n` や `\u0026` が
+     * 文字のまま残っている。
+     */
+    private fun unescapeJsonString(value: String): String =
+        jsonEscape.replace(value) { match ->
+            val escaped = match.groupValues[1]
+            when (escaped.first()) {
+                'n' -> "\n"
+                'r' -> "\r"
+                't' -> "\t"
+                'b' -> "\b"
+                'f' -> "\u000C"
+                'u' -> escaped.substring(1).toInt(16).toChar().toString()
+                else -> escaped
+            }
+        }
 
     private fun fromFeedQuery(query: Map<String, String>): YouTubeFeedSource? {
         query["channel_id"]?.let { return channelFeed(it) }

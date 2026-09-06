@@ -219,5 +219,34 @@ class YouTubeFeedResolverTest {
         assertNull(YouTubeFeedResolver.channelIdFromPageHtml(""))
     }
 
+    @Test
+    fun `チャンネルのページの JSON から説明文を拾う`() {
+        val html =
+            """{"metadata":{"channelMetadataRenderer":{"title":"配信者",""" +
+                """"description":"1 行目\n2 行目 \u0026 3 行目","channelUrl":"https://www.youtube.com/channel/$channelId"}}}"""
+
+        assertEquals("1 行目\n2 行目 & 3 行目", YouTubeFeedResolver.channelDescriptionFromPageHtml(html))
+    }
+
+    @Test
+    fun `チャンネルのページ以外からは説明文を拾わない`() {
+        // 動画のページの説明文をチャンネルの説明文として拾ってしまわないこと
+        assertNull(YouTubeFeedResolver.channelDescriptionFromPageHtml("""{"videoDetails":{"shortDescription":"動画の説明"}}"""))
+        assertNull(YouTubeFeedResolver.channelDescriptionFromPageHtml(""))
+    }
+
+    @Test
+    fun `説明文が空なら拾わない`() {
+        val html = """{"channelMetadataRenderer":{"title":"配信者","description":""}}"""
+
+        assertNull(YouTubeFeedResolver.channelDescriptionFromPageHtml(html))
+    }
+
+    @Test
+    fun `チャンネル ID からチャンネルのページの URL を作る`() {
+        assertEquals("https://www.youtube.com/channel/$channelId", YouTubeFeedResolver.channelPageUrl(channelId))
+        assertNull(YouTubeFeedResolver.channelPageUrl("UC123"))
+    }
+
     private fun feedUrlOf(input: String): String? = (YouTubeFeedResolver.resolve(input) as? YouTubeFeedSource.Feed)?.url
 }
