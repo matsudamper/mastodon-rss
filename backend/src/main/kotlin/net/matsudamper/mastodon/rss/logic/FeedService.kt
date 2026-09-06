@@ -360,7 +360,7 @@ class FeedService(
      * 配信元から来た文字列は入れない。購読者だけが知る値を含むことがある
      */
     private fun FeedFetchService.FetchResult.failureReason(): String = when (this) {
-        is FeedFetchService.FetchResult.Success -> "取得に失敗した"
+        is FeedFetchService.FetchResult.Success -> error("成功は失敗の理由を持たない")
         FeedFetchService.FetchResult.InvalidUrl -> "URL として読めない"
         FeedFetchService.FetchResult.TooLarge -> "応答が大きすぎる"
         is FeedFetchService.FetchResult.HttpError -> status?.let { "HTTP $it" } ?: message ?: "取得に失敗した"
