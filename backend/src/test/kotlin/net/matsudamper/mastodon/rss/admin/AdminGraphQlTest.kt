@@ -273,8 +273,8 @@ class AdminGraphQlTest {
                 token = token,
             ).updateAccountProfileResult().obj("adminAccount").obj("account")
 
-            assertEquals(JsonNull, cleared.getValue("displayName"))
-            assertEquals(JsonNull, cleared.getValue("summary"))
+            assertEquals("", cleared.string("displayName"))
+            assertEquals("", cleared.string("summary"))
         }
 
     @Test

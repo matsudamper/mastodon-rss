@@ -209,7 +209,7 @@ class AccountScreenViewModel(
                 AccountScreenUiState.Content.Loaded(
                     account = AccountUiState(
                         username = account.account.username,
-                        displayName = account.account.displayName ?: account.account.username,
+                        displayName = account.account.displayName.ifEmpty { account.account.username },
                         acct = account.account.acct,
                         actorUrl = account.account.actorUrl,
                         summary = account.summaryText(),
@@ -238,7 +238,7 @@ class AccountScreenViewModel(
      */
     private fun AccountResult.Success.summaryText(): String? {
         val summary = account.summary
-        if (summary != null) return summary
+        if (summary.isNotEmpty()) return summary
         if (feed == null) return null
         return DEFAULT_FEED_SUMMARY
     }

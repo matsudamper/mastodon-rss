@@ -498,8 +498,8 @@ private fun AccountCard(account: AdminAccountScreenUiState.Account) {
             OutlinedButton(onClick = account.listener::onClickOpenAccount) { Text("公開画面") }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        LabeledValue(label = "表示名", value = account.displayName ?: "未設定（@${account.username} が出る）")
-        LabeledValue(label = "説明文", value = account.summary ?: "未設定（既定の文言が出る）")
+        LabeledValue(label = "表示名", value = account.displayName.ifEmpty { "未設定（@${account.username} が出る）" })
+        LabeledValue(label = "説明文", value = account.summary.ifEmpty { "未設定" })
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             OutlinedButton(onClick = account.listener::onClickEditProfile) { Text("プロフィールを編集") }
         }

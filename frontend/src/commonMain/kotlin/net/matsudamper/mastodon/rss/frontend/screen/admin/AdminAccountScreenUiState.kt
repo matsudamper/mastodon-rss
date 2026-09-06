@@ -60,8 +60,8 @@ data class AdminAccountScreenUiState(
         val actorUrl: String,
         val createdAt: String,
         val followerCount: Int,
-        val displayName: String?,
-        val summary: String?,
+        val displayName: String,
+        val summary: String,
         val listener: AccountListener,
     )
 

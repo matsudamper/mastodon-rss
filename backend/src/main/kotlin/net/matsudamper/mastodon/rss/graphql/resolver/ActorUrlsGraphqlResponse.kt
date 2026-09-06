@@ -13,6 +13,6 @@ internal fun ActorUrls.toGraphqlResponse(
     username = username,
     acct = mention,
     actorUrl = actorId,
-    displayName = displayName,
-    summary = summary,
+    displayName = displayName.orEmpty(),
+    summary = summary.orEmpty(),
 )
