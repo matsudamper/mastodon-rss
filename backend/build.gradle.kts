@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.api.tasks.testing.logging.TestLogEvent
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
@@ -65,6 +68,13 @@ kotlin {
 
 tasks.test {
     useJUnitPlatform()
+
+    // 落ちた理由を CI のログに出す。既定では例外の種類と行だけで、
+    // 期待値と実際の値が出ないため、レポートを開けない環境では調べようがない
+    testLogging {
+        events(TestLogEvent.FAILED)
+        exceptionFormat = TestExceptionFormat.FULL
+    }
 }
 
 graalvmNative {
