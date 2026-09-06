@@ -10,7 +10,6 @@ import io.ktor.server.routing.get
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.activitypub.Actor
 import net.matsudamper.mastodon.rss.activitypub.ActorAttachment
-import net.matsudamper.mastodon.rss.activitypub.ActorImage
 import net.matsudamper.mastodon.rss.activitypub.ActorPublicKey
 import net.matsudamper.mastodon.rss.json.respondJson
 
@@ -71,7 +70,7 @@ internal fun actorDocument(
         attachment = feedAttachments(feedLinks),
         // 中身は /users/{username}/icon が返す。フィードがアイコンを名乗っていなければ
         // 出さない。空の URL を渡すと相手側で取得に失敗した扱いになる
-        icon = if (feedLinks.iconUrl == null) null else ActorImage(url = urls.icon),
+        icon = if (feedLinks.iconUrl == null) null else Actor.Image(url = urls.icon),
         showFeatured = false,
         publicKey =
         ActorPublicKey(
