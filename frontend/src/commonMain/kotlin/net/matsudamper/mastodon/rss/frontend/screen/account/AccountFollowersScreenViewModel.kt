@@ -29,7 +29,6 @@ class AccountFollowersScreenViewModel(
 
     private var loadMoreJob: Job? = null
 
-    // uiStateFlow より後ろに置くと、初期値を組み立てる時点でまだ入っていない
     private val listener = object : AccountFollowersScreenUiState.Listener {
         override fun onClickClose() {
             viewModelScope.launch { events.send { it.close() } }
