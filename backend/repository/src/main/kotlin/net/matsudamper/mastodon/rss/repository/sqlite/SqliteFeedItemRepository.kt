@@ -20,13 +20,17 @@ internal class SqliteFeedItemRepository(
     ): Set<String> {
         if (keys.isEmpty()) return emptySet()
 
+        // 記事の数がそのままバインド変数の数になる。SQLite の上限を超えると
+        // 問い合わせ自体が通らないので分けて聞く
         return jooq.withConnection { dsl ->
-            dsl
-                .select(FEED_ITEMS.ITEM_KEY)
-                .from(FEED_ITEMS)
-                .where(FEED_ITEMS.FEED_ID.eq(feedId.value))
-                .and(FEED_ITEMS.ITEM_KEY.`in`(keys))
-                .fetchSet(FEED_ITEMS.ITEM_KEY)
+            keys.chunked(MAX_BIND_VALUES).flatMapTo(mutableSetOf()) { chunk ->
+                dsl
+                    .select(FEED_ITEMS.ITEM_KEY)
+                    .from(FEED_ITEMS)
+                    .where(FEED_ITEMS.FEED_ID.eq(feedId.value))
+                    .and(FEED_ITEMS.ITEM_KEY.`in`(chunk))
+                    .fetch(FEED_ITEMS.ITEM_KEY)
+            }
         }
     }
 
@@ -111,11 +115,16 @@ internal class SqliteFeedItemRepository(
         if (noteIds.isEmpty()) return emptyMap()
 
         return jooq.withConnection { dsl ->
-            dsl
-                .selectFrom(FEED_ITEMS)
-                .where(FEED_ITEMS.NOTE_ID.`in`(noteIds.map { it.value }))
-                .fetch()
-                .map { it.toFeedItem() }
+            noteIds
+                .map { it.value }
+                .chunked(MAX_BIND_VALUES)
+                .flatMap { chunk ->
+                    dsl
+                        .selectFrom(FEED_ITEMS)
+                        .where(FEED_ITEMS.NOTE_ID.`in`(chunk))
+                        .fetch()
+                        .map { it.toFeedItem() }
+                }
                 .associateBy { checkNotNull(it.noteId) }
         }
     }
@@ -198,6 +207,12 @@ internal class SqliteFeedItemRepository(
         ogImageUrl = ogImageUrl,
     )
 }
+
+/**
+ * 1 回の問い合わせに載せるバインド変数の数。SQLite の既定の上限が 999 なので、
+ * それを超えないところで切る
+ */
+private const val MAX_BIND_VALUES = 500
 
 private val pendingOrder: Comparator<FeedItem> =
     compareBy<FeedItem> { it.publishedAt == null }
