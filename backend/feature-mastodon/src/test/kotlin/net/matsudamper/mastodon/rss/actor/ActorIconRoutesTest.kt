@@ -41,7 +41,6 @@ class ActorIconRoutesTest {
             assertEquals(ContentType.Image.PNG, response.contentType()?.withoutParameters())
             assertEquals(png.toList(), response.readRawBytes().toList())
             assertEquals("public, max-age=3600", response.headers[HttpHeaders.CacheControl])
-            // 画像として受けたものを別の種類として解釈されないようにする
             assertEquals("nosniff", response.headers["X-Content-Type-Options"])
         }
 

@@ -48,8 +48,6 @@ fun main() {
  */
 @Composable
 fun App() {
-    // 画像の取得を Ktor に通す。ブラウザ向けの Coil は取得の口を持たないので、
-    // 使うエンジンをここで決めて渡す
     setSingletonImageLoaderFactory { context ->
         ImageLoader.Builder(context)
             .components { add(KtorNetworkFetcherFactory(httpClient = { HttpClient(Js) })) }

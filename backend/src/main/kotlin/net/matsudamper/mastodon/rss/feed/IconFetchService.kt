@@ -91,7 +91,6 @@ class IconFetchService(
         return FetchResult.Success(bytes = bytes, contentType = contentType)
     }
 
-    /** リダイレクトなら飛び先。違えば null */
     private fun HttpResponse.redirectLocation(): String? {
         if (status.value !in REDIRECT_STATUS_RANGE) return null
         return headers[HttpHeaders.Location]?.trim()?.takeIf { it.isNotEmpty() }

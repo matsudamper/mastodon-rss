@@ -68,8 +68,7 @@ class AccountResolverImpl : AccountResolver {
     /**
      * 取得元の URL から決まる短い値。
      *
-     * 中身ではなく取得元で見るので、同じ URL のまま画像だけ差し替えられた場合は変わらない。
-     * `String.hashCode` は仕様で決まっていて、動かす環境や起動ごとには変わらない
+     * 中身ではなく取得元で見るので、同じ URL のまま画像だけ差し替えられた場合は変わらない
      */
     private fun String.iconVersion(): String = hashCode().toUInt().toString(HEX_RADIX)
 
