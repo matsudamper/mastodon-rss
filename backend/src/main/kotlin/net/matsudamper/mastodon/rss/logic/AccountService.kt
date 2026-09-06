@@ -72,6 +72,10 @@ class AccountService(
      *
      * acct のホストはアクター文書の URL のホストから取る。名前は URL の形が
      * 実装ごとに違って取り出せないので、保存したものが無ければ null にする。
+     *
+     * WebFinger を別ドメインへ委譲している相手（アクターは `mastodon.example.social` だが
+     * acct は `@alice@example.com`）では、ここで作る acct は検索窓で解決しない。
+     * 正すにはフォローのたびに WebFinger をもう 1 往復引くことになる。
      */
     private fun Follower.toProfile(): FollowerProfile {
         val host = runCatching { URI(actorUri).host }.getOrNull()

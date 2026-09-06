@@ -3,6 +3,8 @@ package net.matsudamper.mastodon.rss.actor
 import java.io.Closeable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -88,10 +90,27 @@ class HttpRemoteActors(
             publicKeyPem = publicKeyPem,
             // 管理画面から人が開くリンクになる。https で、アクターと同じホストのものに限る。
             // 他所のホストを指せると、フォローするだけでこちらの画面に任意のリンクを載せられる
-            profileUrl = document.url?.takeIf { parseHttpsUrl(it) != null && isSameHost(it, url) },
-            preferredUsername = document.preferredUsername,
+            profileUrl = document.url.asString()?.takeIf { parseHttpsUrl(it) != null && isSameHost(it, url) },
+            preferredUsername = document.preferredUsername.asString()?.takeIf { isDisplayableUsername(it) },
         )
     }
+
+    /**
+     * 文字列として読めるものだけ拾う。型が違うものは無かったことにする
+     */
+    private fun JsonElement?.asString(): String? = (this as? JsonPrimitive)?.takeIf { it.isString }?.content
+
+    /**
+     * acct の名前として出してよいか。
+     *
+     * acct は管理画面でリンクの表示文字列になる。`@` や空白を通すと、リンク先とは
+     * 別のホストを名乗る表示を相手が作れる。プロフィールの URL を同じホストに
+     * 絞っているのと同じ理由で、名前の側も相手の言い分をそのまま出さない。
+     */
+    private fun isDisplayableUsername(raw: String): Boolean =
+        raw.isNotEmpty() &&
+            raw.length <= MAX_USERNAME_LENGTH &&
+            raw.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '_' || it == '.' || it == '-' }
 
     /**
      * POST しに行ってよい宛先か。https で、取得先と同じホストであること
@@ -158,6 +177,12 @@ class HttpRemoteActors(
 
     private companion object {
         /**
+         * acct に出す名前の長さの上限。Mastodon は 30 文字までだが、
+         * 他の実装まで同じとは限らないので緩めに取る
+         */
+        const val MAX_USERNAME_LENGTH = 64
+
+        /**
          * 読み込む応答の上限。アクター文書は鍵を含めても数 KB にしかならない。
          * 相手のサーバーが延々と送り続けてくる場合は、これと下のタイムアウトで止める。
          */
@@ -203,10 +228,15 @@ private data class RemoteActorDocument(
     val id: String? = null,
     @SerialName("inbox")
     val inbox: String? = null,
+    /**
+     * ActivityStreams では文字列のほかに `Link` オブジェクトや配列も取り得る。
+     * [String] で受けると、型が違うだけで文書全体のデコードに失敗して
+     * 署名の鍵まで読めなくなるので、読める形のときだけ拾う
+     */
     @SerialName("url")
-    val url: String? = null,
+    val url: JsonElement? = null,
     @SerialName("preferredUsername")
-    val preferredUsername: String? = null,
+    val preferredUsername: JsonElement? = null,
     @SerialName("publicKey")
     val publicKey: RemoteActorPublicKey? = null,
     @SerialName("endpoints")

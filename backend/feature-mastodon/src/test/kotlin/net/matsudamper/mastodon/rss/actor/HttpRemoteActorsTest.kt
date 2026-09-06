@@ -70,6 +70,44 @@ class HttpRemoteActorsTest {
         assertNull(actor.preferredUsername)
     }
 
+    @Test
+    fun `url がオブジェクトや配列でも鍵と inbox は読める`() {
+        val actor = findActor(
+            """
+            {
+              "id": "$ACTOR_ID",
+              "inbox": "$ACTOR_ID/inbox",
+              "url": [{ "type": "Link", "href": "https://remote.example/@alice" }],
+              "preferredUsername": "alice",
+              "publicKey": { "publicKeyPem": "pem" }
+            }
+            """.trimIndent(),
+        )
+
+        // 型が違うだけで文書ごと読めなくなると、この相手の署名が検証できなくなる
+        assertNotNull(actor)
+        assertEquals("$ACTOR_ID/inbox", actor.inbox)
+        assertNull(actor.profileUrl)
+    }
+
+    @Test
+    fun `名前として通らない preferredUsername は落とす`() {
+        val actor = findActor(
+            """
+            {
+              "id": "$ACTOR_ID",
+              "inbox": "$ACTOR_ID/inbox",
+              "preferredUsername": "alice@mastodon.social",
+              "publicKey": { "publicKeyPem": "pem" }
+            }
+            """.trimIndent(),
+        )
+
+        // 通すと、リンク先とは別のホストを名乗る acct を相手が作れる
+        assertNotNull(actor)
+        assertNull(actor.preferredUsername)
+    }
+
     private fun findActor(document: String): RemoteActor? {
         val client = HttpClient(
             MockEngine {
