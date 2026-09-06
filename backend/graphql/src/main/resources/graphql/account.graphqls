@@ -14,7 +14,7 @@ type Account {
     "プロフィールの説明文。未設定なら空文字"
     summary: String!
 
-    "プロフィール画像の URL。フィードがアイコンを名乗っていなければ null"
+    "プロフィール画像の URL。無ければnull"
     iconUrl: String @lazy
 
     "Accept を返せたフォロワーの数"
