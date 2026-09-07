@@ -3,6 +3,8 @@ package net.matsudamper.mastodon.rss.logic
 import java.net.URI
 import java.time.Instant
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedItemKey
@@ -409,7 +411,7 @@ class FeedService(
      * 今回取り込んだ分に絞らず、未投稿を全部投稿する。投稿できずに残る理由は
      * アクターの引き当てなど一時的なものが多く、取り込んだ回を逃すと二度と拾えない
      */
-    private fun publishPending(
+    private suspend fun publishPending(
         feed: Feed,
         username: String,
         htmlByKey: Map<String, String?>,
@@ -419,9 +421,14 @@ class FeedService(
         feedItems
             .findPending(feed.id, Int.MAX_VALUE)
             .forEach { stored ->
+                // 溜まっている記事を全部投函し終えるまで止まらないと、停止の待ち時間を超えて
+                // 閉じた DB に触りに行く。1 件ごとに止める合図を見る
+                currentCoroutineContext().ensureActive()
                 val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
                 val queued = try {
                     notePoster.post(sender = sender, contentHtml = html, feedItemId = stored.id)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     // 投稿できなかった記事は未投稿のまま残る。無人で動くので、
                     // 気付けるようにここに残す。記事のリンクや鍵は購読者だけが知る値を
