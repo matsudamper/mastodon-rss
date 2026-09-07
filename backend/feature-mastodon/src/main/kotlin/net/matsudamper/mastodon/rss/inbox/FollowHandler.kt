@@ -127,7 +127,7 @@ class FollowHandler(
                     // 同じ id なので相手側で落ちる
                     val backfillUntil = Instant.now()
 
-                    // inbox の応答を待たせない。最大 20 件を順に送るので、
+                    // inbox の応答を待たせない。最大 5 件を順に送るので、
                     // ここで待つと相手のタイムアウトと Follow の再送を招く
                     backfillScope.launch {
                         runCatching {
