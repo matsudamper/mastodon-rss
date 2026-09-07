@@ -11,6 +11,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorKey
+import net.matsudamper.mastodon.rss.actor.actorHeaderRoutes
 import net.matsudamper.mastodon.rss.actor.actorIconRoutes
 import net.matsudamper.mastodon.rss.actor.actorRoutes
 import net.matsudamper.mastodon.rss.follower.followerRoutes
@@ -172,6 +173,7 @@ fun Application.module(deps: AppDependencies) {
         webFingerRoutes(deps.directory)
         actorRoutes(deps.directory, actorKey, deps.feedLinks, deps.actorProfiles)
         actorIconRoutes(deps.directory, deps.actorIcons)
+        actorHeaderRoutes(deps.directory, deps.actorHeaders)
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)
