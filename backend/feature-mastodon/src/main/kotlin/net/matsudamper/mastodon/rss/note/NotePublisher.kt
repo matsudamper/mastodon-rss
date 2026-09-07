@@ -40,18 +40,17 @@ class NotePublisher(
         val publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli()))
         val urls = NoteUrls(domain = sender.domain, publicId = publicId)
 
-        notes.add(
-            StoredNote(
-                publicId = publicId,
-                username = sender.username,
-                contentHtml = contentHtml,
-                publishedAt = publishedAt,
-            ),
+        val storedNote = StoredNote(
+            publicId = publicId,
+            username = sender.username,
+            contentHtml = contentHtml,
+            publishedAt = publishedAt,
         )
+        notes.add(storedNote)
 
         val activityBodyBytes = AppJson.encodeToString(
             CreateNoteActivity.serializer(),
-            createActivity(sender = sender, urls = urls, contentHtml = contentHtml, publishedAt = publishedAt),
+            CreateNoteActivityFactory.create(sender = sender, note = storedNote),
         ).toByteArray()
 
         val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
@@ -143,33 +142,6 @@ class NotePublisher(
         cc = listOf(sender.followers),
         target = DeleteNoteActivity.Tombstone(id = urls.noteId),
     )
-
-    private fun createActivity(
-        sender: ActorUrls,
-        urls: NoteUrls,
-        contentHtml: String,
-        publishedAt: Instant,
-    ): CreateNoteActivity {
-        val published = publishedAt.toActivityPubPublished()
-
-        return CreateNoteActivity(
-            id = urls.createId,
-            actor = sender.actorId,
-            published = published,
-            to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
-            cc = listOf(sender.followers),
-            target = Note(
-                id = urls.noteId,
-                attributedTo = sender.actorId,
-                content = contentHtml,
-                published = published,
-                to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
-                cc = listOf(sender.followers),
-                url = urls.noteUrl,
-                atomUri = urls.noteUrl,
-            ),
-        )
-    }
 }
 
 data class DeletedNote(

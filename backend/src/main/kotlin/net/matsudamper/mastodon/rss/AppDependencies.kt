@@ -146,6 +146,7 @@ class AppDependencies(
         remoteActors = remoteActors,
         delivery = delivery,
         followers = followerStore,
+        notes = noteStore,
     )
 
     val notePublisher: NotePublisher = NotePublisher(

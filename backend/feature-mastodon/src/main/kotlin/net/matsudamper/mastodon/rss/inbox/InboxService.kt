@@ -11,6 +11,8 @@ import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
+import net.matsudamper.mastodon.rss.note.NoteStore
 import org.slf4j.LoggerFactory
 
 /**
@@ -150,16 +152,23 @@ class InboxService(
          * @param remoteActors 相手のアクターの引き先。署名検証に使う公開鍵と、
          *   `Accept` の宛先になる inbox をここから取る
          * @param delivery こちらから相手の inbox に POST する口
+         * @param notes フォロー成立後に配り直す過去の投稿の引き先
          */
         fun default(
             remoteActors: RemoteActors,
             delivery: ActivityDelivery,
             followers: FollowerStore,
+            notes: NoteStore,
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(remoteActors),
                 handlers = listOf(
-                    FollowHandler(remoteActors, delivery, followers),
+                    FollowHandler(
+                        remoteActors = remoteActors,
+                        delivery = delivery,
+                        followers = followers,
+                        backfill = FollowBackfillPublisher(notes = notes, delivery = delivery),
+                    ),
                     UndoFollowHandler(followers),
                     DeleteActorHandler(followers),
                 ),

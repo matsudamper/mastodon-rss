@@ -16,6 +16,7 @@ import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import org.slf4j.LoggerFactory
 
 /**
@@ -32,11 +33,15 @@ import org.slf4j.LoggerFactory
  * 記録してから `Accept` を返す。逆にすると、記録に失敗したときに相手だけが
  * フォローできたつもりになり、こちらには送り先が残らない。記録できなければ
  * `Accept` も返さないので、相手からは保留のまま見える。
+ *
+ * 成立した後に、フォローより前の投稿を新しいフォロワーにだけ配る。詳しくは
+ * [net.matsudamper.mastodon.rss.note.FollowBackfillPublisher] にある。
  */
 class FollowHandler(
     private val remoteActors: RemoteActors,
     private val delivery: ActivityDelivery,
     private val followers: FollowerStore,
+    private val backfill: FollowBackfillPublisher,
 ) : InboxActivityHandler {
     override val type: String = "Follow"
 
@@ -103,6 +108,16 @@ class FollowHandler(
                 markAccepted(recipient = recipient, verifiedSignerActorId = verifiedSignerActorId)
 
                 logger.info("Follow に Accept を返した: ${recipient.acct} ← $verifiedSignerActorId")
+
+                // フォローが確定してから送る。Accept より前に送っても、相手はまだ
+                // フォロー関係を持っていないのでタイムラインには並ばない
+                runCatching { backfill.deliverRecentNotes(sender = recipient, inbox = follower.inbox) }
+                    .onFailure { failure ->
+                        logger.warn(
+                            "過去の投稿を配れなかった: ${recipient.acct} → $verifiedSignerActorId",
+                            failure,
+                        )
+                    }
             }
 
             is DeliveryResult.Failed -> {
