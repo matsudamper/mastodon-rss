@@ -39,7 +39,10 @@ CREATE TABLE delivery_queue (
     -- 投函した時刻。諦める判定に使う
     enqueued_at TEXT NOT NULL,
     -- 最後に失敗した理由
-    last_error TEXT
+    last_error TEXT,
+    -- この行が配る投稿。投稿を消したら未配信の Create も一緒に消えるように外部キーで繋ぐ。
+    -- 残すと、消したはずの投稿が復旧した相手に後から届く。投稿を伴わない種別では NULL
+    note_public_id TEXT REFERENCES notes (public_id) ON DELETE CASCADE
 );
 
 CREATE TABLE feed_items (
@@ -137,6 +140,8 @@ CREATE TABLE remote_actors (
     -- 検証が通らなくなるので、取り直す判断に使う
     fetched_at TEXT NOT NULL
 );
+
+CREATE INDEX delivery_queue_note_public_id ON delivery_queue (note_public_id);
 
 CREATE INDEX delivery_queue_state_next_attempt_at_id ON delivery_queue (state, next_attempt_at, id);
 

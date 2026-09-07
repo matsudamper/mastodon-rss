@@ -26,6 +26,9 @@ interface DeliveryQueueRepository {
      * 同じ記事への投函が 2 回走っても、投稿とキューが 1 回しか作られないのはここで止めている。
      *
      * 宛先が 1 つも無くても投稿は記録する。フォロワーがいない間の投稿も `outbox` には並ぶ。
+     *
+     * 投函した行は投稿に紐付く。投稿を消すと未配信の行も一緒に消えるので、
+     * 消したはずの投稿が復旧した相手に後から届くことはない。
      */
     fun enqueueNote(post: NotePost): EnqueueNoteResult
 

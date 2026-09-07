@@ -58,9 +58,15 @@ class FakeRepositories : Repositories {
 
     override val feedItems: FakeFeedItemRepository = FakeFeedItemRepository()
 
-    // 投稿を消したら記事の note_id が外れるのは SQLite の ON DELETE SET NULL。
-    // ここで繋がないと、消した投稿の id で記事が引けるという本物には無い状態になる
-    override val notes: FakeNoteRepository = FakeNoteRepository(onDeleted = feedItems::clearNoteId)
+    // 投稿を消したら記事の note_id が外れるのは SQLite の ON DELETE SET NULL、
+    // 未配信の行が消えるのは ON DELETE CASCADE。ここで繋がないと、消した投稿の id で
+    // 記事が引けたり、消した投稿の Create が送られたりする本物には無い状態になる
+    override val notes: FakeNoteRepository = FakeNoteRepository(
+        onDeleted = { publicId ->
+            feedItems.clearNoteId(publicId)
+            deliveryQueue.deleteByNote(publicId)
+        },
+    )
 
     // 投函は投稿の記録と記事の投稿済み化を一緒に書くので、両方のフェイクを繋ぐ
     override val deliveryQueue: FakeDeliveryQueueRepository = FakeDeliveryQueueRepository(notes = notes, feedItems = feedItems)
@@ -542,6 +548,7 @@ class FakeDeliveryQueueRepository(
         post.inboxes.forEach { inbox ->
             stored += Row(
                 id = DeliveryId(nextId++),
+                notePublicId = post.note.publicId,
                 username = post.note.username,
                 inbox = inbox,
                 body = post.body,
@@ -653,6 +660,10 @@ class FakeDeliveryQueueRepository(
 
     fun rows(): List<Row> = stored.toList()
 
+    fun deleteByNote(publicId: PublicNoteId) {
+        stored.removeAll { it.notePublicId == publicId }
+    }
+
     private fun find(id: DeliveryId): Row? = stored.firstOrNull { it.id == id }
 
     private fun update(
@@ -672,6 +683,7 @@ class FakeDeliveryQueueRepository(
 
     data class Row(
         val id: DeliveryId,
+        val notePublicId: PublicNoteId,
         val username: String,
         val inbox: String,
         val body: String?,

@@ -307,6 +307,21 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
+    fun `投稿を消すとまだ配っていない配信も消える`() {
+        withRepositories { repositories ->
+            repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A, INBOX_B)))
+            repositories.deliveryQueue.enqueueNote(notePost(publicId = "n2", inboxes = listOf(INBOX_C)))
+            // 送信中の行も消える。送り終わった後の markDelivered は何も消さないだけ
+            repositories.deliveryQueue.claim(now = now, limit = 1)
+
+            repositories.notes.delete(PublicNoteId("n1"))
+
+            assertEquals(DeliveryQueueCounts(waiting = 1, failed = 0), repositories.deliveryQueue.counts(USERNAME))
+            assertEquals(listOf(INBOX_C), repositories.deliveryQueue.claim(now = now, limit = 10).map { it.inbox })
+        }
+    }
+
+    @Test
     fun `一覧の id は claim した行と同じ`() {
         withRepositories { repositories ->
             repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A)))

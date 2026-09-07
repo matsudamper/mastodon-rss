@@ -65,6 +65,7 @@ internal class SqliteDeliveryQueueRepository(
                         .set(DELIVERY_QUEUE.NEXT_ATTEMPT_AT, enqueuedAt)
                         .set(DELIVERY_QUEUE.ENQUEUED_AT, enqueuedAt)
                         .set(DELIVERY_QUEUE.LAST_ERROR, null as String?)
+                        .set(DELIVERY_QUEUE.NOTE_PUBLIC_ID, post.note.publicId.value)
                         .execute()
                 }
 
