@@ -48,11 +48,28 @@ object YouTubeFeedResolver {
     /** スキームが付いているか。付いていなければ https として読む */
     private val schemePattern = Regex("^[A-Za-z][A-Za-z0-9+.-]*:")
 
-    /** ページが自分で名乗っているフィードの URL */
-    private val feedLinkInPage = Regex("""feeds/videos\.xml\?channel_id=(UC[A-Za-z0-9_-]{22})""")
+    /**
+     * ページが自分を名乗る `<link>` と `<meta>`。
+     *
+     * タグ 1 つを切り出してから中の属性を見る。HTML 全体から URL を探すと、
+     * ページに並んでいる別チャンネルへのリンクを先に拾うことがある。
+     * JSON の中の URL は `"` が `\"` になっているので、属性としては一致しない。
+     */
+    private val declaringTag = Regex("""<(?:link|meta)\b[^>]*>""")
 
-    /** `rel="canonical"` と `og:url`。JSON の中では `/` が `\/` になっていることがある */
-    private val channelPathInPage = Regex("""youtube\.com\\?/channel\\?/(UC[A-Za-z0-9_-]{22})""")
+    /** ページが自分で名乗っているフィードの `rel="alternate"` */
+    private val alternateAttribute = Regex("""\brel="alternate"""")
+
+    /** ページが自分で名乗っている URL の `rel="canonical"` と `og:url` */
+    private val canonicalAttribute = Regex("""\b(?:rel="canonical"|property="og:url")""")
+
+    /** 上のタグの中にあるフィードの URL */
+    private val feedUrlAttribute =
+        Regex("""\b(?:href|content)="[^"]*feeds/videos\.xml\?channel_id=(UC[A-Za-z0-9_-]{22})""")
+
+    /** 上のタグの中にあるチャンネルの URL */
+    private val channelUrlAttribute =
+        Regex("""\b(?:href|content)="[^"]*youtube\.com/channel/(UC[A-Za-z0-9_-]{22})""")
 
     /** 埋め込まれた JSON。動画のページはこれで拾う */
     private val channelIdInJson = Regex(""""(?:externalId|channelId)"\s*:\s*"(UC[A-Za-z0-9_-]{22})"""")
@@ -215,7 +232,10 @@ object YouTubeFeedResolver {
      * 3. 埋め込まれた JSON の `externalId` と `channelId`
      *
      * 1 と 2 はそのページ自身が名乗ったチャンネルなので、どちらのページでも信じてよい。
-     * 3 を使うのは動画のページだけにする。一覧のページには並んでいる動画の投稿者の
+     * ただしタグの中を見て確かめること。ページには他のチャンネルへのリンクも並んでいる。
+     *
+     * 3 を使うのは動画のページだけにする。動画のページは自分をチャンネルとして
+     * 名乗らないのでこれしか無いが、一覧のページには並んでいる動画の投稿者の
      * `channelId` も入っていて、チャンネルのつもりで引いたページでこれを拾うと、
      * 貼られたものと関係の無いチャンネルを黙って購読することになる。
      *
@@ -223,15 +243,26 @@ object YouTubeFeedResolver {
      * 飛ばされた）場合もここに落ちるので、呼び出し側は取得の成否と分けて扱わないこと。
      */
     fun channelIdFromPageHtml(page: YouTubeFeedSource.NeedsPageLookup.Page, html: String): String? {
-        val declared =
-            feedLinkInPage.find(html)?.groupValues?.get(1)
-                ?: channelPathInPage.find(html)?.groupValues?.get(1)
-        if (declared != null) return declared
+        declaredChannelId(html)?.let { return it }
 
         return when (page) {
             YouTubeFeedSource.NeedsPageLookup.Page.VIDEO -> channelIdInJson.find(html)?.groupValues?.get(1)
             YouTubeFeedSource.NeedsPageLookup.Page.CHANNEL -> null
         }
+    }
+
+    /** ページ自身が `<link>` と `<meta>` で名乗っているチャンネル */
+    private fun declaredChannelId(html: String): String? {
+        for (tag in declaringTag.findAll(html)) {
+            val attributes = tag.value
+            if (alternateAttribute.containsMatchIn(attributes)) {
+                feedUrlAttribute.find(attributes)?.let { return it.groupValues[1] }
+            }
+            if (canonicalAttribute.containsMatchIn(attributes)) {
+                channelUrlAttribute.find(attributes)?.let { return it.groupValues[1] }
+            }
+        }
+        return null
     }
 
     private fun channelPageLookup(pageUrl: String): YouTubeFeedSource.NeedsPageLookup =

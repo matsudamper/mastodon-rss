@@ -273,11 +273,24 @@ class YouTubeFeedResolverTest {
     }
 
     @Test
-    fun `JSON の中の URL はエスケープされていても拾う`() {
-        assertEquals(
-            channelId,
-            YouTubeFeedResolver.channelIdFromPageHtml(channelPage, """{"url":"https:\/\/www.youtube.com\/channel\/$channelId"}"""),
-        )
+    fun `名乗っていないタグのチャンネルは拾わない`() {
+        // ページには他のチャンネルへのリンクも並んでいる。
+        // 先にあるものを名乗りと取り違えると、別のチャンネルを購読することになる
+        val other = "UCaaaaaaaaaaaaaaaaaaaaaa"
+        val html =
+            """<a href="https://www.youtube.com/channel/$other">別のチャンネル</a>""" +
+                """<meta property="og:image" content="https://www.youtube.com/channel/$other/icon.jpg">""" +
+                """<link rel="canonical" href="https://www.youtube.com/channel/$channelId">"""
+
+        assertEquals(channelId, YouTubeFeedResolver.channelIdFromPageHtml(channelPage, html))
+    }
+
+    @Test
+    fun `JSON の中の URL は名乗りとして扱わない`() {
+        // JSON の中では " が \" になっていて、属性としては読めない
+        val json = """{"url":"https:\/\/www.youtube.com\/channel\/$channelId"}"""
+
+        assertNull(YouTubeFeedResolver.channelIdFromPageHtml(channelPage, json))
     }
 
     @Test
