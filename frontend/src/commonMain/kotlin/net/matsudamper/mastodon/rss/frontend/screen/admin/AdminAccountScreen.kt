@@ -593,7 +593,7 @@ private fun DeliveryQueueCard(queue: AdminAccountScreenUiState.DeliveryQueue) {
             }
             OutlinedButton(onClick = queue.listener::onClickReload) { Text("更新") }
         }
-        if (queue.retrying.isNotEmpty()) {
+        if (queue.retryingSectionVisible) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("送り直しを待っている配信", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
@@ -611,7 +611,7 @@ private fun DeliveryQueueCard(queue: AdminAccountScreenUiState.DeliveryQueue) {
                 queue.retryingMoreText?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
-        if (queue.failed.isNotEmpty()) {
+        if (queue.failedSectionVisible) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("諦めた配信", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)

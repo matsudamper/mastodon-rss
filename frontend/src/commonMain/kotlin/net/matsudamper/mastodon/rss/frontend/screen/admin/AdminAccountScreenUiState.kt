@@ -136,7 +136,10 @@ data class AdminAccountScreenUiState(
         val failed: List<FailedDelivery>,
         val failedMoreText: String?,
         val listener: DeliveryQueueListener,
-    )
+    ) {
+        val retryingSectionVisible: Boolean get() = retrying.isNotEmpty()
+        val failedSectionVisible: Boolean get() = failed.isNotEmpty()
+    }
 
     @Immutable
     interface DeliveryQueueListener {
