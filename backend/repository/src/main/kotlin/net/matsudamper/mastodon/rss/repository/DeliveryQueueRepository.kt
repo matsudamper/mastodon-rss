@@ -91,7 +91,10 @@ interface DeliveryQueueRepository {
     fun recoverDelivering(): Int
 
     /**
-     * そのアカウントが署名する配信の件数
+     * そのアカウントが署名する配信の件数。
+     *
+     * 諦めた行は消えないので、アカウント画面を開くたびにここは増え続ける行を数えることになる。
+     * `(username, state, next_attempt_at, id)` のインデックスで、自分の分だけを見て済ませる
      */
     fun counts(username: String): DeliveryQueueCounts
 

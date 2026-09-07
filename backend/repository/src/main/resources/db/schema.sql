@@ -145,6 +145,8 @@ CREATE INDEX delivery_queue_note_public_id ON delivery_queue (note_public_id);
 
 CREATE INDEX delivery_queue_state_next_attempt_at_id ON delivery_queue (state, next_attempt_at, id);
 
+CREATE INDEX delivery_queue_username_state_next_attempt_at_id ON delivery_queue (username, state, next_attempt_at, id);
+
 CREATE INDEX feed_items_feed_id_state_published_at_id ON feed_items (feed_id, state, published_at, id);
 
 CREATE INDEX feed_items_note_id ON feed_items (note_id);
