@@ -49,7 +49,6 @@ class ActorPublisher(
         targets.forEach { inbox ->
             when (val result = delivery.deliver(inbox = inbox, sender = sender, body = body)) {
                 is DeliveryResult.Delivered -> delivered++
-
                 is DeliveryResult.Failed -> logger.warn("配れなかった: ${sender.acct} → $inbox ${result.reason}")
             }
         }
