@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss
 
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -176,6 +177,10 @@ class AppDependencies(
 
     private val deliveryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private val feedPollingStopped = AtomicBoolean(false)
+
+    private val deliveryStopped = AtomicBoolean(false)
+
     /**
      * 配信キューのワーカーを始める。
      *
@@ -196,11 +201,7 @@ class AppDependencies(
      * 引きに来るので、止めた後に送ると相手は繋げずに終わる。何度呼んでもよい
      */
     fun stopDeliveryWorker() {
-        runBlocking {
-            withTimeoutOrNull(3_000) {
-                deliveryScope.coroutineContext.job.cancelAndJoin()
-            }
-        }
+        stopAndWaitOnce(deliveryStopped, deliveryScope)
     }
 
     /**
@@ -220,9 +221,24 @@ class AppDependencies(
      * 何度呼んでもよい。待ち時間は docker stop の既定の猶予（10 秒）に収まる範囲にする
      */
     fun stopFeedPolling() {
+        stopAndWaitOnce(feedPollingStopped, feedPollingScope)
+    }
+
+    /**
+     * 走っているものを止めて、終わるまで待つ。待つのは最初の 1 回だけ。
+     *
+     * 同期の DB 呼び出しはキャンセルでは止まらないので、待ちは呼んだ回数だけ積み上がる。
+     * 停止はシャットダウンフックと [close] の両方から来るため、待たずに返す回を作らないと
+     * 合計が docker stop の既定の猶予（10 秒）を超えて、DB を閉じる前に殺される
+     */
+    private fun stopAndWaitOnce(
+        stopped: AtomicBoolean,
+        scope: CoroutineScope,
+    ) {
+        if (!stopped.compareAndSet(false, true)) return
         runBlocking {
             withTimeoutOrNull(3_000) {
-                feedPollingScope.coroutineContext.job.cancelAndJoin()
+                scope.coroutineContext.job.cancelAndJoin()
             }
         }
     }
