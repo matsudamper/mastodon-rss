@@ -292,9 +292,8 @@ class AdminAccountScreenViewModel(
                     is AdminPostFeedItemsResult.Success -> {
                         viewModelStateFlow.update { it.copy(postingUnpublished = false) }
                         events.send { it.showSnackbar("取り込んだ記事 ${result.importedCount} 件") }
-                        if (result.importedCount > 0) {
-                            loadNotes()
-                        }
+                        // 前回残った未投稿も投稿されるので、今回の取り込みが 0 件でも投稿は増える
+                        loadNotes()
                         loadUnpublished(accountId)
                     }
 
