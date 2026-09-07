@@ -1,10 +1,13 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLParameter
+import io.ktor.http.parseAndSortHeader
 import io.ktor.server.request.header
+import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -26,6 +29,9 @@ import net.matsudamper.mastodon.rss.json.respondJson
  *
  * 相手は受け取った `Create` の `object.id` をパーマリンクとして引きに来る。
  * ここが 404 だと、タイムラインには出ていても開けない投稿になる。
+ *
+ * ブラウザから HTML を要求された場合は、同じ Note の公開画面へ送る。
+ * ActivityPub の `Note.id` 自体は名前変更で変わらない `/notes/{publicId}` のままにする。
  */
 fun Route.noteRoutes(
     domain: String,
@@ -40,6 +46,12 @@ fun Route.noteRoutes(
             return@get
         }
 
+        val accept = call.request.header(HttpHeaders.Accept)
+        if (prefersHtml(accept)) {
+            call.respondRedirect("https://$domain/@${note.username}/${note.publicId.value}")
+            return@get
+        }
+
         call.respondJson(
             serializer = Note.serializer(),
             value = noteDocument(
@@ -47,7 +59,7 @@ fun Route.noteRoutes(
                 note = note,
                 embedded = false,
             ),
-            contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
+            contentType = ActivityPubContentTypes.negotiate(accept),
         )
     }
 }
@@ -150,6 +162,34 @@ fun Route.featuredRoutes(
             contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
         )
     }
+}
+
+/**
+ * `Accept` の優先順で、ActivityPub JSON より先に `text/html` が来る場合だけ true。
+ *
+ * `*/*` は HTML 要求とはみなさない。ActivityPub 実装が明示的な型を送らず
+ * ワイルドカードだけで取りに来る場合にリダイレクトすると federation が壊れるため。
+ */
+private fun prefersHtml(acceptHeader: String?): Boolean {
+    if (acceptHeader.isNullOrBlank()) return false
+
+    for (item in parseAndSortHeader(acceptHeader)) {
+        val pattern =
+            runCatching { ContentType.parse(item.value) }
+                .getOrNull()
+                ?.withoutParameters()
+                ?: continue
+
+        if (
+            ActivityPubContentTypes.ActivityJson.match(pattern) ||
+            ActivityPubContentTypes.LdJson.match(pattern)
+        ) {
+            return false
+        }
+        if (ContentType.Text.Html.match(pattern)) return true
+    }
+
+    return false
 }
 
 /**
