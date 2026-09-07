@@ -356,11 +356,12 @@ jobs:
           echo "--- GraphQL のアカウント一覧 ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -H "Cookie: $SESSION_COOKIE" \
-            -d '{"query":"query { admin { adminAccounts { account { username acct } createdAt } } }"}' \
+            -d '{"query":"query { admin { adminAccounts { nodes { account { username acct } createdAt } pageInfo { hasMore nextCursor } } } }"}' \
             http://localhost:8080/graphql -o /tmp/graphql-accounts.json
           cat /tmp/graphql-accounts.json
           grep -q '"acct":"@admin@example.com"' /tmp/graphql-accounts.json
           grep -q '"acct":"@ci-feed@example.com"' /tmp/graphql-accounts.json
+          grep -q '"hasMore":false' /tmp/graphql-accounts.json
           # UnixTime の scalar は登録漏れがあると実行時に落ちる。事前に入れた行の時刻を見る
           grep -q '"createdAt":1767225600' /tmp/graphql-accounts.json
 
@@ -487,7 +488,7 @@ jobs:
           # ログインしていなければ触れない。開いていると誰でもアカウントを増やせる
           echo "--- ログインしていなければアカウントは触れない ---"
           curl -sf -X POST -H 'Content-Type: application/json' \
-            -d '{"query":"query { admin { adminAccounts { account { username } } } }"}' \
+            -d '{"query":"query { admin { adminAccounts { nodes { account { username } } } } }"}' \
             http://localhost:8080/graphql -o /tmp/graphql-accounts-anon.json
           grep -q '"errors"' /tmp/graphql-accounts-anon.json
 
