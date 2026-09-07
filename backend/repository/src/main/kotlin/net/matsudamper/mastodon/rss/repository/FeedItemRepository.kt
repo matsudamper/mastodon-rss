@@ -67,6 +67,18 @@ interface FeedItemRepository {
     ): PublicNoteId
 
     /**
+     * 投稿情報を使って記事へ結び付ける。
+     *
+     * 永続化する実装では、[note] の保存と記事への `note_id` の設定を同じトランザクションで
+     * 確定させる。既に別の投稿が結び付いていれば新しい投稿は残さず、既存の id を返す。
+     * 単純なインメモリ実装では id の紐付けだけでよいので、既定では [linkNote] に委譲する。
+     */
+    fun linkNote(
+        feedId: FeedItemId,
+        note: NewNote,
+    ): PublicNoteId = linkNote(feedId = feedId, noteId = note.publicId)
+
+    /**
      * 投稿し終わったことを記録する。
      *
      * @param noteId 配信した投稿の `notes.public_id`。記事と投稿はこれだけで紐づく
