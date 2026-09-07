@@ -121,8 +121,8 @@ data class AdminAccountScreenUiState(
     /**
      * フォロワーへの配信の待ち状況。
      *
-     * @param waitingCount 送る時刻を待っているものと送っている最中のものの合計
-     * @param failedCount 諦めたもの
+     * @param waitingCount まだ届いていない配信
+     * @param failedCount 届けるのを諦めた配信
      * @param retrying 送り直しを待っている配信。一部だけ
      * @param retryingMoreText [retrying] に載せ切れなかった分があることを伝える一行。無ければ null
      * @param failed 諦めた配信。一部だけ
@@ -141,7 +141,7 @@ data class AdminAccountScreenUiState(
     @Immutable
     interface DeliveryQueueListener {
         /**
-         * 件数と一覧を取り直す。ワーカーが進めた分は画面を開いたままだと反映されない
+         * 最新の配信状況にする。開いたままにしていると、出している値は開いた時点のまま古くなる
          */
         fun onClickReload()
     }
