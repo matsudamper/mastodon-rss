@@ -54,6 +54,8 @@ private object AndroidPreviewNoteListener : NoteUiState.Listener {
 private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
     override fun onClickHome() = Unit
 
+    override fun onClickFollowerCount() = Unit
+
     override fun onClickAdmin() = Unit
 
     override fun onClickReload() = Unit
