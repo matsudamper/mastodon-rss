@@ -208,6 +208,7 @@ class AccountScreenViewModel(
                         displayName = account.account.displayName.ifEmpty { account.account.username },
                         acct = account.account.acct,
                         actorUrl = account.account.actorUrl,
+                        iconUrl = account.iconUrl,
                         summary = account.summaryText(),
                         followerCount = account.followerCount.toString(),
                         noteCount = account.noteCount.toString(),

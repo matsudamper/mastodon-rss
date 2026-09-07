@@ -47,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontFamily
@@ -57,6 +58,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
@@ -335,8 +337,9 @@ private fun WideLoadedAccountContent(
 /**
  * プロフィール。ヘッダー画像・アイコン・表示名・acct・説明・数値。
  *
- * 画像はまだ持っていない（Phase 6 の項目）ので、ユーザー名から決まる色で描く。
+ * アイコンが無いアカウントと、読めなかった場合はユーザー名から決まる色で描く。
  * 空の枠を置くより、アカウントごとに見分けが付く方が検証で役に立つ。
+ * ヘッダー画像はまだ持っていない。
  */
 @Composable
 private fun ProfileHeader(
@@ -383,6 +386,14 @@ private fun ProfileHeader(
                                 style = MaterialTheme.typography.headlineMedium,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
+                            )
+                            // 読めるまでと読めなかったときは下の頭文字を出す
+                            AsyncImage(
+                                model = state.iconUrl,
+                                // 読み上げるものが無い。名前は隣に文字で出ている
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
                             )
                         }
                     },

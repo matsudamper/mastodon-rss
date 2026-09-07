@@ -9,6 +9,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorIcons
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
@@ -26,8 +27,14 @@ import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
 import net.matsudamper.mastodon.rss.feed.HttpUrl
+import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
+import net.matsudamper.mastodon.rss.logic.AccountIconFiles
+import net.matsudamper.mastodon.rss.logic.ActorIconService
+import net.matsudamper.mastodon.rss.logic.FeedIconService
+import net.matsudamper.mastodon.rss.logic.FeedIconStore
+import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
@@ -62,6 +69,7 @@ class AppDependencies(
     val remoteActors: RemoteActors,
     val delivery: ActivityDelivery,
     val feedFetcher: FeedFetchService = FeedFetchService(),
+    val iconFetcher: IconFetchService = IconFetchService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
     val openTelemetry: OpenTelemetry? = null,
     private val telemetry: OpenTelemetryInitializer.Handler? = null,
@@ -94,9 +102,31 @@ class AppDependencies(
             return FeedLinks(
                 siteUrl = HttpUrl.sanitize(feed.siteUrl, feed.url),
                 feedUrl = HttpUrl.sanitize(feed.url),
+                iconUrl = HttpUrl.sanitize(feed.iconUrl, feed.url),
             )
         }
     }
+
+    private val feedIconStore: FeedIconStore = FeedIconStore(env.iconCacheDir)
+
+    val actorIcons: ActorIcons = ActorIconService(
+        accounts = repositories.accounts,
+        feeds = repositories.feeds,
+        icons = repositories.feedIcons,
+        store = feedIconStore,
+    )
+
+    private val feedIcons: FeedIcons = FeedIconService(
+        icons = repositories.feedIcons,
+        store = feedIconStore,
+        fetcher = iconFetcher,
+    )
+
+    val accountIconFiles: AccountIconFiles = AccountIconFiles(
+        feeds = repositories.feeds,
+        icons = repositories.feedIcons,
+        store = feedIconStore,
+    )
 
     val actorProfiles: StoredActorProfiles = object : StoredActorProfiles {
         override fun find(username: String): ActorProfile {
@@ -131,6 +161,7 @@ class AppDependencies(
         fetcher = feedFetcher,
         actorDirectory = directory,
         notePublisher = notePublisher,
+        icons = feedIcons,
     )
 
     private val feedPollingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -168,30 +199,25 @@ class AppDependencies(
     /**
      * 抱えているものを作った順の逆に閉じる。
      *
-     * 途中で例外が出ても残りを閉じられるよう finally で繋ぐ。並べて呼ぶだけだと、
-     * 最初の close が投げた時点で後ろが開いたままになる。
+     * 1 つが投げても残りは閉じ切る。並べて呼ぶだけだと、最初の close が投げた時点で
+     * 後ろが開いたままになる。投げられたものは最初の 1 つにまとめて上げ直す。
      */
     override fun close() {
         // 取り込みの途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ
         stopFeedPolling()
 
-        try {
-            feedFetcher.close()
-        } finally {
-            try {
-                delivery.close()
-            } finally {
-                try {
-                    remoteActors.close()
-                } finally {
-                    try {
-                        repositories.close()
-                    } finally {
-                        telemetry?.close()
-                    }
-                }
-            }
-        }
+        val failures = listOf<() -> Unit>(
+            { feedFetcher.close() },
+            { iconFetcher.close() },
+            { delivery.close() },
+            { remoteActors.close() },
+            { repositories.close() },
+            { telemetry?.close() },
+        ).mapNotNull { close -> runCatching(close).exceptionOrNull() }
+
+        val failure = failures.firstOrNull() ?: return
+        failures.drop(1).forEach { failure.addSuppressed(it) }
+        throw failure
     }
 
     companion object {

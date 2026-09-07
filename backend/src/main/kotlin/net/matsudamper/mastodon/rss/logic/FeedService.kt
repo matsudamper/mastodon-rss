@@ -36,6 +36,7 @@ class FeedService(
     private val fetcher: FeedFetchService,
     private val actorDirectory: ActorDirectory,
     private val notePublisher: NotePublisher,
+    private val icons: FeedIcons,
 ) {
     private val publishLock = Mutex()
 
@@ -71,6 +72,7 @@ class FeedService(
                     title = fetched.parsed.title,
                     siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
                     format = fetched.parsed.format.toDisplayName(),
+                    iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl),
                     pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS,
                 )
 
@@ -97,6 +99,7 @@ class FeedService(
                     validators = FeedFetchValidators.NONE,
                 )
                 feeds.markInitialImportDone(feed.id)
+                refreshIcon(feedId = feed.id, iconUrl = newFeed.iconUrl)
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)
                 SaveResult.Success(feed = saved)
             }
@@ -341,7 +344,17 @@ class FeedService(
         // 条件付き GET はまだ送っていないので、保存されている値はそのまま残す
         feeds.recordFetchSuccess(id = feed.id, fetchedAt = Instant.now(), validators = feed.fetch.validators)
 
+        val iconUrl = fetched.iconUrlOrKeep(feed)
+        feeds.updateMetadata(
+            id = feed.id,
+            title = fetched.parsed.title,
+            siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
+            format = fetched.parsed.format.toDisplayName(),
+            iconUrl = iconUrl,
+        )
         importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
+
+        refreshIcon(feedId = feed.id, iconUrl = iconUrl)
 
         if (!feed.initialImportDone) {
             // 登録が途中で終わったフィード。ここで登録を終わらせる。
@@ -375,6 +388,34 @@ class FeedService(
         FeedFetchService.FetchResult.TooLarge -> "応答が大きすぎる"
         is FeedFetchService.FetchResult.HttpError -> status?.let { "HTTP $it" } ?: message ?: "取得に失敗した"
         is FeedFetchService.FetchResult.ParseError -> "パースに失敗した"
+    }
+
+    /**
+     * 取り込めたアイコンの URL。取れていなければ今の値を残す。
+     *
+     * 空で上書きすると、拾えなかった 1 回でアイコンが消える。YouTube のように
+     * フィード本体ではなく別のページから拾う配信元では、そのページの取得が
+     * 失敗しただけでも空になる。取り込み自体は成功しているので、
+     * 「名乗らなくなった」と「今回は拾えなかった」を区別できない
+     */
+    private fun FeedFetchService.FetchResult.Success.iconUrlOrKeep(feed: Feed): String? =
+        HttpUrl.sanitize(parsed.iconUrl, feedUrl) ?: feed.iconUrl
+
+    /**
+     * アイコンの入れ替え。落ちても記事の取り込みは進める。
+     *
+     * 置き場が読めないなどで書けないことがある。アイコンが出ないだけの話なので、
+     * ここで投げると記事が配られなくなるほうが困る
+     */
+    private suspend fun refreshIcon(
+        feedId: FeedId,
+        iconUrl: String?,
+    ) {
+        runCatching { icons.refresh(feedId = feedId, iconUrl = iconUrl) }
+            .onFailure { error ->
+                if (error is CancellationException) throw error
+                logger.warn("アイコンを入れ替えられなかった: feedId={}", feedId.value, error)
+            }
     }
 
     private fun Feed.recordFailure(error: String): PollResult {
@@ -449,11 +490,20 @@ class FeedService(
     private suspend fun importLatest(feed: Feed): ImportLatestResult {
         return when (val fetched = fetcher.fetch(feed.url, needsDescription = false)) {
             is FeedFetchService.FetchResult.Success -> {
+                val iconUrl = fetched.iconUrlOrKeep(feed)
+                feeds.updateMetadata(
+                    id = feed.id,
+                    title = fetched.parsed.title,
+                    siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
+                    format = fetched.parsed.format.toDisplayName(),
+                    iconUrl = iconUrl,
+                )
                 importExistingItems(
                     feed = feed,
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
                 )
+                refreshIcon(feedId = feed.id, iconUrl = iconUrl)
                 // 記録しないと定期ポーリングが直後に取り直し、成功した後も前の失敗が残る
                 feeds.recordFetchSuccess(
                     id = feed.id,
