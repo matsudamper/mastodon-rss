@@ -7,8 +7,10 @@ import kotlin.io.path.deleteRecursively
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 class FeedItemNoteLinkTest {
@@ -76,6 +78,19 @@ class FeedItemNoteLinkTest {
             assertNotNull(repositories.notes.find(first.publicId))
             assertNull(repositories.notes.find(second.publicId))
             assertEquals(first.publicId, assertNotNull(repositories.feedItems.find(item.id)).noteId)
+        }
+    }
+
+    @Test
+    fun `記事への紐付けに失敗したらNoteも残さない`() {
+        withRepositories { repositories ->
+            val note = note(PublicNoteId("note-1"))
+
+            assertFailsWith<IllegalStateException> {
+                repositories.feedItems.linkNote(feedId = FeedItemId(404), note = note)
+            }
+
+            assertNull(repositories.notes.find(note.publicId))
         }
     }
 
