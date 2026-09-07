@@ -27,6 +27,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readRemaining
+import org.slf4j.LoggerFactory
 
 /**
  * フィードが名乗っているアイコンを取ってくる。
@@ -50,6 +51,8 @@ class IconFetchService(
      * 引き終わらないものが残っても、呼び出し側は待たずに戻る
      */
     private val resolveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val logger = LoggerFactory.getLogger(IconFetchService::class.java)
 
     /**
      * 取ってくる。取れなければ [FetchResult.Failure]。
@@ -101,6 +104,9 @@ class IconFetchService(
 
         val bytes = channel.readRemaining((MAX_BYTES + 1).toLong()).readByteArray()
         if (bytes.size > MAX_BYTES) {
+            // 出さないと、アイコンが出ない理由が外から分からない。
+            // URL の残りはクエリに購読者だけが知るトークンを含むことがあるのでホストだけ出す
+            logger.warn("アイコンが大きすぎる: host={}, 上限={} バイト", request.url.host, MAX_BYTES)
             channel.cancel(null)
             return FetchResult.Failure
         }
