@@ -117,7 +117,8 @@ class HttpRemoteActors(
         preferredUsername: String,
     ): String? {
         // 既定でないポートで動いている相手は、ポートまで含めないと別の接続先を指す
-        val authority = if (actorUrl.port == actorUrl.protocol.defaultPort) actorUrl.host else actorUrl.hostWithPort
+        val authority =
+            if (actorUrl.port == actorUrl.protocol.defaultPort) actorUrl.host else "${actorUrl.host}:${actorUrl.port}"
 
         val response =
             runCatching {
