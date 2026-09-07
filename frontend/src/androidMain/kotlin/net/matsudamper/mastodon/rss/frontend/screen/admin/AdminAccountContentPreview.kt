@@ -55,6 +55,7 @@ private fun AdminAccountContentPreview() {
                             ),
                         ),
                         failedMoreText = null,
+                        listener = AndroidPreviewDeliveryQueueListener,
                     ),
                     post = AdminAccountScreenUiState.Post(
                         body = "新しい記事を公開しました。",
@@ -114,6 +115,7 @@ private fun AdminAccountContentNoFeedPreview() {
                         retryingMoreText = null,
                         failed = emptyList(),
                         failedMoreText = null,
+                        listener = AndroidPreviewDeliveryQueueListener,
                     ),
                     post = AdminAccountScreenUiState.Post(
                         body = "",
@@ -156,6 +158,10 @@ private object AndroidPreviewRegisteredFeedListener : AdminAccountScreenUiState.
 
 private object AndroidPreviewNotRegisteredFeedListener : AdminAccountScreenUiState.Feed.NotRegisteredListener {
     override fun onClickAddFeed() = Unit
+}
+
+private object AndroidPreviewDeliveryQueueListener : AdminAccountScreenUiState.DeliveryQueueListener {
+    override fun onClickReload() = Unit
 }
 
 private object AndroidPreviewPostListener : AdminAccountScreenUiState.PostListener {

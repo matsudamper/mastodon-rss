@@ -84,6 +84,12 @@ class AdminAccountScreenViewModel(
         }
     }
 
+    private val deliveryQueueListener = object : AdminAccountScreenUiState.DeliveryQueueListener {
+        override fun onClickReload() {
+            watchAccount()
+        }
+    }
+
     private val postListener = object : AdminAccountScreenUiState.PostListener {
         override fun onBodyChanged(text: String) {
             viewModelStateFlow.update { it.copy(body = text, error = null, result = null) }
@@ -766,6 +772,7 @@ class AdminAccountScreenViewModel(
             retryingMoreText = null,
             failed = emptyList(),
             failedMoreText = null,
+            listener = deliveryQueueListener,
         )
 
         return AdminAccountScreenUiState.DeliveryQueue(
@@ -788,6 +795,7 @@ class AdminAccountScreenViewModel(
                 )
             },
             failedMoreText = "他にもある。新しい ${queue.failed.size} 件だけ表示している".takeIf { queue.failedHasMore },
+            listener = deliveryQueueListener,
         )
     }
 

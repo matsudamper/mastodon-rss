@@ -135,7 +135,16 @@ data class AdminAccountScreenUiState(
         val retryingMoreText: String?,
         val failed: List<FailedDelivery>,
         val failedMoreText: String?,
+        val listener: DeliveryQueueListener,
     )
+
+    @Immutable
+    interface DeliveryQueueListener {
+        /**
+         * 件数と一覧を取り直す。ワーカーが進めた分は画面を開いたままだと反映されない
+         */
+        fun onClickReload()
+    }
 
     /**
      * @param nextAttemptAt 次に送る時刻

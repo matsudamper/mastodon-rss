@@ -581,6 +581,7 @@ private fun DeliveryQueueCard(queue: AdminAccountScreenUiState.DeliveryQueue) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("配信待ち", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -590,6 +591,7 @@ private fun DeliveryQueueCard(queue: AdminAccountScreenUiState.DeliveryQueue) {
                 Text("諦めた", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("${queue.failedCount} 件", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             }
+            OutlinedButton(onClick = queue.listener::onClickReload) { Text("更新") }
         }
         if (queue.retrying.isNotEmpty()) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
