@@ -476,10 +476,15 @@ class FeedService(
                         .let { created ->
                             feedItems.linkNote(stored.id, PublicNoteId(created.publicId.value))
                         }
-                    notePublisher.deliver(
-                        sender = sender,
-                        publicId = MastodonPublicNoteId(noteId.value),
-                    ) ?: error("記事に紐付いた投稿が見つからない")
+                    when (
+                        val result = notePublisher.deliver(
+                            sender = sender,
+                            publicId = MastodonPublicNoteId(noteId.value),
+                        )
+                    ) {
+                        is NotePublisher.DeliverResult.Success -> result.published
+                        NotePublisher.DeliverResult.NotFound -> error("記事に紐付いた投稿が見つからない")
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
