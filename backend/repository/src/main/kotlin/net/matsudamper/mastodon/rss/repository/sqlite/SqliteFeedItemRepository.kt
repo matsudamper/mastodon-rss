@@ -79,6 +79,26 @@ internal class SqliteFeedItemRepository(
         limit: Int,
     ): List<FeedItem> = loadPending(feedId = feedId, limit = limit)
 
+    override fun linkNote(
+        id: FeedItemId,
+        noteId: PublicNoteId,
+    ): PublicNoteId = jooq.transaction { dsl ->
+        dsl
+            .update(FEED_ITEMS)
+            .set(FEED_ITEMS.NOTE_ID, noteId.value)
+            .where(FEED_ITEMS.ID.eq(id.value))
+            .and(FEED_ITEMS.NOTE_ID.isNull)
+            .execute()
+
+        dsl
+            .select(FEED_ITEMS.NOTE_ID)
+            .from(FEED_ITEMS)
+            .where(FEED_ITEMS.ID.eq(id.value))
+            .fetchOne(FEED_ITEMS.NOTE_ID)
+            ?.let(::PublicNoteId)
+            ?: error("記事に投稿を紐付けられなかった")
+    }
+
     override fun markPosted(
         id: FeedItemId,
         postedAt: Instant,
