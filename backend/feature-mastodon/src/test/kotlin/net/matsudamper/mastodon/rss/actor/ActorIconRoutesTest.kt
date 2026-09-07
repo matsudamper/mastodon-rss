@@ -76,7 +76,7 @@ class ActorIconRoutesTest {
         }
 
     @Test
-    fun `知らない名前は 404`() =
+    fun `知らない名前は 404 で、その応答も持たせない`() =
         testApplication {
             installModule(
                 object : ActorIcons {
@@ -85,6 +85,9 @@ class ActorIconRoutesTest {
                 },
             )
 
-            assertEquals(HttpStatusCode.NotFound, client.get("/users/other/icon").status)
+            val response = client.get("/users/other/icon")
+
+            assertEquals(HttpStatusCode.NotFound, response.status)
+            assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
         }
 }

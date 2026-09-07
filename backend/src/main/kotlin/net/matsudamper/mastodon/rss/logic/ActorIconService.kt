@@ -26,11 +26,9 @@ class ActorIconService(
         val feed = feeds.findByAccountId(account.id) ?: return null
         val source = HttpUrl.sanitize(feed.iconUrl, feed.url) ?: return null
 
+        // 取り込みが入れ替える前に URL だけ変わっていることがある。その間は
+        // 前のものを出す。出さないと、取り直しに失敗している間アイコンが消える
         val stored = icons.find(feed.id) ?: return null
-        // 取り込みが入れ替える前に URL だけ変わっていることがある。
-        // 前のものを出すと、差し替えた後もしばらく前のアイコンが出続ける
-        if (stored.sourceUrl != source) return null
-
         val bytes = store.read(stored.path) ?: return null
 
         return ActorIcon(

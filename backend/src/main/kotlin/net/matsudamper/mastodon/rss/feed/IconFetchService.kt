@@ -70,6 +70,9 @@ class IconFetchService(
 
                 val response = client.get(target) {
                     header(HttpHeaders.UserAgent, USER_AGENT)
+                    // 圧縮されたまま置くと、返すときに Content-Encoding を付けないので
+                    // 見に来た側は画像として読めない。こちらでは復号しない
+                    header(HttpHeaders.AcceptEncoding, IDENTITY_ENCODING)
                 }
 
                 val redirected = response.redirectLocation()
@@ -91,6 +94,14 @@ class IconFetchService(
     private suspend fun HttpResponse.toResult(): FetchResult {
         val channel = bodyAsChannel()
         if (!status.isSuccess()) {
+            channel.cancel(null)
+            return FetchResult.Failure
+        }
+
+        // 頼んでいないのに圧縮して返してくる配信元は受けない。中身をそのまま置くので、
+        // 圧縮されていると画像として読めないものを配ることになる
+        val encoding = headers[HttpHeaders.ContentEncoding]?.trim()?.lowercase()
+        if (encoding != null && encoding != IDENTITY_ENCODING) {
             channel.cancel(null)
             return FetchResult.Failure
         }
@@ -241,6 +252,7 @@ class IconFetchService(
 
     companion object {
         private const val USER_AGENT = "mastodon-rss/0.1"
+        private const val IDENTITY_ENCODING = "identity"
         private const val MAX_BYTES = 1024 * 1024
         private const val MAX_HOPS = 4
         private val REDIRECT_STATUS_RANGE = 300..399

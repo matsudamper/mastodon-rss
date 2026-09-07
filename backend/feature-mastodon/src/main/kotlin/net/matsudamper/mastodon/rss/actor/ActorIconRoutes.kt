@@ -26,15 +26,16 @@ fun Route.actorIconRoutes(
         val requested = call.parameters["username"]
         val urls = directory.resolve(requested)
 
+        // 後からアカウントやアイコンが増えれば同じ URL で出るようになる。
+        // 見に来た側が 404 を持っていると、出るようになった後も出ない
         if (urls == null) {
+            call.response.header(HttpHeaders.CacheControl, NO_STORE)
             call.respondText("アクターが見つからない: $requested", status = HttpStatusCode.NotFound)
             return@get
         }
 
         val icon = icons.find(urls.username)
         if (icon == null) {
-            // 取り込みが入れ替えれば同じ URL でアイコンが出る。見に来た側が
-            // 404 を持っていると、出るようになった後も出ない
             call.response.header(HttpHeaders.CacheControl, NO_STORE)
             call.respondText("アイコンが無い: ${urls.username}", status = HttpStatusCode.NotFound)
             return@get

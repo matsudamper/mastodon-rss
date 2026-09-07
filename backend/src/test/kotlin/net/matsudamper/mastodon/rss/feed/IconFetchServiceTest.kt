@@ -35,6 +35,24 @@ class IconFetchServiceTest {
         }
 
     @Test
+    fun `圧縮したまま返してくる応答は受けない`() =
+        runTest {
+            val engine = MockEngine {
+                respond(
+                    content = "PNG",
+                    headers = headersOf(
+                        "Content-Type" to listOf("image/png"),
+                        "Content-Encoding" to listOf("gzip"),
+                    ),
+                )
+            }
+
+            val result = serviceOf(engine).fetch("https://example.com/icon.png")
+
+            assertIs<IconFetchService.FetchResult.Failure>(result)
+        }
+
+    @Test
     fun `SVG は返さない`() =
         runTest {
             val engine = MockEngine {

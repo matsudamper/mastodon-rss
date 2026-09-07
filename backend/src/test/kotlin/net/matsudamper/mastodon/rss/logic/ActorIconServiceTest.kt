@@ -55,13 +55,15 @@ class ActorIconServiceTest {
         }
 
     @Test
-    fun `取得元が変わったものは返さない`() =
+    fun `取得元が変わっても取り直すまでは前のものを返す`() =
         runTest {
             val repositories = FakeRepositories()
             val feedId = repositories.addFeed(iconUrl = OTHER_ICON_URL)
             repositories.store(feedId = feedId, sourceUrl = ICON_URL, expiresAt = Instant.now().plusSeconds(60))
 
-            assertNull(serviceOf(repositories).find(USERNAME))
+            val icon = assertNotNull(serviceOf(repositories).find(USERNAME))
+
+            assertEquals(BYTES.toList(), icon.bytes.toList())
         }
 
     @Test
