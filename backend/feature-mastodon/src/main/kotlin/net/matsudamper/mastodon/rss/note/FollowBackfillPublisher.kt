@@ -69,7 +69,7 @@ class FollowBackfillPublisher(
         publishedBefore: Instant,
     ) {
         // 上限で切ってから絞ると、成立後に作られた投稿の分だけ送る件数が減る。
-        // 一覧の位置として渡して、絞ってから 20 件を取る。id は空にする。
+        // 一覧の位置として渡して、絞ってから 5 件を取る。id は空にする。
         // 同じ時刻の投稿は id の降順に並ぶので、空の id より後ろには何も無い
         val recentNotes = notes.list(
             username = sender.username,
@@ -111,7 +111,7 @@ class FollowBackfillPublisher(
          * 相手のインスタンスから見ると連投と変わらない。フォロー直後に
          * タイムラインが埋まる程度の件数にする
          */
-        const val BACKFILL_LIMIT: Int = 20
+        const val BACKFILL_LIMIT: Int = 5
 
         /**
          * 同時に走らせる数。通常のフォローは重ならないので、
