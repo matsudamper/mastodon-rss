@@ -2,6 +2,9 @@ package net.matsudamper.mastodon.rss.logic
 
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.repository.FeedIcon
 import net.matsudamper.mastodon.rss.repository.FeedIconRepository
@@ -20,7 +23,22 @@ class FeedIconService(
     private val fetcher: IconFetchService,
     private val defaultFreshFor: Duration = DEFAULT_FRESH_FOR,
 ) : FeedIcons {
+    /**
+     * 入れ替えはフィードごとに 1 本ずつにする。定期ポーリングと手動の再取得が
+     * 重なると、ファイルと記録の書き込みが入れ違い、記録と中身が食い違う
+     */
+    private val locks = ConcurrentHashMap<FeedId, Mutex>()
+
     override suspend fun refresh(
+        feedId: FeedId,
+        iconUrl: String?,
+    ) {
+        locks.computeIfAbsent(feedId) { Mutex() }.withLock {
+            replace(feedId = feedId, iconUrl = iconUrl)
+        }
+    }
+
+    private suspend fun replace(
         feedId: FeedId,
         iconUrl: String?,
     ) {

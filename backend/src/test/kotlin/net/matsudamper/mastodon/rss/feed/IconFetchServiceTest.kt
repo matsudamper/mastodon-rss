@@ -60,6 +60,24 @@ class IconFetchServiceTest {
         }
 
     @Test
+    fun `名前を引くのに時間がかかる URL は取りに行かない`() =
+        runTest {
+            val engine = pngEngine()
+
+            val result = IconFetchService(
+                client = HttpClient(engine) { followRedirects = false },
+                resolveAddresses = {
+                    Thread.sleep(500)
+                    listOf(InetAddress.getByName("93.184.216.34"))
+                },
+                resolveTimeout = Duration.ofMillis(50),
+            ).fetch("https://example.com/icon.png")
+
+            assertIs<IconFetchService.FetchResult.Failure>(result)
+            assertEquals(0, engine.requestHistory.size)
+        }
+
+    @Test
     fun `名前を引けない URL には取りに行かない`() =
         runTest {
             val engine = pngEngine()

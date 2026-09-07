@@ -7,6 +7,9 @@ import java.net.InetAddress
 import java.net.URI
 import java.time.Duration
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -35,6 +38,7 @@ import io.ktor.utils.io.readRemaining
 class IconFetchService(
     private val client: HttpClient = defaultClient(),
     private val resolveAddresses: (String) -> List<InetAddress> = { InetAddress.getAllByName(it).toList() },
+    private val resolveTimeout: Duration = DEFAULT_RESOLVE_TIMEOUT,
 ) : Closeable {
     /**
      * 取ってくる。取れなければ [FetchResult.Failure]。
@@ -142,9 +146,9 @@ class IconFetchService(
      * 名前を引いてから繋ぐまでの間に引き直されると別のアドレスになりうるが、
      * そこまでは見ない。
      */
-    private fun isInternalTarget(url: String): Boolean {
+    private suspend fun isInternalTarget(url: String): Boolean {
         val host = runCatching { URI(url).host }.getOrNull() ?: return true
-        val addresses = runCatching { resolveAddresses(host) }.getOrNull() ?: return true
+        val addresses = resolve(host) ?: return true
         if (addresses.isEmpty()) return true
 
         return addresses.any { address ->
@@ -157,6 +161,20 @@ class IconFetchService(
                 address.isSharedAddressSpace()
         }
     }
+
+    /**
+     * 名前を引く。引けなければ null。
+     *
+     * 期限を切って別のスレッドで引く。名前を引く呼び出しは止められないので、
+     * ここで待ち続けると [HttpTimeout] の待ち時間に関係なく、
+     * 応答しない名前 1 つで取り込み全体が止まる
+     */
+    private suspend fun resolve(host: String): List<InetAddress>? =
+        runCatching {
+            withTimeout(resolveTimeout.toMillis()) {
+                withContext(Dispatchers.IO) { resolveAddresses(host) }
+            }
+        }.getOrNull()
 
     /**
      * 事業者やクラスタの内側で使う `100.64.0.0/10`。
@@ -204,6 +222,7 @@ class IconFetchService(
         private val REDIRECT_STATUS_RANGE = 300..399
         private val MAX_AGE = Regex("max-age\\s*=\\s*(\\d+)")
         private val MAX_FRESH_FOR: Duration = Duration.ofDays(1)
+        private val DEFAULT_RESOLVE_TIMEOUT: Duration = Duration.ofSeconds(5)
 
         private val ALLOWED_CONTENT_TYPES = setOf(
             ContentType.Image.PNG,
