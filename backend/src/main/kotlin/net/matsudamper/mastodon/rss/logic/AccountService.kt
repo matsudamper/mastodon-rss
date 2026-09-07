@@ -18,13 +18,9 @@ class AccountService(
     private val accounts: AccountRepository,
     private val followers: FollowerRepository,
     private val actorPublisher: ActorPublisher,
+    private val iconFiles: AccountIconFiles,
     private val domain: String,
 ) {
-    /**
-     * 追加した順で返す
-     */
-    fun accounts(): List<ManagedAccount> = accounts.list().map { it.toManaged() }
-
     /**
      * 名前で 1 つ引く。応答しない名前なら null
      */
@@ -165,9 +161,14 @@ class AccountService(
         val account = accounts.findByUsername(username)
             ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
 
+        // 行が消えると置き場を引けなくなるので、消す前に控える
+        val iconPath = iconFiles.locate(account.id)
+
         if (!accounts.delete(account.id)) {
             return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
         }
+
+        if (iconPath != null) iconFiles.delete(iconPath)
 
         actorPublisher.delete(ActorUrls(domain = domain, username = account.username))
 

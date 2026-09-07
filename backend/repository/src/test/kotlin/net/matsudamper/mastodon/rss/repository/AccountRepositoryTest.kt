@@ -177,6 +177,7 @@ class AccountRepositoryTest {
                         title = "サンプル",
                         siteUrl = "https://example.com/",
                         format = "RSS 2.0",
+                        iconUrl = null,
                         pollIntervalSeconds = POLL_INTERVAL_SECONDS,
                     ),
                 ),

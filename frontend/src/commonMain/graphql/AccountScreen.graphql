@@ -6,6 +6,7 @@ query AccountScreen($username: String!) {
         actorUrl
         displayName
         summary
+        iconUrl
         followerCount
         noteCount
         feed {

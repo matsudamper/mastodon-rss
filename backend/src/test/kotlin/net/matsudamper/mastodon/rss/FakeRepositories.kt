@@ -6,6 +6,8 @@ import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchStatus
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
+import net.matsudamper.mastodon.rss.repository.FeedIcon
+import net.matsudamper.mastodon.rss.repository.FeedIconRepository
 import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
@@ -48,6 +50,8 @@ class FakeRepositories : Repositories {
     override val feeds: FakeFeedRepository = FakeFeedRepository(onDeleted = { feedItems.deleteByFeed(it) })
 
     override val feedItems: FakeFeedItemRepository = FakeFeedItemRepository()
+
+    override val feedIcons: FakeFeedIconRepository = FakeFeedIconRepository()
 
     // 投稿を消したら記事の note_id が外れるのは SQLite の ON DELETE SET NULL。
     // ここで繋がないと、消した投稿の id で記事が引けるという本物には無い状態になる
@@ -306,6 +310,7 @@ class FakeFeedRepository(
             title = feed.title,
             siteUrl = feed.siteUrl,
             format = feed.format,
+            iconUrl = feed.iconUrl,
             pollIntervalSeconds = feed.pollIntervalSeconds,
             fetch = FeedFetchStatus(
                 validators = FeedFetchValidators.NONE,
@@ -336,8 +341,9 @@ class FakeFeedRepository(
         title: String?,
         siteUrl: String?,
         format: String?,
+        iconUrl: String?,
     ) {
-        update(id) { it.copy(title = title, siteUrl = siteUrl, format = format) }
+        update(id) { it.copy(title = title, siteUrl = siteUrl, format = format, iconUrl = iconUrl) }
     }
 
     override fun recordFetchSuccess(
@@ -503,5 +509,22 @@ class FakeFeedItemRepository : FeedItemRepository {
         val index = stored.indexOfFirst { it.id == id }
         if (index == -1) return
         stored[index] = block(stored[index])
+    }
+}
+
+class FakeFeedIconRepository : FeedIconRepository {
+    private val stored = mutableMapOf<FeedId, FeedIcon>()
+
+    override fun find(feedId: FeedId): FeedIcon? = stored[feedId]
+
+    override fun save(
+        feedId: FeedId,
+        icon: FeedIcon,
+    ) {
+        stored[feedId] = icon
+    }
+
+    override fun delete(feedId: FeedId) {
+        stored.remove(feedId)
     }
 }

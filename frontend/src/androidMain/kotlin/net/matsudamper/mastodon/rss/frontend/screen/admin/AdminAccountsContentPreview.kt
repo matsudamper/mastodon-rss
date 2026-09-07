@@ -27,6 +27,10 @@ private fun AdminAccountsContentPreview() {
                             followerCount = 64,
                         ),
                     ),
+                    loadMoreVisible = true,
+                    loadingMore = false,
+                    loadMoreErrorMessage = null,
+                    loadMoreButtonText = "もっと見る",
                 ),
                 listener = AndroidPreviewAdminAccountsListener,
             ),
@@ -46,4 +50,6 @@ private object AndroidPreviewAdminAccountsListener : AdminAccountsScreenUiState.
     override fun onClickAccount(username: String) = Unit
 
     override fun onClickReload() = Unit
+
+    override fun onClickLoadMore() = Unit
 }

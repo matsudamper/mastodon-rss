@@ -59,13 +59,14 @@ interface FeedRepository {
     ): Feed?
 
     /**
-     * フィードから読めた題名とサイトの URL と形式を反映する
+     * フィードから読めた題名とサイトの URL と形式とアイコンを反映する
      */
     fun updateMetadata(
         id: FeedId,
         title: String?,
         siteUrl: String?,
         format: String?,
+        iconUrl: String?,
     )
 
     /**
@@ -108,6 +109,7 @@ interface FeedRepository {
  *
  * @param url フィード（RSS/Atom）の URL。取得先
  * @param siteUrl フィードが指している Web サイトの URL。表示用で、取得には使わない
+ * @param iconUrl フィードが名乗っているアイコンの URL。Actor の icon と公開画面のアバターに出す
  * @param pollIntervalSeconds 取得の間隔。配信元の更新頻度に合わせて変えられるよう
  *   フィードごとに持つ
  * @param initialImportDone 登録時の取り込みが済んでいるか。済んでいなければ、後の取得が既存記事を新着として扱う
@@ -119,6 +121,7 @@ data class Feed(
     val title: String?,
     val siteUrl: String?,
     val format: String?,
+    val iconUrl: String?,
     val pollIntervalSeconds: Long,
     val fetch: FeedFetchStatus,
     val initialImportDone: Boolean,
@@ -132,6 +135,7 @@ data class NewFeed(
     val title: String?,
     val siteUrl: String?,
     val format: String?,
+    val iconUrl: String?,
     val pollIntervalSeconds: Long,
 )
 
