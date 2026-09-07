@@ -103,6 +103,10 @@ class FeedService(
                 )
                 feeds.markInitialImportDone(feed.id)
                 refreshIcon(feedId = feed.id, iconUrl = newFeed.iconUrl)
+                refreshHeader(
+                    feedId = feed.id,
+                    headerUrl = HttpUrl.sanitize(fetched.parsed.headerUrl, fetched.feedUrl),
+                )
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)
                 SaveResult.Success(feed = saved)
             }
@@ -360,6 +364,10 @@ class FeedService(
         importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
 
         refreshIcon(feedId = feed.id, iconUrl = iconUrl)
+        refreshHeader(
+            feedId = feed.id,
+            headerUrl = HttpUrl.sanitize(fetched.parsed.headerUrl, fetched.feedUrl),
+        )
 
         if (!feed.initialImportDone) {
             // 登録が途中で終わったフィード。ここで登録を終わらせる。
@@ -421,6 +429,17 @@ class FeedService(
             .onFailure { error ->
                 if (error is CancellationException) throw error
                 logger.warn("アイコンを入れ替えられなかった: feedId={}", feedId.value, error)
+            }
+    }
+
+    private suspend fun refreshHeader(
+        feedId: FeedId,
+        headerUrl: String?,
+    ) {
+        runCatching { icons.refreshHeader(feedId = feedId, headerUrl = headerUrl) }
+            .onFailure { error ->
+                if (error is CancellationException) throw error
+                logger.warn("ヘッダーを入れ替えられなかった: feedId={}", feedId.value, error)
             }
     }
 
@@ -538,6 +557,10 @@ class FeedService(
                     feedUrl = fetched.feedUrl,
                 )
                 refreshIcon(feedId = feed.id, iconUrl = iconUrl)
+                refreshHeader(
+                    feedId = feed.id,
+                    headerUrl = HttpUrl.sanitize(fetched.parsed.headerUrl, fetched.feedUrl),
+                )
                 // 記録しないと定期ポーリングが直後に取り直し、成功した後も前の失敗が残る
                 feeds.recordFetchSuccess(
                     id = feed.id,
