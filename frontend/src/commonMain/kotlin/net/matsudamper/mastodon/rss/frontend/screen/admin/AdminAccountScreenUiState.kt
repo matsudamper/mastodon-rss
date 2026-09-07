@@ -52,12 +52,14 @@ data class AdminAccountScreenUiState(
 
     /**
      * @param acct Mastodon の検索窓に貼る形
+     * @param iconUrl アイコン画像。無ければ null
      * @param createdAt 「追加: <値>」の形で出す
      */
     data class Account(
         val username: String,
         val acct: String,
         val actorUrl: String,
+        val iconUrl: String?,
         val createdAt: String,
         val followerCount: Int,
         val displayName: String,

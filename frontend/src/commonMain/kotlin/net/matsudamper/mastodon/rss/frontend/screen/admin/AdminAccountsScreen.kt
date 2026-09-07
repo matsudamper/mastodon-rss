@@ -154,9 +154,24 @@ private fun AccountCard(
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                AccountAvatar(account.username)
+                AccountAvatar(
+                    username = account.username,
+                    iconUrl = account.iconUrl,
+                )
                 Column(Modifier.weight(1f)) {
-                    SelectionContainer { Text(account.acct, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                    Text(
+                        text = account.displayName.ifEmpty { account.username },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    SelectionContainer {
+                        Text(
+                            text = account.acct,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontFamily = FontFamily.Monospace,
+                        )
+                    }
                     Text("フォロワー ${account.followerCount} 人", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }

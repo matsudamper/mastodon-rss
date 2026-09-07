@@ -22,6 +22,8 @@ data class HomeScreenUiState(
     data class Account(
         val username: String,
         val acct: String,
+        val displayName: String,
+        val iconUrl: String?,
     )
 
     interface Listener : PublicScaffoldListener {

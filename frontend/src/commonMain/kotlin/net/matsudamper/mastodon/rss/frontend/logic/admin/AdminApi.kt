@@ -459,6 +459,7 @@ class AdminApi(
             displayName = account.displayName,
             summary = account.summary,
         ),
+        iconUrl = account.iconUrl,
         createdAt = createdAt,
         followerCount = followerCount,
         feed = feed?.let {
@@ -482,6 +483,7 @@ class AdminApi(
             displayName = account.displayName,
             summary = account.summary,
         ),
+        iconUrl = account.iconUrl,
         createdAt = createdAt,
         followerCount = followerCount,
         feed = null,

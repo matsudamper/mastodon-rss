@@ -52,6 +52,7 @@ import kotlinx.coroutines.flow.collect
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
+import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.CoordinatedTwoPaneLayout
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
@@ -242,7 +243,7 @@ private fun CompactLoadedAdminAccountContent(
     ) {
         item(key = "header") {
             AdminAccountHeaderRow(
-                acct = uiState.acct,
+                account = content.account,
                 onOpenPostDialog = onOpenPostDialog,
             )
         }
@@ -288,7 +289,7 @@ private fun WideLoadedAdminAccountContent(
                     .padding(top = verticalPadding, bottom = 16.dp),
             ) {
                 AdminAccountHeaderRow(
-                    acct = uiState.acct,
+                    account = content.account,
                     onOpenPostDialog = onOpenPostDialog,
                 )
             }
@@ -335,7 +336,7 @@ private fun WideLoadedAdminAccountContent(
 
 @Composable
 private fun AdminAccountHeaderRow(
-    acct: String,
+    account: AdminAccountScreenUiState.Account,
     onOpenPostDialog: () -> Unit,
 ) {
     Row(
@@ -343,12 +344,26 @@ private fun AdminAccountHeaderRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = acct,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
+        AccountAvatar(
+            username = account.username,
+            iconUrl = account.iconUrl,
+            size = 56.dp,
         )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = account.displayName.ifEmpty { account.username },
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = account.acct,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Button(onClick = onOpenPostDialog) { Text("新しい投稿") }
     }
 }

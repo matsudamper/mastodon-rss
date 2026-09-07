@@ -758,6 +758,7 @@ class AdminAccountScreenViewModel(
         username = account.username,
         acct = account.acct,
         actorUrl = account.actorUrl,
+        iconUrl = iconUrl,
         createdAt = UnixTimeUtil.format(createdAt),
         followerCount = followerCount,
         displayName = account.displayName,
