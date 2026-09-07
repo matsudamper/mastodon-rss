@@ -8,6 +8,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 // 本物の SQLite に対して確かめる。
@@ -117,7 +118,7 @@ class FollowerRepositoryTest {
     }
 
     @Test
-    fun `プロフィールの URL と acct は取れなかった回で消えない`() {
+    fun `acct は取れなかった回で消えないが、プロフィールの URL は消えたら消える`() {
         withRepository { followers ->
             followers.record(
                 incomingFollow(
@@ -126,13 +127,14 @@ class FollowerRepositoryTest {
                 ),
             )
             // WebFinger が一度落ちただけで一覧が「未取得」に戻ると、
-            // 次に成功する Follow が来るまで直らない
+            // 次に成功する Follow が来るまで直らない。アクター文書から読むものは
+            // 読めた時点の値が正なので、相手が url を消したならこちらも消す
             followers.record(incomingFollow(followActivityUri = "https://remote.example/activities/2"))
             followers.markAccepted("admin", "https://remote.example/users/alice", now)
 
             val stored = followers.list("admin", after = null, limit = 10).single()
-            assertEquals("https://remote.example/@alice", stored.profileUrl)
             assertEquals("@alice@remote.example", stored.acct)
+            assertNull(stored.profileUrl)
         }
     }
 

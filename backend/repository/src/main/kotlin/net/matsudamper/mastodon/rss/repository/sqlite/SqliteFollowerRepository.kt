@@ -178,9 +178,10 @@ internal class SqliteFollowerRepository(
      * 相手のアクターは毎回上書きする。inbox も鍵も相手の都合で変わるので、
      * 取り直したものが最新になる。
      *
-     * ただしプロフィールの URL と acct は、取れなかった回で消さない。
-     * `Follow` の再送のたびに読み直しており、WebFinger が一度落ちただけで
-     * 一覧が「未取得」に戻ると、次に成功する `Follow` が来るまで直らない。
+     * ただし acct は取れなかった回で消さない。`Follow` の再送のたびに読み直しており、
+     * WebFinger が一度落ちただけで一覧が「未取得」に戻ると、次に成功する
+     * `Follow` が来るまで直らない。アクター文書から読むものは、読めた時点の値で
+     * 上書きする。相手が `url` を消したなら、こちらも消えるのが正しい。
      */
     private fun upsertRemoteActor(
         dsl: DSLContext,
@@ -189,9 +190,7 @@ internal class SqliteFollowerRepository(
     ): Long {
         val fetchedAt = StoredInstant.format(now)
 
-        // null で来た回に、既に入っている値を消さないための式
-        val keptProfileUrl =
-            DSL.coalesce(DSL.value(actor.profileUrl, REMOTE_ACTORS.PROFILE_URL), REMOTE_ACTORS.PROFILE_URL)
+        // WebFinger が落ちた回に、既に入っている acct を消さないための式
         val keptAcct = DSL.coalesce(DSL.value(actor.acct, REMOTE_ACTORS.ACCT), REMOTE_ACTORS.ACCT)
 
         dsl
@@ -208,7 +207,7 @@ internal class SqliteFollowerRepository(
             .set(REMOTE_ACTORS.INBOX, actor.inbox)
             .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
             .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
-            .set(REMOTE_ACTORS.PROFILE_URL, keptProfileUrl)
+            .set(REMOTE_ACTORS.PROFILE_URL, actor.profileUrl)
             .set(REMOTE_ACTORS.ACCT, keptAcct)
             .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
             .execute()
