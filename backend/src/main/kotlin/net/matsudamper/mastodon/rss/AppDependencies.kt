@@ -200,6 +200,21 @@ class AppDependencies(
         }
     }
 
+    /**
+     * 走っている過去の投稿の配信を止めて、終わるまで待つ。
+     *
+     * 配信は DB と HTTP クライアントを使うので、閉じる前に止める。
+     * 途中で切れた分は届かないが、フォロー自体は成立しているので次の新着からは届く。
+     * 待ち時間は [stopFeedPolling] と同じ理由で短く切る
+     */
+    private fun stopFollowBackfill() {
+        runBlocking {
+            withTimeoutOrNull(3_000) {
+                followBackfillScope.coroutineContext.job.cancelAndJoin()
+            }
+        }
+    }
+
     val actorPublisher: ActorPublisher = ActorPublisher(
         notes = noteStore,
         followers = followerStore,
@@ -215,6 +230,7 @@ class AppDependencies(
     override fun close() {
         // 取り込みの途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ
         stopFeedPolling()
+        stopFollowBackfill()
 
         val failures = listOf<() -> Unit>(
             { feedFetcher.close() },
