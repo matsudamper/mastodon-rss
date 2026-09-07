@@ -30,44 +30,77 @@ class NotePublisher(
     private val logger = LoggerFactory.getLogger(NotePublisher::class.java)
 
     /**
+     * 投稿を記録する。まだフォロワーには配らない。
+     *
+     * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと。ここでは中身を検査しない
+     */
+    fun create(
+        sender: ActorUrls,
+        contentHtml: String,
+    ): StoredNote {
+        val publishedAt = Instant.now()
+        val note = StoredNote(
+            publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli())),
+            username = sender.username,
+            contentHtml = contentHtml,
+            publishedAt = publishedAt,
+        )
+        notes.add(note)
+        return note
+    }
+
+    /**
+     * 記録済みの投稿をフォロワーへ配る。
+     *
+     * 同じ [publicId] で呼び直すと同じ `Create` / `Note` の id と本文・公開日時を使う。
+     *
+     * @return 記録が無いか、別アカウントの投稿なら null
+     */
+    suspend fun deliver(
+        sender: ActorUrls,
+        publicId: PublicNoteId,
+    ): PublishedNote? {
+        val note = notes.find(publicId)?.takeIf { it.username.equals(sender.username, ignoreCase = true) }
+            ?: return null
+        val urls = NoteUrls(domain = sender.domain, publicId = note.publicId)
+
+        val activityBodyBytes = AppJson.encodeToString(
+            CreateNoteActivity.serializer(),
+            createActivity(
+                sender = sender,
+                urls = urls,
+                contentHtml = note.contentHtml,
+                publishedAt = note.publishedAt,
+            ),
+        ).toByteArray()
+
+        val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
+
+        logger.info(
+            "投稿を配った: ${sender.acct} ${note.publicId} 宛先=${result.deliveryAttemptCount} 成功=${result.delivered}",
+        )
+
+        return PublishedNote(
+            publicId = note.publicId,
+            url = urls.noteUrl,
+            contentHtml = note.contentHtml,
+            publishedAt = note.publishedAt,
+            deliveryAttemptCount = result.deliveryAttemptCount,
+            delivered = result.delivered,
+        )
+    }
+
+    /**
+     * 投稿を記録して、そのまま全フォロワーに配る。
+     *
      * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと。ここでは中身を検査しない
      */
     suspend fun publish(
         sender: ActorUrls,
         contentHtml: String,
     ): PublishedNote {
-        val publishedAt = Instant.now()
-        val publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli()))
-        val urls = NoteUrls(domain = sender.domain, publicId = publicId)
-
-        notes.add(
-            StoredNote(
-                publicId = publicId,
-                username = sender.username,
-                contentHtml = contentHtml,
-                publishedAt = publishedAt,
-            ),
-        )
-
-        val activityBodyBytes = AppJson.encodeToString(
-            CreateNoteActivity.serializer(),
-            createActivity(sender = sender, urls = urls, contentHtml = contentHtml, publishedAt = publishedAt),
-        ).toByteArray()
-
-        val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
-
-        logger.info(
-            "投稿を配った: ${sender.acct} $publicId 宛先=${result.deliveryAttemptCount} 成功=${result.delivered}",
-        )
-
-        return PublishedNote(
-            publicId = publicId,
-            url = urls.noteUrl,
-            contentHtml = contentHtml,
-            publishedAt = publishedAt,
-            deliveryAttemptCount = result.deliveryAttemptCount,
-            delivered = result.delivered,
-        )
+        val note = create(sender = sender, contentHtml = contentHtml)
+        return checkNotNull(deliver(sender = sender, publicId = note.publicId))
     }
 
     /**
