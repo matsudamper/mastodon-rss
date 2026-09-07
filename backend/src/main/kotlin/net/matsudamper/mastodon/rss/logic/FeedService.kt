@@ -344,7 +344,7 @@ class FeedService(
         // 条件付き GET はまだ送っていないので、保存されている値はそのまま残す
         feeds.recordFetchSuccess(id = feed.id, fetchedAt = Instant.now(), validators = feed.fetch.validators)
 
-        val iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl)
+        val iconUrl = fetched.iconUrlOrKeep(feed)
         feeds.updateMetadata(
             id = feed.id,
             title = fetched.parsed.title,
@@ -389,6 +389,17 @@ class FeedService(
         is FeedFetchService.FetchResult.HttpError -> status?.let { "HTTP $it" } ?: message ?: "取得に失敗した"
         is FeedFetchService.FetchResult.ParseError -> "パースに失敗した"
     }
+
+    /**
+     * 取り込めたアイコンの URL。取れていなければ今の値を残す。
+     *
+     * 空で上書きすると、拾えなかった 1 回でアイコンが消える。YouTube のように
+     * フィード本体ではなく別のページから拾う配信元では、そのページの取得が
+     * 失敗しただけでも空になる。取り込み自体は成功しているので、
+     * 「名乗らなくなった」と「今回は拾えなかった」を区別できない
+     */
+    private fun FeedFetchService.FetchResult.Success.iconUrlOrKeep(feed: Feed): String? =
+        HttpUrl.sanitize(parsed.iconUrl, feedUrl) ?: feed.iconUrl
 
     /**
      * アイコンの入れ替え。落ちても記事の取り込みは進める。
@@ -479,7 +490,7 @@ class FeedService(
     private suspend fun importLatest(feed: Feed): ImportLatestResult {
         return when (val fetched = fetcher.fetch(feed.url, needsDescription = false)) {
             is FeedFetchService.FetchResult.Success -> {
-                val iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl)
+                val iconUrl = fetched.iconUrlOrKeep(feed)
                 feeds.updateMetadata(
                     id = feed.id,
                     title = fetched.parsed.title,

@@ -749,6 +749,32 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `アイコンが拾えなかった取り込みでは前の URL を残す`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val icons = FakeFeedIcons()
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(ICON_XML, FEED_XML),
+                icons = icons,
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
+
+            // 空で上書きすると、拾えなかった 1 回でアイコンが消える
+            assertEquals(
+                "https://example.com/icon.png",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
+            assertEquals(
+                listOf<String?>("https://example.com/icon.png", "https://example.com/icon.png"),
+                icons.refreshed.map { it.second },
+            )
+        }
+
+    @Test
     fun `アイコンを入れ替えられなくても記事は取り込む`() =
         runTest {
             val repositories = FakeRepositories()
