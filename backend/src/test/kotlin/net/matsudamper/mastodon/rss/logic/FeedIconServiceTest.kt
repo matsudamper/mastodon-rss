@@ -4,6 +4,7 @@ import java.net.InetAddress
 import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
+import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
 import kotlin.test.AfterTest
@@ -27,7 +28,7 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 class FeedIconServiceTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-feed-icon-test")
 
-    @OptIn(kotlin.io.path.ExperimentalPathApi::class)
+    @OptIn(ExperimentalPathApi::class)
     @AfterTest
     fun tearDown() {
         tempDir.deleteRecursively()
