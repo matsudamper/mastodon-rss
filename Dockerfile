@@ -44,6 +44,7 @@ COPY --chmod=0755 docker-entrypoint.sh /docker-entrypoint.sh
 # フォロワーが消えず、アクターも同一人物のままになるように
 ENV DB_PATH=/data/mastodon-rss.db \
     ACTOR_PRIVATE_KEY_PATH=/data/actor-private-key.pem \
+    ICON_CACHE_DIR=/data/image-cache \
     HOST=0.0.0.0 \
     PORT=8080
 
