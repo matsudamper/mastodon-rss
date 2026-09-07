@@ -116,10 +116,13 @@ class HttpRemoteActors(
         actorUrl: Url,
         preferredUsername: String,
     ): String? {
+        // 既定でないポートで動いている相手は、ポートまで含めないと別の接続先を指す
+        val authority = if (actorUrl.port == actorUrl.protocol.defaultPort) actorUrl.host else actorUrl.hostWithPort
+
         val response =
             runCatching {
-                client.get("https://${actorUrl.host}/.well-known/webfinger") {
-                    parameter("resource", "acct:$preferredUsername@${actorUrl.host}")
+                client.get("https://$authority/.well-known/webfinger") {
+                    parameter("resource", "acct:$preferredUsername@$authority")
                     header(HttpHeaders.Accept, ContentType.Application.Json.toString())
                 }
             }.getOrNull() ?: return null
@@ -169,6 +172,7 @@ class HttpRemoteActors(
      *
      * ホストは相手のサーバーが決めるので、こちらから形を決めきれない。
      * acct の形（`@name@host`）を崩す文字と、表示を壊す文字だけを弾く。
+     * 既定でないポートで動いている相手は `host:port` を返してくるので、`:` は通す。
      */
     private fun isAcctHost(raw: String): Boolean =
         raw.isNotEmpty() &&

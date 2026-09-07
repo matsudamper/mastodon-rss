@@ -115,6 +115,28 @@ class HttpRemoteActorsTest {
         assertNull(actor.acct)
     }
 
+    @Test
+    fun `既定でないポートの相手にはポートまで含めて問い合わせる`() {
+        val actorId = "https://remote.example:8443/users/alice"
+        val fetched = findActor(
+            actorId = actorId,
+            document = """
+            {
+              "id": "$actorId",
+              "inbox": "$actorId/inbox",
+              "preferredUsername": "alice",
+              "publicKey": { "publicKeyPem": "pem" }
+            }
+            """.trimIndent(),
+            webFinger = webFinger(subject = "acct:alice@remote.example:8443", selfHref = actorId),
+        )
+
+        // ポートを落とすと別の接続先の WebFinger を引くことになる
+        assertEquals(8443, fetched.webFingerRequestPort)
+        assertEquals("acct:alice@remote.example:8443", fetched.webFingerResource)
+        assertEquals("@alice@remote.example:8443", assertNotNull(fetched.actor).acct)
+    }
+
     private fun actorDocument(extraFields: String): String =
         """
         {
@@ -144,13 +166,18 @@ class HttpRemoteActorsTest {
     private fun findActor(
         document: String,
         webFinger: String?,
+        actorId: String = ACTOR_ID,
     ): FetchResult {
         var webFingerRequested = false
+        var webFingerRequestPort: Int? = null
+        var webFingerResource: String? = null
 
         val client = HttpClient(
             MockEngine { request ->
                 if (request.url.encodedPath == "/.well-known/webfinger") {
                     webFingerRequested = true
+                    webFingerRequestPort = request.url.port
+                    webFingerResource = request.url.parameters["resource"]
                     if (webFinger == null) {
                         respondError(HttpStatusCode.NotFound)
                     } else {
@@ -162,9 +189,14 @@ class HttpRemoteActorsTest {
             },
         )
 
-        val actor = HttpRemoteActors(client = client).use { runBlocking { it.findActor(ACTOR_ID) } }
+        val actor = HttpRemoteActors(client = client).use { runBlocking { it.findActor(actorId) } }
 
-        return FetchResult(actor = actor, webFingerRequested = webFingerRequested)
+        return FetchResult(
+            actor = actor,
+            webFingerRequested = webFingerRequested,
+            webFingerRequestPort = webFingerRequestPort,
+            webFingerResource = webFingerResource,
+        )
     }
 
     private fun MockRequestHandleScope.respondJson(body: String) = respond(
@@ -176,6 +208,8 @@ class HttpRemoteActorsTest {
     private data class FetchResult(
         val actor: RemoteActor?,
         val webFingerRequested: Boolean,
+        val webFingerRequestPort: Int?,
+        val webFingerResource: String?,
     )
 
     private companion object {
