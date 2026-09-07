@@ -14,7 +14,7 @@ import net.matsudamper.mastodon.rss.json.AppJson
 import org.slf4j.LoggerFactory
 
 /**
- * 投稿の `Create{Note}` を組み立てる（[prepare]）。投稿の削除はその場で配る（[delete]）。
+ * 投稿の `Create{Note}` を組み立てる（[prepare] / [prepareRecorded]）。投稿の削除はその場で配る（[delete]）。
  *
  * [prepare] は DB も触らず HTTP も出さない。記録と投函は `:backend` が repository の
  * 投函の口で 1 トランザクションにまとめる。記録と配信をここで続けて行うと、
@@ -53,6 +53,41 @@ class NotePublisher(
             url = urls.noteUrl,
             contentHtml = contentHtml,
             publishedAt = publishedAt,
+            activityJson = activityJson,
+        )
+    }
+
+    /**
+     * 記録済みの投稿から、同じ id・本文・公開日時で `Create{Note}` を組み立て直す。
+     *
+     * 配り切れていない投稿を投函し直すのに使う。新しく作ると同じ記事が別の投稿として届く。
+     * 同じ id で送る限り、受け取った側はアクティビティの id で冪等に扱う。
+     *
+     * @return 記録が無いか、別のアカウントの投稿なら null
+     */
+    fun prepareRecorded(
+        sender: ActorUrls,
+        publicId: PublicNoteId,
+    ): PreparedNote? {
+        val note = notes.find(publicId)?.takeIf { it.username.equals(sender.username, ignoreCase = true) }
+            ?: return null
+        val urls = NoteUrls(domain = sender.domain, publicId = note.publicId)
+
+        val activityJson = AppJson.encodeToString(
+            CreateNoteActivity.serializer(),
+            createActivity(
+                sender = sender,
+                urls = urls,
+                contentHtml = note.contentHtml,
+                publishedAt = note.publishedAt,
+            ),
+        )
+
+        return PreparedNote(
+            publicId = note.publicId,
+            url = urls.noteUrl,
+            contentHtml = note.contentHtml,
+            publishedAt = note.publishedAt,
             activityJson = activityJson,
         )
     }

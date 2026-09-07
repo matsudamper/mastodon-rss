@@ -28,6 +28,7 @@ import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.NoteRepository
+import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
 import net.matsudamper.mastodon.rss.repository.RetryingDeliveryPosition
@@ -508,6 +509,13 @@ class FakeFeedItemRepository : FeedItemRepository {
         stored.removeAll { it.feedId == feedId }
     }
 
+    /**
+     * 投稿を紐付けたまま未投稿に戻す。配信の直前に紐付けていた頃の版が残す状態を作る
+     */
+    fun backToPending(id: FeedItemId) {
+        update(id) { it.copy(state = FeedItemState.PENDING, postedAt = null) }
+    }
+
     fun clearNoteId(noteId: PublicNoteId) {
         stored.replaceAll { item -> if (item.noteId == noteId) item.copy(noteId = null) else item }
     }
@@ -557,6 +565,27 @@ class FakeDeliveryQueueRepository(
                 id = DeliveryId(nextId++),
                 notePublicId = post.note.publicId,
                 username = post.note.username,
+                inbox = inbox,
+                body = post.body,
+                state = State.PENDING,
+                attempts = 0,
+                nextAttemptAt = post.enqueuedAt,
+                enqueuedAt = post.enqueuedAt,
+                lastError = null,
+            )
+        }
+        return EnqueueNoteResult.Queued(deliveries = post.inboxes.size)
+    }
+
+    override fun requeueNote(post: RecordedNotePost): EnqueueNoteResult {
+        val item = feedItems.find(post.feedItemId)
+        if (item == null || item.state != FeedItemState.PENDING) return EnqueueNoteResult.FeedItemNotPending
+        feedItems.markPosted(post.feedItemId, postedAt = post.enqueuedAt, noteId = post.publicId)
+        post.inboxes.forEach { inbox ->
+            stored += Row(
+                id = DeliveryId(nextId++),
+                notePublicId = post.publicId,
+                username = post.username,
                 inbox = inbox,
                 body = post.body,
                 state = State.PENDING,

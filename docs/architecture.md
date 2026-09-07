@@ -330,6 +330,8 @@ Cookie の `Secure` は既定で付ける。本番はリバースプロキシで
   （`notes`）・記事の投稿済み化（`feed_items`）・投函（`delivery_queue`）を 1 トランザクションで
   書く。記事が `pending` でなければ何も書かない。同じ記事への投函が 2 回走っても投稿が
   1 回しかできないのはここで止めている
+- 記事に投稿が紐付いたまま未投稿で残っている場合は、記録済みの id で投函し直す。
+  新しく作ると、既に届いている記事が別の投稿としてもう一度並ぶ
 - `:backend` の `NotePoster` が両方を繋ぐ。管理画面からの告知（`NoteService`）も
   フィードの記事（`FeedService`）も同じ口を通る。記事の id は repository 側の概念なので、
   `:backend:feature-mastodon` の型には持ち込まない

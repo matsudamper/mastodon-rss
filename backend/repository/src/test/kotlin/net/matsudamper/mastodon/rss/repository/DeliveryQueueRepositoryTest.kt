@@ -13,6 +13,7 @@ import kotlin.test.assertNull
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
+import org.sqlite.SQLiteDataSource
 
 // 本物の SQLite に対して確かめる。
 // 投函が 1 トランザクションで確定すること、claim が二重に取れないことがここの関心になる。
@@ -100,6 +101,60 @@ class DeliveryQueueRepositoryTest {
             assertEquals(1L, repositories.notes.count(USERNAME))
             assertEquals(DeliveryQueueCounts(waiting = 1, failed = 0), repositories.deliveryQueue.counts(USERNAME))
             assertEquals(PublicNoteId("n1"), assertNotNull(repositories.feedItems.find(item.id)).noteId)
+        }
+    }
+
+    @Test
+    fun `記録済みの投稿は新しく作らずに投函し直す`() {
+        withRepositories { repositories ->
+            val item = repositories.addPendingItem()
+            repositories.deliveryQueue.enqueueNote(
+                notePost(publicId = "n1", inboxes = listOf(INBOX_A), feedItemId = item.id),
+            )
+            // 配信の直前に投稿を紐付けていた頃の版が残した、投稿が紐付いたままの未投稿記事
+            repositories.deliveryQueue.claim(now = now, limit = 10).forEach { repositories.deliveryQueue.markDelivered(it.id) }
+            backToPending(item.id)
+
+            val result = repositories.deliveryQueue.requeueNote(
+                RecordedNotePost(
+                    publicId = PublicNoteId("n1"),
+                    username = USERNAME,
+                    body = BODY,
+                    inboxes = listOf(INBOX_A, INBOX_B),
+                    enqueuedAt = now,
+                    feedItemId = item.id,
+                ),
+            )
+
+            assertEquals(EnqueueNoteResult.Queued(deliveries = 2), result)
+            assertEquals(1, repositories.notes.count(USERNAME))
+            assertEquals(FeedItemState.POSTED, assertNotNull(repositories.feedItems.find(item.id)).state)
+            val claimed = repositories.deliveryQueue.claim(now = now, limit = 10)
+            assertEquals(listOf(INBOX_A, INBOX_B), claimed.map { it.inbox })
+        }
+    }
+
+    @Test
+    fun `投稿済みの記事には投函し直さない`() {
+        withRepositories { repositories ->
+            val item = repositories.addPendingItem()
+            repositories.deliveryQueue.enqueueNote(
+                notePost(publicId = "n1", inboxes = listOf(INBOX_A), feedItemId = item.id),
+            )
+
+            val result = repositories.deliveryQueue.requeueNote(
+                RecordedNotePost(
+                    publicId = PublicNoteId("n1"),
+                    username = USERNAME,
+                    body = BODY,
+                    inboxes = listOf(INBOX_B),
+                    enqueuedAt = now,
+                    feedItemId = item.id,
+                ),
+            )
+
+            assertEquals(EnqueueNoteResult.FeedItemNotPending, result)
+            assertEquals(listOf(INBOX_A), repositories.deliveryQueue.claim(now = now, limit = 10).map { it.inbox })
         }
     }
 
@@ -376,6 +431,19 @@ class DeliveryQueueRepositoryTest {
 
             assertIs<DeliveryId>(retrying.id)
             assertEquals(claimed.id, retrying.id)
+        }
+    }
+
+    /**
+     * 投稿を紐付けたまま未投稿に戻す。配信の直前に紐付けていた頃の版が残す状態で、
+     * いまのコードからは作れないので直接書く
+     */
+    private fun backToPending(id: FeedItemId) {
+        val dataSource = SQLiteDataSource().apply { url = "jdbc:sqlite:$dbPath" }
+        dataSource.connection.use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate("UPDATE feed_items SET state = 'pending', posted_at = NULL WHERE id = ${id.value}")
+            }
         }
     }
 

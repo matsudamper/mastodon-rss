@@ -466,8 +466,15 @@ class FeedService(
                 // 閉じた DB に触りに行く。1 件ごとに止める合図を見る
                 currentCoroutineContext().ensureActive()
                 val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
+                val recordedNoteId = stored.noteId
                 val queued = try {
-                    notePoster.post(sender = sender, contentHtml = html, feedItemId = stored.id)
+                    // 配信の直前に投稿を紐付けていた頃の記事が残っていることがある。
+                    // 新しく作ると、既に届いている記事が別の投稿としてもう一度並ぶ
+                    if (recordedNoteId == null) {
+                        notePoster.post(sender = sender, contentHtml = html, feedItemId = stored.id)
+                    } else {
+                        notePoster.repost(sender = sender, publicId = recordedNoteId, feedItemId = stored.id)
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {

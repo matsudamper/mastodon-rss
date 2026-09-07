@@ -10,6 +10,7 @@ import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NotePost
+import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import org.slf4j.LoggerFactory
@@ -56,13 +57,45 @@ class NotePoster(
         return when (result) {
             is EnqueueNoteResult.Queued -> {
                 logger.info("投稿を投函した: ${sender.acct} ${prepared.publicId} 宛先=${result.deliveries}")
-                QueuedNote(
-                    publicId = prepared.publicId,
-                    url = prepared.url,
-                    contentHtml = prepared.contentHtml,
-                    publishedAt = prepared.publishedAt,
-                    queuedDeliveries = result.deliveries,
-                )
+                prepared.toQueuedNote(result.deliveries)
+            }
+
+            EnqueueNoteResult.FeedItemNotPending -> null
+        }
+    }
+
+    /**
+     * 記録済みの投稿を投函し直す。
+     *
+     * 記事に投稿が紐付いているのに未投稿のまま残っている行に使う。新しく作ると、
+     * 既に届いている記事が別の投稿としてもう一度並ぶ。
+     *
+     * @return 投稿の記録が無い、または記事が既に投稿済みで何も書かなかったなら null
+     */
+    fun repost(
+        sender: ActorUrls,
+        publicId: PublicNoteId,
+        feedItemId: FeedItemId,
+    ): QueuedNote? {
+        val prepared = publisher.prepareRecorded(sender = sender, publicId = MastodonPublicNoteId(publicId.value))
+            ?: return null
+        val inboxes = followers.deliveryTargets(sender.username)
+
+        val result = deliveryQueue.requeueNote(
+            RecordedNotePost(
+                publicId = publicId,
+                username = sender.username,
+                body = prepared.activityJson,
+                inboxes = inboxes,
+                enqueuedAt = Instant.now(),
+                feedItemId = feedItemId,
+            ),
+        )
+
+        return when (result) {
+            is EnqueueNoteResult.Queued -> {
+                logger.info("記録済みの投稿を投函し直した: ${sender.acct} ${prepared.publicId} 宛先=${result.deliveries}")
+                prepared.toQueuedNote(result.deliveries)
             }
 
             EnqueueNoteResult.FeedItemNotPending -> null
@@ -74,6 +107,14 @@ class NotePoster(
         publicId = PublicNoteId(publicId.value),
         contentHtml = contentHtml,
         publishedAt = publishedAt,
+    )
+
+    private fun PreparedNote.toQueuedNote(queuedDeliveries: Int): QueuedNote = QueuedNote(
+        publicId = publicId,
+        url = url,
+        contentHtml = contentHtml,
+        publishedAt = publishedAt,
+        queuedDeliveries = queuedDeliveries,
     )
 }
 

@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.repository
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 /**
  * 相手の inbox に送る配信の待ち行列。
@@ -31,6 +32,15 @@ interface DeliveryQueueRepository {
      * 消したはずの投稿が復旧した相手に後から届くことはない。
      */
     fun enqueueNote(post: NotePost): EnqueueNoteResult
+
+    /**
+     * 記録済みの投稿を、宛先ごとに投函し直す。
+     *
+     * 記事に投稿が紐付いているのに `pending` のまま残っている行に使う。新しく投稿を作ると
+     * 同じ記事が別の投稿として届くので、記録済みの id をそのまま配る。
+     * 投稿の記録は増やさず、記事の投稿済み化と投函だけを 1 トランザクションで確定させる。
+     */
+    fun requeueNote(post: RecordedNotePost): EnqueueNoteResult
 
     /**
      * 送る時刻を過ぎた `pending` を `delivering` にして返す。宛先のホストごとに 1 件まで。
@@ -151,6 +161,25 @@ data class NotePost(
     val inboxes: List<String>,
     val enqueuedAt: Instant,
     val feedItemId: FeedItemId?,
+)
+
+/**
+ * 投函し直す、記録済みの投稿。
+ *
+ * @param publicId 記録済みの投稿の id。[body] もこの id で組み立てたものを渡すこと
+ * @param username 署名するこちらのアカウントの名前
+ * @param body 署名対象になる `Create{Note}` の JSON
+ * @param inboxes 宛先。同じ宛先は 1 つにまとめてから渡すこと
+ * @param enqueuedAt 投函した時刻。最初の 1 回はこの時刻にすぐ送る
+ * @param feedItemId この投稿が配る記事
+ */
+data class RecordedNotePost(
+    val publicId: PublicNoteId,
+    val username: String,
+    val body: String,
+    val inboxes: List<String>,
+    val enqueuedAt: Instant,
+    val feedItemId: FeedItemId,
 )
 
 sealed interface EnqueueNoteResult {

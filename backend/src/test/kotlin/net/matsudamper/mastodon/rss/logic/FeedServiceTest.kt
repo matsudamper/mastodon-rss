@@ -23,6 +23,7 @@ import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
+import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
@@ -315,6 +316,26 @@ class FeedServiceTest {
             assertEquals(true, success.feed.initialImportDone)
             assertEquals(emptyList(), repositories.feedItems.items())
             assertEquals(0, repositories.notes.all().size)
+        }
+
+    @Test
+    fun `投稿が紐付いたまま未投稿で残った記事は同じ投稿を投函し直す`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = RepositoryNoteStore(repositories.notes))
+            service.save(accountId = account.id, url = FEED_URL)
+            service.postUnpublished(account.id)
+            val first = repositories.feedItems.items().first()
+            val postedNoteId = assertNotNull(first.noteId)
+            // 配信の直前に投稿を紐付けていた頃の版が残す状態
+            repositories.feedItems.backToPending(first.id)
+
+            val result = service.postUnpublished(account.id)
+
+            assertIs<FeedService.PostUnpublishedResult.Success>(result)
+            assertEquals(postedNoteId, assertNotNull(repositories.feedItems.find(first.id)).noteId)
+            assertEquals(2, repositories.notes.all().size)
         }
 
     @Test
@@ -957,6 +978,7 @@ class FeedServiceTest {
         actorDirectory: ActorDirectory = TestLocalActor.directory,
         engine: MockEngine? = null,
         icons: FeedIcons = FakeFeedIcons(),
+        noteStore: NoteStore = FakeNoteStore(),
     ): FeedService {
         val mockEngine = engine ?: run {
             val bodies = ArrayDeque(xmls ?: listOf(xml))
@@ -980,7 +1002,7 @@ class FeedServiceTest {
             actorDirectory = actorDirectory,
             notePoster = NotePoster(
                 publisher = NotePublisher(
-                    notes = FakeNoteStore(),
+                    notes = noteStore,
                     followers = FakeFollowerStore(),
                     delivery = TestDelivery(),
                 ),

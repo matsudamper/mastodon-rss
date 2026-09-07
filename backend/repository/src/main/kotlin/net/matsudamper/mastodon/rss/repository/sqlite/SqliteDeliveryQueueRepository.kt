@@ -8,16 +8,20 @@ import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FailedDelivery
 import net.matsudamper.mastodon.rss.repository.NotePost
+import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
 import net.matsudamper.mastodon.rss.repository.RetryingDeliveryPosition
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.DELIVERY_QUEUE
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEED_ITEMS
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.NOTES
 import net.matsudamper.mastodon.rss.repository.sqlite.db.DeliveryKindDbValue
 import net.matsudamper.mastodon.rss.repository.sqlite.db.DeliveryStateDbValue
 import net.matsudamper.mastodon.rss.repository.sqlite.db.FeedItemStateDbValue
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import org.jooq.Condition
+import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.impl.DSL
 
@@ -39,42 +43,102 @@ internal class SqliteDeliveryQueueRepository(
 
                 val feedItemId = post.feedItemId
                 if (feedItemId != null) {
-                    // pending のときだけ更新できる。0 件なら別の経路が先に投稿している
-                    val updated = dsl
-                        .update(FEED_ITEMS)
-                        .set(FEED_ITEMS.STATE, FeedItemStateDbValue.POSTED.dbValue)
-                        .set(FEED_ITEMS.POSTED_AT, StoredInstant.format(post.enqueuedAt))
-                        .set(FEED_ITEMS.NOTE_ID, post.note.publicId.value)
-                        .where(FEED_ITEMS.ID.eq(feedItemId.value))
-                        .and(FEED_ITEMS.STATE.eq(FeedItemStateDbValue.PENDING.dbValue))
-                        .execute()
-                    if (updated != 1) throw FeedItemNotPending()
+                    markPosted(
+                        dsl = dsl,
+                        feedItemId = feedItemId,
+                        notePublicId = post.note.publicId,
+                        postedAt = post.enqueuedAt,
+                    )
                 }
 
-                val enqueuedAt = StoredInstant.format(post.enqueuedAt)
-                post.inboxes.forEach { inbox ->
-                    dsl
-                        .insertInto(DELIVERY_QUEUE)
-                        .set(DELIVERY_QUEUE.KIND, DeliveryKindDbValue.of(DeliveryKind.CREATE_NOTE).dbValue)
-                        .set(DELIVERY_QUEUE.USERNAME, post.note.username)
-                        .set(DELIVERY_QUEUE.INBOX, inbox)
-                        .set(DELIVERY_QUEUE.INBOX_HOST, InboxHost.of(inbox))
-                        .set(DELIVERY_QUEUE.BODY, post.body)
-                        .set(DELIVERY_QUEUE.STATE, DeliveryStateDbValue.PENDING.dbValue)
-                        .set(DELIVERY_QUEUE.ATTEMPTS, 0L)
-                        // 最初の 1 回はすぐ送る
-                        .set(DELIVERY_QUEUE.NEXT_ATTEMPT_AT, enqueuedAt)
-                        .set(DELIVERY_QUEUE.ENQUEUED_AT, enqueuedAt)
-                        .set(DELIVERY_QUEUE.LAST_ERROR, null as String?)
-                        .set(DELIVERY_QUEUE.NOTE_PUBLIC_ID, post.note.publicId.value)
-                        .execute()
-                }
+                insertDeliveries(
+                    dsl = dsl,
+                    username = post.note.username,
+                    notePublicId = post.note.publicId,
+                    body = post.body,
+                    inboxes = post.inboxes,
+                    enqueuedAt = post.enqueuedAt,
+                )
 
                 EnqueueNoteResult.Queued(deliveries = post.inboxes.size)
             }
         } catch (_: FeedItemNotPending) {
             EnqueueNoteResult.FeedItemNotPending
         }
+
+    override fun requeueNote(post: RecordedNotePost): EnqueueNoteResult =
+        try {
+            jooq.transaction { dsl ->
+                markPosted(
+                    dsl = dsl,
+                    feedItemId = post.feedItemId,
+                    notePublicId = post.publicId,
+                    postedAt = post.enqueuedAt,
+                )
+
+                insertDeliveries(
+                    dsl = dsl,
+                    username = post.username,
+                    notePublicId = post.publicId,
+                    body = post.body,
+                    inboxes = post.inboxes,
+                    enqueuedAt = post.enqueuedAt,
+                )
+
+                EnqueueNoteResult.Queued(deliveries = post.inboxes.size)
+            }
+        } catch (_: FeedItemNotPending) {
+            EnqueueNoteResult.FeedItemNotPending
+        }
+
+    /**
+     * 記事を投稿済みにする。`pending` でなければ [FeedItemNotPending] でトランザクションごと巻き戻す
+     */
+    private fun markPosted(
+        dsl: DSLContext,
+        feedItemId: FeedItemId,
+        notePublicId: PublicNoteId,
+        postedAt: Instant,
+    ) {
+        // pending のときだけ更新できる。0 件なら別の経路が先に投稿している
+        val updated = dsl
+            .update(FEED_ITEMS)
+            .set(FEED_ITEMS.STATE, FeedItemStateDbValue.POSTED.dbValue)
+            .set(FEED_ITEMS.POSTED_AT, StoredInstant.format(postedAt))
+            .set(FEED_ITEMS.NOTE_ID, notePublicId.value)
+            .where(FEED_ITEMS.ID.eq(feedItemId.value))
+            .and(FEED_ITEMS.STATE.eq(FeedItemStateDbValue.PENDING.dbValue))
+            .execute()
+        if (updated != 1) throw FeedItemNotPending()
+    }
+
+    private fun insertDeliveries(
+        dsl: DSLContext,
+        username: String,
+        notePublicId: PublicNoteId,
+        body: String,
+        inboxes: List<String>,
+        enqueuedAt: Instant,
+    ) {
+        val enqueuedAtText = StoredInstant.format(enqueuedAt)
+        inboxes.forEach { inbox ->
+            dsl
+                .insertInto(DELIVERY_QUEUE)
+                .set(DELIVERY_QUEUE.KIND, DeliveryKindDbValue.of(DeliveryKind.CREATE_NOTE).dbValue)
+                .set(DELIVERY_QUEUE.USERNAME, username)
+                .set(DELIVERY_QUEUE.INBOX, inbox)
+                .set(DELIVERY_QUEUE.INBOX_HOST, InboxHost.of(inbox))
+                .set(DELIVERY_QUEUE.BODY, body)
+                .set(DELIVERY_QUEUE.STATE, DeliveryStateDbValue.PENDING.dbValue)
+                .set(DELIVERY_QUEUE.ATTEMPTS, 0L)
+                // 最初の 1 回はすぐ送る
+                .set(DELIVERY_QUEUE.NEXT_ATTEMPT_AT, enqueuedAtText)
+                .set(DELIVERY_QUEUE.ENQUEUED_AT, enqueuedAtText)
+                .set(DELIVERY_QUEUE.LAST_ERROR, null as String?)
+                .set(DELIVERY_QUEUE.NOTE_PUBLIC_ID, notePublicId.value)
+                .execute()
+        }
+    }
 
     private class FeedItemNotPending : RuntimeException()
 
