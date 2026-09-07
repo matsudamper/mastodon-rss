@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Job
@@ -17,6 +18,7 @@ import net.matsudamper.mastodon.rss.FakeDeliveryQueueRepository
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
@@ -86,17 +88,60 @@ class DeliveryWorkerTest {
     }
 
     @Test
-    fun `投函から 30 日を過ぎた失敗は諦める`() = runTest {
+    fun `次に送る時刻が期限を過ぎる失敗は諦める`() = runTest {
         val repositories = FakeRepositories()
         val delivery = RecordingDelivery(failing = setOf("https://a.example/inbox"))
         repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
 
-        runWorker(repositories.deliveryQueue, delivery, clock = { now.plusSeconds(31L * 24 * 60 * 60) })
+        // 期限内に送って失敗するが、次の時刻は期限を過ぎる
+        runWorker(
+            repositories.deliveryQueue,
+            delivery,
+            retryPolicy = DeliveryRetryPolicy(initialInterval = 2.hours, giveUpAfter = 1.hours),
+        )
 
+        assertEquals(1, delivery.attempts)
         val row = repositories.deliveryQueue.rows().single()
         assertEquals(FakeDeliveryQueueRepository.State.FAILED, row.state)
         assertEquals(null, row.nextAttemptAt)
         assertEquals(null, row.body)
+    }
+
+    @Test
+    fun `投函から 30 日を過ぎた行は送らずに諦める`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery()
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
+
+        runWorker(repositories.deliveryQueue, delivery, clock = { now.plusSeconds(31L * 24 * 60 * 60) })
+
+        assertEquals(FakeDeliveryQueueRepository.State.FAILED, repositories.deliveryQueue.rows().single().state)
+        // 止まっていた間に期限を過ぎた投稿を、再起動後に突然届けない
+        assertEquals(emptyList(), delivery.delivered)
+        assertEquals(0, delivery.attempts)
+    }
+
+    @Test
+    fun `起動時の復旧が失敗してもワーカーは止まらない`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery()
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
+        repositories.deliveryQueue.claim(now = now, limit = 10)
+        val queue = FailingRecoveryOnce(repositories.deliveryQueue)
+
+        val worker = DeliveryWorker(
+            queue = queue,
+            delivery = delivery,
+            directory = TestLocalActor.directory,
+            idleInterval = IDLE,
+            clock = { now },
+        )
+        val job = worker.start(this)
+        advanceTimeBy(IDLE * 10)
+        job.cancelAndJoin()
+
+        assertEquals(listOf("https://a.example/inbox"), delivery.delivered)
+        assertEquals(emptyList(), repositories.deliveryQueue.rows())
     }
 
     @Test
@@ -208,11 +253,13 @@ class DeliveryWorkerTest {
         delivery: RecordingDelivery,
         claimLimit: Int = 8,
         clock: () -> Instant = { now },
+        retryPolicy: DeliveryRetryPolicy = DeliveryRetryPolicy(),
     ) {
         val worker = DeliveryWorker(
             queue = queue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            retryPolicy = retryPolicy,
             idleInterval = IDLE,
             claimLimit = claimLimit,
             clock = clock,
@@ -244,6 +291,23 @@ class DeliveryWorkerTest {
     }
 
     private fun Int.minutes() = (this * 60).seconds
+
+    /**
+     * 起動時の復旧だけ 1 回失敗させる
+     */
+    private class FailingRecoveryOnce(
+        private val delegate: FakeDeliveryQueueRepository,
+    ) : DeliveryQueueRepository by delegate {
+        private var failed = false
+
+        override fun recoverDelivering(): Int {
+            if (!failed) {
+                failed = true
+                throw IllegalStateException("DB がロックされている")
+            }
+            return delegate.recoverDelivering()
+        }
+    }
 
     /**
      * 送信の差し替え。同時に何件送っているかをホストごとに数える

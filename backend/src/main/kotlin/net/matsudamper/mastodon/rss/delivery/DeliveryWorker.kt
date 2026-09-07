@@ -47,12 +47,25 @@ class DeliveryWorker(
      */
     fun start(scope: CoroutineScope): Job =
         scope.launch {
-            val recovered = queue.recoverDelivering()
-            if (recovered > 0) {
-                logger.info("送信中のまま残っていた配信 $recovered 件を送り直す")
-            }
-
+            // 復旧も繰り返しの中で試す。外で投げると繰り返しが始まらず、次に再起動するまで配信が止まる
+            var recovered = false
             while (true) {
+                if (!recovered) {
+                    recovered = try {
+                        val count = queue.recoverDelivering()
+                        if (count > 0) {
+                            logger.info("送信中のまま残っていた配信 $count 件を送り直す")
+                        }
+                        true
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.warn("送信中のまま残っていた配信を戻せなかった", e)
+                        delay(idleInterval)
+                        continue
+                    }
+                }
+
                 val claimed = try {
                     queue.claim(now = clock(), limit = claimLimit)
                 } catch (e: CancellationException) {
@@ -104,6 +117,13 @@ class DeliveryWorker(
             if (sender == null) {
                 queue.giveUp(row.id, "アカウントが無い: ${row.username}")
                 logger.warn("配信を諦めた: アカウントが無い ${row.username} → ${row.inbox}")
+                return
+            }
+
+            // 止まっていた間に期限を過ぎた行を送らない。送ると 1 か月以上前の投稿が突然届く
+            if (retryPolicy.isExpired(enqueuedAt = row.enqueuedAt, now = clock())) {
+                queue.giveUp(row.id, "投函から時間が経ちすぎた")
+                logger.warn("配信を諦めた: 投函から時間が経ちすぎた ${row.username} → ${row.inbox}")
                 return
             }
 

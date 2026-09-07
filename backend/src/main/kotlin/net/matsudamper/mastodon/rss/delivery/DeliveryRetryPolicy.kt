@@ -26,6 +26,16 @@ class DeliveryRetryPolicy(
     private val giveUpAfter: Duration = 30.days,
 ) {
     /**
+     * 投函から時間が経ちすぎていて、もう送るべきでないか。
+     *
+     * 止まっていた間に期限を過ぎた行を、再起動後に 1 回だけ送ってしまわないために送る前に見る
+     */
+    fun isExpired(
+        enqueuedAt: Instant,
+        now: Instant,
+    ): Boolean = now.isAfter(enqueuedAt.plus(giveUpAfter.toJavaDuration()))
+
+    /**
      * @param attempts claim された回数。1 回目の失敗なら 1
      * @return 次に送る時刻。諦めるなら null
      */

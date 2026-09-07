@@ -50,4 +50,10 @@ class DeliveryRetryPolicyTest {
 
         assertEquals(Duration.ofSeconds(30), Duration.between(enqueuedAt, next))
     }
+
+    @Test
+    fun `投函から 30 日を過ぎていれば期限切れ`() {
+        assertEquals(false, policy.isExpired(enqueuedAt = enqueuedAt, now = enqueuedAt.plus(Duration.ofDays(30))))
+        assertEquals(true, policy.isExpired(enqueuedAt = enqueuedAt, now = enqueuedAt.plus(Duration.ofDays(30)).plusSeconds(1)))
+    }
 }
