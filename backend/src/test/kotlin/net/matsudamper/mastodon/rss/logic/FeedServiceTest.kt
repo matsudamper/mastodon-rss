@@ -802,7 +802,7 @@ class FeedServiceTest {
         }
 
     @Test
-    fun `アイコンを取り下げたフィードは保存したアイコンも消す`() =
+    fun `アイコンを名乗らなくなったフィードでも前の URL を残す`() =
         runTest {
             val repositories = FakeRepositories()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
@@ -814,7 +814,11 @@ class FeedServiceTest {
 
             service.postUnpublished(account.id)
 
-            assertNull(assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl)
+            // 拾えなかった 1 回でアイコンが消えるのを避ける。取り下げと拾えなかったのは区別できない
+            assertEquals(
+                "https://example.com/icon.png",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
         }
 
     @Test
