@@ -1,6 +1,5 @@
 package net.matsudamper.mastodon.rss.delivery
 
-import java.net.URI
 import java.time.Instant
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -22,14 +21,14 @@ import org.slf4j.LoggerFactory
  * 同じ DB に対してプロセスを 2 つ動かす構成は取らない。起動時の復旧が、
  * 動いている他のプロセスの送信中の行まで巻き戻して二重に送る。
  *
- * 1 回の claim を 1 まとまりとして送る。同じホスト宛は 1 件ずつ直列にし、異なるホストは
- * 並列に送る。フォロワーの多いインスタンスに同時に投げないためと、フォロワーが増えても
- * 接続が青天井にならないため。まとまりの大きさが同時実行数の上限になる
+ * 1 回の claim を 1 まとまりとして並列に送る。claim はホストごとに 1 件しか返さないので、
+ * 同じインスタンスに同時に投げることはない。まとまりの大きさが同時実行数の上限になり、
+ * フォロワーが増えても接続は青天井にならない
  *
  * キャンセルされたら送信中の行は `delivering` のまま残し、次の起動の復旧に任せる。
  * HTTP のタイムアウトは停止に使える時間より長いので、送り終わるのを待たない。
  *
- * @param claimLimit 1 回の claim で取り出す数。同時実行数の上限でもある
+ * @param claimLimit 1 回の claim で取り出す数。同時に相手にするホストの数であり、同時実行数の上限でもある
  * @param idleInterval claim が 0 件だったときに次を見に行くまでの待ち。
  *   新しい投稿が入ってから送り始めるまでの遅れの上限になる
  */
@@ -89,19 +88,14 @@ class DeliveryWorker(
     /**
      * claim した行を全部送り終わるまで返らない。
      *
-     * ホストごとに 1 本のコルーチンにして、その中で順に送る。
-     * 全体の同時実行数はホストの数、つまり claim した行数までに収まる
+     * 1 行に 1 本のコルーチンを当てる。宛先のホストは行ごとに違うので、
+     * 同じインスタンスに 2 本同時に向かうことはない
      */
     private suspend fun deliverAll(claimed: List<ClaimedDelivery>) {
         coroutineScope {
-            claimed
-                .groupBy { hostOf(it.inbox) }
-                .values
-                .forEach { sameHost ->
-                    launch {
-                        sameHost.forEach { deliverOne(it) }
-                    }
-                }
+            claimed.forEach { row ->
+                launch { deliverOne(row) }
+            }
         }
     }
 
@@ -120,8 +114,8 @@ class DeliveryWorker(
                 return
             }
 
-            // claim した後に投稿が消されると、行ごと消える。まとめて claim した分を順に送る間は
-            // 開くので、送る直前に確かめる。残るのは送っている最中に消された場合だけになる
+            // claim した後に投稿が消されると、行ごと消える。claim から送り始めるまでは開くので、
+            // 送る直前に確かめる。残るのは送っている最中に消された場合だけになる
             if (!queue.exists(row.id)) {
                 logger.info("配信を取りやめた: 投稿が消えている ${row.username} → ${row.inbox}")
                 return
@@ -194,10 +188,5 @@ class DeliveryWorker(
         const val DEFAULT_CLAIM_LIMIT: Int = 8
         val DEFAULT_IDLE_INTERVAL: Duration = 1.seconds
         val logger = LoggerFactory.getLogger(DeliveryWorker::class.java)
-
-        /**
-         * 読めない URL は URL 全体を鍵にする。同じ壊れた宛先同士だけが直列になる
-         */
-        fun hostOf(inbox: String): String = runCatching { URI(inbox).host }.getOrNull() ?: inbox
     }
 }

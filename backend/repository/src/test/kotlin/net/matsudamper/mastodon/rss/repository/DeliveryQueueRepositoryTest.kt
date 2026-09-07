@@ -155,6 +155,23 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
+    fun `claim は同じホスト宛で埋めず ホストごとに 1 件返す`() {
+        withRepositories { repositories ->
+            // 届かない相手に溜まった行が先に来ても、後から入った別のホスト宛が同じ回で取れる
+            repositories.deliveryQueue.enqueueNote(
+                notePost(publicId = "n1", inboxes = (1..5).map { "https://a.example/users/$it/inbox" }),
+            )
+            repositories.deliveryQueue.enqueueNote(
+                notePost(publicId = "n2", inboxes = listOf(INBOX_B), enqueuedAt = now.plusSeconds(1)),
+            )
+
+            val claimed = repositories.deliveryQueue.claim(now = now.plusSeconds(1), limit = 5)
+
+            assertEquals(listOf("https://a.example/users/1/inbox", INBOX_B), claimed.map { it.inbox })
+        }
+    }
+
+    @Test
     fun `claim は limit までしか取らない`() {
         withRepositories { repositories ->
             repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A, INBOX_B, INBOX_C)))

@@ -33,12 +33,16 @@ interface DeliveryQueueRepository {
     fun enqueueNote(post: NotePost): EnqueueNoteResult
 
     /**
-     * 送る時刻を過ぎた `pending` を、古い順に `delivering` にして返す。
+     * 送る時刻を過ぎた `pending` を `delivering` にして返す。宛先のホストごとに 1 件まで。
+     *
+     * 送る時刻が古いホストから順に選ぶ。行を古い順に選ぶと、送れないホスト宛が溜まった分だけ
+     * 1 回分が埋まり、他のホスト宛が次まで待つ。同じホスト宛は 1 件ずつしか送れないので、
+     * ホストごとに 1 件だけ取れば 1 回分がそのまま同時に送れる数になる。
      *
      * 選ぶのと `delivering` にするのを 1 トランザクションで行い、更新できた行だけを返す。
      * 分けると、別のループが同じ行を拾って二重に送る。`attempts` はここで増やす。
      *
-     * @param limit 一度に取り出す数。同時に送る数の上限と揃える
+     * @param limit 一度に取り出す数。宛先のホストの数でもある。同時に送る数の上限と揃える
      */
     fun claim(
         now: Instant,

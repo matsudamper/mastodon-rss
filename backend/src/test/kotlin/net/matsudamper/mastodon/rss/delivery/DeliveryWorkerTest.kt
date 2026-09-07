@@ -15,9 +15,11 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import net.matsudamper.mastodon.rss.FakeDeliveryQueueRepository
+import net.matsudamper.mastodon.rss.FakeNoteRepository
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NotePost
@@ -25,7 +27,7 @@ import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 // キューの行を拾って送るところ。
-// 同じホストは直列、違うホストは並列、1 件の失敗で止まらない、キャンセルは失敗として残さない。
+// 同じホストは同時に送らない、違うホストは並列、1 件の失敗で止まらない、キャンセルは失敗として残さない。
 class DeliveryWorkerTest {
     private val now: Instant = Instant.parse("2026-08-10T00:00:00Z")
 
@@ -177,10 +179,11 @@ class DeliveryWorkerTest {
     @Test
     fun `claim した後に投稿が消えた行は送らない`() = runTest {
         val repositories = FakeRepositories()
-        val delivery = RecordingDelivery(latency = 100.milliseconds)
-        repositories.enqueue(inboxes = listOf("https://a.example/users/1/inbox", "https://a.example/users/2/inbox"))
+        val delivery = RecordingDelivery()
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
+        val queue = DeletingNotesOnClaim(repositories.deliveryQueue, repositories.notes)
         val worker = DeliveryWorker(
-            queue = repositories.deliveryQueue,
+            queue = queue,
             delivery = delivery,
             directory = TestLocalActor.directory,
             idleInterval = IDLE,
@@ -188,14 +191,37 @@ class DeliveryWorkerTest {
         )
 
         val job = worker.start(this)
-        // 1 件目を送っている間に投稿を消す。同じホストなので 2 件目はまだ送り始めていない
-        advanceTimeBy(50.milliseconds)
-        repositories.notes.delete(PublicNoteId("note-0"))
         advanceTimeBy(IDLE * 5)
         job.cancelAndJoin()
 
-        assertEquals(listOf("https://a.example/users/1/inbox"), delivery.delivered)
+        assertEquals(emptyList(), delivery.delivered)
         assertEquals(emptyList(), repositories.deliveryQueue.rows())
+    }
+
+    @Test
+    fun `送れないホスト宛が溜まっていても 他のホスト宛を待たせない`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery(latency = 100.milliseconds)
+        repositories.enqueue(inboxes = (1..8).map { "https://a.example/users/$it/inbox" })
+        repositories.enqueue(inboxes = listOf("https://b.example/inbox"))
+        val worker = DeliveryWorker(
+            queue = repositories.deliveryQueue,
+            delivery = delivery,
+            directory = TestLocalActor.directory,
+            idleInterval = IDLE,
+            claimLimit = 8,
+            clock = { now },
+        )
+
+        val job = worker.start(this)
+        // 溜まっているホストの 1 件目と一緒に送り始める
+        advanceTimeBy(100.milliseconds + IDLE)
+        job.cancelAndJoin()
+
+        assertEquals(
+            listOf("https://a.example/users/1/inbox", "https://b.example/inbox"),
+            delivery.delivered.sorted(),
+        )
     }
 
     @Test
@@ -360,6 +386,23 @@ class DeliveryWorkerTest {
                 throw IllegalStateException("DB がロックされている")
             }
             return delegate.recoverDelivering()
+        }
+    }
+
+    /**
+     * claim してから送り始めるまでの間に投稿が消された状態を作る
+     */
+    private class DeletingNotesOnClaim(
+        private val delegate: FakeDeliveryQueueRepository,
+        private val notes: FakeNoteRepository,
+    ) : DeliveryQueueRepository by delegate {
+        override fun claim(
+            now: Instant,
+            limit: Int,
+        ): List<ClaimedDelivery> {
+            val claimed = delegate.claim(now = now, limit = limit)
+            notes.all().forEach { notes.delete(it.publicId) }
+            return claimed
         }
     }
 

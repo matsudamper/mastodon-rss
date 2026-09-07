@@ -58,6 +58,7 @@ internal class SqliteDeliveryQueueRepository(
                         .set(DELIVERY_QUEUE.KIND, DeliveryKindDbValue.of(DeliveryKind.CREATE_NOTE).dbValue)
                         .set(DELIVERY_QUEUE.USERNAME, post.note.username)
                         .set(DELIVERY_QUEUE.INBOX, inbox)
+                        .set(DELIVERY_QUEUE.INBOX_HOST, InboxHost.of(inbox))
                         .set(DELIVERY_QUEUE.BODY, post.body)
                         .set(DELIVERY_QUEUE.STATE, DeliveryStateDbValue.PENDING.dbValue)
                         .set(DELIVERY_QUEUE.ATTEMPTS, 0L)
@@ -83,15 +84,32 @@ internal class SqliteDeliveryQueueRepository(
     ): List<ClaimedDelivery> {
         if (limit <= 0) return emptyList()
 
+        val dueBy = StoredInstant.format(now)
+
         return jooq.transaction { dsl ->
-            val candidates = dsl
-                .select(DELIVERY_QUEUE.ID)
+            // 送る時刻が最も古い行を持つホストから順に、ホストごとに 1 件だけ選ぶ。
+            // 行を古い順に取ると、溜まった 1 ホストで 1 回分が埋まって他のホスト宛が待つ
+            val hosts = dsl
+                .select(DELIVERY_QUEUE.INBOX_HOST, DSL.min(DELIVERY_QUEUE.NEXT_ATTEMPT_AT))
                 .from(DELIVERY_QUEUE)
                 .where(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
-                .and(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.le(StoredInstant.format(now)))
-                .orderBy(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.asc(), DELIVERY_QUEUE.ID.asc())
+                .and(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.le(dueBy))
+                .groupBy(DELIVERY_QUEUE.INBOX_HOST)
+                .orderBy(DSL.min(DELIVERY_QUEUE.NEXT_ATTEMPT_AT).asc(), DELIVERY_QUEUE.INBOX_HOST.asc())
                 .limit(limit)
-                .fetch(DELIVERY_QUEUE.ID)
+                .fetch(DELIVERY_QUEUE.INBOX_HOST)
+
+            val candidates = hosts.mapNotNull { host ->
+                dsl
+                    .select(DELIVERY_QUEUE.ID)
+                    .from(DELIVERY_QUEUE)
+                    .where(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
+                    .and(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.le(dueBy))
+                    .and(DELIVERY_QUEUE.INBOX_HOST.eq(host))
+                    .orderBy(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.asc(), DELIVERY_QUEUE.ID.asc())
+                    .limit(1)
+                    .fetchOne(DELIVERY_QUEUE.ID)
+            }
 
             // 条件に state を入れて、実際に更新できた行だけを返す
             val claimedIds = candidates.filter { id ->
