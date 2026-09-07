@@ -4,7 +4,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -177,14 +176,12 @@ class AppDependencies(
 
     private val deliveryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val feedPollingStopped = AtomicBoolean(false)
-
-    private val deliveryStopped = AtomicBoolean(false)
+    private val backgroundStopped = AtomicBoolean(false)
 
     /**
      * 配信キューのワーカーを始める。
      *
-     * 呼ぶまで 1 件も送らない。止めるのは [stopDeliveryWorker]
+     * 呼ぶまで 1 件も送らない。止めるのは [stopBackgroundWork]
      */
     fun startDeliveryWorker() {
         DeliveryWorker(
@@ -195,50 +192,33 @@ class AppDependencies(
     }
 
     /**
-     * ワーカーを止める。送信中の行は待たずに `delivering` のまま残し、次の起動の復旧に任せる。
-     *
-     * 待ち受けを止める前に呼ぶ。投稿を受け取った相手はその場で Note やアクターの URL を
-     * 引きに来るので、止めた後に送ると相手は繋げずに終わる。何度呼んでもよい
-     */
-    fun stopDeliveryWorker() {
-        stopAndWaitOnce(deliveryStopped, deliveryScope)
-    }
-
-    /**
      * フィードの定期ポーリングを始める。
      *
-     * 呼ぶまで動かない。止めるのは [stopFeedPolling]
+     * 呼ぶまで動かない。止めるのは [stopBackgroundWork]
      */
     fun startFeedPolling() {
         FeedPoller(feedService).start(feedPollingScope)
     }
 
     /**
-     * 定期ポーリングを止めて、走っている取り込みが終わるまで待つ。
+     * 定期ポーリングと配信のワーカーを止めて、走っている分が終わるまで待つ。
      *
-     * 待ち受けを止める前に呼ぶ。投稿を受け取った相手はその場で Note やアクターの
-     * URL を引きに来るので、止めた後に投稿すると相手は繋げずに終わる。
-     * 何度呼んでもよい。待ち時間は docker stop の既定の猶予（10 秒）に収まる範囲にする
-     */
-    fun stopFeedPolling() {
-        stopAndWaitOnce(feedPollingStopped, feedPollingScope)
-    }
-
-    /**
-     * 走っているものを止めて、終わるまで待つ。待つのは最初の 1 回だけ。
+     * 待ち受けを止める前に呼ぶ。投稿を受け取った相手はその場で Note やアクターの URL を
+     * 引きに来るので、止めた後に投稿や配信をすると相手は繋げずに終わる。
+     * 送信中の配信は待たない。行は `delivering` のまま残り、次の起動の復旧で送り直される。
      *
-     * 同期の DB 呼び出しはキャンセルでは止まらないので、待ちは呼んだ回数だけ積み上がる。
-     * 停止はシャットダウンフックと [close] の両方から来るため、待たずに返す回を作らないと
-     * 合計が docker stop の既定の猶予（10 秒）を超えて、DB を閉じる前に殺される
+     * 何度呼んでもよい。待つのは最初の 1 回だけで、2 つまとめて 3 秒までにする。
+     * 同期の DB 呼び出しはキャンセルでは止まらないので、片方ずつ待つと待ちが積み上がり、
+     * サーバーの停止（5 秒）と合わせて docker stop の既定の猶予（10 秒）を超える。
+     * 超えると DB を閉じる前に殺され、WAL が畳まれない
      */
-    private fun stopAndWaitOnce(
-        stopped: AtomicBoolean,
-        scope: CoroutineScope,
-    ) {
-        if (!stopped.compareAndSet(false, true)) return
+    fun stopBackgroundWork() {
+        if (!backgroundStopped.compareAndSet(false, true)) return
+        val jobs = listOf(feedPollingScope, deliveryScope).map { it.coroutineContext.job }
+        jobs.forEach { it.cancel() }
         runBlocking {
             withTimeoutOrNull(3_000) {
-                scope.coroutineContext.job.cancelAndJoin()
+                jobs.forEach { it.join() }
             }
         }
     }
@@ -257,8 +237,7 @@ class AppDependencies(
      */
     override fun close() {
         // 取り込みや送信の途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ
-        stopFeedPolling()
-        stopDeliveryWorker()
+        stopBackgroundWork()
 
         val failures = listOf<() -> Unit>(
             { feedFetcher.close() },
