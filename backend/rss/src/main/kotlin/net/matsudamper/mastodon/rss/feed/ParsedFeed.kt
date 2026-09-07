@@ -76,7 +76,7 @@ data class ParsedFeed(
     val description: FeedContent?,
     val updatedAt: Instant?,
     val iconUrl: String?,
-    val headerUrl: String?,
+    val headerUrl: String? = null,
     val items: List<ParsedFeedItem>,
 )
 
