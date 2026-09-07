@@ -110,11 +110,10 @@ class FollowHandler(
 
         when (val result = delivery.deliver(inbox = follower.inbox, sender = recipient, body = serializedAcceptBody)) {
             is DeliveryResult.Delivered -> {
-                val acceptedAt = Instant.now()
                 val accepted = markAccepted(
                     recipient = recipient,
                     verifiedSignerActorId = verifiedSignerActorId,
-                    acceptedAt = acceptedAt,
+                    acceptedAt = Instant.now(),
                 )
 
                 logger.info("Follow に Accept を返した: ${recipient.acct} ← $verifiedSignerActorId")
@@ -122,6 +121,12 @@ class FollowHandler(
                 // 送り直しでは配らない。相手のタイムラインには既に並んでいて、
                 // 同じものをもう一度署名付きで送りつけるだけになる
                 if (accepted == FollowAcceptResult.FirstAccept) {
+                    // 通常の配信はフォロワーとして数えられてから始まるので、境目は
+                    // 記録が済んだ後に取る。先に取ると、記録を待っている間の投稿が
+                    // どちらからも漏れる。境目が重なって二重に送っても、
+                    // 同じ id なので相手側で落ちる
+                    val backfillUntil = Instant.now()
+
                     // inbox の応答を待たせない。最大 20 件を順に送るので、
                     // ここで待つと相手のタイムアウトと Follow の再送を招く
                     backfillScope.launch {
@@ -129,7 +134,7 @@ class FollowHandler(
                             backfill.deliverRecentNotes(
                                 sender = recipient,
                                 inbox = follower.inbox,
-                                publishedBefore = acceptedAt,
+                                publishedBefore = backfillUntil,
                             )
                         }.onFailure { failure ->
                             logger.warn(
