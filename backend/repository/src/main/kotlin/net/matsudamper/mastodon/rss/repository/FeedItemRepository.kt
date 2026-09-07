@@ -62,7 +62,7 @@ interface FeedItemRepository {
      * @return この記事に結び付いている `notes.public_id`
      */
     fun linkNote(
-        id: FeedItemId,
+        feedId: FeedItemId,
         noteId: PublicNoteId,
     ): PublicNoteId
 
