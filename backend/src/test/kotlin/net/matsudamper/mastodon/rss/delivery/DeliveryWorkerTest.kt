@@ -175,6 +175,30 @@ class DeliveryWorkerTest {
     }
 
     @Test
+    fun `claim した後に投稿が消えた行は送らない`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery(latency = 100.milliseconds)
+        repositories.enqueue(inboxes = listOf("https://a.example/users/1/inbox", "https://a.example/users/2/inbox"))
+        val worker = DeliveryWorker(
+            queue = repositories.deliveryQueue,
+            delivery = delivery,
+            directory = TestLocalActor.directory,
+            idleInterval = IDLE,
+            clock = { now },
+        )
+
+        val job = worker.start(this)
+        // 1 件目を送っている間に投稿を消す。同じホストなので 2 件目はまだ送り始めていない
+        advanceTimeBy(50.milliseconds)
+        repositories.notes.delete(PublicNoteId("note-0"))
+        advanceTimeBy(IDLE * 5)
+        job.cancelAndJoin()
+
+        assertEquals(listOf("https://a.example/users/1/inbox"), delivery.delivered)
+        assertEquals(emptyList(), repositories.deliveryQueue.rows())
+    }
+
+    @Test
     fun `起動時に delivering を pending に戻して送る`() = runTest {
         val repositories = FakeRepositories()
         val delivery = RecordingDelivery()

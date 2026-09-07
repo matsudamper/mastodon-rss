@@ -322,6 +322,20 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
+    fun `exists は消えた行に false を返す`() {
+        withRepositories { repositories ->
+            repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A)))
+            val claimed = repositories.deliveryQueue.claim(now = now, limit = 10).single()
+
+            assertEquals(true, repositories.deliveryQueue.exists(claimed.id))
+
+            repositories.notes.delete(PublicNoteId("n1"))
+
+            assertEquals(false, repositories.deliveryQueue.exists(claimed.id))
+        }
+    }
+
+    @Test
     fun `一覧の id は claim した行と同じ`() {
         withRepositories { repositories ->
             repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A)))

@@ -585,6 +585,8 @@ class FakeDeliveryQueueRepository(
         }
     }
 
+    override fun exists(id: DeliveryId): Boolean = find(id) != null
+
     override fun markDelivered(id: DeliveryId) {
         stored.removeAll { it.id == id }
     }

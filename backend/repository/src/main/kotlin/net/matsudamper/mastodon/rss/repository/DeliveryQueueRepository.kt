@@ -46,6 +46,14 @@ interface DeliveryQueueRepository {
     ): List<ClaimedDelivery>
 
     /**
+     * 行がまだあるか。
+     *
+     * claim してから送るまでの間に、投稿が消されて行ごと消えていることがある。
+     * まとめて claim した分を順に送る間は開くので、送る直前に確かめる
+     */
+    fun exists(id: DeliveryId): Boolean
+
+    /**
      * 送れたので行を消す
      */
     fun markDelivered(id: DeliveryId)

@@ -120,6 +120,13 @@ class DeliveryWorker(
                 return
             }
 
+            // claim した後に投稿が消されると、行ごと消える。まとめて claim した分を順に送る間は
+            // 開くので、送る直前に確かめる。残るのは送っている最中に消された場合だけになる
+            if (!queue.exists(row.id)) {
+                logger.info("配信を取りやめた: 投稿が消えている ${row.username} → ${row.inbox}")
+                return
+            }
+
             // 止まっていた間に期限を過ぎた行を送らない。送ると 1 か月以上前の投稿が突然届く
             if (retryPolicy.isExpired(enqueuedAt = row.enqueuedAt, now = clock())) {
                 queue.giveUp(row.id, "投函から時間が経ちすぎた")

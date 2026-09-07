@@ -114,6 +114,10 @@ internal class SqliteDeliveryQueueRepository(
         }
     }
 
+    override fun exists(id: DeliveryId): Boolean = jooq.withConnection { dsl ->
+        dsl.fetchExists(DSL.selectOne().from(DELIVERY_QUEUE).where(DELIVERY_QUEUE.ID.eq(id.value)))
+    }
+
     override fun markDelivered(id: DeliveryId) {
         jooq.transaction { dsl ->
             dsl
