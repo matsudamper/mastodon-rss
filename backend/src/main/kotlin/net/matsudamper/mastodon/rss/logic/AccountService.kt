@@ -1,6 +1,5 @@
 package net.matsudamper.mastodon.rss.logic
 
-import java.net.URI
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.ActorUrls
@@ -70,21 +69,13 @@ class AccountService(
      * URL は相手が `url` を持たなければアクター文書の URL を出す。実装によっては
      * JSON が開くが、開ける先が何も無いよりは辿れる。
      *
-     * acct のホストはアクター文書の URL のホストから取る。名前は URL の形が
-     * 実装ごとに違って取り出せないので、保存したものが無ければ null にする。
-     *
-     * WebFinger を別ドメインへ委譲している相手（アクターは `mastodon.example.social` だが
-     * acct は `@alice@example.com`）では、ここで作る acct は検索窓で解決しない。
-     * 正すにはフォローのたびに WebFinger をもう 1 往復引くことになる。
+     * acct は組み立てない。フォローを受けた時点で WebFinger で確定させたものを
+     * 保存してあり、ここで作り直すと確定させた値と食い違う。
      */
-    private fun Follower.toProfile(): FollowerProfile {
-        val host = runCatching { URI(actorUri).host }.getOrNull()
-
-        return FollowerProfile(
-            url = profileUrl ?: actorUri,
-            acct = if (preferredUsername != null && host != null) "@$preferredUsername@$host" else null,
-        )
-    }
+    private fun Follower.toProfile(): FollowerProfile = FollowerProfile(
+        url = profileUrl ?: actorUri,
+        acct = acct,
+    )
 
     /**
      * 追加した順で `afterUsername` の次から `limit` 件返す
@@ -212,8 +203,8 @@ class AccountService(
      * 一覧に出すフォロワー 1 人。
      *
      * @param url 人が開くリンク
-     * @param acct Mastodon の検索窓に貼る `@name@host` の形。相手の名前を保存する前から
-     *   居るフォロワーは名前が無いので null
+     * @param acct Mastodon の検索窓に貼る `@name@host` の形。acct を保存する前から
+     *   居るフォロワーと、WebFinger で確定できなかった相手は null
      */
     data class FollowerProfile(
         val url: String,

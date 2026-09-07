@@ -10,8 +10,10 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.request
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
@@ -22,6 +24,7 @@ import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.webfinger.WebFingerLink
 
 /**
  * 相手のアクター文書を実際に GET して、公開鍵と inbox を取る。
@@ -74,6 +77,7 @@ class HttpRemoteActors(
     override suspend fun findActor(actorId: String): RemoteActor? {
         val url = parseHttpsUrl(actorId) ?: return null
         val document = fetch(actorId, url) ?: return null
+        val preferredUsername = document.preferredUsername.asString()?.takeIf { isDisplayableUsername(it) }
 
         // 宛先はこちらが POST しに行く先になる。アクターと同じホストに限ることで、
         // 相手が自分の文書に書いた URL でこちらから他所へ POST させる形を塞ぐ
@@ -91,8 +95,56 @@ class HttpRemoteActors(
             // 管理画面から人が開くリンクになる。https で、アクターと同じホストのものに限る。
             // 他所のホストを指せると、フォローするだけでこちらの画面に任意のリンクを載せられる
             profileUrl = document.url.asString()?.takeIf { parseHttpsUrl(it) != null && isSameHost(it, url) },
-            preferredUsername = document.preferredUsername.asString()?.takeIf { isDisplayableUsername(it) },
+            acct = preferredUsername?.let { resolveAcct(actorId = actorId, actorUrl = url, preferredUsername = it) },
         )
+    }
+
+    /**
+     * acct を WebFinger で確定させる。
+     *
+     * `preferredUsername` とアクターのホストを繋げただけの acct は、Mastodon の
+     * `WEB_DOMAIN` と `LOCAL_DOMAIN` を分けている相手（アクターは前者、acct は後者）では
+     * 検索窓で解決しない。正しい acct はアクターのホストの WebFinger が返す
+     * `subject` にしかないので、フォローを受けた時点で 1 往復だけ引く。
+     *
+     * 返ってきた `subject` は、`links` の `self` がこのアクターを指していることを
+     * 確かめてから信じる。確かめないと、同じホストの別のアカウントの名前を名乗れる。
+     * acct のホストはアクターのホストと違ってよい（委譲がその形になる）。
+     */
+    private suspend fun resolveAcct(
+        actorId: String,
+        actorUrl: Url,
+        preferredUsername: String,
+    ): String? {
+        val response =
+            runCatching {
+                client.get("https://${actorUrl.host}/.well-known/webfinger") {
+                    parameter("resource", "acct:$preferredUsername@${actorUrl.host}")
+                    header(HttpHeaders.Accept, ContentType.Application.Json.toString())
+                }
+            }.getOrNull() ?: return null
+
+        if (!response.status.isSuccess()) return null
+
+        // リダイレクトで別のホストに移っていたら、そのホストが他人の acct を名乗れる
+        if (!response.request.url.host.equals(actorUrl.host, ignoreCase = true)) return null
+
+        val body = runCatching { response.bodyAsText() }.getOrNull() ?: return null
+        if (body.length > MAX_BODY_CHARS) return null
+
+        val document =
+            runCatching { AppJson.decodeFromString(RemoteWebFingerDocument.serializer(), body) }
+                .getOrNull() ?: return null
+
+        val pointsBackToActor = document.links.any { it.rel == WebFingerLink.REL_SELF && it.href == actorId }
+        if (!pointsBackToActor) return null
+
+        val subject = document.subject?.removePrefix(ACCT_SCHEME) ?: return null
+        val name = subject.substringBefore('@', missingDelimiterValue = "")
+        val host = subject.substringAfter('@', missingDelimiterValue = "")
+        if (!isDisplayableUsername(name) || !isAcctHost(host)) return null
+
+        return "@$name@$host"
     }
 
     /**
@@ -111,6 +163,17 @@ class HttpRemoteActors(
         raw.isNotEmpty() &&
             raw.length <= MAX_USERNAME_LENGTH &&
             raw.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '_' || it == '.' || it == '-' }
+
+    /**
+     * acct のホストとして出してよいか。
+     *
+     * ホストは相手のサーバーが決めるので、こちらから形を決めきれない。
+     * acct の形（`@name@host`）を崩す文字と、表示を壊す文字だけを弾く。
+     */
+    private fun isAcctHost(raw: String): Boolean =
+        raw.isNotEmpty() &&
+            raw.length <= MAX_HOST_LENGTH &&
+            raw.none { it == '@' || it == '/' || it.isWhitespace() || it.isISOControl() }
 
     /**
      * POST しに行ってよい宛先か。https で、取得先と同じホストであること
@@ -177,6 +240,16 @@ class HttpRemoteActors(
 
     private companion object {
         /**
+         * `subject` に付く scheme。`acct:alice@example.com` の形で返ってくる
+         */
+        const val ACCT_SCHEME = "acct:"
+
+        /**
+         * acct に出すホストの長さの上限。DNS 名の上限に合わせる
+         */
+        const val MAX_HOST_LENGTH = 253
+
+        /**
          * acct に出す名前の長さの上限。Mastodon は 30 文字までだが、
          * 他の実装まで同じとは限らないので緩めに取る
          */
@@ -241,6 +314,29 @@ private data class RemoteActorDocument(
     val publicKey: RemoteActorPublicKey? = null,
     @SerialName("endpoints")
     val endpoints: RemoteActorEndpoints? = null,
+)
+
+/**
+ * 相手のホストの WebFinger の応答のうち、こちらが見る部分だけ。
+ *
+ * こちらが返す [net.matsudamper.mastodon.rss.webfinger.WebFingerResponse] を
+ * 使い回さないのは、あちらが「返すときに必ず入れるもの」を必須にしているため。
+ * 相手が `links` を省略しただけで読めなくなるのは筋が悪い。
+ */
+@Serializable
+private data class RemoteWebFingerDocument(
+    @SerialName("subject")
+    val subject: String? = null,
+    @SerialName("links")
+    val links: List<RemoteWebFingerLink> = listOf(),
+)
+
+@Serializable
+private data class RemoteWebFingerLink(
+    @SerialName("rel")
+    val rel: String? = null,
+    @SerialName("href")
+    val href: String? = null,
 )
 
 /**

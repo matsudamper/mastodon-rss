@@ -39,7 +39,7 @@ class FollowerRepositoryTest {
         followActivityUri: String = "https://remote.example/activities/1",
         sharedInbox: String? = null,
         profileUrl: String? = null,
-        preferredUsername: String? = null,
+        acct: String? = null,
     ): IncomingFollow = IncomingFollow(
         username = username,
         follower = NewRemoteActor(
@@ -48,7 +48,7 @@ class FollowerRepositoryTest {
             sharedInbox = sharedInbox,
             publicKeyPem = "pem",
             profileUrl = profileUrl,
-            preferredUsername = preferredUsername,
+            acct = acct,
         ),
         followActivityUri = followActivityUri,
         receivedAt = now,
@@ -74,12 +74,12 @@ class FollowerRepositoryTest {
     }
 
     @Test
-    fun `プロフィールの URL と名前は保存して返す`() {
+    fun `プロフィールの URL と acct は保存して返す`() {
         withRepository { followers ->
             followers.record(
                 incomingFollow(
                     profileUrl = "https://remote.example/@alice",
-                    preferredUsername = "alice",
+                    acct = "@alice@remote.example",
                 ),
             )
             followers.markAccepted("admin", "https://remote.example/users/alice", now)
@@ -89,7 +89,7 @@ class FollowerRepositoryTest {
                     Follower(
                         actorUri = "https://remote.example/users/alice",
                         profileUrl = "https://remote.example/@alice",
-                        preferredUsername = "alice",
+                        acct = "@alice@remote.example",
                     ),
                 ),
                 followers.list("admin", after = null, limit = 10),
@@ -98,21 +98,21 @@ class FollowerRepositoryTest {
     }
 
     @Test
-    fun `プロフィールの URL と名前は取り直したもので上書きする`() {
+    fun `プロフィールの URL と acct は取り直したもので上書きする`() {
         withRepository { followers ->
             followers.record(incomingFollow())
             followers.record(
                 incomingFollow(
                     followActivityUri = "https://remote.example/activities/2",
                     profileUrl = "https://remote.example/@alice",
-                    preferredUsername = "alice",
+                    acct = "@alice@remote.example",
                 ),
             )
             followers.markAccepted("admin", "https://remote.example/users/alice", now)
 
             val stored = followers.list("admin", after = null, limit = 10).single()
             assertEquals("https://remote.example/@alice", stored.profileUrl)
-            assertEquals("alice", stored.preferredUsername)
+            assertEquals("@alice@remote.example", stored.acct)
         }
     }
 

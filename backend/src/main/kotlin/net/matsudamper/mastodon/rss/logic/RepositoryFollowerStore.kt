@@ -30,7 +30,7 @@ class RepositoryFollowerStore(
                     sharedInbox = follower.sharedInbox,
                     publicKeyPem = follower.publicKeyPem,
                     profileUrl = follower.profileUrl,
-                    preferredUsername = follower.preferredUsername,
+                    acct = follower.acct,
                 ),
                 followActivityUri = followActivityUri,
                 receivedAt = receivedAt,

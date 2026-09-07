@@ -195,7 +195,7 @@ class FakeFollowerRepository : FollowerRepository {
             Follower(
                 actorUri = it.follower.actorUri,
                 profileUrl = it.follower.profileUrl,
-                preferredUsername = it.follower.preferredUsername,
+                acct = it.follower.acct,
             )
         }
 }

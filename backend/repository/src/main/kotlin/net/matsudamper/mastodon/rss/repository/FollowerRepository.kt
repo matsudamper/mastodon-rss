@@ -150,7 +150,7 @@ data class IncomingFollow(
  * @param actorUri 相手のアクター文書の URL。相手を指す識別子
  * @param sharedInbox 同じインスタンス宛をまとめて送れる inbox。持たない実装もある
  * @param profileUrl 人が見るプロフィールのページ。持たない実装もある
- * @param preferredUsername acct の名前の部分。持たない実装もある
+ * @param acct `@name@host` の形。WebFinger で確定できない相手もある
  */
 data class NewRemoteActor(
     val actorUri: String,
@@ -158,13 +158,13 @@ data class NewRemoteActor(
     val sharedInbox: String?,
     val publicKeyPem: String,
     val profileUrl: String?,
-    val preferredUsername: String?,
+    val acct: String?,
 )
 
 /**
  * 一覧に出すフォロワー 1 人。
  *
- * [profileUrl] と [preferredUsername] は、保存を始める前から居るフォロワーでは null になる。
+ * [profileUrl] と [acct] は、保存を始める前から居るフォロワーでは null になる。
  * アクター文書を読み直すのはフォローを受けたときだけなので、埋まるのは
  * フォローし直してもらった後になる。
  *
@@ -173,5 +173,5 @@ data class NewRemoteActor(
 data class Follower(
     val actorUri: String,
     val profileUrl: String?,
-    val preferredUsername: String?,
+    val acct: String?,
 )

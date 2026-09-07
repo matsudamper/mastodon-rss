@@ -30,7 +30,7 @@ class UndoFollowHandlerTest {
                 sharedInbox = null,
                 publicKeyPem = "pem",
                 profileUrl = null,
-                preferredUsername = null,
+                acct = null,
             ),
             followActivityUri = followUri,
             receivedAt = now,

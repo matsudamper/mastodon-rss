@@ -30,7 +30,7 @@ class DeleteActorHandlerTest {
                     sharedInbox = null,
                     publicKeyPem = "pem",
                     profileUrl = null,
-                    preferredUsername = null,
+                    acct = null,
                 ),
                 followActivityUri = "https://remote.example/activities/$index",
                 receivedAt = now,

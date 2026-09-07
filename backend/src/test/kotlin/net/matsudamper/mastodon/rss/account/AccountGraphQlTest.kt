@@ -161,7 +161,7 @@ class AccountGraphQlTest {
                         sharedInbox = null,
                         publicKeyPem = "pem",
                         profileUrl = null,
-                        preferredUsername = null,
+                        acct = null,
                     ),
                     followActivityUri = "https://mastodon.example/activities/1",
                     receivedAt = Instant.now(),
@@ -340,7 +340,7 @@ class AccountGraphQlTest {
                 username = "feed1",
                 actorUri = "https://mastodon.example/users/alice",
                 profileUrl = "https://mastodon.example/@alice",
-                preferredUsername = "alice",
+                acct = "@alice@mastodon.example",
             )
             // Accept を返せていない相手はフォロワーではないので出ない
             repositories.followers.record(
@@ -352,7 +352,7 @@ class AccountGraphQlTest {
                         sharedInbox = null,
                         publicKeyPem = "pem",
                         profileUrl = null,
-                        preferredUsername = null,
+                        acct = null,
                     ),
                     followActivityUri = "https://mastodon.example/activities/bob",
                     receivedAt = Instant.now(),
@@ -379,7 +379,7 @@ class AccountGraphQlTest {
                 username = "feed1",
                 actorUri = "https://mastodon.example/users/alice",
                 profileUrl = null,
-                preferredUsername = null,
+                acct = null,
             )
             application { module(testDependencies(repositories = repositories)) }
 
@@ -402,13 +402,13 @@ class AccountGraphQlTest {
                 username = "feed1",
                 actorUri = "https://mastodon.example/users/alice",
                 profileUrl = "https://mastodon.example/@alice",
-                preferredUsername = "alice",
+                acct = "@alice@mastodon.example",
             )
             repositories.followers.acceptFollow(
                 username = "feed1",
                 actorUri = "https://mastodon.example/users/bob",
                 profileUrl = "https://mastodon.example/@bob",
-                preferredUsername = "bob",
+                acct = "@bob@mastodon.example",
             )
             application { module(testDependencies(repositories = repositories)) }
 
@@ -447,7 +447,7 @@ class AccountGraphQlTest {
         username: String,
         actorUri: String,
         profileUrl: String?,
-        preferredUsername: String?,
+        acct: String?,
     ) {
         record(
             IncomingFollow(
@@ -458,7 +458,7 @@ class AccountGraphQlTest {
                     sharedInbox = null,
                     publicKeyPem = "pem",
                     profileUrl = profileUrl,
-                    preferredUsername = preferredUsername,
+                    acct = acct,
                 ),
                 followActivityUri = "$actorUri/activities/1",
                 receivedAt = Instant.now(),

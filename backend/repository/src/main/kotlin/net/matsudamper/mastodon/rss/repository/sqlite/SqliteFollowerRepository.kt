@@ -107,7 +107,7 @@ internal class SqliteFollowerRepository(
         limit: Int,
     ): List<Follower> = jooq.withConnection { dsl ->
         dsl
-            .select(REMOTE_ACTORS.ACTOR_URI, REMOTE_ACTORS.PROFILE_URL, REMOTE_ACTORS.PREFERRED_USERNAME)
+            .select(REMOTE_ACTORS.ACTOR_URI, REMOTE_ACTORS.PROFILE_URL, REMOTE_ACTORS.ACCT)
             .from(FOLLOWERS)
             .join(REMOTE_ACTORS)
             .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
@@ -122,7 +122,7 @@ internal class SqliteFollowerRepository(
                 Follower(
                     actorUri = it.value1(),
                     profileUrl = it.value2(),
-                    preferredUsername = it.value3(),
+                    acct = it.value3(),
                 )
             }
     }
@@ -192,7 +192,7 @@ internal class SqliteFollowerRepository(
             .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
             .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
             .set(REMOTE_ACTORS.PROFILE_URL, actor.profileUrl)
-            .set(REMOTE_ACTORS.PREFERRED_USERNAME, actor.preferredUsername)
+            .set(REMOTE_ACTORS.ACCT, actor.acct)
             .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
             .onConflict(REMOTE_ACTORS.ACTOR_URI)
             .doUpdate()
@@ -200,7 +200,7 @@ internal class SqliteFollowerRepository(
             .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
             .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
             .set(REMOTE_ACTORS.PROFILE_URL, actor.profileUrl)
-            .set(REMOTE_ACTORS.PREFERRED_USERNAME, actor.preferredUsername)
+            .set(REMOTE_ACTORS.ACCT, actor.acct)
             .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
             .execute()
 

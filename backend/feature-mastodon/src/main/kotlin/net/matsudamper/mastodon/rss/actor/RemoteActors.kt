@@ -37,8 +37,8 @@ interface RemoteActors :
  * @param publicKeyPem 署名の検証に使う公開鍵の PEM
  * @param profileUrl 人が見るプロフィールのページ。[actorId] を開くと JSON を返す実装が
  *   あるので別に持つ。無い実装があるので null を許す
- * @param preferredUsername acct の名前の部分。URL に名前を含めない実装や `/@alice` の形の
- *   実装があり、[actorId] からは決まらないので文書のものを読む。無い実装があるので null を許す
+ * @param acct Mastodon の検索窓に貼る `@name@host` の形。アクター文書だけでは決まらないので
+ *   WebFinger で確定させる。確定できない相手があるので null を許す
  */
 data class RemoteActor(
     val actorId: String,
@@ -46,5 +46,5 @@ data class RemoteActor(
     val sharedInbox: String?,
     val publicKeyPem: String,
     val profileUrl: String?,
-    val preferredUsername: String?,
+    val acct: String?,
 )
