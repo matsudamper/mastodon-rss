@@ -253,7 +253,7 @@ class IconFetchService(
     companion object {
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val IDENTITY_ENCODING = "identity"
-        private const val MAX_BYTES = 1024 * 1024
+        private const val MAX_BYTES = 50 * 1024 * 1024
         private const val MAX_HOPS = 4
         private val REDIRECT_STATUS_RANGE = 300..399
         private val MAX_AGE = Regex("max-age\\s*=\\s*(\\d+)")

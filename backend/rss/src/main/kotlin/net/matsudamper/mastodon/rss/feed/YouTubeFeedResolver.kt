@@ -71,6 +71,12 @@ object YouTubeFeedResolver {
     private val channelUrlAttribute =
         Regex("""\b(?:href|content)="[^"]*youtube\.com/channel/(UC[A-Za-z0-9_-]{22})""")
 
+    /** ページが自分で名乗っているアイコンの `og:image` */
+    private val iconAttribute = Regex("""\bproperty="og:image"""")
+
+    /** 上のタグの中にあるアイコンの URL */
+    private val iconUrlAttribute = Regex("""\bcontent="(https://[^"]+)"""")
+
     /** 埋め込まれた JSON。動画のページはこれで拾う */
     private val channelIdInJson = Regex(""""(?:externalId|channelId)"\s*:\s*"(UC[A-Za-z0-9_-]{22})"""")
 
@@ -319,6 +325,25 @@ object YouTubeFeedResolver {
             ?.get(1)
             ?.let { unescapeJsonString(it) }
             ?.takeIf { it.isNotBlank() }
+
+    /**
+     * チャンネルのページの HTML からアイコンの URL を抜き出す。
+     *
+     * YouTube の Atom には `icon` も `logo` も無く、フィードだけではアイコンが
+     * 手に入らない。チャンネルのページの `og:image` はそのチャンネルのアバターで、
+     * 正方形の画像が入っている。
+     *
+     * 渡してよいのはチャンネルのページだけ。動画のページの `og:image` はその動画の
+     * サムネイルなので、チャンネルのアイコンとしては使えない。
+     */
+    fun channelIconFromPageHtml(html: String): String? {
+        for (tag in declaringTag.findAll(html)) {
+            val attributes = tag.value
+            if (!iconAttribute.containsMatchIn(attributes)) continue
+            iconUrlAttribute.find(attributes)?.let { return it.groupValues[1] }
+        }
+        return null
+    }
 
     /**
      * JSON 文字列のエスケープを戻す。

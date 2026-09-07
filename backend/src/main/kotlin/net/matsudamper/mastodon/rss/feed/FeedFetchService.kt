@@ -57,9 +57,10 @@ class FeedFetchService(
             val finalUrl = response.request.url.normalize()
             val bytes = response.readBodyUpTo(MAX_BODY_BYTES) ?: return FetchResult.TooLarge
 
-            val parsed = FeedParser.parse(bytes).let {
-                if (needsDescription) it.withYouTubeChannelDescription(resolved) else it
-            }
+            val parsed = FeedParser.parse(bytes).withYouTubeChannelPage(
+                resolved = resolved,
+                needsDescription = needsDescription,
+            )
             FetchResult.Success(
                 requestedUrl = trimmed,
                 feedUrl = finalUrl,
@@ -106,12 +107,11 @@ class FeedFetchService(
                 ResolvedFeed(
                     feedUrl = YouTubeFeedResolver.feedUrlForChannel(channelId) ?: return null,
                     youtubeChannelId = channelId,
-                    // 引いたのがチャンネルのページなら説明文もここに入っている。
-                    // 動画のページには無いので、その分は後で引き直す
-                    youtubeChannelDescription = when (source.page) {
-                        YouTubeFeedSource.NeedsPageLookup.Page.CHANNEL ->
-                            YouTubeFeedResolver.channelDescriptionFromPageHtml(html)
-
+                    // 引いたのがチャンネルのページなら、説明文とアイコンはこの中にある。
+                    // 動画のページは持たせない。og:image がその動画のサムネイルなので、
+                    // チャンネルのアイコンとして拾ってしまう
+                    youtubeChannelPage = when (source.page) {
+                        YouTubeFeedSource.NeedsPageLookup.Page.CHANNEL -> html
                         YouTubeFeedSource.NeedsPageLookup.Page.VIDEO -> null
                     },
                 )
@@ -128,23 +128,45 @@ class FeedFetchService(
     }
 
     /**
-     * YouTube のチャンネルの説明文を補う。
+     * YouTube のチャンネルのページから、フィードに無いものを補う。
      *
-     * YouTube の Atom には `subtitle` が無いので、フィードだけでは説明文が空のままになる
-     * （チャンネル名は `title` にあるので題名だけ入る）。チャンネルのページには全文が
-     * あるので、そちらから取って埋める。
+     * YouTube の Atom には `subtitle` も、アイコンを表す要素（`icon` / `logo`）も無い。
+     * チャンネル名は `title` にあるが、説明文とアイコンはチャンネルのページにしか
+     * 無いので、欠けているものがあるときだけそのページを引いて埋める。
      *
-     * 取れなくてもフィード自体は使えるので、失敗は説明文が無いものとして扱い、
+     * 説明文は登録時にしか使わないので [needsDescription] で分ける。アイコンは
+     * 定期取得でも埋める。ここで埋めないと、取り込みのたびに `feeds.icon_url` が
+     * 空に戻り、アイコンが消える。
+     *
+     * 取れなくてもフィード自体は使えるので、失敗は無いものとして扱い、
      * 取得の失敗にはしない。
      */
-    private suspend fun ParsedFeed.withYouTubeChannelDescription(resolved: ResolvedFeed): ParsedFeed {
-        if (description != null) return this
+    private suspend fun ParsedFeed.withYouTubeChannelPage(
+        resolved: ResolvedFeed,
+        needsDescription: Boolean,
+    ): ParsedFeed {
         val channelId = resolved.youtubeChannelId ?: return this
-        val text = resolved.youtubeChannelDescription ?: fetchYouTubeChannelDescription(channelId) ?: return this
-        return copy(description = FeedContent(text = text, type = FeedContent.Type.TEXT))
+        val wantsDescription = needsDescription && description == null
+        val wantsIcon = iconUrl == null
+        if (!wantsDescription && !wantsIcon) return this
+
+        val html = resolved.youtubeChannelPage ?: fetchYouTubeChannelPage(channelId) ?: return this
+
+        val pageDescription = if (wantsDescription) {
+            YouTubeFeedResolver.channelDescriptionFromPageHtml(html)
+                ?.let { FeedContent(text = it, type = FeedContent.Type.TEXT) }
+        } else {
+            null
+        }
+        val pageIconUrl = if (wantsIcon) YouTubeFeedResolver.channelIconFromPageHtml(html) else null
+
+        return copy(
+            description = pageDescription ?: description,
+            iconUrl = pageIconUrl ?: iconUrl,
+        )
     }
 
-    private suspend fun fetchYouTubeChannelDescription(channelId: String): String? {
+    private suspend fun fetchYouTubeChannelPage(channelId: String): String? {
         val pageUrl = YouTubeFeedResolver.channelPageUrl(channelId) ?: return null
         return runCatching {
             val response = client.get(pageUrl) {
@@ -154,8 +176,7 @@ class FeedFetchService(
                 response.discardBody()
                 return null
             }
-            val html = response.readBodyUpTo(MAX_PAGE_BYTES)?.decodeToString() ?: return null
-            YouTubeFeedResolver.channelDescriptionFromPageHtml(html)
+            response.readBodyUpTo(MAX_PAGE_BYTES)?.decodeToString()
         }.getOrElse { error ->
             if (error is CancellationException) throw error
             null
@@ -167,12 +188,12 @@ class FeedFetchService(
      *
      * @param feedUrl 実際に取得する URL
      * @param youtubeChannelId YouTube のチャンネルなら、その ID
-     * @param youtubeChannelDescription 解決の途中でページを引いていれば、そこで拾えた説明文
+     * @param youtubeChannelPage 解決の途中でチャンネルのページを引いていれば、その HTML
      */
     private data class ResolvedFeed(
         val feedUrl: String,
         val youtubeChannelId: String? = null,
-        val youtubeChannelDescription: String? = null,
+        val youtubeChannelPage: String? = null,
     )
 
     /**
