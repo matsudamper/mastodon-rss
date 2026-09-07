@@ -6,6 +6,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedItemKey
 import net.matsudamper.mastodon.rss.feed.FeedText
@@ -452,6 +453,9 @@ class FeedService(
      * 投稿済みにするまでを直列化しないと、両方が同じ記事を取り出してフォロワーに
      * 2 回配信する。取り消す手段は無いので、入口を 1 本に絞って防ぐ
      *
+     * 投稿は配信前に作って記事へ id を結び付ける。配信できた後、投稿済みの記録を
+     * 残す前に落ちても、次は同じ id の投稿を配り直すので別投稿にはならない。
+     *
      * 今回取り込んだ分に絞らず、未投稿を全部投稿する。投稿できずに残る理由は
      * 配信先の不調や停止で消えるものが多く、取り込んだ回を逃すと二度と拾えない
      */
@@ -467,7 +471,15 @@ class FeedService(
             .forEach { stored ->
                 val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
                 val published = try {
-                    notePublisher.publish(sender = sender, contentHtml = html)
+                    val noteId = stored.noteId ?: notePublisher
+                        .create(sender = sender, contentHtml = html)
+                        .let { created ->
+                            feedItems.linkNote(stored.id, PublicNoteId(created.publicId.value))
+                        }
+                    notePublisher.deliver(
+                        sender = sender,
+                        publicId = MastodonPublicNoteId(noteId.value),
+                    ) ?: error("記事に紐付いた投稿が見つからない")
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
