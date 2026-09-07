@@ -54,18 +54,30 @@ class FeedIconService(
             return
         }
 
+        val previous = icons.find(feedId)
+        val path = store.write(feedId = feedId, bytes = fetched.bytes)
         val now = Instant.now()
-        icons.save(
-            feedId = feedId,
-            icon = FeedIcon(
-                sourceUrl = iconUrl,
-                contentType = fetched.contentType.toString(),
-                path = store.write(feedId = feedId, bytes = fetched.bytes),
-                fetchedAt = now,
-                // 見に来た側に持たせる時間。配信元が持つなと言っていれば持たせない
-                expiresAt = now.plus(fetched.freshFor ?: defaultFreshFor),
-            ),
-        )
+
+        // 書いた中身と種類を 1 つの行として入れ替える。入れ替えられなければ
+        // 書いたものを捨てる。中途半端な組み合わせを見せない
+        runCatching {
+            icons.save(
+                feedId = feedId,
+                icon = FeedIcon(
+                    sourceUrl = iconUrl,
+                    contentType = fetched.contentType.toString(),
+                    path = path,
+                    fetchedAt = now,
+                    // 見に来た側に持たせる時間。配信元が持つなと言っていれば持たせない
+                    expiresAt = now.plus(fetched.freshFor ?: defaultFreshFor),
+                ),
+            )
+        }.onFailure { error ->
+            store.delete(path)
+            throw error
+        }
+
+        previous?.path?.takeIf { it != path }?.let { store.delete(it) }
     }
 
     private fun discard(feedId: FeedId) {

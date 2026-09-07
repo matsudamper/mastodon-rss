@@ -33,6 +33,9 @@ fun Route.actorIconRoutes(
 
         val icon = icons.find(urls.username)
         if (icon == null) {
+            // 取り込みが入れ替えれば同じ URL でアイコンが出る。見に来た側が
+            // 404 を持っていると、出るようになった後も出ない
+            call.response.header(HttpHeaders.CacheControl, NO_STORE)
             call.respondText("アイコンが無い: ${urls.username}", status = HttpStatusCode.NotFound)
             return@get
         }

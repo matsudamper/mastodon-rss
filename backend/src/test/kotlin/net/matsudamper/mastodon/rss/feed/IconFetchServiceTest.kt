@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -64,17 +65,23 @@ class IconFetchServiceTest {
         runTest {
             val engine = pngEngine()
 
-            val result = IconFetchService(
+            val service = IconFetchService(
                 client = HttpClient(engine) { followRedirects = false },
                 resolveAddresses = {
-                    Thread.sleep(500)
+                    Thread.sleep(2_000)
                     listOf(InetAddress.getByName("93.184.216.34"))
                 },
                 resolveTimeout = Duration.ofMillis(50),
-            ).fetch("https://example.com/icon.png")
+            )
+
+            val startedAt = System.nanoTime()
+            val result = service.fetch("https://example.com/icon.png")
+            val elapsed = Duration.ofNanos(System.nanoTime() - startedAt)
 
             assertIs<IconFetchService.FetchResult.Failure>(result)
             assertEquals(0, engine.requestHistory.size)
+            // 引き終わるのを待たずに戻る。待っていると取り込み全体が止まる
+            assertTrue(elapsed < Duration.ofSeconds(1), "実際に待った時間: $elapsed")
         }
 
     @Test

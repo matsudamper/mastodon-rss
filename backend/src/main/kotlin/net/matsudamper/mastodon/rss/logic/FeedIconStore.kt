@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.logic
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.util.UUID
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 
 /**
@@ -15,10 +16,11 @@ class FeedIconStore(
     private val root: Path,
 ) {
     /**
-     * 書き込んで、[root] から見た置き場を返す。フィードに 1 つで、書くたびに入れ替える。
+     * 書き込んで、[root] から見た置き場を返す。
      *
-     * 別名で書いてから move する。同じ名前に直接書くと、書いている途中のものを
-     * 読み出す要求と重なりうる
+     * 書くたびに別の名前にする。同じ名前に上書きすると、DB の行を入れ替えるまでの間に
+     * 読み出した側が新しい中身を古い種類で受け取る。古いファイルは、DB の行が
+     * 新しい置き場を指した後に呼び出し側が消す
      */
     fun write(
         feedId: FeedId,
@@ -28,8 +30,7 @@ class FeedIconStore(
 
         val path = fileName(feedId)
         val target = root.resolve(path)
-        // 同じフィードの取り込みが重なることがある。名前を分けないと、
-        // 片方が move した後にもう片方の move が落ちる
+        // 書いている途中のものを読み出されないよう、別名で書いてから move する
         val temporary = Files.createTempFile(root, path, ".tmp")
 
         try {
@@ -70,5 +71,5 @@ class FeedIconStore(
         return root.resolve(name)
     }
 
-    private fun fileName(feedId: FeedId): String = feedId.value.toString()
+    private fun fileName(feedId: FeedId): String = "${feedId.value}-${UUID.randomUUID()}"
 }

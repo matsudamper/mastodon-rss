@@ -10,6 +10,7 @@ import kotlin.io.path.deleteRecursively
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -47,6 +48,25 @@ class FeedIconServiceTest {
 
             assertEquals(2, engine.requestHistory.size)
             assertEquals(ICON_URL, assertNotNull(repositories.feedIcons.find(feedId)).sourceUrl)
+        }
+
+    @Test
+    fun `取り直すと前に置いたものは消える`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val feedId = repositories.addFeed()
+            val store = FeedIconStore(tempDir)
+            val service = serviceOf(repositories, imageEngine(), store)
+
+            service.refresh(feedId = feedId, iconUrl = ICON_URL)
+            val first = assertNotNull(repositories.feedIcons.find(feedId)).path
+
+            service.refresh(feedId = feedId, iconUrl = ICON_URL)
+            val second = assertNotNull(repositories.feedIcons.find(feedId)).path
+
+            assertNotEquals(first, second)
+            assertNull(store.read(first))
+            assertNotNull(store.read(second))
         }
 
     @Test
