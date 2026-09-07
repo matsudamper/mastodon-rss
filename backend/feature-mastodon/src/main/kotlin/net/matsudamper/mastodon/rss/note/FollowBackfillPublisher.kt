@@ -6,6 +6,7 @@ import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
+import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.AppJson
 import org.slf4j.LoggerFactory
 
@@ -67,9 +68,14 @@ class FollowBackfillPublisher(
         inbox: String,
         publishedBefore: Instant,
     ) {
-        val recentNotes = notes
-            .list(username = sender.username, after = null, limit = BACKFILL_LIMIT)
-            .filter { it.publishedAt < publishedBefore }
+        // 上限で切ってから絞ると、成立後に作られた投稿の分だけ送る件数が減る。
+        // 一覧の位置として渡して、絞ってから 20 件を取る。id は空にする。
+        // 同じ時刻の投稿は id の降順に並ぶので、空の id より後ろには何も無い
+        val recentNotes = notes.list(
+            username = sender.username,
+            after = NotePosition(publishedAt = publishedBefore, publicId = PublicNoteId("")),
+            limit = BACKFILL_LIMIT,
+        )
         if (recentNotes.isEmpty()) return
 
         var delivered = 0

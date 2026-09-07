@@ -159,6 +159,31 @@ class FollowHandlerTest {
     }
 
     @Test
+    fun `成立後の投稿があっても上限まで過去の投稿を配る`() = runBlocking {
+        val delivery = TestDelivery()
+        val notes = notesOf(20).apply {
+            repeat(5) { index ->
+                add(
+                    StoredNote(
+                        publicId = PublicNoteId("note-after-$index"),
+                        username = TestLocalActor.USERNAME,
+                        contentHtml = "<p>フォローの後 $index</p>",
+                        publishedAt = Instant.now().plusSeconds(index + 1L),
+                    ),
+                )
+            }
+        }
+
+        handle(
+            followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notes),
+            followJson(),
+        )
+
+        // 成立後の投稿を数に含めて切ると、その分だけ過去の投稿が減る
+        assertEquals(20, deliveredCreates(delivery).size)
+    }
+
+    @Test
     fun `Follow を送り直されても過去の投稿は配り直さない`() = runBlocking {
         val delivery = TestDelivery()
         val handler = followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notesOf(3))
