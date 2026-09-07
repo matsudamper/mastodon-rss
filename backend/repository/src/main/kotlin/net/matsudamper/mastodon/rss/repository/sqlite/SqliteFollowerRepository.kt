@@ -56,6 +56,19 @@ internal class SqliteFollowerRepository(
             .execute() > 0
     }
 
+    override fun isAccepted(
+        username: String,
+        followerActorUri: String,
+    ): Boolean = jooq.withConnection { dsl ->
+        dsl.fetchExists(
+            dsl
+                .selectOne()
+                .from(FOLLOWERS)
+                .where(FOLLOWERS.ID.`in`(followerIds(username, followerActorUri)))
+                .and(FOLLOWERS.STATE.eq(STATE_ACCEPTED)),
+        )
+    }
+
     override fun remove(
         username: String,
         followerActorUri: String,

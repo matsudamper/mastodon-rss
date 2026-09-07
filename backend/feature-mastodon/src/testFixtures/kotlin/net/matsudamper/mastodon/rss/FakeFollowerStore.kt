@@ -69,6 +69,13 @@ class FakeFollowerStore(
         return true
     }
 
+    override fun isAccepted(
+        username: String,
+        followerActorUri: String,
+    ): Boolean = rows.any {
+        it.username == username && it.followerActorUri == followerActorUri && it.accepted
+    }
+
     override fun remove(
         username: String,
         followerActorUri: String,

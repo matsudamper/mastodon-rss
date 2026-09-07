@@ -4,7 +4,9 @@ import java.time.Instant
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activity.OutgoingActivity
@@ -34,14 +36,16 @@ import org.slf4j.LoggerFactory
  * フォローできたつもりになり、こちらには送り先が残らない。記録できなければ
  * `Accept` も返さないので、相手からは保留のまま見える。
  *
- * 成立した後に、フォローより前の投稿を新しいフォロワーにだけ配る。詳しくは
+ * 初めて成立したときだけ、フォローより前の投稿を新しいフォロワーにだけ配る。詳しくは
  * [net.matsudamper.mastodon.rss.note.FollowBackfillPublisher] にある。
+ * 送るのは inbox の応答を返した後で、こちらの応答を待たせない。
  */
 class FollowHandler(
     private val remoteActors: RemoteActors,
     private val delivery: ActivityDelivery,
     private val followers: FollowerStore,
     private val backfill: FollowBackfillPublisher,
+    private val backfillScope: CoroutineScope,
 ) : InboxActivityHandler {
     override val type: String = "Follow"
 
@@ -77,6 +81,11 @@ class FollowHandler(
             return
         }
 
+        // 記録した後だと送り直しも初回も同じ状態になり、区別が付かなくなる
+        val acceptedBefore = runCatching {
+            followers.isAccepted(username = recipient.username, followerActorUri = verifiedSignerActorId)
+        }.getOrDefault(false)
+
         val recorded = runCatching {
             followers.record(
                 username = recipient.username,
@@ -109,15 +118,21 @@ class FollowHandler(
 
                 logger.info("Follow に Accept を返した: ${recipient.acct} ← $verifiedSignerActorId")
 
-                // フォローが確定してから送る。Accept より前に送っても、相手はまだ
-                // フォロー関係を持っていないのでタイムラインには並ばない
-                runCatching { backfill.deliverRecentNotes(sender = recipient, inbox = follower.inbox) }
-                    .onFailure { failure ->
-                        logger.warn(
-                            "過去の投稿を配れなかった: ${recipient.acct} → $verifiedSignerActorId",
-                            failure,
-                        )
+                // 送り直しでは配らない。相手のタイムラインには既に並んでいて、
+                // 同じものをもう一度署名付きで送りつけるだけになる
+                if (!acceptedBefore) {
+                    // inbox の応答を待たせない。最大 20 件を順に送るので、
+                    // ここで待つと相手のタイムアウトと Follow の再送を招く
+                    backfillScope.launch {
+                        runCatching { backfill.deliverRecentNotes(sender = recipient, inbox = follower.inbox) }
+                            .onFailure { failure ->
+                                logger.warn(
+                                    "過去の投稿を配れなかった: ${recipient.acct} → $verifiedSignerActorId",
+                                    failure,
+                                )
+                            }
                     }
+                }
             }
 
             is DeliveryResult.Failed -> {

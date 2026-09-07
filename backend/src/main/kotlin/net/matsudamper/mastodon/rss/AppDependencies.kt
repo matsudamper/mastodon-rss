@@ -136,6 +136,14 @@ class AppDependencies(
     }
 
     /**
+     * フォロー成立後に過去の投稿を配る間、inbox の応答を待たせないためのスコープ。
+     *
+     * 配り終える前にプロセスが落ちたら、その分は届かない。フォロー自体は
+     * 成立しているので、次の新着からは普通に届く
+     */
+    private val followBackfillScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
      * inbox が受け取ったアクティビティの検証と振り分け。
      *
      * 何をどう組み合わせるかは ActivityPub 側の話なので
@@ -147,6 +155,7 @@ class AppDependencies(
         delivery = delivery,
         followers = followerStore,
         notes = noteStore,
+        backfillScope = followBackfillScope,
     )
 
     val notePublisher: NotePublisher = NotePublisher(

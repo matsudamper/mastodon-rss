@@ -5,8 +5,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestDelivery
@@ -46,6 +49,8 @@ class FollowHandlerTest {
         delivery = delivery,
         followers = followers,
         backfill = FollowBackfillPublisher(notes = notes, delivery = delivery),
+        // 過去の投稿の配信はそのまま実行する。テストの中で送り終わっている必要がある
+        backfillScope = CoroutineScope(Dispatchers.Unconfined),
     )
 
     private fun notesOf(count: Int): FakeNoteStore = FakeNoteStore().apply {
@@ -62,8 +67,9 @@ class FollowHandlerTest {
     }
 
     private fun deliveredCreates(delivery: TestDelivery): List<CreateNoteActivity> = delivery.delivered
-        .drop(1)
-        .map { AppJson.decodeFromString(CreateNoteActivity.serializer(), it.body) }
+        .map { AppJson.parseToJsonElement(it.body) as JsonObject }
+        .filter { (it["type"] as? JsonPrimitive)?.content == "Create" }
+        .map { AppJson.decodeFromJsonElement(CreateNoteActivity.serializer(), it) }
 
     @Test
     fun `フォローが成立したら過去の投稿を新しいフォロワーに配る`() = runBlocking {
@@ -130,28 +136,40 @@ class FollowHandlerTest {
     }
 
     @Test
+    fun `Follow を送り直されても過去の投稿は配り直さない`() = runBlocking {
+        val delivery = TestDelivery()
+        val handler = followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notesOf(3))
+
+        handle(handler, followJson())
+        handle(handler, followJson())
+
+        // 相手のタイムラインには既に並んでいる。もう一度送っても負荷が増えるだけ
+        assertEquals(3, deliveredCreates(delivery).size)
+    }
+
+    @Test
     fun `既にフォローしている相手には再配信しない`() = runBlocking {
         val followers = FakeFollowerStore()
         val delivery = TestDelivery()
-        val notes = notesOf(3)
-        val handler = followHandler(delivery = delivery, followers = followers, notes = notes)
-
-        handle(handler, followJson())
-        val otherFollowerInbox = "https://other.example/users/bob/inbox"
+        val existingFollowerActorId = "https://other.example/users/bob"
+        val acceptedAt = Instant.parse("2026-08-10T00:00:00Z")
         followers.record(
             username = TestLocalActor.USERNAME,
             follower = RemoteActor(
-                actorId = "https://other.example/users/bob",
-                inbox = otherFollowerInbox,
+                actorId = existingFollowerActorId,
+                inbox = "$existingFollowerActorId/inbox",
                 sharedInbox = null,
                 publicKeyPem = "pem",
             ),
             followActivityUri = "https://other.example/activities/1",
-            receivedAt = Instant.parse("2026-08-10T00:00:00Z"),
+            receivedAt = acceptedAt,
         )
-        followers.markAccepted(TestLocalActor.USERNAME, "https://other.example/users/bob", Instant.parse("2026-08-10T00:00:00Z"))
+        followers.markAccepted(TestLocalActor.USERNAME, existingFollowerActorId, acceptedAt)
 
-        handle(handler, followJson())
+        handle(
+            followHandler(delivery = delivery, followers = followers, notes = notesOf(3)),
+            followJson(),
+        )
 
         // 送り先は Follow を送ってきた相手だけ
         assertEquals(listOf(TestRemoteActor.INBOX), delivery.delivered.map { it.inbox }.distinct())

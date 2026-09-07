@@ -15,6 +15,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestDelivery
@@ -58,6 +60,7 @@ class InboxRoutesTest {
                         delivery = delivery,
                         followers = FakeFollowerStore(),
                         notes = FakeNoteStore(),
+                        backfillScope = CoroutineScope(Dispatchers.Unconfined),
                     ),
                 )
             }

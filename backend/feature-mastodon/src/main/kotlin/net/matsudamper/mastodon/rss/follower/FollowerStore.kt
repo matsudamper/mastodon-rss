@@ -46,6 +46,17 @@ interface FollowerStore {
     ): Boolean
 
     /**
+     * `Accept` を返して成立済みかどうか。
+     *
+     * `Follow` の送り直しと、初めて成立したフォローを区別するのに使う。
+     * 区別しないと、送り直しのたびに過去の投稿を配り直すことになる
+     */
+    fun isAccepted(
+        username: String,
+        followerActorUri: String,
+    ): Boolean
+
+    /**
      * フォローを消す。
      *
      * @param followActivityUri 消す対象を元の `Follow` の id で絞る。null なら id を問わない

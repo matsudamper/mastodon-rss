@@ -42,6 +42,16 @@ interface FollowerRepository {
     ): Boolean
 
     /**
+     * `Accept` を返して成立済みかどうか。
+     *
+     * `Follow` の送り直しと、初めて成立したフォローを区別するのに使う
+     */
+    fun isAccepted(
+        username: String,
+        followerActorUri: String,
+    ): Boolean
+
+    /**
      * フォローを消す。`Undo{Follow}` で呼ぶ。
      *
      * @param followActivityUri 消す対象を元の `Follow` の id で絞る。`Undo` の `object` に

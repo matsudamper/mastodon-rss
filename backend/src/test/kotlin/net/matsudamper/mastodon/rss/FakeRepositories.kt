@@ -149,6 +149,11 @@ class FakeFollowerRepository : FollowerRepository {
         acceptedAt: Instant,
     ): Boolean = accepted.add(username to followerActorUri)
 
+    override fun isAccepted(
+        username: String,
+        followerActorUri: String,
+    ): Boolean = accepted.contains(username to followerActorUri)
+
     override fun remove(
         username: String,
         followerActorUri: String,

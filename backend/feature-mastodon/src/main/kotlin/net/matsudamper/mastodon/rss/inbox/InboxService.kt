@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.inbox
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
@@ -153,12 +154,14 @@ class InboxService(
          *   `Accept` の宛先になる inbox をここから取る
          * @param delivery こちらから相手の inbox に POST する口
          * @param notes フォロー成立後に配り直す過去の投稿の引き先
+         * @param backfillScope 過去の投稿を配る間、inbox の応答を待たせないためのスコープ
          */
         fun default(
             remoteActors: RemoteActors,
             delivery: ActivityDelivery,
             followers: FollowerStore,
             notes: NoteStore,
+            backfillScope: CoroutineScope,
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(remoteActors),
@@ -168,6 +171,7 @@ class InboxService(
                         delivery = delivery,
                         followers = followers,
                         backfill = FollowBackfillPublisher(notes = notes, delivery = delivery),
+                        backfillScope = backfillScope,
                     ),
                     UndoFollowHandler(followers),
                     DeleteActorHandler(followers),

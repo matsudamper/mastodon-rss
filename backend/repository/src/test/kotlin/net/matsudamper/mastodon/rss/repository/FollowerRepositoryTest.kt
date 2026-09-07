@@ -70,6 +70,21 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `受理済みかどうかを Accept の前後で見分けられる`() {
+        withRepository { followers ->
+            followers.record(incomingFollow())
+
+            assertFalse(followers.isAccepted("admin", "https://remote.example/users/alice"))
+
+            followers.markAccepted("admin", "https://remote.example/users/alice", now)
+
+            assertTrue(followers.isAccepted("admin", "https://remote.example/users/alice"))
+            // 別のアカウントへのフォローとは混ざらない
+            assertFalse(followers.isAccepted("feed1", "https://remote.example/users/alice"))
+        }
+    }
+
+    @Test
     fun `同じ相手からの Follow を二重に受けても行が増えない`() {
         withRepository { followers ->
             followers.record(incomingFollow())

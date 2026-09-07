@@ -46,6 +46,11 @@ class RepositoryFollowerStore(
         acceptedAt = acceptedAt,
     )
 
+    override fun isAccepted(
+        username: String,
+        followerActorUri: String,
+    ): Boolean = followers.isAccepted(username = username, followerActorUri = followerActorUri)
+
     override fun remove(
         username: String,
         followerActorUri: String,
