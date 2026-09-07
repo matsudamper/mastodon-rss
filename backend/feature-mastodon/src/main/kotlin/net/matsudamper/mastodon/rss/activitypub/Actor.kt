@@ -52,16 +52,15 @@ data class Actor(
     val url: String? = null,
     @SerialName("attachment")
     val attachment: List<ActorAttachment> = listOf(),
-    /**
-     * プロフィール画像。無ければ相手側の既定の画像が出る
-     */
+    /** プロフィール画像。無ければ相手側の既定の画像が出る */
     @SerialName("icon")
     val icon: Image? = null,
+    /** Mastodon のプロフィールヘッダー */
+    @SerialName("image")
+    val image: Image? = null,
     @SerialName("publicKey")
     val publicKey: ActorPublicKey,
-    /**
-     * Mastodon 4.6 以降。ピン留め欄を出すか
-     */
+    /** Mastodon 4.6 以降。ピン留め欄を出すか */
     @SerialName("showFeatured")
     val showFeatured: Boolean = false,
 ) {
@@ -88,9 +87,7 @@ data class Actor(
     }
 }
 
-/**
- * プロフィールのリンク集の 1 項目。
- */
+/** プロフィールのリンク集の 1 項目 */
 @Serializable
 data class ActorAttachment(
     @SerialName("type")
