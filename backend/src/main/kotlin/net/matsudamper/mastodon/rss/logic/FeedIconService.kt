@@ -87,6 +87,11 @@ class FeedIconService(
     }
 
     private companion object {
-        val DEFAULT_FRESH_FOR: Duration = Duration.ofHours(1)
+        /**
+         * 配信元が持たせる時間を言ってこなかったときの長さ。
+         *
+         * 上限と同じにして、言ってきた場合と合わせて min(配信元, 1 日) にする
+         */
+        val DEFAULT_FRESH_FOR: Duration = Duration.ofDays(1)
     }
 }

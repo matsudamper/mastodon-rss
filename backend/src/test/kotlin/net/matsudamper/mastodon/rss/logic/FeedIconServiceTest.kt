@@ -191,7 +191,7 @@ class FeedIconServiceTest {
             client = HttpClient(engine) { followRedirects = false },
             resolveAddresses = { listOf(InetAddress.getByName("93.184.216.34")) },
         ),
-        defaultFreshFor = Duration.ofHours(1),
+        defaultFreshFor = Duration.ofDays(1),
     )
 
     private companion object {
