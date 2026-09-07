@@ -4,9 +4,11 @@ import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
+import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEED_ITEMS
+import net.matsudamper.mastodon.rss.repository.jooq.Tables.NOTES
 import net.matsudamper.mastodon.rss.repository.jooq.tables.records.FeedItemsRecord
 import net.matsudamper.mastodon.rss.repository.sqlite.db.FeedItemStateDbValue
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
@@ -78,6 +80,66 @@ internal class SqliteFeedItemRepository(
         feedId: FeedId,
         limit: Int,
     ): List<FeedItem> = loadPending(feedId = feedId, limit = limit)
+
+    override fun linkNote(
+        feedId: FeedItemId,
+        noteId: PublicNoteId,
+    ): PublicNoteId = jooq.transaction { dsl ->
+        dsl
+            .update(FEED_ITEMS)
+            .set(FEED_ITEMS.NOTE_ID, noteId.value)
+            .where(FEED_ITEMS.ID.eq(feedId.value))
+            .and(FEED_ITEMS.NOTE_ID.isNull())
+            .execute()
+
+        dsl
+            .select(FEED_ITEMS.NOTE_ID)
+            .from(FEED_ITEMS)
+            .where(FEED_ITEMS.ID.eq(feedId.value))
+            .fetchOne(FEED_ITEMS.NOTE_ID)
+            ?.let(::PublicNoteId)
+            ?: error("記事に投稿を紐付けられなかった")
+    }
+
+    override fun linkNote(
+        feedId: FeedItemId,
+        note: NewNote,
+    ): PublicNoteId = jooq.transaction { dsl ->
+        dsl
+            .insertInto(NOTES)
+            .set(NOTES.USERNAME, note.username)
+            .set(NOTES.PUBLIC_ID, note.publicId.value)
+            .set(NOTES.CONTENT_HTML, note.contentHtml)
+            .set(NOTES.PUBLISHED_AT, StoredInstant.format(note.publishedAt))
+            .execute()
+
+        val linked = dsl
+            .update(FEED_ITEMS)
+            .set(FEED_ITEMS.NOTE_ID, note.publicId.value)
+            .where(FEED_ITEMS.ID.eq(feedId.value))
+            .and(FEED_ITEMS.NOTE_ID.isNull())
+            .execute()
+
+        if (linked == 1) {
+            return@transaction note.publicId
+        }
+
+        val existing = dsl
+            .select(FEED_ITEMS.NOTE_ID)
+            .from(FEED_ITEMS)
+            .where(FEED_ITEMS.ID.eq(feedId.value))
+            .fetchOne(FEED_ITEMS.NOTE_ID)
+            ?: error("記事に投稿を紐付けられなかった")
+
+        // 別の投稿が先に紐付いていた。新しく作った投稿は外から見える前に同じ
+        // トランザクション内で捨てて、先に確定した id を使う。
+        dsl
+            .deleteFrom(NOTES)
+            .where(NOTES.PUBLIC_ID.eq(note.publicId.value))
+            .execute()
+
+        PublicNoteId(existing)
+    }
 
     override fun markPosted(
         id: FeedItemId,

@@ -6,6 +6,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedItemKey
 import net.matsudamper.mastodon.rss.feed.FeedText
@@ -23,6 +24,7 @@ import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
+import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.AccountId
@@ -47,6 +49,7 @@ class FeedService(
             is FeedFetchService.FetchResult.Success -> PreviewResult.Success(fetched.toPreview())
             FeedFetchService.FetchResult.InvalidUrl -> PreviewResult.Failure(PreviewFailure.INVALID_URL)
             FeedFetchService.FetchResult.TooLarge -> PreviewResult.Failure(PreviewFailure.FETCH_FAILED)
+            FeedFetchService.FetchResult.ChannelIdNotFound -> PreviewResult.Failure(PreviewFailure.FETCH_FAILED)
             is FeedFetchService.FetchResult.HttpError -> PreviewResult.Failure(PreviewFailure.FETCH_FAILED)
             is FeedFetchService.FetchResult.ParseError -> PreviewResult.Failure(PreviewFailure.PARSE_FAILED)
         }
@@ -107,6 +110,8 @@ class FeedService(
             FeedFetchService.FetchResult.InvalidUrl -> SaveResult.Failure(SaveFailure.INVALID_URL)
 
             FeedFetchService.FetchResult.TooLarge -> SaveResult.Failure(SaveFailure.FETCH_FAILED)
+
+            FeedFetchService.FetchResult.ChannelIdNotFound -> SaveResult.Failure(SaveFailure.FETCH_FAILED)
 
             is FeedFetchService.FetchResult.HttpError -> SaveResult.Failure(SaveFailure.FETCH_FAILED)
 
@@ -386,6 +391,7 @@ class FeedService(
         is FeedFetchService.FetchResult.Success -> error("成功は失敗の理由を持たない")
         FeedFetchService.FetchResult.InvalidUrl -> "URL として読めない"
         FeedFetchService.FetchResult.TooLarge -> "応答が大きすぎる"
+        FeedFetchService.FetchResult.ChannelIdNotFound -> "YouTube のページからチャンネル ID を取り出せなかった"
         is FeedFetchService.FetchResult.HttpError -> status?.let { "HTTP $it" } ?: message ?: "取得に失敗した"
         is FeedFetchService.FetchResult.ParseError -> "パースに失敗した"
     }
@@ -452,6 +458,9 @@ class FeedService(
      * 投稿済みにするまでを直列化しないと、両方が同じ記事を取り出してフォロワーに
      * 2 回配信する。取り消す手段は無いので、入口を 1 本に絞って防ぐ
      *
+     * 投稿は配信前に作って記事へ id を結び付ける。配信できた後、投稿済みの記録を
+     * 残す前に落ちても、次は同じ id の投稿を配り直すので別投稿にはならない。
+     *
      * 今回取り込んだ分に絞らず、未投稿を全部投稿する。投稿できずに残る理由は
      * 配信先の不調や停止で消えるものが多く、取り込んだ回を逃すと二度と拾えない
      */
@@ -467,7 +476,32 @@ class FeedService(
             .forEach { stored ->
                 val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
                 val published = try {
-                    notePublisher.publish(sender = sender, contentHtml = html)
+                    val noteId = stored.noteId ?: notePublisher
+                        .create(sender = sender, contentHtml = html)
+                        .let { created ->
+                            val linkedNoteId = feedItems.linkNote(
+                                feedId = stored.id,
+                                note = NewNote(
+                                    username = created.username,
+                                    publicId = PublicNoteId(created.publicId.value),
+                                    contentHtml = created.contentHtml,
+                                    publishedAt = created.publishedAt,
+                                ),
+                            )
+                            if (linkedNoteId.value == created.publicId.value) {
+                                notePublisher.recordIfMissing(created)
+                            }
+                            linkedNoteId
+                        }
+                    when (
+                        val result = notePublisher.deliver(
+                            sender = sender,
+                            publicId = MastodonPublicNoteId(noteId.value),
+                        )
+                    ) {
+                        is NotePublisher.DeliverResult.Success -> result.published
+                        NotePublisher.DeliverResult.NotFound -> error("記事に紐付いた投稿が見つからない")
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -522,6 +556,7 @@ class FeedService(
             }
 
             FeedFetchService.FetchResult.TooLarge,
+            FeedFetchService.FetchResult.ChannelIdNotFound,
             is FeedFetchService.FetchResult.HttpError,
             -> {
                 feed.recordFailure(fetched.failureReason())

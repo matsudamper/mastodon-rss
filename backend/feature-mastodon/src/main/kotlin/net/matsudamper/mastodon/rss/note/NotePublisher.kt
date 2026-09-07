@@ -30,43 +30,89 @@ class NotePublisher(
     private val logger = LoggerFactory.getLogger(NotePublisher::class.java)
 
     /**
+     * 投稿を組み立てる。まだ記録も配信もしない。
+     *
+     * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと。ここでは中身を検査しない
+     */
+    fun create(
+        sender: ActorUrls,
+        contentHtml: String,
+    ): StoredNote {
+        val publishedAt = Instant.now()
+        return StoredNote(
+            publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli())),
+            username = sender.username,
+            contentHtml = contentHtml,
+            publishedAt = publishedAt,
+        )
+    }
+
+    /**
+     * 投稿がまだ記録されていなければ記録する。
+     *
+     * フィード記事では repository 側が Note と記事の紐付けを同じトランザクションで
+     * 保存する。その後の配信口からも同じ [NoteStore] を見える状態に揃えるために使う。
+     */
+    fun recordIfMissing(note: StoredNote) {
+        val existing = notes.find(note.publicId)
+        if (existing == null) {
+            notes.add(note)
+        } else {
+            check(existing == note) { "同じ id の別投稿が既に記録されている" }
+        }
+    }
+
+    /**
+     * 記録済みの投稿をフォロワーへ配る。
+     *
+     * 同じ [publicId] で呼び直すと同じ `Create` / `Note` の id と本文・公開日時を使う。
+     */
+    suspend fun deliver(
+        sender: ActorUrls,
+        publicId: PublicNoteId,
+    ): DeliverResult {
+        val note = notes.find(publicId)?.takeIf { it.username.equals(sender.username, ignoreCase = true) }
+            ?: return DeliverResult.NotFound
+        val urls = NoteUrls(domain = sender.domain, publicId = note.publicId)
+
+        val activityBodyBytes = AppJson.encodeToString(
+            CreateNoteActivity.serializer(),
+            CreateNoteActivityFactory.create(sender = sender, note = note),
+        ).toByteArray()
+
+        val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
+
+        logger.info(
+            "投稿を配った: ${sender.acct} ${note.publicId} 宛先=${result.deliveryAttemptCount} 成功=${result.delivered}",
+        )
+
+        return DeliverResult.Success(
+            PublishedNote(
+                publicId = note.publicId,
+                url = urls.noteUrl,
+                contentHtml = note.contentHtml,
+                publishedAt = note.publishedAt,
+                deliveryAttemptCount = result.deliveryAttemptCount,
+                delivered = result.delivered,
+            ),
+        )
+    }
+
+    /**
+     * 投稿を記録して、そのまま全フォロワーに配る。
+     *
      * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと。ここでは中身を検査しない
      */
     suspend fun publish(
         sender: ActorUrls,
         contentHtml: String,
     ): PublishedNote {
-        val publishedAt = Instant.now()
-        val publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli()))
-        val urls = NoteUrls(domain = sender.domain, publicId = publicId)
-
-        val storedNote = StoredNote(
-            publicId = publicId,
-            username = sender.username,
-            contentHtml = contentHtml,
-            publishedAt = publishedAt,
-        )
-        notes.add(storedNote)
-
-        val activityBodyBytes = AppJson.encodeToString(
-            CreateNoteActivity.serializer(),
-            CreateNoteActivityFactory.create(sender = sender, note = storedNote),
-        ).toByteArray()
-
-        val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
-
-        logger.info(
-            "投稿を配った: ${sender.acct} $publicId 宛先=${result.deliveryAttemptCount} 成功=${result.delivered}",
-        )
-
-        return PublishedNote(
-            publicId = publicId,
-            url = urls.noteUrl,
-            contentHtml = contentHtml,
-            publishedAt = publishedAt,
-            deliveryAttemptCount = result.deliveryAttemptCount,
-            delivered = result.delivered,
-        )
+        val note = create(sender = sender, contentHtml = contentHtml)
+        recordIfMissing(note)
+        return when (val result = deliver(sender = sender, publicId = note.publicId)) {
+            is DeliverResult.Success -> result.published
+            DeliverResult.NotFound -> error("作成した投稿が見つからない")
+        }
     }
 
     /**
@@ -102,6 +148,14 @@ class NotePublisher(
         )
 
         return DeletedNote(publicId = publicId)
+    }
+
+    sealed interface DeliverResult {
+        data class Success(
+            val published: PublishedNote,
+        ) : DeliverResult
+
+        data object NotFound : DeliverResult
     }
 
     private suspend fun deliverToFollowers(
