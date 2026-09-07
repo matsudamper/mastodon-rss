@@ -79,6 +79,40 @@ class NoteRoutesTest {
         }
 
     @Test
+    fun `HTMLを要求されたら投稿の公開画面へリダイレクトする`() =
+        testApplication {
+            val notes = FakeNoteStore()
+            notes.add(note("abc"))
+            installModule(notes)
+
+            val noRedirectClient = createClient { followRedirects = false }
+            val response = noRedirectClient.get("/notes/abc") {
+                header(
+                    HttpHeaders.Accept,
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                )
+            }
+
+            assertEquals(HttpStatusCode.Found, response.status)
+            assertEquals("https://example.com/@admin/abc", response.headers[HttpHeaders.Location])
+        }
+
+    @Test
+    fun `ActivityPub JSONの方が優先ならHTMLへリダイレクトしない`() =
+        testApplication {
+            val notes = FakeNoteStore()
+            notes.add(note("abc"))
+            installModule(notes)
+
+            val response = client.get("/notes/abc") {
+                header(HttpHeaders.Accept, "text/html;q=0.5, application/activity+json;q=1.0")
+            }
+
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
+        }
+
+    @Test
     fun `知らない投稿 id は404`() =
         testApplication {
             installModule()
