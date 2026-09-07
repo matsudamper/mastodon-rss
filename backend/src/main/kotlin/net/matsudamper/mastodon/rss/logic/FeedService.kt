@@ -24,6 +24,7 @@ import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
+import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.AccountId
@@ -474,7 +475,19 @@ class FeedService(
                     val noteId = stored.noteId ?: notePublisher
                         .create(sender = sender, contentHtml = html)
                         .let { created ->
-                            feedItems.linkNote(stored.id, PublicNoteId(created.publicId.value))
+                            val linkedNoteId = feedItems.linkNote(
+                                feedId = stored.id,
+                                note = NewNote(
+                                    username = created.username,
+                                    publicId = PublicNoteId(created.publicId.value),
+                                    contentHtml = created.contentHtml,
+                                    publishedAt = created.publishedAt,
+                                ),
+                            )
+                            if (linkedNoteId.value == created.publicId.value) {
+                                notePublisher.recordIfMissing(created)
+                            }
+                            linkedNoteId
                         }
                     when (
                         val result = notePublisher.deliver(
