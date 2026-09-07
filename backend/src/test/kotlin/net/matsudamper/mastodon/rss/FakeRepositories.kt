@@ -444,12 +444,12 @@ class FakeFeedItemRepository : FeedItemRepository {
     ): List<FeedItem> = pendingSorted().filter { it.feedId == feedId }.take(limit.coerceAtLeast(0))
 
     override fun linkNote(
-        id: FeedItemId,
+        feedId: FeedItemId,
         noteId: PublicNoteId,
     ): PublicNoteId {
-        find(id)?.noteId?.let { return it }
-        update(id) { it.copy(noteId = noteId) }
-        return find(id)?.noteId ?: error("記事に投稿を紐付けられなかった")
+        find(feedId)?.noteId?.let { return it }
+        update(feedId) { it.copy(noteId = noteId) }
+        return find(feedId)?.noteId ?: error("記事に投稿を紐付けられなかった")
     }
 
     override fun markPosted(
