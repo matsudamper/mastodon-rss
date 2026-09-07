@@ -22,13 +22,15 @@ interface StoredFeedLinks {
  * @param feedUrl 取得元の RSS/Atom の URL
  * @param iconUrl フィードが名乗っているアイコンの取得元。プロフィール画像を
  *   出せるかどうかの判断に使う。相手に渡すのは [ActorUrls.icon] の方
+ * @param headerUrl 取り込み済みのヘッダー画像の取得元。相手に渡すのは [ActorUrls.header] の方
  */
 data class FeedLinks(
     val siteUrl: String?,
     val feedUrl: String?,
     val iconUrl: String?,
+    val headerUrl: String?,
 ) {
     companion object {
-        val EMPTY: FeedLinks = FeedLinks(siteUrl = null, feedUrl = null, iconUrl = null)
+        val EMPTY: FeedLinks = FeedLinks(siteUrl = null, feedUrl = null, iconUrl = null, headerUrl = null)
     }
 }
