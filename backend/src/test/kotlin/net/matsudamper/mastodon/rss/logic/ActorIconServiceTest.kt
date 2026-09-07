@@ -43,7 +43,7 @@ class ActorIconServiceTest {
         }
 
     @Test
-    fun `期限が切れていても返すが持たせない`() =
+    fun `期限が切れていても置いてあるものを返す`() =
         runTest {
             val repositories = FakeRepositories()
             val feedId = repositories.addFeed(iconUrl = ICON_URL)
@@ -51,7 +51,7 @@ class ActorIconServiceTest {
 
             val icon = assertNotNull(serviceOf(repositories).find(USERNAME))
 
-            assertEquals(Duration.ZERO, icon.cacheFor)
+            assertEquals(BYTES.toList(), icon.bytes.toList())
         }
 
     @Test
