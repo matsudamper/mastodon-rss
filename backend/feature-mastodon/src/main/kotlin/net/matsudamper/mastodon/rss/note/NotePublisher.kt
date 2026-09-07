@@ -30,7 +30,7 @@ class NotePublisher(
     private val logger = LoggerFactory.getLogger(NotePublisher::class.java)
 
     /**
-     * 投稿を記録する。まだフォロワーには配らない。
+     * 投稿を組み立てる。まだ記録も配信もしない。
      *
      * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと。ここでは中身を検査しない
      */
@@ -39,14 +39,27 @@ class NotePublisher(
         contentHtml: String,
     ): StoredNote {
         val publishedAt = Instant.now()
-        val note = StoredNote(
+        return StoredNote(
             publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli())),
             username = sender.username,
             contentHtml = contentHtml,
             publishedAt = publishedAt,
         )
-        notes.add(note)
-        return note
+    }
+
+    /**
+     * 投稿がまだ記録されていなければ記録する。
+     *
+     * フィード記事では repository 側が Note と記事の紐付けを同じトランザクションで
+     * 保存する。その後の配信口からも同じ [NoteStore] を見える状態に揃えるために使う。
+     */
+    fun recordIfMissing(note: StoredNote) {
+        val existing = notes.find(note.publicId)
+        if (existing == null) {
+            notes.add(note)
+        } else {
+            check(existing == note) { "同じ id の別投稿が既に記録されている" }
+        }
     }
 
     /**
@@ -100,6 +113,7 @@ class NotePublisher(
         contentHtml: String,
     ): PublishedNote {
         val note = create(sender = sender, contentHtml = contentHtml)
+        recordIfMissing(note)
         return when (val result = deliver(sender = sender, publicId = note.publicId)) {
             is DeliverResult.Success -> result.published
             DeliverResult.NotFound -> error("作成した投稿が見つからない")
