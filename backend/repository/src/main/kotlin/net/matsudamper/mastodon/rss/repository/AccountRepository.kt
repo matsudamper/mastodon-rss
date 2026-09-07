@@ -13,18 +13,18 @@ interface AccountRepository {
     /**
      * 追加した順に全件返す。
      *
-     * 呼び出しを `list(afterUsername, limit)` に移し切ったら消す。
+     * 呼び出しを `list(after, limit)` に移し切ったら消す。
      * アカウントが増えるほど 1 回の応答が重くなり、上限も置けない
      */
-    @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
+    @Deprecated("ページングに移行する。list(after, limit) を使う")
     fun list(): List<Account>
 
     /**
-     * 追加した順で `afterUsername` の次から `limit` 件返す。
+     * 追加した順で [after] の次から [limit] 件返す。
      *
-     * @param afterUsername null なら先頭から。その名前が無ければ空を返す
+     * @param after ここより後ろを返す。null なら先頭から
      */
-    fun list(afterUsername: String?, limit: Int): List<Account>
+    fun list(after: AccountPosition?, limit: Int): List<Account>
 
     fun findById(id: AccountId): Account?
 
@@ -70,6 +70,17 @@ interface AccountRepository {
 }
 
 /**
+ * ページの位置。
+ *
+ * 並び順の鍵をそのまま持つ。名前で位置を指すと、その行が消えたときに続きを引けず、
+ * 同じ名前で作り直されたときは新しい行の位置から返してしまう。
+ */
+data class AccountPosition(
+    val createdAt: Instant,
+    val id: AccountId,
+)
+
+/**
  * 応答するアカウント 1 つ。
  *
  * @param username `acct:<username>@<domain>` と `/users/<username>` に入る名前
@@ -80,4 +91,6 @@ data class Account(
     val createdAt: Instant,
     val displayName: String?,
     val summary: String?,
-)
+) {
+    fun position(): AccountPosition = AccountPosition(createdAt = createdAt, id = id)
+}
