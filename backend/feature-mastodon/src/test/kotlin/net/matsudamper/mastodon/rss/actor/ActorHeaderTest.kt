@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.actor
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestLocalActor
@@ -38,6 +39,4 @@ class ActorHeaderTest {
 
         assertNull(actor.image)
     }
-
-    private fun <T : Any> assertNotNull(value: T?): T = kotlin.test.assertNotNull(value)
 }
