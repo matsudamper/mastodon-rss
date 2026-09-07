@@ -13,6 +13,7 @@ import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
+import net.matsudamper.mastodon.rss.repository.FollowAcceptResult
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
@@ -147,7 +148,11 @@ class FakeFollowerRepository : FollowerRepository {
         username: String,
         followerActorUri: String,
         acceptedAt: Instant,
-    ): Boolean = accepted.add(username to followerActorUri)
+    ): FollowAcceptResult = when {
+        stored.none { it.username == username && it.follower.actorUri == followerActorUri } -> FollowAcceptResult.NotFound
+        accepted.add(username to followerActorUri) -> FollowAcceptResult.FirstAccept
+        else -> FollowAcceptResult.AlreadyAccepted
+    }
 
     override fun remove(
         username: String,
