@@ -1,0 +1,43 @@
+package net.matsudamper.mastodon.rss.actor
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import net.matsudamper.mastodon.rss.TestActorKey
+import net.matsudamper.mastodon.rss.TestLocalActor
+
+class ActorHeaderTest {
+    @Test
+    fun `フィードにヘッダーがあればimageにこちらのURLが入る`() {
+        val username = TestLocalActor.STORED_USERNAME
+        val urls = assertNotNull(TestLocalActor.directory.resolve(username))
+        val actor = actorDocument(
+            urls = urls,
+            actorKey = TestActorKey.value,
+            feedLinks = TestLocalActor.feedLinks.find(username),
+            profile = TestLocalActor.profiles.find(username),
+        )
+
+        assertEquals(
+            "https://example.com/users/$username/header?v=${ActorUrls.headerVersion(TestLocalActor.FEED_HEADER_URL)}",
+            actor.image?.url,
+        )
+        assertEquals("Image", actor.image?.type)
+    }
+
+    @Test
+    fun `フィードを持たないアカウントはimageが入らない`() {
+        val username = TestLocalActor.USERNAME
+        val urls = assertNotNull(TestLocalActor.directory.resolve(username))
+        val actor = actorDocument(
+            urls = urls,
+            actorKey = TestActorKey.value,
+            feedLinks = TestLocalActor.feedLinks.find(username),
+            profile = TestLocalActor.profiles.find(username),
+        )
+
+        assertNull(actor.image)
+    }
+
+    private fun <T : Any> assertNotNull(value: T?): T = kotlin.test.assertNotNull(value)
+}
