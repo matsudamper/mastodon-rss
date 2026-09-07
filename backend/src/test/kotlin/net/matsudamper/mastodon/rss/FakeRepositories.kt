@@ -333,7 +333,7 @@ class FakeFeedRepository(
         id: FeedId,
         title: String?,
         siteUrl: String?,
-        format: String,
+        format: String?,
         iconUrl: String?,
     ) {
         update(id) { it.copy(title = title, siteUrl = siteUrl, format = format, iconUrl = iconUrl) }
