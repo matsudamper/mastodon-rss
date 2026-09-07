@@ -33,6 +33,7 @@ class FeedRepositoryTest {
                         title = "サンプル",
                         siteUrl = "https://example.com/",
                         format = "Atom 1.0",
+                        iconUrl = null,
                         pollIntervalSeconds = 900,
                     ),
                 ),
@@ -41,6 +42,40 @@ class FeedRepositoryTest {
             assertEquals("https://example.com/feed.xml", added.url)
             assertEquals(account.id, added.accountId)
             assertEquals(added, repositories.feeds.findByAccountId(account.id))
+        }
+    }
+
+    @Test
+    fun `アイコンの URL は保存して読み戻せる`() {
+        withRepositories { repositories ->
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+
+            val added = assertNotNull(
+                repositories.feeds.add(
+                    NewFeed(
+                        accountId = account.id,
+                        url = "https://example.com/feed.xml",
+                        title = "サンプル",
+                        siteUrl = "https://example.com/",
+                        format = "Atom 1.0",
+                        iconUrl = "https://example.com/icon.png",
+                        pollIntervalSeconds = 900,
+                    ),
+                ),
+            )
+
+            assertEquals("https://example.com/icon.png", added.iconUrl)
+            assertEquals("https://example.com/icon.png", repositories.feeds.find(added.id)?.iconUrl)
+
+            repositories.feeds.updateMetadata(
+                id = added.id,
+                title = "サンプル",
+                siteUrl = "https://example.com/",
+                format = "Atom 1.0",
+                iconUrl = "https://example.com/icon2.png",
+            )
+
+            assertEquals("https://example.com/icon2.png", repositories.feeds.find(added.id)?.iconUrl)
         }
     }
 
@@ -58,6 +93,7 @@ class FeedRepositoryTest {
                         title = "1",
                         siteUrl = "https://example.com/1",
                         format = "Atom 1.0",
+                        iconUrl = null,
                         pollIntervalSeconds = 900,
                     ),
                 ),
@@ -83,6 +119,7 @@ class FeedRepositoryTest {
                     title = null,
                     siteUrl = null,
                     format = null,
+                    iconUrl = null,
                     pollIntervalSeconds = 900,
                 ),
             )
@@ -95,6 +132,7 @@ class FeedRepositoryTest {
                         title = null,
                         siteUrl = null,
                         format = null,
+                        iconUrl = null,
                         pollIntervalSeconds = 900,
                     ),
                 ),
@@ -114,6 +152,7 @@ class FeedRepositoryTest {
                     title = null,
                     siteUrl = null,
                     format = null,
+                    iconUrl = null,
                     pollIntervalSeconds = 900,
                 ),
             )
@@ -126,6 +165,7 @@ class FeedRepositoryTest {
                         title = null,
                         siteUrl = null,
                         format = null,
+                        iconUrl = null,
                         pollIntervalSeconds = 900,
                     ),
                 ),
@@ -232,6 +272,7 @@ class FeedRepositoryTest {
                     title = "タイトル",
                     siteUrl = "https://example.com/",
                     format = "RSS 2.0",
+                    iconUrl = null,
                     pollIntervalSeconds = 900,
                 ),
             )
@@ -263,6 +304,7 @@ class FeedRepositoryTest {
                     title = null,
                     siteUrl = null,
                     format = null,
+                    iconUrl = null,
                     pollIntervalSeconds = 900,
                 ),
             ),
@@ -327,6 +369,7 @@ class FeedRepositoryTest {
         title = null,
         siteUrl = null,
         format = null,
+        iconUrl = null,
         pollIntervalSeconds = 900,
     )
 

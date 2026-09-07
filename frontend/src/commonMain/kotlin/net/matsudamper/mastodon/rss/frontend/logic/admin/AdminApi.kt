@@ -88,23 +88,48 @@ class AdminApi(
             .toSessionResult { it.admin.logout.adminSessionFields }
     }
 
-    fun accounts(): Flow<AdminAccountsResult> {
-        return client
-            .query(AdminAccountsScreenQuery())
-            .fetchPolicy(FetchPolicy.NetworkOnly)
-            .watch()
-            .map { response ->
-                if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
-                    return@map AdminAccountsResult.Failure(response.failureMessage())
-                }
-
-                val data = response.data
-                    ?: return@map AdminAccountsResult.Failure(response.failureMessage())
-
-                AdminAccountsResult.Success(
-                    data.admin.adminAccounts.map { it.adminAccountListFields.toAdminAccount() },
+    /**
+     * @param limit 1 ページで要求する件数。上限はサーバー側で決まる
+     */
+    fun accounts(limit: Int): Paging<AdminAccountsResult> {
+        return CachedPaging(
+            client = client,
+            firstPage = AdminAccountsScreenQuery(
+                cursor = Optional.absent(),
+                limit = Optional.present(limit),
+            ),
+            nextPage = { cursor ->
+                AdminAccountsScreenQuery(
+                    cursor = Optional.present(cursor),
+                    limit = Optional.present(limit),
                 )
-            }
+            },
+            appendPage = { cached, fetched ->
+                cached.copy(
+                    admin = cached.admin.copy(
+                        adminAccounts = cached.admin.adminAccounts.copy(
+                            nodes = cached.admin.adminAccounts.nodes + fetched.admin.adminAccounts.nodes,
+                            pageInfo = fetched.admin.adminAccounts.pageInfo,
+                        ),
+                    ),
+                )
+            },
+            toResult = { response -> response.toAdminAccountsResult() },
+        )
+    }
+
+    private fun ApolloResponse<AdminAccountsScreenQuery.Data>.toAdminAccountsResult(): AdminAccountsResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AdminAccountsResult.Failure(failureMessage())
+        }
+
+        val data = data ?: return AdminAccountsResult.Failure(failureMessage())
+
+        return AdminAccountsResult.Success(
+            accounts = data.admin.adminAccounts.nodes.map { it.adminAccountListFields.toAdminAccount() },
+            hasMore = data.admin.adminAccounts.pageInfo.hasMore,
+            nextCursor = data.admin.adminAccounts.pageInfo.nextCursor,
+        )
     }
 
     fun watchAccount(username: String): Flow<AdminAccountResult> {

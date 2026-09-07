@@ -6,10 +6,16 @@ query AdminSession {
     }
 }
 
-query AdminAccountsScreen {
+query AdminAccountsScreen($cursor: String, $limit: Int) {
     admin {
-        adminAccounts {
-            ...AdminAccountListFields
+        adminAccounts(cursor: $cursor, limit: $limit) {
+            nodes {
+                ...AdminAccountListFields
+            }
+            pageInfo {
+                hasMore
+                nextCursor
+            }
         }
     }
 }
