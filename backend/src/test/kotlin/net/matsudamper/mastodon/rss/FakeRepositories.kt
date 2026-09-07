@@ -469,15 +469,6 @@ class FakeFeedItemRepository : FeedItemRepository {
         limit: Int,
     ): List<FeedItem> = pendingSorted().filter { it.feedId == feedId }.take(limit.coerceAtLeast(0))
 
-    override fun linkNote(
-        feedId: FeedItemId,
-        noteId: PublicNoteId,
-    ): PublicNoteId {
-        find(feedId)?.noteId?.let { return it }
-        update(feedId) { it.copy(noteId = noteId) }
-        return find(feedId)?.noteId ?: error("記事に投稿を紐付けられなかった")
-    }
-
     override fun markPosted(
         id: FeedItemId,
         postedAt: Instant,
