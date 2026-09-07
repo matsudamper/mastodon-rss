@@ -333,7 +333,7 @@ class FakeFeedRepository(
         id: FeedId,
         title: String?,
         siteUrl: String?,
-        format: String?,
+        format: String,
         iconUrl: String?,
     ) {
         update(id) { it.copy(title = title, siteUrl = siteUrl, format = format, iconUrl = iconUrl) }
@@ -442,6 +442,15 @@ class FakeFeedItemRepository : FeedItemRepository {
         feedId: FeedId,
         limit: Int,
     ): List<FeedItem> = pendingSorted().filter { it.feedId == feedId }.take(limit.coerceAtLeast(0))
+
+    override fun linkNote(
+        id: FeedItemId,
+        noteId: PublicNoteId,
+    ): PublicNoteId {
+        find(id)?.noteId?.let { return it }
+        update(id) { it.copy(noteId = noteId) }
+        return find(id)?.noteId ?: error("記事に投稿を紐付けられなかった")
+    }
 
     override fun markPosted(
         id: FeedItemId,
