@@ -24,16 +24,26 @@ import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.resolve
 class FeedFetchService(
     private val client: HttpClient = defaultClient(),
 ) : Closeable {
-    suspend fun fetch(url: String): FetchResult {
+    /**
+     * フィードを取得して解析する。
+     *
+     * @param needsDescription 呼び出し側が説明文を使うか。YouTube のようにフィード自体に
+     *   説明文が無い配信元では、これが true のときだけ別のページを引いて補う。
+     *   定期取得は説明文を使わないので、毎回ページを引かないよう false を渡す
+     */
+    suspend fun fetch(
+        url: String,
+        needsDescription: Boolean,
+    ): FetchResult {
         val trimmed = url.trim()
         if (trimmed.isEmpty()) return FetchResult.InvalidUrl
 
         return runCatching {
             // 解決も同じ中に置く。/@handle のような形はここで YouTube のページを
             // 取りに行くので、外に出すと DNS の失敗やタイムアウトが素通りする
-            val resolvedUrl = resolveFeedUrl(trimmed) ?: return FetchResult.InvalidUrl
+            val resolved = resolveFeedUrl(trimmed) ?: return FetchResult.InvalidUrl
 
-            val response = client.get(resolvedUrl) {
+            val response = client.get(resolved.feedUrl) {
                 header(HttpHeaders.UserAgent, USER_AGENT)
             }
 
@@ -47,7 +57,9 @@ class FeedFetchService(
             val finalUrl = response.request.url.normalize()
             val bytes = response.readBodyUpTo(MAX_BODY_BYTES) ?: return FetchResult.TooLarge
 
-            val parsed = FeedParser.parse(bytes)
+            val parsed = FeedParser.parse(bytes).let {
+                if (needsDescription) it.withYouTubeChannelDescription(resolved) else it
+            }
             FetchResult.Success(
                 requestedUrl = trimmed,
                 feedUrl = finalUrl,
@@ -67,15 +79,18 @@ class FeedFetchService(
         }
     }
 
-    private suspend fun resolveFeedUrl(url: String): String? {
+    private suspend fun resolveFeedUrl(url: String): ResolvedFeed? {
         // YouTube はスキームの無い形も受けるので、先に解決してから確かめる。
         // 逆にすると YouTubeFeedResolver が対応している形を弾いてしまう。
         // ページを引く先は YouTubeFeedResolver が組み立てた YouTube の URL で、
         // 入力をそのまま取りに行くわけではない
         val resolved = when (val source = resolve(url)) {
-            null -> url
+            null -> ResolvedFeed(feedUrl = url)
 
-            is YouTubeFeedSource.Feed -> source.url
+            is YouTubeFeedSource.Feed -> ResolvedFeed(
+                feedUrl = source.url,
+                youtubeChannelId = source.id.takeIf { source.kind == YouTubeFeedSource.Kind.CHANNEL },
+            )
 
             is YouTubeFeedSource.NeedsPageLookup -> {
                 val response = client.get(source.pageUrl) {
@@ -88,11 +103,22 @@ class FeedFetchService(
 
                 val html = response.readBodyUpTo(MAX_PAGE_BYTES)?.decodeToString() ?: return null
                 val channelId = channelIdFromPageHtml(source.page, html) ?: return null
-                YouTubeFeedResolver.feedUrlForChannel(channelId) ?: return null
+                ResolvedFeed(
+                    feedUrl = YouTubeFeedResolver.feedUrlForChannel(channelId) ?: return null,
+                    youtubeChannelId = channelId,
+                    // 引いたのがチャンネルのページなら説明文もここに入っている。
+                    // 動画のページには無いので、その分は後で引き直す
+                    youtubeChannelDescription = when (source.page) {
+                        YouTubeFeedSource.NeedsPageLookup.Page.CHANNEL ->
+                            YouTubeFeedResolver.channelDescriptionFromPageHtml(html)
+
+                        YouTubeFeedSource.NeedsPageLookup.Page.VIDEO -> null
+                    },
+                )
             }
         }
 
-        val parsed = runCatching { URI(resolved) }.getOrNull() ?: return null
+        val parsed = runCatching { URI(resolved.feedUrl) }.getOrNull() ?: return null
         // スキームは大文字小文字を区別しない。貼り付けた URL が HTTPS でも通す
         val scheme = parsed.scheme?.lowercase()
         if (scheme != "http" && scheme != "https") return null
@@ -100,6 +126,54 @@ class FeedFetchService(
 
         return resolved
     }
+
+    /**
+     * YouTube のチャンネルの説明文を補う。
+     *
+     * YouTube の Atom には `subtitle` が無いので、フィードだけでは説明文が空のままになる
+     * （チャンネル名は `title` にあるので題名だけ入る）。チャンネルのページには全文が
+     * あるので、そちらから取って埋める。
+     *
+     * 取れなくてもフィード自体は使えるので、失敗は説明文が無いものとして扱い、
+     * 取得の失敗にはしない。
+     */
+    private suspend fun ParsedFeed.withYouTubeChannelDescription(resolved: ResolvedFeed): ParsedFeed {
+        if (description != null) return this
+        val channelId = resolved.youtubeChannelId ?: return this
+        val text = resolved.youtubeChannelDescription ?: fetchYouTubeChannelDescription(channelId) ?: return this
+        return copy(description = FeedContent(text = text, type = FeedContent.Type.TEXT))
+    }
+
+    private suspend fun fetchYouTubeChannelDescription(channelId: String): String? {
+        val pageUrl = YouTubeFeedResolver.channelPageUrl(channelId) ?: return null
+        return runCatching {
+            val response = client.get(pageUrl) {
+                header(HttpHeaders.UserAgent, USER_AGENT)
+            }
+            if (!response.status.isSuccess()) {
+                response.discardBody()
+                return null
+            }
+            val html = response.readBodyUpTo(MAX_PAGE_BYTES)?.decodeToString() ?: return null
+            YouTubeFeedResolver.channelDescriptionFromPageHtml(html)
+        }.getOrElse { error ->
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
+    /**
+     * 取得しに行く先と、その過程で分かったこと。
+     *
+     * @param feedUrl 実際に取得する URL
+     * @param youtubeChannelId YouTube のチャンネルなら、その ID
+     * @param youtubeChannelDescription 解決の途中でページを引いていれば、そこで拾えた説明文
+     */
+    private data class ResolvedFeed(
+        val feedUrl: String,
+        val youtubeChannelId: String? = null,
+        val youtubeChannelDescription: String? = null,
+    )
 
     /**
      * 上限を超えたら null を返す。超えた時点で読むのをやめるので、

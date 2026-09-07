@@ -43,7 +43,7 @@ class FeedService(
     private val logger = LoggerFactory.getLogger(FeedService::class.java)
 
     suspend fun preview(url: String): PreviewResult {
-        return when (val fetched = fetcher.fetch(url)) {
+        return when (val fetched = fetcher.fetch(url, needsDescription = true)) {
             is FeedFetchService.FetchResult.Success -> PreviewResult.Success(fetched.toPreview())
             FeedFetchService.FetchResult.InvalidUrl -> PreviewResult.Failure(PreviewFailure.INVALID_URL)
             FeedFetchService.FetchResult.TooLarge -> PreviewResult.Failure(PreviewFailure.FETCH_FAILED)
@@ -64,7 +64,7 @@ class FeedService(
             return SaveResult.Failure(SaveFailure.ALREADY_HAS_FEED)
         }
 
-        return when (val fetched = fetcher.fetch(url)) {
+        return when (val fetched = fetcher.fetch(url, needsDescription = false)) {
             is FeedFetchService.FetchResult.Success -> {
                 val newFeed = NewFeed(
                     accountId = accountId,
@@ -334,7 +334,7 @@ class FeedService(
      * 後の方のフィードほど古い時刻が残り、間隔を待たずに取り直す
      */
     private suspend fun poll(feed: Feed): PollResult {
-        val fetched = when (val result = fetcher.fetch(feed.url)) {
+        val fetched = when (val result = fetcher.fetch(feed.url, needsDescription = false)) {
             is FeedFetchService.FetchResult.Success -> result
             else -> return feed.recordFailure(result.failureReason())
         }
@@ -477,7 +477,7 @@ class FeedService(
     }
 
     private suspend fun importLatest(feed: Feed): ImportLatestResult {
-        return when (val fetched = fetcher.fetch(feed.url)) {
+        return when (val fetched = fetcher.fetch(feed.url, needsDescription = false)) {
             is FeedFetchService.FetchResult.Success -> {
                 val iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl)
                 feeds.updateMetadata(
