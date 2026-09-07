@@ -9,6 +9,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorHeaders
 import net.matsudamper.mastodon.rss.actor.ActorIcons
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
@@ -31,7 +32,9 @@ import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.logic.AccountIconFiles
+import net.matsudamper.mastodon.rss.logic.ActorHeaderService
 import net.matsudamper.mastodon.rss.logic.ActorIconService
+import net.matsudamper.mastodon.rss.logic.FeedHeaderService
 import net.matsudamper.mastodon.rss.logic.FeedIconService
 import net.matsudamper.mastodon.rss.logic.FeedIconStore
 import net.matsudamper.mastodon.rss.logic.FeedIcons
@@ -97,12 +100,14 @@ class AppDependencies(
         override fun find(username: String): FeedLinks {
             val account = repositories.accounts.findByUsername(username) ?: return FeedLinks.EMPTY
             val feed = repositories.feeds.findByAccountId(account.id) ?: return FeedLinks.EMPTY
+            val headerUrl = repositories.feedHeaders.find(feed.id)?.sourceUrl
 
             // 相手のプロフィールに出る外部リンクになるので、http / https 以外は落とす
             return FeedLinks(
                 siteUrl = HttpUrl.sanitize(feed.siteUrl, feed.url),
                 feedUrl = HttpUrl.sanitize(feed.url),
                 iconUrl = HttpUrl.sanitize(feed.iconUrl, feed.url),
+                headerUrl = HttpUrl.sanitize(headerUrl, feed.url),
             )
         }
     }
@@ -116,10 +121,24 @@ class AppDependencies(
         store = feedIconStore,
     )
 
+    val actorHeaders: ActorHeaders = ActorHeaderService(
+        accounts = repositories.accounts,
+        feeds = repositories.feeds,
+        headers = repositories.feedHeaders,
+        store = feedIconStore,
+    )
+
+    private val feedHeaders = FeedHeaderService(
+        headers = repositories.feedHeaders,
+        store = feedIconStore,
+        fetcher = iconFetcher,
+    )
+
     private val feedIcons: FeedIcons = FeedIconService(
         icons = repositories.feedIcons,
         store = feedIconStore,
         fetcher = iconFetcher,
+        headers = feedHeaders,
     )
 
     val accountIconFiles: AccountIconFiles = AccountIconFiles(
