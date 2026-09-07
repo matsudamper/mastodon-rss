@@ -124,14 +124,22 @@ class HttpRemoteActors(
             runCatching {
                 client.get("https://$authority/.well-known/webfinger") {
                     parameter("resource", "acct:$preferredUsername@$authority")
-                    header(HttpHeaders.Accept, ContentType.Application.Json.toString())
+                    // JRD だけを返すサーバーに application/json だけで問い合わせると 406 になる
+                    header(
+                        HttpHeaders.Accept,
+                        "${ActivityPubContentTypes.JrdJson}, ${ContentType.Application.Json}",
+                    )
                 }
             }.getOrNull() ?: return null
 
         if (!response.status.isSuccess()) return null
 
-        // リダイレクトで別のホストに移っていたら、そのホストが他人の acct を名乗れる
-        if (!response.request.url.host.equals(actorUrl.host, ignoreCase = true)) return null
+        // リダイレクトで別の宛先に移っていたら、そこが他人の acct を名乗れる。
+        // ポートを落とすと別の接続先になるのと同じ理由で、scheme とポートまで見る
+        val finalUrl = response.request.url
+        if (!finalUrl.host.equals(actorUrl.host, ignoreCase = true)) return null
+        if (finalUrl.protocol != URLProtocol.HTTPS) return null
+        if (finalUrl.port != actorUrl.port) return null
 
         val body = runCatching { response.bodyAsText() }.getOrNull() ?: return null
         if (body.length > MAX_BODY_CHARS) return null

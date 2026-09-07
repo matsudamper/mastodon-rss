@@ -117,6 +117,26 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `プロフィールの URL と acct は取れなかった回で消えない`() {
+        withRepository { followers ->
+            followers.record(
+                incomingFollow(
+                    profileUrl = "https://remote.example/@alice",
+                    acct = "@alice@remote.example",
+                ),
+            )
+            // WebFinger が一度落ちただけで一覧が「未取得」に戻ると、
+            // 次に成功する Follow が来るまで直らない
+            followers.record(incomingFollow(followActivityUri = "https://remote.example/activities/2"))
+            followers.markAccepted("admin", "https://remote.example/users/alice", now)
+
+            val stored = followers.list("admin", after = null, limit = 10).single()
+            assertEquals("https://remote.example/@alice", stored.profileUrl)
+            assertEquals("@alice@remote.example", stored.acct)
+        }
+    }
+
+    @Test
     fun `同じ相手からの Follow を二重に受けても行が増えない`() {
         withRepository { followers ->
             followers.record(incomingFollow())

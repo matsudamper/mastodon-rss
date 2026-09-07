@@ -5,12 +5,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondError
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 
@@ -137,6 +139,57 @@ class HttpRemoteActorsTest {
         assertEquals("@alice@remote.example:8443", assertNotNull(fetched.actor).acct)
     }
 
+    @Test
+    fun `WebFinger には JRD の media type で問い合わせる`() {
+        val fetched = findActor(
+            document = actorDocument(""""preferredUsername": "alice","""),
+            webFinger = webFinger(subject = "acct:alice@remote.example", selfHref = ACTOR_ID),
+        )
+
+        // JRD だけを返すサーバーは application/json だけの Accept に 406 を返す
+        val accept = assertNotNull(fetched.webFingerAccept)
+        assertTrue(accept.contains("application/jrd+json"), "Accept: $accept")
+        assertEquals("@alice@remote.example", assertNotNull(fetched.actor).acct)
+    }
+
+    @Test
+    fun `WebFinger が別のポートへリダイレクトしたら信じない`() {
+        val actorId = "https://remote.example:8443/users/alice"
+        val client = HttpClient(
+            MockEngine { request ->
+                when {
+                    request.url.encodedPath != "/.well-known/webfinger" ->
+                        respondJson(
+                            """
+                            {
+                              "id": "$actorId",
+                              "inbox": "$actorId/inbox",
+                              "preferredUsername": "alice",
+                              "publicKey": { "publicKeyPem": "pem" }
+                            }
+                            """.trimIndent(),
+                        )
+
+                    // 8443 で始めた問い合わせが 443 に移る。別の接続先が返した subject になる
+                    request.url.port == 8443 -> respond(
+                        content = "",
+                        status = HttpStatusCode.Found,
+                        headers = headersOf(
+                            HttpHeaders.Location,
+                            "https://remote.example/.well-known/webfinger?resource=acct:alice@remote.example:8443",
+                        ),
+                    )
+
+                    else -> respondJson(webFinger(subject = "acct:alice@remote.example", selfHref = actorId))
+                }
+            },
+        )
+
+        val actor = HttpRemoteActors(client = client).use { runBlocking { it.findActor(actorId) } }
+
+        assertNull(assertNotNull(actor).acct)
+    }
+
     private fun actorDocument(extraFields: String): String =
         """
         {
@@ -171,6 +224,7 @@ class HttpRemoteActorsTest {
         var webFingerRequested = false
         var webFingerRequestPort: Int? = null
         var webFingerResource: String? = null
+        var webFingerAccept: String? = null
 
         val client = HttpClient(
             MockEngine { request ->
@@ -178,6 +232,7 @@ class HttpRemoteActorsTest {
                     webFingerRequested = true
                     webFingerRequestPort = request.url.port
                     webFingerResource = request.url.parameters["resource"]
+                    webFingerAccept = request.headers[HttpHeaders.Accept]
                     if (webFinger == null) {
                         respondError(HttpStatusCode.NotFound)
                     } else {
@@ -196,6 +251,7 @@ class HttpRemoteActorsTest {
             webFingerRequested = webFingerRequested,
             webFingerRequestPort = webFingerRequestPort,
             webFingerResource = webFingerResource,
+            webFingerAccept = webFingerAccept,
         )
     }
 
@@ -210,6 +266,7 @@ class HttpRemoteActorsTest {
         val webFingerRequested: Boolean,
         val webFingerRequestPort: Int?,
         val webFingerResource: String?,
+        val webFingerAccept: String?,
     )
 
     private companion object {
