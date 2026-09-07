@@ -7,9 +7,13 @@ import java.net.InetAddress
 import java.net.URI
 import java.time.Duration
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -40,6 +44,13 @@ class IconFetchService(
     private val resolveAddresses: (String) -> List<InetAddress> = { InetAddress.getAllByName(it).toList() },
     private val resolveTimeout: Duration = DEFAULT_RESOLVE_TIMEOUT,
 ) : Closeable {
+    /**
+     * 名前を引く待ちを呼び出し側から切り離すための場所。
+     *
+     * 引き終わらないものが残っても、呼び出し側は待たずに戻る
+     */
+    private val resolveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     /**
      * 取ってくる。取れなければ [FetchResult.Failure]。
      *
@@ -165,16 +176,21 @@ class IconFetchService(
     /**
      * 名前を引く。引けなければ null。
      *
-     * 期限を切って別のスレッドで引く。名前を引く呼び出しは止められないので、
-     * ここで待ち続けると [HttpTimeout] の待ち時間に関係なく、
-     * 応答しない名前 1 つで取り込み全体が止まる
+     * 引くのは呼び出し側から切り離した所に投げて、[resolveTimeout] だけ待つ。
+     * 名前を引く呼び出しは途中で止められないので、同じ所で待つと
+     * [HttpTimeout] の待ち時間に関係なく、応答しない名前 1 つで取り込みが止まる。
+     * 待つのを IO の側で行うのは、待ち時間を実際の時計で計るため
      */
-    private suspend fun resolve(host: String): List<InetAddress>? =
-        runCatching {
-            withTimeout(resolveTimeout.toMillis()) {
-                withContext(Dispatchers.IO) { resolveAddresses(host) }
-            }
-        }.getOrNull()
+    private suspend fun resolve(host: String): List<InetAddress>? {
+        val resolving = resolveScope.async { runCatching { resolveAddresses(host) }.getOrNull() }
+
+        val resolved = withContext(Dispatchers.IO) {
+            withTimeoutOrNull(resolveTimeout.toMillis()) { resolving.await() }
+        }
+        if (resolved == null) resolving.cancel()
+
+        return resolved
+    }
 
     /**
      * 事業者やクラスタの内側で使う `100.64.0.0/10`。
@@ -199,6 +215,7 @@ class IconFetchService(
     }
 
     override fun close() {
+        resolveScope.cancel()
         client.close()
     }
 
