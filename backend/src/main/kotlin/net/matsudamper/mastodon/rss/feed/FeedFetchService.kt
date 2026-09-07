@@ -102,13 +102,18 @@ class FeedFetchService(
                 }
 
                 val html = response.readBodyUpTo(MAX_PAGE_BYTES)?.decodeToString() ?: return null
-                val channelId = channelIdFromPageHtml(html) ?: return null
+                val channelId = channelIdFromPageHtml(source.page, html) ?: return null
                 ResolvedFeed(
                     feedUrl = YouTubeFeedResolver.feedUrlForChannel(channelId) ?: return null,
                     youtubeChannelId = channelId,
                     // 引いたのがチャンネルのページなら説明文もここに入っている。
-                    // 動画のページからは取れないので、その分は後で引き直す
-                    youtubeChannelDescription = YouTubeFeedResolver.channelDescriptionFromPageHtml(html),
+                    // 動画のページには無いので、その分は後で引き直す
+                    youtubeChannelDescription = when (source.page) {
+                        YouTubeFeedSource.NeedsPageLookup.Page.CHANNEL ->
+                            YouTubeFeedResolver.channelDescriptionFromPageHtml(html)
+
+                        YouTubeFeedSource.NeedsPageLookup.Page.VIDEO -> null
+                    },
                 )
             }
         }
