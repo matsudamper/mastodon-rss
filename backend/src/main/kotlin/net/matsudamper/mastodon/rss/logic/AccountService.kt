@@ -23,11 +23,6 @@ class AccountService(
     private val domain: String,
 ) {
     /**
-     * 追加した順で返す
-     */
-    fun accounts(): List<ManagedAccount> = accounts.list().map { it.toManaged() }
-
-    /**
      * 名前で 1 つ引く。応答しない名前なら null
      */
     fun account(username: String): ManagedAccount? = accounts.findByUsername(username)?.toManaged()
