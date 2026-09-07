@@ -52,7 +52,12 @@ data class AccountsCursor(
          */
         fun decode(value: String): AccountsCursor? {
             val json = runCatching { DECODER.decode(value).decodeToString() }.getOrNull() ?: return null
-            return runCatching { AppJson.decodeFromString(serializer(), json) }.getOrNull()
+            val cursor = runCatching { AppJson.decodeFromString(serializer(), json) }.getOrNull() ?: return null
+
+            // 秒の値は任意の数を入れられる。時刻に直せなければ読めなかったのと同じ扱いにする
+            if (runCatching { cursor.toPosition() }.isFailure) return null
+
+            return cursor
         }
 
         // URL に載せても壊れない字だけにする。付ける必要が無いので詰め物は落とす

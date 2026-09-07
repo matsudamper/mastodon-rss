@@ -38,6 +38,17 @@ class AccountsCursorTest {
         assertNull(AccountsCursor.decode("Zm9v"))
     }
 
+    @Test
+    fun `時刻に直せない秒ならnull`() {
+        val encoded = AccountsCursor(
+            afterEpochSecond = Long.MAX_VALUE,
+            afterNano = 0,
+            afterId = 1,
+        ).encode()
+
+        assertNull(AccountsCursor.decode(encoded))
+    }
+
     private companion object {
         val POSITION = AccountPosition(
             createdAt = Instant.parse("2026-08-16T00:00:00.5Z"),
