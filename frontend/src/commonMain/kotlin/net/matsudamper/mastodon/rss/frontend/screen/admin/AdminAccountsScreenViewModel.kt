@@ -167,6 +167,7 @@ class AdminAccountsScreenViewModel(
                     loadMoreVisible = accounts.hasMore,
                     loadingMore = state.loadingMore,
                     loadMoreErrorMessage = state.loadMoreErrorMessage,
+                    loadMoreButtonText = if (state.loadMoreErrorMessage != null) "もう一度試す" else "もっと見る",
                 )
             }
         }

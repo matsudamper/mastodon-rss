@@ -30,6 +30,7 @@ private fun AdminAccountsContentPreview() {
                     loadMoreVisible = true,
                     loadingMore = false,
                     loadMoreErrorMessage = null,
+                    loadMoreButtonText = "もっと見る",
                 ),
                 listener = AndroidPreviewAdminAccountsListener,
             ),

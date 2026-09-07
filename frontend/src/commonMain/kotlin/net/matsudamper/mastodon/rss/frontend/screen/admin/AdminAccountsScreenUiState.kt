@@ -20,6 +20,7 @@ data class AdminAccountsScreenUiState(
             val loadMoreVisible: Boolean,
             val loadingMore: Boolean,
             val loadMoreErrorMessage: String?,
+            val loadMoreButtonText: String,
         ) : Content
 
         data class Error(

@@ -107,7 +107,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         // 読めないカーソルは、消えたアカウントを指していたのと同じ扱いにする
         val connection = if (cursor != null && after == null) {
             QlAdminAccountsConnection(
-                nodes = emptyList(),
+                nodes = listOf(),
                 pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
             )
         } else {

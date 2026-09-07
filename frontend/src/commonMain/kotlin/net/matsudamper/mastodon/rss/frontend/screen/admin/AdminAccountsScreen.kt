@@ -137,7 +137,7 @@ private fun Accounts(
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
                     Button(onClick = listener::onClickLoadMore) {
-                        Text(if (content.loadMoreErrorMessage != null) "もう一度試す" else "もっと見る")
+                        Text(content.loadMoreButtonText)
                     }
                 }
             }

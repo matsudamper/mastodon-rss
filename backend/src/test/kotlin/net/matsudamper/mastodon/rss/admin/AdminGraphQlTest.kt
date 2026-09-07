@@ -203,7 +203,7 @@ class AdminGraphQlTest {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
 
-            assertEquals(emptyList(), queryAccounts(token).accounts().nodes())
+            assertEquals(listOf(), queryAccounts(token).accounts().nodes())
         }
 
     @Test
@@ -282,7 +282,7 @@ class AdminGraphQlTest {
 
             val page = queryAccounts(token, cursor = "これはカーソルではない").accounts()
 
-            assertEquals(emptyList(), page.nodes())
+            assertEquals(listOf(), page.nodes())
             assertEquals(false, page.pageInfo().boolean("hasMore"))
         }
 
