@@ -142,8 +142,29 @@ class DeliveryWorker(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            // DB への記録で落ちた分。行は delivering のまま残り、次の起動で戻る
+            // DB への記録で落ちた分。delivering のまま残すと、起動時の復旧までこの行は二度と
+            // claim されない。送り直しの時刻を付けて pending に戻すのをもう一度だけ試す。
+            // 送れていた行を戻すと二重に届くことがあるが、受信側は id で冪等に扱う
             logger.error("配信の結果を記録できなかった: ${row.id.value} → ${row.inbox}", e)
+            releaseToRetry(row, "結果を記録できなかった: ${e.message}")
+        }
+    }
+
+    /**
+     * 記録に失敗した行を送り直し待ちに戻す。ここでも落ちたら諦めて delivering のまま残す
+     */
+    private fun releaseToRetry(
+        row: ClaimedDelivery,
+        reason: String,
+    ) {
+        try {
+            val now = clock()
+            val nextAttemptAt = retryPolicy.nextAttemptAt(attempts = row.attempts, enqueuedAt = row.enqueuedAt, now = now) ?: now
+            queue.scheduleRetry(row.id, nextAttemptAt = nextAttemptAt, error = reason)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error("配信を送り直し待ちに戻せなかった。次の起動まで送られない: ${row.id.value} → ${row.inbox}", e)
         }
     }
 

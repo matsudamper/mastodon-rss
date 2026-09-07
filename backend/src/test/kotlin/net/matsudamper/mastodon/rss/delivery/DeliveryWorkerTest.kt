@@ -21,6 +21,7 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NotePost
+import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 // キューの行を拾って送るところ。
@@ -141,6 +142,35 @@ class DeliveryWorkerTest {
         job.cancelAndJoin()
 
         assertEquals(listOf("https://a.example/inbox"), delivery.delivered)
+        assertEquals(emptyList(), repositories.deliveryQueue.rows())
+    }
+
+    @Test
+    fun `結果の記録に失敗した行は送り直し待ちに戻り 再起動しなくても送り直される`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery()
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
+        val queue = FailingMarkDeliveredOnce(repositories.deliveryQueue)
+        var current = now
+        val worker = DeliveryWorker(
+            queue = queue,
+            delivery = delivery,
+            directory = TestLocalActor.directory,
+            idleInterval = IDLE,
+            clock = { current },
+        )
+
+        val job = worker.start(this)
+        advanceTimeBy(IDLE * 2)
+        val row = repositories.deliveryQueue.rows().single()
+        assertEquals(FakeDeliveryQueueRepository.State.PENDING, row.state)
+        assertTrue(assertNotNull(row.lastError).contains("記録できなかった"))
+
+        current = now.plusSeconds(30)
+        advanceTimeBy(IDLE * 2)
+        job.cancelAndJoin()
+
+        assertEquals(2, delivery.attempts)
         assertEquals(emptyList(), repositories.deliveryQueue.rows())
     }
 
@@ -306,6 +336,23 @@ class DeliveryWorkerTest {
                 throw IllegalStateException("DB がロックされている")
             }
             return delegate.recoverDelivering()
+        }
+    }
+
+    /**
+     * 送れた記録だけ 1 回失敗させる
+     */
+    private class FailingMarkDeliveredOnce(
+        private val delegate: FakeDeliveryQueueRepository,
+    ) : DeliveryQueueRepository by delegate {
+        private var failed = false
+
+        override fun markDelivered(id: DeliveryId) {
+            if (!failed) {
+                failed = true
+                throw IllegalStateException("DB がロックされている")
+            }
+            delegate.markDelivered(id)
         }
     }
 
