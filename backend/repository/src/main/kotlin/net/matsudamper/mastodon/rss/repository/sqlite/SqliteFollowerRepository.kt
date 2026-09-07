@@ -63,6 +63,7 @@ internal class SqliteFollowerRepository(
 
         when {
             accepted -> FollowAcceptResult.FirstAccept
+
             dsl.fetchExists(
                 dsl
                     .selectOne()
