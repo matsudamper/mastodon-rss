@@ -122,8 +122,9 @@ class FeedFetchService(
                     feedUrl = YouTubeFeedResolver.feedUrlForChannel(channelId)
                         ?: return FeedUrlResolution.Failed(FetchResult.ChannelIdNotFound),
                     youtubeChannelId = channelId,
-                    // 引いたのがチャンネルのページなら、プロフィールの補完に使う。
-                    // 動画のページは、サムネイルなど別用途の画像を拾わないよう持たせない
+                    // 引いたのがチャンネルのページなら、説明文とプロフィール画像はこの中にある。
+                    // 動画のページは持たせない。og:image がその動画のサムネイルなので、
+                    // チャンネルのアイコンとして拾ってしまう
                     youtubeChannelPage = when (source.page) {
                         YouTubeFeedSource.NeedsPageLookup.Page.CHANNEL -> html
                         YouTubeFeedSource.NeedsPageLookup.Page.VIDEO -> null
@@ -143,10 +144,17 @@ class FeedFetchService(
     }
 
     /**
-     * YouTube のチャンネルのページから、フィードに無いプロフィール情報を補う。
+     * YouTube のチャンネルのページから、フィードに無いものを補う。
      *
-     * YouTube の Atom には説明文・アイコン・ヘッダー画像が無いので、チャンネルの
-     * ページを 1 回だけ引き、必要なものをまとめて埋める。
+     * YouTube の Atom には `subtitle` も、アイコンを表す要素（`icon` / `logo`）も無い。
+     * チャンネル名は `title` にあるが、説明文・アイコン・ヘッダーはチャンネルのページにしか
+     * 無いので、欠けているものがあるときだけそのページを引いて埋める。
+     *
+     * 説明文は登録時にしか使わないので [needsDescription] で分ける。アイコンとヘッダーは
+     * 定期取得でも埋める。ここで埋めないと、取り込みのたびにプロフィール画像が欠ける。
+     *
+     * 取れなくてもフィード自体は使えるので、失敗は無いものとして扱い、
+     * 取得の失敗にはしない。
      */
     private suspend fun ParsedFeed.withYouTubeChannelPage(
         resolved: ResolvedFeed,
@@ -206,7 +214,9 @@ class FeedFetchService(
         val youtubeChannelPage: String? = null,
     )
 
-    /** 取得しに行く URL を決められたかどうか */
+    /**
+     * 取得しに行く URL を決められたかどうか。
+     */
     private sealed interface FeedUrlResolution {
         data class Resolved(
             val feed: ResolvedFeed,
@@ -220,6 +230,9 @@ class FeedFetchService(
     /**
      * 上限を超えたら null を返す。超えた時点で読むのをやめるので、
      * 大きすぎる応答を最後まで受け取らない。
+     *
+     * 途中でやめた場合は残りを読む相手がいなくなるので、channel を閉じて
+     * 接続を返す。閉じないと繰り返すうちに接続が尽きる
      */
     private suspend fun HttpResponse.readBodyUpTo(limit: Int): ByteArray? {
         val channel = bodyAsChannel()
@@ -236,6 +249,14 @@ class FeedFetchService(
      *
      * 同じリソースを指す綴りの違いをここで吸収しないと、`findByUrl` の
      * 完全一致をすり抜けて同じフィードを何本も登録できてしまう。
+     *
+     * - フラグメントは取得先に送られず、同じリソースを指す
+     * - ホスト名は大文字小文字を区別しない
+     * - ホスト名の末尾の `.` はルートラベルで、付けても同じホストを指す
+     * - パスの `%XX` は、中身が予約文字でなければ書かないのと同じ意味になる。
+     *   予約文字で残す分も、16 進数の綴りでは意味が変わらない
+     *
+     * パスの大文字小文字と末尾の形は意味を持つので触らない
      */
     private fun Url.normalize(): String =
         URLBuilder(this)
@@ -246,7 +267,13 @@ class FeedFetchService(
             }
             .buildString()
 
-    /** 予約文字でない文字の `%XX` を元に戻し、残った `%XX` は大文字に揃える */
+    /**
+     * 予約文字でない文字の `%XX` を元に戻し、残った `%XX` は大文字に揃える。
+     *
+     * 予約文字は書き方で意味が変わる（`%2F` はパスの区切りではない）ので戻さない。
+     * ただし `%2F` と `%2f` は同じ文字を指すので、綴りだけ揃える。
+     * 多バイト文字の `%XX` は 0x80 以上で予約文字でもないため、戻す方には入らない
+     */
     private fun String.normalizePercentEncoding(): String =
         PERCENT_ENCODED.replace(this) { match ->
             val decoded = match.value.substring(1).toInt(16).toChar()
@@ -256,7 +283,10 @@ class FeedFetchService(
     private fun Char.isUnreserved(): Boolean =
         this in 'A'..'Z' || this in 'a'..'z' || this in '0'..'9' || this in "-._~"
 
-    /** 読まずに捨てる */
+    /**
+     * 読まずに捨てる。読む相手がいないまま置くと接続が返らず、
+     * 繰り返すうちに接続が尽きる
+     */
     private suspend fun HttpResponse.discardBody() {
         bodyAsChannel().cancel(null)
     }
@@ -274,6 +304,10 @@ class FeedFetchService(
 
         data object InvalidUrl : FetchResult
 
+        /**
+         * @param message 取得できなかった理由。例外の message は取得先の URL を含むことが
+         *   あるので入れない。記録やログに回るため、秘密を含まない形だけを渡す
+         */
         data class HttpError(
             val status: Int? = null,
             val message: String? = null,
@@ -281,6 +315,12 @@ class FeedFetchService(
 
         data object TooLarge : FetchResult
 
+        /**
+         * YouTube のページは取れたが、そこからチャンネル ID を抜き出せなかった。
+         *
+         * 同意画面やレート制限のページが 200 で返ってくることがあり、
+         * 取得の成否だけでは区別できない
+         */
         data object ChannelIdNotFound : FetchResult
 
         data class ParseError(
@@ -292,6 +332,14 @@ class FeedFetchService(
         private val PERCENT_ENCODED = Regex("%[0-9A-Fa-f]{2}")
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val MAX_BODY_BYTES = 5 * 1024 * 1024
+
+        /**
+         * YouTube のページから読む上限。
+         *
+         * 引く先は YouTubeFeedResolver が組み立てた YouTube の URL に限られるので、
+         * 大きめに取る。実際のチャンネルのページは 2MiB を超えることがあり、
+         * そこで切ると `/@handle` のチャンネルを登録できない
+         */
         private const val MAX_YOUTUBE_PAGE_BYTES = 50 * 1024 * 1024
 
         fun defaultClient(): HttpClient =
