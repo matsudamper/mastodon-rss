@@ -6,6 +6,7 @@ import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -139,6 +140,24 @@ class IconFetchServiceTest {
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
             assertEquals(Duration.ofDays(1), assertIs<IconFetchService.FetchResult.Success>(result).freshFor)
+        }
+
+    @Test
+    fun `共有キャッシュ向けの s-maxage は max-age として読まない`() =
+        runTest {
+            val engine = MockEngine {
+                respond(
+                    content = "PNG",
+                    headers = headersOf(
+                        "Content-Type" to listOf("image/png"),
+                        "Cache-Control" to listOf("public, s-maxage=86400"),
+                    ),
+                )
+            }
+
+            val result = serviceOf(engine).fetch("https://example.com/icon.png")
+
+            assertNull(assertIs<IconFetchService.FetchResult.Success>(result).freshFor)
         }
 
     @Test

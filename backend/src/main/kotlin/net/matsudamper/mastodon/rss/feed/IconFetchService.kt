@@ -105,10 +105,21 @@ class IconFetchService(
      * 溢れるうえ、事実上取り直さなくなる
      */
     private fun HttpResponse.cacheControlMaxAge(): Duration? {
-        val directives = headers[HttpHeaders.CacheControl]?.lowercase() ?: return null
-        if (directives.contains("no-store") || directives.contains("no-cache")) return Duration.ZERO
+        // カンマで区切って 1 つずつ丸ごと見る。ヘッダの文字列全体から探すと、
+        // 共有キャッシュ向けの s-maxage や、名前の一部が同じ別の指示を拾いうる
+        val directives = headers[HttpHeaders.CacheControl]
+            ?.lowercase()
+            ?.split(',')
+            ?.map { it.trim() }
+            ?: return null
 
-        val seconds = MAX_AGE.find(directives)?.groupValues?.get(1)?.toLongOrNull() ?: return null
+        if (directives.any { it == "no-store" || it == "no-cache" }) return Duration.ZERO
+
+        val seconds = directives
+            .firstNotNullOfOrNull { MAX_AGE.matchEntire(it)?.groupValues?.get(1) }
+            ?.toLongOrNull()
+            ?: return null
+
         return Duration.ofSeconds(seconds).coerceAtMost(MAX_FRESH_FOR)
     }
 
