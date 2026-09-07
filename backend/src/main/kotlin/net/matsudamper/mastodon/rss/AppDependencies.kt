@@ -219,6 +219,8 @@ class AppDependencies(
         notes = noteStore,
         followers = followerStore,
         delivery = delivery,
+        actorKey = actorKey,
+        feedLinks = feedLinks,
     )
 
     /**

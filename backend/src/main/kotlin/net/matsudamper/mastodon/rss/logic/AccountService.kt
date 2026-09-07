@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.actor.ActorProfile
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
@@ -109,7 +110,7 @@ class AccountService(
         return AddAccountResult.Success(added.toManaged())
     }
 
-    fun updateProfile(
+    suspend fun updateProfile(
         username: String,
         displayName: String,
         summary: String,
@@ -127,7 +128,12 @@ class AccountService(
             displayName = trimmedDisplayName.ifEmpty { null },
             summary = trimmedSummary.ifEmpty { null },
         ) ?: return UpdateProfileResult.Failure(true, false, false)
-        return UpdateProfileResult.Success(updated.toManaged())
+        val managed = updated.toManaged()
+        actorPublisher.update(
+            sender = managed.urls,
+            profile = ActorProfile(displayName = updated.displayName, summary = updated.summary),
+        )
+        return UpdateProfileResult.Success(managed)
     }
 
     /**

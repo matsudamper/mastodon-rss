@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.actor
 
 import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.DeleteActorActivity
+import net.matsudamper.mastodon.rss.activity.UpdateActorActivity
 import net.matsudamper.mastodon.rss.crypto.UuidV7
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
@@ -12,10 +13,7 @@ import net.matsudamper.mastodon.rss.note.NoteStore
 import org.slf4j.LoggerFactory
 
 /**
- * アクターを消して、消したことを配る。
- *
- * 配る前に配信先を控えてから、フォロワーと投稿の記録を消す。記録を残したまま配ると、
- * `Delete` を受けた相手が確かめに来たときにまだアクターの中身を返してしまう。
+ * アクター情報の更新と削除をフォロワーへ配る。
  *
  * 配信は [net.matsudamper.mastodon.rss.note.NotePublisher] と同じくその場で
  * 1 件ずつ送り、失敗しても再送しない。
@@ -24,9 +22,47 @@ class ActorPublisher(
     private val notes: NoteStore,
     private val followers: FollowerStore,
     private val delivery: ActivityDelivery,
+    private val actorKey: ActorKey,
+    private val feedLinks: StoredFeedLinks,
 ) {
     private val logger = LoggerFactory.getLogger(ActorPublisher::class.java)
 
+    suspend fun update(sender: ActorUrls, profile: ActorProfile) {
+        val targets = followers.deliveryTargets(sender.username)
+        val body = AppJson.encodeToString(
+            UpdateActorActivity.serializer(),
+            UpdateActorActivity(
+                // 同じアクターを何度更新しても、相手の重複判定で落ちない id にする
+                id = ActivityPubId("${sender.actorId}#update-${UuidV7.generate()}"),
+                actor = sender.actorId,
+                to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
+                updatedActor = actorDocument(
+                    urls = sender,
+                    actorKey = actorKey,
+                    feedLinks = feedLinks.find(sender.username),
+                    profile = profile,
+                ),
+            ),
+        ).toByteArray()
+
+        var delivered = 0
+        targets.forEach { inbox ->
+            when (val result = delivery.deliver(inbox = inbox, sender = sender, body = body)) {
+                is DeliveryResult.Delivered -> delivered++
+
+                is DeliveryResult.Failed -> logger.warn("配れなかった: ${sender.acct} → $inbox ${result.reason}")
+            }
+        }
+
+        logger.info("アクターの更新を配った: ${sender.acct} 宛先=${targets.size} 成功=$delivered")
+    }
+
+    /**
+     * アクターを消して、消したことを配る。
+     *
+     * 配る前に配信先を控えてから、フォロワーと投稿の記録を消す。記録を残したまま配ると、
+     * `Delete` を受けた相手が確かめに来たときにまだアクターの中身を返してしまう。
+     */
     suspend fun delete(sender: ActorUrls): DeletedActor {
         val targets = followers.deliveryTargets(sender.username)
 

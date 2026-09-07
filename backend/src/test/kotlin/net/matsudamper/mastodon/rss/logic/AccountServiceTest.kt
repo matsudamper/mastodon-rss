@@ -10,6 +10,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import net.matsudamper.mastodon.rss.FakeRepositories
+import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
@@ -152,7 +153,7 @@ class AccountServiceTest {
     }
 
     @Test
-    fun `絵文字だけの表示名をコードポイント数で上限まで保存できる`() {
+    fun `絵文字だけの表示名をコードポイント数で上限まで保存できる`() = runTest {
         val repositories = FakeRepositories()
         repositories.accounts.add(username = USERNAME, createdAt = CREATED_AT)
 
@@ -165,6 +166,27 @@ class AccountServiceTest {
         assertIs<AccountService.UpdateProfileResult.Success>(result)
     }
 
+    @Test
+    fun `プロフィールを更新するとフォロワーに Update Actor を配る`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.withFullAccount()
+        val delivery = TestDelivery()
+
+        val result = serviceOf(repositories, delivery).updateProfile(
+            username = USERNAME,
+            displayName = "更新後",
+            summary = "新しい説明",
+        )
+
+        assertIs<AccountService.UpdateProfileResult.Success>(result)
+        val body = delivery.delivered.single().body
+        assertContains(body, "\"type\":\"Update\"")
+        assertContains(body, "\"actor\":\"https://${TestLocalActor.DOMAIN}/users/$USERNAME\"")
+        assertContains(body, "\"name\":\"更新後\"")
+        assertContains(body, "\"summary\":\"<p>新しい説明</p>\"")
+        assertContains(body, "\"inbox\":\"https://${TestLocalActor.DOMAIN}/users/$USERNAME/inbox\"")
+    }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         delivery: TestDelivery,
@@ -175,6 +197,8 @@ class AccountServiceTest {
             notes = RepositoryNoteStore(repositories.notes),
             followers = RepositoryFollowerStore(repositories.followers),
             delivery = delivery,
+            actorKey = TestActorKey.value,
+            feedLinks = TestLocalActor.feedLinks,
         ),
         iconFiles = AccountIconFiles(
             feeds = repositories.feeds,
