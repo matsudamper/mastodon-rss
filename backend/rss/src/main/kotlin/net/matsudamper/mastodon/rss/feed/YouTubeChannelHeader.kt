@@ -15,9 +15,10 @@ private fun bannerUrl(
     keys: List<String>,
 ): String? {
     var index = 0
-    for (key in keys) {
+    keys.forEachIndexed { position, key ->
         val found = html.indexOf(key, startIndex = index)
-        if (found < 0 || found - index > MAX_KEY_DISTANCE) return null
+        if (found < 0) return null
+        if (position > 0 && found - index > MAX_KEY_DISTANCE) return null
         index = found + key.length
     }
 
