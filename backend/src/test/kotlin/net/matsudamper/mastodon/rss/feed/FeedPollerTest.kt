@@ -21,6 +21,7 @@ import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.logic.FeedService
+import net.matsudamper.mastodon.rss.logic.NotePoster
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
@@ -31,10 +32,9 @@ class FeedPollerTest {
     fun `1 周目が失敗しても次の周で新着を投稿する`() =
         runBlocking {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val feeds = FailingOnceFeedRepository(repositories.feeds)
-            val service = serviceOf(repositories = repositories, feeds = feeds, noteStore = noteStore)
+            val service = serviceOf(repositories = repositories, feeds = feeds)
             service.save(accountId = account.id, url = FEED_URL)
             // 登録時の取得が記録されるので、取得の時期が来た状態に戻す
             val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
@@ -47,7 +47,7 @@ class FeedPollerTest {
             val job = FeedPoller(feedService = service, checkInterval = CHECK_INTERVAL).start(this)
             try {
                 withTimeout(TIMEOUT) {
-                    while (noteStore.added.isEmpty()) {
+                    while (repositories.notes.all().isEmpty()) {
                         delay(CHECK_INTERVAL)
                     }
                 }
@@ -58,14 +58,13 @@ class FeedPollerTest {
 
             assertEquals(
                 listOf("""<p>1 本目<br><a href="https://example.com/1">https://example.com/1</a></p>"""),
-                noteStore.added.map { it.contentHtml },
+                repositories.notes.all().map { it.contentHtml },
             )
         }
 
     private fun serviceOf(
         repositories: FakeRepositories,
         feeds: FeedRepository,
-        noteStore: FakeNoteStore,
     ): FeedService {
         val engine = MockEngine {
             respond(
@@ -80,10 +79,14 @@ class FeedPollerTest {
             feedItems = repositories.feedItems,
             fetcher = FeedFetchService(HttpClient(engine)),
             actorDirectory = TestLocalActor.directory,
-            notePublisher = NotePublisher(
-                notes = noteStore,
-                followers = FakeFollowerStore(),
-                delivery = TestDelivery(),
+            notePoster = NotePoster(
+                publisher = NotePublisher(
+                    notes = FakeNoteStore(),
+                    followers = FakeFollowerStore(),
+                    delivery = TestDelivery(),
+                ),
+                followers = repositories.followers,
+                deliveryQueue = repositories.deliveryQueue,
             ),
         )
     }

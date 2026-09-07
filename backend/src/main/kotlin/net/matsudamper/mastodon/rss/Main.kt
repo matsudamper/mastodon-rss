@@ -52,9 +52,11 @@ fun main() {
     // start が例外で終わった場合も含めてここ 1 か所で閉じられる
     Runtime.getRuntime().addShutdownHook(
         Thread {
-            // 待ち受けを止める前にポーリングを止める。投稿を受け取った相手はその場で
-            // Note やアクターの URL を引きに来るので、止めた後に投稿すると繋げずに終わる
+            // 待ち受けを止める前にポーリングと配信を止める。投稿を受け取った相手はその場で
+            // Note やアクターの URL を引きに来るので、止めた後に送ると繋げずに終わる。
+            // 送信中の配信は待たない。行は delivering のまま残り、次の起動で送り直される
             deps.stopFeedPolling()
+            deps.stopDeliveryWorker()
 
             // 処理中のリクエストが DB を触っている最中に閉じないよう、次にサーバーを止める。
             // 待ち時間は docker stop の既定の猶予（10 秒）に収まる範囲にする
@@ -64,8 +66,9 @@ fun main() {
     )
 
     // 受け付けが始まってから動かす。投稿を受け取った相手はその場で Note やアクターの
-    // URL を引きに来るので、待ち受ける前に投稿すると相手は繋げずに終わる
+    // URL を引きに来るので、待ち受ける前に送ると相手は繋げずに終わる
     server.monitor.subscribe(ServerReady) {
+        deps.startDeliveryWorker()
         deps.startFeedPolling()
     }
 
@@ -125,7 +128,9 @@ fun Application.module(deps: AppDependencies) {
         followerRepository = deps.repositories.followers,
         domain = env.domain,
         actorDirectory = deps.directory,
+        deliveryQueueRepository = deps.repositories.deliveryQueue,
         notePublisher = deps.notePublisher,
+        notePoster = deps.notePoster,
         actorPublisher = deps.actorPublisher,
         noteStore = deps.noteStore,
         feedService = deps.feedService,

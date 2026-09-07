@@ -6,6 +6,7 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.shared.AccountId
 import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
@@ -16,6 +17,7 @@ import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 class AccountService(
     private val accounts: AccountRepository,
     private val followers: FollowerRepository,
+    private val deliveryQueue: DeliveryQueueRepository,
     private val actorPublisher: ActorPublisher,
     private val domain: String,
 ) {
@@ -154,6 +156,8 @@ class AccountService(
             return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
         }
 
+        // 送り残しがあると、消えたアカウントとして署名しようとして送れない行を延々と送り直す
+        deliveryQueue.deleteByUsername(account.username)
         actorPublisher.delete(ActorUrls(domain = domain, username = account.username))
 
         return DeleteResult.Success

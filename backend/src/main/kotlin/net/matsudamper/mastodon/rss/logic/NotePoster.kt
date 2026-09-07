@@ -1,0 +1,91 @@
+package net.matsudamper.mastodon.rss.logic
+
+import java.time.Instant
+import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.mastodon.rss.note.NotePublisher
+import net.matsudamper.mastodon.rss.note.PreparedNote
+import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
+import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
+import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.NotePost
+import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
+import org.slf4j.LoggerFactory
+
+/**
+ * 投稿を組み立てて、記録と配信の投函を 1 回で確定させる。
+ *
+ * `:backend:feature-mastodon` の [NotePublisher] が `Create{Note}` を組み立て、
+ * `:backend:repository` の投函の口が記録・投函・記事の投稿済み化を 1 トランザクションで書く。
+ * 両方を知っているのは `:backend` だけなので、繋ぐのはここになる。
+ *
+ * 配信はここでは行わない。投函した行は配信ワーカーが拾って送る。
+ */
+class NotePoster(
+    private val publisher: NotePublisher,
+    private val followers: FollowerRepository,
+    private val deliveryQueue: DeliveryQueueRepository,
+) {
+    private val logger = LoggerFactory.getLogger(NotePoster::class.java)
+
+    /**
+     * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと
+     * @param feedItemId 記事から投稿するなら、その記事。管理画面からの告知は null
+     * @return 記事が既に投稿済みか消えていて何も書かなかったなら null
+     */
+    fun post(
+        sender: ActorUrls,
+        contentHtml: String,
+        feedItemId: FeedItemId?,
+    ): QueuedNote? {
+        val prepared = publisher.prepare(sender = sender, contentHtml = contentHtml)
+        val inboxes = followers.deliveryTargets(sender.username)
+
+        val result = deliveryQueue.enqueueNote(
+            NotePost(
+                note = prepared.toNewNote(sender),
+                body = prepared.activityJson,
+                inboxes = inboxes,
+                enqueuedAt = prepared.publishedAt,
+                feedItemId = feedItemId,
+            ),
+        )
+
+        return when (result) {
+            is EnqueueNoteResult.Queued -> {
+                logger.info("投稿を投函した: ${sender.acct} ${prepared.publicId} 宛先=${result.deliveries}")
+                QueuedNote(
+                    publicId = prepared.publicId,
+                    url = prepared.url,
+                    contentHtml = prepared.contentHtml,
+                    publishedAt = prepared.publishedAt,
+                    queuedDeliveries = result.deliveries,
+                )
+            }
+
+            EnqueueNoteResult.FeedItemNotPending -> null
+        }
+    }
+
+    private fun PreparedNote.toNewNote(sender: ActorUrls): NewNote = NewNote(
+        username = sender.username,
+        publicId = PublicNoteId(publicId.value),
+        contentHtml = contentHtml,
+        publishedAt = publishedAt,
+    )
+}
+
+/**
+ * 記録して投函した投稿。
+ *
+ * @param queuedDeliveries キューに入れた宛先の数。`sharedInbox` でまとまるのでフォロワーの数とは一致しない
+ */
+data class QueuedNote(
+    val publicId: MastodonPublicNoteId,
+    val url: String,
+    val contentHtml: String,
+    val publishedAt: Instant,
+    val queuedDeliveries: Int,
+)

@@ -56,4 +56,13 @@ type AdminAccount {
 
     "登録済みの RSS フィード。未登録なら null"
     feed: Feed @lazy
+
+    "このアカウントが署名する配信キューの件数"
+    deliveryQueue: AdminDeliveryQueueCounts! @lazy
+
+    "送り直しを待っている配信。次に送る時刻の順"
+    retryingDeliveries(cursor: String, limit: Int!): AdminRetryingDeliveriesConnection! @lazy
+
+    "諦めた配信。新しい順"
+    failedDeliveries(cursor: String, limit: Int!): AdminFailedDeliveriesConnection! @lazy
 }

@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.admin
 
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -42,8 +43,13 @@ import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.repository.IncomingFollow
+import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import net.matsudamper.mastodon.rss.testDependencies
 
 // 管理画面のログインを GraphQL の口から確認する。
@@ -479,6 +485,81 @@ class AdminGraphQlTest {
                 listOf("1 本目", "2 本目"),
                 nodes.map { it.jsonObject.obj("feedItem").string("title") }.sorted(),
             )
+        }
+
+    @Test
+    fun `postNote はフォロワーの inbox ぶんをキューに入れ deliveryQueue で数えられる`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(passwordConfigured = true, repositories = repositories)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val follower = NewRemoteActor(
+                actorUri = "https://remote.example/users/follower",
+                inbox = "https://remote.example/users/follower/inbox",
+                sharedInbox = null,
+                publicKeyPem = "pem",
+            )
+            repositories.followers.record(
+                IncomingFollow(
+                    username = "feed1",
+                    follower = follower,
+                    followActivityUri = "https://remote.example/follows/1",
+                    receivedAt = Instant.parse("2026-08-16T00:00:00Z"),
+                ),
+            )
+            repositories.followers.markAccepted(
+                username = "feed1",
+                followerActorUri = follower.actorUri,
+                acceptedAt = Instant.parse("2026-08-16T00:00:00Z"),
+            )
+
+            val posted = mutatePostNote(username = "feed1", body = "お知らせ", token = token).admin().obj("postNote")
+
+            assertEquals(1, posted.getValue("deliveryTargets").jsonPrimitive.int)
+
+            val queue = queryDeliveryQueue("feed1", token).admin().obj("adminAccount")
+            assertEquals(1, queue.obj("deliveryQueue").getValue("waitingCount").jsonPrimitive.int)
+            assertEquals(0, queue.obj("deliveryQueue").getValue("failedCount").jsonPrimitive.int)
+            // まだ一度も送っていないので、送り直し待ちには出ない
+            assertEquals(emptyList(), queue.obj("retryingDeliveries").getValue("nodes").jsonArray)
+            assertEquals(emptyList(), queue.obj("failedDeliveries").getValue("nodes").jsonArray)
+        }
+
+    @Test
+    fun `retryingDeliveries と failedDeliveries は宛先と回数と理由を返す`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(passwordConfigured = true, repositories = repositories)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+            val now = Instant.parse("2026-08-16T00:00:00Z")
+            repositories.deliveryQueue.enqueueNote(
+                NotePost(
+                    note = NewNote(username = "feed1", publicId = PublicNoteId("n1"), contentHtml = "<p>a</p>", publishedAt = now),
+                    body = "{}",
+                    inboxes = listOf("https://retry.example/inbox", "https://dead.example/inbox"),
+                    enqueuedAt = now,
+                    feedItemId = null,
+                ),
+            )
+            val (retry, dead) = repositories.deliveryQueue.claim(now = now, limit = 10)
+            repositories.deliveryQueue.scheduleRetry(retry.id, nextAttemptAt = now.plusSeconds(30), error = "HTTP 503")
+            repositories.deliveryQueue.giveUp(dead.id, error = "30 日を過ぎた")
+
+            val account = queryDeliveryQueue("feed1", token).admin().obj("adminAccount")
+
+            assertEquals(1, account.obj("deliveryQueue").getValue("waitingCount").jsonPrimitive.int)
+            assertEquals(1, account.obj("deliveryQueue").getValue("failedCount").jsonPrimitive.int)
+            val retrying = account.obj("retryingDeliveries").getValue("nodes").jsonArray.single().jsonObject
+            assertEquals("https://retry.example/inbox", retrying.string("inbox"))
+            assertEquals(1, retrying.getValue("attempts").jsonPrimitive.int)
+            assertEquals(now.plusSeconds(30).epochSecond, retrying.getValue("nextAttemptAt").jsonPrimitive.long)
+            assertEquals("HTTP 503", retrying.string("lastError"))
+            val failed = account.obj("failedDeliveries").getValue("nodes").jsonArray.single().jsonObject
+            assertEquals("https://dead.example/inbox", failed.string("inbox"))
+            assertEquals("30 日を過ぎた", failed.string("lastError"))
+            assertFalse(account.obj("failedDeliveries").obj("pageInfo").boolean("hasMore"))
         }
 
     @Test
@@ -1084,6 +1165,20 @@ class AdminGraphQlTest {
             variables = """{"accountId":${JsonPrimitive(accountId)}}""",
         )
 
+    private suspend fun ApplicationTestBuilder.queryDeliveryQueue(
+        username: String,
+        token: String? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "query Queue(${'$'}username: String!) { admin { adminAccount(username: ${'$'}username) { " +
+                "deliveryQueue { waitingCount failedCount } " +
+                "retryingDeliveries(limit: 10) { nodes { inbox attempts nextAttemptAt lastError } pageInfo { hasMore nextCursor } } " +
+                "failedDeliveries(limit: 10) { nodes { inbox attempts lastError } pageInfo { hasMore nextCursor } } } } }",
+            token = token,
+            variables = """{"username":${JsonPrimitive(username)}}""",
+        )
+
     private suspend fun ApplicationTestBuilder.mutatePostNote(
         username: String,
         body: String,
@@ -1092,7 +1187,7 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "mutation Post(${'$'}username: String!, ${'$'}body: String!) { admin { " +
-                "postNote(username: ${'$'}username, body: ${'$'}body) { note { url } failure { isEmpty } } } }",
+                "postNote(username: ${'$'}username, body: ${'$'}body) { note { url } deliveryTargets failure { isEmpty } } } }",
             token = token,
             variables = """{"username":${JsonPrimitive(username)},"body":${JsonPrimitive(body)}}""",
         )

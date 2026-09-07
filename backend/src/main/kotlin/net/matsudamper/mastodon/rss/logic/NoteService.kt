@@ -6,7 +6,6 @@ import net.matsudamper.mastodon.rss.note.DeletedNote
 import net.matsudamper.mastodon.rss.note.NotePosition
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
-import net.matsudamper.mastodon.rss.note.PublishedNote
 import net.matsudamper.mastodon.rss.note.StoredNote
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
@@ -19,9 +18,13 @@ import net.matsudamper.mastodon.rss.shared.PublicNoteId
 class NoteService(
     private val directory: ActorDirectory,
     private val publisher: NotePublisher,
+    private val poster: NotePoster,
     private val notes: NoteStore,
 ) {
-    suspend fun post(
+    /**
+     * 記録して配信を投函する。相手に届くのはこの後、配信ワーカーが送ってから
+     */
+    fun post(
         username: String,
         body: String,
     ): PostResult {
@@ -37,7 +40,10 @@ class NoteService(
             return PostResult.Failure(unknownAccount = false, isEmpty = false, tooLong = true)
         }
 
-        return PostResult.Success(publisher.publish(sender = urls, contentHtml = toHtml(text)))
+        val queued = poster.post(sender = urls, contentHtml = toHtml(text), feedItemId = null)
+            ?: error("記事を伴わない投稿が投函できなかった")
+
+        return PostResult.Success(queued)
     }
 
     /**
@@ -163,7 +169,7 @@ class NoteService(
 
     sealed interface PostResult {
         data class Success(
-            val published: PublishedNote,
+            val queued: QueuedNote,
         ) : PostResult
 
         /**

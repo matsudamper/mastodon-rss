@@ -22,6 +22,7 @@ import net.matsudamper.mastodon.rss.actor.StoredActorProfiles
 import net.matsudamper.mastodon.rss.actor.StoredFeedLinks
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.delivery.DeliveryWorker
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
@@ -29,6 +30,7 @@ import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.logic.FeedService
+import net.matsudamper.mastodon.rss.logic.NotePoster
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
 import net.matsudamper.mastodon.rss.note.NotePublisher
@@ -43,8 +45,8 @@ import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
  *
  * 何をどの順で作り、どの順で閉じるかをここ 1 か所に集める。以前は [main] の中で
  * `use` を入れ子にしていたが、抱えるものが増えるたびに入れ子が深くなり、
- * [Application.module] の引数も一緒に伸びていく形だった。Phase 4 の配信キューと
- * Phase 5 のスケジューラはどちらもここに並ぶ。
+ * [Application.module] の引数も一緒に伸びていく形だった。配信キューのワーカーと
+ * フィードの定期ポーリングもここに並ぶ。
  *
  * 外から作れるようにしてあるのはテストのため。フェイクを渡せば、
  * 本物の DB や外向きの HTTP を用意せずにルーティングを組み立てられる。
@@ -124,16 +126,51 @@ class AppDependencies(
         delivery = delivery,
     )
 
+    val notePoster: NotePoster = NotePoster(
+        publisher = notePublisher,
+        followers = repositories.followers,
+        deliveryQueue = repositories.deliveryQueue,
+    )
+
     val feedService: FeedService = FeedService(
         accounts = repositories.accounts,
         feeds = repositories.feeds,
         feedItems = repositories.feedItems,
         fetcher = feedFetcher,
         actorDirectory = directory,
-        notePublisher = notePublisher,
+        notePoster = notePoster,
     )
 
     private val feedPollingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val deliveryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * 配信キューのワーカーを始める。
+     *
+     * 呼ぶまで 1 件も送らない。止めるのは [stopDeliveryWorker]
+     */
+    fun startDeliveryWorker() {
+        DeliveryWorker(
+            queue = repositories.deliveryQueue,
+            delivery = delivery,
+            directory = directory,
+        ).start(deliveryScope)
+    }
+
+    /**
+     * ワーカーを止める。送信中の行は待たずに `delivering` のまま残し、次の起動の復旧に任せる。
+     *
+     * 待ち受けを止める前に呼ぶ。投稿を受け取った相手はその場で Note やアクターの URL を
+     * 引きに来るので、止めた後に送ると相手は繋げずに終わる。何度呼んでもよい
+     */
+    fun stopDeliveryWorker() {
+        runBlocking {
+            withTimeoutOrNull(3_000) {
+                deliveryScope.coroutineContext.job.cancelAndJoin()
+            }
+        }
+    }
 
     /**
      * フィードの定期ポーリングを始める。
@@ -172,8 +209,9 @@ class AppDependencies(
      * 最初の close が投げた時点で後ろが開いたままになる。
      */
     override fun close() {
-        // 取り込みの途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ
+        // 取り込みや送信の途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ
         stopFeedPolling()
+        stopDeliveryWorker()
 
         try {
             feedFetcher.close()

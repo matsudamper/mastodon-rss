@@ -1,0 +1,45 @@
+"配信キューのうち、このアカウントが署名する分の件数"
+type AdminDeliveryQueueCounts {
+    "送る時刻を待っているものと、送っている最中のものの合計"
+    waitingCount: Int!
+
+    "諦めたもの。行は消えないので増え続ける"
+    failedCount: Int!
+}
+
+type AdminRetryingDeliveriesConnection {
+    nodes: [AdminRetryingDelivery!]!
+    pageInfo: PageInfo!
+}
+
+"一度は送れず、送り直しを待っている配信 1 件"
+type AdminRetryingDelivery {
+    "宛先の inbox"
+    inbox: String!
+
+    "送ろうとした回数"
+    attempts: Int!
+
+    "次に送る時刻"
+    nextAttemptAt: UnixTime!
+
+    "最後に送れなかった理由"
+    lastError: String
+}
+
+type AdminFailedDeliveriesConnection {
+    nodes: [AdminFailedDelivery!]!
+    pageInfo: PageInfo!
+}
+
+"諦めた配信 1 件。もう送らない"
+type AdminFailedDelivery {
+    "宛先の inbox"
+    inbox: String!
+
+    "送ろうとした回数"
+    attempts: Int!
+
+    "最後に送れなかった理由"
+    lastError: String
+}

@@ -187,8 +187,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
     }
 
     /**
-     * 配信の成否は投稿の成否と別に返す。相手のサーバーが受け取らなくても
-     * こちらの記録は残るので、どちらも分かる形にしないと画面で説明できない
+     * 配信はキューに入るだけで、相手に届くのはこの後。返せるのは投函した宛先の数まで
      */
     override fun postNote(
         adminMutation: QlAdminMutation,
@@ -198,42 +197,34 @@ class AdminMutationResolverImpl : AdminMutationResolver {
     ): CompletionStage<DataFetcherResult<QlAdminPostNoteResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val diContainer = GraphQlEngine.diContainer(env)
-
-        // 配信は相手のサーバーへの POST を伴うので中断できる形で呼ぶ。
-        // GraphQL のリゾルバは CompletionStage を返す約束なので、そこに繋ぎ直す
-        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
-            val result = when (val posted = diContainer.noteService.post(username = username, body = body)) {
-                is NoteService.PostResult.Success -> {
-                    QlAdminPostNoteResult(
-                        note = QlAdminNote(
-                            id = PublicNoteId(posted.published.publicId.value),
-                            url = posted.published.url,
-                            contentHtml = posted.published.contentHtml,
-                            publishedAt = posted.published.publishedAt.epochSecond,
-                        ),
-                        deliveryTargets = posted.published.deliveryAttemptCount,
-                        delivered = posted.published.delivered,
-                        failure = null,
-                    )
-                }
-
-                is NoteService.PostResult.Failure -> {
-                    QlAdminPostNoteResult(
-                        note = null,
-                        deliveryTargets = null,
-                        delivered = null,
-                        failure = QlAdminPostNoteFailure(
-                            unknownAccount = posted.unknownAccount,
-                            isEmpty = posted.isEmpty,
-                            maxLength = NoteService.MAX_LENGTH.takeIf { posted.tooLong },
-                        ),
-                    )
-                }
+        val result = when (val posted = GraphQlEngine.diContainer(env).noteService.post(username = username, body = body)) {
+            is NoteService.PostResult.Success -> {
+                QlAdminPostNoteResult(
+                    note = QlAdminNote(
+                        id = PublicNoteId(posted.queued.publicId.value),
+                        url = posted.queued.url,
+                        contentHtml = posted.queued.contentHtml,
+                        publishedAt = posted.queued.publishedAt.epochSecond,
+                    ),
+                    deliveryTargets = posted.queued.queuedDeliveries,
+                    failure = null,
+                )
             }
 
-            DataFetcherResult.Builder(result).build()
+            is NoteService.PostResult.Failure -> {
+                QlAdminPostNoteResult(
+                    note = null,
+                    deliveryTargets = null,
+                    failure = QlAdminPostNoteFailure(
+                        unknownAccount = posted.unknownAccount,
+                        isEmpty = posted.isEmpty,
+                        maxLength = NoteService.MAX_LENGTH.takeIf { posted.tooLong },
+                    ),
+                )
+            }
         }
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
     override fun saveFeed(

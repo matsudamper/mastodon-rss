@@ -3,8 +3,6 @@ package net.matsudamper.mastodon.rss.logic
 import java.net.URI
 import java.time.Instant
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedItemKey
@@ -13,7 +11,6 @@ import net.matsudamper.mastodon.rss.feed.HtmlSanitizer
 import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.feed.ParsedFeedItem
 import net.matsudamper.mastodon.rss.feed.toDisplayName
-import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
@@ -35,10 +32,8 @@ class FeedService(
     private val feedItems: FeedItemRepository,
     private val fetcher: FeedFetchService,
     private val actorDirectory: ActorDirectory,
-    private val notePublisher: NotePublisher,
+    private val notePoster: NotePoster,
 ) {
-    private val publishLock = Mutex()
-
     private val logger = LoggerFactory.getLogger(FeedService::class.java)
 
     suspend fun preview(url: String): PreviewResult {
@@ -407,28 +402,26 @@ class FeedService(
     /**
      * 未投稿の記事を投稿して、投稿済みにする。
      *
-     * 定期ポーリングと管理画面からの手動投稿は同時に走りうる。取り出してから
-     * 投稿済みにするまでを直列化しないと、両方が同じ記事を取り出してフォロワーに
-     * 2 回配信する。取り消す手段は無いので、入口を 1 本に絞って防ぐ
+     * 定期ポーリングと管理画面からの手動投稿は同時に走りうる。記事を投稿済みにするのと
+     * 投稿の記録・投函は投函の口が 1 トランザクションで確定させ、`pending` でなくなっていた
+     * 記事は何も書かずに飛ばされる。両方が同じ記事を取り出しても、投稿されるのは 1 回になる
      *
      * 今回取り込んだ分に絞らず、未投稿を全部投稿する。投稿できずに残る理由は
-     * 配信先の不調や停止で消えるものが多く、取り込んだ回を逃すと二度と拾えない
+     * アクターの引き当てなど一時的なものが多く、取り込んだ回を逃すと二度と拾えない
      */
-    private suspend fun publishPending(
+    private fun publishPending(
         feed: Feed,
         username: String,
         htmlByKey: Map<String, String?>,
-    ): List<UnpublishedItem> = publishLock.withLock {
-        val sender = actorDirectory.resolve(username) ?: return@withLock emptyList()
+    ): List<UnpublishedItem> {
+        val sender = actorDirectory.resolve(username) ?: return emptyList()
         val posted = mutableListOf<UnpublishedItem>()
         feedItems
             .findPending(feed.id, Int.MAX_VALUE)
             .forEach { stored ->
                 val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
-                val published = try {
-                    notePublisher.publish(sender = sender, contentHtml = html)
-                } catch (e: CancellationException) {
-                    throw e
+                val queued = try {
+                    notePoster.post(sender = sender, contentHtml = html, feedItemId = stored.id)
                 } catch (e: Exception) {
                     // 投稿できなかった記事は未投稿のまま残る。無人で動くので、
                     // 気付けるようにここに残す。記事のリンクや鍵は購読者だけが知る値を
@@ -436,14 +429,15 @@ class FeedService(
                     logger.warn("記事を投稿できなかった: フィード ${feed.id.value} の記事 ${stored.id.value}", e)
                     return@forEach
                 }
-                feedItems.markPosted(stored.id, Instant.now(), noteId = PublicNoteId(published.publicId.value))
+                // 取り出してから投函するまでの間に別の経路が投稿した記事
+                if (queued == null) return@forEach
                 posted += UnpublishedItem(
                     title = stored.title,
                     link = stored.link,
                     publishedAt = stored.publishedAt,
                 )
             }
-        posted
+        return posted
     }
 
     private suspend fun importLatest(feed: Feed): ImportLatestResult {

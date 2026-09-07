@@ -3,6 +3,12 @@ package net.matsudamper.mastodon.rss
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
+import net.matsudamper.mastodon.rss.repository.DeliveryKind
+import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
+import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
+import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
+import net.matsudamper.mastodon.rss.repository.FailedDelivery
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchStatus
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
@@ -17,8 +23,12 @@ import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NotePosition
+import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.Repositories
+import net.matsudamper.mastodon.rss.repository.RetryingDelivery
+import net.matsudamper.mastodon.rss.repository.RetryingDeliveryPosition
+import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.AccountId
@@ -50,7 +60,10 @@ class FakeRepositories : Repositories {
 
     // 投稿を消したら記事の note_id が外れるのは SQLite の ON DELETE SET NULL。
     // ここで繋がないと、消した投稿の id で記事が引けるという本物には無い状態になる
-    override val notes: NoteRepository = FakeNoteRepository(onDeleted = feedItems::clearNoteId)
+    override val notes: FakeNoteRepository = FakeNoteRepository(onDeleted = feedItems::clearNoteId)
+
+    // 投函は投稿の記録と記事の投稿済み化を一緒に書くので、両方のフェイクを繋ぐ
+    override val deliveryQueue: FakeDeliveryQueueRepository = FakeDeliveryQueueRepository(notes = notes, feedItems = feedItems)
 
     override fun verifyWritable() {
         verifyWritableCallCount++
@@ -254,6 +267,12 @@ class FakeNoteRepository(
 
     override fun counts(usernames: Set<String>): Map<String, Long> =
         usernames.associateWith { count(it) }
+
+    /**
+     * 記録した順に全部返す。一覧は新しい順で、同じ時刻の並びが id 次第になるので、
+     * 投稿した順を確かめるテストはこちらを見る
+     */
+    fun all(): List<Note> = stored.toList()
 }
 
 class FakeFeedRepository(
@@ -497,4 +516,169 @@ class FakeFeedItemRepository : FeedItemRepository {
         if (index == -1) return
         stored[index] = block(stored[index])
     }
+}
+
+/**
+ * 配信キューの差し替え。オンメモリで持つ。
+ *
+ * 投函は本物と同じく、投稿の記録と記事の投稿済み化を一緒に書く。
+ * SQL の振る舞いは `:backend:repository` のテストが本物の SQLite で確かめる
+ */
+class FakeDeliveryQueueRepository(
+    private val notes: FakeNoteRepository,
+    private val feedItems: FakeFeedItemRepository,
+) : DeliveryQueueRepository {
+    private val stored = mutableListOf<Row>()
+    private var nextId = 1L
+
+    override fun enqueueNote(post: NotePost): EnqueueNoteResult {
+        val feedItemId = post.feedItemId
+        if (feedItemId != null) {
+            val item = feedItems.find(feedItemId)
+            if (item == null || item.state != FeedItemState.PENDING) return EnqueueNoteResult.FeedItemNotPending
+            feedItems.markPosted(feedItemId, postedAt = post.enqueuedAt, noteId = post.note.publicId)
+        }
+        notes.add(post.note)
+        post.inboxes.forEach { inbox ->
+            stored += Row(
+                id = DeliveryId(nextId++),
+                username = post.note.username,
+                inbox = inbox,
+                body = post.body,
+                state = State.PENDING,
+                attempts = 0,
+                nextAttemptAt = post.enqueuedAt,
+                enqueuedAt = post.enqueuedAt,
+                lastError = null,
+            )
+        }
+        return EnqueueNoteResult.Queued(deliveries = post.inboxes.size)
+    }
+
+    override fun claim(
+        now: Instant,
+        limit: Int,
+    ): List<ClaimedDelivery> {
+        val claimed = stored
+            .filter { it.state == State.PENDING && it.nextAttemptAt != null && !it.nextAttemptAt.isAfter(now) }
+            .sortedWith(compareBy<Row> { it.nextAttemptAt }.thenBy { it.id.value })
+            .take(limit.coerceAtLeast(0))
+        claimed.forEach { row -> update(row.id) { it.copy(state = State.DELIVERING, attempts = it.attempts + 1) } }
+        return claimed.map { row ->
+            val current = checkNotNull(find(row.id))
+            ClaimedDelivery(
+                id = current.id,
+                kind = DeliveryKind.CREATE_NOTE,
+                username = current.username,
+                inbox = current.inbox,
+                body = checkNotNull(current.body),
+                attempts = current.attempts,
+                enqueuedAt = current.enqueuedAt,
+            )
+        }
+    }
+
+    override fun markDelivered(id: DeliveryId) {
+        stored.removeAll { it.id == id }
+    }
+
+    override fun scheduleRetry(
+        id: DeliveryId,
+        nextAttemptAt: Instant,
+        error: String,
+    ) {
+        update(id) { it.copy(state = State.PENDING, nextAttemptAt = nextAttemptAt, lastError = error) }
+    }
+
+    override fun giveUp(
+        id: DeliveryId,
+        error: String,
+    ) {
+        update(id) { it.copy(state = State.FAILED, nextAttemptAt = null, body = null, lastError = error) }
+    }
+
+    override fun recoverDelivering(): Int {
+        val targets = stored.filter { it.state == State.DELIVERING }
+        targets.forEach { row -> update(row.id) { it.copy(state = State.PENDING) } }
+        return targets.size
+    }
+
+    override fun counts(username: String): DeliveryQueueCounts {
+        val mine = stored.filter { it.username.equals(username, ignoreCase = true) }
+        return DeliveryQueueCounts(
+            waiting = mine.count { it.state != State.FAILED }.toLong(),
+            failed = mine.count { it.state == State.FAILED }.toLong(),
+        )
+    }
+
+    override fun listRetrying(
+        username: String,
+        after: RetryingDeliveryPosition?,
+        limit: Int,
+    ): List<RetryingDelivery> = stored
+        .filter { it.username.equals(username, ignoreCase = true) && it.state == State.PENDING && it.attempts > 0 }
+        .map { row ->
+            RetryingDelivery(
+                id = row.id,
+                inbox = row.inbox,
+                attempts = row.attempts,
+                nextAttemptAt = checkNotNull(row.nextAttemptAt),
+                lastError = row.lastError,
+            )
+        }
+        .sortedWith(compareBy<RetryingDelivery> { it.nextAttemptAt }.thenBy { it.id.value })
+        .filter { delivery ->
+            after == null ||
+                delivery.nextAttemptAt > after.nextAttemptAt ||
+                (delivery.nextAttemptAt == after.nextAttemptAt && delivery.id.value > after.id.value)
+        }
+        .take(limit.coerceAtLeast(0))
+
+    override fun listFailed(
+        username: String,
+        afterId: DeliveryId?,
+        limit: Int,
+    ): List<FailedDelivery> = stored
+        .filter { it.username.equals(username, ignoreCase = true) && it.state == State.FAILED }
+        .sortedByDescending { it.id.value }
+        .filter { afterId == null || it.id.value < afterId.value }
+        .map { row -> FailedDelivery(id = row.id, inbox = row.inbox, attempts = row.attempts, lastError = row.lastError) }
+        .take(limit.coerceAtLeast(0))
+
+    override fun deleteByUsername(username: String): Int {
+        val before = stored.size
+        stored.removeAll { it.username.equals(username, ignoreCase = true) }
+        return before - stored.size
+    }
+
+    fun rows(): List<Row> = stored.toList()
+
+    private fun find(id: DeliveryId): Row? = stored.firstOrNull { it.id == id }
+
+    private fun update(
+        id: DeliveryId,
+        block: (Row) -> Row,
+    ) {
+        val index = stored.indexOfFirst { it.id == id }
+        if (index == -1) return
+        stored[index] = block(stored[index])
+    }
+
+    enum class State {
+        PENDING,
+        DELIVERING,
+        FAILED,
+    }
+
+    data class Row(
+        val id: DeliveryId,
+        val username: String,
+        val inbox: String,
+        val body: String?,
+        val state: State,
+        val attempts: Int,
+        val nextAttemptAt: Instant?,
+        val enqueuedAt: Instant,
+        val lastError: String?,
+    )
 }
