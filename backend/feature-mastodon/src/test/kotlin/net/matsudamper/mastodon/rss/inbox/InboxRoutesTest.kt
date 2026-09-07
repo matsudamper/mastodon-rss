@@ -4,6 +4,8 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.client.request.get
@@ -16,6 +18,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeFollowerStore
+import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
@@ -52,7 +55,13 @@ class InboxRoutesTest {
             routing {
                 inboxRoutes(
                     directory = TestLocalActor.directory,
-                    service = InboxService.default(remoteActors = remoteActors, delivery = delivery, followers = FakeFollowerStore()),
+                    service = InboxService.default(
+                        remoteActors = remoteActors,
+                        delivery = delivery,
+                        followers = FakeFollowerStore(),
+                        notes = FakeNoteStore(),
+                        backfillScope = CoroutineScope(Dispatchers.Unconfined),
+                    ),
                 )
             }
         }

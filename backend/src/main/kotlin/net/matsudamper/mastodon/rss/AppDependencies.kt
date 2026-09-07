@@ -136,6 +136,14 @@ class AppDependencies(
     }
 
     /**
+     * フォロー成立後に過去の投稿を配る間、inbox の応答を待たせないためのスコープ。
+     *
+     * 配り終える前にプロセスが落ちたら、その分は届かない。フォロー自体は
+     * 成立しているので、次の新着からは普通に届く
+     */
+    private val followBackfillScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
      * inbox が受け取ったアクティビティの検証と振り分け。
      *
      * 何をどう組み合わせるかは ActivityPub 側の話なので
@@ -146,6 +154,8 @@ class AppDependencies(
         remoteActors = remoteActors,
         delivery = delivery,
         followers = followerStore,
+        notes = noteStore,
+        backfillScope = followBackfillScope,
     )
 
     val notePublisher: NotePublisher = NotePublisher(
@@ -190,6 +200,21 @@ class AppDependencies(
         }
     }
 
+    /**
+     * 走っている過去の投稿の配信を止めて、終わるまで待つ。
+     *
+     * 配信は DB と HTTP クライアントを使うので、閉じる前に止める。
+     * 途中で切れた分は届かないが、フォロー自体は成立しているので次の新着からは届く。
+     * 待ち時間は [stopFeedPolling] と同じ理由で短く切る
+     */
+    private fun stopFollowBackfill() {
+        runBlocking {
+            withTimeoutOrNull(3_000) {
+                followBackfillScope.coroutineContext.job.cancelAndJoin()
+            }
+        }
+    }
+
     val actorPublisher: ActorPublisher = ActorPublisher(
         notes = noteStore,
         followers = followerStore,
@@ -205,6 +230,7 @@ class AppDependencies(
     override fun close() {
         // 取り込みの途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ
         stopFeedPolling()
+        stopFollowBackfill()
 
         val failures = listOf<() -> Unit>(
             { feedFetcher.close() },

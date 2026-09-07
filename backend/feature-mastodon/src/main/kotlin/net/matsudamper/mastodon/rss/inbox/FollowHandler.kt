@@ -4,7 +4,9 @@ import java.time.Instant
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activity.OutgoingActivity
@@ -14,8 +16,10 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
+import net.matsudamper.mastodon.rss.follower.FollowAcceptResult
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import org.slf4j.LoggerFactory
 
 /**
@@ -32,11 +36,17 @@ import org.slf4j.LoggerFactory
  * 記録してから `Accept` を返す。逆にすると、記録に失敗したときに相手だけが
  * フォローできたつもりになり、こちらには送り先が残らない。記録できなければ
  * `Accept` も返さないので、相手からは保留のまま見える。
+ *
+ * 初めて成立したときだけ、フォローより前の投稿を新しいフォロワーにだけ配る。詳しくは
+ * [net.matsudamper.mastodon.rss.note.FollowBackfillPublisher] にある。
+ * 送るのは inbox の応答を返した後で、こちらの応答を待たせない。
  */
 class FollowHandler(
     private val remoteActors: RemoteActors,
     private val delivery: ActivityDelivery,
     private val followers: FollowerStore,
+    private val backfill: FollowBackfillPublisher,
+    private val backfillScope: CoroutineScope,
 ) : InboxActivityHandler {
     override val type: String = "Follow"
 
@@ -100,9 +110,40 @@ class FollowHandler(
 
         when (val result = delivery.deliver(inbox = follower.inbox, sender = recipient, body = serializedAcceptBody)) {
             is DeliveryResult.Delivered -> {
-                markAccepted(recipient = recipient, verifiedSignerActorId = verifiedSignerActorId)
+                val accepted = markAccepted(
+                    recipient = recipient,
+                    verifiedSignerActorId = verifiedSignerActorId,
+                    acceptedAt = Instant.now(),
+                )
 
                 logger.info("Follow に Accept を返した: ${recipient.acct} ← $verifiedSignerActorId")
+
+                // 送り直しでは配らない。相手のタイムラインには既に並んでいて、
+                // 同じものをもう一度署名付きで送りつけるだけになる
+                if (accepted == FollowAcceptResult.FirstAccept) {
+                    // 通常の配信はフォロワーとして数えられてから始まるので、境目は
+                    // 記録が済んだ後に取る。先に取ると、記録を待っている間の投稿が
+                    // どちらからも漏れる。境目が重なって二重に送っても、
+                    // 同じ id なので相手側で落ちる
+                    val backfillUntil = Instant.now()
+
+                    // inbox の応答を待たせない。最大 20 件を順に送るので、
+                    // ここで待つと相手のタイムアウトと Follow の再送を招く
+                    backfillScope.launch {
+                        runCatching {
+                            backfill.deliverRecentNotes(
+                                sender = recipient,
+                                inbox = follower.inbox,
+                                publishedBefore = backfillUntil,
+                            )
+                        }.onFailure { failure ->
+                            logger.warn(
+                                "過去の投稿を配れなかった: ${recipient.acct} → $verifiedSignerActorId",
+                                failure,
+                            )
+                        }
+                    }
+                }
             }
 
             is DeliveryResult.Failed -> {
@@ -124,17 +165,20 @@ class FollowHandler(
      *
      * 諦めた場合に直す手立ては無いので、運用者が気付けるようにログに残す。
      * 取りこぼしを溜めて後から流す仕組みは、配信キューを入れるときに一緒に考える。
+     *
+     * @return 記録できなかった場合は [FollowAcceptResult.NotFound]
      */
     private suspend fun markAccepted(
         recipient: ActorUrls,
         verifiedSignerActorId: String,
-    ) {
+        acceptedAt: Instant,
+    ): FollowAcceptResult {
         repeat(MARK_ACCEPTED_ATTEMPTS) { attempt ->
             val accepted = try {
                 followers.markAccepted(
                     username = recipient.username,
                     followerActorUri = verifiedSignerActorId,
-                    acceptedAt = Instant.now(),
+                    acceptedAt = acceptedAt,
                 )
             } catch (e: Exception) {
                 if (attempt == MARK_ACCEPTED_ATTEMPTS - 1) {
@@ -148,7 +192,7 @@ class FollowHandler(
                 }
                 return@repeat
             }
-            if (accepted) return
+            if (accepted != FollowAcceptResult.NotFound) return accepted
 
             if (attempt == MARK_ACCEPTED_ATTEMPTS - 1) {
                 logger.error(
@@ -159,6 +203,8 @@ class FollowHandler(
                 delay(MARK_ACCEPTED_RETRY_INTERVAL * (attempt + 1))
             }
         }
+
+        return FollowAcceptResult.NotFound
     }
 
     private companion object {
