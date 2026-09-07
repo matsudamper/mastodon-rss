@@ -16,6 +16,32 @@ CREATE TABLE accounts (
     summary TEXT
 );
 
+CREATE TABLE delivery_queue (
+    -- こちらから相手の inbox に送る配信の待ち行列。1 行 = 1 宛先への 1 件。
+    -- 成功した行は消し、諦めた行だけを failed で残す
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- 何を送るか。いまは投稿の Create（create_note）だけ。Accept や Update{Actor} を
+    -- 載せるときはここに値を増やす。行の形は種別に依らないので作り直さずに済む
+    kind TEXT NOT NULL,
+    -- 署名するこちらのアカウントの名前。followers と同じ理由で外部キーにしない
+    username TEXT COLLATE NOCASE NOT NULL,
+    -- 宛先。sharedInbox があればそちら
+    inbox TEXT NOT NULL,
+    -- 署名対象になる JSON。諦めた行は二度と送らないので NULL にして残さない
+    body TEXT,
+    -- pending: 送る時刻を待っている / delivering: ワーカーが送っている / failed: 諦めた。
+    -- 送り直しを待つ行は pending に戻るので、待っているものと終わったものが状態で分かれる
+    state TEXT NOT NULL CHECK (state IN ('pending', 'delivering', 'failed')),
+    -- claim された回数。送信中に落ちた分も数えたいので、完了ではなく claim で増やす
+    attempts INTEGER NOT NULL DEFAULT 0,
+    -- 次に送る時刻。failed では NULL
+    next_attempt_at TEXT,
+    -- 投函した時刻。諦める判定に使う
+    enqueued_at TEXT NOT NULL,
+    -- 最後に失敗した理由
+    last_error TEXT
+);
+
 CREATE TABLE feed_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     feed_id INTEGER NOT NULL REFERENCES feeds (id) ON DELETE CASCADE,
@@ -111,6 +137,8 @@ CREATE TABLE remote_actors (
     -- 検証が通らなくなるので、取り直す判断に使う
     fetched_at TEXT NOT NULL
 );
+
+CREATE INDEX delivery_queue_state_next_attempt_at_id ON delivery_queue (state, next_attempt_at, id);
 
 CREATE INDEX feed_items_feed_id_state_published_at_id ON feed_items (feed_id, state, published_at, id);
 
