@@ -89,10 +89,10 @@ class AdminAccountProfileEditScreenViewModel(
         viewModelScope.launch {
             when (val result = api.previewFeed(feedUrl)) {
                 // 一覧用に切り詰めた description ではなく配信元が書いたままの説明を入れる。
-                // フィードの文量は入力上限と関係なく決まるので、保存が拒まれないように上限で切る
+                // 説明文は入力上限と関係なく決まるので、保存が拒まれないように上限で切る
                 is AdminFeedPreviewResult.Success -> state.update {
                     it.copy(
-                        displayName = result.preview.title.orEmpty().truncateToLimit(AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH),
+                        displayName = result.preview.title.orEmpty(),
                         summary = result.preview.fullDescription.orEmpty().truncateToLimit(AccountProfileLimits.SUMMARY_MAX_LENGTH),
                         applyingFeed = false,
                     )
