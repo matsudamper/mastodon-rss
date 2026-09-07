@@ -24,6 +24,7 @@ data class AdminAccountScreenUiState(
         /**
          * @param account この画面が扱うアカウント
          * @param feed RSS フィードの登録状況と入力欄
+         * @param deliveryQueue フォロワーへの配信の待ち状況
          * @param post 投稿の入力欄
          * @param notes 配信した投稿。新しい順
          * @param deleteNoteDialog 投稿を消す前の確認。出していなければ null
@@ -35,6 +36,7 @@ data class AdminAccountScreenUiState(
         data class Loaded(
             val account: Account,
             val feed: Feed,
+            val deliveryQueue: DeliveryQueue,
             val post: Post,
             val notes: List<Note>,
             val deleteNoteDialog: DeleteNoteDialog?,
@@ -115,6 +117,41 @@ data class AdminAccountScreenUiState(
             fun onClickAddFeed()
         }
     }
+
+    /**
+     * フォロワーへの配信の待ち状況。
+     *
+     * @param waitingCount 送る時刻を待っているものと送っている最中のものの合計
+     * @param failedCount 諦めたもの
+     * @param retrying 送り直しを待っている配信。一部だけ
+     * @param retryingMoreText [retrying] に載せ切れなかった分があることを伝える一行。無ければ null
+     * @param failed 諦めた配信。一部だけ
+     * @param failedMoreText [failed] に載せ切れなかった分があることを伝える一行。無ければ null
+     */
+    data class DeliveryQueue(
+        val waitingCount: Int,
+        val failedCount: Int,
+        val retrying: List<RetryingDelivery>,
+        val retryingMoreText: String?,
+        val failed: List<FailedDelivery>,
+        val failedMoreText: String?,
+    )
+
+    /**
+     * @param nextAttemptAt 次に送る時刻
+     */
+    data class RetryingDelivery(
+        val inbox: String,
+        val attempts: Int,
+        val nextAttemptAt: String,
+        val lastError: String?,
+    )
+
+    data class FailedDelivery(
+        val inbox: String,
+        val attempts: Int,
+        val lastError: String?,
+    )
 
     /**
      * 投稿と一緒に見せる、元になった記事
@@ -231,10 +268,12 @@ data class AdminAccountScreenUiState(
         fun onClickDelete()
     }
 
+    /**
+     * @param queuedDeliveries キューに入れた宛先の数。相手に届くのはこの後
+     */
     data class PostResult(
         val url: String,
-        val deliveryAttemptCount: Int,
-        val delivered: Int,
+        val queuedDeliveries: Int,
     )
 
     /**
