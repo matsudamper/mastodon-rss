@@ -87,7 +87,7 @@ internal class SqliteFeedItemRepository(
             .update(FEED_ITEMS)
             .set(FEED_ITEMS.NOTE_ID, noteId.value)
             .where(FEED_ITEMS.ID.eq(id.value))
-            .and(FEED_ITEMS.NOTE_ID.isNull)
+            .and(FEED_ITEMS.NOTE_ID.isNull())
             .execute()
 
         dsl
