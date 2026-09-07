@@ -24,6 +24,10 @@ class FeedIconService(
     private val headers: FeedHeaders,
     private val defaultFreshFor: Duration = DEFAULT_FRESH_FOR,
 ) : FeedIcons {
+    /**
+     * 入れ替えはフィードごとに 1 本ずつにする。定期ポーリングと手動の再取得が
+     * 重なると、ファイルと記録の書き込みが入れ違い、記録と中身が食い違う
+     */
     private val locks = ConcurrentHashMap<FeedId, Mutex>()
 
     override suspend fun refresh(
@@ -52,12 +56,18 @@ class FeedIconService(
         }
 
         val fetched = fetcher.fetch(iconUrl)
-        if (fetched !is IconFetchService.FetchResult.Success) return
+        if (fetched !is IconFetchService.FetchResult.Success) {
+            // 取れなかったときは前のものを残す。配信元が落ちている間だけ
+            // アイコンが消えるのは、見ている側からは壊れて見える
+            return
+        }
 
         val previous = icons.find(feedId)
         val path = store.write(feedId = feedId, bytes = fetched.bytes)
         val now = Instant.now()
 
+        // 書いた中身と種類を 1 つの行として入れ替える。入れ替えられなければ
+        // 書いたものを捨てる。中途半端な組み合わせを見せない
         runCatching {
             icons.save(
                 feedId = feedId,
@@ -66,6 +76,7 @@ class FeedIconService(
                     contentType = fetched.contentType.toString(),
                     path = path,
                     fetchedAt = now,
+                    // 見に来た側に持たせる時間。配信元が持つなと言っていれば持たせない
                     expiresAt = now.plus(fetched.freshFor ?: defaultFreshFor),
                 ),
             )
@@ -84,6 +95,11 @@ class FeedIconService(
     }
 
     private companion object {
+        /**
+         * 配信元が持たせる時間を言ってこなかったときの長さ。
+         *
+         * 上限と同じにして、言ってきた場合と合わせて min(配信元, 1 日) にする
+         */
         val DEFAULT_FRESH_FOR: Duration = Duration.ofDays(1)
     }
 }
