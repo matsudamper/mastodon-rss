@@ -24,7 +24,17 @@ import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.resolve
 class FeedFetchService(
     private val client: HttpClient = defaultClient(),
 ) : Closeable {
-    suspend fun fetch(url: String): FetchResult {
+    /**
+     * フィードを取得して解析する。
+     *
+     * @param needsDescription 呼び出し側が説明文を使うか。YouTube のようにフィード自体に
+     *   説明文が無い配信元では、これが true のときだけ別のページを引いて補う。
+     *   定期取得は説明文を使わないので、毎回ページを引かないよう false を渡す
+     */
+    suspend fun fetch(
+        url: String,
+        needsDescription: Boolean,
+    ): FetchResult {
         val trimmed = url.trim()
         if (trimmed.isEmpty()) return FetchResult.InvalidUrl
 
@@ -47,7 +57,9 @@ class FeedFetchService(
             val finalUrl = response.request.url.normalize()
             val bytes = response.readBodyUpTo(MAX_BODY_BYTES) ?: return FetchResult.TooLarge
 
-            val parsed = FeedParser.parse(bytes).withYouTubeChannelDescription(resolved)
+            val parsed = FeedParser.parse(bytes).let {
+                if (needsDescription) it.withYouTubeChannelDescription(resolved) else it
+            }
             FetchResult.Success(
                 requestedUrl = trimmed,
                 feedUrl = finalUrl,

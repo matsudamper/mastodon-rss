@@ -63,13 +63,22 @@ object YouTubeFeedResolver {
      * `<meta name="description">` にも同じ文言が入っているが、あちらは 160 文字ほどで
      * 切られて末尾が `...` になる。`channelMetadataRenderer` は改行を含む全文が入る。
      * `description` は同じページに何度も出てくるので、必ずこの入れ物から辿る。
-     * 入れ物の先頭からの距離に上限を置いているのは、当たらなかったときに
-     * ページ全体を走査させないため。
+     *
+     * 入れ物の中を進むのに `.` を使わないのは、`description` を持たないチャンネルで
+     * 閉じ波括弧を越え、別のオブジェクト（動画や microformat）の `description` を
+     * 拾ってしまうため。文字列と、波括弧でも引用符でもない文字だけを跨がせて、
+     * このオブジェクトの中で見つからなければ当たらないようにする。
      */
     private val channelDescriptionInJson =
-        Regex(""""channelMetadataRenderer"\s*:\s*\{[\s\S]{0,4000}?"description"\s*:\s*"((?:[^"\\]|\\.)*)"""")
+        Regex(
+            """"channelMetadataRenderer"\s*:\s*\{""" +
+                """(?:"(?:[^"\\]|\\.)*"|[^{}"])*?""" +
+                """"description"\s*:\s*"((?:[^"\\]|\\.)*)"""",
+        )
 
-    /** JSON 文字列のエスケープ。`\uXXXX` は 4 桁で固定 */
+    /**
+     * JSON 文字列のエスケープ。`\uXXXX` は 4 桁で固定
+     */
     private val jsonEscape = Regex("""\\(u[0-9A-Fa-f]{4}|.)""")
 
     /**
@@ -186,7 +195,9 @@ object YouTubeFeedResolver {
             ?: channelPathInPage.find(html)?.groupValues?.get(1)
             ?: channelIdInJson.find(html)?.groupValues?.get(1)
 
-    /** チャンネル ID からチャンネルのページの URL を作る。ID の形が違えば null */
+    /**
+     * チャンネル ID からチャンネルのページの URL を作る。ID の形が違えば null
+     */
     fun channelPageUrl(channelId: String): String? {
         if (!channelIdPattern.matches(channelId)) return null
         return "$SITE/channel/$channelId"
