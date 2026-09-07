@@ -20,6 +20,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.FakeFeedHeaders
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.repository.NewFeed
@@ -191,6 +192,7 @@ class FeedIconServiceTest {
             client = HttpClient(engine) { followRedirects = false },
             resolveAddresses = { listOf(InetAddress.getByName("93.184.216.34")) },
         ),
+        headers = FakeFeedHeaders(),
         defaultFreshFor = Duration.ofDays(1),
     )
 
