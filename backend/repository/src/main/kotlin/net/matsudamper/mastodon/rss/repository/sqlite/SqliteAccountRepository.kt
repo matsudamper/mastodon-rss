@@ -2,9 +2,11 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
 import net.matsudamper.mastodon.rss.shared.AccountId
+import org.jooq.Condition
 import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.impl.DSL
@@ -12,7 +14,7 @@ import org.jooq.impl.DSL
 internal class SqliteAccountRepository(
     private val jooq: SqliteJooq,
 ) : AccountRepository {
-    @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
+    @Deprecated("ページングに移行する。list(after, limit) を使う")
     override fun list(): List<Account> = jooq.withConnection { dsl ->
         dsl
             .select(ACCOUNT_COLUMNS)
@@ -23,34 +25,29 @@ internal class SqliteAccountRepository(
             .map { it.toAccount() }
     }
 
-    override fun list(afterUsername: String?, limit: Int): List<Account> = jooq.transaction { dsl ->
-        if (limit <= 0) return@transaction emptyList()
-
-        val after = if (afterUsername == null) {
-            DSL.noCondition()
-        } else {
-            val afterRecord = dsl
-                .select(ACCOUNTS.ID, ACCOUNTS.CREATED_AT)
-                .from(ACCOUNTS)
-                .where(ACCOUNTS.USERNAME.eq(afterUsername))
-                .fetchOne() ?: return@transaction emptyList()
-
-            val afterId = afterRecord.get(ACCOUNTS.ID)
-            val afterCreatedAt = afterRecord.get(ACCOUNTS.CREATED_AT)
-
-            // 並び順と同じ組で比べる。時刻だけで切ると同時刻の行を飛ばすか二重に返す
-            ACCOUNTS.CREATED_AT.gt(afterCreatedAt)
-                .or(ACCOUNTS.CREATED_AT.eq(afterCreatedAt).and(ACCOUNTS.ID.gt(afterId)))
-        }
+    override fun list(after: AccountPosition?, limit: Int): List<Account> = jooq.withConnection { dsl ->
+        if (limit <= 0) return@withConnection emptyList()
 
         dsl
             .select(ACCOUNT_COLUMNS)
             .from(ACCOUNTS)
-            .where(after)
+            .where(after?.let { laterThan(it) } ?: DSL.noCondition())
             .orderBy(ACCOUNTS.CREATED_AT.asc(), ACCOUNTS.ID.asc())
             .limit(limit)
             .fetch()
             .map { it.toAccount() }
+    }
+
+    /**
+     * 並び順で [position] より後ろにあるものを絞る条件。
+     *
+     * 時刻だけで比べると、同じ時刻のアカウントがページの境目に来たときに落ちるか重複する
+     */
+    private fun laterThan(position: AccountPosition): Condition {
+        val createdAt = StoredInstant.format(position.createdAt)
+
+        return ACCOUNTS.CREATED_AT.gt(createdAt)
+            .or(ACCOUNTS.CREATED_AT.eq(createdAt).and(ACCOUNTS.ID.gt(position.id.value)))
     }
 
     override fun findById(id: AccountId): Account? = jooq.withConnection { dsl ->
