@@ -87,7 +87,7 @@ class FeedFetchService(
                 }
 
                 val html = response.readBodyUpTo(MAX_PAGE_BYTES)?.decodeToString() ?: return null
-                val channelId = channelIdFromPageHtml(html) ?: return null
+                val channelId = channelIdFromPageHtml(source.page, html) ?: return null
                 YouTubeFeedResolver.feedUrlForChannel(channelId) ?: return null
             }
         }
