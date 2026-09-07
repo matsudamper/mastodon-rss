@@ -14,6 +14,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import net.matsudamper.mastodon.rss.FakeRepositories
+import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.repository.FeedIcon
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
@@ -40,6 +41,18 @@ class ActorIconServiceTest {
 
             assertEquals(BYTES.toList(), icon.bytes.toList())
             assertTrue(icon.cacheFor <= Duration.ofSeconds(60), "実際の持たせる時間: ${icon.cacheFor}")
+        }
+
+    @Test
+    fun `返す値はフィードが名乗っている取得元から決まる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val feedId = repositories.addFeed(iconUrl = ICON_URL)
+            repositories.store(feedId = feedId, sourceUrl = ICON_URL, expiresAt = Instant.now().plusSeconds(60))
+
+            val icon = assertNotNull(serviceOf(repositories).find(USERNAME))
+
+            assertEquals(ActorUrls.iconVersion(ICON_URL), icon.version)
         }
 
     @Test

@@ -32,7 +32,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, cacheFor = Duration.ofSeconds(60))
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = Duration.ofSeconds(60))
                 },
             )
 
@@ -46,12 +46,42 @@ class ActorIconRoutesTest {
         }
 
     @Test
+    fun `取得元から決まる値が一致する URL は長く持たせる`() =
+        testApplication {
+            installModule(
+                object : ActorIcons {
+                    override suspend fun find(username: String): ActorIcon =
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = Duration.ofSeconds(60))
+                },
+            )
+
+            val response = client.get("/users/admin/icon?v=$VERSION")
+
+            assertEquals("public, max-age=31536000, immutable", response.headers[HttpHeaders.CacheControl])
+        }
+
+    @Test
+    fun `取得元から決まる値が一致しない URL は配信元の言い分に従う`() =
+        testApplication {
+            installModule(
+                object : ActorIcons {
+                    override suspend fun find(username: String): ActorIcon =
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = Duration.ofSeconds(60))
+                },
+            )
+
+            val response = client.get("/users/admin/icon?v=other")
+
+            assertEquals("public, max-age=60", response.headers[HttpHeaders.CacheControl])
+        }
+
+    @Test
     fun `持たせる時間が無いアイコンは持たせない`() =
         testApplication {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, cacheFor = Duration.ZERO)
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = Duration.ZERO)
                 },
             )
 
@@ -81,7 +111,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, cacheFor = Duration.ofSeconds(60))
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = Duration.ofSeconds(60))
                 },
             )
 
@@ -90,4 +120,8 @@ class ActorIconRoutesTest {
             assertEquals(HttpStatusCode.NotFound, response.status)
             assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
         }
+
+    private companion object {
+        const val VERSION = "abc123"
+    }
 }

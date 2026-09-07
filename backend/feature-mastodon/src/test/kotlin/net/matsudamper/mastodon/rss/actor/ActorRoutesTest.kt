@@ -137,7 +137,8 @@ class ActorRoutesTest {
             val path = "/users/${TestLocalActor.STORED_USERNAME}"
             val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
 
-            assertEquals("https://example.com$path/icon", actor.icon?.url)
+            // 差し替えたときに相手のキャッシュが外れるよう、取得元から決まる値が付く
+            assertEquals("https://example.com$path/icon?v=${ActorUrls.iconVersion(TestLocalActor.FEED_ICON_URL)}", actor.icon?.url)
             assertEquals("Image", actor.icon?.type)
         }
 

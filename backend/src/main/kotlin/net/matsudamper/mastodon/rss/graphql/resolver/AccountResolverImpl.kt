@@ -59,18 +59,11 @@ class AccountResolverImpl : AccountResolver {
                 val iconUrl = if (source == null) {
                     null
                 } else {
-                    "${account.actorUrl}${ActorUrls.ICON_PATH}?v=${source.iconVersion()}"
+                    "${account.actorUrl}${ActorUrls.ICON_PATH}?v=${ActorUrls.iconVersion(source)}"
                 }
                 DataFetcherResult.Builder<String?>(iconUrl).build()
             }
     }
-
-    /**
-     * 取得元の URL から決まる短い値。
-     *
-     * 中身ではなく取得元で見るので、同じ URL のまま画像だけ差し替えられた場合は変わらない
-     */
-    private fun String.iconVersion(): String = hashCode().toUInt().toString(HEX_RADIX)
 
     override fun feed(
         account: QlAccount,
@@ -84,9 +77,5 @@ class AccountResolverImpl : AccountResolver {
             .thenApply { feed ->
                 DataFetcherResult.Builder<QlFeed?>(feed?.toGraphqlResponse()).build()
             }
-    }
-
-    private companion object {
-        const val HEX_RADIX = 16
     }
 }

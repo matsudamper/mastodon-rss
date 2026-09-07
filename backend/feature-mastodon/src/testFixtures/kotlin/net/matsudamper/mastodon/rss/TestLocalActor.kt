@@ -27,13 +27,16 @@ object TestLocalActor {
         stored = FakeStoredActorNames(storedUserNames = listOf(USERNAME, STORED_USERNAME)),
     )
 
+    /** [feedLinks] が名乗っているアイコンの取得元。URL に付く値の確認に使う */
+    const val FEED_ICON_URL: String = "https://feed1.example.org/icon.png"
+
     /** [STORED_USERNAME] だけがフィードを持つ。持たないアカウントとの差を見るため */
     val feedLinks: FakeStoredFeedLinks = FakeStoredFeedLinks(
         links = mapOf(
             STORED_USERNAME to FeedLinks(
                 siteUrl = "https://feed1.example.org/",
                 feedUrl = "https://feed1.example.org/rss.xml",
-                iconUrl = "https://feed1.example.org/icon.png",
+                iconUrl = FEED_ICON_URL,
             ),
         ),
     )

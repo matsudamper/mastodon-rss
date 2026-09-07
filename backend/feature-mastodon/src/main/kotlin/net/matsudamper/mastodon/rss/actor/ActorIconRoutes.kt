@@ -41,9 +41,8 @@ fun Route.actorIconRoutes(
             return@get
         }
 
-        // 持たせる時間は配信元の言い分に合わせる。ここで長く持たせると、
-        // こちらが取り直した後も見に来た側には古いものが出続ける
-        call.response.header(HttpHeaders.CacheControl, icon.cacheControl())
+        val requestedVersion = call.request.queryParameters[VERSION_PARAMETER]
+        call.response.header(HttpHeaders.CacheControl, icon.cacheControl(requestedVersion))
         call.response.header(CONTENT_TYPE_OPTIONS_HEADER, CONTENT_TYPE_OPTIONS)
         call.respondBytes(bytes = icon.bytes, contentType = icon.contentType)
     }
@@ -68,20 +67,37 @@ interface ActorIcons {
  * プロフィール画像の中身。
  *
  * @param contentType 取得元が名乗った種類。そのまま返す
- * @param cacheFor 見に来た側に持たせてよい時間。0 なら持たせない
+ * @param version 取得元の URL から決まる値。要求された値と一致すれば入れ替わらない中身と分かる
+ * @param cacheFor 取得元から決まる値が付いていない URL で来たときに持たせる時間。0 なら持たせない
  */
 class ActorIcon(
     val bytes: ByteArray,
     val contentType: ContentType,
+    val version: String,
     val cacheFor: Duration,
 )
 
-private fun ActorIcon.cacheControl(): String {
+/**
+ * 見に来た側に持たせる時間。
+ *
+ * [ActorUrls.icon] と GraphQL が渡す URL には取得元から決まる値が付いている。
+ * その値が今置いてあるものと一致していれば、同じ URL の中身は入れ替わらない
+ * （入れ替わるときは URL ごと変わる）ので長く持たせる。
+ *
+ * 付いていない URL は取り込みが入れ替えると中身が変わるので、
+ * 配信元が言ってきた時間だけにする。長く持たせると古い画像が出続ける
+ */
+private fun ActorIcon.cacheControl(requestedVersion: String?): String {
+    if (requestedVersion == version) return IMMUTABLE
+
     val seconds = cacheFor.seconds
     if (seconds <= 0) return NO_STORE
     return "public, max-age=$seconds"
 }
 
+/** 1 年。`immutable` を見ない側でも取り直しに来なくなるだけの長さ */
+private const val IMMUTABLE = "public, max-age=31536000, immutable"
+private const val VERSION_PARAMETER = "v"
 private const val NO_STORE = "no-store"
 private const val CONTENT_TYPE_OPTIONS_HEADER = "X-Content-Type-Options"
 private const val CONTENT_TYPE_OPTIONS = "nosniff"
