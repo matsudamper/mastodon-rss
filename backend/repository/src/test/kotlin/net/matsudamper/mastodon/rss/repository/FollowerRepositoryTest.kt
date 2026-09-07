@@ -59,7 +59,10 @@ class FollowerRepositoryTest {
             assertEquals(emptyList(), followers.list("admin", after = null, limit = 10))
             assertEquals(emptyList(), followers.deliveryTargets("admin"))
 
-            assertTrue(followers.markAccepted("admin", "https://remote.example/users/alice", now))
+            assertEquals(
+                FollowAcceptResult.FirstAccept,
+                followers.markAccepted("admin", "https://remote.example/users/alice", now),
+            )
 
             assertEquals(1, followers.count("admin"))
             assertEquals(
@@ -70,17 +73,23 @@ class FollowerRepositoryTest {
     }
 
     @Test
-    fun `受理済みかどうかを Accept の前後で見分けられる`() {
+    fun `初めて成立したときだけ FirstAccept を返す`() {
         withRepository { followers ->
             followers.record(incomingFollow())
 
-            assertFalse(followers.isAccepted("admin", "https://remote.example/users/alice"))
-
-            followers.markAccepted("admin", "https://remote.example/users/alice", now)
-
-            assertTrue(followers.isAccepted("admin", "https://remote.example/users/alice"))
-            // 別のアカウントへのフォローとは混ざらない
-            assertFalse(followers.isAccepted("feed1", "https://remote.example/users/alice"))
+            assertEquals(
+                FollowAcceptResult.FirstAccept,
+                followers.markAccepted("admin", "https://remote.example/users/alice", now),
+            )
+            // Follow の送り直し。過去の投稿を配り直さないためにここで見分ける
+            assertEquals(
+                FollowAcceptResult.AlreadyAccepted,
+                followers.markAccepted("admin", "https://remote.example/users/alice", now),
+            )
+            assertEquals(
+                FollowAcceptResult.NotFound,
+                followers.markAccepted("feed1", "https://remote.example/users/alice", now),
+            )
         }
     }
 
@@ -118,7 +127,10 @@ class FollowerRepositoryTest {
             followers.record(incomingFollow())
             followers.record(incomingFollow(followActivityUri = "https://remote.example/activities/2"))
 
-            assertTrue(followers.markAccepted("admin", "https://remote.example/users/alice", now))
+            assertEquals(
+                FollowAcceptResult.FirstAccept,
+                followers.markAccepted("admin", "https://remote.example/users/alice", now),
+            )
 
             assertEquals(1, followers.count("admin"))
         }
@@ -334,7 +346,10 @@ class FollowerRepositoryTest {
         withRepository { followers ->
             assertFalse(followers.remove("admin", "https://remote.example/users/nobody", null))
             assertEquals(0, followers.removeRemoteActor("https://remote.example/users/nobody"))
-            assertFalse(followers.markAccepted("admin", "https://remote.example/users/nobody", now))
+            assertEquals(
+                FollowAcceptResult.NotFound,
+                followers.markAccepted("admin", "https://remote.example/users/nobody", now),
+            )
         }
     }
 }

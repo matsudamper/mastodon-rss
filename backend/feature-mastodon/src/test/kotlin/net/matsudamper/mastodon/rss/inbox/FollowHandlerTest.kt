@@ -136,6 +136,29 @@ class FollowHandlerTest {
     }
 
     @Test
+    fun `フォローが成立した後に作られた投稿は配らない`() = runBlocking {
+        val delivery = TestDelivery()
+        val notes = notesOf(1).apply {
+            add(
+                StoredNote(
+                    publicId = PublicNoteId("note-after"),
+                    username = TestLocalActor.USERNAME,
+                    contentHtml = "<p>フォローの後</p>",
+                    publishedAt = Instant.now().plusSeconds(60),
+                ),
+            )
+        }
+
+        handle(
+            followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notes),
+            followJson(),
+        )
+
+        // 成立後の投稿は通常の配信で届く。混ぜるとフォロー前の投稿が上限から押し出される
+        assertEquals(listOf("<p>0</p>"), deliveredCreates(delivery).map { it.target.content })
+    }
+
+    @Test
     fun `Follow を送り直されても過去の投稿は配り直さない`() = runBlocking {
         val delivery = TestDelivery()
         val handler = followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notesOf(3))
@@ -233,8 +256,8 @@ class FollowHandlerTest {
     }
 
     @Test
-    fun `Accept の後の記録が false を返しても数える`() = runBlocking {
-        val followers = FakeFollowerStore(failMarkAcceptedReturnsFalseTimes = 1)
+    fun `Accept の後の記録が一度記録なしを返しても数える`() = runBlocking {
+        val followers = FakeFollowerStore(failMarkAcceptedNotFoundTimes = 1)
 
         handle(followHandler(delivery = TestDelivery(), followers = followers), followJson())
 

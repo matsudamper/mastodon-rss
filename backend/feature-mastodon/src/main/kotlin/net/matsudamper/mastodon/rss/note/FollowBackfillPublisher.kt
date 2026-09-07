@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.note
 
+import java.time.Instant
+import kotlinx.coroutines.sync.Semaphore
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
@@ -28,18 +30,54 @@ class FollowBackfillPublisher(
     private val logger = LoggerFactory.getLogger(FollowBackfillPublisher::class.java)
 
     /**
+     * 同時に走る配信の数。
+     *
+     * 署名を作れる相手なら、別々のアクターから `Follow` を並べて送るだけで
+     * この配信を好きなだけ起こせる。空きが無ければ配らない。待ち行列にすると、
+     * 送りつけられた分がそのまま溜まって同じことになる
+     */
+    private val running = Semaphore(permits = MAX_CONCURRENT_BACKFILLS)
+
+    /**
      * @param inbox 新しいフォロワーの inbox。`sharedInbox` は使わない。
      *   まとめて送ると、同じサーバーの他のフォロワーにも同じ投稿が届く
+     * @param publishedBefore フォローが成立した時刻。これ以降の投稿は通常の配信で
+     *   届くので送らない。含めると、その分だけフォロー前の投稿が上限から押し出される
      */
     suspend fun deliverRecentNotes(
         sender: ActorUrls,
         inbox: String,
+        publishedBefore: Instant,
     ) {
-        val recentNotes = notes.list(username = sender.username, after = null, limit = BACKFILL_LIMIT)
+        if (!running.tryAcquire()) {
+            // 配れなくてもフォローは成立している。次の新着からは普通に届く
+            logger.warn("過去の投稿を配る余裕が無いので諦めた: ${sender.acct} → $inbox")
+            return
+        }
+
+        try {
+            deliver(sender = sender, inbox = inbox, publishedBefore = publishedBefore)
+        } finally {
+            running.release()
+        }
+    }
+
+    private suspend fun deliver(
+        sender: ActorUrls,
+        inbox: String,
+        publishedBefore: Instant,
+    ) {
+        val recentNotes = notes
+            .list(username = sender.username, after = null, limit = BACKFILL_LIMIT)
+            .filter { it.publishedAt < publishedBefore }
         if (recentNotes.isEmpty()) return
 
         var delivered = 0
         recentNotes.reversed().forEach { note ->
+            // 送っている間に管理画面から消されることがある。消えた投稿を送ると、
+            // 相手には `Delete` の後から `Create` が届いて消したものが戻る
+            if (notes.find(note.publicId) == null) return@forEach
+
             val body = AppJson.encodeToString(
                 CreateNoteActivity.serializer(),
                 CreateNoteActivityFactory.create(sender = sender, note = note),
@@ -68,5 +106,11 @@ class FollowBackfillPublisher(
          * タイムラインが埋まる程度の件数にする
          */
         const val BACKFILL_LIMIT: Int = 20
+
+        /**
+         * 同時に走らせる数。通常のフォローは重ならないので、
+         * 並べて送られたときに外向きの HTTP が際限なく増えないことだけを見る
+         */
+        const val MAX_CONCURRENT_BACKFILLS: Int = 2
     }
 }

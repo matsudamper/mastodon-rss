@@ -37,24 +37,14 @@ interface FollowerStore {
      * id で絞ると、同じ相手から続けて `Follow` が届いたときに、記録されている id が
      * 後から来た方に差し替わっていて、成立した関係を保留のまま残してしまう。
      *
-     * @return 更新できたら true
+     * 状態を見てから書き換えるまでを 1 つの操作にする。分けると、同じ `Follow` が
+     * 同時に 2 つ届いたときに両方が「初めて成立した」と読む
      */
     fun markAccepted(
         username: String,
         followerActorUri: String,
         acceptedAt: Instant,
-    ): Boolean
-
-    /**
-     * `Accept` を返して成立済みかどうか。
-     *
-     * `Follow` の送り直しと、初めて成立したフォローを区別するのに使う。
-     * 区別しないと、送り直しのたびに過去の投稿を配り直すことになる
-     */
-    fun isAccepted(
-        username: String,
-        followerActorUri: String,
-    ): Boolean
+    ): FollowAcceptResult
 
     /**
      * フォローを消す。
@@ -103,4 +93,20 @@ interface FollowerStore {
      * 投稿を配る先の inbox。`sharedInbox` があればそちらにまとまっている
      */
     fun deliveryTargets(username: String): List<String>
+}
+
+/**
+ * [FollowerStore.markAccepted] の結果。
+ *
+ * 初めて成立したのかどうかで、過去の投稿を配るかが変わる
+ */
+enum class FollowAcceptResult {
+    /** `Accept` 前の記録を成立させた */
+    FirstAccept,
+
+    /** 既に成立していた。`Follow` の送り直し */
+    AlreadyAccepted,
+
+    /** 記録が無い。書き込みに失敗したか、間に `Undo` が入った */
+    NotFound,
 }
