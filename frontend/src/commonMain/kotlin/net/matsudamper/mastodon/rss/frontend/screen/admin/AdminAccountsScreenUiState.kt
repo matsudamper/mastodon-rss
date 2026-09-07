@@ -17,6 +17,10 @@ data class AdminAccountsScreenUiState(
 
         data class Loaded(
             val accounts: List<Account>,
+            val loadMoreVisible: Boolean,
+            val loadingMore: Boolean,
+            val loadMoreErrorMessage: String?,
+            val loadMoreButtonText: String,
         ) : Content
 
         data class Error(
@@ -49,5 +53,7 @@ data class AdminAccountsScreenUiState(
         fun onClickAccount(username: String)
 
         fun onClickReload()
+
+        fun onClickLoadMore()
     }
 }

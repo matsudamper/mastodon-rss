@@ -45,6 +45,20 @@ CREATE TABLE delivery_queue (
     note_public_id TEXT REFERENCES notes (public_id) ON DELETE CASCADE
 );
 
+CREATE TABLE feed_icons (
+    -- フィードに 1 つ。フィードを消すと一緒に消える
+    feed_id INTEGER PRIMARY KEY REFERENCES feeds (id) ON DELETE CASCADE,
+    -- 取ってきた元の URL。feeds.icon_url が変わったら取り直す目印
+    source_url TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    -- 中身の置き場。ICON_CACHE_DIR から見た相対パス。
+    -- 中身を DB に入れると、DB のファイルが画像のぶんだけ膨らむ
+    path TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    -- この時刻を過ぎたら取り直す。配信元の Cache-Control から決める
+    expires_at TEXT NOT NULL
+);
+
 CREATE TABLE feed_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     feed_id INTEGER NOT NULL REFERENCES feeds (id) ON DELETE CASCADE,
@@ -82,7 +96,7 @@ CREATE TABLE feeds (
     last_error TEXT,
     initial_import_done INTEGER NOT NULL DEFAULT 0 CHECK (initial_import_done IN (0, 1)),
     created_at TEXT NOT NULL
-);
+, icon_url TEXT);
 
 CREATE TABLE followers (
     -- 1 行が「username のアカウントを remote_actor_id がフォローしている」ことを表す

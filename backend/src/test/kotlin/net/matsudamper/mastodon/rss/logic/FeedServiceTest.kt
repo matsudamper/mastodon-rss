@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -12,6 +13,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondRedirect
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.FakeFeedIcons
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
@@ -25,6 +27,7 @@ import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
 import net.matsudamper.mastodon.rss.repository.FeedItemState
+import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.shared.AccountId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
@@ -639,6 +642,29 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `投稿前の再取得でアイコンを最新に入れ替える`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(ICON_XML, CHANGED_ICON_XML),
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+            assertEquals(
+                "https://example.com/icon.png",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
+
+            service.postUnpublished(account.id)
+
+            assertEquals(
+                "https://example.com/icon2.png",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
+        }
+
+    @Test
     fun `取得の時期が来たフィードの新着を投稿する`() =
         runTest {
             val repositories = FakeRepositories()
@@ -675,6 +701,102 @@ class FeedServiceTest {
             assertEquals(
                 listOf(FeedItemState.POSTED, FeedItemState.POSTED),
                 repositories.feedItems.items().map { it.state },
+            )
+        }
+
+    @Test
+    fun `定期ポーリングでもアイコンを最新に入れ替える`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val icons = FakeFeedIcons()
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(ICON_XML, CHANGED_ICON_XML),
+                icons = icons,
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
+
+            val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
+            assertEquals("https://example.com/icon2.png", feed.iconUrl)
+            // 中身も取り込みに合わせて入れ替える。見に来たときには取りに行かない
+            assertEquals(listOf(feed.id, feed.id), icons.refreshed.map { it.first })
+            assertEquals(
+                listOf<String?>("https://example.com/icon.png", "https://example.com/icon2.png"),
+                icons.refreshed.map { it.second },
+            )
+        }
+
+    @Test
+    fun `アイコンが拾えなかった取り込みでは前の URL を残す`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val icons = FakeFeedIcons()
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(ICON_XML, FEED_XML),
+                icons = icons,
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
+
+            // 空で上書きすると、拾えなかった 1 回でアイコンが消える
+            assertEquals(
+                "https://example.com/icon.png",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
+            assertEquals(
+                listOf<String?>("https://example.com/icon.png", "https://example.com/icon.png"),
+                icons.refreshed.map { it.second },
+            )
+        }
+
+    @Test
+    fun `アイコンを入れ替えられなくても記事は取り込む`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(ICON_XML, ICON_XML),
+                icons = object : FeedIcons {
+                    override suspend fun refresh(
+                        feedId: FeedId,
+                        iconUrl: String?,
+                    ) {
+                        error("アイコンを置けなかった")
+                    }
+                },
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val results = service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
+
+            assertEquals(listOf(null), results.map { it.error })
+            assertEquals(1, repositories.notes.all().size)
+        }
+
+    @Test
+    fun `アイコンを名乗らなくなったフィードでも前の URL を残す`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(
+                repositories,
+                xmls = listOf(ICON_XML, FEED_XML),
+            )
+            service.save(accountId = account.id, url = FEED_URL)
+
+            service.postUnpublished(account.id)
+
+            // 拾えなかった 1 回でアイコンが消えるのを避ける。取り下げと拾えなかったのは区別できない
+            assertEquals(
+                "https://example.com/icon.png",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
             )
         }
 
@@ -834,6 +956,7 @@ class FeedServiceTest {
         statuses: List<HttpStatusCode>? = null,
         actorDirectory: ActorDirectory = TestLocalActor.directory,
         engine: MockEngine? = null,
+        icons: FeedIcons = FakeFeedIcons(),
     ): FeedService {
         val mockEngine = engine ?: run {
             val bodies = ArrayDeque(xmls ?: listOf(xml))
@@ -864,6 +987,7 @@ class FeedServiceTest {
                 followers = repositories.followers,
                 deliveryQueue = repositories.deliveryQueue,
             ),
+            icons = icons,
         )
     }
 
@@ -896,6 +1020,28 @@ class FeedServiceTest {
                 <link>https://example.com/</link>
                 <item><title>1 本目</title><link>https://example.com/1</link></item>
                 <item><title>2 本目</title><link>https://example.com/2</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val ICON_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:webfeeds="http://webfeeds.org/rss/1.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <webfeeds:icon>https://example.com/icon.png</webfeeds:icon>
+                <item><title>1 本目</title><link>https://example.com/1</link></item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val CHANGED_ICON_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:webfeeds="http://webfeeds.org/rss/1.0">
+              <channel>
+                <title>サンプル</title>
+                <link>https://example.com/</link>
+                <webfeeds:icon>https://example.com/icon2.png</webfeeds:icon>
+                <item><title>1 本目</title><link>https://example.com/1</link></item>
               </channel>
             </rss>
         """.trimIndent()

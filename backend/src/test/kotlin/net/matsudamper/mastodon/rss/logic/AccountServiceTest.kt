@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.logic
 
+import java.nio.file.Files
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -13,6 +14,7 @@ import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.FeedIcon
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
@@ -25,6 +27,8 @@ import net.matsudamper.mastodon.rss.shared.PublicNoteId
 // 管理画面からアカウントを消す経路。
 // 名前で持っているもの（投稿とフォロワー）まで消し切れているかがここの関心になる。
 class AccountServiceTest {
+    private val iconStore = FeedIconStore(Files.createTempDirectory("account-icon"))
+
     @Test
     fun `消すとフォロワーと投稿とフィードと記事が消える`() = runTest {
         val repositories = FakeRepositories()
@@ -39,6 +43,29 @@ class AccountServiceTest {
         assertEquals(0L, repositories.notes.count(USERNAME))
         assertNull(repositories.feeds.findByAccountId(account.id))
         assertEquals(emptyList(), repositories.feedItems.items())
+    }
+
+    @Test
+    fun `消すと置いてあるアイコンのファイルも消える`() = runTest {
+        val repositories = FakeRepositories()
+        val account = repositories.withFullAccount()
+        val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
+        val path = iconStore.write(feedId = feed.id, bytes = byteArrayOf(1, 2, 3))
+        repositories.feedIcons.save(
+            feedId = feed.id,
+            icon = FeedIcon(
+                sourceUrl = "https://example.com/icon.png",
+                contentType = "image/png",
+                path = path,
+                fetchedAt = CREATED_AT,
+                expiresAt = CREATED_AT.plusSeconds(POLL_INTERVAL_SECONDS),
+            ),
+        )
+
+        val result = serviceOf(repositories, TestDelivery()).delete(USERNAME)
+
+        assertIs<AccountService.DeleteResult.Success>(result)
+        assertNull(iconStore.read(path))
     }
 
     @Test
@@ -150,6 +177,11 @@ class AccountServiceTest {
             followers = RepositoryFollowerStore(repositories.followers),
             delivery = delivery,
         ),
+        iconFiles = AccountIconFiles(
+            feeds = repositories.feeds,
+            icons = repositories.feedIcons,
+            store = iconStore,
+        ),
         domain = TestLocalActor.DOMAIN,
     )
 
@@ -210,6 +242,7 @@ class AccountServiceTest {
         title = "サンプル",
         siteUrl = "https://example.com/",
         format = "RSS 2.0",
+        iconUrl = null,
         pollIntervalSeconds = POLL_INTERVAL_SECONDS,
     )
 

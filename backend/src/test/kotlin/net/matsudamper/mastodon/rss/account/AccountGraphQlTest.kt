@@ -4,6 +4,7 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -185,6 +186,7 @@ class AccountGraphQlTest {
                     title = "サンプル",
                     siteUrl = "https://example.com",
                     format = "RSS 2.0",
+                    iconUrl = null,
                     pollIntervalSeconds = 900,
                 ),
             )
@@ -197,6 +199,61 @@ class AccountGraphQlTest {
             val feed = result.obj("feed")
             assertEquals("https://example.com/feed.xml", feed.string("url"))
             assertEquals("https://example.com", feed.string("siteUrl"))
+        }
+
+    @Test
+    fun `アイコンの URL は取得元ごとに変わる`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            val account = repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            val feed = repositories.feeds.add(
+                NewFeed(
+                    accountId = account!!.id,
+                    url = "https://example.com/feed.xml",
+                    title = "サンプル",
+                    siteUrl = "https://example.com",
+                    format = "RSS 2.0",
+                    iconUrl = "https://example.com/icon.png",
+                    pollIntervalSeconds = 900,
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val iconUrl = queryAccount("feed1").account().string("iconUrl")
+
+            // 中身を返すのは Actor と同じパス。取得元が変わったことが分かる値が付く
+            assertTrue(iconUrl.startsWith("https://${TestServerEnv.DOMAIN}/users/feed1/icon?v="))
+
+            repositories.feeds.updateMetadata(
+                id = feed!!.id,
+                title = "サンプル",
+                siteUrl = "https://example.com",
+                format = "RSS 2.0",
+                iconUrl = "https://example.com/icon2.png",
+            )
+
+            assertNotEquals(iconUrl, queryAccount("feed1").account().string("iconUrl"))
+        }
+
+    @Test
+    fun `アイコンを名乗っていないフィードは iconUrl が null`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            val account = repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            repositories.feeds.add(
+                NewFeed(
+                    accountId = account!!.id,
+                    url = "https://example.com/feed.xml",
+                    title = "サンプル",
+                    siteUrl = "https://example.com",
+                    format = "RSS 2.0",
+                    iconUrl = null,
+                    pollIntervalSeconds = 900,
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            assertEquals(JsonNull, queryAccount("feed1").account().getValue("iconUrl"))
         }
 
     @Test
@@ -512,7 +569,7 @@ class AccountGraphQlTest {
             val query =
                 "query Account(${'$'}username: String!) { " +
                     "account(username: ${'$'}username) { " +
-                    "id username acct actorUrl followerCount noteCount feed { url siteUrl } } }"
+                    "id username acct actorUrl iconUrl followerCount noteCount feed { url siteUrl } } }"
 
             setBody(
                 """{"query":${JsonPrimitive(query)},"variables":{"username":${JsonPrimitive(username)}}}""",

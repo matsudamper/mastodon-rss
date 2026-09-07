@@ -1,8 +1,8 @@
 type AdminQuery {
     session: AdminSession! @lazy
 
-    "応答するアカウントの一覧"
-    adminAccounts: [AdminAccount!]! @lazy
+    "応答するアカウントの一覧。追加した順。limit を渡さないと 10 件、上限は 50 件"
+    adminAccounts(cursor: String, limit: Int): AdminAccountsConnection! @lazy
 
     "アカウント 1 つ。応答しない名前なら null"
     adminAccount(username: String!): AdminAccount @lazy
@@ -15,6 +15,11 @@ type AdminQuery {
 
     "未投稿の記事を返す"
     unpublishedFeedItems(query: UnpublishedFeedItemsQuery!): AdminUnpublishedFeedItemsResult! @lazy
+}
+
+type AdminAccountsConnection {
+    nodes: [AdminAccount!]!
+    pageInfo: PageInfo!
 }
 
 type AdminNotesConnection {

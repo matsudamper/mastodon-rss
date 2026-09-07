@@ -68,6 +68,7 @@ internal fun actorDocument(
         following = urls.following,
         url = urls.actorId,
         attachment = feedAttachments(feedLinks),
+        icon = feedLinks.iconUrl?.let { Actor.Image(url = urls.icon(it)) },
         showFeatured = false,
         publicKey =
         ActorPublicKey(

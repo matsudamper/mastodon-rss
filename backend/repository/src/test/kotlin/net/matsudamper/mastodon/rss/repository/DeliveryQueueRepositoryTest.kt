@@ -378,6 +378,7 @@ class DeliveryQueueRepositoryTest {
                     title = null,
                     siteUrl = null,
                     format = null,
+                    iconUrl = null,
                     pollIntervalSeconds = 900,
                 ),
             ),

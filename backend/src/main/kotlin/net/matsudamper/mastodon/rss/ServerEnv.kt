@@ -72,6 +72,15 @@ class ServerEnv(
         }
 
     /**
+     * 取ってきたアイコンの置き場。無ければ書き込むときに作られる
+     */
+    val iconCacheDir: Path =
+        run {
+            val raw = env["ICON_CACHE_DIR"]?.trim()
+            Path.of(if (raw.isNullOrEmpty()) "./data/image-cache" else raw)
+        }
+
+    /**
      * アクターの秘密鍵をどこから読むか
      */
     val actorPrivateKey: ActorPrivateKey =

@@ -9,7 +9,6 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -209,7 +208,7 @@ class AdminGraphQlTest {
             applicationWith(passwordConfigured = true)
             val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
 
-            assertEquals(emptyList(), queryAccounts(token).accounts())
+            assertEquals(listOf(), queryAccounts(token).accounts().nodes())
         }
 
     @Test
@@ -228,8 +227,68 @@ class AdminGraphQlTest {
 
             assertEquals(
                 listOf("feed1"),
-                queryAccounts(token).accounts().map { it.jsonObject.obj("account").string("username") },
+                queryAccounts(token).accounts().nodes().map { it.obj("account").string("username") },
             )
+        }
+
+    @Test
+    fun `limit を渡さなければ 10 件までしか返さない`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repeat(11) { repositories.accounts.add(username = "feed$it", createdAt = Instant.now()) }
+            applicationWith(passwordConfigured = true, repositories = repositories)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val page = queryAccounts(token).accounts()
+
+            assertEquals(10, page.nodes().size)
+            assertEquals(true, page.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `1 件ずつでも追加した順に辿れる`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            repositories.accounts.add(username = "feed2", createdAt = Instant.now())
+            applicationWith(passwordConfigured = true, repositories = repositories)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val page1 = queryAccounts(token, limit = 1).accounts()
+            assertEquals(listOf("feed1"), page1.nodes().map { it.obj("account").string("username") })
+            assertEquals(true, page1.pageInfo().boolean("hasMore"))
+
+            val page2 = queryAccounts(token, cursor = page1.pageInfo().string("nextCursor"), limit = 1).accounts()
+            assertEquals(listOf("feed2"), page2.nodes().map { it.obj("account").string("username") })
+            assertEquals(false, page2.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `limit が上限を超えていても 50 件までしか返さない`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repeat(51) { repositories.accounts.add(username = "feed$it", createdAt = Instant.now()) }
+            applicationWith(passwordConfigured = true, repositories = repositories)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val page = queryAccounts(token, limit = Int.MAX_VALUE).accounts()
+
+            assertEquals(50, page.nodes().size)
+            assertEquals(true, page.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `読めないカーソルなら続きは無い`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            applicationWith(passwordConfigured = true, repositories = repositories)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val page = queryAccounts(token, cursor = "これはカーソルではない").accounts()
+
+            assertEquals(listOf(), page.nodes())
+            assertEquals(false, page.pageInfo().boolean("hasMore"))
         }
 
     @Test
@@ -1069,8 +1128,27 @@ class AdminGraphQlTest {
     private suspend fun ApplicationTestBuilder.mutateLogout(token: String): HttpResponse =
         graphQl("mutation { admin { logout { loggedIn passwordConfigured } } }", token = token)
 
-    private suspend fun ApplicationTestBuilder.queryAccounts(token: String? = null): HttpResponse =
-        graphQl("query { admin { adminAccounts { $ACCOUNT_FIELDS } } }", token = token)
+    /**
+     * `limit` に null を渡すと、引数を書かない古い呼び出しと同じになる
+     */
+    private suspend fun ApplicationTestBuilder.queryAccounts(
+        token: String? = null,
+        cursor: String? = null,
+        limit: Int? = null,
+    ): HttpResponse =
+        graphQl(
+            query =
+            "query Accounts(${'$'}cursor: String, ${'$'}limit: Int) { admin { " +
+                "adminAccounts(cursor: ${'$'}cursor, limit: ${'$'}limit) { " +
+                "nodes { $ACCOUNT_FIELDS } pageInfo { hasMore nextCursor } } } }",
+            token = token,
+            variables = buildString {
+                append("{")
+                if (cursor != null) append(""""cursor":${JsonPrimitive(cursor)},""")
+                append(""""limit":${if (limit == null) "null" else JsonPrimitive(limit)}""")
+                append("}")
+            },
+        )
 
     private suspend fun ApplicationTestBuilder.queryAccount(
         username: String,
@@ -1353,7 +1431,11 @@ class AdminGraphQlTest {
 
         suspend fun HttpResponse.loginResult(): JsonObject = admin().obj("login")
 
-        suspend fun HttpResponse.accounts(): List<JsonElement> = admin().getValue("adminAccounts").jsonArray
+        suspend fun HttpResponse.accounts(): JsonObject = admin().obj("adminAccounts")
+
+        fun JsonObject.nodes(): List<JsonObject> = getValue("nodes").jsonArray.map { it.jsonObject }
+
+        fun JsonObject.pageInfo(): JsonObject = obj("pageInfo")
 
         suspend fun HttpResponse.addAccountResult(): JsonObject = admin().obj("addAccount")
 
