@@ -306,6 +306,52 @@ class YouTubeFeedResolverTest {
         assertNull(YouTubeFeedResolver.channelIdFromPageHtml(channelPage, ""))
     }
 
+    @Test
+    fun `チャンネルのページの JSON から説明文を拾う`() {
+        val html =
+            """{"metadata":{"channelMetadataRenderer":{"title":"配信者",""" +
+                """"description":"1 行目\n2 行目 \u0026 3 行目","channelUrl":"https://www.youtube.com/channel/$channelId"}}}"""
+
+        assertEquals("1 行目\n2 行目 & 3 行目", YouTubeFeedResolver.channelDescriptionFromPageHtml(html))
+    }
+
+    @Test
+    fun `チャンネルのページ以外からは説明文を拾わない`() {
+        // 動画のページの説明文をチャンネルの説明文として拾ってしまわないこと
+        assertNull(YouTubeFeedResolver.channelDescriptionFromPageHtml("""{"videoDetails":{"shortDescription":"動画の説明"}}"""))
+        assertNull(YouTubeFeedResolver.channelDescriptionFromPageHtml(""))
+    }
+
+    @Test
+    fun `説明文が空なら拾わない`() {
+        val html = """{"channelMetadataRenderer":{"title":"配信者","description":""}}"""
+
+        assertNull(YouTubeFeedResolver.channelDescriptionFromPageHtml(html))
+    }
+
+    @Test
+    fun `チャンネルのページの og image からアイコンを拾う`() {
+        val html =
+            """<html><head><meta property="og:title" content="配信者">""" +
+                """<meta property="og:image" content="https://yt3.googleusercontent.com/avatar=s900-c-k">""" +
+                """</head></html>"""
+
+        assertEquals("https://yt3.googleusercontent.com/avatar=s900-c-k", YouTubeFeedResolver.channelIconFromPageHtml(html))
+    }
+
+    @Test
+    fun `og image が無ければアイコンを拾わない`() {
+        // JSON の中に URL が並んでいても、タグとして名乗っていないものは拾わない
+        assertNull(YouTubeFeedResolver.channelIconFromPageHtml("""{"avatar":{"thumbnails":[{"url":"https://example.com/a.png"}]}}"""))
+        assertNull(YouTubeFeedResolver.channelIconFromPageHtml(""))
+    }
+
+    @Test
+    fun `チャンネル ID からチャンネルのページの URL を作る`() {
+        assertEquals("https://www.youtube.com/channel/$channelId", YouTubeFeedResolver.channelPageUrl(channelId))
+        assertNull(YouTubeFeedResolver.channelPageUrl("UC123"))
+    }
+
     private fun feedUrlOf(input: String): String? = (YouTubeFeedResolver.resolve(input) as? YouTubeFeedSource.Feed)?.url
 
     private fun channelLookup(pageUrl: String): YouTubeFeedSource.NeedsPageLookup =

@@ -11,6 +11,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorKey
+import net.matsudamper.mastodon.rss.actor.actorIconRoutes
 import net.matsudamper.mastodon.rss.actor.actorRoutes
 import net.matsudamper.mastodon.rss.follower.followerRoutes
 import net.matsudamper.mastodon.rss.graphql.DiContainer
@@ -127,6 +128,7 @@ fun Application.module(deps: AppDependencies) {
         actorDirectory = deps.directory,
         notePublisher = deps.notePublisher,
         actorPublisher = deps.actorPublisher,
+        accountIconFiles = deps.accountIconFiles,
         noteStore = deps.noteStore,
         feedService = deps.feedService,
     )
@@ -169,6 +171,7 @@ fun Application.module(deps: AppDependencies) {
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
         webFingerRoutes(deps.directory)
         actorRoutes(deps.directory, actorKey, deps.feedLinks, deps.actorProfiles)
+        actorIconRoutes(deps.directory, deps.actorIcons)
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)
