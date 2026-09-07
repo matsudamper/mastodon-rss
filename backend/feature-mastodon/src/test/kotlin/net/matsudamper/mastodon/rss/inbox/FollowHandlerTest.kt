@@ -116,10 +116,10 @@ class FollowHandlerTest {
         )
 
         val creates = deliveredCreates(delivery)
-        assertEquals(20, creates.size)
+        assertEquals(5, creates.size)
         // 上限を超えるときは新しい方を残す
         assertEquals("<p>24</p>", creates.last().target.content)
-        assertEquals("<p>5</p>", creates.first().target.content)
+        assertEquals("<p>20</p>", creates.first().target.content)
     }
 
     @Test
@@ -180,7 +180,7 @@ class FollowHandlerTest {
         )
 
         // 成立後の投稿を数に含めて切ると、その分だけ過去の投稿が減る
-        assertEquals(20, deliveredCreates(delivery).size)
+        assertEquals(5, deliveredCreates(delivery).size)
     }
 
     @Test
