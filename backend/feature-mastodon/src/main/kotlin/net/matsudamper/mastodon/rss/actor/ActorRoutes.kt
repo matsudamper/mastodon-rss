@@ -36,12 +36,17 @@ fun Route.actorRoutes(
         call.respondJson(
             serializer = Actor.serializer(),
             value = actorDocument(urls, actorKey, feedLinks.find(urls.username), profiles.find(urls.username)),
+            // Accept を見ずに application/json で返すとアクターとして認識されない
             contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
         )
     }
 }
 
-/** Actor JSON を組み立てる */
+/**
+ * Actor JSON を組み立てる。
+ *
+ * 表示名と説明文は管理画面から設定できる。設定していなければ名前から決まる。
+ */
 internal fun actorDocument(
     urls: ActorUrls,
     actorKey: ActorKey,
@@ -66,7 +71,8 @@ internal fun actorDocument(
         icon = feedLinks.iconUrl?.let { Actor.Image(url = urls.icon(it)) },
         image = feedLinks.headerUrl?.let { Actor.Image(url = urls.header(it)) },
         showFeatured = false,
-        publicKey = ActorPublicKey(
+        publicKey =
+        ActorPublicKey(
             id = urls.publicKeyId,
             owner = urls.actorId,
             publicKeyPem = actorKey.publicKeyPem,
@@ -74,6 +80,12 @@ internal fun actorDocument(
     )
 }
 
+/**
+ * フィードの URL をプロフィールのリンク集にする。
+ *
+ * フィードを持たないアカウントは空になる。空の項目を出すと、Mastodon の
+ * プロフィールに見出しだけの行が並ぶ。
+ */
 private fun feedAttachments(feedLinks: FeedLinks): List<ActorAttachment> =
     buildList {
         val siteUrl = feedLinks.siteUrl
@@ -88,12 +100,19 @@ private fun linkAttachment(
     url: String,
 ): ActorAttachment {
     val escaped = escapeHtml(url)
+    // rel は Mastodon 側でも付け直されるが、そのまま表示する実装もあるので入れておく
     return ActorAttachment(
         name = name,
         htmlContent = """<a href="$escaped" rel="nofollow noopener" target="_blank">$escaped</a>""",
     )
 }
 
+/**
+ * 説明文のプレーンテキストを `summary` に入れる HTML にする。
+ *
+ * 空行で段落に分け、行の切れ目は `<br>` にする。Mastodon が許可するのは
+ * この程度のタグで、それ以外は相手側で落とされる。
+ */
 private fun summaryHtml(text: String): String = text
     .replace("\r\n", "\n")
     .split(Regex("\n{2,}"))
