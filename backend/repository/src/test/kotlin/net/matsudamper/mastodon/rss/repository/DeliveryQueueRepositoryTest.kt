@@ -172,6 +172,19 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
+    fun `大文字小文字だけが違うホストは同じ 1 つとして扱う`() {
+        withRepositories { repositories ->
+            repositories.deliveryQueue.enqueueNote(
+                notePost(publicId = "n1", inboxes = listOf("https://a.example/inbox", "https://A.EXAMPLE/users/1/inbox")),
+            )
+
+            val claimed = repositories.deliveryQueue.claim(now = now, limit = 5)
+
+            assertEquals(listOf("https://a.example/inbox"), claimed.map { it.inbox })
+        }
+    }
+
+    @Test
     fun `claim は limit までしか取らない`() {
         withRepositories { repositories ->
             repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A, INBOX_B, INBOX_C)))
