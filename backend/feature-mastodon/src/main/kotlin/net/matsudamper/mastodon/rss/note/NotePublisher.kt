@@ -14,13 +14,14 @@ import net.matsudamper.mastodon.rss.json.AppJson
 import org.slf4j.LoggerFactory
 
 /**
- * 投稿を作って全フォロワーに配る。
+ * 投稿の `Create{Note}` を組み立てる（[prepare]）。投稿の削除はその場で配る（[delete]）。
  *
- * 記録してから配る。相手は受け取った直後にパーマリンクを引きに来ることがあるので、
- * 配信が先だと 404 を返してしまう。
+ * [prepare] は DB も触らず HTTP も出さない。記録と投函は `:backend` が repository の
+ * 投函の口で 1 トランザクションにまとめる。記録と配信をここで続けて行うと、
+ * 記事の投稿済み化と別々に確定して、途中で落ちたときに同じ記事を二重に投稿する。
  *
- * 配信はその場で 1 件ずつ送る。失敗しても再送はしないのでログに残すだけ。
- * 溜めて送り直す仕組みが要るのは、実際に取りこぼしが見えてからでよい。
+ * [delete] はまだキューに載せていない。載せているのは投稿だけで、削除は
+ * 管理画面からの操作でしか起きないため。失敗しても再送はしないのでログに残るだけ。
  */
 class NotePublisher(
     private val notes: NoteStore,
@@ -30,43 +31,29 @@ class NotePublisher(
     private val logger = LoggerFactory.getLogger(NotePublisher::class.java)
 
     /**
+     * 投稿の id と時刻を決めて、フォロワーに送る `Create{Note}` の JSON を組み立てる。
+     *
      * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと。ここでは中身を検査しない
      */
-    suspend fun publish(
+    fun prepare(
         sender: ActorUrls,
         contentHtml: String,
-    ): PublishedNote {
+    ): PreparedNote {
         val publishedAt = Instant.now()
         val publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli()))
         val urls = NoteUrls(domain = sender.domain, publicId = publicId)
 
-        notes.add(
-            StoredNote(
-                publicId = publicId,
-                username = sender.username,
-                contentHtml = contentHtml,
-                publishedAt = publishedAt,
-            ),
-        )
-
-        val activityBodyBytes = AppJson.encodeToString(
+        val activityJson = AppJson.encodeToString(
             CreateNoteActivity.serializer(),
             createActivity(sender = sender, urls = urls, contentHtml = contentHtml, publishedAt = publishedAt),
-        ).toByteArray()
-
-        val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
-
-        logger.info(
-            "投稿を配った: ${sender.acct} $publicId 宛先=${result.deliveryAttemptCount} 成功=${result.delivered}",
         )
 
-        return PublishedNote(
+        return PreparedNote(
             publicId = publicId,
             url = urls.noteUrl,
             contentHtml = contentHtml,
             publishedAt = publishedAt,
-            deliveryAttemptCount = result.deliveryAttemptCount,
-            delivered = result.delivered,
+            activityJson = activityJson,
         )
     }
 
@@ -176,12 +163,16 @@ data class DeletedNote(
     val publicId: PublicNoteId,
 )
 
-/** 配信した結果。 */
-data class PublishedNote(
+/**
+ * 組み立てた投稿。記録する中身と、宛先に送る `Create{Note}` を持つ。
+ *
+ * @param url 相手がパーマリンクとして開く URL
+ * @param activityJson 署名対象になる JSON。宛先が何件でも同じものを送る
+ */
+data class PreparedNote(
     val publicId: PublicNoteId,
     val url: String,
     val contentHtml: String,
     val publishedAt: Instant,
-    val deliveryAttemptCount: Int,
-    val delivered: Int,
+    val activityJson: String,
 )
