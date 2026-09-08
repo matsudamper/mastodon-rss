@@ -104,7 +104,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
 
         val after = cursor?.let { AccountsCursor.decode(it) }
 
-        // 読めないカーソルは、消えたアカウントを指していたのと同じ扱いにする
+        // 読めないカーソルは一覧の終わりとして扱う。外から来る値なので投げない
         val connection = if (cursor != null && after == null) {
             QlAdminAccountsConnection(
                 nodes = listOf(),
@@ -112,7 +112,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
             )
         } else {
             val page = GraphQlEngine.diContainer(env).accountService.accounts(
-                afterUsername = after?.afterUsername,
+                after = after?.toPosition(),
                 limit = (limit ?: DEFAULT_ACCOUNTS_LIMIT).coerceIn(0, MAX_ACCOUNTS_LIMIT),
             )
 
@@ -120,7 +120,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
                 nodes = page.accounts.map { it.toGraphqlResponse() },
                 pageInfo = QlPageInfo(
                     hasMore = page.hasMore,
-                    nextCursor = page.nextUsername?.let { AccountsCursor(afterUsername = it).encode() },
+                    nextCursor = page.nextPosition?.let { AccountsCursor.of(it).encode() },
                 ),
             )
         }

@@ -8,10 +8,15 @@ import net.matsudamper.mastodon.rss.note.StoredNote
 /**
  * 投稿の記録の差し替え。オンメモリで持つ。
  *
- * 記録する口は本物にも無いので、テストは [added] に直接入れて状態を作る
+ * 記録する口は本物には無い（投稿の記録は配信の投函と 1 トランザクションで確定させる）ので、
+ * テストが状態を作るための [add] だけを持つ
  */
 class FakeNoteStore : NoteStore {
     val added: MutableList<StoredNote> = mutableListOf()
+
+    fun add(note: StoredNote) {
+        added += note
+    }
 
     override fun find(publicId: PublicNoteId): StoredNote? = added.firstOrNull { it.publicId == publicId }
 

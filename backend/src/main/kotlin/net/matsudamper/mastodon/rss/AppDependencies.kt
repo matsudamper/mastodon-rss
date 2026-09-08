@@ -138,6 +138,14 @@ class AppDependencies(
     }
 
     /**
+     * フォロー成立後に過去の投稿を配る間、inbox の応答を待たせないためのスコープ。
+     *
+     * 配り終える前にプロセスが落ちたら、その分は届かない。フォロー自体は
+     * 成立しているので、次の新着からは普通に届く
+     */
+    private val followBackfillScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
      * inbox が受け取ったアクティビティの検証と振り分け。
      *
      * 何をどう組み合わせるかは ActivityPub 側の話なので
@@ -148,6 +156,8 @@ class AppDependencies(
         remoteActors = remoteActors,
         delivery = delivery,
         followers = followerStore,
+        notes = noteStore,
+        backfillScope = followBackfillScope,
     )
 
     val notePublisher: NotePublisher = NotePublisher(
@@ -201,20 +211,20 @@ class AppDependencies(
     }
 
     /**
-     * 定期ポーリングと配信のワーカーを止めて、走っている分が終わるまで待つ。
+     * 定期ポーリング・配信のワーカー・フォロー成立後の再配信を止めて、走っている分が終わるまで待つ。
      *
      * 待ち受けを止める前に呼ぶ。投稿を受け取った相手はその場で Note やアクターの URL を
      * 引きに来るので、止めた後に投稿や配信をすると相手は繋げずに終わる。
      * 送信中の配信は待たない。行は `delivering` のまま残り、次の起動の復旧で送り直される。
      *
-     * 何度呼んでもよい。待つのは最初の 1 回だけで、2 つまとめて 3 秒までにする。
-     * 同期の DB 呼び出しはキャンセルでは止まらないので、片方ずつ待つと待ちが積み上がり、
+     * 何度呼んでもよい。待つのは最初の 1 回だけで、まとめて 3 秒までにする。
+     * 同期の DB 呼び出しはキャンセルでは止まらないので、1 つずつ待つと待ちが積み上がり、
      * サーバーの停止（5 秒）と合わせて docker stop の既定の猶予（10 秒）を超える。
      * 超えると DB を閉じる前に殺され、WAL が畳まれない
      */
     fun stopBackgroundWork() {
         if (!backgroundStopped.compareAndSet(false, true)) return
-        val jobs = listOf(feedPollingScope, deliveryScope).map { it.coroutineContext.job }
+        val jobs = listOf(feedPollingScope, deliveryScope, followBackfillScope).map { it.coroutineContext.job }
         jobs.forEach { it.cancel() }
         runBlocking {
             withTimeoutOrNull(3_000) {

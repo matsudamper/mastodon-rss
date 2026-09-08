@@ -33,13 +33,14 @@ interface FollowerRepository {
      * どの `Follow` に対する `Accept` だったかは問わない。相手から見ると、送った
      * `Follow` のどれか 1 つに `Accept` が返れば関係は成立する。
      *
-     * @return 対象の行があれば true
+     * 状態の確認と書き換えは 1 つのトランザクションで行う。分けると、同じ `Follow` が
+     * 同時に 2 つ届いたときに両方が「初めて成立した」と読む
      */
     fun markAccepted(
         username: String,
         followerActorUri: String,
         acceptedAt: Instant,
-    ): Boolean
+    ): FollowAcceptResult
 
     /**
      * フォローを消す。`Undo{Follow}` で呼ぶ。
@@ -121,6 +122,22 @@ interface FollowerRepository {
      * こちらのアクターが外から見えていたことに変わりはないため。
      */
     fun hasAny(): Boolean
+}
+
+/**
+ * [FollowerRepository.markAccepted] の結果。
+ *
+ * 呼び出し側は初めて成立したかどうかで振る舞いを変える
+ */
+enum class FollowAcceptResult {
+    /** `Accept` 前の記録を成立させた */
+    FirstAccept,
+
+    /** 既に成立していた。`Follow` の送り直し */
+    AlreadyAccepted,
+
+    /** 記録が無い */
+    NotFound,
 }
 
 /**

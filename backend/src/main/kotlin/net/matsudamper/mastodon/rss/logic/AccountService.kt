@@ -5,6 +5,7 @@ import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
@@ -61,21 +62,21 @@ class AccountService(
     }
 
     /**
-     * 追加した順で `afterUsername` の次から `limit` 件返す
+     * 追加した順で [after] の次から [limit] 件返す
      */
-    fun accounts(afterUsername: String?, limit: Int): ManagedAccountsPage {
+    fun accounts(after: AccountPosition?, limit: Int): ManagedAccountsPage {
         if (limit <= 0) {
-            return ManagedAccountsPage(accounts = emptyList(), hasMore = false, nextUsername = null)
+            return ManagedAccountsPage(accounts = listOf(), hasMore = false, nextPosition = null)
         }
 
-        val fetched = accounts.list(afterUsername = afterUsername, limit = limit + 1)
+        val fetched = accounts.list(after = after, limit = limit + 1)
         val hasMore = fetched.size > limit
-        val page = fetched.take(limit).map { it.toManaged() }
+        val page = fetched.take(limit)
 
         return ManagedAccountsPage(
-            accounts = page,
+            accounts = page.map { it.toManaged() },
             hasMore = hasMore,
-            nextUsername = if (hasMore) page.last().urls.username else null,
+            nextPosition = if (hasMore) page.last().position() else null,
         )
     }
 
@@ -117,10 +118,9 @@ class AccountService(
     ): UpdateProfileResult {
         val trimmedDisplayName = displayName.trim()
         val trimmedSummary = summary.trim()
-        val displayNameTooLong = trimmedDisplayName.codePointCount(0, trimmedDisplayName.length) > AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH
         val summaryTooLong = trimmedSummary.codePointCount(0, trimmedSummary.length) > AccountProfileLimits.SUMMARY_MAX_LENGTH
-        if (displayNameTooLong || summaryTooLong) {
-            return UpdateProfileResult.Failure(false, displayNameTooLong, summaryTooLong)
+        if (summaryTooLong) {
+            return UpdateProfileResult.Failure(false, false, true)
         }
         val account = accounts.findByUsername(username)
             ?: return UpdateProfileResult.Failure(true, false, false)
@@ -191,12 +191,12 @@ class AccountService(
     )
 
     /**
-     * @param nextUsername 続きがある場合の、次に渡す `afterUsername`
+     * @param nextPosition 続きがある場合の、次に渡す `after`
      */
     data class ManagedAccountsPage(
         val accounts: List<ManagedAccount>,
         val hasMore: Boolean,
-        val nextUsername: String?,
+        val nextPosition: AccountPosition?,
     )
 
     sealed interface DeleteResult {

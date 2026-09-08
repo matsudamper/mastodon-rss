@@ -40,21 +40,14 @@ class NotePublisher(
         contentHtml: String,
     ): PreparedNote {
         val publishedAt = Instant.now()
-        val publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli()))
-        val urls = NoteUrls(domain = sender.domain, publicId = publicId)
-
-        val activityJson = AppJson.encodeToString(
-            CreateNoteActivity.serializer(),
-            createActivity(sender = sender, urls = urls, contentHtml = contentHtml, publishedAt = publishedAt),
-        )
-
-        return PreparedNote(
-            publicId = publicId,
-            url = urls.noteUrl,
+        val note = StoredNote(
+            publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli())),
+            username = sender.username,
             contentHtml = contentHtml,
             publishedAt = publishedAt,
-            activityJson = activityJson,
         )
+
+        return note.toPrepared(sender)
     }
 
     /**
@@ -71,24 +64,26 @@ class NotePublisher(
     ): PreparedNote? {
         val note = notes.find(publicId)?.takeIf { it.username.equals(sender.username, ignoreCase = true) }
             ?: return null
-        val urls = NoteUrls(domain = sender.domain, publicId = note.publicId)
 
-        val activityJson = AppJson.encodeToString(
-            CreateNoteActivity.serializer(),
-            createActivity(
-                sender = sender,
-                urls = urls,
-                contentHtml = note.contentHtml,
-                publishedAt = note.publishedAt,
-            ),
-        )
+        return note.toPrepared(sender)
+    }
+
+    /**
+     * 組み立ては [CreateNoteActivityFactory] に任せる。フォロー成立後の再配信と同じものを
+     * 作らないと、同じ投稿が相手のタイムラインに 2 度並ぶ
+     */
+    private fun StoredNote.toPrepared(sender: ActorUrls): PreparedNote {
+        val urls = NoteUrls(domain = sender.domain, publicId = publicId)
 
         return PreparedNote(
-            publicId = note.publicId,
+            publicId = publicId,
             url = urls.noteUrl,
-            contentHtml = note.contentHtml,
-            publishedAt = note.publishedAt,
-            activityJson = activityJson,
+            contentHtml = contentHtml,
+            publishedAt = publishedAt,
+            activityJson = AppJson.encodeToString(
+                CreateNoteActivity.serializer(),
+                CreateNoteActivityFactory.create(sender = sender, note = this),
+            ),
         )
     }
 
@@ -165,33 +160,6 @@ class NotePublisher(
         cc = listOf(sender.followers),
         target = DeleteNoteActivity.Tombstone(id = urls.noteId),
     )
-
-    private fun createActivity(
-        sender: ActorUrls,
-        urls: NoteUrls,
-        contentHtml: String,
-        publishedAt: Instant,
-    ): CreateNoteActivity {
-        val published = publishedAt.toActivityPubPublished()
-
-        return CreateNoteActivity(
-            id = urls.createId,
-            actor = sender.actorId,
-            published = published,
-            to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
-            cc = listOf(sender.followers),
-            target = Note(
-                id = urls.noteId,
-                attributedTo = sender.actorId,
-                content = contentHtml,
-                published = published,
-                to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
-                cc = listOf(sender.followers),
-                url = urls.noteUrl,
-                atomUri = urls.noteUrl,
-            ),
-        )
-    }
 }
 
 data class DeletedNote(

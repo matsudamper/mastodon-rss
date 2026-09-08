@@ -44,6 +44,7 @@ class FeedService(
             is FeedFetchService.FetchResult.Success -> PreviewResult.Success(fetched.toPreview())
             FeedFetchService.FetchResult.InvalidUrl -> PreviewResult.Failure(PreviewFailure.INVALID_URL)
             FeedFetchService.FetchResult.TooLarge -> PreviewResult.Failure(PreviewFailure.FETCH_FAILED)
+            FeedFetchService.FetchResult.ChannelIdNotFound -> PreviewResult.Failure(PreviewFailure.FETCH_FAILED)
             is FeedFetchService.FetchResult.HttpError -> PreviewResult.Failure(PreviewFailure.FETCH_FAILED)
             is FeedFetchService.FetchResult.ParseError -> PreviewResult.Failure(PreviewFailure.PARSE_FAILED)
         }
@@ -104,6 +105,8 @@ class FeedService(
             FeedFetchService.FetchResult.InvalidUrl -> SaveResult.Failure(SaveFailure.INVALID_URL)
 
             FeedFetchService.FetchResult.TooLarge -> SaveResult.Failure(SaveFailure.FETCH_FAILED)
+
+            FeedFetchService.FetchResult.ChannelIdNotFound -> SaveResult.Failure(SaveFailure.FETCH_FAILED)
 
             is FeedFetchService.FetchResult.HttpError -> SaveResult.Failure(SaveFailure.FETCH_FAILED)
 
@@ -383,6 +386,7 @@ class FeedService(
         is FeedFetchService.FetchResult.Success -> error("成功は失敗の理由を持たない")
         FeedFetchService.FetchResult.InvalidUrl -> "URL として読めない"
         FeedFetchService.FetchResult.TooLarge -> "応答が大きすぎる"
+        FeedFetchService.FetchResult.ChannelIdNotFound -> "YouTube のページからチャンネル ID を取り出せなかった"
         is FeedFetchService.FetchResult.HttpError -> status?.let { "HTTP $it" } ?: message ?: "取得に失敗した"
         is FeedFetchService.FetchResult.ParseError -> "パースに失敗した"
     }
@@ -530,6 +534,7 @@ class FeedService(
             }
 
             FeedFetchService.FetchResult.TooLarge,
+            FeedFetchService.FetchResult.ChannelIdNotFound,
             is FeedFetchService.FetchResult.HttpError,
             -> {
                 feed.recordFailure(fetched.failureReason())
