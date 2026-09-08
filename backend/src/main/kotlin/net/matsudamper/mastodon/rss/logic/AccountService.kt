@@ -147,13 +147,13 @@ class AccountService(
             ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
 
         // 行が消えると置き場を引けなくなるので、消す前に控える
-        val iconPath = iconFiles.locate(account.id)
+        val imagePaths = iconFiles.locateAll(account.id)
 
         if (!accounts.delete(account.id)) {
             return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
         }
 
-        if (iconPath != null) iconFiles.delete(iconPath)
+        imagePaths.forEach(iconFiles::delete)
 
         actorPublisher.delete(ActorUrls(domain = domain, username = account.username))
 
