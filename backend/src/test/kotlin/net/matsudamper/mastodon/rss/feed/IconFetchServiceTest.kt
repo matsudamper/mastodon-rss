@@ -35,6 +35,21 @@ class IconFetchServiceTest {
         }
 
     @Test
+    fun `favicon ico を受け取れる`() =
+        runTest {
+            val engine = MockEngine {
+                respond(
+                    content = "ICO",
+                    headers = headersOf("Content-Type", ContentType.Image.XIcon.toString()),
+                )
+            }
+
+            val result = serviceOf(engine).fetch("https://example.com/favicon.ico")
+
+            assertEquals(ContentType.Image.XIcon, assertIs<IconFetchService.FetchResult.Success>(result).contentType)
+        }
+
+    @Test
     fun `圧縮したまま返してくる応答は受けない`() =
         runTest {
             val engine = MockEngine {
