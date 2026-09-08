@@ -15,7 +15,7 @@ data class AdminFeed(
 )
 
 /**
- * @param description 一覧に並べる用に 1 行へ潰して切り詰めた説明
+ * @param description 一覧に並べる用に 1 行へ潰した説明
  * @param fullDescription 配信元が書いたままの説明。プロフィールに取り込むときに使う
  */
 data class AdminFeedPreview(
@@ -73,9 +73,6 @@ sealed interface AdminSaveFeedResult {
         val reason: SaveFailure,
     ) : AdminSaveFeedResult
 
-    /**
-     * 応答自体が返ってこなかった
-     */
     data class Failure(
         val message: String,
     ) : AdminSaveFeedResult
