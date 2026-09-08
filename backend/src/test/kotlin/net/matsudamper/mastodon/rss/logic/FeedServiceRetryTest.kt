@@ -17,6 +17,7 @@ import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
@@ -94,6 +95,7 @@ class FeedServiceRetryTest {
                 notes = notes,
                 followers = FakeFollowerStore(),
                 delivery = TestDelivery(),
+                webPages = TestWebPageUrls,
             ),
             icons = FakeFeedIcons(),
         )
