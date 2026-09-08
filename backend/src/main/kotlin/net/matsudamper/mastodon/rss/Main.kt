@@ -116,7 +116,8 @@ fun Application.module(deps: AppDependencies) {
 
     // 画面が出ないときに理由を追えるよう、配信元を起動時に必ず出す。
     // 黙って 404 になると、設定し忘れなのか置き忘れなのかが分からない
-    val staticFiles = resolveStaticFiles(env.staticSrcDir)
+    val staticFiles = deps.staticFiles
+    logStaticFiles(srcDir = env.staticSrcDir, staticFiles = staticFiles)
 
     logAdminLogin(env)
 
@@ -170,16 +171,16 @@ fun Application.module(deps: AppDependencies) {
 
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
         webFingerRoutes(deps.directory)
-        actorRoutes(deps.directory, actorKey, deps.feedLinks, deps.actorProfiles)
+        actorRoutes(deps.directory, actorKey, deps.feedLinks, deps.actorProfiles, deps.webPageUrls)
         actorIconRoutes(deps.directory, deps.actorIcons)
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)
 
         followerRoutes(deps.directory, deps.followerStore)
-        outboxRoutes(deps.directory, deps.noteStore)
+        outboxRoutes(deps.directory, deps.noteStore, deps.webPageUrls)
         featuredRoutes(deps.directory)
-        noteRoutes(env.domain, deps.noteStore)
+        noteRoutes(env.domain, deps.noteStore, deps.webPageUrls)
 
         nodeInfoRoutes(env.domain)
 
@@ -207,25 +208,27 @@ private fun Application.logAdminLogin(env: ServerEnv) {
 }
 
 /**
- * 静的ファイルの配信元を決めて、その結果を起動ログに出す。
+ * 静的ファイルの配信元を起動ログに出す。
  *
- * 配信できないときは null を返す。この場合 root は 404 になる。
+ * 配信できないときは、指定が無いのか実体が無いのかまで出す。黙って 404 になると
+ * 設定し忘れなのか置き忘れなのかが分からない。
  */
-private fun Application.resolveStaticFiles(srcDir: Path?): StaticFiles? {
+private fun Application.logStaticFiles(
+    srcDir: Path?,
+    staticFiles: StaticFiles?,
+) {
+    if (staticFiles != null) {
+        log.info("静的ファイルを ${staticFiles.root} から配信する")
+        return
+    }
+
     if (srcDir == null) {
         log.info(
             "STATIC_SRC_DIR が未設定なので静的ファイルを配信しない。" +
                 "管理画面を出すには :frontend の成果物を置いたディレクトリを指定する",
         )
-        return null
+        return
     }
 
-    val staticFiles = StaticFiles(srcDir)
-    if (!staticFiles.isAvailable()) {
-        log.warn("${staticFiles.root} が無いので静的ファイルを配信しない")
-        return null
-    }
-
-    log.info("静的ファイルを ${staticFiles.root} から配信する")
-    return staticFiles
+    log.warn("$srcDir が無いので静的ファイルを配信しない")
 }
