@@ -20,6 +20,7 @@ import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.FakeStoredActorNames
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
@@ -1002,6 +1003,7 @@ class FeedServiceTest {
                     notes = noteStore,
                     followers = FakeFollowerStore(),
                     delivery = TestDelivery(),
+                    webPages = TestWebPageUrls,
                 ),
                 followers = repositories.followers,
                 deliveryQueue = repositories.deliveryQueue,

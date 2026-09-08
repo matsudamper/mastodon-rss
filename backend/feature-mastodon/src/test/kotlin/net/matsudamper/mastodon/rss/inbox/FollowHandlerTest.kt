@@ -16,6 +16,7 @@ import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.actor.RemoteActor
@@ -48,7 +49,7 @@ class FollowHandlerTest {
         remoteActors = remoteActors,
         delivery = delivery,
         followers = followers,
-        backfill = FollowBackfillPublisher(notes = notes, delivery = delivery),
+        backfill = FollowBackfillPublisher(notes = notes, delivery = delivery, webPages = TestWebPageUrls),
         // 過去の投稿の配信はそのまま実行する。テストの中で送り終わっている必要がある
         backfillScope = CoroutineScope(Dispatchers.Unconfined),
     )

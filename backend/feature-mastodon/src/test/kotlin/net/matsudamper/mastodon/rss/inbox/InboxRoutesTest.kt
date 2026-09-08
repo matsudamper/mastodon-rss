@@ -23,6 +23,7 @@ import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.httpsignature.TestSigning
@@ -61,6 +62,7 @@ class InboxRoutesTest {
                         followers = FakeFollowerStore(),
                         notes = FakeNoteStore(),
                         backfillScope = CoroutineScope(Dispatchers.Unconfined),
+                        webPages = TestWebPageUrls,
                     ),
                 )
             }

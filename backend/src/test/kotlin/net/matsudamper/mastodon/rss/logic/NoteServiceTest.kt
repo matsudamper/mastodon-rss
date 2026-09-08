@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
@@ -30,7 +31,7 @@ class NoteServiceTest {
     private val delivery = TestDelivery()
 
     private fun service(followers: FakeFollowerStore = FakeFollowerStore()): NoteService {
-        val publisher = NotePublisher(notes, followers, delivery)
+        val publisher = NotePublisher(notes, followers, delivery, TestWebPageUrls)
         return NoteService(
             directory = TestLocalActor.directory,
             publisher = publisher,

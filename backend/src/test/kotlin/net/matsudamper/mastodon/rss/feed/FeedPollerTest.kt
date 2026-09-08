@@ -21,6 +21,7 @@ import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NotePoster
 import net.matsudamper.mastodon.rss.note.NotePublisher
@@ -85,6 +86,7 @@ class FeedPollerTest {
                     notes = FakeNoteStore(),
                     followers = FakeFollowerStore(),
                     delivery = TestDelivery(),
+                    webPages = TestWebPageUrls,
                 ),
                 followers = repositories.followers,
                 deliveryQueue = repositories.deliveryQueue,

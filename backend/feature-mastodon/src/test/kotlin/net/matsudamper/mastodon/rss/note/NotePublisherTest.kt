@@ -9,6 +9,7 @@ import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.json.AppJson
@@ -18,7 +19,7 @@ import net.matsudamper.mastodon.rss.json.AppJson
 class NotePublisherTest {
     private val sender = TestLocalActor.urls
 
-    private fun publisher(): NotePublisher = NotePublisher(FakeNoteStore(), FakeFollowerStore(), TestDelivery())
+    private fun publisher(): NotePublisher = NotePublisher(FakeNoteStore(), FakeFollowerStore(), TestDelivery(), TestWebPageUrls)
 
     @Test
     fun `Create に包んだ Note を組み立てる`() {
@@ -34,7 +35,8 @@ class NotePublisherTest {
         assertEquals("<p>こんにちは</p>", activity.target.content)
         assertEquals(sender.actorId, activity.target.attributedTo)
         assertEquals("https://example.com/notes/${prepared.publicId.value}", activity.target.id.value)
-        assertEquals(prepared.url, activity.target.url)
+        // 相手がパーマリンクとして開くのは画面の URL
+        assertEquals("https://example.com/@${TestLocalActor.USERNAME}/${prepared.publicId.value}", activity.target.url)
         // 外側の Create が @context を持つので、中で重ねない
         assertNull(activity.target.context)
     }
@@ -52,7 +54,7 @@ class NotePublisherTest {
     fun `組み立てるだけで記録も配信もしない`() {
         val notes = FakeNoteStore()
         val delivery = TestDelivery()
-        val publisher = NotePublisher(notes, FakeFollowerStore(), delivery)
+        val publisher = NotePublisher(notes, FakeFollowerStore(), delivery, TestWebPageUrls)
 
         publisher.prepare(sender, "<p>本文</p>")
 

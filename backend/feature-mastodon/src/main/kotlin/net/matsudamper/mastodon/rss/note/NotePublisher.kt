@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.delivery.DeliveryResult
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.url.WebPageUrls
 import org.slf4j.LoggerFactory
 
 /**
@@ -27,6 +28,7 @@ class NotePublisher(
     private val notes: NoteStore,
     private val followers: FollowerStore,
     private val delivery: ActivityDelivery,
+    private val webPages: WebPageUrls?,
 ) {
     private val logger = LoggerFactory.getLogger(NotePublisher::class.java)
 
@@ -82,7 +84,7 @@ class NotePublisher(
             publishedAt = publishedAt,
             activityJson = AppJson.encodeToString(
                 CreateNoteActivity.serializer(),
-                CreateNoteActivityFactory.create(sender = sender, note = this),
+                CreateNoteActivityFactory.create(sender = sender, note = this, webPages = webPages),
             ),
         )
     }

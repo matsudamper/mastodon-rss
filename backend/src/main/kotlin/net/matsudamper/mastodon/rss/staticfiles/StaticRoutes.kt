@@ -11,14 +11,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-
-/**
- * アカウントの画面のパスの目印。
- *
- * 画面側（`:frontend` の `Screen`）が `/@ユーザー名` で開く。ユーザー名に `@` は
- * 使えないので、これで一意に判別できる。
- */
-private const val ACCOUNT_PREFIX: String = "@"
+import net.matsudamper.mastodon.rss.shared.WebPagePath
 
 private const val NO_STATIC_FILES_MESSAGE: String = "静的ファイルの配信先が無い。STATIC_SRC_DIR を確認すること"
 
@@ -50,7 +43,7 @@ fun Route.staticRoutes(staticFiles: StaticFiles?) {
     // 末尾のスラッシュは Ktor では別のパスになる。画面側は空のセグメントを無視して
     // 同じ画面を出すので、両方受けないと `/@name/` だけ開けない
     listOf("", "/").forEach { trailing ->
-        get("/$ACCOUNT_PREFIX{username}$trailing") {
+        get("/${WebPagePath.ACCOUNT_PREFIX}{username}$trailing") {
             if (staticFiles == null) {
                 call.respondText(NO_STATIC_FILES_MESSAGE, status = HttpStatusCode.NotFound)
                 return@get

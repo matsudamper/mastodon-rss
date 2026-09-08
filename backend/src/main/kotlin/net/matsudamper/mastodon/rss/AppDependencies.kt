@@ -45,7 +45,10 @@ import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
+import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
+import net.matsudamper.mastodon.rss.url.WebPageUrls
+import net.matsudamper.mastodon.rss.webpage.DomainWebPageUrls
 
 /**
  * アプリが使うものを作って配る場所。
@@ -63,6 +66,12 @@ import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
  *   `Accept` の宛先になる inbox をここから取る。本番は [HttpRemoteActors] が
  *   相手のサーバーに GET しに行く
  * @param delivery こちらから相手の inbox に POST する口
+ * @param webPageUrlsOverride 相手に渡す、人が開くページの URL。ActivityPub の `url` に入る。
+ *   画面のパスは `:frontend` の都合なので、`:backend:feature-mastodon` には持たせず
+ *   ここから渡す。渡さなければ [staticFiles] があるときだけ組み立てる。
+ *   [webPageUrls] と名前を分けるのは、同じ名前だとクラス本体の初期化式が
+ *   プロパティではなく引数（既定は null）を見てしまい、配信する `Create` にだけ
+ *   `url` が入らなくなるため
  */
 class AppDependencies(
     val repositories: Repositories,
@@ -74,8 +83,28 @@ class AppDependencies(
     val iconFetcher: IconFetchService = IconFetchService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
     val openTelemetry: OpenTelemetry? = null,
+    webPageUrlsOverride: WebPageUrls? = null,
     private val telemetry: OpenTelemetryInitializer.Handler? = null,
 ) : AutoCloseable {
+    /**
+     * 画面の配信元。無ければ画面は出ない。
+     *
+     * 指定と、そこに実体があるかの両方を見る。結果を起動ログに出すのは `Main` の側
+     */
+    val staticFiles: StaticFiles? = env.staticSrcDir?.let { StaticFiles(it) }?.takeIf { it.isAvailable() }
+
+    /**
+     * 相手に渡す画面の URL。画面を配信しない構成では null になり、`url` を出さない。
+     *
+     * 画面が無いのに `url` を出すと、相手のプロフィールやパーマリンクが 404 を指す。
+     * 出さなければ相手は `id` に倒すので、JSON のパスが開く。
+     *
+     * ディレクトリではなく `index.html` の有無で決める。アカウントの画面はそれを返して
+     * 画面側に解釈させるので、置き忘れたディレクトリを指していると 404 になる
+     */
+    val webPageUrls: WebPageUrls? =
+        webPageUrlsOverride ?: staticFiles?.takeIf { it.index() != null }?.let { DomainWebPageUrls(env.domain) }
+
     val followerStore: FollowerStore = RepositoryFollowerStore(repositories.followers)
 
     val noteStore: NoteStore = RepositoryNoteStore(repositories.notes)
@@ -158,12 +187,14 @@ class AppDependencies(
         followers = followerStore,
         notes = noteStore,
         backfillScope = followBackfillScope,
+        webPages = webPageUrls,
     )
 
     val notePublisher: NotePublisher = NotePublisher(
         notes = noteStore,
         followers = followerStore,
         delivery = delivery,
+        webPages = webPageUrls,
     )
 
     val notePoster: NotePoster = NotePoster(
