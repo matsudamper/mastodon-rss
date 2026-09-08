@@ -4,6 +4,8 @@ query HomeScreen($cursor: String, $limit: Int!) {
             id
             username
             acct
+            displayName
+            iconUrl
         }
         pageInfo {
             hasMore

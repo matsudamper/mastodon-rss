@@ -7,6 +7,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.Account
  */
 data class AdminAccount(
     val account: Account,
+    val iconUrl: String?,
     val createdAt: Long,
     val followerCount: Int,
     val feed: AdminFeed?,
