@@ -27,7 +27,7 @@ class NotePublisher(
     private val notes: NoteStore,
     private val followers: FollowerStore,
     private val delivery: ActivityDelivery,
-    private val webPages: WebPageUrls,
+    private val webPages: WebPageUrls?,
 ) {
     private val logger = LoggerFactory.getLogger(NotePublisher::class.java)
 

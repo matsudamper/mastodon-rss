@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory
 class FollowBackfillPublisher(
     private val notes: NoteStore,
     private val delivery: ActivityDelivery,
-    private val webPages: WebPageUrls,
+    private val webPages: WebPageUrls?,
 ) {
     private val logger = LoggerFactory.getLogger(FollowBackfillPublisher::class.java)
 

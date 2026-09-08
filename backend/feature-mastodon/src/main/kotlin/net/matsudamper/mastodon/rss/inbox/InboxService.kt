@@ -163,7 +163,7 @@ class InboxService(
             followers: FollowerStore,
             notes: NoteStore,
             backfillScope: CoroutineScope,
-            webPages: WebPageUrls,
+            webPages: WebPageUrls?,
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(remoteActors),

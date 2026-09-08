@@ -19,10 +19,11 @@ import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.activitypub.Actor
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.url.WebPageUrls
 
 // アカウント発見の 2 ホップ目。Mastodon はここの JSON からプロフィールと公開鍵を作る。
 class ActorRoutesTest {
-    private fun ApplicationTestBuilder.installModule() {
+    private fun ApplicationTestBuilder.installModule(webPages: WebPageUrls? = TestWebPageUrls) {
         application {
             routing {
                 actorRoutes(
@@ -30,7 +31,7 @@ class ActorRoutesTest {
                     actorKey = TestActorKey.value,
                     feedLinks = TestLocalActor.feedLinks,
                     profiles = TestLocalActor.profiles,
-                    webPages = TestWebPageUrls,
+                    webPages = webPages,
                 )
             }
         }
@@ -58,6 +59,17 @@ class ActorRoutesTest {
             assertEquals("https://example.com/users/admin/following", actor.following)
             // 相手の「元のページを開く」はここを見る。id と同じにすると JSON のパスが表示される
             assertEquals("https://example.com/@admin", actor.url)
+        }
+
+    @Test
+    fun `画面を配信しない構成では url を出さない`() =
+        testApplication {
+            installModule(webPages = null)
+
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
+
+            // 出すと相手のプロフィールから 404 のページが開く。無ければ相手は id に倒す
+            assertNull(actor.url)
         }
 
     @Test

@@ -16,7 +16,7 @@ internal object CreateNoteActivityFactory {
     fun create(
         sender: ActorUrls,
         note: StoredNote,
-        webPages: WebPageUrls,
+        webPages: WebPageUrls?,
     ): CreateNoteActivity {
         val urls = NoteUrls(domain = sender.domain, publicId = note.publicId)
         val published = note.publishedAt.toActivityPubPublished()
@@ -34,7 +34,7 @@ internal object CreateNoteActivityFactory {
                 published = published,
                 to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
                 cc = listOf(sender.followers),
-                url = webPages.note(username = sender.username, publicId = note.publicId),
+                url = webPages?.note(username = sender.username, publicId = note.publicId),
                 atomUri = urls.noteUrl,
             ),
         )

@@ -10,6 +10,8 @@ import net.matsudamper.mastodon.rss.entity.PublicNoteId
  * 相手のプロフィールやパーマリンクから JSON を返すパスが開くことになる。
  *
  * どのパスにどの画面を出すかを決めるのはこの module ではないので、組み立ては外から受け取る。
+ * 画面を出さない構成では渡さない（null）。`url` を出さなければ相手は `id` に倒すので、
+ * 開けないページを指すより、JSON のパスが開く方がまだ読める。
  */
 interface WebPageUrls {
     /** アカウントの画面 */

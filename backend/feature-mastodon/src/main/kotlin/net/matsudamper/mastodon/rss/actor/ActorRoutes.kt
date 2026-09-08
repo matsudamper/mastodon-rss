@@ -24,7 +24,7 @@ fun Route.actorRoutes(
     actorKey: ActorKey,
     feedLinks: StoredFeedLinks,
     profiles: StoredActorProfiles,
-    webPages: WebPageUrls,
+    webPages: WebPageUrls?,
 ) {
     get("/users/{username}") {
         val requested = call.parameters["username"]
@@ -60,7 +60,7 @@ internal fun actorDocument(
     actorKey: ActorKey,
     feedLinks: FeedLinks,
     profile: ActorProfile,
-    webPages: WebPageUrls,
+    webPages: WebPageUrls?,
 ): Actor {
     val storedSummary = profile.summary
     val summary = if (storedSummary == null) SUMMARY else summaryHtml(storedSummary)
@@ -75,7 +75,7 @@ internal fun actorDocument(
         featured = urls.featured,
         followers = urls.followers,
         following = urls.following,
-        url = webPages.profile(urls.username),
+        url = webPages?.profile(urls.username),
         attachment = feedAttachments(feedLinks),
         icon = feedLinks.iconUrl?.let { Actor.Image(url = urls.icon(it)) },
         showFeatured = false,

@@ -26,17 +26,21 @@ import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.url.WebPageUrls
 
 // Mastodon が後から引きに来る投稿のパーマリンクと outbox。
 // タイムラインに出ていても、ここが 404 だと開けない投稿になる。
 class NoteRoutesTest {
     private val publishedAt = Instant.parse("2026-08-10T00:00:00Z")
 
-    private fun ApplicationTestBuilder.installModule(notes: FakeNoteStore = FakeNoteStore()) {
+    private fun ApplicationTestBuilder.installModule(
+        notes: FakeNoteStore = FakeNoteStore(),
+        webPages: WebPageUrls? = TestWebPageUrls,
+    ) {
         application {
             routing {
-                noteRoutes(TestLocalActor.DOMAIN, notes, TestWebPageUrls)
-                outboxRoutes(TestLocalActor.directory, notes, TestWebPageUrls)
+                noteRoutes(TestLocalActor.DOMAIN, notes, webPages)
+                outboxRoutes(TestLocalActor.directory, notes, webPages)
                 featuredRoutes(TestLocalActor.directory)
             }
         }
@@ -77,6 +81,19 @@ class NoteRoutesTest {
             assertEquals(listOf("https://example.com/users/admin/followers"), body.cc)
             assertEquals("https://example.com/@admin/abc", body.url)
             assertEquals(listOf("https://www.w3.org/ns/activitystreams"), body.context)
+        }
+
+    @Test
+    fun `画面を配信しない構成では url を出さない`() =
+        testApplication {
+            val notes = FakeNoteStore()
+            notes.add(note("abc"))
+            installModule(notes = notes, webPages = null)
+
+            val body = AppJson.decodeFromString(Note.serializer(), client.get("/notes/abc").bodyAsText())
+
+            // 出すと相手のパーマリンクが 404 のページを指す。無ければ相手は id に倒す
+            assertNull(body.url)
         }
 
     @Test

@@ -31,7 +31,7 @@ import net.matsudamper.mastodon.rss.url.WebPageUrls
 fun Route.noteRoutes(
     domain: String,
     notes: NoteStore,
-    webPages: WebPageUrls,
+    webPages: WebPageUrls?,
 ) {
     get("/notes/{publicId}") {
         val publicId = call.parameters["publicId"]
@@ -65,7 +65,7 @@ fun Route.noteRoutes(
 fun Route.outboxRoutes(
     directory: ActorDirectory,
     notes: NoteStore,
-    webPages: WebPageUrls,
+    webPages: WebPageUrls?,
 ) {
     get("/users/{username}/outbox") {
         val requested = call.parameters["username"]
@@ -197,7 +197,7 @@ private fun noteDocument(
     urls: ActorUrls,
     note: StoredNote,
     embedded: Boolean,
-    webPages: WebPageUrls,
+    webPages: WebPageUrls?,
 ): Note {
     val noteUrls = NoteUrls(domain = urls.domain, publicId = note.publicId)
 
@@ -210,6 +210,6 @@ private fun noteDocument(
         to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
         cc = listOf(urls.followers),
         atomUri = noteUrls.noteUrl,
-        url = webPages.note(username = urls.username, publicId = note.publicId),
+        url = webPages?.note(username = urls.username, publicId = note.publicId),
     )
 }
