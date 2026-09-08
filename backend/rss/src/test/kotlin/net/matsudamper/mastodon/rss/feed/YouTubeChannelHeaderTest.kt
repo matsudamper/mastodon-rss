@@ -17,7 +17,7 @@ class YouTubeChannelHeaderTest {
 
         assertEquals(
             "https://yt3.googleusercontent.com/banner-large&x=1",
-            YouTubeFeedResolver.channelHeaderFromPageHtml(html),
+            YouTubeChannelHeader.fromPageHtml(html),
         )
     }
 
@@ -33,7 +33,7 @@ class YouTubeChannelHeaderTest {
 
         assertEquals(
             "https://yt3.googleusercontent.com/banner",
-            YouTubeFeedResolver.channelHeaderFromPageHtml(html),
+            YouTubeChannelHeader.fromPageHtml(html),
         )
     }
 }

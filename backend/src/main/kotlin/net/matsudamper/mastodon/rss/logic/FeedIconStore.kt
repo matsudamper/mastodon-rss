@@ -54,7 +54,9 @@ class FeedIconStore(
         return runCatching { Files.readAllBytes(target) }.getOrNull()
     }
 
-    /** そのフィード用に置かれている画像の置き場を全部返す */
+    /**
+     * そのフィード用に置かれている画像の置き場を全部返す。
+     */
     fun paths(feedId: FeedId): List<String> {
         if (!Files.isDirectory(root)) return emptyList()
         val prefix = "${feedId.value}-"

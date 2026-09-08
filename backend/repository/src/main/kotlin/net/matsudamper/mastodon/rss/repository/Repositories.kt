@@ -31,7 +31,9 @@ interface Repositories : AutoCloseable {
 
     val feedIcons: FeedIconRepository
 
-    /** 古いテスト用実装はヘッダーを持たなくても動く */
+    /**
+     * 古いテスト用実装はヘッダーを持たなくても動く。
+     */
     val feedHeaders: FeedHeaderRepository
         get() = EmptyFeedHeaderRepository
 

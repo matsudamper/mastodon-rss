@@ -175,7 +175,7 @@ class FeedFetchService(
             null
         }
         val pageIconUrl = if (wantsIcon) YouTubeFeedResolver.channelIconFromPageHtml(html) else null
-        val pageHeaderUrl = if (wantsHeader) YouTubeFeedResolver.channelHeaderFromPageHtml(html) else null
+        val pageHeaderUrl = if (wantsHeader) YouTubeChannelHeader.fromPageHtml(html) else null
 
         return copy(
             description = pageDescription ?: description,
