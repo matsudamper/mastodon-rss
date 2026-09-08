@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.note
 import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.url.WebPageUrls
 
 /**
  * 保存済みの投稿から、配信する `Create{Note}` を組み立てる。
@@ -15,6 +16,7 @@ internal object CreateNoteActivityFactory {
     fun create(
         sender: ActorUrls,
         note: StoredNote,
+        webPages: WebPageUrls?,
     ): CreateNoteActivity {
         val urls = NoteUrls(domain = sender.domain, publicId = note.publicId)
         val published = note.publishedAt.toActivityPubPublished()
@@ -32,7 +34,7 @@ internal object CreateNoteActivityFactory {
                 published = published,
                 to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
                 cc = listOf(sender.followers),
-                url = urls.noteUrl,
+                url = webPages?.note(username = sender.username, publicId = note.publicId),
                 atomUri = urls.noteUrl,
             ),
         )
