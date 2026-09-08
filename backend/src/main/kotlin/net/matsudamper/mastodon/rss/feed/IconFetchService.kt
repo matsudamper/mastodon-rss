@@ -265,6 +265,10 @@ class IconFetchService(
             ContentType.Image.JPEG,
             ContentType.Image.GIF,
             ContentType("image", "webp"),
+            // favicon はほとんどが ICO で、これを外すとサイトの favicon を充てても取れない。
+            // 中身は画像だけでスクリプトを持たないので、こちらから配っても SVG のような問題は無い
+            ContentType("image", "x-icon"),
+            ContentType("image", "vnd.microsoft.icon"),
         )
 
         /**
