@@ -11,7 +11,9 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 
-/** Actor JSON の `image` が指すプロフィールヘッダー */
+/**
+ * Actor JSON の `image` が指すプロフィールヘッダー。
+ */
 fun Route.actorHeaderRoutes(
     directory: ActorDirectory,
     headers: ActorHeaders,
@@ -40,7 +42,9 @@ fun Route.actorHeaderRoutes(
     }
 }
 
-/** アクターのプロフィールヘッダーの引き先 */
+/**
+ * アクターのプロフィールヘッダーの引き先。
+ */
 interface ActorHeaders {
     suspend fun find(username: String): ActorHeader?
 }
@@ -53,10 +57,9 @@ class ActorHeader(
 )
 
 private fun ActorHeader.cacheControl(requestedVersion: String?): String {
-    if (requestedVersion == version) return IMMUTABLE
-
     val seconds = cacheFor.seconds
     if (seconds <= 0) return NO_STORE
+    if (requestedVersion == version) return IMMUTABLE
     return "public, max-age=$seconds"
 }
 

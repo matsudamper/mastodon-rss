@@ -41,6 +41,31 @@ class ActorHeaderRoutesTest {
         }
 
     @Test
+    fun `期限切れヘッダーは版が一致してもキャッシュさせない`() =
+        testApplication {
+            application {
+                routing {
+                    actorHeaderRoutes(
+                        directory = TestLocalActor.directory,
+                        headers = object : ActorHeaders {
+                            override suspend fun find(username: String): ActorHeader? = ActorHeader(
+                                bytes = "header".encodeToByteArray(),
+                                contentType = ContentType.Image.JPEG,
+                                version = "abc",
+                                cacheFor = Duration.ZERO,
+                            )
+                        },
+                    )
+                }
+            }
+
+            val response = client.get("/users/${TestLocalActor.STORED_USERNAME}/header?v=abc")
+
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
+        }
+
+    @Test
     fun `ヘッダーが無ければキャッシュさせず404を返す`() =
         testApplication {
             application {

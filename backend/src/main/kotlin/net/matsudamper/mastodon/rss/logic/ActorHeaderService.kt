@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Duration
+import java.time.Instant
 import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.actor.ActorHeader
 import net.matsudamper.mastodon.rss.actor.ActorHeaders
@@ -29,7 +30,7 @@ class ActorHeaderService(
             bytes = bytes,
             contentType = ContentType.parse(stored.contentType),
             version = stored.revision,
-            cacheFor = Duration.between(stored.fetchedAt, stored.expiresAt).coerceAtLeast(Duration.ZERO),
+            cacheFor = Duration.between(Instant.now(), stored.expiresAt).coerceAtLeast(Duration.ZERO),
         )
     }
 }
