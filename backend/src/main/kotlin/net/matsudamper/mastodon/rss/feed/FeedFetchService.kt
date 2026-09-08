@@ -60,10 +60,12 @@ class FeedFetchService(
             val finalUrl = response.request.url.normalize()
             val bytes = response.readBodyUpTo(MAX_BODY_BYTES) ?: return FetchResult.TooLarge
 
-            val parsed = FeedParser.parse(bytes).withYouTubeChannelPage(
-                resolved = resolved,
-                needsDescription = needsDescription,
-            )
+            val parsed = FeedParser.parse(bytes)
+                .withYouTubeChannelPage(
+                    resolved = resolved,
+                    needsDescription = needsDescription,
+                )
+                .withFaviconFallback(feedUrl = finalUrl)
             FetchResult.Success(
                 requestedUrl = trimmed,
                 feedUrl = finalUrl,
@@ -178,6 +180,29 @@ class FeedFetchService(
             description = pageDescription ?: description,
             iconUrl = pageIconUrl ?: iconUrl,
         )
+    }
+
+    /**
+     * アイコンを名乗っていないフィードに、配信元のサイトの favicon を充てる。
+     *
+     * アイコンを表す要素を持たないフィードは多い。何も充てないとアクターの
+     * プロフィール画像が空のままになる。
+     *
+     * 置き場は決め打ちの `/favicon.ico` にして、ここではページを引かない。
+     * `<link rel="icon">` を読むには配信元が名乗った URL を無検査で引くことになり、
+     * 取得先の検査を持つ [IconFetchService] を通さない経路が増える。
+     * 実際に取れるかどうかは、その [IconFetchService] が引いたときに決まる。
+     *
+     * 基準にするのはフィードが指す Web ページ。フィードだけ別のホストで
+     * 配信していることがあり、その場合はフィードの URL から取ると別のサイトの
+     * favicon になる
+     */
+    private fun ParsedFeed.withFaviconFallback(feedUrl: String): ParsedFeed {
+        if (iconUrl != null) return this
+
+        val siteUrl = HttpUrl.sanitize(link, feedUrl) ?: feedUrl
+        val favicon = runCatching { URI(siteUrl).resolve(FAVICON_PATH).toString() }.getOrNull()
+        return copy(iconUrl = favicon)
     }
 
     private suspend fun fetchYouTubeChannelPage(channelId: String): String? {
@@ -327,6 +352,9 @@ class FeedFetchService(
     companion object {
         private val PERCENT_ENCODED = Regex("%[0-9A-Fa-f]{2}")
         private const val USER_AGENT = "mastodon-rss/0.1"
+
+        /** どのサイトでも同じ場所にあることになっている置き場 */
+        private const val FAVICON_PATH = "/favicon.ico"
         private const val MAX_BODY_BYTES = 5 * 1024 * 1024
 
         /**
