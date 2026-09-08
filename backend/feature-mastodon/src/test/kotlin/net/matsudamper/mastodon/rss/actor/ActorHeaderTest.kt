@@ -17,6 +17,7 @@ class ActorHeaderTest {
             actorKey = TestActorKey.value,
             feedLinks = TestLocalActor.feedLinks.find(username),
             profile = TestLocalActor.profiles.find(username),
+            webPages = null,
         )
 
         assertEquals(
@@ -35,6 +36,7 @@ class ActorHeaderTest {
             actorKey = TestActorKey.value,
             feedLinks = TestLocalActor.feedLinks.find(username),
             profile = TestLocalActor.profiles.find(username),
+            webPages = null,
         )
 
         assertNull(actor.image)
