@@ -18,6 +18,7 @@
 | `GET /users/{name}/outbox` | 配信した `Create` の OrderedCollection。`?cursor=` で中身 |
 | `GET /users/{name}/collections/featured` | プロフィールに載せる投稿の OrderedCollection |
 | `GET /users/{name}/icon` | プロフィール画像。フィードのアイコンを取り直して返す |
+| `GET /users/{name}/header` | プロフィールヘッダー。取り込み済みのヘッダー画像を返す |
 | `GET /notes/{id}` | 配信した投稿。相手がパーマリンクとして引きに来る |
 | `GET /.well-known/nodeinfo` | NodeInfo の discovery document |
 | `GET /nodeinfo/2.1` | サーバーの実装と規模。調査用 |
@@ -210,6 +211,28 @@ YouTube の Atom にはアイコンを表す要素が無いので、チャンネ
 
 アイコンを名乗っていないフィードと、フィードを持たないアカウントでは `icon` を出さない。
 空の URL を入れると相手側では取得に失敗した扱いになる。
+
+## プロフィールヘッダー
+
+Actor の `image`。フィードでは `webfeeds:cover` を優先し、無ければ `webfeeds:logo` を使う。
+YouTube のチャンネルではチャンネルページ内のバナー画像を補完する。Atom 標準の `logo` は
+ヘッダーとしては扱わない。
+
+画像本体はアイコンと同じ `ICON_CACHE_DIR` に置き、メタデータは `feed_headers` に保存する。
+相手に渡す URL は `/users/{name}/header?v=<revision>`。`revision` は保存した画像内容の
+SHA-256 なので、取得元 URL が同じまま画像だけ更新されても URL が変わる。
+
+`/users/{name}/header` が返す Content-Type はアイコンと同じく png / jpeg / gif / webp だけ。
+`X-Content-Type-Options: nosniff` も付ける。ヘッダーが無い場合は 404 と `Cache-Control: no-store`
+を返す。
+
+`?v=` が現在の `revision` と一致し、かつ保存済みヘッダーが期限内なら
+`public, max-age=31536000, immutable` を返す。`v` が無いか一致しない場合は、現在時刻から
+`feed_headers.expires_at` までの残り時間を `max-age` にする。期限切れなら `v` が一致していても
+`no-store` にして、期限を過ぎた画像を新しく長期キャッシュさせない。
+
+取得はフィードの取り込み時だけに行い、`/header` のリクエストを契機に外部へ HTTP は飛ばさない。
+一時的に再取得できなかった場合は前のヘッダーを残す。
 
 ## アカウントの引き当て
 
