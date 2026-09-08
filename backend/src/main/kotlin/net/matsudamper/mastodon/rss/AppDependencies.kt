@@ -64,9 +64,12 @@ import net.matsudamper.mastodon.rss.webpage.DomainWebPageUrls
  *   `Accept` の宛先になる inbox をここから取る。本番は [HttpRemoteActors] が
  *   相手のサーバーに GET しに行く
  * @param delivery こちらから相手の inbox に POST する口
- * @param webPageUrls 相手に渡す、人が開くページの URL。ActivityPub の `url` に入る。
+ * @param webPageUrlsOverride 相手に渡す、人が開くページの URL。ActivityPub の `url` に入る。
  *   画面のパスは `:frontend` の都合なので、`:backend:feature-mastodon` には持たせず
- *   ここから渡す。渡さなければ [staticFiles] があるときだけ組み立てる
+ *   ここから渡す。渡さなければ [staticFiles] があるときだけ組み立てる。
+ *   [webPageUrls] と名前を分けるのは、同じ名前だとクラス本体の初期化式が
+ *   プロパティではなく引数（既定は null）を見てしまい、配信する `Create` にだけ
+ *   `url` が入らなくなるため
  */
 class AppDependencies(
     val repositories: Repositories,
@@ -78,7 +81,7 @@ class AppDependencies(
     val iconFetcher: IconFetchService = IconFetchService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
     val openTelemetry: OpenTelemetry? = null,
-    webPageUrls: WebPageUrls? = null,
+    webPageUrlsOverride: WebPageUrls? = null,
     private val telemetry: OpenTelemetryInitializer.Handler? = null,
 ) : AutoCloseable {
     /**
@@ -98,7 +101,7 @@ class AppDependencies(
      * 画面側に解釈させるので、置き忘れたディレクトリを指していると 404 になる
      */
     val webPageUrls: WebPageUrls? =
-        webPageUrls ?: staticFiles?.takeIf { it.index() != null }?.let { DomainWebPageUrls(env.domain) }
+        webPageUrlsOverride ?: staticFiles?.takeIf { it.index() != null }?.let { DomainWebPageUrls(env.domain) }
 
     val followerStore: FollowerStore = RepositoryFollowerStore(repositories.followers)
 
