@@ -3,7 +3,7 @@ package net.matsudamper.mastodon.rss.logic
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 
 /**
- * 取り込みに合わせてアイコンの中身を入れ替える先。
+ * 取り込みに合わせてプロフィール画像の中身を入れ替える先。
  *
  * 取り込む側は、フィードが今どの URL を名乗っているかだけを渡す。
  */
@@ -22,5 +22,5 @@ interface FeedIcons {
     suspend fun refreshHeader(
         feedId: FeedId,
         headerUrl: String?,
-    )
+    ) = Unit
 }
