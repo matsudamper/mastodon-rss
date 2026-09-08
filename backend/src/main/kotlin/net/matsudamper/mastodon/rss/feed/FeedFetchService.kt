@@ -21,9 +21,27 @@ import io.ktor.utils.io.readRemaining
 import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.channelIdFromPageHtml
 import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.resolve
 
-class FeedFetchService(
-    private val client: HttpClient = defaultClient(),
+class FeedFetchService private constructor(
+    private val client: HttpClient,
+    private val faviconClient: HttpClient?,
 ) : Closeable {
+    /** 本番の標準構成では、フィード取得と favicon ページ取得に同じクライアントを使う。 */
+    constructor() : this(defaultClient(), enableFaviconLookup = true)
+
+    /**
+     * テストなどで取得用クライアントだけを注入する場合は、追加の favicon ページ取得を行わない。
+     * favicon 取得まで含めて検証する場合は [enableFaviconLookup] を明示する。
+     */
+    constructor(client: HttpClient) : this(client, enableFaviconLookup = false)
+
+    constructor(
+        client: HttpClient,
+        enableFaviconLookup: Boolean,
+    ) : this(
+        client = client,
+        faviconClient = client.takeIf { enableFaviconLookup },
+    )
+
     /**
      * フィードを取得して解析する。
      *
@@ -206,7 +224,7 @@ class FeedFetchService(
      * `<link rel="icon">` が無い場合やページを取れない場合は `/favicon.ico` を候補にする。
      */
     private suspend fun ParsedFeed.withFavicon(feedUrl: String): ParsedFeed {
-        if (iconUrl != null) return this
+        if (iconUrl != null || faviconClient == null) return this
 
         val pageUrl = faviconPageUrl(feedUrl) ?: return this
         val faviconUrl = fetchFaviconUrl(pageUrl) ?: return this
@@ -234,9 +252,10 @@ class FeedFetchService(
         return (declared ?: base.resolve("/")).toString()
     }
 
-    private suspend fun fetchFaviconUrl(pageUrl: String): String? =
-        runCatching {
-            val response = client.get(pageUrl) {
+    private suspend fun fetchFaviconUrl(pageUrl: String): String? {
+        val faviconClient = faviconClient ?: return null
+        return runCatching {
+            val response = faviconClient.get(pageUrl) {
                 header(HttpHeaders.UserAgent, USER_AGENT)
             }
             if (!response.status.isSuccess()) {
@@ -252,6 +271,7 @@ class FeedFetchService(
             if (error is CancellationException) throw error
             FaviconResolver.defaultUrl(pageUrl)
         }
+    }
 
     /**
      * 取得しに行く先と、その過程で分かったこと。
