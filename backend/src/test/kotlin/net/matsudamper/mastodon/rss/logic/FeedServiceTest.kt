@@ -330,7 +330,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(listOf("1 本目", "2 本目"), success.items.map { it.title })
+            assertEquals(2, success.importedCount)
             assertEquals(
                 listOf(FeedItemState.POSTED, FeedItemState.POSTED),
                 repositories.feedItems.items().map { it.state },
@@ -405,10 +405,7 @@ class FeedServiceTest {
 
             val result = service.postUnpublished(account.id)
 
-            assertEquals(
-                listOf("1 本目"),
-                assertIs<FeedService.PostUnpublishedResult.Success>(result).items.map { it.title },
-            )
+            assertEquals(1, assertIs<FeedService.PostUnpublishedResult.Success>(result).importedCount)
             assertEquals(3, noteStore.added.size)
         }
 
@@ -493,7 +490,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(listOf("1 本目"), success.items.map { it.title })
+            assertEquals(1, success.importedCount)
             assertEquals(
                 listOf("https://example.com/posts/1"),
                 noteStore.added.map { html ->
@@ -521,7 +518,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(listOf("1 本目"), success.items.map { it.title })
+            assertEquals(2, success.importedCount)
             assertEquals(
                 listOf(FeedItemState.SKIPPED, FeedItemState.POSTED),
                 repositories.feedItems.items().map { it.state },
@@ -545,7 +542,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(listOf("1 本目"), success.items.map { it.title })
+            assertEquals(1, success.importedCount)
             assertEquals(
                 listOf(
                     """<p>1 本目<br>記事の要約<br><a href="https://example.com/1">https://example.com/1</a></p>""",
@@ -566,7 +563,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(emptyList(), success.items)
+            assertEquals(2, success.importedCount)
             assertEquals(
                 listOf(FeedItemState.PENDING, FeedItemState.PENDING),
                 repositories.feedItems.items().map { it.state },
@@ -590,7 +587,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(listOf("1 本目", "2 本目", "3 本目"), success.items.map { it.title })
+            assertEquals(3, success.importedCount)
             assertEquals(3, noteStore.added.size)
         }
 
@@ -654,7 +651,7 @@ class FeedServiceTest {
                     Regex("""href="([^"]+)"""").find(html.contentHtml)?.groupValues?.get(1)
                 },
             )
-            assertEquals(listOf("1 本目", "2 本目", "3 本目"), success.items.map { it.title })
+            assertEquals(3, success.importedCount)
         }
 
     @Test

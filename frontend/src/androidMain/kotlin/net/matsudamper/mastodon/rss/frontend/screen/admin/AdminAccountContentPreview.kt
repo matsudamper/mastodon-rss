@@ -31,7 +31,6 @@ private fun AdminAccountContentPreview() {
                         format = "Atom 1.0",
                         lastFetchedText = "最終チェック: 2026-09-06 12:34",
                         unpublishedItems = emptyList(),
-                        postedItems = null,
                         postingUnpublished = false,
                         unpublishedError = null,
                         listener = AndroidPreviewRegisteredFeedListener,

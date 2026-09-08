@@ -133,11 +133,7 @@ query AdminUnpublishedFeedItems($query: UnpublishedFeedItemsQuery!) {
 mutation AdminPostFeedItems($query: PostFeedItemsQuery!) {
     admin {
         postFeedItems(query: $query) {
-            items {
-                title
-                link
-                publishedAt
-            }
+            importedCount
             failure {
                 reason
             }

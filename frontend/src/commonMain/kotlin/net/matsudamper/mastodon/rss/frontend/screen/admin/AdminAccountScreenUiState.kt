@@ -89,7 +89,6 @@ data class AdminAccountScreenUiState(
             val format: String?,
             val lastFetchedText: String,
             val unpublishedItems: List<UnpublishedItem>,
-            val postedItems: List<UnpublishedItem>?,
             val postingUnpublished: Boolean,
             val unpublishedError: String?,
             val listener: RegisteredListener,
