@@ -146,6 +146,8 @@ class AccountApi(
                     id = account.id,
                     username = account.username,
                     acct = account.acct,
+                    displayName = account.displayName,
+                    iconUrl = account.iconUrl,
                 )
             },
             hasMore = data.accounts.pageInfo.hasMore,

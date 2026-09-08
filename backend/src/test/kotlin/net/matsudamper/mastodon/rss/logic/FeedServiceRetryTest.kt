@@ -62,7 +62,8 @@ class FeedServiceRetryTest {
         ).postUnpublished(account.id)
 
         val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-        assertEquals(listOf("1 本目", "2 本目"), success.items.map { it.title })
+        // 1 回目で取り込み済みなので、やり直しでは新しく取り込む記事は無い
+        assertEquals(0, success.importedCount)
         val retried = repositories.feedItems.items().first { it.title == "1 本目" }
         assertEquals(firstNoteId, retried.noteId)
         assertEquals(FeedItemState.POSTED, retried.state)

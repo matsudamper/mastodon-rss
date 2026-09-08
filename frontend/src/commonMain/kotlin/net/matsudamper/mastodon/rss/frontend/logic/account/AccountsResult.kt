@@ -16,4 +16,6 @@ data class HomeAccount(
     val id: Long,
     val username: String,
     val acct: String,
+    val displayName: String,
+    val iconUrl: String?,
 )

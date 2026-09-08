@@ -118,8 +118,11 @@ sealed interface AdminUnpublishedFeedItemsResult {
 }
 
 sealed interface AdminPostFeedItemsResult {
+    /**
+     * @param importedCount 今回の取得で新しく取り込めた記事の件数
+     */
     data class Success(
-        val items: List<AdminUnpublishedFeedItem>,
+        val importedCount: Int,
     ) : AdminPostFeedItemsResult
 
     data class Rejected(
