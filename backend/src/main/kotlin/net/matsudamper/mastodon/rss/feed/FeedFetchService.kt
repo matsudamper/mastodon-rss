@@ -60,10 +60,12 @@ class FeedFetchService(
             val finalUrl = response.request.url.normalize()
             val bytes = response.readBodyUpTo(MAX_BODY_BYTES) ?: return FetchResult.TooLarge
 
-            val parsed = FeedParser.parse(bytes).withYouTubeChannelPage(
-                resolved = resolved,
-                needsDescription = needsDescription,
-            )
+            val parsed = FeedParser.parse(bytes)
+                .withYouTubeChannelPage(
+                    resolved = resolved,
+                    needsDescription = needsDescription,
+                )
+                .withFavicon(feedUrl = finalUrl)
             FetchResult.Success(
                 requestedUrl = trimmed,
                 feedUrl = finalUrl,
@@ -198,6 +200,60 @@ class FeedFetchService(
     }
 
     /**
+     * フィード自身がアイコンを名乗っていなければ、対応する Web ページの favicon で補う。
+     *
+     * ページの取得や解析に失敗してもフィード自体は使えるので、失敗にはしない。
+     * `<link rel="icon">` が無い場合やページを取れない場合は `/favicon.ico` を候補にする。
+     */
+    private suspend fun ParsedFeed.withFavicon(feedUrl: String): ParsedFeed {
+        if (iconUrl != null) return this
+
+        val pageUrl = faviconPageUrl(feedUrl) ?: return this
+        val faviconUrl = fetchFaviconUrl(pageUrl) ?: return this
+        return copy(iconUrl = faviconUrl)
+    }
+
+    /**
+     * favicon を探す Web ページ。
+     *
+     * フィードの `link` があればフィード URL を基準に相対 URL を解決する。
+     * 無い・HTTP(S) でない場合は、フィードを配っているオリジンのトップを使う。
+     */
+    private fun ParsedFeed.faviconPageUrl(feedUrl: String): String? {
+        val base = runCatching { URI(feedUrl) }.getOrNull() ?: return null
+        if (base.scheme?.lowercase() !in setOf("http", "https") || base.host.isNullOrBlank()) return null
+
+        val declared = link
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { value -> runCatching { base.resolve(value) }.getOrNull() }
+            ?.takeIf { uri ->
+                uri.scheme?.lowercase() in setOf("http", "https") && !uri.host.isNullOrBlank()
+            }
+
+        return (declared ?: base.resolve("/")).toString()
+    }
+
+    private suspend fun fetchFaviconUrl(pageUrl: String): String? =
+        runCatching {
+            val response = client.get(pageUrl) {
+                header(HttpHeaders.UserAgent, USER_AGENT)
+            }
+            if (!response.status.isSuccess()) {
+                response.discardBody()
+                return FaviconResolver.defaultUrl(pageUrl)
+            }
+
+            val finalPageUrl = response.request.url.normalize()
+            val html = response.readBodyUpTo(MAX_FAVICON_PAGE_BYTES)?.decodeToString()
+                ?: return FaviconResolver.defaultUrl(finalPageUrl)
+            FaviconResolver.resolve(finalPageUrl, html)
+        }.getOrElse { error ->
+            if (error is CancellationException) throw error
+            FaviconResolver.defaultUrl(pageUrl)
+        }
+
+    /**
      * 取得しに行く先と、その過程で分かったこと。
      *
      * @param feedUrl 実際に取得する URL
@@ -328,6 +384,7 @@ class FeedFetchService(
         private val PERCENT_ENCODED = Regex("%[0-9A-Fa-f]{2}")
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val MAX_BODY_BYTES = 5 * 1024 * 1024
+        private const val MAX_FAVICON_PAGE_BYTES = 2 * 1024 * 1024
 
         /**
          * YouTube のページから読む上限。
