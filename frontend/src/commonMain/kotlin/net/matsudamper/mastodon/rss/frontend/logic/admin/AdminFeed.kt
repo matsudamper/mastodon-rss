@@ -73,6 +73,9 @@ sealed interface AdminSaveFeedResult {
         val reason: SaveFailure,
     ) : AdminSaveFeedResult
 
+    /**
+     * 応答自体が返ってこなかった
+     */
     data class Failure(
         val message: String,
     ) : AdminSaveFeedResult
