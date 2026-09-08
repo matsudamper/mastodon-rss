@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.logic
 
+import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -51,6 +52,7 @@ class FeedHeaderService(
                 header = FeedHeader(
                     sourceUrl = headerUrl,
                     contentType = fetched.contentType.toString(),
+                    revision = contentRevision(fetched.bytes),
                     path = path,
                     fetchedAt = now,
                     expiresAt = now.plus(fetched.freshFor ?: defaultFreshFor),
@@ -63,6 +65,12 @@ class FeedHeaderService(
 
         previous?.path?.takeIf { it != path }?.let { store.delete(it) }
     }
+
+    private fun contentRevision(bytes: ByteArray): String =
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest(bytes)
+            .joinToString(separator = "") { byte -> "%02x".format(byte) }
 
     private companion object {
         val DEFAULT_FRESH_FOR: Duration = Duration.ofDays(1)

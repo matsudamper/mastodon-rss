@@ -9,6 +9,7 @@ import kotlin.io.path.deleteRecursively
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.test.runTest
 import io.ktor.client.HttpClient
@@ -44,6 +45,30 @@ class FeedHeaderServiceTest {
             service.refresh(FEED_ID, HEADER_URL)
 
             assertEquals(HEADER_URL, assertNotNull(repository.find(FEED_ID)).sourceUrl)
+        }
+
+    @Test
+    fun `同じURLの画像内容が変わると版も変わる`() =
+        runTest {
+            assertEquals("FB".hashCode(), "Ea".hashCode())
+            var content = "FB"
+            val repository = MemoryFeedHeaderRepository()
+            val service = serviceOf(
+                repository = repository,
+                engine = MockEngine {
+                    respond(content = content, headers = headersOf("Content-Type", "image/jpeg"))
+                },
+            )
+
+            service.refresh(FEED_ID, HEADER_URL)
+            val first = assertNotNull(repository.find(FEED_ID))
+
+            content = "Ea"
+            service.refresh(FEED_ID, HEADER_URL)
+            val second = assertNotNull(repository.find(FEED_ID))
+
+            assertEquals(first.sourceUrl, second.sourceUrl)
+            assertNotEquals(first.revision, second.revision)
         }
 
     @Test

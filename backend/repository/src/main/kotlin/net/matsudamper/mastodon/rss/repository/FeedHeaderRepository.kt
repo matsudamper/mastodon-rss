@@ -9,24 +9,30 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 interface FeedHeaderRepository {
     fun find(feedId: FeedId): FeedHeader?
 
-    /** フィードに 1 つだけ持つ形で入れ替える */
+    /**
+     * フィードに 1 つだけ持つ形で入れ替える。
+     */
     fun save(
         feedId: FeedId,
         header: FeedHeader,
     )
 
-    /** 記録を消す。ファイルの後始末は呼び出し側が行う */
+    /**
+     * 記録を消す。ファイルの後始末は呼び出し側が行う。
+     */
     fun delete(feedId: FeedId)
 }
 
 /**
- * @param sourceUrl 取ってきた元の URL。Actor のヘッダー URL の版を決めるためにも使う
+ * @param sourceUrl 取ってきた元の URL
+ * @param revision 画像内容の SHA-256。Actor のヘッダー URL の版として使う
  * @param path 中身の置き場。画像キャッシュのディレクトリから見た相対パス
  * @param expiresAt この時刻を過ぎたら取り直す
  */
 data class FeedHeader(
     val sourceUrl: String,
     val contentType: String,
+    val revision: String,
     val path: String,
     val fetchedAt: Instant,
     val expiresAt: Instant,

@@ -33,9 +33,11 @@ CREATE TABLE feed_icons (
 CREATE TABLE feed_headers (
     -- フィードに 1 つ。フィードを消すと一緒に消える
     feed_id INTEGER PRIMARY KEY REFERENCES feeds (id) ON DELETE CASCADE,
-    -- 取ってきた元の URL。Actor の image URL の版を決める材料にも使う
+    -- 取ってきた元の URL
     source_url TEXT NOT NULL,
     content_type TEXT NOT NULL,
+    -- 画像内容の SHA-256。Actor の image URL の版として使う
+    revision TEXT NOT NULL,
     -- 中身の置き場。アイコンと同じ画像キャッシュディレクトリを使う
     path TEXT NOT NULL,
     fetched_at TEXT NOT NULL,
