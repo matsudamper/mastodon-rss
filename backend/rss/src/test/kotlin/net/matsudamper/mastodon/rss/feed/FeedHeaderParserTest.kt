@@ -46,4 +46,40 @@ class FeedHeaderParserTest {
 
         assertNull(FeedHeaderParser.parse(xml.encodeToByteArray()))
     }
+
+    @Test
+    fun `item内の別namespaceのfeedはフィード直下として扱わない`() {
+        val xml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0"
+                 xmlns:webfeeds="http://webfeeds.org/rss/1.0"
+                 xmlns:x="https://example.com/x">
+              <channel>
+                <item>
+                  <x:feed>
+                    <webfeeds:logo>https://example.com/wrong.png</webfeeds:logo>
+                  </x:feed>
+                </item>
+              </channel>
+            </rss>
+        """.trimIndent()
+
+        assertNull(FeedHeaderParser.parse(xml.encodeToByteArray()))
+    }
+
+    @Test
+    fun `別namespaceのchannelはフィード直下として扱わない`() {
+        val xml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0"
+                 xmlns:webfeeds="http://webfeeds.org/rss/1.0"
+                 xmlns:x="https://example.com/x">
+              <x:channel>
+                <webfeeds:cover image="https://example.com/wrong.jpg" />
+              </x:channel>
+            </rss>
+        """.trimIndent()
+
+        assertNull(FeedHeaderParser.parse(xml.encodeToByteArray()))
+    }
 }
