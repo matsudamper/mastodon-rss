@@ -59,30 +59,6 @@ class FeedFetchServiceTest {
             assertEquals(FeedFetchService.FetchResult.ChannelIdNotFound, result)
         }
 
-    @Test
-    fun `アイコンを名乗らないフィードにはサイトの favicon を充てる`() =
-        runTest {
-            val engine = MockEngine { respondXml(rssFeed(iconElement = "")) }
-
-            val result = serviceOf(engine).fetch("https://feeds.example.com/rss", needsDescription = true)
-
-            assertEquals(
-                "https://blog.example.com/favicon.ico",
-                assertIs<FeedFetchService.FetchResult.Success>(result).parsed.iconUrl,
-            )
-        }
-
-    @Test
-    fun `アイコンを名乗るフィードは favicon で上書きしない`() =
-        runTest {
-            val icon = "https://blog.example.com/icon.png"
-            val engine = MockEngine { respondXml(rssFeed(iconElement = "<image><url>$icon</url></image>")) }
-
-            val result = serviceOf(engine).fetch("https://feeds.example.com/rss", needsDescription = true)
-
-            assertEquals(icon, assertIs<FeedFetchService.FetchResult.Success>(result).parsed.iconUrl)
-        }
-
     private fun serviceOf(engine: MockEngine): FeedFetchService = FeedFetchService(HttpClient(engine))
 
     private fun MockRequestHandleScope.respondHtml(html: String) =
@@ -97,23 +73,6 @@ class FeedFetchServiceTest {
         <html><head>
         <link rel="canonical" href="https://www.youtube.com/channel/$channelId">
         </head><body>${"a".repeat(padding)}</body></html>
-        """.trimIndent()
-
-    // フィードとサイトを別のホストにして、favicon をサイト側から取ることを確かめる
-    private fun rssFeed(iconElement: String): String =
-        """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <rss version="2.0">
-          <channel>
-            <title>ブログ</title>
-            <link>https://blog.example.com/</link>
-            $iconElement
-            <item>
-              <title>記事</title>
-              <link>https://blog.example.com/1</link>
-            </item>
-          </channel>
-        </rss>
         """.trimIndent()
 
     private val atomFeed =

@@ -799,6 +799,23 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `アイコンを名乗らないフィードにはサイトの favicon を充てる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val icons = FakeFeedIcons()
+            val service = serviceOf(repositories, icons = icons)
+
+            service.save(accountId = account.id, url = FEED_URL)
+
+            assertEquals(
+                "https://example.com/favicon.ico",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
+            assertEquals(listOf<String?>("https://example.com/favicon.ico"), icons.refreshed.map { it.second })
+        }
+
+    @Test
     fun `アイコンを名乗らなくなったフィードでも前の URL を残す`() =
         runTest {
             val repositories = FakeRepositories()

@@ -75,7 +75,7 @@ class FeedService(
                     title = fetched.parsed.title,
                     siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
                     format = fetched.parsed.format.toDisplayName(),
-                    iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl),
+                    iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl) ?: fetched.faviconUrl(),
                     pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS,
                 )
 
@@ -405,10 +405,30 @@ class FeedService(
      * 空で上書きすると、拾えなかった 1 回でアイコンが消える。YouTube のように
      * フィード本体ではなく別のページから拾う配信元では、そのページの取得が
      * 失敗しただけでも空になる。取り込み自体は成功しているので、
-     * 「名乗らなくなった」と「今回は拾えなかった」を区別できない
+     * 「名乗らなくなった」と「今回は拾えなかった」を区別できない。
+     *
+     * どちらも無いフィードには [faviconUrl] を充てる
      */
     private fun FeedFetchService.FetchResult.Success.iconUrlOrKeep(feed: Feed): String? =
-        HttpUrl.sanitize(parsed.iconUrl, feedUrl) ?: feed.iconUrl
+        HttpUrl.sanitize(parsed.iconUrl, feedUrl) ?: feed.iconUrl ?: faviconUrl()
+
+    /**
+     * アイコンを名乗らないフィードに充てる、配信元のサイトの favicon。
+     *
+     * アイコンを表す要素を持たないフィードは多く、何も充てないとプロフィール画像が
+     * 空のままになる。名乗っているものと、前に取り込んだものが両方無いときだけ使う。
+     *
+     * 置き場は決め打ちにして、ここではページを引かない。`<link rel="icon">` を読むには
+     * 配信元が名乗った URL を引くことになり、取得先の検査を持つ IconFetchService を
+     * 通さない経路が増える。実際に取れるかどうかは、そこで引いたときに決まる。
+     *
+     * 基準はフィードが指す Web ページ。フィードだけ別のホストで配信していることがあり、
+     * フィードの URL から取ると別のサイトの favicon になる
+     */
+    private fun FeedFetchService.FetchResult.Success.faviconUrl(): String? {
+        val siteUrl = HttpUrl.sanitize(parsed.link, feedUrl) ?: feedUrl
+        return runCatching { URI(siteUrl).resolve(FAVICON_PATH).toString() }.getOrNull()
+    }
 
     /**
      * アイコンの入れ替え。落ちても記事の取り込みは進める。
@@ -708,5 +728,8 @@ class FeedService(
         const val DESCRIPTION_LIMIT = 200
         const val POST_TITLE_MAX_CHARS = 200
         const val POST_DESCRIPTION_MAX_CHARS = 200
+
+        /** どのサイトでも同じ場所にあることになっている favicon の置き場 */
+        const val FAVICON_PATH = "/favicon.ico"
     }
 }
