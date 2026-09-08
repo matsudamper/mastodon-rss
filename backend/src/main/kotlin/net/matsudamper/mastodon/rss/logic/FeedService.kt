@@ -181,12 +181,12 @@ class FeedService(
             is ImportLatestResult.Failure -> return PostUnpublishedResult.Failure(result.reason)
             is ImportLatestResult.Success -> result
         }
-        val posted = publishPending(
+        publishPending(
             feed = feed,
             username = account.username,
             htmlByKey = htmlByKey(feed = feed, items = imported.items, feedUrl = imported.feedUrl),
         )
-        return PostUnpublishedResult.Success(items = posted)
+        return PostUnpublishedResult.Success(importedCount = imported.importedCount)
     }
 
     /**
@@ -315,8 +315,11 @@ class FeedService(
     }
 
     sealed interface PostUnpublishedResult {
+        /**
+         * @param importedCount 今回の取得で新しく取り込めた記事の件数
+         */
         data class Success(
-            val items: List<UnpublishedItem>,
+            val importedCount: Int,
         ) : PostUnpublishedResult
 
         data class Failure(
@@ -532,7 +535,7 @@ class FeedService(
                     format = fetched.parsed.format.toDisplayName(),
                     iconUrl = iconUrl,
                 )
-                importExistingItems(
+                val importedCount = importExistingItems(
                     feed = feed,
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
@@ -547,6 +550,7 @@ class FeedService(
                 ImportLatestResult.Success(
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
+                    importedCount = importedCount,
                 )
             }
 
@@ -574,6 +578,7 @@ class FeedService(
         data class Success(
             val items: List<ParsedFeedItem>,
             val feedUrl: String,
+            val importedCount: Int,
         ) : ImportLatestResult
 
         data class Failure(
@@ -619,14 +624,16 @@ class FeedService(
      * 取り込んだ記事を保存する。
      *
      * 既にある鍵は保存されない。同じ記事が新着として戻らないのはここで止めている
+     *
+     * @return 新しく保存できた記事の件数
      */
     private fun importExistingItems(
         feed: Feed,
         items: List<ParsedFeedItem>,
         feedUrl: String,
-    ) {
+    ): Int {
         val now = Instant.now()
-        items.forEach { item ->
+        return items.count { item ->
             val contentHtml = composeItemHtml(item, feedUrl)
             feedItems.add(
                 NewFeedItem(
@@ -639,7 +646,7 @@ class FeedService(
                     importedAt = now,
                     state = if (contentHtml == null) FeedItemState.SKIPPED else FeedItemState.PENDING,
                 ),
-            )
+            ) != null
         }
     }
 

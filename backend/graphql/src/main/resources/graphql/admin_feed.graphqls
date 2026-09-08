@@ -88,8 +88,8 @@ input PostFeedItemsQuery {
 }
 
 type AdminPostFeedItemsResult {
-    "投稿できた記事"
-    items: [AdminUnpublishedFeedItem!]
+    "今回の取得で新しく取り込めた記事の件数"
+    importedCount: Int
     failure: AdminPostFeedItemsFailure
 }
 

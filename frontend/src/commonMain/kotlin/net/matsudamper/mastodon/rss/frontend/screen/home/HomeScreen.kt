@@ -194,9 +194,16 @@ private fun AccountCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                AccountAvatar(username = account.username)
+                AccountAvatar(
+                    username = account.username,
+                    iconUrl = account.iconUrl,
+                )
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(account.username, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = account.displayName.ifEmpty { account.username },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
                     SelectionContainer {
                         Text(
                             text = account.acct,
