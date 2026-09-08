@@ -1,6 +1,5 @@
 package net.matsudamper.mastodon.rss.logic
 
-import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FeedIconRepository
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.shared.AccountId
@@ -15,7 +14,6 @@ class AccountIconFiles(
     private val feeds: FeedRepository,
     private val icons: FeedIconRepository,
     private val store: FeedIconStore,
-    private val headers: FeedHeaderRepository? = null,
 ) {
     /**
      * 今置いてあるアイコンの置き場。無ければ null
@@ -26,14 +24,11 @@ class AccountIconFiles(
     }
 
     /**
-     * アカウント削除前に控える、アイコンとヘッダーの置き場。
+     * アカウント削除前に控える、そのフィード用の画像の置き場。
      */
     fun locateAll(accountId: AccountId): List<String> {
         val feed = feeds.findByAccountId(accountId) ?: return emptyList()
-        return listOfNotNull(
-            icons.find(feed.id)?.path,
-            headers?.find(feed.id)?.path,
-        ).distinct()
+        return store.paths(feed.id)
     }
 
     fun delete(path: String) {
