@@ -59,6 +59,43 @@ class FeedFetchServiceTest {
             assertEquals(FeedFetchService.FetchResult.ChannelIdNotFound, result)
         }
 
+    @Test
+    fun `フィードにアイコンが無ければ Web ページの favicon を使う`() =
+        runTest {
+            val engine = MockEngine { request ->
+                when (request.url.encodedPath) {
+                    "/feed.xml" -> respondXml(rssFeedWithoutIcon)
+                    "/blog/" -> respondHtml("""<html><head><link rel="icon" href="/assets/favicon.png"></head></html>""")
+                    else -> error("unexpected request: ${request.url}")
+                }
+            }
+
+            val result = serviceOf(engine).fetch("https://example.com/feed.xml", needsDescription = false)
+
+            assertEquals(
+                "https://example.com/assets/favicon.png",
+                assertIs<FeedFetchService.FetchResult.Success>(result).parsed.iconUrl,
+            )
+        }
+
+    @Test
+    fun `フィードがアイコンを名乗っていれば favicon は見に行かない`() =
+        runTest {
+            val engine = MockEngine { request ->
+                when (request.url.encodedPath) {
+                    "/feed.xml" -> respondXml(rssFeedWithIcon)
+                    else -> error("unexpected request: ${request.url}")
+                }
+            }
+
+            val result = serviceOf(engine).fetch("https://example.com/feed.xml", needsDescription = false)
+
+            assertEquals(
+                "https://cdn.example.com/feed-icon.png",
+                assertIs<FeedFetchService.FetchResult.Success>(result).parsed.iconUrl,
+            )
+        }
+
     private fun serviceOf(engine: MockEngine): FeedFetchService = FeedFetchService(HttpClient(engine))
 
     private fun MockRequestHandleScope.respondHtml(html: String) =
@@ -88,5 +125,28 @@ class FeedFetchServiceTest {
             <published>2026-09-01T00:00:00Z</published>
           </entry>
         </feed>
+        """.trimIndent()
+
+    private val rssFeedWithoutIcon =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0">
+          <channel>
+            <title>Example</title>
+            <link>https://example.com/blog/</link>
+          </channel>
+        </rss>
+        """.trimIndent()
+
+    private val rssFeedWithIcon =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0" xmlns:webfeeds="http://webfeeds.org/rss/1.0">
+          <channel>
+            <title>Example</title>
+            <link>https://example.com/blog/</link>
+            <webfeeds:icon>https://cdn.example.com/feed-icon.png</webfeeds:icon>
+          </channel>
+        </rss>
         """.trimIndent()
 }
