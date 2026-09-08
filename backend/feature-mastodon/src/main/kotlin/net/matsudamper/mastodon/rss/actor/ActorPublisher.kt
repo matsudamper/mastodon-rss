@@ -10,6 +10,7 @@ import net.matsudamper.mastodon.rss.entity.ActivityPubId
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.note.NoteStore
+import net.matsudamper.mastodon.rss.url.WebPageUrls
 import org.slf4j.LoggerFactory
 
 /**
@@ -25,6 +26,7 @@ class ActorPublisher(
     private val actorKey: ActorKey,
     private val feedLinks: StoredFeedLinks,
     private val profiles: StoredActorProfiles,
+    private val webPages: WebPageUrls?,
 ) {
     private val logger = LoggerFactory.getLogger(ActorPublisher::class.java)
 
@@ -49,6 +51,7 @@ class ActorPublisher(
                     actorKey = actorKey,
                     feedLinks = feedLinks.find(sender.username),
                     profile = profiles.find(sender.username),
+                    webPages = webPages,
                 ),
             ),
         ).toByteArray()

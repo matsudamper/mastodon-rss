@@ -237,6 +237,7 @@ class AppDependencies(
         actorKey = actorKey,
         feedLinks = feedLinks,
         profiles = actorProfiles,
+        webPages = webPageUrls,
     )
 
     /**

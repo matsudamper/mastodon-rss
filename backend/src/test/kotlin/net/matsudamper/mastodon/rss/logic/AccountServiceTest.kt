@@ -13,6 +13,7 @@ import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.FeedIcon
@@ -187,7 +188,7 @@ class AccountServiceTest {
     }
 
     @Test
-    fun `配る Update Actor には保存しているフィードの attachment も入る`() = runTest {
+    fun `配る Update Actor には保存しているフィードの attachment と画面の url も入る`() = runTest {
         val repositories = FakeRepositories()
         repositories.withFullAccount()
         val delivery = TestDelivery()
@@ -202,6 +203,7 @@ class AccountServiceTest {
         val body = delivery.delivered.single().body
         assertContains(body, "\"inbox\":\"https://${TestLocalActor.DOMAIN}/users/$USERNAME/inbox\"")
         assertContains(body, FEED_URL)
+        assertContains(body, "\"url\":\"${TestWebPageUrls.profile(USERNAME)}\"")
     }
 
     @Test
@@ -231,6 +233,7 @@ class AccountServiceTest {
             actorKey = TestActorKey.value,
             feedLinks = RepositoryFeedLinks(accounts = repositories.accounts, feeds = repositories.feeds),
             profiles = RepositoryActorProfiles(repositories.accounts),
+            webPages = TestWebPageUrls,
         ),
         iconFiles = AccountIconFiles(
             feeds = repositories.feeds,

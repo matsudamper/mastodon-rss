@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
 
 class AccountServiceProfileTest {
@@ -42,6 +43,7 @@ class AccountServiceProfileTest {
             actorKey = TestActorKey.value,
             feedLinks = RepositoryFeedLinks(accounts = repositories.accounts, feeds = repositories.feeds),
             profiles = RepositoryActorProfiles(repositories.accounts),
+            webPages = TestWebPageUrls,
         ),
         iconFiles = AccountIconFiles(
             feeds = repositories.feeds,
