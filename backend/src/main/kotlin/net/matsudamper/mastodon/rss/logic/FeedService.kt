@@ -75,7 +75,10 @@ class FeedService(
                     title = fetched.parsed.title,
                     siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
                     format = fetched.parsed.format.toDisplayName(),
-                    iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl) ?: fetched.faviconUrl(),
+                    // 途中で終わった登録をやり直すときは、前に取り込んだ URL を favicon より先に使う
+                    iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl)
+                        ?: existing?.iconUrl
+                        ?: fetched.faviconUrl(),
                     pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS,
                 )
 
