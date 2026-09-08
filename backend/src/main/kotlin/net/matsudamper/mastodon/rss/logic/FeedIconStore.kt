@@ -7,7 +7,7 @@ import java.util.UUID
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 
 /**
- * 取ってきたアイコンの中身を置くディレクトリ。
+ * 取ってきたプロフィール画像の中身を置くディレクトリ。
  *
  * DB には置き場だけを入れる。画像を DB に入れると、バックアップや持ち運びの単位が
  * 画像のぶんだけ重くなる。
@@ -52,6 +52,17 @@ class FeedIconStore(
         val target = resolve(path) ?: return null
         if (!Files.isRegularFile(target)) return null
         return runCatching { Files.readAllBytes(target) }.getOrNull()
+    }
+
+    /** そのフィード用に置かれている画像の置き場を全部返す */
+    fun paths(feedId: FeedId): List<String> {
+        if (!Files.isDirectory(root)) return emptyList()
+        val prefix = "${feedId.value}-"
+        return runCatching {
+            Files.newDirectoryStream(root) { path ->
+                Files.isRegularFile(path) && path.fileName.toString().startsWith(prefix)
+            }.use { paths -> paths.map { it.fileName.toString() } }
+        }.getOrDefault(emptyList())
     }
 
     fun delete(path: String) {
