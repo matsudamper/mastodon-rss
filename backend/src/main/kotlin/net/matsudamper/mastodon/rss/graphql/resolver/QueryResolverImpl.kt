@@ -43,7 +43,7 @@ class QueryResolverImpl : QueryResolver {
                 .diContainer(env)
                 .accountService
                 .accounts(
-                    afterUsername = after?.afterUsername,
+                    after = after?.toPosition(),
                     limit = limit.coerceIn(0, MAX_ACCOUNTS_LIMIT),
                 )
 
@@ -57,7 +57,7 @@ class QueryResolverImpl : QueryResolver {
                 },
                 pageInfo = QlPageInfo(
                     hasMore = result.hasMore,
-                    nextCursor = result.nextUsername?.let { AccountsCursor(afterUsername = it).encode() },
+                    nextCursor = result.nextPosition?.let { AccountsCursor.of(it).encode() },
                 ),
             )
         }

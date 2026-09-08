@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.RemoteActor
+import net.matsudamper.mastodon.rss.follower.FollowAcceptResult
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 
 /**
@@ -12,12 +13,12 @@ import net.matsudamper.mastodon.rss.follower.FollowerStore
  *
  * @param failOnRecord 記録に失敗する状況を作る
  * @param failMarkAcceptedTimes `Accept` の記録が最初の何回か例外で失敗する状況を作る
- * @param failMarkAcceptedReturnsFalseTimes `Accept` の記録が最初の何回か false を返す状況を作る
+ * @param failMarkAcceptedNotFoundTimes `Accept` の記録が最初の何回か記録なしを返す状況を作る
  */
 class FakeFollowerStore(
     private val failOnRecord: Boolean = false,
     private var failMarkAcceptedTimes: Int = 0,
-    private var failMarkAcceptedReturnsFalseTimes: Int = 0,
+    private var failMarkAcceptedNotFoundTimes: Int = 0,
 ) : FollowerStore {
     val rows: MutableList<Row> = mutableListOf()
 
@@ -50,23 +51,25 @@ class FakeFollowerStore(
         username: String,
         followerActorUri: String,
         acceptedAt: Instant,
-    ): Boolean {
+    ): FollowAcceptResult {
         markAcceptedAttempts++
         if (failMarkAcceptedTimes > 0) {
             failMarkAcceptedTimes--
             throw IllegalStateException("記録に失敗した想定")
         }
-        if (failMarkAcceptedReturnsFalseTimes > 0) {
-            failMarkAcceptedReturnsFalseTimes--
-            return false
+        if (failMarkAcceptedNotFoundTimes > 0) {
+            failMarkAcceptedNotFoundTimes--
+            return FollowAcceptResult.NotFound
         }
 
         val index = rows.indexOfFirst {
             it.username == username && it.followerActorUri == followerActorUri
         }
-        if (index < 0) return false
+        if (index < 0) return FollowAcceptResult.NotFound
+        if (rows[index].accepted) return FollowAcceptResult.AlreadyAccepted
+
         rows[index] = rows[index].copy(accepted = true)
-        return true
+        return FollowAcceptResult.FirstAccept
     }
 
     override fun remove(

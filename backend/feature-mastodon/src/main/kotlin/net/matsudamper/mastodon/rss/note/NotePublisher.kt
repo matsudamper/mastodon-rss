@@ -77,12 +77,7 @@ class NotePublisher(
 
         val activityBodyBytes = AppJson.encodeToString(
             CreateNoteActivity.serializer(),
-            createActivity(
-                sender = sender,
-                urls = urls,
-                contentHtml = note.contentHtml,
-                publishedAt = note.publishedAt,
-            ),
+            CreateNoteActivityFactory.create(sender = sender, note = note),
         ).toByteArray()
 
         val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
@@ -201,33 +196,6 @@ class NotePublisher(
         cc = listOf(sender.followers),
         target = DeleteNoteActivity.Tombstone(id = urls.noteId),
     )
-
-    private fun createActivity(
-        sender: ActorUrls,
-        urls: NoteUrls,
-        contentHtml: String,
-        publishedAt: Instant,
-    ): CreateNoteActivity {
-        val published = publishedAt.toActivityPubPublished()
-
-        return CreateNoteActivity(
-            id = urls.createId,
-            actor = sender.actorId,
-            published = published,
-            to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
-            cc = listOf(sender.followers),
-            target = Note(
-                id = urls.noteId,
-                attributedTo = sender.actorId,
-                content = contentHtml,
-                published = published,
-                to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
-                cc = listOf(sender.followers),
-                url = urls.noteUrl,
-                atomUri = urls.noteUrl,
-            ),
-        )
-    }
 }
 
 data class DeletedNote(

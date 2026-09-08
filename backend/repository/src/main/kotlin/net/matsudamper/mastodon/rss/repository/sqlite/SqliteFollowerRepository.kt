@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
 import java.util.TreeMap
+import net.matsudamper.mastodon.rss.repository.FollowAcceptResult
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
@@ -43,17 +44,35 @@ internal class SqliteFollowerRepository(
         }
     }
 
+    /**
+     * まだ成立していない行だけを書き換える。件数で初回かどうかが分かるので、
+     * 状態を読んでから書くより競合に強い
+     */
     override fun markAccepted(
         username: String,
         followerActorUri: String,
         acceptedAt: Instant,
-    ): Boolean = jooq.transaction { dsl ->
-        dsl
+    ): FollowAcceptResult = jooq.transaction { dsl ->
+        val accepted = dsl
             .update(FOLLOWERS)
             .set(FOLLOWERS.STATE, STATE_ACCEPTED)
             .set(FOLLOWERS.ACCEPTED_AT, StoredInstant.format(acceptedAt))
             .where(FOLLOWERS.ID.`in`(followerIds(username, followerActorUri)))
+            .and(FOLLOWERS.STATE.ne(STATE_ACCEPTED))
             .execute() > 0
+
+        when {
+            accepted -> FollowAcceptResult.FirstAccept
+
+            dsl.fetchExists(
+                dsl
+                    .selectOne()
+                    .from(FOLLOWERS)
+                    .where(FOLLOWERS.ID.`in`(followerIds(username, followerActorUri))),
+            ) -> FollowAcceptResult.AlreadyAccepted
+
+            else -> FollowAcceptResult.NotFound
+        }
     }
 
     override fun remove(

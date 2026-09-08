@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchStatus
@@ -12,6 +13,7 @@ import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
+import net.matsudamper.mastodon.rss.repository.FollowAcceptResult
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
@@ -71,19 +73,18 @@ class FakeAccountRepository(
     private val stored = mutableListOf<Account>()
     private var nextId = 1L
 
-    @Deprecated("ページングに移行する。list(afterUsername, limit) を使う")
+    @Deprecated("ページングに移行する。list(after, limit) を使う")
     override fun list(): List<Account> = stored.toList()
 
-    override fun list(afterUsername: String?, limit: Int): List<Account> {
-        if (limit <= 0) return emptyList()
-        val startIndex = if (afterUsername != null) {
-            val idx = stored.indexOfFirst { it.username.equals(afterUsername, ignoreCase = true) }
-            if (idx == -1) return emptyList()
-            idx + 1
+    override fun list(after: AccountPosition?, limit: Int): List<Account> {
+        if (limit <= 0) return listOf()
+        val sorted = stored.sortedWith(compareBy({ it.createdAt }, { it.id.value }))
+        val laterThanAfter = if (after == null) {
+            sorted
         } else {
-            0
+            sorted.filter { it.createdAt > after.createdAt || (it.createdAt == after.createdAt && it.id.value > after.id.value) }
         }
-        return stored.drop(startIndex).take(limit)
+        return laterThanAfter.take(limit)
     }
 
     override fun findById(id: AccountId): Account? = stored.firstOrNull { it.id == id }
@@ -147,7 +148,11 @@ class FakeFollowerRepository : FollowerRepository {
         username: String,
         followerActorUri: String,
         acceptedAt: Instant,
-    ): Boolean = accepted.add(username to followerActorUri)
+    ): FollowAcceptResult = when {
+        stored.none { it.username == username && it.follower.actorUri == followerActorUri } -> FollowAcceptResult.NotFound
+        accepted.add(username to followerActorUri) -> FollowAcceptResult.FirstAccept
+        else -> FollowAcceptResult.AlreadyAccepted
+    }
 
     override fun remove(
         username: String,

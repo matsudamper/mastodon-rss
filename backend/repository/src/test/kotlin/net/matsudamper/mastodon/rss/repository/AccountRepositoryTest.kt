@@ -117,16 +117,16 @@ class AccountRepositoryTest {
                 repositories.accounts.add(username = username, createdAt = CREATED_AT.plusSeconds(index.toLong()))
             }
 
-            val page1 = repositories.accounts.list(afterUsername = null, limit = 2)
+            val page1 = repositories.accounts.list(after = null, limit = 2)
             assertEquals(listOf("a", "b"), page1.map { it.username })
 
-            val page2 = repositories.accounts.list(afterUsername = page1.last().username, limit = 2)
+            val page2 = repositories.accounts.list(after = page1.last().position(), limit = 2)
             assertEquals(listOf("c", "d"), page2.map { it.username })
 
-            val page3 = repositories.accounts.list(afterUsername = page2.last().username, limit = 2)
+            val page3 = repositories.accounts.list(after = page2.last().position(), limit = 2)
             assertEquals(listOf("e"), page3.map { it.username })
 
-            val page4 = repositories.accounts.list(afterUsername = page3.last().username, limit = 2)
+            val page4 = repositories.accounts.list(after = page3.last().position(), limit = 2)
             assertEquals(emptyList(), page4.map { it.username })
         }
     }
@@ -138,17 +138,48 @@ class AccountRepositoryTest {
                 repositories.accounts.add(username = username, createdAt = CREATED_AT)
             }
 
-            val page1 = repositories.accounts.list(afterUsername = null, limit = 2)
+            val page1 = repositories.accounts.list(after = null, limit = 2)
             assertEquals(listOf("a", "b"), page1.map { it.username })
 
-            val page2 = repositories.accounts.list(afterUsername = page1.last().username, limit = 2)
+            val page2 = repositories.accounts.list(after = page1.last().position(), limit = 2)
             assertEquals(listOf("c", "d"), page2.map { it.username })
 
-            val page3 = repositories.accounts.list(afterUsername = page2.last().username, limit = 2)
+            val page3 = repositories.accounts.list(after = page2.last().position(), limit = 2)
             assertEquals(listOf("e"), page3.map { it.username })
 
-            val page4 = repositories.accounts.list(afterUsername = page3.last().username, limit = 2)
+            val page4 = repositories.accounts.list(after = page3.last().position(), limit = 2)
             assertEquals(emptyList(), page4.map { it.username })
+        }
+    }
+
+    @Test
+    fun `カーソルの指す行が消えていても続きが返る`() {
+        withRepositories { repositories ->
+            listOf("a", "b", "c", "d").forEachIndexed { index, username ->
+                repositories.accounts.add(username = username, createdAt = CREATED_AT.plusSeconds(index.toLong()))
+            }
+
+            val page1 = repositories.accounts.list(after = null, limit = 2)
+            val after = page1.last().position()
+            repositories.accounts.delete(page1.last().id)
+
+            assertEquals(listOf("c", "d"), repositories.accounts.list(after = after, limit = 2).map { it.username })
+        }
+    }
+
+    @Test
+    fun `同じ名前で作り直しても途中のアカウントを飛ばさない`() {
+        withRepositories { repositories ->
+            listOf("a", "b", "c", "d").forEachIndexed { index, username ->
+                repositories.accounts.add(username = username, createdAt = CREATED_AT.plusSeconds(index.toLong()))
+            }
+
+            val page1 = repositories.accounts.list(after = null, limit = 2)
+            val after = page1.last().position()
+            repositories.accounts.delete(page1.last().id)
+            repositories.accounts.add(username = "b", createdAt = CREATED_AT.plusSeconds(10))
+
+            assertEquals(listOf("c", "d"), repositories.accounts.list(after = after, limit = 2).map { it.username })
         }
     }
 
