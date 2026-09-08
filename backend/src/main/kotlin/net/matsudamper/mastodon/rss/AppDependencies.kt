@@ -100,14 +100,16 @@ class AppDependencies(
         override fun find(username: String): FeedLinks {
             val account = repositories.accounts.findByUsername(username) ?: return FeedLinks.EMPTY
             val feed = repositories.feeds.findByAccountId(account.id) ?: return FeedLinks.EMPTY
-            val headerUrl = repositories.feedHeaders.find(feed.id)?.sourceUrl
+            val header = repositories.feedHeaders.find(feed.id)
+            val headerVersion =
+                if (header != null && HttpUrl.sanitize(header.sourceUrl, feed.url) != null) header.revision else null
 
             // 相手のプロフィールに出る外部リンクになるので、http / https 以外は落とす
             return FeedLinks(
                 siteUrl = HttpUrl.sanitize(feed.siteUrl, feed.url),
                 feedUrl = HttpUrl.sanitize(feed.url),
                 iconUrl = HttpUrl.sanitize(feed.iconUrl, feed.url),
-                headerUrl = HttpUrl.sanitize(headerUrl, feed.url),
+                headerVersion = headerVersion,
             )
         }
     }

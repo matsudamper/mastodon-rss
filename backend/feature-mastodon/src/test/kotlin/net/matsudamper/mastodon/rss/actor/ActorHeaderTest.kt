@@ -20,7 +20,7 @@ class ActorHeaderTest {
         )
 
         assertEquals(
-            "https://example.com/users/$username/header?v=${ActorUrls.headerVersion(TestLocalActor.FEED_HEADER_URL)}",
+            "https://example.com/users/$username/header?v=${TestLocalActor.FEED_HEADER_VERSION}",
             actor.image?.url,
         )
         assertEquals("Image", actor.image?.type)

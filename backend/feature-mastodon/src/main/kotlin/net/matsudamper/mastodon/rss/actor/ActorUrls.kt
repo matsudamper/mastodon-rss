@@ -49,12 +49,14 @@ data class ActorUrls(
     fun icon(sourceUrl: String): String = "$icon?v=${iconVersion(sourceUrl)}"
 
     /**
-     * プロフィールヘッダー。アイコンと同じくこちらで画像を中継して返す
+     * プロフィールヘッダー。アイコンと同じくこちらで画像を中継して返す。
      */
     val header: String = "$actorId$HEADER_PATH"
 
-    /** 取得元から決まる値を付けたプロフィールヘッダーの URL */
-    fun header(sourceUrl: String): String = "$header?v=${headerVersion(sourceUrl)}"
+    /**
+     * 画像内容から決まる版を付けたプロフィールヘッダーの URL。
+     */
+    fun header(version: String): String = "$header?v=$version"
 
     /** Actor JSON の `publicKey.id`。署名の `keyId` としても飛んでくる */
     val publicKeyId: String = "$actorId#main-key"
@@ -65,7 +67,9 @@ data class ActorUrls(
          */
         const val ICON_PATH: String = "/icon"
 
-        /** アクターの id から見たプロフィールヘッダーのパス */
+        /**
+         * アクターの id から見たプロフィールヘッダーのパス。
+         */
         const val HEADER_PATH: String = "/header"
 
         /**
@@ -75,8 +79,6 @@ data class ActorUrls(
          * 変わらない。GraphQL も同じ値を使う
          */
         fun iconVersion(sourceUrl: String): String = sourceUrl.hashCode().toUInt().toString(HEX_RADIX)
-
-        fun headerVersion(sourceUrl: String): String = sourceUrl.hashCode().toUInt().toString(HEX_RADIX)
 
         private const val HEX_RADIX = 16
     }

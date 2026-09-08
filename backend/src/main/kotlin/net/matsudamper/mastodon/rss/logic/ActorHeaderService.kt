@@ -4,13 +4,14 @@ import java.time.Duration
 import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.actor.ActorHeader
 import net.matsudamper.mastodon.rss.actor.ActorHeaders
-import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 
-/** アクターのプロフィールヘッダーとして、取り込み済みの画像だけを返す */
+/**
+ * アクターのプロフィールヘッダーとして、取り込み済みの画像だけを返す。
+ */
 class ActorHeaderService(
     private val accounts: AccountRepository,
     private val feeds: FeedRepository,
@@ -27,7 +28,7 @@ class ActorHeaderService(
         return ActorHeader(
             bytes = bytes,
             contentType = ContentType.parse(stored.contentType),
-            version = ActorUrls.headerVersion(stored.sourceUrl),
+            version = stored.revision,
             cacheFor = Duration.between(stored.fetchedAt, stored.expiresAt).coerceAtLeast(Duration.ZERO),
         )
     }

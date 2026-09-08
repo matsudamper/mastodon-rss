@@ -69,7 +69,7 @@ internal fun actorDocument(
         url = urls.actorId,
         attachment = feedAttachments(feedLinks),
         icon = feedLinks.iconUrl?.let { Actor.Image(url = urls.icon(it)) },
-        image = feedLinks.headerUrl?.let { Actor.Image(url = urls.header(it)) },
+        image = feedLinks.headerVersion?.let { Actor.Image(url = urls.header(it)) },
         showFeatured = false,
         publicKey =
         ActorPublicKey(
