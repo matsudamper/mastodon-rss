@@ -17,6 +17,8 @@ object FaviconResolver {
      * ページの HTML から favicon を探す。
      *
      * `shortcut icon` は rel のトークンに `icon` を含むので同じ扱いになる。
+     * SVG は同一オリジンから配るとスクリプトを動かせるため、画像取得側が受けない。
+     * ここでも明示的に SVG と分かる候補は飛ばし、次の候補を探す。
      * 宣言が無ければ、ブラウザが慣例的に見るオリジン直下の `/favicon.ico` を返す。
      */
     fun resolve(pageUrl: String, html: String): String? {
@@ -29,9 +31,12 @@ object FaviconResolver {
                 ?.map { it.lowercase() }
                 .orEmpty()
             if ("icon" !in rel) continue
+            if (attributes["type"]?.lowercase() == "image/svg+xml") continue
 
             val href = attributes["href"]?.trim()?.takeIf { it.isNotEmpty() } ?: continue
-            resolveHttp(base, decodeAttribute(href))?.let { return it.toString() }
+            val resolved = resolveHttp(base, decodeAttribute(href)) ?: continue
+            if (resolved.path.orEmpty().lowercase().endsWith(".svg")) continue
+            return resolved.toString()
         }
 
         return defaultUrl(base)
