@@ -96,7 +96,11 @@ class FeedFetchServiceTest {
             )
         }
 
-    private fun serviceOf(engine: MockEngine): FeedFetchService = FeedFetchService(HttpClient(engine))
+    private fun serviceOf(engine: MockEngine): FeedFetchService =
+        FeedFetchService(
+            client = HttpClient(engine),
+            enableFaviconLookup = true,
+        )
 
     private fun MockRequestHandleScope.respondHtml(html: String) =
         respond(content = html, headers = headersOf("Content-Type", "text/html; charset=utf-8"))
