@@ -18,10 +18,14 @@ object WebPagePath {
      */
     const val ACCOUNT_PREFIX: String = "@"
 
-    /** アカウントの画面 */
+    /**
+     * アカウントの画面
+     */
     fun account(username: String): String = "/$ACCOUNT_PREFIX$username"
 
-    /** 投稿 1 件の画面 */
+    /**
+     * 投稿 1 件の画面
+     */
     fun accountNote(
         username: String,
         noteId: String,

@@ -14,10 +14,14 @@ import net.matsudamper.mastodon.rss.entity.PublicNoteId
  * 開けないページを指すより、JSON のパスが開く方がまだ読める。
  */
 interface WebPageUrls {
-    /** アカウントの画面 */
+    /**
+     * アカウントの画面
+     */
     fun profile(username: String): String
 
-    /** 投稿 1 件の画面 */
+    /**
+     * 投稿 1 件の画面
+     */
     fun note(
         username: String,
         publicId: PublicNoteId,
