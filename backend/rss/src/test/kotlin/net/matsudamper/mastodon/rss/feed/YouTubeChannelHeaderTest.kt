@@ -10,7 +10,7 @@ class YouTubeChannelHeaderTest {
             <script>
             {"pageHeaderViewModel":{"banner":{"imageBannerViewModel":{"image":{"sources":[
               {"url":"https://yt3.googleusercontent.com/banner-small"},
-              {"url":"https://yt3.googleusercontent.com/banner-large\\u0026x=1"}
+              {"url":"https://yt3.googleusercontent.com/banner-large\u0026x=1"}
             ]}}}}}
             </script>
         """.trimIndent()
@@ -26,7 +26,7 @@ class YouTubeChannelHeaderTest {
         val html = """
             <script>
             {"c4TabbedHeaderRenderer":{"banner":{"thumbnails":[
-              {"url":"https:\\/\\/yt3.googleusercontent.com\\/banner"}
+              {"url":"https:\/\/yt3.googleusercontent.com\/banner"}
             ]}}}
             </script>
         """.trimIndent()
