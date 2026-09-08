@@ -242,9 +242,9 @@ RSS はまだ絡めない。手動トリガーで固定文字列を投稿する�
 - [x] アクター作成 / 削除の API
 - [ ] アクター情報更新時に `Update{Actor}` を配信（アイコン・説明文の変更を伝播させる）
       - 表示名と説明文の編集は入れた。配信は未実装
-- [ ] アイコン / ヘッダー画像（`icon` / `image`）の配信
-      - `icon` はフィードが名乗っているものを `/users/{name}/icon` で返すようにした。
-        ヘッダー画像（`image`）は未実装
+- [x] アイコン / ヘッダー画像（`icon` / `image`）の配信
+      - `icon` はフィードが名乗っているものを `/users/{name}/icon`、
+        `image` はフィードや YouTube から取得したヘッダーを `/users/{name}/header` で返す。
 - [ ] フィードアクターのプロフィールに `admin` へのリンクを置く
       - Mastodon がプロフィールに出す「リンク集」は Actor JSON の `attachment`。
         `{ "type": "PropertyValue", "name": "管理", "value": "<a href=\"...\">@admin@example.com</a>" }`
