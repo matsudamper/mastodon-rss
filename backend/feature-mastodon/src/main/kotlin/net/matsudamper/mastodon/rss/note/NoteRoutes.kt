@@ -167,7 +167,7 @@ fun Route.featuredRoutes(
 /**
  * `Accept` の優先順で、ActivityPub JSON より先に `text/html` が来る場合だけ true。
  *
- * `*/*` は HTML 要求とはみなさない。ActivityPub 実装が明示的な型を送らず
+ * `*&#47;*` は HTML 要求とはみなさない。ActivityPub 実装が明示的な型を送らず
  * ワイルドカードだけで取りに来る場合にリダイレクトすると federation が壊れるため。
  */
 private fun prefersHtml(acceptHeader: String?): Boolean {
