@@ -132,18 +132,12 @@ internal fun FeedService.UnpublishedFailure.toGraphqlResponse(): QlAdminUnpublis
 internal fun FeedService.PostUnpublishedResult.toGraphqlResponse(): QlAdminPostFeedItemsResult =
     when (this) {
         is FeedService.PostUnpublishedResult.Success -> QlAdminPostFeedItemsResult(
-            items = items.map { item ->
-                QlAdminUnpublishedFeedItem(
-                    title = item.title,
-                    link = item.link,
-                    publishedAt = item.publishedAt?.epochSecond,
-                )
-            },
+            importedCount = importedCount,
             failure = null,
         )
 
         is FeedService.PostUnpublishedResult.Failure -> QlAdminPostFeedItemsResult(
-            items = null,
+            importedCount = null,
             failure = reason.toGraphqlResponse(),
         )
     }

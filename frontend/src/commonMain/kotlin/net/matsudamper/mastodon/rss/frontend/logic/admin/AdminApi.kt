@@ -339,17 +339,9 @@ class AdminApi(
         ).execute()
         val result = response.data?.admin?.postFeedItems
             ?: return AdminPostFeedItemsResult.Failure(response.failureMessage())
-        val items = result.items
-        if (items != null) {
-            return AdminPostFeedItemsResult.Success(
-                items = items.map { item ->
-                    AdminUnpublishedFeedItem(
-                        title = item.title,
-                        link = item.link,
-                        publishedAt = item.publishedAt,
-                    )
-                },
-            )
+        val importedCount = result.importedCount
+        if (importedCount != null) {
+            return AdminPostFeedItemsResult.Success(importedCount = importedCount)
         }
         return AdminPostFeedItemsResult.Rejected(
             reason = result.failure?.reason?.toPostFeedItemsFailure()
@@ -458,6 +450,7 @@ class AdminApi(
             displayName = account.displayName,
             summary = account.summary,
         ),
+        iconUrl = account.iconUrl,
         createdAt = createdAt,
         followerCount = followerCount,
         feed = feed?.let {
@@ -502,6 +495,7 @@ class AdminApi(
             displayName = account.displayName,
             summary = account.summary,
         ),
+        iconUrl = account.iconUrl,
         createdAt = createdAt,
         followerCount = followerCount,
         feed = null,
