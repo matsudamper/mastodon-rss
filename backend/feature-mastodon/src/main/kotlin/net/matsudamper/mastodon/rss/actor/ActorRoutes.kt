@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.activitypub.Actor
 import net.matsudamper.mastodon.rss.activitypub.ActorAttachment
 import net.matsudamper.mastodon.rss.activitypub.ActorPublicKey
 import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.url.WebPageUrls
 
 /**
  * Actor エンドポイント。WebFinger から辿り着く 2 ホップ目。
@@ -23,6 +24,7 @@ fun Route.actorRoutes(
     actorKey: ActorKey,
     feedLinks: StoredFeedLinks,
     profiles: StoredActorProfiles,
+    webPages: WebPageUrls?,
 ) {
     get("/users/{username}") {
         val requested = call.parameters["username"]
@@ -35,7 +37,13 @@ fun Route.actorRoutes(
 
         call.respondJson(
             serializer = Actor.serializer(),
-            value = actorDocument(urls, actorKey, feedLinks.find(urls.username), profiles.find(urls.username)),
+            value = actorDocument(
+                urls = urls,
+                actorKey = actorKey,
+                feedLinks = feedLinks.find(urls.username),
+                profile = profiles.find(urls.username),
+                webPages = webPages,
+            ),
             // Accept を見ずに application/json で返すとアクターとして認識されない
             contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
         )
@@ -52,6 +60,7 @@ internal fun actorDocument(
     actorKey: ActorKey,
     feedLinks: FeedLinks,
     profile: ActorProfile,
+    webPages: WebPageUrls?,
 ): Actor {
     val storedSummary = profile.summary
     val summary = if (storedSummary == null) SUMMARY else summaryHtml(storedSummary)
@@ -66,7 +75,7 @@ internal fun actorDocument(
         featured = urls.featured,
         followers = urls.followers,
         following = urls.following,
-        url = urls.actorId,
+        url = webPages?.profile(urls.username),
         attachment = feedAttachments(feedLinks),
         icon = feedLinks.iconUrl?.let { Actor.Image(url = urls.icon(it)) },
         image = feedLinks.headerVersion?.let { Actor.Image(url = urls.header(it)) },
