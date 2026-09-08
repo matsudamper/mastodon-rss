@@ -205,6 +205,6 @@ private fun noteDocument(
         to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
         cc = listOf(urls.followers),
         atomUri = noteUrls.noteUrl,
-        url = noteUrls.noteUrl,
+        url = urls.notePageUrl(note.publicId),
     )
 }

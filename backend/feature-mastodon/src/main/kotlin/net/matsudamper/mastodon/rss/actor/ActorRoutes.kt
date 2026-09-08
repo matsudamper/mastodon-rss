@@ -66,7 +66,7 @@ internal fun actorDocument(
         featured = urls.featured,
         followers = urls.followers,
         following = urls.following,
-        url = urls.actorId,
+        url = urls.profileUrl,
         attachment = feedAttachments(feedLinks),
         icon = feedLinks.iconUrl?.let { Actor.Image(url = urls.icon(it)) },
         showFeatured = false,

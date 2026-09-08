@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.actor
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import net.matsudamper.mastodon.rss.entity.PublicNoteId
 
 // URL の綴りは一度 Mastodon 側にキャッシュされると直せないので、
 // 組み立ての結果を文字列として固定しておく。
@@ -18,6 +19,14 @@ class ActorUrlsTest {
         assertEquals("https://example.com/users/admin/followers", urls.followers)
         assertEquals("https://example.com/users/admin/following", urls.following)
         assertEquals("https://example.com/users/admin#main-key", urls.publicKeyId)
+    }
+
+    @Test
+    fun `人が開く URL は id とは別のパスになる`() {
+        val urls = ActorUrls(domain = "example.com", username = "admin")
+
+        assertEquals("https://example.com/@admin", urls.profileUrl)
+        assertEquals("https://example.com/@admin/abc", urls.notePageUrl(PublicNoteId("abc")))
     }
 
     @Test

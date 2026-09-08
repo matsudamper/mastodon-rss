@@ -30,7 +30,21 @@
 
 アカウント画面の `/@{name}` と Actor JSON の `/users/{name}` は別のパス。
 1 つのパスで `Accept` を見て HTML と JSON を出し分けると、相手の綴りの揺れで
-アカウントごと見つからなくなる。
+アカウントごと見つからなくなる。投稿も同じで、画面は `/@{name}/{id}`、
+JSON は `/notes/{id}` になる。
+
+`id` と `url` は別のものを申告する。`id` は JSON のパスで、相手が通信と
+重複判定に使う。`url` は画面のパスで、相手の「元のページを開く」のリンク先になる。
+`url` を出さないか `id` と同じにすると、相手のプロフィールやパーマリンクから
+JSON を返すパスが開く。組み立ては `ActorUrls` の `profileUrl` と `notePageUrl`。
+
+| 種類 | `id` | `url` |
+| --- | --- | --- |
+| アクター | `/users/{name}` | `/@{name}` |
+| 投稿 | `/notes/{id}` | `/@{name}/{id}` |
+
+投稿の `id` にアカウントの名前を入れないのは、名前が変わっても相手が覚えている
+値が指す先を変えないため。`url` は画面のパスに合わせるので名前が入る。
 
 inbox は署名が通れば 202、通らなければ 401 を返す。検証の内容は
 [HttpSignatureVerifier.kt](../backend/feature-mastodon/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)

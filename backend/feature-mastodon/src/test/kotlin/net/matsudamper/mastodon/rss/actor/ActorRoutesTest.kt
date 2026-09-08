@@ -49,6 +49,8 @@ class ActorRoutesTest {
             assertEquals(false, actor.showFeatured)
             assertEquals("https://example.com/users/admin/followers", actor.followers)
             assertEquals("https://example.com/users/admin/following", actor.following)
+            // 相手の「元のページを開く」はここを見る。id と同じにすると JSON のパスが表示される
+            assertEquals("https://example.com/@admin", actor.url)
         }
 
     @Test

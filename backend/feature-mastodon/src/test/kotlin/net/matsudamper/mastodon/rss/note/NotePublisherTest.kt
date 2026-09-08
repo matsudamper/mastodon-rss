@@ -72,6 +72,7 @@ class NotePublisherTest {
         assertEquals("<p>こんにちは</p>", activity.target.content)
         assertEquals(7, UUID.fromString(published.publicId.value).version())
         assertEquals("https://example.com/notes/${published.publicId.value}", activity.target.id.value)
+        assertEquals("https://example.com/@${TestLocalActor.USERNAME}/${published.publicId.value}", activity.target.url)
         // 外側の Create が @context を持つので、中で重ねない
         assertNull(activity.target.context)
     }

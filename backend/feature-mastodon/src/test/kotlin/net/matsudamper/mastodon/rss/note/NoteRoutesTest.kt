@@ -74,7 +74,7 @@ class NoteRoutesTest {
             assertEquals("https://example.com/notes/abc", body.atomUri)
             assertEquals(listOf(ActivityStreamsIri.PUBLIC_AUDIENCE), body.to)
             assertEquals(listOf("https://example.com/users/admin/followers"), body.cc)
-            assertEquals("https://example.com/notes/abc", body.url)
+            assertEquals("https://example.com/@admin/abc", body.url)
             assertEquals(listOf("https://www.w3.org/ns/activitystreams"), body.context)
         }
 

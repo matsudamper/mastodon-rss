@@ -32,7 +32,7 @@ internal object CreateNoteActivityFactory {
                 published = published,
                 to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
                 cc = listOf(sender.followers),
-                url = urls.noteUrl,
+                url = sender.notePageUrl(note.publicId),
                 atomUri = urls.noteUrl,
             ),
         )
