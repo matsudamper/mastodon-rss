@@ -265,6 +265,8 @@ class IconFetchService(
             ContentType.Image.JPEG,
             ContentType.Image.GIF,
             ContentType("image", "webp"),
+            ContentType.Image.XIcon,
+            ContentType("image", "vnd.microsoft.icon"),
         )
 
         /**
