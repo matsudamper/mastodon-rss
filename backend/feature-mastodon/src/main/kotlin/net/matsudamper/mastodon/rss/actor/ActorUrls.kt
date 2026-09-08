@@ -1,7 +1,5 @@
 package net.matsudamper.mastodon.rss.actor
 
-import net.matsudamper.mastodon.rss.entity.PublicNoteId
-
 /**
  * アクターの識別子と URL。
  *
@@ -27,23 +25,6 @@ data class ActorUrls(
 
     /** Actor の `id`。Mastodon 側にキャッシュされる本体 */
     val actorId: String = "https://$domain/users/$username"
-
-    /**
-     * Actor の `url`。人が開くほうのページで、[actorId] とは別のパスになる。
-     *
-     * Mastodon はリモートのアカウントを取り込むとき `id` を通信用の識別子、`url` を
-     * 「元のページを開く」のリンク先として持つ。`url` を出さないか [actorId] を入れると、
-     * 相手からは JSON を返すパスがプロフィールのリンクとして表示される。
-     */
-    val profileUrl: String = "https://$domain/$WEB_PROFILE_PREFIX$username"
-
-    /**
-     * 投稿の `url`。パーマリンクとして人が開くページで、投稿の `id` とは別のパス。
-     *
-     * 投稿の `id` にはアカウントの名前を入れない（[net.matsudamper.mastodon.rss.note.NoteUrls]）が、
-     * こちらは画面のパスに合わせるので名前が入る。
-     */
-    fun notePageUrl(publicId: PublicNoteId): String = "$profileUrl/${publicId.value}"
 
     val inbox: String = "$actorId/inbox"
     val outbox: String = "$actorId/outbox"
@@ -71,13 +52,6 @@ data class ActorUrls(
     val publicKeyId: String = "$actorId#main-key"
 
     companion object {
-        /**
-         * 画面のアカウントのパスの先頭。`:frontend` の `Screen` と `staticRoutes` も同じ綴りを使う。
-         *
-         * ユーザー名に `@` は使えないので、この 1 文字で画面のパスだと判別できる
-         */
-        private const val WEB_PROFILE_PREFIX: String = "@"
-
         /**
          * アクターの id から見たプロフィール画像のパス。GraphQL も同じ綴りを使う
          */

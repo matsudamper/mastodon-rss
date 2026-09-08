@@ -16,6 +16,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.collection.COLLECTION_CURSOR_PARAM
@@ -34,8 +35,8 @@ class NoteRoutesTest {
     private fun ApplicationTestBuilder.installModule(notes: FakeNoteStore = FakeNoteStore()) {
         application {
             routing {
-                noteRoutes(TestLocalActor.DOMAIN, notes)
-                outboxRoutes(TestLocalActor.directory, notes)
+                noteRoutes(TestLocalActor.DOMAIN, notes, TestWebPageUrls)
+                outboxRoutes(TestLocalActor.directory, notes, TestWebPageUrls)
                 featuredRoutes(TestLocalActor.directory)
             }
         }

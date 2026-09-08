@@ -44,6 +44,8 @@ import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
 import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
+import net.matsudamper.mastodon.rss.url.WebPageUrls
+import net.matsudamper.mastodon.rss.webpage.DomainWebPageUrls
 
 /**
  * アプリが使うものを作って配る場所。
@@ -61,6 +63,9 @@ import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
  *   `Accept` の宛先になる inbox をここから取る。本番は [HttpRemoteActors] が
  *   相手のサーバーに GET しに行く
  * @param delivery こちらから相手の inbox に POST する口
+ * @param webPageUrls 相手に渡す、人が開くページの URL。ActivityPub の `url` に入る。
+ *   画面のパスは `:frontend` の都合なので、`:backend:feature-mastodon` には持たせず
+ *   ここから渡す
  */
 class AppDependencies(
     val repositories: Repositories,
@@ -72,6 +77,7 @@ class AppDependencies(
     val iconFetcher: IconFetchService = IconFetchService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
     val openTelemetry: OpenTelemetry? = null,
+    val webPageUrls: WebPageUrls = DomainWebPageUrls(env.domain),
     private val telemetry: OpenTelemetryInitializer.Handler? = null,
 ) : AutoCloseable {
     val followerStore: FollowerStore = RepositoryFollowerStore(repositories.followers)
@@ -156,12 +162,14 @@ class AppDependencies(
         followers = followerStore,
         notes = noteStore,
         backfillScope = followBackfillScope,
+        webPages = webPageUrls,
     )
 
     val notePublisher: NotePublisher = NotePublisher(
         notes = noteStore,
         followers = followerStore,
         delivery = delivery,
+        webPages = webPageUrls,
     )
 
     val feedService: FeedService = FeedService(

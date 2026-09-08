@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.navigation
 
 import androidx.navigation3.runtime.NavKey
+import net.matsudamper.mastodon.rss.shared.WebPagePath
 
 /**
  * 画面のパス。Navigation 3 のバックスタックに積むキーでもある。
@@ -117,7 +118,7 @@ sealed interface Screen : NavKey {
     data class Account(
         val username: String,
     ) : Screen {
-        override val path: String = "/$ACCOUNT_PREFIX$username"
+        override val path: String = WebPagePath.account(username)
         override val title: String = "@$username | $SITE_NAME"
     }
 
@@ -130,7 +131,7 @@ sealed interface Screen : NavKey {
     data class AccountFollowers(
         val username: String,
     ) : Overlay {
-        override val path: String = "/$ACCOUNT_PREFIX$username/$FOLLOWERS_SEGMENT"
+        override val path: String = "${WebPagePath.account(username)}/$FOLLOWERS_SEGMENT"
         override val title: String = "@$username のフォロワー | $SITE_NAME"
         override val background: Screen = Account(username)
     }
@@ -145,7 +146,7 @@ sealed interface Screen : NavKey {
         val username: String,
         val noteId: String,
     ) : Overlay {
-        override val path: String = "/$ACCOUNT_PREFIX$username/$noteId"
+        override val path: String = WebPagePath.accountNote(username = username, noteId = noteId)
         override val title: String = "@$username の投稿 | $SITE_NAME"
         override val background: Screen = Account(username)
     }
@@ -181,8 +182,13 @@ sealed interface Screen : NavKey {
          */
         private const val FOLLOWERS_SEGMENT: String = "followers"
 
-        /** アカウント画面の目印。ユーザー名に `@` は使えないので、これで一意に判別できる */
-        const val ACCOUNT_PREFIX: String = "@"
+        /**
+         * 管理画面でアカウントを指すときの目印。
+         *
+         * 公開のアカウント画面のパスは外から指されるので [WebPagePath] が持つ。
+         * こちらは管理画面の中だけの綴りなので、ここで持つ
+         */
+        private const val ACCOUNT_PREFIX: String = WebPagePath.ACCOUNT_PREFIX
 
         /**
          * `@name` の形のセグメントから名前を取り出す。名前が入っていなければ null。
@@ -193,9 +199,9 @@ sealed interface Screen : NavKey {
          * サーバーに聞く。
          */
         private fun accountNameOf(segment: String): String? {
-            if (!segment.startsWith(ACCOUNT_PREFIX)) return null
+            if (!segment.startsWith(WebPagePath.ACCOUNT_PREFIX)) return null
 
-            return segment.removePrefix(ACCOUNT_PREFIX).ifEmpty { null }
+            return segment.removePrefix(WebPagePath.ACCOUNT_PREFIX).ifEmpty { null }
         }
 
         /**

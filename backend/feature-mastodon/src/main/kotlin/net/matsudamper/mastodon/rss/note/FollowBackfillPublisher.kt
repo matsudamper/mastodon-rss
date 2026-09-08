@@ -8,6 +8,7 @@ import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.url.WebPageUrls
 import org.slf4j.LoggerFactory
 
 /**
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory
 class FollowBackfillPublisher(
     private val notes: NoteStore,
     private val delivery: ActivityDelivery,
+    private val webPages: WebPageUrls,
 ) {
     private val logger = LoggerFactory.getLogger(FollowBackfillPublisher::class.java)
 
@@ -86,7 +88,7 @@ class FollowBackfillPublisher(
 
             val body = AppJson.encodeToString(
                 CreateNoteActivity.serializer(),
-                CreateNoteActivityFactory.create(sender = sender, note = note),
+                CreateNoteActivityFactory.create(sender = sender, note = note, webPages = webPages),
             ).toByteArray()
 
             when (val result = delivery.deliver(inbox = inbox, sender = sender, body = body)) {

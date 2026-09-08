@@ -16,6 +16,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.activitypub.Actor
 import net.matsudamper.mastodon.rss.json.AppJson
 
@@ -24,7 +25,13 @@ class ActorRoutesTest {
     private fun ApplicationTestBuilder.installModule() {
         application {
             routing {
-                actorRoutes(TestLocalActor.directory, TestActorKey.value, TestLocalActor.feedLinks, TestLocalActor.profiles)
+                actorRoutes(
+                    directory = TestLocalActor.directory,
+                    actorKey = TestActorKey.value,
+                    feedLinks = TestLocalActor.feedLinks,
+                    profiles = TestLocalActor.profiles,
+                    webPages = TestWebPageUrls,
+                )
             }
         }
     }

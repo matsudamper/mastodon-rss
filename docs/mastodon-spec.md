@@ -36,7 +36,7 @@ JSON は `/notes/{id}` になる。
 `id` と `url` は別のものを申告する。`id` は JSON のパスで、相手が通信と
 重複判定に使う。`url` は画面のパスで、相手の「元のページを開く」のリンク先になる。
 `url` を出さないか `id` と同じにすると、相手のプロフィールやパーマリンクから
-JSON を返すパスが開く。組み立ては `ActorUrls` の `profileUrl` と `notePageUrl`。
+JSON を返すパスが開く。
 
 | 種類 | `id` | `url` |
 | --- | --- | --- |
@@ -45,6 +45,9 @@ JSON を返すパスが開く。組み立ては `ActorUrls` の `profileUrl` と
 
 投稿の `id` にアカウントの名前を入れないのは、名前が変わっても相手が覚えている
 値が指す先を変えないため。`url` は画面のパスに合わせるので名前が入る。
+
+`url` の組み立ては `:backend` から渡す（`WebPageUrls`）。画面のパスは
+`:shared` の `WebPagePath` にあり、画面側と同じものを見ている。
 
 inbox は署名が通れば 202、通らなければ 401 を返す。検証の内容は
 [HttpSignatureVerifier.kt](../backend/feature-mastodon/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)

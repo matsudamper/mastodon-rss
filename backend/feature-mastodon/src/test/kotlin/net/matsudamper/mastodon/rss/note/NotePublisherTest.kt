@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.actor.RemoteActor
@@ -51,6 +52,7 @@ class NotePublisherTest {
                 "https://b.example/users/bob" to null,
             ),
             delivery,
+            TestWebPageUrls,
         )
 
         val published = publisher.publish(sender, "<p>こんにちは</p>")
@@ -88,6 +90,7 @@ class NotePublisherTest {
                 "https://b.example/users/carol" to null,
             ),
             delivery,
+            TestWebPageUrls,
         )
 
         val published = publisher.publish(sender, "<p>まとめ</p>")
@@ -103,7 +106,7 @@ class NotePublisherTest {
     @Test
     fun `配る前に記録する`() = runBlocking {
         val notes = FakeNoteStore()
-        val publisher = NotePublisher(notes, followers("https://a.example/users/alice" to null), TestDelivery())
+        val publisher = NotePublisher(notes, followers("https://a.example/users/alice" to null), TestDelivery(), TestWebPageUrls)
 
         val published = publisher.publish(sender, "<p>本文</p>")
 
@@ -122,6 +125,7 @@ class NotePublisherTest {
             notes,
             followers("https://a.example/users/alice" to null),
             TestDelivery(result = DeliveryResult.Failed("届かない")),
+            TestWebPageUrls,
         )
 
         val published = publisher.publish(sender, "<p>本文</p>")
@@ -148,7 +152,7 @@ class NotePublisherTest {
             )
         }
 
-        val published = NotePublisher(FakeNoteStore(), pending, delivery).publish(sender, "<p>本文</p>")
+        val published = NotePublisher(FakeNoteStore(), pending, delivery, TestWebPageUrls).publish(sender, "<p>本文</p>")
 
         // 相手から見てフォローが成立していないので、送ると知らないアクターからの投稿になる
         assertEquals(0, published.deliveryAttemptCount)

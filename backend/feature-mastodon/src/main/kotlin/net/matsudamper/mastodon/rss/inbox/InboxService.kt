@@ -14,6 +14,7 @@ import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
+import net.matsudamper.mastodon.rss.url.WebPageUrls
 import org.slf4j.LoggerFactory
 
 /**
@@ -162,6 +163,7 @@ class InboxService(
             followers: FollowerStore,
             notes: NoteStore,
             backfillScope: CoroutineScope,
+            webPages: WebPageUrls,
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(remoteActors),
@@ -170,7 +172,7 @@ class InboxService(
                         remoteActors = remoteActors,
                         delivery = delivery,
                         followers = followers,
-                        backfill = FollowBackfillPublisher(notes = notes, delivery = delivery),
+                        backfill = FollowBackfillPublisher(notes = notes, delivery = delivery, webPages = webPages),
                         backfillScope = backfillScope,
                     ),
                     UndoFollowHandler(followers),
