@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss
 
 import java.net.URI
 import java.time.Instant
+import java.util.Locale
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
@@ -627,7 +628,8 @@ class FakeDeliveryQueueRepository(
         }
     }
 
-    private fun hostOf(inbox: String): String = runCatching { URI(inbox).host }.getOrNull() ?: inbox
+    // 本物と同じく、大文字小文字だけが違うホストは 1 つとして扱う
+    private fun hostOf(inbox: String): String = runCatching { URI(inbox).host?.lowercase(Locale.ROOT) }.getOrNull() ?: inbox
 
     override fun exists(id: DeliveryId): Boolean = find(id) != null
 
