@@ -24,10 +24,18 @@ class ActorPublisher(
     private val delivery: ActivityDelivery,
     private val actorKey: ActorKey,
     private val feedLinks: StoredFeedLinks,
+    private val profiles: StoredActorProfiles,
 ) {
     private val logger = LoggerFactory.getLogger(ActorPublisher::class.java)
 
-    suspend fun update(sender: ActorUrls, profile: ActorProfile) {
+    /**
+     * 今のアクター情報をフォロワーへ配る。
+     *
+     * 載せるのは Actor エンドポイントと同じ引き先から組み立てた文書。呼び出し元から
+     * 中身を受け取ると、更新の保存とここの組み立てで別々に同じものを作ることになり、
+     * 片方だけ変わったときに相手の表示だけが食い違う。
+     */
+    suspend fun update(sender: ActorUrls) {
         val targets = followers.deliveryTargets(sender.username)
         val body = AppJson.encodeToString(
             UpdateActorActivity.serializer(),
@@ -40,7 +48,7 @@ class ActorPublisher(
                     urls = sender,
                     actorKey = actorKey,
                     feedLinks = feedLinks.find(sender.username),
-                    profile = profile,
+                    profile = profiles.find(sender.username),
                 ),
             ),
         ).toByteArray()

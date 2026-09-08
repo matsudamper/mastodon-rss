@@ -13,9 +13,7 @@ import net.matsudamper.mastodon.rss.actor.ActorIcons
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
 import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
-import net.matsudamper.mastodon.rss.actor.ActorProfile
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
-import net.matsudamper.mastodon.rss.actor.FeedLinks
 import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.actor.StoredActorNames
@@ -26,7 +24,6 @@ import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
-import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
@@ -36,6 +33,8 @@ import net.matsudamper.mastodon.rss.logic.FeedIconService
 import net.matsudamper.mastodon.rss.logic.FeedIconStore
 import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
+import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
+import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
 import net.matsudamper.mastodon.rss.note.NotePublisher
@@ -92,20 +91,10 @@ class AppDependencies(
         },
     )
 
-    // 毎回引き直す。持ち回すと、フィードの URL を変えた後も古い URL を返し続ける
-    val feedLinks: StoredFeedLinks = object : StoredFeedLinks {
-        override fun find(username: String): FeedLinks {
-            val account = repositories.accounts.findByUsername(username) ?: return FeedLinks.EMPTY
-            val feed = repositories.feeds.findByAccountId(account.id) ?: return FeedLinks.EMPTY
-
-            // 相手のプロフィールに出る外部リンクになるので、http / https 以外は落とす
-            return FeedLinks(
-                siteUrl = HttpUrl.sanitize(feed.siteUrl, feed.url),
-                feedUrl = HttpUrl.sanitize(feed.url),
-                iconUrl = HttpUrl.sanitize(feed.iconUrl, feed.url),
-            )
-        }
-    }
+    val feedLinks: StoredFeedLinks = RepositoryFeedLinks(
+        accounts = repositories.accounts,
+        feeds = repositories.feeds,
+    )
 
     private val feedIconStore: FeedIconStore = FeedIconStore(env.iconCacheDir)
 
@@ -128,12 +117,7 @@ class AppDependencies(
         store = feedIconStore,
     )
 
-    val actorProfiles: StoredActorProfiles = object : StoredActorProfiles {
-        override fun find(username: String): ActorProfile {
-            val account = repositories.accounts.findByUsername(username) ?: return ActorProfile.EMPTY
-            return ActorProfile(displayName = account.displayName, summary = account.summary)
-        }
-    }
+    val actorProfiles: StoredActorProfiles = RepositoryActorProfiles(repositories.accounts)
 
     /**
      * フォロー成立後に過去の投稿を配る間、inbox の応答を待たせないためのスコープ。
@@ -221,6 +205,7 @@ class AppDependencies(
         delivery = delivery,
         actorKey = actorKey,
         feedLinks = feedLinks,
+        profiles = actorProfiles,
     )
 
     /**

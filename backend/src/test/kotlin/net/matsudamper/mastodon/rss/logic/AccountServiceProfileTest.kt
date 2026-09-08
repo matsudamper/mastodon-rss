@@ -40,7 +40,8 @@ class AccountServiceProfileTest {
             followers = RepositoryFollowerStore(repositories.followers),
             delivery = TestDelivery(),
             actorKey = TestActorKey.value,
-            feedLinks = TestLocalActor.feedLinks,
+            feedLinks = RepositoryFeedLinks(accounts = repositories.accounts, feeds = repositories.feeds),
+            profiles = RepositoryActorProfiles(repositories.accounts),
         ),
         iconFiles = AccountIconFiles(
             feeds = repositories.feeds,

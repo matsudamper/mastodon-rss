@@ -1,7 +1,6 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.actor.ActorProfile
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
@@ -110,6 +109,12 @@ class AccountService(
         return AddAccountResult.Success(added.toManaged())
     }
 
+    /**
+     * 表示名と説明文を保存して、変わっていればフォロワーに `Update{Actor}` を配る。
+     *
+     * 配れなくても保存は巻き戻さない。届かなかった相手の表示が古いまま残るだけで、
+     * 次に変えたときに配り直される
+     */
     suspend fun updateProfile(
         username: String,
         displayName: String,
@@ -129,10 +134,14 @@ class AccountService(
             summary = trimmedSummary.ifEmpty { null },
         ) ?: return UpdateProfileResult.Failure(true, false, false)
         val managed = updated.toManaged()
-        actorPublisher.update(
-            sender = managed.urls,
-            profile = ActorProfile(displayName = updated.displayName, summary = updated.summary),
-        )
+
+        // 中身が変わっていないなら配らない。管理画面は編集していない値も一緒に送ってくるので、
+        // 保存し直しただけで全フォロワーの inbox に POST が飛ぶ
+        val changed = account.displayName != updated.displayName || account.summary != updated.summary
+        if (changed) {
+            actorPublisher.update(sender = managed.urls)
+        }
+
         return UpdateProfileResult.Success(managed)
     }
 

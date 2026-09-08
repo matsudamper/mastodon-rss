@@ -184,7 +184,38 @@ class AccountServiceTest {
         assertContains(body, "\"actor\":\"https://${TestLocalActor.DOMAIN}/users/$USERNAME\"")
         assertContains(body, "\"name\":\"更新後\"")
         assertContains(body, "\"summary\":\"<p>新しい説明</p>\"")
+    }
+
+    @Test
+    fun `配る Update Actor には保存しているフィードの attachment も入る`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.withFullAccount()
+        val delivery = TestDelivery()
+
+        val result = serviceOf(repositories, delivery).updateProfile(
+            username = USERNAME,
+            displayName = "更新後",
+            summary = "新しい説明",
+        )
+
+        assertIs<AccountService.UpdateProfileResult.Success>(result)
+        val body = delivery.delivered.single().body
         assertContains(body, "\"inbox\":\"https://${TestLocalActor.DOMAIN}/users/$USERNAME/inbox\"")
+        assertContains(body, FEED_URL)
+    }
+
+    @Test
+    fun `表示名も説明文も変わらない保存では配らない`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.withFullAccount()
+        val delivery = TestDelivery()
+        val service = serviceOf(repositories, delivery)
+        service.updateProfile(username = USERNAME, displayName = "更新後", summary = "新しい説明")
+
+        val result = service.updateProfile(username = USERNAME, displayName = "更新後", summary = "新しい説明")
+
+        assertIs<AccountService.UpdateProfileResult.Success>(result)
+        assertEquals(1, delivery.delivered.size)
     }
 
     private fun serviceOf(
@@ -198,7 +229,8 @@ class AccountServiceTest {
             followers = RepositoryFollowerStore(repositories.followers),
             delivery = delivery,
             actorKey = TestActorKey.value,
-            feedLinks = TestLocalActor.feedLinks,
+            feedLinks = RepositoryFeedLinks(accounts = repositories.accounts, feeds = repositories.feeds),
+            profiles = RepositoryActorProfiles(repositories.accounts),
         ),
         iconFiles = AccountIconFiles(
             feeds = repositories.feeds,
