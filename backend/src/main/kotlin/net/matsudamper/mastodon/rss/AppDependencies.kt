@@ -34,6 +34,7 @@ import net.matsudamper.mastodon.rss.logic.ActorIconService
 import net.matsudamper.mastodon.rss.logic.FeedHeaderService
 import net.matsudamper.mastodon.rss.logic.FeedIconService
 import net.matsudamper.mastodon.rss.logic.FeedIconStore
+import net.matsudamper.mastodon.rss.logic.FeedHeaders
 import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
@@ -145,7 +146,7 @@ class AppDependencies(
         store = feedIconStore,
     )
 
-    private val feedHeaders = FeedHeaderService(
+    private val feedHeaders: FeedHeaders = FeedHeaderService(
         headers = repositories.feedHeaders,
         store = feedIconStore,
         fetcher = iconFetcher,
@@ -155,7 +156,6 @@ class AppDependencies(
         icons = repositories.feedIcons,
         store = feedIconStore,
         fetcher = iconFetcher,
-        headers = feedHeaders,
     )
 
     val accountIconFiles: AccountIconFiles = AccountIconFiles(
@@ -205,6 +205,7 @@ class AppDependencies(
         actorDirectory = directory,
         notePublisher = notePublisher,
         icons = feedIcons,
+        headers = feedHeaders,
     )
 
     private val feedPollingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

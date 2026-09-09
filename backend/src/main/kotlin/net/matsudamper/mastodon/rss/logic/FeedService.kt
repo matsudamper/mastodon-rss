@@ -39,6 +39,7 @@ class FeedService(
     private val actorDirectory: ActorDirectory,
     private val notePublisher: NotePublisher,
     private val icons: FeedIcons,
+    private val headers: FeedHeaders,
 ) {
     private val publishLock = Mutex()
 
@@ -462,7 +463,7 @@ class FeedService(
         feedId: FeedId,
         headerUrl: String?,
     ) {
-        runCatching { icons.refreshHeader(feedId = feedId, headerUrl = headerUrl) }
+        runCatching { headers.refresh(feedId = feedId, headerUrl = headerUrl) }
             .onFailure { error ->
                 if (error is CancellationException) throw error
                 logger.warn("ヘッダーを入れ替えられなかった: feedId={}", feedId.value, error)

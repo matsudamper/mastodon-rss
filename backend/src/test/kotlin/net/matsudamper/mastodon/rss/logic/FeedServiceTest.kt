@@ -13,6 +13,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondRedirect
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.FakeFeedHeaders
 import net.matsudamper.mastodon.rss.FakeFeedIcons
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
@@ -731,6 +732,7 @@ class FeedServiceTest {
                 repositories,
                 xmls = listOf(ICON_XML, CHANGED_ICON_XML),
                 icons = icons,
+            headers = headers,
             )
             service.save(accountId = account.id, url = FEED_URL)
 
@@ -756,6 +758,7 @@ class FeedServiceTest {
                 repositories,
                 xmls = listOf(ICON_XML, FEED_XML),
                 icons = icons,
+            headers = headers,
             )
             service.save(accountId = account.id, url = FEED_URL)
 
@@ -1020,6 +1023,7 @@ class FeedServiceTest {
         actorDirectory: ActorDirectory = TestLocalActor.directory,
         engine: MockEngine? = null,
         icons: FeedIcons = FakeFeedIcons(),
+        headers: FeedHeaders = FakeFeedHeaders(),
     ): FeedService {
         val mockEngine = engine ?: run {
             val bodies = ArrayDeque(xmls ?: listOf(xml))
@@ -1048,6 +1052,7 @@ class FeedServiceTest {
                 webPages = TestWebPageUrls,
             ),
             icons = icons,
+            headers = headers,
         )
     }
 

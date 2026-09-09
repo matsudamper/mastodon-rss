@@ -21,7 +21,6 @@ class FeedIconService(
     private val icons: FeedIconRepository,
     private val store: FeedIconStore,
     private val fetcher: IconFetchService,
-    private val headers: FeedHeaders,
     private val defaultFreshFor: Duration = DEFAULT_FRESH_FOR,
 ) : FeedIcons {
     /**
@@ -37,13 +36,6 @@ class FeedIconService(
         locks.computeIfAbsent(feedId) { Mutex() }.withLock {
             replace(feedId = feedId, iconUrl = iconUrl)
         }
-    }
-
-    override suspend fun refreshHeader(
-        feedId: FeedId,
-        headerUrl: String?,
-    ) {
-        headers.refresh(feedId = feedId, headerUrl = headerUrl)
     }
 
     private suspend fun replace(
