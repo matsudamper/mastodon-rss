@@ -58,6 +58,8 @@ class FeedIconServiceTest {
                 "image/jpeg" to ".jpg",
                 "image/gif" to ".gif",
                 "image/webp" to ".webp",
+                "image/x-icon" to ".ico",
+                "image/vnd.microsoft.icon" to ".ico",
             )
 
             cases.forEach { (contentType, extension) ->

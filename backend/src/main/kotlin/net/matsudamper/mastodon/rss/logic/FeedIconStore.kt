@@ -4,7 +4,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.UUID
-import io.ktor.http.ContentType
+import net.matsudamper.mastodon.rss.feed.IconImageType
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 
 /**
@@ -26,11 +26,11 @@ class FeedIconStore(
     fun write(
         feedId: FeedId,
         bytes: ByteArray,
-        contentType: ContentType = ContentType.Image.PNG,
+        imageType: IconImageType,
     ): String {
         Files.createDirectories(root)
 
-        val path = fileName(feedId, contentType)
+        val path = fileName(feedId, imageType)
         val target = root.resolve(path)
         // 書いている途中のものを読み出されないよう、別名で書いてから move する
         val temporary = Files.createTempFile(root, path, ".tmp")
@@ -75,19 +75,6 @@ class FeedIconStore(
 
     private fun fileName(
         feedId: FeedId,
-        contentType: ContentType,
-    ): String = "${feedId.value}-${UUID.randomUUID()}.${fileExtension(contentType)}"
-
-    private fun fileExtension(contentType: ContentType): String =
-        when (contentType.withoutParameters()) {
-            ContentType.Image.PNG -> "png"
-            ContentType.Image.JPEG -> "jpg"
-            ContentType.Image.GIF -> "gif"
-            WEBP_CONTENT_TYPE -> "webp"
-            else -> error("未対応の画像形式: $contentType")
-        }
-
-    private companion object {
-        val WEBP_CONTENT_TYPE = ContentType("image", "webp")
-    }
+        imageType: IconImageType,
+    ): String = "${feedId.value}-${UUID.randomUUID()}.${imageType.fileExtension}"
 }

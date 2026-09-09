@@ -58,7 +58,7 @@ class FeedIconService(
         val path = store.write(
             feedId = feedId,
             bytes = fetched.bytes,
-            contentType = fetched.contentType,
+            imageType = fetched.imageType,
         )
         val now = Instant.now()
 
@@ -69,7 +69,7 @@ class FeedIconService(
                 feedId = feedId,
                 icon = FeedIcon(
                     sourceUrl = iconUrl,
-                    contentType = fetched.contentType.toString(),
+                    contentType = fetched.imageType.contentType.toString(),
                     path = path,
                     fetchedAt = now,
                     // 見に来た側に持たせる時間。配信元が持つなと言っていれば持たせない
