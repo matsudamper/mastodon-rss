@@ -25,10 +25,14 @@ class AccountIconFiles(
 
     /**
      * アカウント削除前に控える、そのフィード用の画像の置き場。
+     *
+     * 置き場の名前にフィードの id を含める前に置いたものは列挙で拾えないので、
+     * 記録に残っている置き場も足す
      */
     fun locateAll(accountId: AccountId): List<String> {
         val feed = feeds.findByAccountId(accountId) ?: return emptyList()
-        return store.paths(feed.id)
+        val recorded = icons.find(feed.id)?.path
+        return (store.paths(feed.id) + listOfNotNull(recorded)).distinct()
     }
 
     fun delete(path: String) {

@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -30,7 +31,9 @@ import net.matsudamper.mastodon.rss.shared.PublicNoteId
 // 管理画面からアカウントを消す経路。
 // 名前で持っているもの（投稿とフォロワー）まで消し切れているかがここの関心になる。
 class AccountServiceTest {
-    private val iconStore = FeedIconStore(Files.createTempDirectory("account-icon"))
+    private val iconCacheDir: Path = Files.createTempDirectory("account-icon")
+
+    private val iconStore = FeedIconStore(iconCacheDir)
 
     @Test
     fun `消すとフォロワーと投稿とフィードと記事が消える`() = runTest {
@@ -54,6 +57,31 @@ class AccountServiceTest {
         val account = repositories.withFullAccount()
         val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
         val path = iconStore.write(feedId = feed.id, bytes = byteArrayOf(1, 2, 3), imageType = IconImageType.PNG)
+        repositories.feedIcons.save(
+            feedId = feed.id,
+            icon = FeedIcon(
+                sourceUrl = "https://example.com/icon.png",
+                contentType = "image/png",
+                path = path,
+                fetchedAt = CREATED_AT,
+                expiresAt = CREATED_AT.plusSeconds(POLL_INTERVAL_SECONDS),
+            ),
+        )
+
+        val result = serviceOf(repositories, TestDelivery()).delete(USERNAME)
+
+        assertIs<AccountService.DeleteResult.Success>(result)
+        assertNull(iconStore.read(path))
+    }
+
+    @Test
+    fun `消すと名前にフィードの id を含まない古いファイルも消える`() = runTest {
+        val repositories = FakeRepositories()
+        val account = repositories.withFullAccount()
+        val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
+        // 置き場の名前を変える前に置いたもの。フィードの id だけを名前にしていた
+        val path = feed.id.value.toString()
+        Files.write(iconCacheDir.resolve(path), byteArrayOf(1, 2, 3))
         repositories.feedIcons.save(
             feedId = feed.id,
             icon = FeedIcon(
