@@ -6,8 +6,8 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.feed.IconFetchService
+import net.matsudamper.mastodon.rss.feed.IconImageType
 import net.matsudamper.mastodon.rss.repository.FeedHeader
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
@@ -45,9 +45,13 @@ class FeedHeaderService(
 
         val fetched = fetcher.fetch(headerUrl)
         if (fetched !is IconFetchService.FetchResult.Success) return
-        if (fetched.contentType !in ALLOWED_CONTENT_TYPES) return
+        if (fetched.imageType !in ALLOWED_IMAGE_TYPES) return
 
-        val path = store.write(feedId = feedId, bytes = fetched.bytes)
+        val path = store.write(
+            feedId = feedId,
+            bytes = fetched.bytes,
+            imageType = fetched.imageType,
+        )
         val now = Instant.now()
 
         runCatching {
@@ -55,7 +59,7 @@ class FeedHeaderService(
                 feedId = feedId,
                 header = FeedHeader(
                     sourceUrl = headerUrl,
-                    contentType = fetched.contentType.toString(),
+                    contentType = fetched.imageType.contentType.toString(),
                     revision = contentRevision(fetched.bytes),
                     path = path,
                     fetchedAt = now,
@@ -92,15 +96,15 @@ class FeedHeaderService(
         val DEFAULT_FRESH_FOR: Duration = Duration.ofDays(1)
 
         /**
-         * ヘッダーとして配る形式。アイコンと違い ICO は入れない。
+         * ヘッダーとして配る種類。アイコンと違い ICO は入れない。
          *
          * `/users/{name}/header` が返す形式は外部仕様で png / jpeg / gif / webp に限っている
          */
-        val ALLOWED_CONTENT_TYPES = setOf(
-            ContentType.Image.PNG,
-            ContentType.Image.JPEG,
-            ContentType.Image.GIF,
-            ContentType("image", "webp"),
+        val ALLOWED_IMAGE_TYPES = setOf(
+            IconImageType.PNG,
+            IconImageType.JPEG,
+            IconImageType.GIF,
+            IconImageType.WEBP,
         )
     }
 }
