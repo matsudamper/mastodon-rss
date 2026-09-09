@@ -61,11 +61,11 @@ class InboxService(
                     // 検証できるが、Mastodon は面識の無いサーバーにも配るので、
                     // 記録の無い相手は通しようが無い
                     if (isSelfDelete(request.body)) {
-                        logger.info("消えたアクターからの Delete として受け流す: ${recipient.acct} ${verification.reason}")
+                        logger.info("${recipient.acct} に検証できない Delete が届いたので受け流す。理由:${verification.reason}")
                         return InboxResult.Accepted
                     }
 
-                    logger.warn("inbox の署名を拒否した: ${recipient.acct} ${verification.reason}")
+                    logger.warn("${recipient.acct} のinboxの署名を拒否した。理由:${verification.reason}")
                     return InboxResult.Unauthorized
                 }
 
