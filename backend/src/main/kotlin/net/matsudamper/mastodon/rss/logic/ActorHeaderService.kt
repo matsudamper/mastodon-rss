@@ -11,7 +11,10 @@ import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 
 /**
- * アクターのプロフィールヘッダーとして、取り込み済みの画像だけを返す。
+ * アクターのプロフィールヘッダーを返す。
+ *
+ * 置いてあるものだけを返し、ここから配信元へは取りに行かない。入れ替えは
+ * フィードの取り込みに合わせて [FeedHeaderService] が行う。
  */
 class ActorHeaderService(
     private val accounts: AccountRepository,
@@ -23,13 +26,18 @@ class ActorHeaderService(
         val account = accounts.findByUsername(username) ?: return null
         val feed = feeds.findByAccountId(account.id) ?: return null
         val stored = headers.find(feed.id) ?: return null
+        // 取り込みが取ってこない形の URL（http(s) 以外）から入ったものは出さない
         if (HttpUrl.sanitize(stored.sourceUrl, feed.url) == null) return null
         val bytes = store.read(stored.path) ?: return null
 
         return ActorHeader(
             bytes = bytes,
             contentType = ContentType.parse(stored.contentType),
+            // Actor JSON が URL に付けているのと同じ値。一致していれば、
+            // その URL は今置いてあるものを指している
             version = stored.revision,
+            // 期限までの残りだけ持たせる。取ったときの長さをそのまま渡すと、
+            // 期限の間際に来た側は期限を過ぎた後まで前の画像を持つ
             cacheFor = Duration.between(Instant.now(), stored.expiresAt).coerceAtLeast(Duration.ZERO),
         )
     }

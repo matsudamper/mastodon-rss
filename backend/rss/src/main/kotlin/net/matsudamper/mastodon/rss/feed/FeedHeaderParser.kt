@@ -6,7 +6,11 @@ import javax.xml.stream.XMLStreamConstants
 import javax.xml.stream.XMLStreamReader
 
 /**
- * WebFeeds のカバー画像を読み、無ければ WebFeeds のロゴを返す。
+ * フィードが名乗るプロフィールヘッダー向けの画像を読む。
+ *
+ * WebFeeds 拡張の `webfeeds:cover` を先に見て、無ければ `webfeeds:logo` を使う。
+ * cover は横長のカバー画像、logo は正方形に近いロゴとして書かれるので、
+ * 横長を先に採る。Atom 標準の `logo` はアイコン側で使うので、ここでは見ない。
  */
 object FeedHeaderParser {
     fun parse(bytes: ByteArray): String? {
@@ -51,6 +55,13 @@ object FeedHeaderParser {
         return logo
     }
 
+    /**
+     * フィード全体を指す要素の直下か。
+     *
+     * WebFeeds の要素は記事の中にも書けるので、局所名だけで拾うと記事側の画像を
+     * フィードの画像として扱う。RSS 2.0 の `rss > channel`、RSS 1.0 の
+     * `rdf:RDF > rss:channel`、Atom の `feed` の直下だけを通す
+     */
     private fun isFeedLevel(path: ArrayDeque<ElementName>): Boolean {
         if (path.size == 1) {
             val root = path.first()
