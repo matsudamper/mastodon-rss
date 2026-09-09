@@ -92,7 +92,9 @@ private fun ActorHeader.cacheControl(requestedVersion: String?): String {
     return "public, max-age=$seconds"
 }
 
-/** 1 年。`immutable` を見ない側でも取り直しに来なくなるだけの長さ */
+/**
+ * 1 年。`immutable` を見ない側でも取り直しに来なくなるだけの長さ
+ */
 private const val IMMUTABLE = "public, max-age=31536000, immutable"
 private const val VERSION_PARAMETER = "v"
 private const val NO_STORE = "no-store"

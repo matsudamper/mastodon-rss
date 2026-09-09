@@ -63,6 +63,8 @@ object YouTubeChannelHeader {
      */
     private const val MAX_KEY_DISTANCE = 64 * 1024
 
-    /** バナーの並び 1 つ分に許す文字数。ここを超えたら別の場所を読んでいる */
+    /**
+     * バナーの並び 1 つ分に許す文字数。ここを超えたら別の場所を読んでいる
+     */
     private const val MAX_SOURCES_LENGTH = 64 * 1024
 }

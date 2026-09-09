@@ -9,7 +9,9 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 class FakeFeedIcons : FeedIcons {
     val refreshed: MutableList<Pair<FeedId, String?>> = mutableListOf()
 
-    /** 入れ替わったことにするか。既定は入れ替わらない */
+    /**
+     * 入れ替わったことにするか。既定は入れ替わらない
+     */
     var changed: Boolean = false
 
     override suspend fun refresh(
