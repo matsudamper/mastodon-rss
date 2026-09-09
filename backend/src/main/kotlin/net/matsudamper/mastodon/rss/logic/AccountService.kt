@@ -111,7 +111,13 @@ class AccountService(
         return AddAccountResult.Success(added.toManaged())
     }
 
-    fun updateProfile(
+    /**
+     * 表示名と説明文を保存して、変わっていればフォロワーに `Update{Actor}` を配る。
+     *
+     * 配れなくても保存は巻き戻さない。届かなかった相手の表示が古いまま残るだけで、
+     * 次に変えたときに配り直される
+     */
+    suspend fun updateProfile(
         username: String,
         displayName: String,
         summary: String,
@@ -129,7 +135,16 @@ class AccountService(
             displayName = trimmedDisplayName.ifEmpty { null },
             summary = trimmedSummary.ifEmpty { null },
         ) ?: return UpdateProfileResult.Failure(true, false, false)
-        return UpdateProfileResult.Success(updated.toManaged())
+        val managed = updated.toManaged()
+
+        // 中身が変わっていないなら配らない。管理画面は編集していない値も一緒に送ってくるので、
+        // 保存し直しただけで全フォロワーの inbox に POST が飛ぶ
+        val changed = account.displayName != updated.displayName || account.summary != updated.summary
+        if (changed) {
+            actorPublisher.update(sender = managed.urls)
+        }
+
+        return UpdateProfileResult.Success(managed)
     }
 
     /**
