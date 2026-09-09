@@ -23,7 +23,6 @@ import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.request
-import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
@@ -106,10 +105,8 @@ class IconFetchService(
             return FetchResult.Failure
         }
 
-        // 復号できる形式だけを返す。image/svg+xml はスクリプトを実行できるので、
-        // 配信元の書いたものをこちらのドメインから配ると同一オリジンで動いてしまう
-        val contentType = contentType()?.withoutParameters()
-        if (contentType == null || contentType !in ALLOWED_CONTENT_TYPES) {
+        val imageType = contentType()?.let { IconImageType.of(it) }
+        if (imageType == null) {
             channel.cancel(null)
             return FetchResult.Failure
         }
@@ -123,9 +120,16 @@ class IconFetchService(
             return FetchResult.Failure
         }
 
+        // 名乗った種類と中身が食い違うものは受けない。名乗りだけを信じると、
+        // 画像でないものをこちらのドメインから画像として配ることになる
+        if (!imageType.matches(bytes)) {
+            logger.warn("名乗った種類と中身が違う: host={}, 名乗り={}", request.url.host, imageType.contentType)
+            return FetchResult.Failure
+        }
+
         return FetchResult.Success(
             bytes = bytes,
-            contentType = contentType,
+            imageType = imageType,
             freshFor = cacheControlMaxAge(),
         )
     }
@@ -243,7 +247,7 @@ class IconFetchService(
          */
         data class Success(
             val bytes: ByteArray,
-            val contentType: ContentType,
+            val imageType: IconImageType,
             val freshFor: Duration?,
         ) : FetchResult
 
@@ -259,17 +263,6 @@ class IconFetchService(
         private val MAX_AGE = Regex("max-age\\s*=\\s*(\\d+)")
         private val MAX_FRESH_FOR: Duration = Duration.ofDays(1)
         private val DEFAULT_RESOLVE_TIMEOUT: Duration = Duration.ofSeconds(5)
-
-        private val ALLOWED_CONTENT_TYPES = setOf(
-            ContentType.Image.PNG,
-            ContentType.Image.JPEG,
-            ContentType.Image.GIF,
-            ContentType("image", "webp"),
-            // favicon はほとんどが ICO で、これを外すとサイトの favicon を充てても取れない。
-            // 中身は画像だけでスクリプトを持たないので、こちらから配っても SVG のような問題は無い
-            ContentType("image", "x-icon"),
-            ContentType("image", "vnd.microsoft.icon"),
-        )
 
         /**
          * リダイレクトを自分で辿るので、クライアントには追わせない。

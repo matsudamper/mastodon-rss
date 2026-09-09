@@ -22,6 +22,12 @@
         "opentelemetryApiIncubator",
         "opentelemetryInstrumentation"
       ]
+    },
+    {
+      "description": "actions/ 配下の GitHub Actions を自動マージする",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["/^actions\\//"],
+      "automerge": true
     }
   ]
 }

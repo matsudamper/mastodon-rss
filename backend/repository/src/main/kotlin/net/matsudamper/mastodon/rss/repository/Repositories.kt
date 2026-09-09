@@ -32,6 +32,8 @@ interface Repositories : AutoCloseable {
 
     val feedIcons: FeedIconRepository
 
+    val feedHeaders: FeedHeaderRepository
+
     /**
      * DB に書き込んで読み戻せることを確認する。書けない場合は例外を投げる。
      *

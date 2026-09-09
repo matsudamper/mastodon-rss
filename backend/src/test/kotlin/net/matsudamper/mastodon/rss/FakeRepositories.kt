@@ -15,6 +15,8 @@ import net.matsudamper.mastodon.rss.repository.FailedDelivery
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchStatus
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
+import net.matsudamper.mastodon.rss.repository.FeedHeader
+import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FeedIcon
 import net.matsudamper.mastodon.rss.repository.FeedIconRepository
 import net.matsudamper.mastodon.rss.repository.FeedItem
@@ -66,6 +68,8 @@ class FakeRepositories : Repositories {
     override val feedItems: FakeFeedItemRepository = FakeFeedItemRepository()
 
     override val feedIcons: FakeFeedIconRepository = FakeFeedIconRepository()
+
+    override val feedHeaders: FakeFeedHeaderRepository = FakeFeedHeaderRepository()
 
     // 投稿を消したら記事の note_id が外れるのは SQLite の ON DELETE SET NULL、
     // 未配信の行が消えるのは ON DELETE CASCADE。ここで繋がないと、消した投稿の id で
@@ -741,6 +745,23 @@ class FakeDeliveryQueueRepository(
         val enqueuedAt: Instant,
         val lastError: String?,
     )
+}
+
+class FakeFeedHeaderRepository : FeedHeaderRepository {
+    private val stored = mutableMapOf<FeedId, FeedHeader>()
+
+    override fun find(feedId: FeedId): FeedHeader? = stored[feedId]
+
+    override fun save(
+        feedId: FeedId,
+        header: FeedHeader,
+    ) {
+        stored[feedId] = header
+    }
+
+    override fun delete(feedId: FeedId) {
+        stored.remove(feedId)
+    }
 }
 
 class FakeFeedIconRepository : FeedIconRepository {

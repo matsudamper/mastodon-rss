@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -13,15 +14,18 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondRedirect
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.FakeFeedHeaders
 import net.matsudamper.mastodon.rss.FakeFeedIcons
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.FakeStoredActorNames
+import net.matsudamper.mastodon.rss.TestActorPublisher
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
@@ -786,9 +790,7 @@ class FeedServiceTest {
                     override suspend fun refresh(
                         feedId: FeedId,
                         iconUrl: String?,
-                    ) {
-                        error("アイコンを置けなかった")
-                    }
+                    ): Boolean = error("アイコンを置けなかった")
                 },
             )
             service.save(accountId = account.id, url = FEED_URL)
@@ -1001,6 +1003,67 @@ class FeedServiceTest {
             assertEquals(emptyList(), repositories.feedItems.items())
         }
 
+    @Test
+    fun `プロフィール画像が入れ替わったらフォロワーに Update を配る`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val followers = acceptedFollowerStore()
+            val delivery = TestDelivery()
+            val service = serviceOf(
+                repositories,
+                icons = FakeFeedIcons().apply { changed = true },
+                followers = followers,
+                delivery = delivery,
+            )
+
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val update = assertNotNull(delivery.delivered.singleOrNull())
+            assertEquals(FOLLOWER_INBOX, update.inbox)
+            assertContains(update.body, "\"type\":\"Update\"")
+        }
+
+    @Test
+    fun `プロフィール画像が入れ替わらなければ Update を配らない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val delivery = TestDelivery()
+            val service = serviceOf(
+                repositories,
+                followers = acceptedFollowerStore(),
+                delivery = delivery,
+            )
+
+            service.save(accountId = account.id, url = FEED_URL)
+
+            assertEquals(emptyList(), delivery.delivered)
+        }
+
+    /**
+     * `Update` の宛先になるフォロワーを 1 人だけ持たせる。
+     */
+    private fun acceptedFollowerStore(): FakeFollowerStore =
+        FakeFollowerStore().apply {
+            record(
+                username = TestLocalActor.STORED_USERNAME,
+                follower = RemoteActor(
+                    actorId = "https://remote.example/users/follower",
+                    inbox = FOLLOWER_INBOX,
+                    sharedInbox = null,
+                    publicKeyPem = "pem",
+                ),
+                followActivityUri = "https://remote.example/activities/follow",
+                receivedAt = CREATED_AT,
+            )
+            markAccepted(
+                username = TestLocalActor.STORED_USERNAME,
+                followerActorUri = "https://remote.example/users/follower",
+                acceptedAt = CREATED_AT,
+            )
+        }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         accounts: AccountRepository = repositories.accounts,
@@ -1012,6 +1075,9 @@ class FeedServiceTest {
         engine: MockEngine? = null,
         icons: FeedIcons = FakeFeedIcons(),
         noteStore: NoteStore = FakeNoteStore(),
+        headers: FeedHeaders = FakeFeedHeaders(),
+        followers: FakeFollowerStore = FakeFollowerStore(),
+        delivery: TestDelivery = TestDelivery(),
     ): FeedService {
         val mockEngine = engine ?: run {
             val bodies = ArrayDeque(xmls ?: listOf(xml))
@@ -1044,6 +1110,13 @@ class FeedServiceTest {
                 deliveryQueue = repositories.deliveryQueue,
             ),
             icons = icons,
+            headers = headers,
+            actorPublisher = TestActorPublisher.of(
+                repositories = repositories,
+                notes = noteStore,
+                followers = followers,
+                delivery = delivery,
+            ),
         )
     }
 
@@ -1066,6 +1139,7 @@ class FeedServiceTest {
         // 登録時の取得が記録されるので、その間隔を過ぎるまで次の取得は来ない
         const val DUE_AFTER_SECONDS = 901L
         const val FEED_URL = "https://example.com/feed.xml"
+        const val FOLLOWER_INBOX = "https://remote.example/users/follower/inbox"
         const val OTHER_FEED_URL = "https://example.com/other.xml"
         const val REDIRECTED_FEED_URL = "https://cdn.example.net/rss/feed.xml"
         const val OTHER_HOST_FEED_URL = "https://feeds.example.net/feed.xml"

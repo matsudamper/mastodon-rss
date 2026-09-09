@@ -9,6 +9,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorHeaders
 import net.matsudamper.mastodon.rss.actor.ActorIcons
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
@@ -29,7 +30,10 @@ import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.logic.AccountIconFiles
+import net.matsudamper.mastodon.rss.logic.ActorHeaderService
 import net.matsudamper.mastodon.rss.logic.ActorIconService
+import net.matsudamper.mastodon.rss.logic.FeedHeaderService
+import net.matsudamper.mastodon.rss.logic.FeedHeaders
 import net.matsudamper.mastodon.rss.logic.FeedIconService
 import net.matsudamper.mastodon.rss.logic.FeedIconStore
 import net.matsudamper.mastodon.rss.logic.FeedIcons
@@ -125,6 +129,7 @@ class AppDependencies(
     val feedLinks: StoredFeedLinks = RepositoryFeedLinks(
         accounts = repositories.accounts,
         feeds = repositories.feeds,
+        headers = repositories.feedHeaders,
     )
 
     private val feedIconStore: FeedIconStore = FeedIconStore(env.iconCacheDir)
@@ -134,6 +139,19 @@ class AppDependencies(
         feeds = repositories.feeds,
         icons = repositories.feedIcons,
         store = feedIconStore,
+    )
+
+    val actorHeaders: ActorHeaders = ActorHeaderService(
+        accounts = repositories.accounts,
+        feeds = repositories.feeds,
+        headers = repositories.feedHeaders,
+        store = feedIconStore,
+    )
+
+    private val feedHeaders: FeedHeaders = FeedHeaderService(
+        headers = repositories.feedHeaders,
+        store = feedIconStore,
+        fetcher = iconFetcher,
     )
 
     private val feedIcons: FeedIcons = FeedIconService(
@@ -187,6 +205,16 @@ class AppDependencies(
         deliveryQueue = repositories.deliveryQueue,
     )
 
+    val actorPublisher: ActorPublisher = ActorPublisher(
+        notes = noteStore,
+        followers = followerStore,
+        delivery = delivery,
+        actorKey = actorKey,
+        feedLinks = feedLinks,
+        profiles = actorProfiles,
+        webPages = webPageUrls,
+    )
+
     val feedService: FeedService = FeedService(
         accounts = repositories.accounts,
         feeds = repositories.feeds,
@@ -195,6 +223,8 @@ class AppDependencies(
         actorDirectory = directory,
         notePoster = notePoster,
         icons = feedIcons,
+        headers = feedHeaders,
+        actorPublisher = actorPublisher,
     )
 
     private val feedPollingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -247,16 +277,6 @@ class AppDependencies(
             }
         }
     }
-
-    val actorPublisher: ActorPublisher = ActorPublisher(
-        notes = noteStore,
-        followers = followerStore,
-        delivery = delivery,
-        actorKey = actorKey,
-        feedLinks = feedLinks,
-        profiles = actorProfiles,
-        webPages = webPageUrls,
-    )
 
     /**
      * 抱えているものを作った順の逆に閉じる。
