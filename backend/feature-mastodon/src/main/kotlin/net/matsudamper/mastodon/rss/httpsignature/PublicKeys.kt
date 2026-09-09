@@ -10,8 +10,33 @@ import java.security.PublicKey
  * ここを口にしておくと、検証のテストがネットワークなしで書ける。
  */
 interface PublicKeys {
-    /** 引けなければ null。取得に失敗した場合も null で、呼び出し側は検証失敗として扱う */
-    suspend fun find(keyId: String): SignatureKey?
+    /**
+     * 引けなければ [PublicKeyLookup.Gone] か [PublicKeyLookup.Unavailable]。
+     * どちらでも検証は通らないが、区別しないと「消えた相手」と
+     * 「今だけ引けない相手」が同じ扱いになる
+     */
+    suspend fun find(keyId: String): PublicKeyLookup
+}
+
+/** [PublicKeys.find] の結果 */
+sealed interface PublicKeyLookup {
+    data class Found(
+        val key: SignatureKey,
+    ) : PublicKeyLookup
+
+    /**
+     * 相手のサーバーが「そのアクターはもう無い」と答えた。
+     *
+     * この先この `keyId` の鍵が取れることはない
+     */
+    data object Gone : PublicKeyLookup
+
+    /**
+     * 取りに行けなかった。相手が落ちている、応答が読めない、鍵が入っていない、など。
+     *
+     * 消えたのかどうかは分からないので、消えた前提の扱いをしてはいけない
+     */
+    data object Unavailable : PublicKeyLookup
 }
 
 /**

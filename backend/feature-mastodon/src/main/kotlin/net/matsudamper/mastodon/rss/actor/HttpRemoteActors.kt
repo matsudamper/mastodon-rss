@@ -11,6 +11,7 @@ import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.request
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.http.isSuccess
@@ -18,6 +19,7 @@ import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorClientTelemetry
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
+import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 import net.matsudamper.mastodon.rss.json.AppJson
 
@@ -53,25 +55,35 @@ class HttpRemoteActors(
      */
     private val documents: ExpiringCache<String, RemoteActorDocument> = createExpiringCache()
 
-    override suspend fun find(keyId: String): SignatureKey? {
-        val url = parseHttpsUrl(keyId) ?: return null
-        val document = fetch(keyId, url) ?: return null
+    override suspend fun find(keyId: String): PublicKeyLookup {
+        val url = parseHttpsUrl(keyId) ?: return PublicKeyLookup.Unavailable
 
-        val publicKey = document.publicKey ?: return null
+        val document =
+            when (val fetched = fetch(keyId, url)) {
+                is DocumentFetch.Found -> fetched.document
+                // 相手が「もう無い」と答えた場合だけ、消えたものとして返す。
+                // 落ちているだけの相手を消えた扱いにすると、後から生き返る
+                DocumentFetch.Gone -> return PublicKeyLookup.Gone
+                DocumentFetch.Unavailable -> return PublicKeyLookup.Unavailable
+            }
 
-        val keyOwnerActorId = publicKey.owner ?: document.id ?: return null
-        if (!isSameHost(keyOwnerActorId, url)) return null
+        val publicKey = document.publicKey ?: return PublicKeyLookup.Unavailable
+
+        val keyOwnerActorId = publicKey.owner ?: document.id ?: return PublicKeyLookup.Unavailable
+        if (!isSameHost(keyOwnerActorId, url)) return PublicKeyLookup.Unavailable
 
         val decodedPublicKey =
             runCatching { RsaKeys.decodePublicKeyPem(publicKey.publicKeyPem) }
-                .getOrNull() ?: return null
+                .getOrNull() ?: return PublicKeyLookup.Unavailable
 
-        return SignatureKey(keyId = keyId, owner = keyOwnerActorId, publicKey = decodedPublicKey)
+        return PublicKeyLookup.Found(
+            SignatureKey(keyId = keyId, owner = keyOwnerActorId, publicKey = decodedPublicKey),
+        )
     }
 
     override suspend fun findActor(actorId: String): RemoteActor? {
         val url = parseHttpsUrl(actorId) ?: return null
-        val document = fetch(actorId, url) ?: return null
+        val document = (fetch(actorId, url) as? DocumentFetch.Found)?.document ?: return null
 
         // 宛先はこちらが POST しに行く先になる。アクターと同じホストに限ることで、
         // 相手が自分の文書に書いた URL でこちらから他所へ POST させる形を塞ぐ
@@ -108,35 +120,51 @@ class HttpRemoteActors(
     private suspend fun fetch(
         rawUrl: String,
         requestUrl: Url,
-    ): RemoteActorDocument? {
+    ): DocumentFetch {
         // `keyId` はアクター id にフラグメントを付けたもので、フラグメントはサーバーに
         // 送られない。落としてから引くと、署名の検証で取った文書を
         // `Accept` の宛先を決めるときにも使える
         val cacheKey = rawUrl.substringBefore('#')
-        documents.get(cacheKey)?.let { return it }
+        documents.get(cacheKey)?.let { return DocumentFetch.Found(it) }
 
         val response =
             runCatching {
                 client.get(rawUrl) {
                     header(HttpHeaders.Accept, ActivityPubContentTypes.ActivityJson.toString())
                 }
-            }.getOrNull() ?: return null
+            }.getOrNull() ?: return DocumentFetch.Unavailable
 
-        if (!response.status.isSuccess()) return null
-
-        // リダイレクトを追った結果、別のホストに移っていたら信用しない
+        // リダイレクトを追った結果、別のホストに移っていたら信用しない。
+        // status を見る前に確かめるのは、消えたかどうかを答えてよいのは
+        // そのアクターのホストだけだから
         val fetchedFrom = response.request.url.host
-        if (!fetchedFrom.equals(requestUrl.host, ignoreCase = true)) return null
+        if (!fetchedFrom.equals(requestUrl.host, ignoreCase = true)) return DocumentFetch.Unavailable
 
-        val body = runCatching { response.bodyAsText() }.getOrNull() ?: return null
-        if (body.length > MAX_BODY_CHARS) return null
+        // Mastodon は消したアカウントに 410 を返す。404 を返す実装もあるので両方を消えた扱いにする。
+        // それ以外の失敗は、相手が落ちているだけかもしれないので分からないものとして返す
+        if (response.status in GONE_STATUSES) return DocumentFetch.Gone
+        if (!response.status.isSuccess()) return DocumentFetch.Unavailable
+
+        val body = runCatching { response.bodyAsText() }.getOrNull() ?: return DocumentFetch.Unavailable
+        if (body.length > MAX_BODY_CHARS) return DocumentFetch.Unavailable
 
         val document =
             runCatching { AppJson.decodeFromString(RemoteActorDocument.serializer(), body) }
-                .getOrNull() ?: return null
+                .getOrNull() ?: return DocumentFetch.Unavailable
 
         documents.put(key = cacheKey, value = document, ttlMillis = CACHE_TTL_MILLIS)
-        return document
+        return DocumentFetch.Found(document)
+    }
+
+    /** [fetch] の結果。取れなかった理由のうち「もう無い」だけは区別する */
+    private sealed interface DocumentFetch {
+        data class Found(
+            val document: RemoteActorDocument,
+        ) : DocumentFetch
+
+        data object Gone : DocumentFetch
+
+        data object Unavailable : DocumentFetch
     }
 
     private fun parseHttpsUrl(raw: String): Url? =
@@ -158,6 +186,13 @@ class HttpRemoteActors(
          * 相手のサーバーが延々と送り続けてくる場合は、これと下のタイムアウトで止める。
          */
         const val MAX_BODY_CHARS = 64 * 1024
+
+        /**
+         * アクターが消えたと見なす status。
+         *
+         * Mastodon は削除済みのアカウントに 410 を返す。404 を返す実装もある
+         */
+        val GONE_STATUSES = setOf(HttpStatusCode.Gone, HttpStatusCode.NotFound)
 
         /**
          * キャッシュの有効期間。長すぎると相手が鍵をローテーションしたときに

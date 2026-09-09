@@ -21,6 +21,7 @@ import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.follower.FollowerFallbackPublicKeys
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
+import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.httpsignature.TestSigning
@@ -248,7 +249,11 @@ class InboxServiceTest {
         runBlocking {
             val handler = RecordingHandler("Delete")
             val publicKeys =
-                FollowerFallbackPublicKeys(remote = TestRemoteActors(), followers = recordedFollower())
+                FollowerFallbackPublicKeys(
+                    // アカウントが消えたと答えるサーバー
+                    remote = TestRemoteActors(missing = PublicKeyLookup.Gone),
+                    followers = recordedFollower(),
+                )
 
             val result =
                 service(listOf(handler), publicKeys = publicKeys)

@@ -1,27 +1,35 @@
 package net.matsudamper.mastodon.rss.follower
 
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
+import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 
 /**
- * 相手のサーバーから引けなかった公開鍵を、フォロワーの記録から引く。
+ * 相手が消えて引けなくなった公開鍵を、フォロワーの記録から引く。
  *
  * ActivityPub で鍵を配る手段はアクター文書しかないので、相手が消えると鍵は
  * どこからも取れなくなる。アカウント削除の `Delete` は本人が消えた後に届くため、
  * 取りに行くだけでは署名を検証できない。フォローを受けたときに読んだ鍵は
  * 残してあるので、相手がこちらのフォロワーだった場合はそれで検証できる。
  *
- * [remote] を先に引くのは、相手が鍵を替えていた場合に記録の方が古いため。
- * 記録した鍵を使うのは、取りに行って引けなかったときだけにする。
+ * 記録した鍵を使うのは、相手のサーバーが「もう無い」と答えたときだけにする。
+ * 取りに行けなかっただけの場合にも使うと、相手が鍵を替えた後に一時的な障害が
+ * 起きている間だけ、失効したはずの古い鍵で署名が通る。その鍵を持っている者は
+ * 本人の `Delete` を装ってフォローを消させられる。
  */
 class FollowerFallbackPublicKeys(
     private val remote: PublicKeys,
     private val followers: FollowerStore,
 ) : PublicKeys {
-    override suspend fun find(keyId: String): SignatureKey? = remote.find(keyId) ?: findRecorded(keyId)
+    override suspend fun find(keyId: String): PublicKeyLookup =
+        when (val lookup = remote.find(keyId)) {
+            is PublicKeyLookup.Found -> lookup
+            PublicKeyLookup.Gone -> findRecorded(keyId) ?: PublicKeyLookup.Gone
+            PublicKeyLookup.Unavailable -> PublicKeyLookup.Unavailable
+        }
 
-    private fun findRecorded(keyId: String): SignatureKey? {
+    private fun findRecorded(keyId: String): PublicKeyLookup.Found? {
         // `keyId` はアクター id にフラグメントを付けたもの。記録はアクター id で引く
         val actorUri = keyId.substringBefore('#')
 
@@ -33,6 +41,8 @@ class FollowerFallbackPublicKeys(
 
         // 持ち主はこちらの記録で決める。相手の文書を取れていない以上、
         // keyId の名乗りを裏付けるものは記録した行しか無い
-        return SignatureKey(keyId = keyId, owner = actorUri, publicKey = publicKey)
+        return PublicKeyLookup.Found(
+            SignatureKey(keyId = keyId, owner = actorUri, publicKey = publicKey),
+        )
     }
 }
