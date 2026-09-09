@@ -127,6 +127,25 @@ internal class SqliteFollowerRepository(
             .fetchOne(REMOTE_ACTORS.PUBLIC_KEY_PEM)
     }
 
+    /**
+     * 同じ鍵なら書かない。読むたびに書くと、変わっていない行の fetched_at だけが動く
+     */
+    override fun rememberPublicKeyPem(
+        actorUri: String,
+        publicKeyPem: String,
+        readAt: Instant,
+    ) {
+        jooq.transaction { dsl ->
+            dsl
+                .update(REMOTE_ACTORS)
+                .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, publicKeyPem)
+                .set(REMOTE_ACTORS.FETCHED_AT, StoredInstant.format(readAt))
+                .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))
+                .and(REMOTE_ACTORS.PUBLIC_KEY_PEM.ne(publicKeyPem))
+                .execute()
+        }
+    }
+
     override fun list(
         username: String,
         after: String?,

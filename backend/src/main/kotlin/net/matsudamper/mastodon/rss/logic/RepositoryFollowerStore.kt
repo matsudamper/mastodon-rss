@@ -70,6 +70,17 @@ class RepositoryFollowerStore(
 
     override fun findPublicKeyPem(actorUri: String): String? = followers.findPublicKeyPem(actorUri)
 
+    override fun rememberPublicKeyPem(
+        actorUri: String,
+        publicKeyPem: String,
+    ) {
+        followers.rememberPublicKeyPem(
+            actorUri = actorUri,
+            publicKeyPem = publicKeyPem,
+            readAt = Instant.now(),
+        )
+    }
+
     override fun list(
         username: String,
         after: String?,

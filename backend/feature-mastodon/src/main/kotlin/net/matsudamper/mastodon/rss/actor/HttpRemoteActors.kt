@@ -61,9 +61,11 @@ class HttpRemoteActors(
         val document =
             when (val fetched = fetch(keyId, url)) {
                 is DocumentFetch.Found -> fetched.document
+
                 // 相手が「もう無い」と答えた場合だけ、消えたものとして返す。
                 // 落ちているだけの相手を消えた扱いにすると、後から生き返る
                 DocumentFetch.Gone -> return PublicKeyLookup.Gone
+
                 DocumentFetch.Unavailable -> return PublicKeyLookup.Unavailable
             }
 
@@ -140,9 +142,10 @@ class HttpRemoteActors(
         val fetchedFrom = response.request.url.host
         if (!fetchedFrom.equals(requestUrl.host, ignoreCase = true)) return DocumentFetch.Unavailable
 
-        // Mastodon は消したアカウントに 410 を返す。404 を返す実装もあるので両方を消えた扱いにする。
-        // それ以外の失敗は、相手が落ちているだけかもしれないので分からないものとして返す
-        if (response.status in GONE_STATUSES) return DocumentFetch.Gone
+        // 消えたと見なすのは 410 だけ。Mastodon は削除済みのアカウントにこれを返す。
+        // 404 は消したのか置き場所が変わったのかを区別できず、
+        // 一時的なルーティングの不調でも返るので、分からないものとして扱う
+        if (response.status == HttpStatusCode.Gone) return DocumentFetch.Gone
         if (!response.status.isSuccess()) return DocumentFetch.Unavailable
 
         val body = runCatching { response.bodyAsText() }.getOrNull() ?: return DocumentFetch.Unavailable
@@ -186,13 +189,6 @@ class HttpRemoteActors(
          * 相手のサーバーが延々と送り続けてくる場合は、これと下のタイムアウトで止める。
          */
         const val MAX_BODY_CHARS = 64 * 1024
-
-        /**
-         * アクターが消えたと見なす status。
-         *
-         * Mastodon は削除済みのアカウントに 410 を返す。404 を返す実装もある
-         */
-        val GONE_STATUSES = setOf(HttpStatusCode.Gone, HttpStatusCode.NotFound)
 
         /**
          * キャッシュの有効期間。長すぎると相手が鍵をローテーションしたときに

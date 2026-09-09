@@ -82,6 +82,17 @@ interface FollowerStore {
     fun findPublicKeyPem(actorUri: String): String?
 
     /**
+     * 記録済みの相手の公開鍵を、読み直したもので置き換える。記録が無ければ何もしない。
+     *
+     * 相手が鍵を替えた後も [findPublicKeyPem] が最後に読めた鍵を返せるようにする。
+     * `Follow` のときの鍵のままだと、消えた後の `Delete` を検証できない
+     */
+    fun rememberPublicKeyPem(
+        actorUri: String,
+        publicKeyPem: String,
+    )
+
+    /**
      * フォロワーのアクター URL を URL 順に返す。
      *
      * 位置は件数ではなく直前のページの最後の 1 件で指す。件数で数えると、

@@ -17,6 +17,9 @@ import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
  * 取りに行けなかっただけの場合にも使うと、相手が鍵を替えた後に一時的な障害が
  * 起きている間だけ、失効したはずの古い鍵で署名が通る。その鍵を持っている者は
  * 本人の `Delete` を装ってフォローを消させられる。
+ *
+ * 引けたときは記録を新しくする。`Follow` を受けたときの鍵のままにしておくと、
+ * 相手が鍵を替えてから消えた場合に、記録の鍵では検証できない。
  */
 class FollowerFallbackPublicKeys(
     private val remote: PublicKeys,
@@ -24,8 +27,17 @@ class FollowerFallbackPublicKeys(
 ) : PublicKeys {
     override suspend fun find(keyId: String): PublicKeyLookup =
         when (val lookup = remote.find(keyId)) {
-            is PublicKeyLookup.Found -> lookup
+            is PublicKeyLookup.Found -> {
+                followers.rememberPublicKeyPem(
+                    // 引き当てるのは keyId の名乗りではなく、検証で決まった持ち主
+                    actorUri = lookup.key.owner,
+                    publicKeyPem = RsaKeys.encodeToPem(lookup.key.publicKey),
+                )
+                lookup
+            }
+
             PublicKeyLookup.Gone -> findRecorded(keyId) ?: PublicKeyLookup.Gone
+
             PublicKeyLookup.Unavailable -> PublicKeyLookup.Unavailable
         }
 

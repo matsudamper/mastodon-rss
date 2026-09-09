@@ -78,6 +78,7 @@ class HttpSignatureVerifier(
         val key =
             when (val lookup = publicKeys.find(signature.keyId)) {
                 is PublicKeyLookup.Found -> lookup.key
+
                 PublicKeyLookup.Gone ->
                     return HttpSignatureResult.Rejected("アクターが消えていて公開鍵を取れない: ${signature.keyId}")
 

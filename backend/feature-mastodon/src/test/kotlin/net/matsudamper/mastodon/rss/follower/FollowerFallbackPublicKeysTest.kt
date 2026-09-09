@@ -49,6 +49,21 @@ class FollowerFallbackPublicKeysTest {
         }
 
     @Test
+    fun `引けたら記録の鍵を読み直したものにする`() =
+        runBlocking {
+            // 相手が鍵を替えてから消えると、Follow のときの鍵では Delete を検証できない
+            val followers = followers(publicKeyPem = "替える前の鍵")
+
+            FollowerFallbackPublicKeys(remote = TestRemoteActor.remoteActors(), followers = followers)
+                .find(TestRemoteActor.KEY_ID)
+
+            assertEquals(
+                RsaKeys.encodeToPem(TestRemoteActor.keyPair.public),
+                followers.findPublicKeyPem(TestRemoteActor.ACTOR_ID),
+            )
+        }
+
+    @Test
     fun `消えた相手はフォローの記録から引く`() =
         runBlocking {
             val lookup =

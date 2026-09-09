@@ -85,6 +85,28 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `記録済みの相手だけ公開鍵を読み直せる`() {
+        withRepository { followers ->
+            followers.record(incomingFollow())
+
+            followers.rememberPublicKeyPem(
+                actorUri = "https://remote.example/users/alice",
+                publicKeyPem = "読み直した pem",
+                readAt = now,
+            )
+            assertEquals("読み直した pem", followers.findPublicKeyPem("https://remote.example/users/alice"))
+
+            // フォローしていない相手の鍵は溜めない
+            followers.rememberPublicKeyPem(
+                actorUri = "https://remote.example/users/bob",
+                publicKeyPem = "pem",
+                readAt = now,
+            )
+            assertNull(followers.findPublicKeyPem("https://remote.example/users/bob"))
+        }
+    }
+
+    @Test
     fun `初めて成立したときだけ FirstAccept を返す`() {
         withRepository { followers ->
             followers.record(incomingFollow())
