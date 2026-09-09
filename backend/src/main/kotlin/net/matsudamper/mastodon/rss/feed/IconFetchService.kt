@@ -120,6 +120,13 @@ class IconFetchService(
             return FetchResult.Failure
         }
 
+        // 名乗った種類と中身が食い違うものは受けない。名乗りだけを信じると、
+        // 画像でないものをこちらのドメインから画像として配ることになる
+        if (!imageType.matches(bytes)) {
+            logger.warn("名乗った種類と中身が違う: host={}, 名乗り={}", request.url.host, imageType.contentType)
+            return FetchResult.Failure
+        }
+
         return FetchResult.Success(
             bytes = bytes,
             imageType = imageType,

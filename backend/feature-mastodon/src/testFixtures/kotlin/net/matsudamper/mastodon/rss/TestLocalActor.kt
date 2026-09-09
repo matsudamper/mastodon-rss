@@ -16,7 +16,7 @@ object TestLocalActor {
     const val USERNAME: String = "admin"
 
     /**
-     * 別のアカウント。引き当ての対象が複数ある経路を見るときに使う
+     * 別のアカウント。引き当ての対象が複数ある経路を見るときに使う。
      */
     const val STORED_USERNAME: String = "feed1"
 
@@ -27,22 +27,22 @@ object TestLocalActor {
         stored = FakeStoredActorNames(storedUserNames = listOf(USERNAME, STORED_USERNAME)),
     )
 
-    /** [feedLinks] が名乗っているアイコンの取得元。URL に付く値の確認に使う */
     const val FEED_ICON_URL: String = "https://feed1.example.org/icon.png"
+    const val FEED_HEADER_VERSION: String = "0123456789abcdef"
 
-    /** [STORED_USERNAME] だけがフィードを持つ。持たないアカウントとの差を見るため */
     val feedLinks: FakeStoredFeedLinks = FakeStoredFeedLinks(
         links = mapOf(
             STORED_USERNAME to FeedLinks(
                 siteUrl = "https://feed1.example.org/",
                 feedUrl = "https://feed1.example.org/rss.xml",
                 iconUrl = FEED_ICON_URL,
+                headerVersion = FEED_HEADER_VERSION,
             ),
         ),
     )
 
     /**
-     * [STORED_USERNAME] だけがプロフィールを設定している。未設定との差を見るため
+     * [STORED_USERNAME] だけがプロフィールを設定している。未設定との差を見るため。
      */
     val profiles: FakeStoredActorProfiles = FakeStoredActorProfiles(
         profiles = mapOf(

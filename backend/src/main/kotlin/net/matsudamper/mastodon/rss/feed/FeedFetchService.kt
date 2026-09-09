@@ -60,10 +60,12 @@ class FeedFetchService(
             val finalUrl = response.request.url.normalize()
             val bytes = response.readBodyUpTo(MAX_BODY_BYTES) ?: return FetchResult.TooLarge
 
-            val parsed = FeedParser.parse(bytes).withYouTubeChannelPage(
-                resolved = resolved,
-                needsDescription = needsDescription,
-            )
+            val parsed = FeedParser.parse(bytes)
+                .copy(headerUrl = runCatching { FeedHeaderParser.parse(bytes) }.getOrNull())
+                .withYouTubeChannelPage(
+                    resolved = resolved,
+                    needsDescription = needsDescription,
+                )
             FetchResult.Success(
                 requestedUrl = trimmed,
                 feedUrl = finalUrl,
@@ -120,7 +122,7 @@ class FeedFetchService(
                     feedUrl = YouTubeFeedResolver.feedUrlForChannel(channelId)
                         ?: return FeedUrlResolution.Failed(FetchResult.ChannelIdNotFound),
                     youtubeChannelId = channelId,
-                    // 引いたのがチャンネルのページなら、説明文とアイコンはこの中にある。
+                    // 引いたのがチャンネルのページなら、説明文とプロフィール画像はこの中にある。
                     // 動画のページは持たせない。og:image がその動画のサムネイルなので、
                     // チャンネルのアイコンとして拾ってしまう
                     youtubeChannelPage = when (source.page) {
@@ -145,12 +147,11 @@ class FeedFetchService(
      * YouTube のチャンネルのページから、フィードに無いものを補う。
      *
      * YouTube の Atom には `subtitle` も、アイコンを表す要素（`icon` / `logo`）も無い。
-     * チャンネル名は `title` にあるが、説明文とアイコンはチャンネルのページにしか
+     * チャンネル名は `title` にあるが、説明文・アイコン・ヘッダーはチャンネルのページにしか
      * 無いので、欠けているものがあるときだけそのページを引いて埋める。
      *
-     * 説明文は登録時にしか使わないので [needsDescription] で分ける。アイコンは
-     * 定期取得でも埋める。ここで埋めないと、取り込みのたびに `feeds.icon_url` が
-     * 空に戻り、アイコンが消える。
+     * 説明文は登録時にしか使わないので [needsDescription] で分ける。アイコンとヘッダーは
+     * 定期取得でも埋める。ここで埋めないと、取り込みのたびにプロフィール画像が欠ける。
      *
      * 取れなくてもフィード自体は使えるので、失敗は無いものとして扱い、
      * 取得の失敗にはしない。
@@ -162,7 +163,8 @@ class FeedFetchService(
         val channelId = resolved.youtubeChannelId ?: return this
         val wantsDescription = needsDescription && description == null
         val wantsIcon = iconUrl == null
-        if (!wantsDescription && !wantsIcon) return this
+        val wantsHeader = headerUrl == null
+        if (!wantsDescription && !wantsIcon && !wantsHeader) return this
 
         val html = resolved.youtubeChannelPage ?: fetchYouTubeChannelPage(channelId) ?: return this
 
@@ -173,10 +175,12 @@ class FeedFetchService(
             null
         }
         val pageIconUrl = if (wantsIcon) YouTubeFeedResolver.channelIconFromPageHtml(html) else null
+        val pageHeaderUrl = if (wantsHeader) YouTubeChannelHeader.fromPageHtml(html) else null
 
         return copy(
             description = pageDescription ?: description,
             iconUrl = pageIconUrl ?: iconUrl,
+            headerUrl = pageHeaderUrl ?: headerUrl,
         )
     }
 
