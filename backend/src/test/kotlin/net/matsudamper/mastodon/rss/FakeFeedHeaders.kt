@@ -1,12 +1,12 @@
 package net.matsudamper.mastodon.rss
 
-import net.matsudamper.mastodon.rss.logic.FeedIcons
+import net.matsudamper.mastodon.rss.logic.FeedHeaders
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 
 /**
- * 取り込みが渡してきたアイコンの URL を控えるだけ
+ * 取り込みが渡してきたヘッダー画像の URL を控えるだけ。
  */
-class FakeFeedIcons : FeedIcons {
+class FakeFeedHeaders : FeedHeaders {
     val refreshed: MutableList<Pair<FeedId, String?>> = mutableListOf()
 
     /**
@@ -16,9 +16,9 @@ class FakeFeedIcons : FeedIcons {
 
     override suspend fun refresh(
         feedId: FeedId,
-        iconUrl: String?,
+        headerUrl: String?,
     ): Boolean {
-        refreshed += feedId to iconUrl
+        refreshed += feedId to headerUrl
         return changed
     }
 }

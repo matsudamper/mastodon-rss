@@ -57,6 +57,11 @@ data class Actor(
      */
     @SerialName("icon")
     val icon: Image? = null,
+    /**
+     * プロフィールヘッダー。Mastodon は Actor の `image` をヘッダーとして使う
+     */
+    @SerialName("image")
+    val image: Image? = null,
     @SerialName("publicKey")
     val publicKey: ActorPublicKey,
     /**

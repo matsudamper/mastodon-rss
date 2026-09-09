@@ -4,6 +4,7 @@ import net.matsudamper.mastodon.rss.actor.FeedLinks
 import net.matsudamper.mastodon.rss.actor.StoredFeedLinks
 import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 
 /**
@@ -14,16 +15,20 @@ import net.matsudamper.mastodon.rss.repository.FeedRepository
 class RepositoryFeedLinks(
     private val accounts: AccountRepository,
     private val feeds: FeedRepository,
+    private val headers: FeedHeaderRepository,
 ) : StoredFeedLinks {
     override fun find(username: String): FeedLinks {
         val account = accounts.findByUsername(username) ?: return FeedLinks.EMPTY
         val feed = feeds.findByAccountId(account.id) ?: return FeedLinks.EMPTY
+        // 取り込みが取ってこない形の URL（http(s) 以外）から入ったものは、配信側も出さない
+        val header = headers.find(feed.id)?.takeIf { HttpUrl.sanitize(it.sourceUrl, feed.url) != null }
 
         // 相手のプロフィールに出る外部リンクになるので、http / https 以外は落とす
         return FeedLinks(
             siteUrl = HttpUrl.sanitize(feed.siteUrl, feed.url),
             feedUrl = HttpUrl.sanitize(feed.url),
             iconUrl = HttpUrl.sanitize(feed.iconUrl, feed.url),
+            headerVersion = header?.revision,
         )
     }
 }

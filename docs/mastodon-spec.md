@@ -18,6 +18,7 @@
 | `GET /users/{name}/outbox` | 配信した `Create` の OrderedCollection。`?cursor=` で中身 |
 | `GET /users/{name}/collections/featured` | プロフィールに載せる投稿の OrderedCollection |
 | `GET /users/{name}/icon` | プロフィール画像。フィードのアイコンを取り直して返す |
+| `GET /users/{name}/header` | プロフィールヘッダー。取り込み済みのヘッダー画像を返す |
 | `GET /notes/{id}` | 配信した投稿。相手がパーマリンクとして引きに来る |
 | `GET /.well-known/nodeinfo` | NodeInfo の discovery document |
 | `GET /nodeinfo/2.1` | サーバーの実装と規模。調査用 |
@@ -141,10 +142,15 @@ Actor の `name` と `summary`。管理画面から設定でき、保存先は `
 `summary` は HTML として解釈されるので、保存はプレーンテキストで持ち、配信するときに
 空行で段落、行の切れ目を `<br>` にした HTML へ組み立てる。
 
-表示名・説明文を変えると、更新後の完全な Actor 文書を `object` に入れた `Update{Actor}` を
+表示名・説明文を変えたときと、取り込みでアイコンやプロフィールヘッダーが入れ替わったときは、
+更新後の完全な Actor 文書を `object` に入れた `Update{Actor}` を
 フォロワーへ配信する。載せる文書は Actor エンドポイントと同じ引き先から組み立てるので、
-`attachment` やアイコンも今の内容になる。値が変わらない保存では配信しない。
-届かなかった宛先はログに残すだけで、保存した更新は巻き戻さない。
+`attachment` やアイコンも今の内容になる。値が変わらない保存や、同じ画像を取り直しただけでは
+配信しない。アイコンとヘッダーが同時に入れ替わっても配信は 1 回。
+届かなかった宛先はログに残すだけで、保存した更新も取り込みも巻き戻さない。
+
+アイコンの URL は取得元の URL から決まるので、フィードが名乗る URL が変わったときに配信する。
+ヘッダーの URL は画像内容から決まるので、同じ取得元で中身が変わったときにも配信する。
 
 ## プロフィールのリンク
 
@@ -213,6 +219,29 @@ YouTube の Atom にはアイコンを表す要素が無いので、チャンネ
 
 アイコンを名乗っていないフィードと、フィードを持たないアカウントでは `icon` を出さない。
 空の URL を入れると相手側では取得に失敗した扱いになる。
+
+## プロフィールヘッダー
+
+Actor の `image`。フィードでは `webfeeds:cover` を優先し、無ければ `webfeeds:logo` を使う。
+YouTube のチャンネルではチャンネルページ内のバナー画像を補完する。Atom 標準の `logo` は
+ヘッダーとしては扱わない。
+
+画像本体はアイコンと同じ `ICON_CACHE_DIR` に置き、メタデータは `feed_headers` に保存する。
+相手に渡す URL は `/users/{name}/header?v=<revision>`。`revision` は保存した画像内容の
+SHA-256 なので、取得元 URL が同じまま画像だけ更新されても URL が変わる。
+
+`/users/{name}/header` が返す Content-Type はアイコンと同じく png / jpeg / gif / webp だけ。
+`X-Content-Type-Options: nosniff` も付ける。ヘッダーが無い場合は 404 と `Cache-Control: no-store`
+を返す。
+
+`?v=` が現在の `revision` と一致し、かつ保存済みヘッダーが期限内なら
+`public, max-age=31536000, immutable` を返す。`v` が無いか一致しない場合は、現在時刻から
+`feed_headers.expires_at` までの残り時間を `max-age` にする。期限切れなら `v` が一致していても
+`no-store` にして、期限を過ぎた画像を新しく長期キャッシュさせない。
+
+取得はフィードの取り込み時だけに行い、`/header` のリクエストを契機に外部へ HTTP は飛ばさない。
+取り込み時も、保存済みヘッダーが同じ URL で期限内かつ中身が残っていれば取り直さない。
+一時的に再取得できなかった場合は前のヘッダーを残す。
 
 ## アカウントの引き当て
 

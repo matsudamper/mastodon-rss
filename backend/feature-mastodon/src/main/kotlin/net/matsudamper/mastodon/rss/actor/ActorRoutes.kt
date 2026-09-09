@@ -78,6 +78,7 @@ internal fun actorDocument(
         url = webPages?.profile(urls.username),
         attachment = feedAttachments(feedLinks),
         icon = feedLinks.iconUrl?.let { Actor.Image(url = urls.icon(it)) },
+        image = feedLinks.headerVersion?.let { Actor.Image(url = urls.header(it)) },
         showFeatured = false,
         publicKey =
         ActorPublicKey(
