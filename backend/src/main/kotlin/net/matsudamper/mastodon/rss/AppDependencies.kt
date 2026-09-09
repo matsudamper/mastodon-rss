@@ -32,9 +32,9 @@ import net.matsudamper.mastodon.rss.logic.AccountIconFiles
 import net.matsudamper.mastodon.rss.logic.ActorHeaderService
 import net.matsudamper.mastodon.rss.logic.ActorIconService
 import net.matsudamper.mastodon.rss.logic.FeedHeaderService
+import net.matsudamper.mastodon.rss.logic.FeedHeaders
 import net.matsudamper.mastodon.rss.logic.FeedIconService
 import net.matsudamper.mastodon.rss.logic.FeedIconStore
-import net.matsudamper.mastodon.rss.logic.FeedHeaders
 import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles

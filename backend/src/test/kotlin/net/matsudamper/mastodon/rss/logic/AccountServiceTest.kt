@@ -232,7 +232,11 @@ class AccountServiceTest {
             followers = RepositoryFollowerStore(repositories.followers),
             delivery = delivery,
             actorKey = TestActorKey.value,
-            feedLinks = RepositoryFeedLinks(accounts = repositories.accounts, feeds = repositories.feeds),
+            feedLinks = RepositoryFeedLinks(
+                accounts = repositories.accounts,
+                feeds = repositories.feeds,
+                headers = repositories.feedHeaders,
+            ),
             profiles = RepositoryActorProfiles(repositories.accounts),
             webPages = TestWebPageUrls,
         ),
