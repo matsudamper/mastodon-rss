@@ -800,6 +800,41 @@ class FeedServiceTest {
         }
 
     @Test
+    fun `アイコンを名乗らないフィードにはサイトの favicon を充てる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val icons = FakeFeedIcons()
+            val service = serviceOf(repositories, icons = icons)
+
+            // フィードとサイトが別のホストのときに、サイトの側から取ることを確かめる
+            service.save(accountId = account.id, url = OTHER_HOST_FEED_URL)
+
+            assertEquals(
+                "https://example.com/favicon.ico",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
+            assertEquals(listOf<String?>("https://example.com/favicon.ico"), icons.refreshed.map { it.second })
+        }
+
+    @Test
+    fun `登録し直しでも前の URL を favicon で上書きしない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, xmls = listOf(ICON_XML, FEED_XML))
+            service.save(accountId = account.id, url = FEED_URL)
+            repositories.feeds.clearInitialImportDone(assertNotNull(repositories.feeds.findByAccountId(account.id)).id)
+
+            service.save(accountId = account.id, url = FEED_URL)
+
+            assertEquals(
+                "https://example.com/icon.png",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
+        }
+
+    @Test
     fun `アイコンを名乗らなくなったフィードでも前の URL を残す`() =
         runTest {
             val repositories = FakeRepositories()
@@ -1037,6 +1072,7 @@ class FeedServiceTest {
         const val FEED_URL = "https://example.com/feed.xml"
         const val OTHER_FEED_URL = "https://example.com/other.xml"
         const val REDIRECTED_FEED_URL = "https://cdn.example.net/rss/feed.xml"
+        const val OTHER_HOST_FEED_URL = "https://feeds.example.net/feed.xml"
         val FEED_XML = """
             <?xml version="1.0" encoding="UTF-8"?>
             <rss version="2.0">

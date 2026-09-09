@@ -163,27 +163,32 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminUpdateAccountProfileResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
-        val updated = GraphQlEngine.diContainer(env).accountService.updateProfile(
-            username = query.username,
-            displayName = query.displayName,
-            summary = query.summary,
-        )
-        val result = when (updated) {
-            is AccountService.UpdateProfileResult.Success -> QlAdminUpdateAccountProfileResult(
-                adminAccount = updated.account.toGraphqlResponse(),
-                failure = null,
-            )
 
-            is AccountService.UpdateProfileResult.Failure -> QlAdminUpdateAccountProfileResult(
-                adminAccount = null,
-                failure = QlAdminUpdateAccountProfileFailure(
-                    unknownAccount = updated.unknownAccount,
-                    displayNameMaxLength = AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH.takeIf { updated.displayNameTooLong },
-                    summaryMaxLength = AccountProfileLimits.SUMMARY_MAX_LENGTH.takeIf { updated.summaryTooLong },
-                ),
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val updated = diContainer.accountService.updateProfile(
+                username = query.username,
+                displayName = query.displayName,
+                summary = query.summary,
             )
+            val result = when (updated) {
+                is AccountService.UpdateProfileResult.Success -> QlAdminUpdateAccountProfileResult(
+                    adminAccount = updated.account.toGraphqlResponse(),
+                    failure = null,
+                )
+
+                is AccountService.UpdateProfileResult.Failure -> QlAdminUpdateAccountProfileResult(
+                    adminAccount = null,
+                    failure = QlAdminUpdateAccountProfileFailure(
+                        unknownAccount = updated.unknownAccount,
+                        displayNameMaxLength = AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH.takeIf { updated.displayNameTooLong },
+                        summaryMaxLength = AccountProfileLimits.SUMMARY_MAX_LENGTH.takeIf { updated.summaryTooLong },
+                    ),
+                )
+            }
+            DataFetcherResult.Builder(result).build()
         }
-        return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
     /**
