@@ -14,6 +14,8 @@ private fun AdminAccountNewContentPreview() {
                     username = "kotlin",
                     submitting = false,
                     error = null,
+                    usernameInputEnabled = true,
+                    addButtonEnabled = true,
                 ),
                 listener = AndroidPreviewAdminAccountNewListener,
             ),

@@ -26,6 +26,7 @@ private fun AccountContentPreview() {
                             feedUrl = "https://example.com/blog/feed.xml",
                             siteUrl = "https://example.com/blog",
                         ),
+                        initial = username.first().uppercase(),
                     ),
                     notes = listOf(
                         NoteUiState(

@@ -25,10 +25,9 @@ data class AdminAccountNewScreenUiState(
             val username: String,
             val submitting: Boolean,
             val error: String?,
-        ) : Content {
-            val usernameInputEnabled: Boolean get() = !submitting
-            val addButtonEnabled: Boolean get() = !submitting && username.isNotBlank()
-        }
+            val usernameInputEnabled: Boolean,
+            val addButtonEnabled: Boolean,
+        ) : Content
 
         /**
          * 追加できた。入力欄の代わりに出す。

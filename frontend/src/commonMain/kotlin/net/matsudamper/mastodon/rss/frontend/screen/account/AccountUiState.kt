@@ -25,12 +25,11 @@ data class AccountUiState(
     val followerCount: String,
     val noteCount: String,
     val feed: FeedUiState?,
-) {
     /**
      * アイコンが無いときにアバターの代わりに出す 1 文字
      */
-    val initial: String get() = username.first().uppercase()
-}
+    val initial: String,
+)
 
 data class FeedUiState(
     val feedUrl: String,

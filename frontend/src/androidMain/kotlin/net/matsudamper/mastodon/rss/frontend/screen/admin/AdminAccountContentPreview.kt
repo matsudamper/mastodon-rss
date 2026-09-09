@@ -34,6 +34,7 @@ private fun AdminAccountContentPreview() {
                         postingUnpublished = false,
                         unpublishedError = null,
                         listener = AndroidPreviewRegisteredFeedListener,
+                        postLatestButtonEnabled = true,
                     ),
                     post = AdminAccountScreenUiState.Post(
                         body = "新しい記事を公開しました。",
@@ -41,6 +42,9 @@ private fun AdminAccountContentPreview() {
                         result = null,
                         error = null,
                         listener = AndroidPreviewPostListener,
+                        bodyInputEnabled = true,
+                        postButtonEnabled = true,
+                        closeEnabled = true,
                     ),
                     notes = listOf(
                         AdminAccountScreenUiState.Note(
@@ -93,6 +97,9 @@ private fun AdminAccountContentNoFeedPreview() {
                         result = null,
                         error = null,
                         listener = AndroidPreviewPostListener,
+                        bodyInputEnabled = true,
+                        postButtonEnabled = false,
+                        closeEnabled = true,
                     ),
                     notes = emptyList(),
                     deleteNoteDialog = null,
