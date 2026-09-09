@@ -89,6 +89,50 @@ class FeedHeaderServiceTest {
         }
 
     @Test
+    fun `期限内の同じURLは取り直さない`() =
+        runTest {
+            val repository = MemoryFeedHeaderRepository()
+            var requestCount = 0
+            val service = serviceOf(
+                repository = repository,
+                engine = MockEngine {
+                    requestCount += 1
+                    respond(content = "JPEG", headers = headersOf("Content-Type", "image/jpeg"))
+                },
+            )
+
+            service.refresh(FEED_ID, HEADER_URL)
+            service.refresh(FEED_ID, HEADER_URL)
+
+            assertEquals(1, requestCount)
+        }
+
+    @Test
+    fun `期限が切れていたら取り直す`() =
+        runTest {
+            val repository = MemoryFeedHeaderRepository()
+            var requestCount = 0
+            val service = serviceOf(
+                repository = repository,
+                engine = MockEngine {
+                    requestCount += 1
+                    respond(
+                        content = "JPEG",
+                        headers = headersOf(
+                            "Content-Type" to listOf("image/jpeg"),
+                            "Cache-Control" to listOf("max-age=0"),
+                        ),
+                    )
+                },
+            )
+
+            service.refresh(FEED_ID, HEADER_URL)
+            service.refresh(FEED_ID, HEADER_URL)
+
+            assertEquals(2, requestCount)
+        }
+
+    @Test
     fun `取得に失敗したら前のヘッダーを残す`() =
         runTest {
             val repository = MemoryFeedHeaderRepository()

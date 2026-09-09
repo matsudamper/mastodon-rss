@@ -55,6 +55,14 @@ class FeedIconStore(
     }
 
     /**
+     * 中身が残っているか。読み出さずに置き場だけを見る。
+     */
+    fun exists(path: String): Boolean {
+        val target = resolve(path) ?: return false
+        return Files.isRegularFile(target)
+    }
+
+    /**
      * そのフィード用に置かれている画像の置き場を全部返す。
      */
     fun paths(feedId: FeedId): List<String> {

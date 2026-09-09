@@ -40,11 +40,13 @@ class FeedHeaderService(
         feedId: FeedId,
         headerUrl: String,
     ) {
+        val previous = headers.find(feedId)
+        if (previous.isReusableFor(headerUrl)) return
+
         val fetched = fetcher.fetch(headerUrl)
         if (fetched !is IconFetchService.FetchResult.Success) return
         if (fetched.contentType !in ALLOWED_CONTENT_TYPES) return
 
-        val previous = headers.find(feedId)
         val path = store.write(feedId = feedId, bytes = fetched.bytes)
         val now = Instant.now()
 
@@ -66,6 +68,18 @@ class FeedHeaderService(
         }
 
         previous?.path?.takeIf { it != path }?.let { store.delete(it) }
+    }
+
+    /**
+     * 取り直さずに前のヘッダーをそのまま使えるか。
+     *
+     * 取り込みのたびに取りに行くと、配信元が言う期限を無視して大きな画像を毎回落とす
+     */
+    private fun FeedHeader?.isReusableFor(headerUrl: String): Boolean {
+        val header = this ?: return false
+        if (header.sourceUrl != headerUrl) return false
+        if (!header.expiresAt.isAfter(Instant.now())) return false
+        return store.exists(header.path)
     }
 
     private fun contentRevision(bytes: ByteArray): String =
