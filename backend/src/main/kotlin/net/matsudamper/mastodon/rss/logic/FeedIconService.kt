@@ -63,7 +63,11 @@ class FeedIconService(
         }
 
         val previous = icons.find(feedId)
-        val path = store.write(feedId = feedId, bytes = fetched.bytes)
+        val path = store.write(
+            feedId = feedId,
+            bytes = fetched.bytes,
+            imageType = fetched.imageType,
+        )
         val now = Instant.now()
 
         // 書いた中身と種類を 1 つの行として入れ替える。入れ替えられなければ
@@ -73,7 +77,7 @@ class FeedIconService(
                 feedId = feedId,
                 icon = FeedIcon(
                     sourceUrl = iconUrl,
-                    contentType = fetched.contentType.toString(),
+                    contentType = fetched.imageType.contentType.toString(),
                     path = path,
                     fetchedAt = now,
                     // 見に来た側に持たせる時間。配信元が持つなと言っていれば持たせない

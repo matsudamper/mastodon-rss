@@ -52,6 +52,35 @@ class FeedIconServiceTest {
         }
 
     @Test
+    fun `Content-Typeに応じた拡張子で保存する`() =
+        runTest {
+            val cases = listOf(
+                "image/png" to ".png",
+                "image/jpeg" to ".jpg",
+                "image/gif" to ".gif",
+                "image/webp" to ".webp",
+                "image/x-icon" to ".ico",
+                "image/vnd.microsoft.icon" to ".ico",
+            )
+
+            cases.forEach { (contentType, extension) ->
+                val repositories = FakeRepositories()
+                val feedId = repositories.addFeed()
+                val engine = MockEngine {
+                    respond(
+                        content = BYTES.decodeToString(),
+                        headers = headersOf("Content-Type", contentType),
+                    )
+                }
+
+                serviceOf(repositories, engine).refresh(feedId = feedId, iconUrl = ICON_URL)
+
+                val path = assertNotNull(repositories.feedIcons.find(feedId)).path
+                assertTrue(path.endsWith(extension), "保存先: $path")
+            }
+        }
+
+    @Test
     fun `取り直すと前に置いたものは消える`() =
         runTest {
             val repositories = FakeRepositories()
