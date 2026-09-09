@@ -226,7 +226,7 @@ class FeedService(
     )
 
     /**
-     * @param description 一覧に並べる用に 1 行へ潰して切り詰めた説明
+     * @param description 一覧に並べる用に 1 行へ潰した説明
      * @param fullDescription 配信元が書いたままの説明。プロフィールに取り込むときに使う
      */
     data class FeedPreview(
@@ -616,7 +616,7 @@ class FeedService(
             title = parsed.title,
             siteUrl = HttpUrl.sanitize(parsed.link, feedUrl),
             format = parsed.format.toDisplayName(),
-            description = if (description == null) null else truncateDescription(description),
+            description = description?.let { FeedText.singleLine(it) },
             fullDescription = description,
             itemCount = parsed.items.size,
             sampleItems = parsed.items.newestFirst().take(PREVIEW_ITEM_LIMIT).map { it.toPreviewItem() },
@@ -637,11 +637,6 @@ class FeedService(
         link = link,
         publishedAt = publishedAt ?: updatedAt,
     )
-
-    private fun truncateDescription(text: String): String {
-        val normalized = FeedText.singleLine(text)
-        return FeedText.truncate(normalized, DESCRIPTION_LIMIT)
-    }
 
     /**
      * 取り込んだ記事を保存する。
@@ -728,7 +723,6 @@ class FeedService(
     private companion object {
         const val DEFAULT_POLL_INTERVAL_SECONDS = 900L
         const val PREVIEW_ITEM_LIMIT = 1
-        const val DESCRIPTION_LIMIT = 200
         const val POST_TITLE_MAX_CHARS = 200
         const val POST_DESCRIPTION_MAX_CHARS = 200
 
