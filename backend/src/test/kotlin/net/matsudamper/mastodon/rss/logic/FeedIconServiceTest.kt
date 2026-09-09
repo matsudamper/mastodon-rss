@@ -55,20 +55,20 @@ class FeedIconServiceTest {
     fun `Content-Typeに応じた拡張子で保存する`() =
         runTest {
             val cases = listOf(
-                "image/png" to ".png",
-                "image/jpeg" to ".jpg",
-                "image/gif" to ".gif",
-                "image/webp" to ".webp",
-                "image/x-icon" to ".ico",
-                "image/vnd.microsoft.icon" to ".ico",
+                Triple("image/png", TestImageBytes.PNG, ".png"),
+                Triple("image/jpeg", TestImageBytes.JPEG, ".jpg"),
+                Triple("image/gif", TestImageBytes.GIF, ".gif"),
+                Triple("image/webp", TestImageBytes.WEBP, ".webp"),
+                Triple("image/x-icon", TestImageBytes.ICO, ".ico"),
+                Triple("image/vnd.microsoft.icon", TestImageBytes.ICO, ".ico"),
             )
 
-            cases.forEach { (contentType, extension) ->
+            cases.forEach { (contentType, bytes, extension) ->
                 val repositories = FakeRepositories()
                 val feedId = repositories.addFeed()
                 val engine = MockEngine {
                     respond(
-                        content = BYTES,
+                        content = bytes,
                         headers = headersOf("Content-Type", contentType),
                     )
                 }
