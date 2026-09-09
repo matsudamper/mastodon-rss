@@ -56,8 +56,15 @@ class FeedHeaderServiceTest {
             val repository = MemoryFeedHeaderRepository()
             val service = serviceOf(
                 repository = repository,
+                // 期限内は取り直さないので、取り直す状態にしてから中身を変える
                 engine = MockEngine {
-                    respond(content = content, headers = headersOf("Content-Type", "image/jpeg"))
+                    respond(
+                        content = content,
+                        headers = headersOf(
+                            "Content-Type" to listOf("image/jpeg"),
+                            "Cache-Control" to listOf("max-age=0"),
+                        ),
+                    )
                 },
             )
 
