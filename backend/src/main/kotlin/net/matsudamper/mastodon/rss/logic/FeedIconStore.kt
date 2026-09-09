@@ -4,6 +4,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.UUID
+import net.matsudamper.mastodon.rss.feed.IconImageType
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 
 /**
@@ -25,10 +26,11 @@ class FeedIconStore(
     fun write(
         feedId: FeedId,
         bytes: ByteArray,
+        imageType: IconImageType,
     ): String {
         Files.createDirectories(root)
 
-        val path = fileName(feedId)
+        val path = fileName(feedId, imageType)
         val target = root.resolve(path)
         // 書いている途中のものを読み出されないよう、別名で書いてから move する
         val temporary = Files.createTempFile(root, path, ".tmp")
@@ -71,5 +73,8 @@ class FeedIconStore(
         return root.resolve(name)
     }
 
-    private fun fileName(feedId: FeedId): String = "${feedId.value}-${UUID.randomUUID()}"
+    private fun fileName(
+        feedId: FeedId,
+        imageType: IconImageType,
+    ): String = "${feedId.value}-${UUID.randomUUID()}.${imageType.fileExtension}"
 }

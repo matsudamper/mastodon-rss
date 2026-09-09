@@ -15,6 +15,7 @@ import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
+import net.matsudamper.mastodon.rss.feed.IconImageType
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.FeedIcon
 import net.matsudamper.mastodon.rss.repository.FeedItemState
@@ -52,7 +53,7 @@ class AccountServiceTest {
         val repositories = FakeRepositories()
         val account = repositories.withFullAccount()
         val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
-        val path = iconStore.write(feedId = feed.id, bytes = byteArrayOf(1, 2, 3))
+        val path = iconStore.write(feedId = feed.id, bytes = byteArrayOf(1, 2, 3), imageType = IconImageType.PNG)
         repositories.feedIcons.save(
             feedId = feed.id,
             icon = FeedIcon(

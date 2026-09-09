@@ -20,7 +20,7 @@ import io.ktor.http.headersOf
 // 取得は無認証のエンドポイントから呼ばれるので、何を取りに行って何を返すかを固定する。
 class IconFetchServiceTest {
     @Test
-    fun `画像として復号できる種類は取得元の種類のまま返す`() =
+    fun `画像として復号できる種類は扱える種類として返す`() =
         runTest {
             val engine = MockEngine {
                 respond(
@@ -31,25 +31,28 @@ class IconFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertEquals(ContentType.Image.PNG, assertIs<IconFetchService.FetchResult.Success>(result).contentType)
+            assertEquals(IconImageType.PNG, assertIs<IconFetchService.FetchResult.Success>(result).imageType)
         }
 
     @Test
-    fun `ICO も取得元の種類のまま返す`() =
+    fun `ICO の別名もどちらも ICO として返す`() =
         runTest {
-            val engine = MockEngine {
-                respond(
-                    content = "ICO",
-                    headers = headersOf("Content-Type", "image/x-icon"),
+            listOf("image/x-icon", "image/vnd.microsoft.icon").forEach { contentType ->
+                val engine = MockEngine {
+                    respond(
+                        content = "ICO",
+                        headers = headersOf("Content-Type", contentType),
+                    )
+                }
+
+                val result = serviceOf(engine).fetch("https://example.com/favicon.ico")
+
+                assertEquals(
+                    IconImageType.ICO,
+                    assertIs<IconFetchService.FetchResult.Success>(result).imageType,
+                    "取得元の種類: $contentType",
                 )
             }
-
-            val result = serviceOf(engine).fetch("https://example.com/favicon.ico")
-
-            assertEquals(
-                ContentType("image", "x-icon"),
-                assertIs<IconFetchService.FetchResult.Success>(result).contentType,
-            )
         }
 
     @Test
