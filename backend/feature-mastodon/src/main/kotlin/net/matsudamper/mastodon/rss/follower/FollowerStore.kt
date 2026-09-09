@@ -74,6 +74,14 @@ interface FollowerStore {
     fun removeRemoteActor(actorUri: String): Int
 
     /**
+     * 相手のアクターの公開鍵の PEM を返す。記録が無ければ null。
+     *
+     * `Follow` を受けたときに読んだもの。`Accept` を返せていない相手も対象にする。
+     * 相手のサーバーから引けなくなった鍵の代わりに使う
+     */
+    fun findPublicKeyPem(actorUri: String): String?
+
+    /**
      * フォロワーのアクター URL を URL 順に返す。
      *
      * 位置は件数ではなく直前のページの最後の 1 件で指す。件数で数えると、

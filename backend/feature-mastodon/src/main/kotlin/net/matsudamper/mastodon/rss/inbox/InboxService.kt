@@ -7,6 +7,7 @@ import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.follower.FollowerFallbackPublicKeys
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
@@ -56,7 +57,9 @@ class InboxService(
                 is HttpSignatureResult.Rejected -> {
                     // 消えたアクターからの Delete だけは、検証できないことを理由に
                     // 落とすと相手が送り直し続ける。削除の通知は本人が消えた後に届き、
-                    // そのとき鍵はもう取りに行けないので、通しようがない
+                    // 鍵はもう取りに行けない。フォロワーだった相手なら記録した鍵で
+                    // 検証できるが、Mastodon は面識の無いサーバーにも配るので、
+                    // 記録の無い相手は通しようが無い
                     if (isSelfDelete(request.body)) {
                         logger.info("消えたアクターからの Delete として受け流す: ${recipient.acct} ${verification.reason}")
                         return InboxResult.Accepted
@@ -153,6 +156,8 @@ class InboxService(
          *
          * @param remoteActors 相手のアクターの引き先。署名検証に使う公開鍵と、
          *   `Accept` の宛先になる inbox をここから取る
+         * @param followers フォローの記録。配信先だけでなく、相手が消えて
+         *   アクター文書を引けなくなったときの公開鍵の引き先にもなる
          * @param delivery こちらから相手の inbox に POST する口
          * @param notes フォロー成立後に配り直す過去の投稿の引き先
          * @param backfillScope 過去の投稿を配る間、inbox の応答を待たせないためのスコープ
@@ -166,7 +171,9 @@ class InboxService(
             webPages: WebPageUrls?,
         ): InboxService =
             InboxService(
-                verifier = HttpSignatureVerifier(remoteActors),
+                verifier = HttpSignatureVerifier(
+                    FollowerFallbackPublicKeys(remote = remoteActors, followers = followers),
+                ),
                 handlers = listOf(
                     FollowHandler(
                         remoteActors = remoteActors,

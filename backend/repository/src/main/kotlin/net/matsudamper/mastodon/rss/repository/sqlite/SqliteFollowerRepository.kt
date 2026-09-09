@@ -119,6 +119,14 @@ internal class SqliteFollowerRepository(
         removed
     }
 
+    override fun findPublicKeyPem(actorUri: String): String? = jooq.withConnection { dsl ->
+        dsl
+            .select(REMOTE_ACTORS.PUBLIC_KEY_PEM)
+            .from(REMOTE_ACTORS)
+            .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))
+            .fetchOne(REMOTE_ACTORS.PUBLIC_KEY_PEM)
+    }
+
     override fun list(
         username: String,
         after: String?,

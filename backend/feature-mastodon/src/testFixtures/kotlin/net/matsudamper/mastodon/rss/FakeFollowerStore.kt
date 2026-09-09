@@ -94,6 +94,9 @@ class FakeFollowerStore(
         return before - rows.size
     }
 
+    override fun findPublicKeyPem(actorUri: String): String? =
+        rows.firstOrNull { it.followerActorUri == actorUri }?.publicKeyPem
+
     override fun list(
         username: String,
         after: String?,

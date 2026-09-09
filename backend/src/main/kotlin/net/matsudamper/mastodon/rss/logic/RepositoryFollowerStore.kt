@@ -68,6 +68,8 @@ class RepositoryFollowerStore(
 
     override fun removeRemoteActor(actorUri: String): Int = followers.removeRemoteActor(actorUri)
 
+    override fun findPublicKeyPem(actorUri: String): String? = followers.findPublicKeyPem(actorUri)
+
     override fun list(
         username: String,
         after: String?,

@@ -8,6 +8,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 // 本物の SQLite に対して確かめる。
@@ -69,6 +70,17 @@ class FollowerRepositoryTest {
                 listOf("https://remote.example/users/alice"),
                 followers.list("admin", after = null, limit = 10),
             )
+        }
+    }
+
+    @Test
+    fun `Accept を返す前でも公開鍵の PEM を引ける`() {
+        withRepository { followers ->
+            followers.record(incomingFollow())
+
+            // 相手が消えると文書を引けなくなるので、Delete の検証はこの記録が頼りになる
+            assertEquals("pem", followers.findPublicKeyPem("https://remote.example/users/alice"))
+            assertNull(followers.findPublicKeyPem("https://remote.example/users/bob"))
         }
     }
 
