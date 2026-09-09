@@ -21,6 +21,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import net.matsudamper.mastodon.rss.FakeRepositories
+import net.matsudamper.mastodon.rss.TestImageBytes
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
@@ -67,7 +68,7 @@ class FeedIconServiceTest {
                 val feedId = repositories.addFeed()
                 val engine = MockEngine {
                     respond(
-                        content = BYTES.decodeToString(),
+                        content = BYTES,
                         headers = headersOf("Content-Type", contentType),
                     )
                 }
@@ -126,7 +127,7 @@ class FeedIconServiceTest {
                     respond(content = "", status = HttpStatusCode.InternalServerError)
                 } else {
                     served = true
-                    respond(content = BYTES.decodeToString(), headers = headersOf("Content-Type", "image/png"))
+                    respond(content = BYTES, headers = headersOf("Content-Type", "image/png"))
                 }
             }
             val service = serviceOf(repositories, engine)
@@ -144,7 +145,7 @@ class FeedIconServiceTest {
             val feedId = repositories.addFeed()
             val engine = MockEngine {
                 respond(
-                    content = BYTES.decodeToString(),
+                    content = BYTES,
                     headers = headersOf(
                         "Content-Type" to listOf("image/png"),
                         "Cache-Control" to listOf("public, max-age=60"),
@@ -171,7 +172,7 @@ class FeedIconServiceTest {
             val feedId = repositories.addFeed()
             val engine = MockEngine {
                 respond(
-                    content = BYTES.decodeToString(),
+                    content = BYTES,
                     headers = headersOf(
                         "Content-Type" to listOf("image/png"),
                         "Cache-Control" to listOf("no-store"),
@@ -206,7 +207,7 @@ class FeedIconServiceTest {
     }
 
     private fun imageEngine(): MockEngine = MockEngine {
-        respond(content = BYTES.decodeToString(), headers = headersOf("Content-Type", "image/png"))
+        respond(content = BYTES, headers = headersOf("Content-Type", "image/png"))
     }
 
     private fun serviceOf(
@@ -228,6 +229,6 @@ class FeedIconServiceTest {
         const val FEED_URL = "https://example.com/feed.xml"
         const val SITE_URL = "https://example.com/"
         const val ICON_URL = "https://example.com/icon.png"
-        val BYTES = "PNG".toByteArray()
+        val BYTES: ByteArray = TestImageBytes.PNG
     }
 }

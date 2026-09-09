@@ -18,6 +18,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.TestImageBytes
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.repository.FeedHeader
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
@@ -39,7 +40,7 @@ class FeedHeaderServiceTest {
             val service = serviceOf(
                 repository = repository,
                 engine = MockEngine {
-                    respond(content = "JPEG", headers = headersOf("Content-Type", "image/jpeg"))
+                    respond(content = TestImageBytes.JPEG, headers = headersOf("Content-Type", "image/jpeg"))
                 },
             )
 
@@ -52,7 +53,7 @@ class FeedHeaderServiceTest {
     fun `同じURLの画像内容が変わると版も変わる`() =
         runTest {
             assertEquals("FB".hashCode(), "Ea".hashCode())
-            var content = "FB"
+            var content = TestImageBytes.jpegOf("FB")
             val repository = MemoryFeedHeaderRepository()
             val service = serviceOf(
                 repository = repository,
@@ -71,7 +72,7 @@ class FeedHeaderServiceTest {
             service.refresh(FEED_ID, HEADER_URL)
             val first = assertNotNull(repository.find(FEED_ID))
 
-            content = "Ea"
+            content = TestImageBytes.jpegOf("Ea")
             service.refresh(FEED_ID, HEADER_URL)
             val second = assertNotNull(repository.find(FEED_ID))
 
@@ -86,7 +87,7 @@ class FeedHeaderServiceTest {
             val service = serviceOf(
                 repository = repository,
                 engine = MockEngine {
-                    respond(content = "ICO", headers = headersOf("Content-Type", "image/x-icon"))
+                    respond(content = TestImageBytes.ICO, headers = headersOf("Content-Type", "image/x-icon"))
                 },
             )
 
@@ -104,7 +105,7 @@ class FeedHeaderServiceTest {
                 repository = repository,
                 engine = MockEngine {
                     requestCount += 1
-                    respond(content = "JPEG", headers = headersOf("Content-Type", "image/jpeg"))
+                    respond(content = TestImageBytes.JPEG, headers = headersOf("Content-Type", "image/jpeg"))
                 },
             )
 
@@ -124,7 +125,7 @@ class FeedHeaderServiceTest {
                 engine = MockEngine {
                     requestCount += 1
                     respond(
-                        content = "JPEG",
+                        content = TestImageBytes.JPEG,
                         headers = headersOf(
                             "Content-Type" to listOf("image/jpeg"),
                             "Cache-Control" to listOf("max-age=0"),
@@ -146,7 +147,7 @@ class FeedHeaderServiceTest {
             val success = serviceOf(
                 repository = repository,
                 engine = MockEngine {
-                    respond(content = "JPEG", headers = headersOf("Content-Type", "image/jpeg"))
+                    respond(content = TestImageBytes.JPEG, headers = headersOf("Content-Type", "image/jpeg"))
                 },
             )
             success.refresh(FEED_ID, HEADER_URL)

@@ -39,6 +39,21 @@ enum class IconImageType(
 
     val contentType: ContentType get() = contentTypes.first()
 
+    /**
+     * バイト列の先頭がこの種類のものか。
+     *
+     * 配信元は `image/png` と名乗って画像でないものを返せる。名乗りだけで通すと、
+     * こちらのドメインから中身の分からないファイルを配ることになる
+     */
+    fun matches(bytes: ByteArray): Boolean = when (this) {
+        PNG -> bytes.startsWith(PNG_SIGNATURE, 0)
+        JPEG -> bytes.startsWith(JPEG_SIGNATURE, 0)
+        GIF -> bytes.startsWith(GIF87A_SIGNATURE, 0) || bytes.startsWith(GIF89A_SIGNATURE, 0)
+        // RIFF コンテナ。先頭 4 バイトの後ろにファイル長が入り、その次に形式が来る
+        WEBP -> bytes.startsWith(RIFF_SIGNATURE, 0) && bytes.startsWith(WEBP_SIGNATURE, 8)
+        ICO -> bytes.startsWith(ICO_SIGNATURE, 0)
+    }
+
     companion object {
         /**
          * 配信元が名乗った Content-Type から種類を決める。扱えなければ null
@@ -47,5 +62,21 @@ enum class IconImageType(
             val target = contentType.withoutParameters()
             return entries.find { type -> type.contentTypes.any { it == target } }
         }
+
+        private fun ByteArray.startsWith(
+            signature: ByteArray,
+            offset: Int,
+        ): Boolean {
+            if (size < offset + signature.size) return false
+            return signature.indices.all { index -> this[offset + index] == signature[index] }
+        }
+
+        private val PNG_SIGNATURE = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+        private val JPEG_SIGNATURE = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte())
+        private val GIF87A_SIGNATURE = "GIF87a".toByteArray()
+        private val GIF89A_SIGNATURE = "GIF89a".toByteArray()
+        private val RIFF_SIGNATURE = "RIFF".toByteArray()
+        private val WEBP_SIGNATURE = "WEBP".toByteArray()
+        private val ICO_SIGNATURE = byteArrayOf(0x00, 0x00, 0x01, 0x00)
     }
 }
