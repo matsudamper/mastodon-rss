@@ -19,26 +19,22 @@ CREATE TABLE accounts (
 CREATE TABLE feed_icons (
     -- フィードに 1 つ。フィードを消すと一緒に消える
     feed_id INTEGER PRIMARY KEY REFERENCES feeds (id) ON DELETE CASCADE,
-    -- 取ってきた元の URL。feeds.icon_url が変わったら取り直す目印
     source_url TEXT NOT NULL,
     content_type TEXT NOT NULL,
-    -- 中身の置き場。ICON_CACHE_DIR から見た相対パス。
-    -- 中身を DB に入れると、DB のファイルが画像のぶんだけ膨らむ
+    -- 中身の置き場を指す文字列。中身そのものを入れると、DB のファイルが画像のぶんだけ膨らむ
     path TEXT NOT NULL,
     fetched_at TEXT NOT NULL,
-    -- この時刻を過ぎたら取り直す。配信元の Cache-Control から決める
     expires_at TEXT NOT NULL
 );
 
 CREATE TABLE feed_headers (
     -- フィードに 1 つ。フィードを消すと一緒に消える
     feed_id INTEGER PRIMARY KEY REFERENCES feeds (id) ON DELETE CASCADE,
-    -- 取ってきた元の URL
     source_url TEXT NOT NULL,
     content_type TEXT NOT NULL,
-    -- 画像内容の SHA-256。Actor の image URL の版として使う
+    -- 中身から決まる版。同じ source_url のまま中身が変わったことが分かる
     revision TEXT NOT NULL,
-    -- 中身の置き場。アイコンと同じ画像キャッシュディレクトリを使う
+    -- 中身の置き場を指す文字列。中身そのものを入れると、DB のファイルが画像のぶんだけ膨らむ
     path TEXT NOT NULL,
     fetched_at TEXT NOT NULL,
     expires_at TEXT NOT NULL
