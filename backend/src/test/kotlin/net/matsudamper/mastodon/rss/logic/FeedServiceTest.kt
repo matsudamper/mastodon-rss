@@ -790,9 +790,7 @@ class FeedServiceTest {
                     override suspend fun refresh(
                         feedId: FeedId,
                         iconUrl: String?,
-                    ) {
-                        error("アイコンを置けなかった")
-                    }
+                    ): Boolean = error("アイコンを置けなかった")
                 },
             )
             service.save(accountId = account.id, url = FEED_URL)
