@@ -218,6 +218,7 @@ class AccountScreenViewModel(
                                 siteUrl = feed.siteUrl,
                             )
                         },
+                        initial = account.account.username.first().uppercase(),
                     ),
                     notes = state.notes.map { it.toUiState() },
                     notesError = state.notesError,

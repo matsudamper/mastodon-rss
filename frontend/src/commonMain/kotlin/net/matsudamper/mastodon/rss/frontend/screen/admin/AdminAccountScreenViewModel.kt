@@ -632,6 +632,9 @@ class AdminAccountScreenViewModel(
                         result = state.result,
                         error = state.error,
                         listener = postListener,
+                        bodyInputEnabled = !state.submitting,
+                        postButtonEnabled = !state.submitting && state.body.isNotBlank(),
+                        closeEnabled = !state.submitting,
                     ),
                     notes = state.notes.map { it.toUiState(state.deletingFeedItemIds) },
                     deleteNoteDialog = state.deleteNoteDialogUiState(),
@@ -718,6 +721,7 @@ class AdminAccountScreenViewModel(
                     deleteFeedItem(id)
                 }
             },
+            deleteButtonEnabled = !deleting,
         )
 
     private fun ViewModelState.feedUiState(account: AdminAccount): AdminAccountScreenUiState.Feed {
@@ -734,6 +738,7 @@ class AdminAccountScreenViewModel(
                 postingUnpublished = postingUnpublished,
                 unpublishedError = unpublishedError,
                 listener = registeredFeedListener,
+                postLatestButtonEnabled = !postingUnpublished,
             )
 
             else -> AdminAccountScreenUiState.Feed.NotRegistered(listener = notRegisteredFeedListener)
@@ -759,6 +764,9 @@ class AdminAccountScreenViewModel(
             hasSourceArticle = note.feedItem != null,
             deleting = deletingNote,
             listener = deleteNoteDialogListener,
+            confirmButtonEnabled = !deletingNote,
+            deleteNoteOnlyButtonEnabled = !deletingNote,
+            closeEnabled = !deletingNote,
         )
     }
 

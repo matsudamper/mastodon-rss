@@ -92,9 +92,8 @@ data class AdminAccountScreenUiState(
             val postingUnpublished: Boolean,
             val unpublishedError: String?,
             val listener: RegisteredListener,
-        ) : Feed {
-            val postLatestButtonEnabled: Boolean get() = !postingUnpublished
-        }
+            val postLatestButtonEnabled: Boolean,
+        ) : Feed
 
         /**
          * 追加はダイアログの画面に分けてあるので、ここに置くのは入口だけ
@@ -128,9 +127,8 @@ data class AdminAccountScreenUiState(
         val publishedAt: String?,
         val deleting: Boolean,
         val listener: SourceArticleListener,
-    ) {
-        val deleteButtonEnabled: Boolean get() = !deleting
-    }
+        val deleteButtonEnabled: Boolean,
+    )
 
     @Immutable
     interface SourceArticleListener {
@@ -157,11 +155,10 @@ data class AdminAccountScreenUiState(
         val result: PostResult?,
         val error: String?,
         val listener: PostListener,
-    ) {
-        val bodyInputEnabled: Boolean get() = !submitting
-        val postButtonEnabled: Boolean get() = !submitting && body.isNotBlank()
-        val closeEnabled: Boolean get() = !submitting
-    }
+        val bodyInputEnabled: Boolean,
+        val postButtonEnabled: Boolean,
+        val closeEnabled: Boolean,
+    )
 
     @Immutable
     interface PostListener {
@@ -180,11 +177,10 @@ data class AdminAccountScreenUiState(
         val hasSourceArticle: Boolean,
         val deleting: Boolean,
         val listener: DeleteNoteDialogListener,
-    ) {
-        val confirmButtonEnabled: Boolean get() = !deleting
-        val deleteNoteOnlyButtonEnabled: Boolean get() = !deleting
-        val closeEnabled: Boolean get() = !deleting
-    }
+        val confirmButtonEnabled: Boolean,
+        val deleteNoteOnlyButtonEnabled: Boolean,
+        val closeEnabled: Boolean,
+    )
 
     @Immutable
     interface DeleteNoteDialogListener {
