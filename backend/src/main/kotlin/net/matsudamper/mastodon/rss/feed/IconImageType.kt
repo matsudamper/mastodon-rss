@@ -47,10 +47,14 @@ enum class IconImageType(
      */
     fun matches(bytes: ByteArray): Boolean = when (this) {
         PNG -> bytes.startsWith(PNG_SIGNATURE, 0)
+
         JPEG -> bytes.startsWith(JPEG_SIGNATURE, 0)
+
         GIF -> bytes.startsWith(GIF87A_SIGNATURE, 0) || bytes.startsWith(GIF89A_SIGNATURE, 0)
+
         // RIFF コンテナ。先頭 4 バイトの後ろにファイル長が入り、その次に形式が来る
         WEBP -> bytes.startsWith(RIFF_SIGNATURE, 0) && bytes.startsWith(WEBP_SIGNATURE, 8)
+
         ICO -> bytes.startsWith(ICO_SIGNATURE, 0)
     }
 
