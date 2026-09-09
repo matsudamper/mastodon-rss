@@ -4,6 +4,7 @@ import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
+import org.slf4j.LoggerFactory
 
 /**
  * 相手が消えて引けなくなった公開鍵を、フォロワーの記録から引く。
@@ -25,14 +26,22 @@ class FollowerFallbackPublicKeys(
     private val remote: PublicKeys,
     private val followers: FollowerStore,
 ) : PublicKeys {
+    private val logger = LoggerFactory.getLogger(FollowerFallbackPublicKeys::class.java)
+
     override suspend fun find(keyId: String): PublicKeyLookup =
         when (val lookup = remote.find(keyId)) {
             is PublicKeyLookup.Found -> {
-                followers.rememberPublicKeyPem(
-                    // 引き当てるのは keyId の名乗りではなく、検証で決まった持ち主
-                    actorUri = lookup.key.owner,
-                    publicKeyPem = RsaKeys.encodeToPem(lookup.key.publicKey),
-                )
+                // 記録できなくても、引けた鍵での検証はできる。ここで例外を上げると
+                // 書き込めない間、検証を通るはずのアクティビティまで落ちる
+                runCatching {
+                    followers.rememberPublicKeyPem(
+                        // 引き当てるのは keyId の名乗りではなく、検証で決まった持ち主
+                        actorUri = lookup.key.owner,
+                        publicKeyPem = RsaKeys.encodeToPem(lookup.key.publicKey),
+                    )
+                }.onFailure { failure ->
+                    logger.warn("公開鍵の記録を新しくできなかった: ${lookup.key.owner}", failure)
+                }
                 lookup
             }
 

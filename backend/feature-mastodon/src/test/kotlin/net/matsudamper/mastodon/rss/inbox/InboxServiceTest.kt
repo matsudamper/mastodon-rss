@@ -116,7 +116,9 @@ class InboxServiceTest {
         publicKeys: PublicKeys = remoteActors,
     ): InboxService = InboxService(verifier = HttpSignatureVerifier(publicKeys), handlers = handlers)
 
-    /** フォローの記録に相手の鍵が残っている状態 */
+    /**
+     * フォローの記録に相手の鍵が残っている状態
+     */
     private fun recordedFollower(): FakeFollowerStore =
         FakeFollowerStore().apply {
             record(

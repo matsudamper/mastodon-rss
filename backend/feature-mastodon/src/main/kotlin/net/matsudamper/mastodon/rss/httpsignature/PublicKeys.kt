@@ -18,7 +18,9 @@ interface PublicKeys {
     suspend fun find(keyId: String): PublicKeyLookup
 }
 
-/** [PublicKeys.find] の結果 */
+/**
+ * [PublicKeys.find] の結果
+ */
 sealed interface PublicKeyLookup {
     data class Found(
         val key: SignatureKey,

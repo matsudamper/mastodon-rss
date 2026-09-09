@@ -31,7 +31,9 @@ class FollowerFallbackPublicKeysTest {
             )
         }
 
-    /** アクターが消えたと答えるサーバー */
+    /**
+     * アクターが消えたと答えるサーバー
+     */
     private fun gone(): TestRemoteActors = TestRemoteActors(missing = PublicKeyLookup.Gone)
 
     @Test

@@ -159,7 +159,9 @@ class HttpRemoteActors(
         return DocumentFetch.Found(document)
     }
 
-    /** [fetch] の結果。取れなかった理由のうち「もう無い」だけは区別する */
+    /**
+     * [fetch] の結果。取れなかった理由のうち「もう無い」だけは区別する
+     */
     private sealed interface DocumentFetch {
         data class Found(
             val document: RemoteActorDocument,
