@@ -732,7 +732,6 @@ class FeedServiceTest {
                 repositories,
                 xmls = listOf(ICON_XML, CHANGED_ICON_XML),
                 icons = icons,
-            headers = headers,
             )
             service.save(accountId = account.id, url = FEED_URL)
 
@@ -758,7 +757,6 @@ class FeedServiceTest {
                 repositories,
                 xmls = listOf(ICON_XML, FEED_XML),
                 icons = icons,
-            headers = headers,
             )
             service.save(accountId = account.id, url = FEED_URL)
 
