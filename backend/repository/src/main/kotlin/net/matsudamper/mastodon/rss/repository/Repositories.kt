@@ -1,7 +1,6 @@
 package net.matsudamper.mastodon.rss.repository
 
 import io.opentelemetry.api.OpenTelemetry
-import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.sqlite.SqliteRepositories
 
 /**
@@ -31,11 +30,7 @@ interface Repositories : AutoCloseable {
 
     val feedIcons: FeedIconRepository
 
-    /**
-     * 古いテスト用実装はヘッダーを持たなくても動く。
-     */
     val feedHeaders: FeedHeaderRepository
-        get() = EmptyFeedHeaderRepository
 
     /**
      * DB に書き込んで読み戻せることを確認する。書けない場合は例外を投げる。
@@ -54,17 +49,6 @@ interface Repositories : AutoCloseable {
      * とだけ見えるようにする。
      */
     override fun close()
-}
-
-private object EmptyFeedHeaderRepository : FeedHeaderRepository {
-    override fun find(feedId: FeedId): FeedHeader? = null
-
-    override fun save(
-        feedId: FeedId,
-        header: FeedHeader,
-    ) = Unit
-
-    override fun delete(feedId: FeedId) = Unit
 }
 
 /**
