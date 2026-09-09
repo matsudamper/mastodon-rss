@@ -119,11 +119,20 @@ internal class SqliteFollowerRepository(
         removed
     }
 
+    /**
+     * フォローが 1 件も残っていない相手の鍵は返さない。
+     *
+     * `remote_actors` の行はフォローを消しても残る。他のアカウントをフォローしている
+     * ことがあるため。返してしまうと、解除した相手の鍵で署名を通せる
+     */
     override fun findPublicKeyPem(actorUri: String): String? = jooq.withConnection { dsl ->
         dsl
             .select(REMOTE_ACTORS.PUBLIC_KEY_PEM)
             .from(REMOTE_ACTORS)
+            .join(FOLLOWERS)
+            .on(FOLLOWERS.REMOTE_ACTOR_ID.eq(REMOTE_ACTORS.ID))
             .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))
+            .limit(1)
             .fetchOne(REMOTE_ACTORS.PUBLIC_KEY_PEM)
     }
 

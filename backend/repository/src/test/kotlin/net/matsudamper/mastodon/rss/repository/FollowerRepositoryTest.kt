@@ -107,6 +107,17 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `フォローを解除した相手の公開鍵は返さない`() {
+        withRepository { followers ->
+            followers.record(incomingFollow())
+            assertTrue(followers.remove("admin", "https://remote.example/users/alice", followActivityUri = null))
+
+            // 消えたアクターの Delete を通す鍵なので、解除した相手の分を残すと署名を通せる
+            assertNull(followers.findPublicKeyPem("https://remote.example/users/alice"))
+        }
+    }
+
+    @Test
     fun `初めて成立したときだけ FirstAccept を返す`() {
         withRepository { followers ->
             followers.record(incomingFollow())
