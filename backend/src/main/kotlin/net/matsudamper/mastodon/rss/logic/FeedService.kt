@@ -6,6 +6,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedItemKey
@@ -40,6 +41,7 @@ class FeedService(
     private val notePublisher: NotePublisher,
     private val icons: FeedIcons,
     private val headers: FeedHeaders,
+    private val actorPublisher: ActorPublisher,
 ) {
     private val publishLock = Mutex()
 
@@ -106,9 +108,10 @@ class FeedService(
                     validators = FeedFetchValidators.NONE,
                 )
                 feeds.markInitialImportDone(feed.id)
-                refreshIcon(feedId = feed.id, iconUrl = newFeed.iconUrl)
-                refreshHeader(
+                refreshImages(
                     feedId = feed.id,
+                    accountId = accountId,
+                    iconUrl = newFeed.iconUrl,
                     headerUrl = HttpUrl.sanitize(fetched.parsed.headerUrl, fetched.feedUrl),
                 )
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)
@@ -370,9 +373,10 @@ class FeedService(
         )
         importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
 
-        refreshIcon(feedId = feed.id, iconUrl = iconUrl)
-        refreshHeader(
+        refreshImages(
             feedId = feed.id,
+            accountId = feed.accountId,
+            iconUrl = iconUrl,
             headerUrl = HttpUrl.sanitize(fetched.parsed.headerUrl, fetched.feedUrl),
         )
 
@@ -443,30 +447,49 @@ class FeedService(
     }
 
     /**
-     * アイコンの入れ替え。落ちても記事の取り込みは進める。
+     * アイコンとヘッダーの入れ替え。落ちても記事の取り込みは進める。
      *
-     * 置き場が読めないなどで書けないことがある。アイコンが出ないだけの話なので、
-     * ここで投げると記事が配られなくなるほうが困る
+     * 置き場が読めないなどで書けないことがある。画像が出ないだけの話なので、
+     * ここで投げると記事が配られなくなるほうが困る。
+     *
+     * 入れ替わったらフォロワーへ `Update{Actor}` を配る。相手はアクター文書を
+     * 取り直しに来ないので、配らないと古い画像を出し続ける。片方だけ変わっても
+     * 送る文書は同じアクター文書なので、2 つまとめて 1 回だけ配る
      */
-    private suspend fun refreshIcon(
+    private suspend fun refreshImages(
         feedId: FeedId,
+        accountId: AccountId,
         iconUrl: String?,
-    ) {
-        runCatching { icons.refresh(feedId = feedId, iconUrl = iconUrl) }
-            .onFailure { error ->
-                if (error is CancellationException) throw error
-                logger.warn("アイコンを入れ替えられなかった: feedId={}", feedId.value, error)
-            }
-    }
-
-    private suspend fun refreshHeader(
-        feedId: FeedId,
         headerUrl: String?,
     ) {
-        runCatching { headers.refresh(feedId = feedId, headerUrl = headerUrl) }
+        val iconChanged = refreshImage("アイコン", feedId) { icons.refresh(feedId = feedId, iconUrl = iconUrl) }
+        val headerChanged = refreshImage("ヘッダー", feedId) { headers.refresh(feedId = feedId, headerUrl = headerUrl) }
+        if (!iconChanged && !headerChanged) return
+
+        publishActorUpdate(accountId)
+    }
+
+    private suspend fun refreshImage(
+        name: String,
+        feedId: FeedId,
+        refresh: suspend () -> Boolean,
+    ): Boolean =
+        runCatching { refresh() }
+            .getOrElse { error ->
+                if (error is CancellationException) throw error
+                logger.warn("{}を入れ替えられなかった: feedId={}", name, feedId.value, error)
+                false
+            }
+
+    private suspend fun publishActorUpdate(accountId: AccountId) {
+        val account = accounts.findById(accountId) ?: return
+        val sender = actorDirectory.resolve(account.username) ?: return
+
+        runCatching { actorPublisher.update(sender = sender) }
             .onFailure { error ->
                 if (error is CancellationException) throw error
-                logger.warn("ヘッダーを入れ替えられなかった: feedId={}", feedId.value, error)
+                // 配れなくても取り込みは進める。届かなかった相手は次に変わったときに配り直される
+                logger.warn("アクターの更新を配れなかった: username={}", account.username, error)
             }
     }
 
@@ -583,9 +606,10 @@ class FeedService(
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
                 )
-                refreshIcon(feedId = feed.id, iconUrl = iconUrl)
-                refreshHeader(
+                refreshImages(
                     feedId = feed.id,
+                    accountId = feed.accountId,
+                    iconUrl = iconUrl,
                     headerUrl = HttpUrl.sanitize(fetched.parsed.headerUrl, fetched.feedUrl),
                 )
                 // 記録しないと定期ポーリングが直後に取り直し、成功した後も前の失敗が残る

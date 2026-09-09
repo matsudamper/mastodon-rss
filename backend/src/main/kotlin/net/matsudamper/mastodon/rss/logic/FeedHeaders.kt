@@ -8,9 +8,10 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 interface FeedHeaders {
     /**
      * @param headerUrl フィードや配信元ページから読めたヘッダー画像。null の場合は今のものを残す
+     * @return アクター文書に出るヘッダーが入れ替わったか
      */
     suspend fun refresh(
         feedId: FeedId,
         headerUrl: String?,
-    )
+    ): Boolean
 }

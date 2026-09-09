@@ -197,6 +197,16 @@ class AppDependencies(
         webPages = webPageUrls,
     )
 
+    val actorPublisher: ActorPublisher = ActorPublisher(
+        notes = noteStore,
+        followers = followerStore,
+        delivery = delivery,
+        actorKey = actorKey,
+        feedLinks = feedLinks,
+        profiles = actorProfiles,
+        webPages = webPageUrls,
+    )
+
     val feedService: FeedService = FeedService(
         accounts = repositories.accounts,
         feeds = repositories.feeds,
@@ -206,6 +216,7 @@ class AppDependencies(
         notePublisher = notePublisher,
         icons = feedIcons,
         headers = feedHeaders,
+        actorPublisher = actorPublisher,
     )
 
     private val feedPollingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -248,16 +259,6 @@ class AppDependencies(
             }
         }
     }
-
-    val actorPublisher: ActorPublisher = ActorPublisher(
-        notes = noteStore,
-        followers = followerStore,
-        delivery = delivery,
-        actorKey = actorKey,
-        feedLinks = feedLinks,
-        profiles = actorProfiles,
-        webPages = webPageUrls,
-    )
 
     /**
      * 抱えているものを作った順の逆に閉じる。

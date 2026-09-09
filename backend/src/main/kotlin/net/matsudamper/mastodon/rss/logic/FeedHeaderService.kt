@@ -28,24 +28,32 @@ class FeedHeaderService(
     override suspend fun refresh(
         feedId: FeedId,
         headerUrl: String?,
-    ) {
-        if (headerUrl == null) return
+    ): Boolean {
+        if (headerUrl == null) return false
 
-        locks.computeIfAbsent(feedId) { Mutex() }.withLock {
+        return locks.computeIfAbsent(feedId) { Mutex() }.withLock {
             replace(feedId = feedId, headerUrl = headerUrl)
         }
     }
 
+    /**
+     * アクター文書に出るヘッダーが入れ替わったかを返す。
+     *
+     * 相手に渡す URL には中身から決まる版が付くので、取得元が同じでも中身が変われば
+     * 入れ替わったことになる
+     */
     private suspend fun replace(
         feedId: FeedId,
         headerUrl: String,
-    ) {
+    ): Boolean {
         val previous = headers.find(feedId)
-        if (previous.isReusableFor(headerUrl)) return
+        if (previous.isReusableFor(headerUrl)) return false
 
         val fetched = fetcher.fetch(headerUrl)
-        if (fetched !is IconFetchService.FetchResult.Success) return
-        if (fetched.imageType !in ALLOWED_IMAGE_TYPES) return
+        if (fetched !is IconFetchService.FetchResult.Success) return false
+        if (fetched.imageType !in ALLOWED_IMAGE_TYPES) return false
+
+        val revision = contentRevision(fetched.bytes)
 
         val path = store.write(
             feedId = feedId,
@@ -60,7 +68,7 @@ class FeedHeaderService(
                 header = FeedHeader(
                     sourceUrl = headerUrl,
                     contentType = fetched.imageType.contentType.toString(),
-                    revision = contentRevision(fetched.bytes),
+                    revision = revision,
                     path = path,
                     fetchedAt = now,
                     expiresAt = now.plus(fetched.freshFor ?: defaultFreshFor),
@@ -72,6 +80,8 @@ class FeedHeaderService(
         }
 
         previous?.path?.takeIf { it != path }?.let { store.delete(it) }
+
+        return previous?.revision != revision
     }
 
     /**

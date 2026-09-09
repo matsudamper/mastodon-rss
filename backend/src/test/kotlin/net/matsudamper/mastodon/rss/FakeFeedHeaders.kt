@@ -9,10 +9,14 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 class FakeFeedHeaders : FeedHeaders {
     val refreshed: MutableList<Pair<FeedId, String?>> = mutableListOf()
 
+    /** 入れ替わったことにするか。既定は入れ替わらない */
+    var changed: Boolean = false
+
     override suspend fun refresh(
         feedId: FeedId,
         headerUrl: String?,
-    ) {
+    ): Boolean {
         refreshed += feedId to headerUrl
+        return changed
     }
 }

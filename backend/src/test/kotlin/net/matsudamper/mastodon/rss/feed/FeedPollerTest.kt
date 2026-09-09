@@ -20,6 +20,7 @@ import net.matsudamper.mastodon.rss.FakeFeedIcons
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
+import net.matsudamper.mastodon.rss.TestActorPublisher
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
@@ -91,6 +92,12 @@ class FeedPollerTest {
             ),
             icons = FakeFeedIcons(),
             headers = FakeFeedHeaders(),
+            actorPublisher = TestActorPublisher.of(
+                repositories = repositories,
+                notes = FakeNoteStore(),
+                followers = FakeFollowerStore(),
+                delivery = TestDelivery(),
+            ),
         )
     }
 
