@@ -11,6 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -69,6 +70,22 @@ class FeedHeaderServiceTest {
 
             assertEquals(first.sourceUrl, second.sourceUrl)
             assertNotEquals(first.revision, second.revision)
+        }
+
+    @Test
+    fun `ICOはヘッダーとして保存しない`() =
+        runTest {
+            val repository = MemoryFeedHeaderRepository()
+            val service = serviceOf(
+                repository = repository,
+                engine = MockEngine {
+                    respond(content = "ICO", headers = headersOf("Content-Type", "image/x-icon"))
+                },
+            )
+
+            service.refresh(FEED_ID, HEADER_URL)
+
+            assertNull(repository.find(FEED_ID))
         }
 
     @Test

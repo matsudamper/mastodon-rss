@@ -6,6 +6,7 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.repository.FeedHeader
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
@@ -14,7 +15,7 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 /**
  * フィードや配信元ページが名乗るヘッダー画像の中身を入れ替える。
  *
- * 取得の安全性と画像形式の制限はアイコンと同じ [IconFetchService] に任せる。
+ * 取得の安全性はアイコンと同じ [IconFetchService] に任せ、配る形式はヘッダー用に更に絞る。
  */
 class FeedHeaderService(
     private val headers: FeedHeaderRepository,
@@ -41,6 +42,7 @@ class FeedHeaderService(
     ) {
         val fetched = fetcher.fetch(headerUrl)
         if (fetched !is IconFetchService.FetchResult.Success) return
+        if (fetched.contentType !in ALLOWED_CONTENT_TYPES) return
 
         val previous = headers.find(feedId)
         val path = store.write(feedId = feedId, bytes = fetched.bytes)
@@ -74,5 +76,17 @@ class FeedHeaderService(
 
     private companion object {
         val DEFAULT_FRESH_FOR: Duration = Duration.ofDays(1)
+
+        /**
+         * ヘッダーとして配る形式。アイコンと違い ICO は入れない。
+         *
+         * `/users/{name}/header` が返す形式は外部仕様で png / jpeg / gif / webp に限っている
+         */
+        val ALLOWED_CONTENT_TYPES = setOf(
+            ContentType.Image.PNG,
+            ContentType.Image.JPEG,
+            ContentType.Image.GIF,
+            ContentType("image", "webp"),
+        )
     }
 }
