@@ -12,7 +12,7 @@ object YouTubeChannelHeader {
     fun fromPageHtml(html: String): String? =
         bannerUrl(
             html = html,
-            keys = listOf("\"imageBannerViewModel\"", "\"sources\""),
+            keys = listOf("\"banner\"", "\"imageBannerViewModel\"", "\"sources\""),
         ) ?: bannerUrl(
             html = html,
             keys = listOf("\"c4TabbedHeaderRenderer\"", "\"banner\"", "\"thumbnails\""),
@@ -58,10 +58,13 @@ object YouTubeChannelHeader {
     /**
      * 鍵から次の鍵までに許す文字数。
      *
-     * ページ全体は数 MB あり、離れた場所にたまたま同じ鍵が並んでいることがある。
-     * 続きとして読める距離に区切って、別の場所の URL を拾わないようにする
+     * `imageBannerViewModel` という名前だけは、実データより手前のプリロード対象一覧
+     * （`preloadMessageNames` の文字列配列）にも出てくる。そこには `"sources"` を
+     * 伴わないが、探す範囲が広いと数万文字先の無関係な `"sources"`（動画サムネイル等）
+     * まで拾ってしまい、バナーではなく別の画像を返してしまう。実データでは鍵同士が
+     * 数文字〜十数文字しか離れていないので、続きとして読める狭さに絞る
      */
-    private const val MAX_KEY_DISTANCE = 64 * 1024
+    private const val MAX_KEY_DISTANCE = 256
 
     /**
      * バナーの並び 1 つ分に許す文字数。ここを超えたら別の場所を読んでいる

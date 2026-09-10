@@ -22,6 +22,30 @@ class YouTubeChannelHeaderTest {
     }
 
     @Test
+    fun `プリロード対象一覧に含まれる名前だけの imageBannerViewModel を実データと誤認しない`() {
+        val html = """
+            <script>
+            {"preloadMessageNames":["pageHeaderViewModel","imageBannerViewModel","dynamicTextViewModel"]}
+            </script>
+            <script>
+            {"lockupViewModel":{"contentImage":{"thumbnailViewModel":{"image":{"sources":[
+              {"url":"https://i.ytimg.com/vi/unrelated-thumbnail.jpg"}
+            ]}}}}}
+            </script>
+            <script>
+            {"pageHeaderViewModel":{"banner":{"imageBannerViewModel":{"image":{"sources":[
+              {"url":"https://yt3.googleusercontent.com/banner-large"}
+            ]}}}}}
+            </script>
+        """.trimIndent()
+
+        assertEquals(
+            "https://yt3.googleusercontent.com/banner-large",
+            YouTubeChannelHeader.fromPageHtml(html),
+        )
+    }
+
+    @Test
     fun `旧バナー形式を読む`() {
         val html = """
             <script>
