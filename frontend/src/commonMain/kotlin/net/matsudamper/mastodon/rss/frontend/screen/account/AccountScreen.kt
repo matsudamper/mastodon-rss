@@ -240,7 +240,6 @@ private fun CompactLoadedAccountContent(
                 state = state,
                 wide = false,
                 listener = listener,
-                onOpenExternal = onOpenExternal,
             )
         }
         state.feed?.let { feed ->
@@ -289,7 +288,6 @@ private fun WideLoadedAccountContent(
                     state = state,
                     wide = true,
                     listener = listener,
-                    onOpenExternal = onOpenExternal,
                 )
             }
         },
@@ -345,7 +343,6 @@ private fun ProfileHeader(
     state: AccountUiState,
     wide: Boolean,
     listener: AccountScreenUiState.Listener,
-    onOpenExternal: (String) -> Unit,
 ) {
     val avatarSize = if (wide) 88.dp else 68.dp
     val colors = avatarColors(state.username)
@@ -492,18 +489,6 @@ private fun ProfileHeader(
                         onClick = listener::onClickFollowerCount,
                     )
                     Stat(value = state.noteCount, label = "配信した投稿", onClick = null)
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    val feedUrl = state.feed?.feedUrl
-                    if (feedUrl != null) {
-                        Button(onClick = { onOpenExternal(feedUrl) }) {
-                            Text("フィードを開く")
-                        }
-                    }
-                    OutlinedButton(onClick = { onOpenExternal(state.actorUrl) }) {
-                        Text("Actor JSON")
-                    }
                 }
             }
         }
