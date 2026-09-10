@@ -7,10 +7,10 @@ import kotlin.test.assertNull
 import net.matsudamper.mastodon.rss.TestImageBytes
 
 // ICO コンテナから埋め込みの PNG を取り出す部分だけを、FeedIconService から切り離して確かめる
-class IcoImagesTest {
+class IcoImagesUtilTest {
     @Test
     fun `埋め込みのPNGを取り出せる`() {
-        val extracted = IcoImages.extractLargestPng(TestImageBytes.ICO)
+        val extracted = IcoImagesUtil.extractLargestPng(TestImageBytes.ICO)
 
         assertContentEquals(TestImageBytes.PNG, assertNotNull(extracted))
     }
@@ -28,7 +28,7 @@ class IcoImagesTest {
 
         val ico = header + entries + small + large
 
-        assertContentEquals(large, assertNotNull(IcoImages.extractLargestPng(ico)))
+        assertContentEquals(large, assertNotNull(IcoImagesUtil.extractLargestPng(ico)))
     }
 
     @Test
@@ -38,19 +38,19 @@ class IcoImagesTest {
         val entries = entryOf(width = 32, height = 32, size = 8, offset = header.size + ENTRY_SIZE)
         val ico = header + entries + byteArrayOf(0x28, 0, 0, 0, 32, 0, 0, 0)
 
-        assertNull(IcoImages.extractLargestPng(ico))
+        assertNull(IcoImagesUtil.extractLargestPng(ico))
     }
 
     @Test
     fun `ヘッダーが短すぎればnull`() {
-        assertNull(IcoImages.extractLargestPng(byteArrayOf(0, 0, 1, 0)))
+        assertNull(IcoImagesUtil.extractLargestPng(byteArrayOf(0, 0, 1, 0)))
     }
 
     @Test
     fun `ICOではない種類のヘッダーはnull`() {
         // type が 2（カーソル）
         val header = byteArrayOf(0, 0, 2, 0, 0, 0)
-        assertNull(IcoImages.extractLargestPng(header))
+        assertNull(IcoImagesUtil.extractLargestPng(header))
     }
 
     @Test
@@ -60,7 +60,7 @@ class IcoImagesTest {
         val entries = entryOf(width = 32, height = 32, size = 1_000, offset = header.size + ENTRY_SIZE)
         val ico = header + entries + TestImageBytes.PNG
 
-        assertNull(IcoImages.extractLargestPng(ico))
+        assertNull(IcoImagesUtil.extractLargestPng(ico))
     }
 
     private fun entryOf(

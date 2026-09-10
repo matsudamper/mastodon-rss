@@ -11,7 +11,7 @@ package net.matsudamper.mastodon.rss.feed
  * コンテナから範囲を切り出すだけで配れる形になる。中身が BMP（DIB、AND マスク付き）
  * のエントリしか無い ICO は、正しく再現するには別の復号処理が要るため対応しない。
  */
-object IcoImages {
+object IcoImagesUtil {
     /**
      * 埋め込まれた PNG のうち面積が一番大きいものを返す。
      *

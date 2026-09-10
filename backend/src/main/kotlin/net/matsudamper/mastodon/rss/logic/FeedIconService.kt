@@ -5,7 +5,7 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import net.matsudamper.mastodon.rss.feed.IcoImages
+import net.matsudamper.mastodon.rss.feed.IcoImagesUtil
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.feed.IconImageType
 import net.matsudamper.mastodon.rss.repository.FeedIcon
@@ -112,7 +112,7 @@ class FeedIconService(
      */
     private fun IconFetchService.FetchResult.Success.asMastodonServable(): Pair<ByteArray, IconImageType>? {
         if (imageType != IconImageType.ICO) return bytes to imageType
-        val png = IcoImages.extractLargestPng(bytes) ?: return null
+        val png = IcoImagesUtil.extractLargestPng(bytes) ?: return null
         return png to IconImageType.PNG
     }
 
