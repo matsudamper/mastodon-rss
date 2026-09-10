@@ -7,12 +7,14 @@ import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.Layout
@@ -38,6 +40,8 @@ internal class TwoPaneScrollState {
     private var headerHeightPx: Int by mutableIntStateOf(0)
     private var sideHeightPx: Int by mutableIntStateOf(0)
     private var viewportHeightPx: Int by mutableIntStateOf(0)
+    private var notesAnchorKey: Any? = null
+    private var notesAnchorOffsetPx: Int = 0
 
     fun notesShiftPx(): Int = notesOverflowPx.roundToInt()
 
@@ -57,12 +61,41 @@ internal class TwoPaneScrollState {
     }
 
     /**
-     * 投稿を追加読み込みしたあと、終端超過分を LazyColumn のスクロールへ戻す。
+     * 投稿側のレイアウトが変わるたびに呼ぶ。
      *
-     * 投稿が尽きた先はカラムごとずらしている。追加で下に伸びた分は LazyColumn 側で
+     * 追加読み込みに限らず、要素の高さが後から変わったときも位置を合わせ直す
+     */
+    fun onNotesLayoutChanged(notesListState: LazyListState) {
+        absorbNotesDrift(notesListState)
+        resyncNotesOverflow(notesListState)
+    }
+
+    /**
+     * LazyColumn が自分で動かしたスクロール位置を取り込む。
+     *
+     * 末尾が縮んだり表示領域が広がったりすると、LazyColumn は要求していなくても
+     * スクロール位置を詰める。こちらの持ち高だけで両ペインを置くと、その分だけ
+     * 配信元のカラムが取り残されてずれる。動いた分はまずカラムのずらし量で打ち消し、
+     * 打ち消しきれない分だけページごと動かす
+     */
+    private fun absorbNotesDrift(notesListState: LazyListState) {
+        val anchor = notesListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == notesAnchorKey }
+        if (anchor != null) {
+            val drift = (notesAnchorOffsetPx - anchor.offset).toFloat()
+            val absorbed = drift.coerceAtMost(notesOverflowPx)
+            notesOverflowPx -= absorbed
+            contentOffsetPx += drift - absorbed
+        }
+        captureNotesAnchor(notesListState)
+    }
+
+    /**
+     * 終端超過分を LazyColumn のスクロールへ戻す。
+     *
+     * 投稿が尽きた先はカラムごとずらしている。下に伸びた分は LazyColumn 側で
      * 吸収できるので、ずらし量を減らして両ペインの位置を揃える。
      */
-    fun resyncNotesOverflowAfterAppend(notesListState: LazyListState) {
+    private fun resyncNotesOverflow(notesListState: LazyListState) {
         if (notesOverflowPx <= 0f) return
         val notesBelow = notesBelowViewportPx(notesListState)
         if (notesBelow <= 0f) return
@@ -73,6 +106,13 @@ internal class TwoPaneScrollState {
         if (target <= 0f) return
         val scrolled = notesListState.dispatchRawDelta(target)
         notesOverflowPx -= scrolled
+        captureNotesAnchor(notesListState)
+    }
+
+    private fun captureNotesAnchor(notesListState: LazyListState) {
+        val firstVisible = notesListState.layoutInfo.visibleItemsInfo.firstOrNull()
+        notesAnchorKey = firstVisible?.key
+        notesAnchorOffsetPx = firstVisible?.offset ?: 0
     }
 
     fun scrollBy(delta: Float, notesListState: LazyListState): Float {
@@ -131,6 +171,7 @@ internal class TwoPaneScrollState {
         if (delta == 0f) return 0f
         val consumed = notesListState.dispatchRawDelta(delta)
         contentOffsetPx += consumed
+        captureNotesAnchor(notesListState)
         return consumed
     }
 
@@ -212,6 +253,11 @@ internal fun rememberCoordinatedTwoPaneScrollableModifier(
 ): Modifier {
     val scrollableState = rememberScrollableState { delta ->
         pageScrollState.scrollBy(delta = delta, notesListState = notesListState)
+    }
+
+    LaunchedEffect(pageScrollState, notesListState) {
+        snapshotFlow { notesListState.layoutInfo }
+            .collect { pageScrollState.onNotesLayoutChanged(notesListState) }
     }
 
     return Modifier
