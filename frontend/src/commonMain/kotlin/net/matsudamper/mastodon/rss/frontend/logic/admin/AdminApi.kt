@@ -437,8 +437,6 @@ class AdminApi(
 
         return AdminPostNoteResult.Success(
             note = note.adminNoteFields.toAdminNote(),
-            deliveryTargets = posted.deliveryTargets ?: 0,
-            delivered = posted.delivered ?: 0,
         )
     }
 

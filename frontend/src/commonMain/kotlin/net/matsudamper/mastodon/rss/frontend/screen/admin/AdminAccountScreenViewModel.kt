@@ -64,6 +64,10 @@ class AdminAccountScreenViewModel(
             navigate(Screen.AdminAccountProfileEdit(username))
         }
 
+        override fun onClickNewPost() {
+            viewModelStateFlow.update { it.copy(postDialog = ViewModelState.PostDialog()) }
+        }
+
         override fun onClickDelete() {
             viewModelStateFlow.update {
                 it.copy(deleteAccountRequested = true, deleteAccountError = null)
@@ -85,11 +89,19 @@ class AdminAccountScreenViewModel(
 
     private val postListener = object : AdminAccountScreenUiState.PostListener {
         override fun onBodyChanged(text: String) {
-            viewModelStateFlow.update { it.copy(body = text, error = null, result = null) }
+            viewModelStateFlow.update { state ->
+                state.copy(postDialog = state.postDialog?.copy(body = text, error = null))
+            }
         }
 
         override fun onClickPost() {
             post()
+        }
+
+        override fun onDismiss() {
+            val postDialog = viewModelStateFlow.value.postDialog ?: return
+            if (postDialog.submitting) return
+            viewModelStateFlow.update { it.copy(postDialog = null) }
         }
     }
 
@@ -198,8 +210,10 @@ class AdminAccountScreenViewModel(
         deleteAccountJob?.cancel()
         cancelNotesJobs()
 
-        viewModelStateFlow.update {
-            ViewModelState(body = it.body)
+        viewModelStateFlow.update { state ->
+            ViewModelState(
+                postDialog = state.postDialog?.let { ViewModelState.PostDialog(body = it.body) },
+            )
         }
 
         reloadJob = viewModelScope.launch {
@@ -552,47 +566,51 @@ class AdminAccountScreenViewModel(
 
     private fun post() {
         val state = viewModelStateFlow.value
-        val body = state.body.trim()
-        if (body.isEmpty() || state.submitting) return
+        val postDialog = state.postDialog ?: return
+        val body = postDialog.body.trim()
+        if (body.isEmpty() || postDialog.submitting) return
 
         postJob?.cancel()
-        viewModelStateFlow.update { it.copy(submitting = true, error = null, result = null) }
+        viewModelStateFlow.update { current ->
+            current.copy(postDialog = current.postDialog?.copy(submitting = true, error = null))
+        }
 
         postJob = viewModelScope.launch {
             try {
                 when (val result = api.postNote(username = username, body = body)) {
                     is AdminPostNoteResult.Success -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                body = "",
-                                submitting = false,
-                                result = AdminAccountScreenUiState.PostResult(
-                                    url = result.note.url,
-                                    deliveryAttemptCount = result.deliveryTargets,
-                                    delivered = result.delivered,
-                                ),
-                                error = null,
-                            )
-                        }
+                        viewModelStateFlow.update { it.copy(postDialog = null) }
+                        events.send { it.showSnackbar("投稿した") }
                         loadNotes()
                     }
 
                     is AdminPostNoteResult.Rejected -> {
-                        viewModelStateFlow.update {
-                            it.copy(
-                                submitting = false,
-                                error = rejectedMessage(result),
+                        viewModelStateFlow.update { current ->
+                            current.copy(
+                                postDialog = current.postDialog?.copy(
+                                    submitting = false,
+                                    error = rejectedMessage(result),
+                                ),
                             )
                         }
                     }
 
                     is AdminPostNoteResult.Failure -> {
-                        viewModelStateFlow.update { it.copy(submitting = false, error = result.message) }
+                        viewModelStateFlow.update { current ->
+                            current.copy(
+                                postDialog = current.postDialog?.copy(
+                                    submitting = false,
+                                    error = result.message,
+                                ),
+                            )
+                        }
                     }
                 }
             } finally {
                 if (!isActive) {
-                    viewModelStateFlow.update { it.copy(submitting = false) }
+                    viewModelStateFlow.update { current ->
+                        current.copy(postDialog = current.postDialog?.copy(submitting = false))
+                    }
                 }
             }
         }
@@ -626,16 +644,7 @@ class AdminAccountScreenViewModel(
                 AdminAccountScreenUiState.Content.Loaded(
                     account = found.toUiState(),
                     feed = state.feedUiState(found),
-                    post = AdminAccountScreenUiState.Post(
-                        body = state.body,
-                        submitting = state.submitting,
-                        result = state.result,
-                        error = state.error,
-                        listener = postListener,
-                        bodyInputEnabled = !state.submitting,
-                        postButtonEnabled = !state.submitting && state.body.isNotBlank(),
-                        closeEnabled = !state.submitting,
-                    ),
+                    postDialog = state.postDialog?.toUiState(),
                     notes = state.notes.map { it.toUiState(state.deletingFeedItemIds) },
                     deleteNoteDialog = state.deleteNoteDialogUiState(),
                     deleteAccountDialog = state.deleteAccountDialogUiState(),
@@ -647,6 +656,17 @@ class AdminAccountScreenViewModel(
             }
         }
     }
+
+    private fun ViewModelState.PostDialog.toUiState(): AdminAccountScreenUiState.Post =
+        AdminAccountScreenUiState.Post(
+            body = body,
+            submitting = submitting,
+            error = error,
+            listener = postListener,
+            bodyInputEnabled = !submitting,
+            postButtonEnabled = !submitting && body.isNotBlank(),
+            closeEnabled = !submitting,
+        )
 
     private fun AdminUnpublishedFeedItemsResult.FailureReason.toMessage(): String =
         when (this) {
@@ -806,10 +826,7 @@ class AdminAccountScreenViewModel(
     private data class ViewModelState(
         val session: AdminSessionResult? = null,
         val account: AdminAccountResult? = null,
-        val body: String = "",
-        val submitting: Boolean = false,
-        val result: AdminAccountScreenUiState.PostResult? = null,
-        val error: String? = null,
+        val postDialog: PostDialog? = null,
         val notes: List<AdminNote> = emptyList(),
         val notesError: String? = null,
         val notesLoading: Boolean = false,
@@ -826,6 +843,12 @@ class AdminAccountScreenViewModel(
         val unpublishedError: String? = null,
     ) {
         val loadedAccount: AdminAccount? get() = (account as? AdminAccountResult.Success)?.account
+
+        data class PostDialog(
+            val body: String = "",
+            val submitting: Boolean = false,
+            val error: String? = null,
+        )
     }
 
     interface Event {

@@ -36,10 +36,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
@@ -110,8 +108,6 @@ internal fun AdminAccountContent(
     platform: ScreenPlatform,
     snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
 ) {
-    var showPostDialog by remember(username) { mutableStateOf(false) }
-
     AdminScaffold(
         title = "@$username の管理",
         listener = uiState.listener,
@@ -131,15 +127,9 @@ internal fun AdminAccountContent(
                         content = content,
                         wide = wide,
                         verticalPadding = edgePadding,
-                        onOpenPostDialog = { showPostDialog = true },
                         noteContent = ::NoteContent,
                     )
-                    if (showPostDialog) {
-                        PostDialog(
-                            post = content.post,
-                            onDismissRequest = { showPostDialog = false },
-                        )
-                    }
+                    content.postDialog?.let { PostDialog(it) }
                     content.deleteNoteDialog?.let { DeleteNoteDialog(it) }
                     content.deleteAccountDialog?.let { DeleteAccountDialog(it) }
                 }
@@ -205,7 +195,6 @@ private fun LoadedAdminAccountContent(
     content: AdminAccountScreenUiState.Content.Loaded,
     wide: Boolean,
     verticalPadding: Dp,
-    onOpenPostDialog: () -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     if (!wide) {
@@ -213,7 +202,6 @@ private fun LoadedAdminAccountContent(
             uiState = uiState,
             content = content,
             verticalPadding = verticalPadding,
-            onOpenPostDialog = onOpenPostDialog,
             noteContent = noteContent,
         )
         return
@@ -223,7 +211,6 @@ private fun LoadedAdminAccountContent(
         uiState = uiState,
         content = content,
         verticalPadding = verticalPadding,
-        onOpenPostDialog = onOpenPostDialog,
         noteContent = noteContent,
     )
 }
@@ -233,7 +220,6 @@ private fun CompactLoadedAdminAccountContent(
     uiState: AdminAccountScreenUiState,
     content: AdminAccountScreenUiState.Content.Loaded,
     verticalPadding: Dp,
-    onOpenPostDialog: () -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     LazyColumn(
@@ -242,10 +228,7 @@ private fun CompactLoadedAdminAccountContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item(key = "header") {
-            AdminAccountHeaderRow(
-                account = content.account,
-                onOpenPostDialog = onOpenPostDialog,
-            )
+            AdminAccountHeaderRow(account = content.account)
         }
         item(key = "account") {
             AccountCard(account = content.account)
@@ -262,7 +245,6 @@ private fun WideLoadedAdminAccountContent(
     uiState: AdminAccountScreenUiState,
     content: AdminAccountScreenUiState.Content.Loaded,
     verticalPadding: Dp,
-    onOpenPostDialog: () -> Unit,
     noteContent: @Composable (String, Modifier) -> Unit,
 ) {
     val notesListState = rememberLazyListState()
@@ -288,10 +270,7 @@ private fun WideLoadedAdminAccountContent(
                     .fillMaxWidth()
                     .padding(top = verticalPadding, bottom = 16.dp),
             ) {
-                AdminAccountHeaderRow(
-                    account = content.account,
-                    onOpenPostDialog = onOpenPostDialog,
-                )
+                AdminAccountHeaderRow(account = content.account)
             }
         },
         panes = {
@@ -335,10 +314,7 @@ private fun WideLoadedAdminAccountContent(
 }
 
 @Composable
-private fun AdminAccountHeaderRow(
-    account: AdminAccountScreenUiState.Account,
-    onOpenPostDialog: () -> Unit,
-) {
+private fun AdminAccountHeaderRow(account: AdminAccountScreenUiState.Account) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -364,7 +340,7 @@ private fun AdminAccountHeaderRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Button(onClick = onOpenPostDialog) { Text("新しい投稿") }
+        Button(onClick = account.listener::onClickNewPost) { Text("新しい投稿") }
     }
 }
 
@@ -658,12 +634,9 @@ private fun DeleteAccountDialog(dialog: AdminAccountScreenUiState.DeleteAccountD
 }
 
 @Composable
-private fun PostDialog(
-    post: AdminAccountScreenUiState.Post,
-    onDismissRequest: () -> Unit,
-) {
+private fun PostDialog(post: AdminAccountScreenUiState.Post) {
     AlertDialog(
-        onDismissRequest = { if (post.closeEnabled) onDismissRequest() },
+        onDismissRequest = { if (post.closeEnabled) post.listener.onDismiss() },
         title = { Text("新しい投稿") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -678,12 +651,6 @@ private fun PostDialog(
                     maxLines = 12,
                 )
                 post.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-                post.result?.let { result ->
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("投稿した。宛先 ${result.deliveryAttemptCount} 件のうち ${result.delivered} 件に届いた。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                        Text(result.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
             }
         },
         confirmButton = {
@@ -692,7 +659,7 @@ private fun PostDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismissRequest, enabled = post.closeEnabled) { Text("閉じる") }
+            TextButton(onClick = post.listener::onDismiss, enabled = post.closeEnabled) { Text("閉じる") }
         },
     )
 }

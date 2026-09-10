@@ -36,10 +36,9 @@ private fun AdminAccountContentPreview() {
                         listener = AndroidPreviewRegisteredFeedListener,
                         postLatestButtonEnabled = true,
                     ),
-                    post = AdminAccountScreenUiState.Post(
+                    postDialog = AdminAccountScreenUiState.Post(
                         body = "新しい記事を公開しました。",
                         submitting = false,
-                        result = null,
                         error = null,
                         listener = AndroidPreviewPostListener,
                         bodyInputEnabled = true,
@@ -91,16 +90,7 @@ private fun AdminAccountContentNoFeedPreview() {
                         listener = AndroidPreviewAccountListener,
                     ),
                     feed = AdminAccountScreenUiState.Feed.NotRegistered(listener = AndroidPreviewNotRegisteredFeedListener),
-                    post = AdminAccountScreenUiState.Post(
-                        body = "",
-                        submitting = false,
-                        result = null,
-                        error = null,
-                        listener = AndroidPreviewPostListener,
-                        bodyInputEnabled = true,
-                        postButtonEnabled = false,
-                        closeEnabled = true,
-                    ),
+                    postDialog = null,
                     notes = emptyList(),
                     deleteNoteDialog = null,
                     deleteAccountDialog = null,
@@ -126,6 +116,8 @@ private object AndroidPreviewAccountListener : AdminAccountScreenUiState.Account
 
     override fun onClickEditProfile() = Unit
 
+    override fun onClickNewPost() = Unit
+
     override fun onClickDelete() = Unit
 }
 
@@ -141,6 +133,8 @@ private object AndroidPreviewPostListener : AdminAccountScreenUiState.PostListen
     override fun onBodyChanged(text: String) = Unit
 
     override fun onClickPost() = Unit
+
+    override fun onDismiss() = Unit
 }
 
 private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Listener {
