@@ -98,16 +98,17 @@ class FeedIconServiceTest {
         }
 
     @Test
-    fun `埋め込みPNGが無いICOは保存しない`() =
+    fun `変換できないICOは保存しない`() =
         runTest {
             val repositories = FakeRepositories()
             val feedId = repositories.addFeed()
-            // ICONDIR + ICONDIRENTRY はあるが、指す先が PNG 署名で始まらない（BMP 埋め込み相当）
-            val bmpOnlyIco = byteArrayOf(0, 0, 1, 0, 1, 0) +
+            // ICONDIR + ICONDIRENTRY はあるが、指す先が PNG 署名で始まらず、
+            // BITMAPINFOHEADER（40 バイト）を名乗るには短すぎる中身
+            val unusableIco = byteArrayOf(0, 0, 1, 0, 1, 0) +
                 byteArrayOf(32, 32, 0, 0, 1, 0, 32, 0, 4, 0, 0, 0, 22, 0, 0, 0) +
                 byteArrayOf(0x28, 0, 0, 0)
             val engine = MockEngine {
-                respond(content = bmpOnlyIco, headers = headersOf("Content-Type", "image/x-icon"))
+                respond(content = unusableIco, headers = headersOf("Content-Type", "image/x-icon"))
             }
 
             serviceOf(repositories, engine).refresh(feedId = feedId, iconUrl = ICON_URL)

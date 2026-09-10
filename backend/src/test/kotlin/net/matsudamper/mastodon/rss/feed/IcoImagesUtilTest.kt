@@ -1,69 +1,152 @@
 package net.matsudamper.mastodon.rss.feed
 
+import java.io.ByteArrayOutputStream
+import java.util.zip.Inflater
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import net.matsudamper.mastodon.rss.TestImageBytes
 
-// ICO コンテナから埋め込みの PNG を取り出す部分だけを、FeedIconService から切り離して確かめる
+// ICO コンテナから埋め込み画像を PNG として取り出す部分だけを、FeedIconService から切り離して確かめる
 class IcoImagesUtilTest {
     @Test
-    fun `埋め込みのPNGを取り出せる`() {
-        val extracted = IcoImagesUtil.extractLargestPng(TestImageBytes.ICO)
+    fun `埋め込みのPNGはそのまま取り出せる`() {
+        val extracted = IcoImagesUtil.extractLargestImageAsPng(TestImageBytes.ICO)
 
         assertContentEquals(TestImageBytes.PNG, assertNotNull(extracted))
     }
 
     @Test
-    fun `複数エントリのうち面積が一番大きいものを選ぶ`() {
+    fun `複数のPNGエントリのうち面積が一番大きいものを選ぶ`() {
         val small = TestImageBytes.PNG + byteArrayOf(1)
         val large = TestImageBytes.PNG + byteArrayOf(1, 2, 3, 4)
 
         val header = byteArrayOf(0, 0, 1, 0, 2, 0)
         val firstOffset = header.size + ENTRY_SIZE * 2
         val secondOffset = firstOffset + small.size
-        val entries = entryOf(width = 16, height = 16, size = small.size, offset = firstOffset) +
-            entryOf(width = 48, height = 48, size = large.size, offset = secondOffset)
+        val entries = pngEntryOf(width = 16, height = 16, size = small.size, offset = firstOffset) +
+            pngEntryOf(width = 48, height = 48, size = large.size, offset = secondOffset)
 
         val ico = header + entries + small + large
 
-        assertContentEquals(large, assertNotNull(IcoImagesUtil.extractLargestPng(ico)))
+        assertContentEquals(large, assertNotNull(IcoImagesUtil.extractLargestImageAsPng(ico)))
     }
 
     @Test
-    fun `PNGが埋め込まれていなければnull`() {
-        // エントリはあるが、指す先が PNG 署名で始まらない（BMP 埋め込み相当）
+    fun `32ビットDIBは実アルファをそのまま使って変換できる`() {
+        // 2x2。各ピクセルに別々の色と不透明なアルファを持たせる
+        val colorData = byteArrayOf(
+            // ファイル先頭の行 = 画像の下段: (0,1) → (1,1)
+            90, 80, 70, 255.toByte(), 120, 110, 100, 255.toByte(),
+            // ファイル 2 行目 = 画像の上段: (0,0) → (1,0)
+            30, 20, 10, 255.toByte(), 60, 50, 40, 255.toByte(),
+        )
+        // 実アルファがある間は無視されるはずのマスク。両ピクセルとも透明にしてある
+        val maskData = byteArrayOf(0xC0.toByte(), 0, 0, 0, 0xC0.toByte(), 0, 0, 0)
+        val ico = icoWithDib(width = 2, height = 2, bitCount = 32, colorData = colorData, maskData = maskData)
+
+        val (width, height, rgba) = decodePngRgba(assertNotNull(IcoImagesUtil.extractLargestImageAsPng(ico)))
+
+        assertEquals(2, width)
+        assertEquals(2, height)
+        assertContentEquals(
+            byteArrayOf(
+                10, 20, 30, 255.toByte(), 40, 50, 60, 255.toByte(),
+                70, 80, 90, 255.toByte(), 100, 110, 120, 255.toByte(),
+            ),
+            rgba,
+        )
+    }
+
+    @Test
+    fun `実アルファが無い32ビットDIBはANDマスクで透過を決める`() {
+        // 色データのアルファは全ピクセル 0（実アルファ無し扱い）
+        val colorData = byteArrayOf(
+            90, 80, 70, 0, 120, 110, 100, 0,
+            30, 20, 10, 0, 60, 50, 40, 0,
+        )
+        // 画像左上 (0,0) だけ透明、他は不透明にする
+        val maskData = byteArrayOf(0, 0, 0, 0, 0x80.toByte(), 0, 0, 0)
+        val ico = icoWithDib(width = 2, height = 2, bitCount = 32, colorData = colorData, maskData = maskData)
+
+        val (_, _, rgba) = decodePngRgba(assertNotNull(IcoImagesUtil.extractLargestImageAsPng(ico)))
+
+        assertEquals(0, rgba[3].toInt(), "(0,0) のアルファ")
+        assertEquals(255, rgba[7].toInt() and 0xFF, "(1,0) のアルファ")
+        assertEquals(255, rgba[11].toInt() and 0xFF, "(0,1) のアルファ")
+        assertEquals(255, rgba[15].toInt() and 0xFF, "(1,1) のアルファ")
+    }
+
+    @Test
+    fun `24ビットDIBはアルファを持たずANDマスクで透過を決める`() {
+        // 幅 2、高さ 1。24 ビットは 1 行 6 バイトを 4 バイト境界へ 2 バイットパディングする
+        val colorData = byteArrayOf(1, 2, 3, 4, 5, 6, 0, 0)
+        // 右のピクセルだけ透明にする
+        val maskData = byteArrayOf(0x40, 0, 0, 0)
+        val ico = icoWithDib(width = 2, height = 1, bitCount = 24, colorData = colorData, maskData = maskData)
+
+        val (width, height, rgba) = decodePngRgba(assertNotNull(IcoImagesUtil.extractLargestImageAsPng(ico)))
+
+        assertEquals(2, width)
+        assertEquals(1, height)
+        assertContentEquals(
+            byteArrayOf(3, 2, 1, 255.toByte(), 6, 5, 4, 0),
+            rgba,
+        )
+    }
+
+    @Test
+    fun `パレット形式のDIBは変換できない`() {
+        val colorData = ByteArray(rowStride(2, 8) * 2)
+        val maskData = ByteArray(rowStride(2, 1) * 2)
+        val ico = icoWithDib(width = 2, height = 2, bitCount = 8, colorData = colorData, maskData = maskData)
+
+        assertNull(IcoImagesUtil.extractLargestImageAsPng(ico))
+    }
+
+    @Test
+    fun `圧縮されたDIBは変換できない`() {
+        val colorData = ByteArray(rowStride(2, 32) * 2)
+        val maskData = ByteArray(rowStride(2, 1) * 2)
+        val ico = icoWithDib(width = 2, height = 2, bitCount = 32, colorData = colorData, maskData = maskData, compression = 1)
+
+        assertNull(IcoImagesUtil.extractLargestImageAsPng(ico))
+    }
+
+    @Test
+    fun `どちらの形式でもない短いエントリはnull`() {
         val header = byteArrayOf(0, 0, 1, 0, 1, 0)
-        val entries = entryOf(width = 32, height = 32, size = 8, offset = header.size + ENTRY_SIZE)
+        val entries = pngEntryOf(width = 32, height = 32, size = 8, offset = header.size + ENTRY_SIZE)
         val ico = header + entries + byteArrayOf(0x28, 0, 0, 0, 32, 0, 0, 0)
 
-        assertNull(IcoImagesUtil.extractLargestPng(ico))
+        assertNull(IcoImagesUtil.extractLargestImageAsPng(ico))
     }
 
     @Test
     fun `ヘッダーが短すぎればnull`() {
-        assertNull(IcoImagesUtil.extractLargestPng(byteArrayOf(0, 0, 1, 0)))
+        assertNull(IcoImagesUtil.extractLargestImageAsPng(byteArrayOf(0, 0, 1, 0)))
     }
 
     @Test
     fun `ICOではない種類のヘッダーはnull`() {
         // type が 2（カーソル）
         val header = byteArrayOf(0, 0, 2, 0, 0, 0)
-        assertNull(IcoImagesUtil.extractLargestPng(header))
+        assertNull(IcoImagesUtil.extractLargestImageAsPng(header))
     }
 
     @Test
     fun `申告した範囲がファイルをはみ出すエントリはnull`() {
         val header = byteArrayOf(0, 0, 1, 0, 1, 0)
         // size を実際のバイト列より大きく申告する
-        val entries = entryOf(width = 32, height = 32, size = 1_000, offset = header.size + ENTRY_SIZE)
+        val entries = pngEntryOf(width = 32, height = 32, size = 1_000, offset = header.size + ENTRY_SIZE)
         val ico = header + entries + TestImageBytes.PNG
 
-        assertNull(IcoImagesUtil.extractLargestPng(ico))
+        assertNull(IcoImagesUtil.extractLargestImageAsPng(ico))
     }
 
-    private fun entryOf(
+    private fun pngEntryOf(
         width: Int,
         height: Int,
         size: Int,
@@ -79,6 +162,41 @@ class IcoImagesUtilTest {
         0,
     ) + littleEndian(size) + littleEndian(offset)
 
+    /**
+     * DIB（BMP）1 枚だけを埋め込んだ ICO コンテナ。
+     *
+     * [colorData] と [maskData] は呼び出し側が [rowStride] に合わせてパディング済みのものを渡す
+     */
+    private fun icoWithDib(
+        width: Int,
+        height: Int,
+        bitCount: Int,
+        colorData: ByteArray,
+        maskData: ByteArray,
+        compression: Int = 0,
+    ): ByteArray {
+        val header = byteArrayOf(0, 0, 1, 0, 1, 0)
+        val dibHeader = ByteArray(DIB_HEADER_SIZE)
+        littleEndianInto(dibHeader, 0, DIB_HEADER_SIZE)
+        littleEndianInto(dibHeader, 4, width)
+        littleEndianInto(dibHeader, 8, height * 2)
+        littleEndian16Into(dibHeader, 12, 1)
+        littleEndian16Into(dibHeader, 14, bitCount)
+        littleEndianInto(dibHeader, 16, compression)
+        val dib = dibHeader + colorData + maskData
+
+        val imageOffset = header.size + ENTRY_SIZE
+        val entry = byteArrayOf(width.toByte(), height.toByte(), 0, 0, 1, 0, bitCount.toByte(), 0) +
+            littleEndian(dib.size) + littleEndian(imageOffset)
+
+        return header + entry + dib
+    }
+
+    private fun rowStride(
+        width: Int,
+        bitsPerPixel: Int,
+    ): Int = ((width * bitsPerPixel + 31) / 32) * 4
+
     private fun littleEndian(value: Int): ByteArray = byteArrayOf(
         (value and 0xFF).toByte(),
         ((value shr 8) and 0xFF).toByte(),
@@ -86,7 +204,75 @@ class IcoImagesUtilTest {
         ((value shr 24) and 0xFF).toByte(),
     )
 
+    private fun littleEndianInto(
+        target: ByteArray,
+        offset: Int,
+        value: Int,
+    ) {
+        target[offset] = (value and 0xFF).toByte()
+        target[offset + 1] = ((value shr 8) and 0xFF).toByte()
+        target[offset + 2] = ((value shr 16) and 0xFF).toByte()
+        target[offset + 3] = ((value shr 24) and 0xFF).toByte()
+    }
+
+    private fun littleEndian16Into(
+        target: ByteArray,
+        offset: Int,
+        value: Int,
+    ) {
+        target[offset] = (value and 0xFF).toByte()
+        target[offset + 1] = ((value shr 8) and 0xFF).toByte()
+    }
+
+    /**
+     * [IcoImagesUtil] が組み立てた PNG を読み戻す。IHDR と IDAT だけを見る、この
+     * テスト専用の最小限のデコーダー（フィルタ無し・8 ビット RGBA だけを前提にする）
+     */
+    private fun decodePngRgba(png: ByteArray): Triple<Int, Int, ByteArray> {
+        var pos = 8
+        var width = 0
+        var height = 0
+        val idat = ByteArrayOutputStream()
+        while (pos < png.size) {
+            val length = readU32BE(png, pos)
+            val type = String(png, pos + 4, 4, Charsets.US_ASCII)
+            val dataStart = pos + 8
+            when (type) {
+                "IHDR" -> {
+                    width = readU32BE(png, dataStart)
+                    height = readU32BE(png, dataStart + 4)
+                }
+                "IDAT" -> idat.write(png, dataStart, length)
+            }
+            pos = dataStart + length + 4
+        }
+
+        val inflater = Inflater()
+        inflater.setInput(idat.toByteArray())
+        val stride = width * 4
+        val raw = ByteArray(height * (1 + stride))
+        var written = 0
+        while (written < raw.size) {
+            written += inflater.inflate(raw, written, raw.size - written)
+        }
+
+        val rgba = ByteArray(width * height * 4)
+        for (row in 0 until height) {
+            System.arraycopy(raw, row * (1 + stride) + 1, rgba, row * stride, stride)
+        }
+        return Triple(width, height, rgba)
+    }
+
+    private fun readU32BE(
+        bytes: ByteArray,
+        offset: Int,
+    ): Int = ((bytes[offset].toInt() and 0xFF) shl 24) or
+        ((bytes[offset + 1].toInt() and 0xFF) shl 16) or
+        ((bytes[offset + 2].toInt() and 0xFF) shl 8) or
+        (bytes[offset + 3].toInt() and 0xFF)
+
     private companion object {
         const val ENTRY_SIZE = 16
+        const val DIB_HEADER_SIZE = 40
     }
 }

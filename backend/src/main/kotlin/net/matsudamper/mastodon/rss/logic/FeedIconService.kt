@@ -107,12 +107,12 @@ class FeedIconService(
      *
      * ICO はほとんどが favicon で、これを受け付けないとサイトの favicon を
      * アイコンに充てられなくなる。一方 Mastodon は ICO をアバターとして読めないので、
-     * 埋め込まれた PNG を取り出して差し替える。埋め込みが BMP だけの ICO は
-     * 変換できないので null を返す
+     * 埋め込まれた画像を PNG に変換して差し替える。パレット形式や圧縮された DIB など、
+     * 変換できない ICO は null を返す
      */
     private fun IconFetchService.FetchResult.Success.asMastodonServable(): Pair<ByteArray, IconImageType>? {
         if (imageType != IconImageType.ICO) return bytes to imageType
-        val png = IcoImagesUtil.extractLargestPng(bytes) ?: return null
+        val png = IcoImagesUtil.extractLargestImageAsPng(bytes) ?: return null
         return png to IconImageType.PNG
     }
 
