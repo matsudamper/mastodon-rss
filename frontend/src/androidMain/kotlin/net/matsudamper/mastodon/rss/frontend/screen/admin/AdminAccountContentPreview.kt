@@ -34,6 +34,7 @@ private fun AdminAccountContentPreview() {
                         postingUnpublished = false,
                         unpublishedError = null,
                         listener = AndroidPreviewRegisteredFeedListener,
+                        postLatestButtonEnabled = true,
                     ),
                     deliveryQueue = AdminAccountScreenUiState.DeliveryQueue(
                         waitingCount = 3,
@@ -57,12 +58,14 @@ private fun AdminAccountContentPreview() {
                         failedMoreText = null,
                         listener = AndroidPreviewDeliveryQueueListener,
                     ),
-                    post = AdminAccountScreenUiState.Post(
+                    postDialog = AdminAccountScreenUiState.Post(
                         body = "新しい記事を公開しました。",
                         submitting = false,
-                        result = null,
                         error = null,
                         listener = AndroidPreviewPostListener,
+                        bodyInputEnabled = true,
+                        postButtonEnabled = true,
+                        closeEnabled = true,
                     ),
                     notes = listOf(
                         AdminAccountScreenUiState.Note(
@@ -118,13 +121,7 @@ private fun AdminAccountContentNoFeedPreview() {
                         failedMoreText = null,
                         listener = AndroidPreviewDeliveryQueueListener,
                     ),
-                    post = AdminAccountScreenUiState.Post(
-                        body = "",
-                        submitting = false,
-                        result = null,
-                        error = null,
-                        listener = AndroidPreviewPostListener,
-                    ),
+                    postDialog = null,
                     notes = emptyList(),
                     deleteNoteDialog = null,
                     deleteAccountDialog = null,
@@ -150,6 +147,8 @@ private object AndroidPreviewAccountListener : AdminAccountScreenUiState.Account
 
     override fun onClickEditProfile() = Unit
 
+    override fun onClickNewPost() = Unit
+
     override fun onClickDelete() = Unit
 }
 
@@ -169,6 +168,8 @@ private object AndroidPreviewPostListener : AdminAccountScreenUiState.PostListen
     override fun onBodyChanged(text: String) = Unit
 
     override fun onClickPost() = Unit
+
+    override fun onDismiss() = Unit
 }
 
 private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Listener {

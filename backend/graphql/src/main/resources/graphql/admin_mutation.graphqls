@@ -91,9 +91,6 @@ type AdminPostNoteResult {
     "記録できていれば入る。配信はこの後キューから行う"
     note: AdminNote
 
-    "キューに入れた宛先の数。sharedInbox でまとまるのでフォロワーの数とは一致しない"
-    deliveryTargets: Int
-
     "投稿できなかった場合だけ入る"
     failure: AdminPostNoteFailure
 }

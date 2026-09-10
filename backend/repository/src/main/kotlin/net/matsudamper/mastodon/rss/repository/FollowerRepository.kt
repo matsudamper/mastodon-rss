@@ -79,6 +79,28 @@ interface FollowerRepository {
     fun removeRemoteActor(actorUri: String): Int
 
     /**
+     * 相手のアクターの公開鍵の PEM を返す。記録が無ければ null。
+     *
+     * `Follow` を受けたときに読んだものをそのまま返す。`Accept` を返せていない
+     * 相手も対象にする。相手が消えるとアクター文書は引けなくなるので、
+     * 署名の検証はこの記録が最後の手がかりになる。
+     */
+    fun findPublicKeyPem(actorUri: String): String?
+
+    /**
+     * 記録済みの相手の公開鍵を、読み直したもので置き換える。
+     *
+     * 記録が無ければ何もしない。フォローしていない相手の鍵を溜めても使い道が無い。
+     * 相手が鍵を替えると、`Follow` を受けたときの鍵は検証に使えなくなる。
+     * 消えた後に届く `Delete` を検証できるのは、最後に読めた鍵を持っているときだけ。
+     */
+    fun rememberPublicKeyPem(
+        actorUri: String,
+        publicKeyPem: String,
+        readAt: Instant,
+    )
+
+    /**
      * フォロワーのアクター URL を返す。`followers` コレクションに使う。
      *
      * 並びは URL 順。位置を件数で数えず、直前のページの最後の 1 件で指す。

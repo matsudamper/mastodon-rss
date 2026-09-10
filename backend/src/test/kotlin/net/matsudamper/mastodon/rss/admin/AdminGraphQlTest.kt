@@ -570,9 +570,7 @@ class AdminGraphQlTest {
                 acceptedAt = Instant.parse("2026-08-16T00:00:00Z"),
             )
 
-            val posted = mutatePostNote(username = "feed1", body = "お知らせ", token = token).admin().obj("postNote")
-
-            assertEquals(1, posted.getValue("deliveryTargets").jsonPrimitive.int)
+            mutatePostNote(username = "feed1", body = "お知らせ", token = token).admin().obj("postNote")
 
             val queue = queryDeliveryQueue("feed1", token).admin().obj("adminAccount")
             assertEquals(1, queue.obj("deliveryQueue").getValue("waitingCount").jsonPrimitive.int)
@@ -1257,7 +1255,7 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "mutation Post(${'$'}username: String!, ${'$'}body: String!) { admin { " +
-                "postNote(username: ${'$'}username, body: ${'$'}body) { note { url } deliveryTargets failure { isEmpty } } } }",
+                "postNote(username: ${'$'}username, body: ${'$'}body) { note { url } failure { isEmpty } } } }",
             token = token,
             variables = """{"username":${JsonPrimitive(username)},"body":${JsonPrimitive(body)}}""",
         )

@@ -243,7 +243,6 @@ mutation AdminPostNote($username: String!, $body: String!) {
             note {
                 ...AdminNoteFields
             }
-            deliveryTargets
             failure {
                 unknownAccount
                 isEmpty

@@ -191,9 +191,6 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         }
     }
 
-    /**
-     * 配信はキューに入るだけで、相手に届くのはこの後。返せるのは投函した宛先の数まで
-     */
     override fun postNote(
         adminMutation: QlAdminMutation,
         username: String,
@@ -211,7 +208,6 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                         contentHtml = posted.queued.contentHtml,
                         publishedAt = posted.queued.publishedAt.epochSecond,
                     ),
-                    deliveryTargets = posted.queued.queuedDeliveries,
                     failure = null,
                 )
             }
@@ -219,7 +215,6 @@ class AdminMutationResolverImpl : AdminMutationResolver {
             is NoteService.PostResult.Failure -> {
                 QlAdminPostNoteResult(
                     note = null,
-                    deliveryTargets = null,
                     failure = QlAdminPostNoteFailure(
                         unknownAccount = posted.unknownAccount,
                         isEmpty = posted.isEmpty,
