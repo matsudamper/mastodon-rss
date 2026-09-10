@@ -31,6 +31,34 @@ internal class SqliteFeedHeaderRepository(
             }
     }
 
+    override fun findByFeedIds(feedIds: Set<FeedId>): Map<FeedId, FeedHeader> {
+        if (feedIds.isEmpty()) return mapOf()
+
+        return jooq.withConnection { dsl ->
+            dsl
+                .selectFrom(FEED_HEADERS)
+                .where(FEED_HEADERS.FEED_ID.`in`(feedIds.map { it.value }))
+                .fetch()
+                .associate { record ->
+                    val feedId = FeedId(requireNotNull(record.feedId) { "feed_headers.feed_id が null" })
+                    val sourceUrl = requireNotNull(record.sourceUrl) { "feed_headers.source_url が null: feedId=${feedId.value}" }
+                    val contentType = requireNotNull(record.contentType) { "feed_headers.content_type が null: feedId=${feedId.value}" }
+                    val revision = requireNotNull(record.revision) { "feed_headers.revision が null: feedId=${feedId.value}" }
+                    val path = requireNotNull(record.path) { "feed_headers.path が null: feedId=${feedId.value}" }
+                    val fetchedAt = requireNotNull(record.fetchedAt) { "feed_headers.fetched_at が null: feedId=${feedId.value}" }
+                    val expiresAt = requireNotNull(record.expiresAt) { "feed_headers.expires_at が null: feedId=${feedId.value}" }
+                    feedId to FeedHeader(
+                        sourceUrl = sourceUrl,
+                        contentType = contentType,
+                        revision = revision,
+                        path = path,
+                        fetchedAt = StoredInstant.parse(fetchedAt),
+                        expiresAt = StoredInstant.parse(expiresAt),
+                    )
+                }
+        }
+    }
+
     override fun save(
         feedId: FeedId,
         header: FeedHeader,

@@ -12,6 +12,9 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 interface FeedHeaderRepository {
     fun find(feedId: FeedId): FeedHeader?
 
+    fun findByFeedIds(feedIds: Set<FeedId>): Map<FeedId, FeedHeader> =
+        feedIds.mapNotNull { feedId -> find(feedId)?.let { feedId to it } }.toMap()
+
     /**
      * 入れ替える。フィードに 1 つしか持たない
      */
