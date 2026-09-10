@@ -240,7 +240,6 @@ private fun CompactLoadedAccountContent(
                 state = state,
                 wide = false,
                 listener = listener,
-                onOpenExternal = onOpenExternal,
             )
         }
         state.feed?.let { feed ->
@@ -289,7 +288,6 @@ private fun WideLoadedAccountContent(
                     state = state,
                     wide = true,
                     listener = listener,
-                    onOpenExternal = onOpenExternal,
                 )
             }
         },
@@ -346,7 +344,6 @@ private fun ProfileHeader(
     state: AccountUiState,
     wide: Boolean,
     listener: AccountScreenUiState.Listener,
-    onOpenExternal: (String) -> Unit,
 ) {
     val avatarSize = if (wide) 88.dp else 68.dp
     val colors = avatarColors(state.username)
