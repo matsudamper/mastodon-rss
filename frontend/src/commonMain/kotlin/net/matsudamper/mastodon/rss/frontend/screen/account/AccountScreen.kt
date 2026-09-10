@@ -487,18 +487,6 @@ private fun ProfileHeader(
                     )
                     Stat(value = state.noteCount, label = "配信した投稿", onClick = null)
                 }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    val feedUrl = state.feed?.feedUrl
-                    if (feedUrl != null) {
-                        Button(onClick = { onOpenExternal(feedUrl) }) {
-                            Text("フィードを開く")
-                        }
-                    }
-                    OutlinedButton(onClick = { onOpenExternal(state.actorUrl) }) {
-                        Text("Actor JSON")
-                    }
-                }
             }
         }
     }
