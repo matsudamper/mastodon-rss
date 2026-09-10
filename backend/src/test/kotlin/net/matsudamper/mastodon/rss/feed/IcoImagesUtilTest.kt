@@ -242,6 +242,7 @@ class IcoImagesUtilTest {
                     width = readU32BE(png, dataStart)
                     height = readU32BE(png, dataStart + 4)
                 }
+
                 "IDAT" -> idat.write(png, dataStart, length)
             }
             pos = dataStart + length + 4
