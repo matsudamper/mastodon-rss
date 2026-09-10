@@ -35,6 +35,7 @@ internal class UrlLinkifier(
             val last = value[endExclusive - 1]
             when {
                 last in TRAILING_URL_PUNCTUATION -> endExclusive--
+
                 last in CLOSING_BRACKETS -> {
                     val opening = CLOSING_BRACKETS.getValue(last)
                     val candidate = value.substring(0, endExclusive)
@@ -46,6 +47,7 @@ internal class UrlLinkifier(
                         break
                     }
                 }
+
                 else -> break
             }
         }
