@@ -57,6 +57,8 @@ private fun AdminAccountContentPreview() {
                         ),
                         failedMoreText = null,
                         listener = AndroidPreviewDeliveryQueueListener,
+                        retryingSectionVisible = true,
+                        failedSectionVisible = true,
                     ),
                     postDialog = AdminAccountScreenUiState.Post(
                         body = "新しい記事を公開しました。",
@@ -120,6 +122,8 @@ private fun AdminAccountContentNoFeedPreview() {
                         failed = emptyList(),
                         failedMoreText = null,
                         listener = AndroidPreviewDeliveryQueueListener,
+                        retryingSectionVisible = false,
+                        failedSectionVisible = false,
                     ),
                     postDialog = null,
                     notes = emptyList(),

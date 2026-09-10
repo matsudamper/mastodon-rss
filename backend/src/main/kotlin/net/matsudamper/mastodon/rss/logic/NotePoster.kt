@@ -57,7 +57,7 @@ class NotePoster(
         return when (result) {
             is EnqueueNoteResult.Queued -> {
                 logger.info("投稿を投函した: ${sender.acct} ${prepared.publicId} 宛先=${result.deliveries}")
-                prepared.toQueuedNote(result.deliveries)
+                prepared.toQueuedNote()
             }
 
             EnqueueNoteResult.FeedItemNotPending -> null
@@ -95,7 +95,7 @@ class NotePoster(
         return when (result) {
             is EnqueueNoteResult.Queued -> {
                 logger.info("記録済みの投稿を投函し直した: ${sender.acct} ${prepared.publicId} 宛先=${result.deliveries}")
-                prepared.toQueuedNote(result.deliveries)
+                prepared.toQueuedNote()
             }
 
             EnqueueNoteResult.FeedItemNotPending -> null
@@ -109,24 +109,20 @@ class NotePoster(
         publishedAt = publishedAt,
     )
 
-    private fun PreparedNote.toQueuedNote(queuedDeliveries: Int): QueuedNote = QueuedNote(
+    private fun PreparedNote.toQueuedNote(): QueuedNote = QueuedNote(
         publicId = publicId,
         url = url,
         contentHtml = contentHtml,
         publishedAt = publishedAt,
-        queuedDeliveries = queuedDeliveries,
     )
 }
 
 /**
- * 記録して投函した投稿。
- *
- * @param queuedDeliveries キューに入れた宛先の数。`sharedInbox` でまとまるのでフォロワーの数とは一致しない
+ * 記録して投函した投稿。相手に届くのはこの後
  */
 data class QueuedNote(
     val publicId: MastodonPublicNoteId,
     val url: String,
     val contentHtml: String,
     val publishedAt: Instant,
-    val queuedDeliveries: Int,
 )

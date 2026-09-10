@@ -222,7 +222,6 @@ class NoteServiceTest {
         val result = service().post(username = TestLocalActor.USERNAME, body = "本文")
 
         val success = assertIs<NoteService.PostResult.Success>(result)
-        assertEquals(1, success.queued.queuedDeliveries)
         assertEquals(1, added().size)
         // 送るのは配信ワーカー。ここで送ってしまうと、落ちたときに送り直せない
         assertEquals(emptyList(), delivery.delivered)

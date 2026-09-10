@@ -785,6 +785,8 @@ class AdminAccountScreenViewModel(
             failed = emptyList(),
             failedMoreText = null,
             listener = deliveryQueueListener,
+            retryingSectionVisible = false,
+            failedSectionVisible = false,
         )
 
         return AdminAccountScreenUiState.DeliveryQueue(
@@ -808,6 +810,8 @@ class AdminAccountScreenViewModel(
             },
             failedMoreText = "他にもある。新しい ${queue.failed.size} 件だけ表示している".takeIf { queue.failedHasMore },
             listener = deliveryQueueListener,
+            retryingSectionVisible = queue.retrying.isNotEmpty(),
+            failedSectionVisible = queue.failed.isNotEmpty(),
         )
     }
 
