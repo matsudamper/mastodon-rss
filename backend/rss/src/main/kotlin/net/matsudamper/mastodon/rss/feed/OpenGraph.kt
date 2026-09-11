@@ -19,12 +19,13 @@ package net.matsudamper.mastodon.rss.feed
  */
 object OpenGraph {
     /**
-     * 画像を探す順。前にあるものを優先する。
-     *
-     * `secure_url` を先に見るのは https 版だから。`og:image` が http のページでは、
-     * 添付を取りに来た相手が拒むことがある。
+     * 直前に宣言された画像の https 版。`og:image` が http のページでは、
+     * 添付を取りに来た相手が拒むことがあるので、あればこちらを使う
      */
-    private val imageKeys = listOf("og:image:secure_url", "og:image", "og:image:url")
+    private const val SECURE_IMAGE_URL_KEY = "og:image:secure_url"
+
+    /** 画像に関わるプロパティ。`og:image:url` は `og:image` と同じ意味 */
+    private val imageKeys = setOf("og:image", "og:image:url", SECURE_IMAGE_URL_KEY)
 
     /** 中身を文字列として扱う要素。閉じるまで飛ばす */
     private val rawTextTags = setOf("script", "style", "template", "noscript")
@@ -53,9 +54,13 @@ object OpenGraph {
      * 呼び出し側で [HttpUrl.sanitize] に通すこと。
      *
      * 複数枚あるページでは最初の 1 枚を採る。OGP は先頭を代表の画像とする決まり。
+     * `og:image:secure_url` は直前に宣言された画像に属するので、1 枚目のものだけを見る。
      */
     fun imageUrl(html: String): String? {
-        val images = mutableMapOf<String, String>()
+        var imageUrl: String? = null
+        var secureImageUrl: String? = null
+        // 2 枚目の宣言が出たら、そこから先の secure_url は 1 枚目のものではない
+        var firstImageClosed = false
         var index = 0
 
         while (index < html.length) {
@@ -83,8 +88,16 @@ object OpenGraph {
 
             if (name == "meta") {
                 imageOf(html.substring(tagStart, tagEnd + 1))?.let { (key, content) ->
-                    images.putIfAbsent(key, content)
+                    if (key == SECURE_IMAGE_URL_KEY) {
+                        if (!firstImageClosed && secureImageUrl == null) secureImageUrl = content
+                    } else if (imageUrl == null) {
+                        imageUrl = content
+                    } else {
+                        firstImageClosed = true
+                    }
                 }
+                // 1 枚目の宣言が閉じたら、残りを読んでも結果は変わらない
+                if (firstImageClosed) break
             }
 
             index = if (name in rawTextTags) {
@@ -96,7 +109,7 @@ object OpenGraph {
             }
         }
 
-        return imageKeys.firstNotNullOfOrNull { key -> images[key] }
+        return secureImageUrl ?: imageUrl
     }
 
     /**

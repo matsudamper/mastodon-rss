@@ -51,7 +51,7 @@ class OpenGraphTest {
     }
 
     @Test
-    fun `og image url より og image を優先する`() {
+    fun `og image url も 1 枚目の宣言として扱う`() {
         val html =
             """
             <head>
@@ -60,7 +60,23 @@ class OpenGraphTest {
             </head>
             """.trimIndent()
 
-        assertEquals("https://example.com/image.png", OpenGraph.imageUrl(html))
+        // og:image:url は og:image と同じ意味なので、これが 1 枚目になる
+        assertEquals("https://example.com/url.png", OpenGraph.imageUrl(html))
+    }
+
+    @Test
+    fun `2 枚目に付いた secure url は使わない`() {
+        val html =
+            """
+            <head>
+            <meta property="og:image" content="https://example.com/1.png">
+            <meta property="og:image" content="https://example.com/2.png">
+            <meta property="og:image:secure_url" content="https://example.com/2-secure.png">
+            </head>
+            """.trimIndent()
+
+        // secure_url は直前に宣言された画像のもの。1 枚目には付いていない
+        assertEquals("https://example.com/1.png", OpenGraph.imageUrl(html))
     }
 
     @Test
