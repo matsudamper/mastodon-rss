@@ -6,11 +6,18 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
 
 // 送れなかった配信を次にいつ送るか。
 // 間隔が 2 倍ずつ伸びて 24 時間で頭打ちになること、30 日で諦めることが要件。
 class DeliveryRetryPolicyTest {
-    private val policy = DeliveryRetryPolicy()
+    private val policy = DeliveryRetryPolicy(
+        initialInterval = 30.seconds,
+        maxInterval = 24.hours,
+        giveUpAfter = 30.days,
+    )
 
     private val enqueuedAt: Instant = Instant.parse("2026-08-10T00:00:00Z")
 

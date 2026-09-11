@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -71,6 +72,8 @@ class DeliveryWorkerTest {
             directory = TestLocalActor.directory,
             idleInterval = IDLE,
             clock = { current },
+            retryPolicy = TEST_RETRY_POLICY,
+            claimLimit = 8,
         )
 
         val job = worker.start(this)
@@ -100,7 +103,7 @@ class DeliveryWorkerTest {
         runWorker(
             repositories.deliveryQueue,
             delivery,
-            retryPolicy = DeliveryRetryPolicy(initialInterval = 2.hours, giveUpAfter = 1.hours),
+            retryPolicy = DeliveryRetryPolicy(initialInterval = 2.hours, maxInterval = 24.hours, giveUpAfter = 1.hours),
         )
 
         assertEquals(1, delivery.attempts)
@@ -138,6 +141,8 @@ class DeliveryWorkerTest {
             directory = TestLocalActor.directory,
             idleInterval = IDLE,
             clock = { now },
+            retryPolicy = TEST_RETRY_POLICY,
+            claimLimit = 8,
         )
         val job = worker.start(this)
         advanceTimeBy(IDLE * 10)
@@ -160,6 +165,8 @@ class DeliveryWorkerTest {
             directory = TestLocalActor.directory,
             idleInterval = IDLE,
             clock = { current },
+            retryPolicy = TEST_RETRY_POLICY,
+            claimLimit = 8,
         )
 
         val job = worker.start(this)
@@ -188,6 +195,8 @@ class DeliveryWorkerTest {
             directory = TestLocalActor.directory,
             idleInterval = IDLE,
             clock = { now },
+            retryPolicy = TEST_RETRY_POLICY,
+            claimLimit = 8,
         )
 
         val job = worker.start(this)
@@ -211,6 +220,7 @@ class DeliveryWorkerTest {
             idleInterval = IDLE,
             claimLimit = 8,
             clock = { now },
+            retryPolicy = TEST_RETRY_POLICY,
         )
 
         val job = worker.start(this)
@@ -310,6 +320,8 @@ class DeliveryWorkerTest {
             directory = TestLocalActor.directory,
             idleInterval = IDLE,
             clock = { now },
+            retryPolicy = TEST_RETRY_POLICY,
+            claimLimit = 8,
         )
 
         val job = worker.start(this)
@@ -333,7 +345,7 @@ class DeliveryWorkerTest {
         delivery: RecordingDelivery,
         claimLimit: Int = 8,
         clock: () -> Instant = { now },
-        retryPolicy: DeliveryRetryPolicy = DeliveryRetryPolicy(),
+        retryPolicy: DeliveryRetryPolicy = TEST_RETRY_POLICY,
     ) {
         val worker = DeliveryWorker(
             queue = queue,
@@ -482,5 +494,12 @@ class DeliveryWorkerTest {
 
     private companion object {
         val IDLE = 100.milliseconds
+
+        // 本番と同じ間隔。テストは時刻を自分で進めるので、実際に待つことはない
+        val TEST_RETRY_POLICY = DeliveryRetryPolicy(
+            initialInterval = 30.seconds,
+            maxInterval = 24.hours,
+            giveUpAfter = 30.days,
+        )
     }
 }

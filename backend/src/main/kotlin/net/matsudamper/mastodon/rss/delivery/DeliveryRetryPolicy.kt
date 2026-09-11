@@ -4,9 +4,6 @@ import java.time.Instant
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
 /**
@@ -21,9 +18,9 @@ import kotlin.time.toJavaDuration
  * @param giveUpAfter 投函からこれを過ぎる時刻に送ることになるなら諦める
  */
 class DeliveryRetryPolicy(
-    private val initialInterval: Duration = 30.seconds,
-    private val maxInterval: Duration = 24.hours,
-    private val giveUpAfter: Duration = 30.days,
+    private val initialInterval: Duration,
+    private val maxInterval: Duration,
+    private val giveUpAfter: Duration,
 ) {
     /**
      * 投函から時間が経ちすぎていて、もう送るべきでないか。

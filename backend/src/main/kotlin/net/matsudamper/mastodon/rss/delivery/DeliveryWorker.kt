@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss.delivery
 
 import java.time.Instant
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -36,10 +35,10 @@ class DeliveryWorker(
     private val queue: DeliveryQueueRepository,
     private val delivery: ActivityDelivery,
     private val directory: ActorDirectory,
-    private val retryPolicy: DeliveryRetryPolicy = DeliveryRetryPolicy(),
-    private val claimLimit: Int = DEFAULT_CLAIM_LIMIT,
-    private val idleInterval: Duration = DEFAULT_IDLE_INTERVAL,
-    private val clock: () -> Instant = Instant::now,
+    private val retryPolicy: DeliveryRetryPolicy,
+    private val claimLimit: Int,
+    private val idleInterval: Duration,
+    private val clock: () -> Instant,
 ) {
     /**
      * 送信中のまま残っている行を戻してから、繰り返しを始める
@@ -185,8 +184,6 @@ class DeliveryWorker(
     }
 
     private companion object {
-        const val DEFAULT_CLAIM_LIMIT: Int = 8
-        val DEFAULT_IDLE_INTERVAL: Duration = 1.seconds
         val logger = LoggerFactory.getLogger(DeliveryWorker::class.java)
     }
 }

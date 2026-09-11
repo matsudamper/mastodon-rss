@@ -1,6 +1,10 @@
 package net.matsudamper.mastodon.rss
 
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,6 +26,7 @@ import net.matsudamper.mastodon.rss.actor.StoredActorProfiles
 import net.matsudamper.mastodon.rss.actor.StoredFeedLinks
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.delivery.DeliveryRetryPolicy
 import net.matsudamper.mastodon.rss.delivery.DeliveryWorker
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
@@ -243,6 +248,14 @@ class AppDependencies(
             queue = repositories.deliveryQueue,
             delivery = delivery,
             directory = directory,
+            retryPolicy = DeliveryRetryPolicy(
+                initialInterval = 30.seconds,
+                maxInterval = 24.hours,
+                giveUpAfter = 30.days,
+            ),
+            claimLimit = 8,
+            idleInterval = 1.seconds,
+            clock = Instant::now,
         ).start(deliveryScope)
     }
 
