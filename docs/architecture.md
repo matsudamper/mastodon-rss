@@ -354,7 +354,7 @@ Cookie の `Secure` は既定で付ける。本番はリバースプロキシで
 同時実行数の上限になる。送れなかった行は間隔を空けて送り直し、投函から時間が経ちすぎた行は
 諦める。間隔と期限は `DeliveryRetryPolicy` が決める。
 
-`Accept{Follow}`・`Delete{Note}`・`Delete{Actor}` はキューに載せず、今まで通りその場で送る。
+`Accept{Follow}`・`Delete{Note}`・`Delete{Actor}`・`Update{Actor}` はキューに載せず、今まで通りその場で送る。
 行の形は「署名するアカウント・宛先・送るボディ」と種別（`kind`）なので、載せるときに
 テーブルを作り直す必要は無い。
 
