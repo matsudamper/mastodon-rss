@@ -190,6 +190,40 @@ class HttpRemoteActorsTest {
         assertNull(assertNotNull(actor).acct)
     }
 
+    @Test
+    fun `名乗られたホストが裏付けない subject は信じない`() {
+        val client = HttpClient(
+            MockEngine { request ->
+                when {
+                    request.url.encodedPath != "/.well-known/webfinger" ->
+                        respondJson(actorDocument(""""preferredUsername": "alice","""))
+
+                    // アクターのホストは他所の acct を名乗る。名乗られた側は知らないと答える
+                    request.url.host == "remote.example" ->
+                        respondJson(webFinger(subject = "acct:admin@mastodon.social", selfHref = ACTOR_ID))
+
+                    else -> respondError(HttpStatusCode.NotFound)
+                }
+            },
+        )
+
+        val actor = HttpRemoteActors(client = client).use { runBlocking { it.findActor(ACTOR_ID) } }
+
+        // 通すと、リンク先はこちらのホスト・名乗りは他所のホストという表示を作れる
+        assertNull(assertNotNull(actor).acct)
+    }
+
+    @Test
+    fun `別のポートを指すプロフィールの URL は落とす`() {
+        val fetched = findActor(
+            document = actorDocument(""""url": "https://remote.example:8443/@alice","""),
+            webFinger = null,
+        )
+
+        // ホストが同じでも別のポートは別の接続先
+        assertNull(assertNotNull(fetched.actor).profileUrl)
+    }
+
     private fun actorDocument(extraFields: String): String =
         """
         {

@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.actor
 
 import java.io.Closeable
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -25,6 +26,7 @@ import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.webfinger.WebFingerLink
+import org.slf4j.LoggerFactory
 
 /**
  * 相手のアクター文書を実際に GET して、公開鍵と inbox を取る。
@@ -52,6 +54,8 @@ class HttpRemoteActors(
     private val client: HttpClient = defaultClient(openTelemetry),
 ) : RemoteActors,
     Closeable {
+    private val logger = LoggerFactory.getLogger(HttpRemoteActors::class.java)
+
     /**
      * アクター文書のキャッシュ。鍵と inbox を別々に持たないのは、
      * どちらも同じ 1 つの文書から読むものだから。
@@ -95,7 +99,12 @@ class HttpRemoteActors(
             // 管理画面から人が開くリンクになる。https で、アクターと同じホストのものに限る。
             // 他所のホストを指せると、フォローするだけでこちらの画面に任意のリンクを載せられる
             profileUrl = document.url.asString()?.takeIf { parseHttpsUrl(it) != null && isSameHost(it, url) },
-            acct = preferredUsername?.let { resolveAcct(actorId = actorId, actorUrl = url, preferredUsername = it) },
+            // acct が無くてもフォローは成立する。inbox の応答を待たせないよう短く切る
+            acct = preferredUsername?.let { name ->
+                withTimeoutOrNull(ACCT_TIMEOUT_MILLIS) {
+                    resolveAcct(actorId = actorId, actorUrl = url, preferredUsername = name)
+                }
+            },
         )
     }
 
@@ -105,11 +114,15 @@ class HttpRemoteActors(
      * `preferredUsername` とアクターのホストを繋げただけの acct は、Mastodon の
      * `WEB_DOMAIN` と `LOCAL_DOMAIN` を分けている相手（アクターは前者、acct は後者）では
      * 検索窓で解決しない。正しい acct はアクターのホストの WebFinger が返す
-     * `subject` にしかないので、フォローを受けた時点で 1 往復だけ引く。
+     * `subject` にしかないので、フォローを受けた時点で引く。
      *
-     * 返ってきた `subject` は、`links` の `self` がこのアクターを指していることを
-     * 確かめてから信じる。確かめないと、同じホストの別のアカウントの名前を名乗れる。
-     * acct のホストはアクターのホストと違ってよい（委譲がその形になる）。
+     * `subject` は 2 つ確かめてから信じる。
+     *
+     * - `links` の `self` がこのアクターを指していること。同じホストの別の
+     *   アカウントの名前を名乗られないため
+     * - `subject` のホストがアクターのホストと違う場合は、名乗られたホストの
+     *   WebFinger にも同じことを言わせる。確かめないと、リンク先はこちらのホスト、
+     *   名乗りは他所のホスト、という表示を相手が作れる。委譲は正しくこの形になる
      */
     private suspend fun resolveAcct(
         actorId: String,
@@ -120,43 +133,114 @@ class HttpRemoteActors(
         val authority =
             if (actorUrl.port == actorUrl.protocol.defaultPort) actorUrl.host else "${actorUrl.host}:${actorUrl.port}"
 
+        val document =
+            fetchWebFinger(
+                authority = authority,
+                resource = "$ACCT_SCHEME$preferredUsername@$authority",
+                allowedHosts = setOf(actorUrl.host),
+                requiredPort = actorUrl.port,
+            ) ?: return null
+
+        val acct = document.acctPointingTo(actorId) ?: run {
+            logger.info("WebFinger の応答がこのアクターを指していない: $actorId")
+            return null
+        }
+
+        if (acct.host.equals(actorUrl.host, ignoreCase = true)) return acct.text
+
+        // 名乗られたホスト側の WebFinger。LOCAL_DOMAIN 側はアクターのホストへ
+        // リダイレクトするのが普通なので、移った先はどちらでもよい
+        val delegated =
+            fetchWebFinger(
+                authority = acct.host,
+                resource = "$ACCT_SCHEME${acct.name}@${acct.host}",
+                allowedHosts = setOf(acct.host, actorUrl.host),
+                requiredPort = null,
+            ) ?: return null
+
+        val confirmed = delegated.acctPointingTo(actorId)
+        if (confirmed?.text != acct.text) {
+            logger.info("acct のホストが名乗りを裏付けない: $actorId acct=${acct.text}")
+            return null
+        }
+
+        return acct.text
+    }
+
+    /**
+     * WebFinger を 1 回引く。読めなければ null。
+     *
+     * @param allowedHosts リダイレクトで移ってよいホスト。ここに無いホストが返した
+     *   ものは、そのホストが他人の acct を名乗れることになるので捨てる
+     * @param requiredPort 移った先に許すポート。null なら問わない
+     */
+    private suspend fun fetchWebFinger(
+        authority: String,
+        resource: String,
+        allowedHosts: Set<String>,
+        requiredPort: Int?,
+    ): RemoteWebFingerDocument? {
         val response =
             runCatching {
                 client.get("https://$authority/.well-known/webfinger") {
-                    parameter("resource", "acct:$preferredUsername@$authority")
+                    parameter("resource", resource)
                     // JRD だけを返すサーバーに application/json だけで問い合わせると 406 になる
                     header(
                         HttpHeaders.Accept,
                         "${ActivityPubContentTypes.JrdJson}, ${ContentType.Application.Json}",
                     )
                 }
-            }.getOrNull() ?: return null
+            }.getOrNull()
 
-        if (!response.status.isSuccess()) return null
+        if (response == null) {
+            logger.info("WebFinger を引けなかった: $resource")
+            return null
+        }
+
+        if (!response.status.isSuccess()) {
+            logger.info("WebFinger が失敗を返した: $resource status=${response.status.value}")
+            return null
+        }
 
         // リダイレクトで別の宛先に移っていたら、そこが他人の acct を名乗れる。
         // ポートを落とすと別の接続先になるのと同じ理由で、scheme とポートまで見る
         val finalUrl = response.request.url
-        if (!finalUrl.host.equals(actorUrl.host, ignoreCase = true)) return null
-        if (finalUrl.protocol != URLProtocol.HTTPS) return null
-        if (finalUrl.port != actorUrl.port) return null
+        val movedAway =
+            finalUrl.protocol != URLProtocol.HTTPS ||
+                allowedHosts.none { finalUrl.host.equals(it, ignoreCase = true) } ||
+                (requiredPort != null && finalUrl.port != requiredPort)
+        if (movedAway) {
+            logger.info("WebFinger が別の宛先へ移った: $resource 移った先=${finalUrl.host}")
+            return null
+        }
 
         val body = runCatching { response.bodyAsText() }.getOrNull() ?: return null
-        if (body.length > MAX_BODY_CHARS) return null
+        if (body.length > MAX_BODY_CHARS) {
+            logger.info("WebFinger の応答が大きすぎる: $resource")
+            return null
+        }
 
-        val document =
-            runCatching { AppJson.decodeFromString(RemoteWebFingerDocument.serializer(), body) }
-                .getOrNull() ?: return null
+        return runCatching { AppJson.decodeFromString(RemoteWebFingerDocument.serializer(), body) }
+            .getOrNull()
+            ?: run {
+                logger.info("WebFinger の応答を読めなかった: $resource")
+                null
+            }
+    }
 
-        val pointsBackToActor = document.links.any { it.rel == WebFingerLink.REL_SELF && it.href == actorId }
+    /**
+     * `self` が [actorId] を指しているときだけ、`subject` を acct として読む
+     */
+    private fun RemoteWebFingerDocument.acctPointingTo(actorId: String): ResolvedAcct? {
+        val pointsBackToActor = links.any { it.rel == WebFingerLink.REL_SELF && it.href == actorId }
         if (!pointsBackToActor) return null
 
-        val subject = document.subject?.removePrefix(ACCT_SCHEME) ?: return null
-        val name = subject.substringBefore('@', missingDelimiterValue = "")
-        val host = subject.substringAfter('@', missingDelimiterValue = "")
+        val acctSubject = subject?.removePrefix(ACCT_SCHEME) ?: return null
+        val name = acctSubject.substringBefore('@', missingDelimiterValue = "")
+        val host = acctSubject.substringAfter('@', missingDelimiterValue = "")
         if (!isDisplayableUsername(name) || !isAcctHost(host)) return null
 
-        return "@$name@$host"
+        return ResolvedAcct(name = name, host = host)
     }
 
     /**
@@ -243,15 +327,25 @@ class HttpRemoteActors(
             .getOrNull()
             ?.takeIf { it.protocol == URLProtocol.HTTPS }
 
+    /**
+     * ポートまで見る。ホストが同じでも別のポートは別の接続先で、
+     * 配信先として通すと相手が指した別のサーバーに POST することになる
+     */
     private fun isSameHost(
         raw: String,
         expected: Url,
     ): Boolean {
-        val host = runCatching { Url(raw) }.getOrNull()?.host ?: return false
-        return host.equals(expected.host, ignoreCase = true)
+        val url = runCatching { Url(raw) }.getOrNull() ?: return false
+        return url.host.equals(expected.host, ignoreCase = true) && url.port == expected.port
     }
 
     private companion object {
+        /**
+         * acct の確定に使ってよい時間。アクター文書の取得と `Accept` の送信に
+         * 積み上がるので短く切る。ここで諦めても「未取得」になるだけ
+         */
+        const val ACCT_TIMEOUT_MILLIS = 3_000L
+
         /**
          * `subject` に付く scheme。`acct:alice@example.com` の形で返ってくる
          */
@@ -328,6 +422,18 @@ private data class RemoteActorDocument(
     @SerialName("endpoints")
     val endpoints: RemoteActorEndpoints? = null,
 )
+
+/**
+ * WebFinger から読めた acct。
+ *
+ * @param text 画面に出す `@name@host` の形
+ */
+private data class ResolvedAcct(
+    val name: String,
+    val host: String,
+) {
+    val text: String = "@$name@$host"
+}
 
 /**
  * 相手のホストの WebFinger の応答のうち、こちらが見る部分だけ。
