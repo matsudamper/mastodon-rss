@@ -5,7 +5,6 @@ import java.time.Instant
 import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.actor.ActorHeader
 import net.matsudamper.mastodon.rss.actor.ActorHeaders
-import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FeedRepository
@@ -26,8 +25,7 @@ class ActorHeaderService(
         val account = accounts.findByUsername(username) ?: return null
         val feed = feeds.findByAccountId(account.id) ?: return null
         val stored = headers.find(feed.id) ?: return null
-        // 取り込みが取ってこない形の URL（http(s) 以外）から入ったものは出さない
-        if (HttpUrl.sanitize(stored.sourceUrl, feed.url) == null) return null
+        if (!FeedHeaderVisibility.isPublic(stored, feed)) return null
         val bytes = store.read(stored.path) ?: return null
 
         return ActorHeader(

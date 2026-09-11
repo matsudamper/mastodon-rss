@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.dataloader
 
-import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.graphql.otelSupplyAsync
+import net.matsudamper.mastodon.rss.logic.FeedHeaderVisibility
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.shared.AccountId
@@ -27,7 +27,7 @@ class HeaderVersionByAccountIdDataLoaderDefine(
 
                 feeds.mapNotNull { (accountId, feed) ->
                     val header = headersByFeedId[feed.id] ?: return@mapNotNull null
-                    if (HttpUrl.sanitize(header.sourceUrl, feed.url) == null) return@mapNotNull null
+                    if (!FeedHeaderVisibility.isPublic(header, feed)) return@mapNotNull null
                     accountId to header.revision
                 }.toMap()
             }
