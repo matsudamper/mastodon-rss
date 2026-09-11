@@ -94,7 +94,7 @@ class FeedIconServiceTest {
             val saved = assertNotNull(repositories.feedIcons.find(feedId))
             assertTrue(saved.path.endsWith(".png"), "保存先: ${saved.path}")
             assertEquals("image/png", saved.contentType)
-            assertContentEquals(TestImageBytes.PNG, assertNotNull(store.read(saved.path)))
+            assertContentEquals(TestImageBytes.PNG + TestImageBytes.PNG_IEND, assertNotNull(store.read(saved.path)))
         }
 
     @Test

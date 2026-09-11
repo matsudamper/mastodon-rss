@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.logic
 
+import java.net.URI
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -11,6 +12,7 @@ import net.matsudamper.mastodon.rss.feed.IconImageType
 import net.matsudamper.mastodon.rss.repository.FeedIcon
 import net.matsudamper.mastodon.rss.repository.FeedIconRepository
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
+import org.slf4j.LoggerFactory
 
 /**
  * フィードが名乗るアイコンの中身を入れ替える。
@@ -30,6 +32,8 @@ class FeedIconService(
      * 重なると、ファイルと記録の書き込みが入れ違い、記録と中身が食い違う
      */
     private val locks = ConcurrentHashMap<FeedId, Mutex>()
+
+    private val logger = LoggerFactory.getLogger(FeedIconService::class.java)
 
     override suspend fun refresh(
         feedId: FeedId,
@@ -61,7 +65,12 @@ class FeedIconService(
 
         // ICO のままでは Mastodon がプロフィール画像として読めないので、
         // 埋め込まれた PNG に差し替える。変換できなければ取れなかったときと同じ扱いにする
-        val (bytes, imageType) = fetched.asMastodonServable() ?: return false
+        val (bytes, imageType) = fetched.asMastodonServable() ?: run {
+            // 出さないと、アイコンが出ない理由が外から分からない。
+            // URL の残りはクエリに購読者だけが知るトークンを含むことがあるのでホストだけ出す
+            logger.warn("ICOをMastodonに配れる形式へ変換できない: feedId={}, host={}", feedId.value, hostOf(iconUrl))
+            return false
+        }
 
         val previous = icons.find(feedId)
         val path = store.write(
@@ -107,7 +116,7 @@ class FeedIconService(
      *
      * ICO はほとんどが favicon で、これを受け付けないとサイトの favicon を
      * アイコンに充てられなくなる。一方 Mastodon は ICO をアバターとして読めないので、
-     * 埋め込まれた画像を PNG に変換して差し替える。パレット形式や圧縮された DIB など、
+     * 埋め込まれた画像を PNG に変換して差し替える。圧縮された DIB など、
      * 変換できない ICO は null を返す
      */
     private fun IconFetchService.FetchResult.Success.asMastodonServable(): Pair<ByteArray, IconImageType>? {
@@ -115,6 +124,8 @@ class FeedIconService(
         val png = IcoImagesUtil.extractLargestImageAsPng(bytes) ?: return null
         return png to IconImageType.PNG
     }
+
+    private fun hostOf(url: String): String? = runCatching { URI(url).host }.getOrNull()
 
     private companion object {
         /**

@@ -14,8 +14,8 @@ import java.util.zip.DeflaterOutputStream
  *
  * ICO の中の 1 枚が PNG ならバイト列としてそのまま完成した PNG なので、
  * コンテナから範囲を切り出すだけで配れる形になる。もう一方の形式である BMP（DIB）は
- * ICONDIR が持つ幅・高さと、AND マスクによる透過だけの単純な無圧縮画像なので、
- * 展開して PNG に描き直す。パレット形式（1/4/8 ビット）や圧縮された DIB は対応しない
+ * 無圧縮のパレット（1/4/8 ビット）と直接指定（24/32 ビット）を展開して PNG に描き直す。
+ * 圧縮された DIB や BITMAPINFOHEADER 以外のヘッダー形式は対応しない
  */
 object IcoImagesUtil {
     /**
@@ -45,7 +45,7 @@ object IcoImagesUtil {
             val area = areaOf(bytes, entry)
             if (area <= bestArea) continue
 
-            val png = imageAsPng(bytes, offset.toInt(), size.toInt()) ?: continue
+            val png = imageAsPng(bytes, entry, offset.toInt(), size.toInt()) ?: continue
             bestArea = area
             bestPng = png
         }
@@ -54,33 +54,54 @@ object IcoImagesUtil {
     }
 
     /**
-     * ICONDIRENTRY が申告する幅と高さの面積。0 は 256 を表す
+     * ICONDIRENTRY が申告する幅・高さの 1 辺。0 は 256 を表す
+     */
+    private fun declaredSide(value: Byte): Int {
+        val raw = value.toInt() and 0xFF
+        return if (raw == 0) SIDE_WHEN_ZERO else raw
+    }
+
+    /**
+     * ICONDIRENTRY が申告する幅と高さの面積
      */
     private fun areaOf(
         bytes: ByteArray,
         entry: Int,
-    ): Int {
-        val width = bytes[entry].toInt() and 0xFF
-        val height = bytes[entry + 1].toInt() and 0xFF
-        return (if (width == 0) SIDE_WHEN_ZERO else width) * (if (height == 0) SIDE_WHEN_ZERO else height)
-    }
+    ): Int = declaredSide(bytes[entry]) * declaredSide(bytes[entry + 1])
 
     /**
      * このエントリの中身を PNG バイト列にする。
      *
-     * PNG 署名で始まっていればそのまま切り出す。そうでなければ BMP（DIB）として復号し、
-     * 復号できなければ null（パレット形式・圧縮された DIB など）
+     * PNG 署名で始まり IEND チャンクで終わっていればそのまま切り出す。そうでなければ
+     * BMP（DIB）として復号し、復号できなければ null（圧縮された DIB など）
      */
     private fun imageAsPng(
         bytes: ByteArray,
+        entry: Int,
         start: Int,
         size: Int,
     ): ByteArray? {
-        if (size >= PNG_SIGNATURE.size && bytes.regionStartsWith(start, PNG_SIGNATURE)) {
+        if (isCompletePng(bytes, start, size)) {
             return bytes.copyOfRange(start, start + size)
         }
-        val decoded = decodeDib(bytes, start, size) ?: return null
+        val decoded = decodeDib(bytes, entry, start, size) ?: return null
         return encodePng(decoded.width, decoded.height, decoded.rgba)
+    }
+
+    /**
+     * 範囲が PNG 署名で始まり IEND チャンクで終わっているか。
+     *
+     * ICONDIRENTRY の size は配信元の申告値で、実際の PNG より短く申告されていることがある。
+     * 署名だけを見ると、途中で切れた PNG をそのまま image/png として配ってしまう
+     */
+    private fun isCompletePng(
+        bytes: ByteArray,
+        start: Int,
+        size: Int,
+    ): Boolean {
+        if (size < PNG_SIGNATURE.size + PNG_IEND.size) return false
+        if (!bytes.regionStartsWith(start, PNG_SIGNATURE)) return false
+        return bytes.regionStartsWith(start + size - PNG_IEND.size, PNG_IEND)
     }
 
     private fun ByteArray.regionStartsWith(
@@ -93,57 +114,75 @@ object IcoImagesUtil {
     private class DecodedImage(
         val width: Int,
         val height: Int,
-        /** 上から下、1 ピクセルあたり R, G, B, A の並び */
+        /**
+         * 上から下、1 ピクセルあたり R, G, B, A の並び
+         */
         val rgba: ByteArray,
     )
 
     /**
      * ICO に埋め込まれた DIB を復号する。
      *
-     * ICO の DIB は BITMAPFILEHEADER を持たず BITMAPINFOHEADER（40 バイト）から始まり、
-     * 高さは実際の高さの 2 倍（色データ分 + AND マスク分）を申告する。行は下から並び、
-     * 4 バイト境界にパディングされる。無圧縮の 24 / 32 ビットだけを扱う
+     * ICO の DIB は BITMAPFILEHEADER を持たず BITMAPINFOHEADER（40 バイト）から始まる。
+     * 幅・高さは ICONDIRENTRY の申告と一致するものだけを受け付ける。高さは仕様上
+     * 実際の高さの 2 倍（色データ分 + AND マスク分）を申告するが、マスクを省いて
+     * 実際の高さをそのまま書くエンコーダもあるため、その場合はマスク無しとして読む。
+     * どちらとも一致しなければ壊れているとみなす
      */
     private fun decodeDib(
         bytes: ByteArray,
+        entry: Int,
         dibOffset: Int,
         entrySize: Int,
     ): DecodedImage? {
         if (entrySize < DIB_HEADER_SIZE || dibOffset + DIB_HEADER_SIZE > bytes.size) return null
         if (readU32(bytes, dibOffset) != DIB_HEADER_SIZE.toLong()) return null
 
+        val declaredWidth = declaredSide(bytes[entry])
+        val declaredHeight = declaredSide(bytes[entry + 1])
+
         val width = readU32(bytes, dibOffset + 4)
+        if (width != declaredWidth.toLong()) return null
+
         val doubledHeight = readU32(bytes, dibOffset + 8)
+        val (h, hasEmbeddedMask) = when (doubledHeight) {
+            declaredHeight.toLong() * 2 -> declaredHeight to true
+            declaredHeight.toLong() -> declaredHeight to false
+            else -> return null
+        }
+
         val planes = readU16(bytes, dibOffset + 12)
         val bitCount = readU16(bytes, dibOffset + 14)
         val compression = readU32(bytes, dibOffset + 16)
 
-        if (width <= 0L || width > MAX_SIDE) return null
-        if (doubledHeight <= 0L || doubledHeight % 2L != 0L || doubledHeight / 2L > MAX_SIDE) return null
         if (planes != 1) return null
-        if (bitCount != 24 && bitCount != 32) return null
+        if (bitCount !in SUPPORTED_BIT_COUNTS) return null
         if (compression != 0L) return null
 
-        val w = width.toInt()
-        val h = (doubledHeight / 2L).toInt()
+        val w = declaredWidth
         val entryEnd = dibOffset.toLong() + entrySize
 
+        val paletteOffset = dibOffset + DIB_HEADER_SIZE
+        val paletteCount = paletteCountOf(bytes, dibOffset, bitCount)
+        val paletteEnd = paletteOffset.toLong() + paletteCount.toLong() * PALETTE_ENTRY_SIZE
+        if (paletteEnd > bytes.size.toLong() || paletteEnd > entryEnd) return null
+
         val colorStride = rowStride(w, bitCount)
-        val colorStart = dibOffset + DIB_HEADER_SIZE
+        val colorStart = paletteEnd.toInt()
         val colorEnd = colorStart.toLong() + colorStride.toLong() * h
         if (colorEnd > bytes.size.toLong() || colorEnd > entryEnd) return null
 
         val rgba = ByteArray(w * h * 4)
-        val bytesPerPixel = bitCount / 8
         for (row in 0 until h) {
             val srcRowStart = colorStart + row * colorStride
             val dstRow = h - 1 - row
             for (col in 0 until w) {
-                val srcPixel = srcRowStart + col * bytesPerPixel
-                val b = bytes[srcPixel].toInt() and 0xFF
-                val g = bytes[srcPixel + 1].toInt() and 0xFF
-                val r = bytes[srcPixel + 2].toInt() and 0xFF
-                val a = if (bitCount == 32) bytes[srcPixel + 3].toInt() and 0xFF else OPAQUE
+                val (r, g, b) = colorAt(bytes, srcRowStart, col, bitCount, paletteOffset)
+                val a = if (bitCount == BIT_COUNT_ARGB32) {
+                    bytes[srcRowStart + col * 4 + 3].toInt() and 0xFF
+                } else {
+                    OPAQUE
+                }
 
                 val dstIndex = (dstRow * w + col) * 4
                 rgba[dstIndex] = r.toByte()
@@ -155,16 +194,100 @@ object IcoImagesUtil {
 
         val maskStride = rowStride(w, 1)
         val maskStart = colorEnd.toInt()
-        val maskEnd = maskStart.toLong() + maskStride.toLong() * h
-        val hasMask = maskEnd <= bytes.size.toLong() && maskEnd <= entryEnd
+        val hasMask = hasEmbeddedMask &&
+            run {
+                val maskEnd = maskStart.toLong() + maskStride.toLong() * h
+                maskEnd <= bytes.size.toLong() && maskEnd <= entryEnd
+            }
 
         // 32 ビットは実アルファを持つことがある。全ピクセルで 0 なら実アルファ無しとみなし、
         // AND マスクの方を使う（さもないと画像全体が透明に見える）
-        if (bitCount != 32 || !hasRealAlpha(rgba)) {
+        if (bitCount != BIT_COUNT_ARGB32 || !hasRealAlpha(rgba)) {
             applyAndMask(bytes, maskStart, maskStride, w, h, hasMask, rgba)
         }
 
         return DecodedImage(w, h, rgba)
+    }
+
+    /**
+     * パレットの色数。biClrUsed が 1 件以上ビット数の上限以下ならその値、
+     * それ以外（0 や不正な申告値）はビット数から決まる上限をそのまま使う。
+     * 24 / 32 ビットにパレットは無い
+     */
+    private fun paletteCountOf(
+        bytes: ByteArray,
+        dibOffset: Int,
+        bitCount: Int,
+    ): Int {
+        if (bitCount == BIT_COUNT_RGB24 || bitCount == BIT_COUNT_ARGB32) return 0
+
+        val maxColors = 1 shl bitCount
+        val declaredColors = readU32(bytes, dibOffset + 32)
+        return if (declaredColors in 1..maxColors.toLong()) declaredColors.toInt() else maxColors
+    }
+
+    /**
+     * この位置の画素の色。パレット形式なら索引を引き、直接指定形式ならそのまま読む
+     */
+    private fun colorAt(
+        bytes: ByteArray,
+        rowStart: Int,
+        col: Int,
+        bitCount: Int,
+        paletteOffset: Int,
+    ): Triple<Int, Int, Int> = when (bitCount) {
+        BIT_COUNT_RGB24, BIT_COUNT_ARGB32 -> directColorAt(bytes, rowStart, col, bitCount)
+        else -> paletteColorAt(bytes, paletteOffset, colorIndexAt(bytes, rowStart, col, bitCount))
+    }
+
+    private fun directColorAt(
+        bytes: ByteArray,
+        rowStart: Int,
+        col: Int,
+        bitCount: Int,
+    ): Triple<Int, Int, Int> {
+        val srcPixel = rowStart + col * (bitCount / 8)
+        val b = bytes[srcPixel].toInt() and 0xFF
+        val g = bytes[srcPixel + 1].toInt() and 0xFF
+        val r = bytes[srcPixel + 2].toInt() and 0xFF
+        return Triple(r, g, b)
+    }
+
+    private fun paletteColorAt(
+        bytes: ByteArray,
+        paletteOffset: Int,
+        index: Int,
+    ): Triple<Int, Int, Int> {
+        val entry = paletteOffset + index * PALETTE_ENTRY_SIZE
+        val b = bytes[entry].toInt() and 0xFF
+        val g = bytes[entry + 1].toInt() and 0xFF
+        val r = bytes[entry + 2].toInt() and 0xFF
+        return Triple(r, g, b)
+    }
+
+    /**
+     * パレット索引。1 ビットは 8 画素、4 ビットは 2 画素を 1 バイトに詰め、
+     * どちらも上位ビットが先の画素を表す
+     */
+    private fun colorIndexAt(
+        bytes: ByteArray,
+        rowStart: Int,
+        col: Int,
+        bitCount: Int,
+    ): Int = when (bitCount) {
+        1 -> {
+            val byteIndex = rowStart + col / 8
+            val bit = 7 - (col % 8)
+            (bytes[byteIndex].toInt() ushr bit) and 0x1
+        }
+
+        4 -> {
+            val byteIndex = rowStart + col / 2
+            val packed = bytes[byteIndex].toInt() and 0xFF
+            if (col % 2 == 0) (packed ushr 4) and 0xF else packed and 0xF
+        }
+
+        else -> bytes[rowStart + col].toInt() and 0xFF
     }
 
     private fun hasRealAlpha(rgba: ByteArray): Boolean {
@@ -201,7 +324,9 @@ object IcoImagesUtil {
         }
     }
 
-    /** 1 行のバイト数。4 バイト境界に切り上げる */
+    /**
+     * 1 行のバイト数。4 バイト境界に切り上げる
+     */
     private fun rowStride(
         width: Int,
         bitsPerPixel: Int,
@@ -308,10 +433,14 @@ object IcoImagesUtil {
         offset: Int,
     ): Long = readU16(bytes, offset).toLong() or (readU16(bytes, offset + 2).toLong() shl 16)
 
-    /** ICONDIR の大きさ（reserved + type + count） */
+    /**
+     * ICONDIR の大きさ（reserved + type + count）
+     */
     private const val HEADER_SIZE = 6
 
-    /** ICONDIRENTRY 1 件の大きさ */
+    /**
+     * ICONDIRENTRY 1 件の大きさ
+     */
     private const val ENTRY_SIZE = 16
     private const val RESERVED_OFFSET = 0
     private const val TYPE_OFFSET = 2
@@ -319,16 +448,26 @@ object IcoImagesUtil {
     private const val SIZE_OFFSET = 8
     private const val IMAGE_OFFSET_OFFSET = 12
 
-    /** ICONDIR.type がアイコン（カーソルではない）を表す値 */
+    /**
+     * ICONDIR.type がアイコン（カーソルではない）を表す値
+     */
     private const val TYPE_ICON = 1
     private const val SIDE_WHEN_ZERO = 256
 
-    /** BITMAPINFOHEADER の大きさ。これ以外のヘッダー形式（パレット付きの古い形式など）は扱わない */
+    /**
+     * BITMAPINFOHEADER の大きさ。これ以外のヘッダー形式は扱わない
+     */
     private const val DIB_HEADER_SIZE = 40
-    private const val MAX_SIDE = 256L
+    private const val PALETTE_ENTRY_SIZE = 4
+    private const val BIT_COUNT_RGB24 = 24
+    private const val BIT_COUNT_ARGB32 = 32
+    private val SUPPORTED_BIT_COUNTS = setOf(1, 4, 8, BIT_COUNT_RGB24, BIT_COUNT_ARGB32)
     private const val OPAQUE = 0xFF
 
     private val PNG_SIGNATURE = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+    private val PNG_IEND = byteArrayOf(
+        0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE.toByte(), 0x42, 0x60, 0x82.toByte(),
+    )
     private val IHDR_TYPE = byteArrayOf('I'.code.toByte(), 'H'.code.toByte(), 'D'.code.toByte(), 'R'.code.toByte())
     private val IDAT_TYPE = byteArrayOf('I'.code.toByte(), 'D'.code.toByte(), 'A'.code.toByte(), 'T'.code.toByte())
     private val IEND_TYPE = byteArrayOf('I'.code.toByte(), 'E'.code.toByte(), 'N'.code.toByte(), 'D'.code.toByte())

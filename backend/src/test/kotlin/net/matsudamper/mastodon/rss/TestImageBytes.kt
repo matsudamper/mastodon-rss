@@ -17,17 +17,27 @@ object TestImageBytes {
     val WEBP: ByteArray = "RIFF".toByteArray() + byteArrayOf(0, 0, 0, 0) + "WEBP".toByteArray()
 
     /**
+     * PNG の IEND チャンク。ICO から取り出す側は末尾がこれで終わっているかまで見るので、
+     * 埋め込みの PNG は署名だけでなくこれも持たせる
+     */
+    val PNG_IEND: ByteArray = byteArrayOf(
+        0, 0, 0, 0, 0x49, 0x45, 0x4E, 0x44, 0xAE.toByte(), 0x42, 0x60, 0x82.toByte(),
+    )
+
+    /**
      * PNG を 1 枚だけ埋め込んだ ICO コンテナ。
      *
      * ICONDIR（6 バイト、reserved=0 / type=1 / count=1）+
-     * ICONDIRENTRY（16 バイト、32x32 で埋め込みの [PNG] を指す）+ その PNG。
+     * ICONDIRENTRY（16 バイト、32x32 で埋め込みの PNG を指す）+
+     * その PNG（[PNG] の署名 + [PNG_IEND]）。
      * ICO から埋め込み画像を取り出す側のテストで、実際に復号できる形として使う
      */
     val ICO: ByteArray = run {
+        val embeddedPng = PNG + PNG_IEND
         val header = byteArrayOf(0, 0, 1, 0, 1, 0)
         val imageOffset = header.size + ENTRY_SIZE
-        val entry = byteArrayOf(32, 32, 0, 0, 1, 0, 32, 0) + littleEndian(PNG.size) + littleEndian(imageOffset)
-        header + entry + PNG
+        val entry = byteArrayOf(32, 32, 0, 0, 1, 0, 32, 0) + littleEndian(embeddedPng.size) + littleEndian(imageOffset)
+        header + entry + embeddedPng
     }
 
     /**

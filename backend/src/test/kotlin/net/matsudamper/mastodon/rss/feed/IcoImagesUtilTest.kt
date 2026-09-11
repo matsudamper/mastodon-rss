@@ -15,13 +15,26 @@ class IcoImagesUtilTest {
     fun `埋め込みのPNGはそのまま取り出せる`() {
         val extracted = IcoImagesUtil.extractLargestImageAsPng(TestImageBytes.ICO)
 
-        assertContentEquals(TestImageBytes.PNG, assertNotNull(extracted))
+        assertContentEquals(TestImageBytes.PNG + TestImageBytes.PNG_IEND, assertNotNull(extracted))
+    }
+
+    @Test
+    fun `末尾がIENDでないPNGは取り出さない`() {
+        // 署名はあるが IEND チャンクの手前で申告サイズが切れている
+        val realPng = TestImageBytes.PNG + "FAKE_CHUNK_DATA".toByteArray() + TestImageBytes.PNG_IEND
+        val truncatedSize = realPng.size - 5
+
+        val header = byteArrayOf(0, 0, 1, 0, 1, 0)
+        val entries = pngEntryOf(width = 32, height = 32, size = truncatedSize, offset = header.size + ENTRY_SIZE)
+        val ico = header + entries + realPng
+
+        assertNull(IcoImagesUtil.extractLargestImageAsPng(ico))
     }
 
     @Test
     fun `複数のPNGエントリのうち面積が一番大きいものを選ぶ`() {
-        val small = TestImageBytes.PNG + byteArrayOf(1)
-        val large = TestImageBytes.PNG + byteArrayOf(1, 2, 3, 4)
+        val small = TestImageBytes.PNG + TestImageBytes.PNG_IEND
+        val large = TestImageBytes.PNG + byteArrayOf(1, 2, 3, 4) + TestImageBytes.PNG_IEND
 
         val header = byteArrayOf(0, 0, 1, 0, 2, 0)
         val firstOffset = header.size + ENTRY_SIZE * 2
@@ -45,7 +58,17 @@ class IcoImagesUtilTest {
         )
         // 実アルファがある間は無視されるはずのマスク。両ピクセルとも透明にしてある
         val maskData = byteArrayOf(0xC0.toByte(), 0, 0, 0, 0xC0.toByte(), 0, 0, 0)
-        val ico = icoWithDib(width = 2, height = 2, bitCount = 32, colorData = colorData, maskData = maskData)
+        val ico = icoWithDib(
+            width = 2,
+            height = 2,
+            bitCount = 32,
+            colorsUsed = 0,
+            paletteData = ByteArray(0),
+            colorData = colorData,
+            maskData = maskData,
+            compression = 0,
+            doubled = true,
+        )
 
         val (width, height, rgba) = decodePngRgba(assertNotNull(IcoImagesUtil.extractLargestImageAsPng(ico)))
 
@@ -69,7 +92,17 @@ class IcoImagesUtilTest {
         )
         // 画像左上 (0,0) だけ透明、他は不透明にする
         val maskData = byteArrayOf(0, 0, 0, 0, 0x80.toByte(), 0, 0, 0)
-        val ico = icoWithDib(width = 2, height = 2, bitCount = 32, colorData = colorData, maskData = maskData)
+        val ico = icoWithDib(
+            width = 2,
+            height = 2,
+            bitCount = 32,
+            colorsUsed = 0,
+            paletteData = ByteArray(0),
+            colorData = colorData,
+            maskData = maskData,
+            compression = 0,
+            doubled = true,
+        )
 
         val (_, _, rgba) = decodePngRgba(assertNotNull(IcoImagesUtil.extractLargestImageAsPng(ico)))
 
@@ -85,7 +118,17 @@ class IcoImagesUtilTest {
         val colorData = byteArrayOf(1, 2, 3, 4, 5, 6, 0, 0)
         // 右のピクセルだけ透明にする
         val maskData = byteArrayOf(0x40, 0, 0, 0)
-        val ico = icoWithDib(width = 2, height = 1, bitCount = 24, colorData = colorData, maskData = maskData)
+        val ico = icoWithDib(
+            width = 2,
+            height = 1,
+            bitCount = 24,
+            colorsUsed = 0,
+            paletteData = ByteArray(0),
+            colorData = colorData,
+            maskData = maskData,
+            compression = 0,
+            doubled = true,
+        )
 
         val (width, height, rgba) = decodePngRgba(assertNotNull(IcoImagesUtil.extractLargestImageAsPng(ico)))
 
@@ -98,10 +141,128 @@ class IcoImagesUtilTest {
     }
 
     @Test
-    fun `パレット形式のDIBは変換できない`() {
-        val colorData = ByteArray(rowStride(2, 8) * 2)
-        val maskData = ByteArray(rowStride(2, 1) * 2)
-        val ico = icoWithDib(width = 2, height = 2, bitCount = 8, colorData = colorData, maskData = maskData)
+    fun `8ビットパレットのDIBを変換できる`() {
+        // 幅 2、高さ 1。索引 0 は (B10,G20,R30)、索引 1 は (B40,G50,R60)
+        val palette = byteArrayOf(10, 20, 30, 0, 40, 50, 60, 0)
+        // 左のピクセルは索引 1、右のピクセルは索引 0
+        val colorData = byteArrayOf(1, 0, 0, 0)
+        // 右のピクセルだけ透明にする
+        val maskData = byteArrayOf(0x40, 0, 0, 0)
+        val ico = icoWithDib(
+            width = 2,
+            height = 1,
+            bitCount = 8,
+            colorsUsed = 2,
+            paletteData = palette,
+            colorData = colorData,
+            maskData = maskData,
+            compression = 0,
+            doubled = true,
+        )
+
+        val (width, height, rgba) = decodePngRgba(assertNotNull(IcoImagesUtil.extractLargestImageAsPng(ico)))
+
+        assertEquals(2, width)
+        assertEquals(1, height)
+        assertContentEquals(
+            byteArrayOf(60, 50, 40, 255.toByte(), 30, 20, 10, 0),
+            rgba,
+        )
+    }
+
+    @Test
+    fun `4ビットパレットのDIBを変換できる`() {
+        // 幅 2、高さ 1。1 バイトに 2 画素（上位ニブルが先の画素）
+        val palette = byteArrayOf(10, 20, 30, 0, 40, 50, 60, 0)
+        val colorData = byteArrayOf(0x10, 0, 0, 0)
+        val maskData = byteArrayOf(0, 0, 0, 0)
+        val ico = icoWithDib(
+            width = 2,
+            height = 1,
+            bitCount = 4,
+            colorsUsed = 2,
+            paletteData = palette,
+            colorData = colorData,
+            maskData = maskData,
+            compression = 0,
+            doubled = true,
+        )
+
+        val (_, _, rgba) = decodePngRgba(assertNotNull(IcoImagesUtil.extractLargestImageAsPng(ico)))
+
+        assertContentEquals(
+            byteArrayOf(60, 50, 40, 255.toByte(), 30, 20, 10, 255.toByte()),
+            rgba,
+        )
+    }
+
+    @Test
+    fun `1ビットパレットのDIBを変換できる`() {
+        // 幅 2、高さ 1。1 バイトに 8 画素（上位ビットが先の画素）
+        val palette = byteArrayOf(10, 20, 30, 0, 40, 50, 60, 0)
+        val colorData = byteArrayOf(0b01000000, 0, 0, 0)
+        val maskData = byteArrayOf(0, 0, 0, 0)
+        val ico = icoWithDib(
+            width = 2,
+            height = 1,
+            bitCount = 1,
+            colorsUsed = 2,
+            paletteData = palette,
+            colorData = colorData,
+            maskData = maskData,
+            compression = 0,
+            doubled = true,
+        )
+
+        val (_, _, rgba) = decodePngRgba(assertNotNull(IcoImagesUtil.extractLargestImageAsPng(ico)))
+
+        assertContentEquals(
+            byteArrayOf(30, 20, 10, 255.toByte(), 60, 50, 40, 255.toByte()),
+            rgba,
+        )
+    }
+
+    @Test
+    fun `ANDマスクを省いた非2倍のbiHeightは不透明として読める`() {
+        // biHeight を実際の高さのまま（2 倍しない）申告するエンコーダの形。マスクは無い
+        val colorData = byteArrayOf(90, 80, 70, 0, 120, 110, 100, 0)
+        val ico = icoWithDib(
+            width = 2,
+            height = 1,
+            bitCount = 32,
+            colorsUsed = 0,
+            paletteData = ByteArray(0),
+            colorData = colorData,
+            maskData = ByteArray(0),
+            compression = 0,
+            doubled = false,
+        )
+
+        val (_, _, rgba) = decodePngRgba(assertNotNull(IcoImagesUtil.extractLargestImageAsPng(ico)))
+
+        assertContentEquals(
+            byteArrayOf(70, 80, 90, 255.toByte(), 100, 110, 120, 255.toByte()),
+            rgba,
+        )
+    }
+
+    @Test
+    fun `ICONDIRENTRYの高さと矛盾するbiHeightはnull`() {
+        val header = byteArrayOf(0, 0, 1, 0, 1, 0)
+        val colorData = ByteArray(rowStride(2, 32) * 5)
+        val dibHeader = ByteArray(DIB_HEADER_SIZE)
+        littleEndianInto(dibHeader, 0, DIB_HEADER_SIZE)
+        littleEndianInto(dibHeader, 4, 2)
+        // 高さ 3 の 2 倍（6）でも高さそのもの（3）でもない、矛盾した申告
+        littleEndianInto(dibHeader, 8, 5)
+        littleEndian16Into(dibHeader, 12, 1)
+        littleEndian16Into(dibHeader, 14, 32)
+        littleEndianInto(dibHeader, 16, 0)
+        val dib = dibHeader + colorData
+
+        val imageOffset = header.size + ENTRY_SIZE
+        val entry = byteArrayOf(2, 3, 0, 0, 1, 0, 32, 0) + littleEndian(dib.size) + littleEndian(imageOffset)
+        val ico = header + entry + dib
 
         assertNull(IcoImagesUtil.extractLargestImageAsPng(ico))
     }
@@ -110,7 +271,17 @@ class IcoImagesUtilTest {
     fun `圧縮されたDIBは変換できない`() {
         val colorData = ByteArray(rowStride(2, 32) * 2)
         val maskData = ByteArray(rowStride(2, 1) * 2)
-        val ico = icoWithDib(width = 2, height = 2, bitCount = 32, colorData = colorData, maskData = maskData, compression = 1)
+        val ico = icoWithDib(
+            width = 2,
+            height = 2,
+            bitCount = 32,
+            colorsUsed = 0,
+            paletteData = ByteArray(0),
+            colorData = colorData,
+            maskData = maskData,
+            compression = 1,
+            doubled = true,
+        )
 
         assertNull(IcoImagesUtil.extractLargestImageAsPng(ico))
     }
@@ -141,7 +312,7 @@ class IcoImagesUtilTest {
         val header = byteArrayOf(0, 0, 1, 0, 1, 0)
         // size を実際のバイト列より大きく申告する
         val entries = pngEntryOf(width = 32, height = 32, size = 1_000, offset = header.size + ENTRY_SIZE)
-        val ico = header + entries + TestImageBytes.PNG
+        val ico = header + entries + TestImageBytes.PNG + TestImageBytes.PNG_IEND
 
         assertNull(IcoImagesUtil.extractLargestImageAsPng(ico))
     }
@@ -165,25 +336,30 @@ class IcoImagesUtilTest {
     /**
      * DIB（BMP）1 枚だけを埋め込んだ ICO コンテナ。
      *
-     * [colorData] と [maskData] は呼び出し側が [rowStride] に合わせてパディング済みのものを渡す
+     * [paletteData] [colorData] [maskData] は呼び出し側が [rowStride] に合わせて
+     * パディング済みのものを渡す。24 / 32 ビットでは [paletteData] は空にする
      */
     private fun icoWithDib(
         width: Int,
         height: Int,
         bitCount: Int,
+        colorsUsed: Int,
+        paletteData: ByteArray,
         colorData: ByteArray,
         maskData: ByteArray,
-        compression: Int = 0,
+        compression: Int,
+        doubled: Boolean,
     ): ByteArray {
         val header = byteArrayOf(0, 0, 1, 0, 1, 0)
         val dibHeader = ByteArray(DIB_HEADER_SIZE)
         littleEndianInto(dibHeader, 0, DIB_HEADER_SIZE)
         littleEndianInto(dibHeader, 4, width)
-        littleEndianInto(dibHeader, 8, height * 2)
+        littleEndianInto(dibHeader, 8, if (doubled) height * 2 else height)
         littleEndian16Into(dibHeader, 12, 1)
         littleEndian16Into(dibHeader, 14, bitCount)
         littleEndianInto(dibHeader, 16, compression)
-        val dib = dibHeader + colorData + maskData
+        littleEndianInto(dibHeader, 32, colorsUsed)
+        val dib = dibHeader + paletteData + colorData + maskData
 
         val imageOffset = header.size + ENTRY_SIZE
         val entry = byteArrayOf(width.toByte(), height.toByte(), 0, 0, 1, 0, bitCount.toByte(), 0) +
