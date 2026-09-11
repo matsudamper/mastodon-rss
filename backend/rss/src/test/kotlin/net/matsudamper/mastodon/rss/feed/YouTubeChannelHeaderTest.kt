@@ -46,10 +46,31 @@ class YouTubeChannelHeaderTest {
     }
 
     @Test
-    fun `先に見つかる banner が別物でも後ろの本物を読む`() {
+    fun `先に見つかる pageHeaderViewModel が別物でも後ろの本物を読む`() {
         val html = """
             <script>
-            {"adRenderer":{"banner":{"unrelatedField":"ここには sources が来ない"}}}
+            {"pageHeaderViewModel":{"decoy":{"banner":{"unrelatedField":"ここには imageBannerViewModel が来ない"}}}}
+            </script>
+            <script>
+            {"pageHeaderViewModel":{"banner":{"imageBannerViewModel":{"image":{"sources":[
+              {"url":"https://yt3.googleusercontent.com/banner-large"}
+            ]}}}}}
+            </script>
+        """.trimIndent()
+
+        assertEquals(
+            "https://yt3.googleusercontent.com/banner-large",
+            YouTubeChannelHeader.fromPageHtml(html),
+        )
+    }
+
+    @Test
+    fun `ページヘッダーの外にある完結した banner 構造を拾わない`() {
+        val html = """
+            <script>
+            {"otherSectionViewModel":{"banner":{"imageBannerViewModel":{"image":{"sources":[
+              {"url":"https://yt3.googleusercontent.com/decoy-banner"}
+            ]}}}}}
             </script>
             <script>
             {"pageHeaderViewModel":{"banner":{"imageBannerViewModel":{"image":{"sources":[
