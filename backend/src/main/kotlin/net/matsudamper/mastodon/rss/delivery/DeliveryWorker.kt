@@ -132,12 +132,22 @@ class DeliveryWorker(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                DeliveryResult.Failed("送信で例外が出た: ${e.message}")
+                DeliveryResult.Failed(reason = "送信で例外が出た: ${e.message}", retryable = true)
             }
 
             when (result) {
                 is DeliveryResult.Delivered -> queue.markDelivered(row.id)
-                is DeliveryResult.Failed -> recordFailure(row, result.reason)
+
+                is DeliveryResult.Failed -> {
+                    // 相手が受け取らないと決めた応答は、間を空けても同じ答えが返る。
+                    // 消えた inbox に 30 日送り続けても届かない
+                    if (result.retryable) {
+                        recordFailure(row, result.reason)
+                    } else {
+                        queue.giveUp(row.id, result.reason)
+                        logger.warn("配信を諦めた: 相手が受け取らない ${row.username} → ${row.inbox} ${result.reason}")
+                    }
+                }
             }
         } catch (e: CancellationException) {
             throw e

@@ -36,8 +36,11 @@ sealed interface DeliveryResult {
      *
      * @param reason ログに出す理由。相手のサーバーが 4xx を返したのか、
      *   そもそも届かなかったのかで対応が変わるので文字列で残す
+     * @param retryable 送り直す意味があるか。落ちている・詰まっているだけなら true。
+     *   相手が受け取らないと決めた応答（消えた inbox や弾かれた署名）は false
      */
     data class Failed(
         val reason: String,
+        val retryable: Boolean,
     ) : DeliveryResult
 }

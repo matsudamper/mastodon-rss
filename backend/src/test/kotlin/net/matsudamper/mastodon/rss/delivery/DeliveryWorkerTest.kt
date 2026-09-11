@@ -114,6 +114,22 @@ class DeliveryWorkerTest {
     }
 
     @Test
+    fun `相手が受け取らないと決めた失敗は送り直さずに諦める`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery(failing = setOf("https://a.example/inbox"), retryable = false)
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
+
+        runWorker(repositories.deliveryQueue, delivery)
+
+        // 消えた inbox に 30 日送り続けない
+        assertEquals(1, delivery.attempts)
+        val row = repositories.deliveryQueue.rows().single()
+        assertEquals(FakeDeliveryQueueRepository.State.FAILED, row.state)
+        assertEquals(null, row.nextAttemptAt)
+        assertEquals("届かない", row.lastError)
+    }
+
+    @Test
     fun `投函から 30 日を過ぎた行は送らずに諦める`() = runTest {
         val repositories = FakeRepositories()
         val delivery = RecordingDelivery()
@@ -442,12 +458,14 @@ class DeliveryWorkerTest {
      * @param failTimes 失敗を返す回数。0 なら毎回
      * @param throwing 例外を投げる宛先
      * @param latency 1 件に掛かる時間。並列の確認に使う
+     * @param retryable 失敗を送り直せるものとして返すか
      */
     private class RecordingDelivery(
         private val failing: Set<String> = emptySet(),
         private val failTimes: Int = 0,
         private val throwing: Set<String> = emptySet(),
         private val latency: kotlin.time.Duration = kotlin.time.Duration.ZERO,
+        private val retryable: Boolean = true,
     ) : ActivityDelivery {
         val delivered = mutableListOf<String>()
         val senders = mutableListOf<ActorUrls>()
@@ -477,7 +495,7 @@ class DeliveryWorkerTest {
                 if (inbox in throwing) throw IllegalStateException("壊れた宛先")
                 if (inbox in failing && (failTimes == 0 || failed < failTimes)) {
                     failed++
-                    return DeliveryResult.Failed("届かない")
+                    return DeliveryResult.Failed(reason = "届かない", retryable = retryable)
                 }
                 delivered += inbox
                 senders += sender

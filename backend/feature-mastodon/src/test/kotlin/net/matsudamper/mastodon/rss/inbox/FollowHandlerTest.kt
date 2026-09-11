@@ -125,7 +125,7 @@ class FollowHandlerTest {
 
     @Test
     fun `Accept を返せなければ過去の投稿も配らない`() = runBlocking {
-        val delivery = TestDelivery(result = DeliveryResult.Failed("届かない"))
+        val delivery = TestDelivery(result = DeliveryResult.Failed(reason = "届かない", retryable = true))
 
         handle(
             followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notesOf(3)),
@@ -261,7 +261,10 @@ class FollowHandlerTest {
         val followers = FakeFollowerStore()
 
         handle(
-            followHandler(delivery = TestDelivery(result = DeliveryResult.Failed("届かない")), followers = followers),
+            followHandler(
+                delivery = TestDelivery(result = DeliveryResult.Failed(reason = "届かない", retryable = true)),
+                followers = followers,
+            ),
             followJson(),
         )
 
