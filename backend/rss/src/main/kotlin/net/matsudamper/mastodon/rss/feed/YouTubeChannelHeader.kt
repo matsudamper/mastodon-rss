@@ -13,25 +13,47 @@ object YouTubeChannelHeader {
         bannerUrl(
             html = html,
             keys = listOf("\"banner\"", "\"imageBannerViewModel\"", "\"sources\""),
+            maxKeyDistance = MAX_KEY_DISTANCE,
         ) ?: bannerUrl(
             html = html,
             keys = listOf("\"c4TabbedHeaderRenderer\"", "\"banner\"", "\"thumbnails\""),
+            maxKeyDistance = MAX_LEGACY_KEY_DISTANCE,
         )
 
+    /**
+     * 先頭の鍵が見つかっても、その出現がバナーの実データとは限らない
+     * （[MAX_KEY_DISTANCE] のコメント参照）。1 か所で鍵の並びが崩れて諦めるのではなく、
+     * 先頭の鍵の次の出現から探し直す
+     */
     private fun bannerUrl(
         html: String,
         keys: List<String>,
+        maxKeyDistance: Int,
     ): String? {
-        var index = 0
-        keys.forEachIndexed { position, key ->
+        var searchFrom = 0
+        while (true) {
+            val head = html.indexOf(keys.first(), startIndex = searchFrom)
+            if (head < 0) return null
+            bannerUrlAt(html, keys, head, maxKeyDistance)?.let { return it }
+            searchFrom = head + 1
+        }
+    }
+
+    private fun bannerUrlAt(
+        html: String,
+        keys: List<String>,
+        head: Int,
+        maxKeyDistance: Int,
+    ): String? {
+        var index = head + keys.first().length
+        for (key in keys.drop(1)) {
             val found = html.indexOf(key, startIndex = index)
-            if (found < 0) return null
-            if (position > 0 && found - index > MAX_KEY_DISTANCE) return null
+            if (found < 0 || found - index > maxKeyDistance) return null
             index = found + key.length
         }
 
         val arrayStart = html.indexOf('[', startIndex = index)
-        if (arrayStart < 0 || arrayStart - index > MAX_KEY_DISTANCE) return null
+        if (arrayStart < 0 || arrayStart - index > maxKeyDistance) return null
         val arrayEnd = html.indexOf(']', startIndex = arrayStart + 1)
         if (arrayEnd < 0 || arrayEnd - arrayStart > MAX_SOURCES_LENGTH) return null
 
@@ -56,7 +78,7 @@ object YouTubeChannelHeader {
     private val URL_IN_JSON = Regex(""""url"\s*:\s*"((?:[^"\\]|\\.)*)"""")
 
     /**
-     * 鍵から次の鍵までに許す文字数。
+     * 新形式の鍵から次の鍵までに許す文字数。
      *
      * `imageBannerViewModel` という名前だけは、実データより手前のプリロード対象一覧
      * （`preloadMessageNames` の文字列配列）にも出てくる。そこには `"sources"` を
@@ -65,6 +87,15 @@ object YouTubeChannelHeader {
      * 数文字〜十数文字しか離れていないので、続きとして読める狭さに絞る
      */
     private const val MAX_KEY_DISTANCE = 256
+
+    /**
+     * 旧形式（`c4TabbedHeaderRenderer`）の鍵から次の鍵までに許す文字数。
+     *
+     * 実データでは `channelId`・`title`・`navigationEndpoint`・`avatar` を挟んで
+     * `banner` まで数百文字離れるため、[MAX_KEY_DISTANCE] ほど狭めると
+     * 常に見つからなくなる。誤検出の実例が無い形式なので、元の広さのまま残す
+     */
+    private const val MAX_LEGACY_KEY_DISTANCE = 64 * 1024
 
     /**
      * バナーの並び 1 つ分に許す文字数。ここを超えたら別の場所を読んでいる

@@ -46,12 +46,42 @@ class YouTubeChannelHeaderTest {
     }
 
     @Test
-    fun `旧バナー形式を読む`() {
+    fun `先に見つかる banner が別物でも後ろの本物を読む`() {
         val html = """
             <script>
-            {"c4TabbedHeaderRenderer":{"banner":{"thumbnails":[
-              {"url":"https:\/\/yt3.googleusercontent.com\/banner"}
-            ]}}}
+            {"adRenderer":{"banner":{"unrelatedField":"ここには sources が来ない"}}}
+            </script>
+            <script>
+            {"pageHeaderViewModel":{"banner":{"imageBannerViewModel":{"image":{"sources":[
+              {"url":"https://yt3.googleusercontent.com/banner-large"}
+            ]}}}}}
+            </script>
+        """.trimIndent()
+
+        assertEquals(
+            "https://yt3.googleusercontent.com/banner-large",
+            YouTubeChannelHeader.fromPageHtml(html),
+        )
+    }
+
+    @Test
+    fun `旧バナー形式を読む`() {
+        // 実データは channelId・title・navigationEndpoint・avatar を挟んで banner まで数百文字離れる
+        val html = """
+            <script>
+            {"c4TabbedHeaderRenderer":{
+              "channelId":"UCX6OQ3DkcsbYNE6H8uQQuVA",
+              "title":"サンプルチャンネル",
+              "navigationEndpoint":{"commandMetadata":{"webCommandMetadata":{"url":"/channel/UCX6OQ3DkcsbYNE6H8uQQuVA","webPageType":"WEB_PAGE_TYPE_CHANNEL","rootVe":3611}},"browseEndpoint":{"browseId":"UCX6OQ3DkcsbYNE6H8uQQuVA"}},
+              "avatar":{"thumbnails":[
+                {"url":"https:\/\/yt3.googleusercontent.com\/avatar-small"},
+                {"url":"https:\/\/yt3.googleusercontent.com\/avatar-medium"},
+                {"url":"https:\/\/yt3.googleusercontent.com\/avatar-large"}
+              ]},
+              "banner":{"thumbnails":[
+                {"url":"https:\/\/yt3.googleusercontent.com\/banner"}
+              ]}
+            }}
             </script>
         """.trimIndent()
 
