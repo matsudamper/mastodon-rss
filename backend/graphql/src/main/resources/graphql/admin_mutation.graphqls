@@ -91,12 +91,6 @@ type AdminPostNoteResult {
     "配信できたかに関わらず、記録できていれば入る"
     note: AdminNote
 
-    "送った宛先の数。sharedInbox でまとまるのでフォロワーの数とは一致しない"
-    deliveryTargets: Int
-
-    "そのうち相手が受け取った数。宛先より少なければ届かなかったものがある"
-    delivered: Int
-
     "投稿できなかった場合だけ入る"
     failure: AdminPostNoteFailure
 }

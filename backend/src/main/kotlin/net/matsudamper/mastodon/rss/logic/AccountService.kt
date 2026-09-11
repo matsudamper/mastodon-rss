@@ -5,6 +5,7 @@ import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.shared.AccountId
@@ -17,13 +18,9 @@ class AccountService(
     private val accounts: AccountRepository,
     private val followers: FollowerRepository,
     private val actorPublisher: ActorPublisher,
+    private val iconFiles: AccountIconFiles,
     private val domain: String,
 ) {
-    /**
-     * 追加した順で返す
-     */
-    fun accounts(): List<ManagedAccount> = accounts.list().map { it.toManaged() }
-
     /**
      * 名前で 1 つ引く。応答しない名前なら null
      */
@@ -43,21 +40,41 @@ class AccountService(
     fun followerCounts(usernames: Set<String>): Map<String, Long> = followers.counts(usernames)
 
     /**
-     * 追加した順で `afterUsername` の次から `limit` 件返す
+     * フォロワーのアクター URL を、URL 順で `afterActorUrl` の次から `limit` 件返す
      */
-    fun accounts(afterUsername: String?, limit: Int): ManagedAccountsPage {
+    fun followers(username: String, afterActorUrl: String?, limit: Int): FollowersPage {
         if (limit <= 0) {
-            return ManagedAccountsPage(accounts = emptyList(), hasMore = false, nextUsername = null)
+            return FollowersPage(actorUrls = listOf(), hasMore = false, nextActorUrl = null)
         }
 
-        val fetched = accounts.list(afterUsername = afterUsername, limit = limit + 1)
+        // 続きがあるかは 1 件多く引いて見る。数え直すと、読んでいる間に増減した分だけ食い違う
+        val fetched = followers.list(username = username, after = afterActorUrl, limit = limit + 1)
         val hasMore = fetched.size > limit
-        val page = fetched.take(limit).map { it.toManaged() }
+        val page = fetched.take(limit)
+
+        return FollowersPage(
+            actorUrls = page,
+            hasMore = hasMore,
+            nextActorUrl = if (hasMore) page.last() else null,
+        )
+    }
+
+    /**
+     * 追加した順で [after] の次から [limit] 件返す
+     */
+    fun accounts(after: AccountPosition?, limit: Int): ManagedAccountsPage {
+        if (limit <= 0) {
+            return ManagedAccountsPage(accounts = listOf(), hasMore = false, nextPosition = null)
+        }
+
+        val fetched = accounts.list(after = after, limit = limit + 1)
+        val hasMore = fetched.size > limit
+        val page = fetched.take(limit)
 
         return ManagedAccountsPage(
-            accounts = page,
+            accounts = page.map { it.toManaged() },
             hasMore = hasMore,
-            nextUsername = if (hasMore) page.last().urls.username else null,
+            nextPosition = if (hasMore) page.last().position() else null,
         )
     }
 
@@ -92,17 +109,22 @@ class AccountService(
         return AddAccountResult.Success(added.toManaged())
     }
 
-    fun updateProfile(
+    /**
+     * 表示名と説明文を保存して、変わっていればフォロワーに `Update{Actor}` を配る。
+     *
+     * 配れなくても保存は巻き戻さない。届かなかった相手の表示が古いまま残るだけで、
+     * 次に変えたときに配り直される
+     */
+    suspend fun updateProfile(
         username: String,
         displayName: String,
         summary: String,
     ): UpdateProfileResult {
         val trimmedDisplayName = displayName.trim()
         val trimmedSummary = summary.trim()
-        val displayNameTooLong = trimmedDisplayName.codePointCount(0, trimmedDisplayName.length) > AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH
         val summaryTooLong = trimmedSummary.codePointCount(0, trimmedSummary.length) > AccountProfileLimits.SUMMARY_MAX_LENGTH
-        if (displayNameTooLong || summaryTooLong) {
-            return UpdateProfileResult.Failure(false, displayNameTooLong, summaryTooLong)
+        if (summaryTooLong) {
+            return UpdateProfileResult.Failure(false, false, true)
         }
         val account = accounts.findByUsername(username)
             ?: return UpdateProfileResult.Failure(true, false, false)
@@ -111,7 +133,16 @@ class AccountService(
             displayName = trimmedDisplayName.ifEmpty { null },
             summary = trimmedSummary.ifEmpty { null },
         ) ?: return UpdateProfileResult.Failure(true, false, false)
-        return UpdateProfileResult.Success(updated.toManaged())
+        val managed = updated.toManaged()
+
+        // 中身が変わっていないなら配らない。管理画面は編集していない値も一緒に送ってくるので、
+        // 保存し直しただけで全フォロワーの inbox に POST が飛ぶ
+        val changed = account.displayName != updated.displayName || account.summary != updated.summary
+        if (changed) {
+            actorPublisher.update(sender = managed.urls)
+        }
+
+        return UpdateProfileResult.Success(managed)
     }
 
     /**
@@ -130,9 +161,14 @@ class AccountService(
         val account = accounts.findByUsername(username)
             ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
 
+        // 行が消えると置き場を引けなくなるので、消す前に控える
+        val imagePaths = iconFiles.locateAll(account.id)
+
         if (!accounts.delete(account.id)) {
             return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
         }
+
+        imagePaths.forEach(iconFiles::delete)
 
         actorPublisher.delete(ActorUrls(domain = domain, username = account.username))
 
@@ -156,12 +192,21 @@ class AccountService(
     )
 
     /**
-     * @param nextUsername 続きがある場合の、次に渡す `afterUsername`
+     * @param nextActorUrl 続きがある場合の、次に渡す `afterActorUrl`
+     */
+    data class FollowersPage(
+        val actorUrls: List<String>,
+        val hasMore: Boolean,
+        val nextActorUrl: String?,
+    )
+
+    /**
+     * @param nextPosition 続きがある場合の、次に渡す `after`
      */
     data class ManagedAccountsPage(
         val accounts: List<ManagedAccount>,
         val hasMore: Boolean,
-        val nextUsername: String?,
+        val nextPosition: AccountPosition?,
     )
 
     sealed interface DeleteResult {

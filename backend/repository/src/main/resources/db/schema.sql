@@ -16,6 +16,30 @@ CREATE TABLE accounts (
     summary TEXT
 );
 
+CREATE TABLE feed_icons (
+    -- フィードに 1 つ。フィードを消すと一緒に消える
+    feed_id INTEGER PRIMARY KEY REFERENCES feeds (id) ON DELETE CASCADE,
+    source_url TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    -- 中身の置き場を指す文字列。中身そのものを入れると、DB のファイルが画像のぶんだけ膨らむ
+    path TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+
+CREATE TABLE feed_headers (
+    -- フィードに 1 つ。フィードを消すと一緒に消える
+    feed_id INTEGER PRIMARY KEY REFERENCES feeds (id) ON DELETE CASCADE,
+    source_url TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    -- 中身から決まる版。同じ source_url のまま中身が変わったことが分かる
+    revision TEXT NOT NULL,
+    -- 中身の置き場を指す文字列。中身そのものを入れると、DB のファイルが画像のぶんだけ膨らむ
+    path TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+
 CREATE TABLE feed_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     feed_id INTEGER NOT NULL REFERENCES feeds (id) ON DELETE CASCADE,
@@ -56,7 +80,7 @@ CREATE TABLE feeds (
     last_error TEXT,
     initial_import_done INTEGER NOT NULL DEFAULT 0 CHECK (initial_import_done IN (0, 1)),
     created_at TEXT NOT NULL
-);
+, icon_url TEXT);
 
 CREATE TABLE followers (
     -- 1 行が「username のアカウントを remote_actor_id がフォローしている」ことを表す

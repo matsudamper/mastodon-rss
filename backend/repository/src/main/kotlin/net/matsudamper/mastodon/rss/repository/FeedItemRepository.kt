@@ -54,6 +54,31 @@ interface FeedItemRepository {
     ): List<FeedItem>
 
     /**
+     * 投稿に使う `notes.public_id` を記事へ結び付ける。
+     *
+     * 配信より先に結び付けておくことで、配信後にプロセスが落ちても次回は同じ投稿を
+     * 配れるようにする。既に別の id が結び付いていれば上書きせず、その id を返す。
+     *
+     * @return この記事に結び付いている `notes.public_id`
+     */
+    fun linkNote(
+        feedId: FeedItemId,
+        noteId: PublicNoteId,
+    ): PublicNoteId
+
+    /**
+     * 投稿情報を使って記事へ結び付ける。
+     *
+     * 永続化する実装では、[note] の保存と記事への `note_id` の設定を同じトランザクションで
+     * 確定させる。既に別の投稿が結び付いていれば新しい投稿は残さず、既存の id を返す。
+     * 単純なインメモリ実装では id の紐付けだけでよいので、既定では [linkNote] に委譲する。
+     */
+    fun linkNote(
+        feedId: FeedItemId,
+        note: NewNote,
+    ): PublicNoteId = linkNote(feedId = feedId, noteId = note.publicId)
+
+    /**
      * 投稿し終わったことを記録する。
      *
      * @param noteId 配信した投稿の `notes.public_id`。記事と投稿はこれだけで紐づく
@@ -111,7 +136,7 @@ interface FeedItemRepository {
  *   配信に失敗して後から送り直すときに、配信元から取り直さずに済ませるため
  * @param publishedAt 配信元が名乗っている公開日時。順序付けに使う。
  *   信用しきれない（未来の日時や、更新のたびに現在時刻になるものがある）
- * @param noteId 投稿したときに配信した `notes.public_id`。未投稿なら null
+ * @param noteId 投稿に使う `notes.public_id`。PENDING でも配信前に入ることがある
  * @param ogImageUrl リンク先のページの `og:image`。取り込みのときに 1 回だけ取りに行く。
  *   取れなければ null。投稿に添付する画像になる
  */

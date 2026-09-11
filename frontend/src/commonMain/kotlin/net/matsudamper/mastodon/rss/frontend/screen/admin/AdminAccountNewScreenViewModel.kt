@@ -137,6 +137,8 @@ class AdminAccountNewScreenViewModel(
             username = state.username,
             submitting = state.submitting,
             error = state.error,
+            usernameInputEnabled = !state.submitting,
+            addButtonEnabled = !state.submitting && state.username.isNotBlank(),
         )
     }
 

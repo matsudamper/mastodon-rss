@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -9,10 +11,14 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import net.matsudamper.mastodon.rss.FakeRepositories
+import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
+import net.matsudamper.mastodon.rss.feed.IconImageType
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.FeedIcon
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
@@ -25,6 +31,10 @@ import net.matsudamper.mastodon.rss.shared.PublicNoteId
 // 管理画面からアカウントを消す経路。
 // 名前で持っているもの（投稿とフォロワー）まで消し切れているかがここの関心になる。
 class AccountServiceTest {
+    private val iconCacheDir: Path = Files.createTempDirectory("account-icon")
+
+    private val iconStore = FeedIconStore(iconCacheDir)
+
     @Test
     fun `消すとフォロワーと投稿とフィードと記事が消える`() = runTest {
         val repositories = FakeRepositories()
@@ -39,6 +49,54 @@ class AccountServiceTest {
         assertEquals(0L, repositories.notes.count(USERNAME))
         assertNull(repositories.feeds.findByAccountId(account.id))
         assertEquals(emptyList(), repositories.feedItems.items())
+    }
+
+    @Test
+    fun `消すと置いてあるアイコンのファイルも消える`() = runTest {
+        val repositories = FakeRepositories()
+        val account = repositories.withFullAccount()
+        val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
+        val path = iconStore.write(feedId = feed.id, bytes = byteArrayOf(1, 2, 3), imageType = IconImageType.PNG)
+        repositories.feedIcons.save(
+            feedId = feed.id,
+            icon = FeedIcon(
+                sourceUrl = "https://example.com/icon.png",
+                contentType = "image/png",
+                path = path,
+                fetchedAt = CREATED_AT,
+                expiresAt = CREATED_AT.plusSeconds(POLL_INTERVAL_SECONDS),
+            ),
+        )
+
+        val result = serviceOf(repositories, TestDelivery()).delete(USERNAME)
+
+        assertIs<AccountService.DeleteResult.Success>(result)
+        assertNull(iconStore.read(path))
+    }
+
+    @Test
+    fun `消すと名前にフィードの id を含まない古いファイルも消える`() = runTest {
+        val repositories = FakeRepositories()
+        val account = repositories.withFullAccount()
+        val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
+        // 置き場の名前を変える前に置いたもの。フィードの id だけを名前にしていた
+        val path = feed.id.value.toString()
+        Files.write(iconCacheDir.resolve(path), byteArrayOf(1, 2, 3))
+        repositories.feedIcons.save(
+            feedId = feed.id,
+            icon = FeedIcon(
+                sourceUrl = "https://example.com/icon.png",
+                contentType = "image/png",
+                path = path,
+                fetchedAt = CREATED_AT,
+                expiresAt = CREATED_AT.plusSeconds(POLL_INTERVAL_SECONDS),
+            ),
+        )
+
+        val result = serviceOf(repositories, TestDelivery()).delete(USERNAME)
+
+        assertIs<AccountService.DeleteResult.Success>(result)
+        assertNull(iconStore.read(path))
     }
 
     @Test
@@ -125,7 +183,7 @@ class AccountServiceTest {
     }
 
     @Test
-    fun `絵文字だけの表示名をコードポイント数で上限まで保存できる`() {
+    fun `絵文字だけの表示名をコードポイント数で上限まで保存できる`() = runTest {
         val repositories = FakeRepositories()
         repositories.accounts.add(username = USERNAME, createdAt = CREATED_AT)
 
@@ -138,6 +196,59 @@ class AccountServiceTest {
         assertIs<AccountService.UpdateProfileResult.Success>(result)
     }
 
+    @Test
+    fun `プロフィールを更新するとフォロワーに Update Actor を配る`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.withFullAccount()
+        val delivery = TestDelivery()
+
+        val result = serviceOf(repositories, delivery).updateProfile(
+            username = USERNAME,
+            displayName = "更新後",
+            summary = "新しい説明",
+        )
+
+        assertIs<AccountService.UpdateProfileResult.Success>(result)
+        val body = delivery.delivered.single().body
+        assertContains(body, "\"type\":\"Update\"")
+        assertContains(body, "\"actor\":\"https://${TestLocalActor.DOMAIN}/users/$USERNAME\"")
+        assertContains(body, "\"name\":\"更新後\"")
+        assertContains(body, "\"summary\":\"<p>新しい説明</p>\"")
+    }
+
+    @Test
+    fun `配る Update Actor には保存しているフィードの attachment と画面の url も入る`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.withFullAccount()
+        val delivery = TestDelivery()
+
+        val result = serviceOf(repositories, delivery).updateProfile(
+            username = USERNAME,
+            displayName = "更新後",
+            summary = "新しい説明",
+        )
+
+        assertIs<AccountService.UpdateProfileResult.Success>(result)
+        val body = delivery.delivered.single().body
+        assertContains(body, "\"inbox\":\"https://${TestLocalActor.DOMAIN}/users/$USERNAME/inbox\"")
+        assertContains(body, FEED_URL)
+        assertContains(body, "\"url\":\"${TestWebPageUrls.profile(USERNAME)}\"")
+    }
+
+    @Test
+    fun `表示名も説明文も変わらない保存では配らない`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.withFullAccount()
+        val delivery = TestDelivery()
+        val service = serviceOf(repositories, delivery)
+        service.updateProfile(username = USERNAME, displayName = "更新後", summary = "新しい説明")
+
+        val result = service.updateProfile(username = USERNAME, displayName = "更新後", summary = "新しい説明")
+
+        assertIs<AccountService.UpdateProfileResult.Success>(result)
+        assertEquals(1, delivery.delivered.size)
+    }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         delivery: TestDelivery,
@@ -148,6 +259,19 @@ class AccountServiceTest {
             notes = RepositoryNoteStore(repositories.notes),
             followers = RepositoryFollowerStore(repositories.followers),
             delivery = delivery,
+            actorKey = TestActorKey.value,
+            feedLinks = RepositoryFeedLinks(
+                accounts = repositories.accounts,
+                feeds = repositories.feeds,
+                headers = repositories.feedHeaders,
+            ),
+            profiles = RepositoryActorProfiles(repositories.accounts),
+            webPages = TestWebPageUrls,
+        ),
+        iconFiles = AccountIconFiles(
+            feeds = repositories.feeds,
+            icons = repositories.feedIcons,
+            store = iconStore,
         ),
         domain = TestLocalActor.DOMAIN,
     )
@@ -211,6 +335,7 @@ class AccountServiceTest {
         title = "サンプル",
         siteUrl = "https://example.com/",
         format = "RSS 2.0",
+        iconUrl = null,
         pollIntervalSeconds = POLL_INTERVAL_SECONDS,
     )
 

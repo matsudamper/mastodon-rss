@@ -28,6 +28,11 @@ interface FeedRepository {
      * 次の取得予定が [now] を過ぎているフィードを返す。
      *
      * 定期ポーリングの対象を選ぶためのもの。一度に取りに行く数を [limit] で抑える。
+     *
+     * 登録が済んでいないものは、登録から取得の間隔が過ぎたものだけ返す。
+     * 登録の途中はやり直しで記事ごと消えるので、そこで投稿するとやり直した後に
+     * 同じ記事をもう一度投稿する。間隔を過ぎても済んでいなければ登録は終わっていないので、
+     * 取得する側で終わらせる。
      */
     fun findDue(
         now: Instant,
@@ -40,13 +45,28 @@ interface FeedRepository {
     fun add(feed: NewFeed): Feed?
 
     /**
-     * フィードから読めた題名とサイトの URL と形式を反映する
+     * [existingId] のフィードを [feed] で置き換える。消してから入れるまでを 1 つにする。
+     *
+     * 登録は保存と完了の記録が別々に確定するので、途中で終わったものを登録し直す経路がある。
+     * 消してから入れられないと分かると、記事ごと失って再登録もできなくなる。
+     *
+     * @return 入れ替えた後のフィード。[existingId] が無い、そのフィードの登録が済んでいる、
+     *   他のアカウントか他のフィードが同じ URL を使っている場合は、何も変えずに null
+     */
+    fun replace(
+        existingId: FeedId,
+        feed: NewFeed,
+    ): Feed?
+
+    /**
+     * フィードから読めた題名とサイトの URL と形式とアイコンを反映する
      */
     fun updateMetadata(
         id: FeedId,
         title: String?,
         siteUrl: String?,
         format: String?,
+        iconUrl: String?,
     )
 
     /**
@@ -89,6 +109,7 @@ interface FeedRepository {
  *
  * @param url フィード（RSS/Atom）の URL。取得先
  * @param siteUrl フィードが指している Web サイトの URL。表示用で、取得には使わない
+ * @param iconUrl フィードが名乗っているアイコンの URL。Actor の icon と公開画面のアバターに出す
  * @param pollIntervalSeconds 取得の間隔。配信元の更新頻度に合わせて変えられるよう
  *   フィードごとに持つ
  * @param initialImportDone 登録時の取り込みが済んでいるか。済んでいなければ、後の取得が既存記事を新着として扱う
@@ -100,6 +121,7 @@ data class Feed(
     val title: String?,
     val siteUrl: String?,
     val format: String?,
+    val iconUrl: String?,
     val pollIntervalSeconds: Long,
     val fetch: FeedFetchStatus,
     val initialImportDone: Boolean,
@@ -113,6 +135,7 @@ data class NewFeed(
     val title: String?,
     val siteUrl: String?,
     val format: String?,
+    val iconUrl: String?,
     val pollIntervalSeconds: Long,
 )
 

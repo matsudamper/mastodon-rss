@@ -37,6 +37,7 @@ kotlin {
             dependencies {
                 implementation(project(":shared"))
                 implementation(libs.apollo.runtime)
+                implementation(libs.coil.compose)
                 implementation(libs.apollo.normalized.cache)
                 implementation(libs.kotlinx.datetime)
                 implementation(compose.runtime)
@@ -67,6 +68,7 @@ kotlin {
                 // 画面遷移。JetBrains 版の Navigation 3（wasmJs 向けの成果物がある）。
                 // runtime は推移的に androidx.navigation3 から入る
                 implementation(libs.navigation3.ui)
+                implementation(libs.coil.network.ktor3)
                 // 日本語フォントを配信元から取ってくるのに使う。詳細は ui/Font.kt を参照
                 implementation(libs.ktor.client.core)
                 implementation(libs.ktor.client.js)

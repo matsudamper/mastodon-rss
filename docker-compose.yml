@@ -20,6 +20,9 @@ services:
       # ボリュームの中に置くので、コンテナを作り直しても同じ鍵のまま。
       # 消すと別人のアクターになり、フォロワー側の署名検証が通らなくなる
       ACTOR_PRIVATE_KEY_PATH: /data/actor-private-key.pem
+      # 取ってきたアイコンの置き場。ボリュームの外に置くと、コンテナを作り直したときに
+      # 画像だけが消えて、次の取り込みまでアイコンが出なくなる
+      ICON_CACHE_DIR: /data/image-cache
       # 鍵を外から渡す場合はファイルではなく PEM を直接入れる。
       # ACTOR_PRIVATE_KEY_PATH との併用はできないので、上を消してから使うこと
       # ACTOR_PRIVATE_KEY_PEM: ${ACTOR_PRIVATE_KEY_PEM}

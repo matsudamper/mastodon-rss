@@ -10,6 +10,7 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEEDS
 import net.matsudamper.mastodon.rss.repository.jooq.tables.records.FeedsRecord
 import net.matsudamper.mastodon.rss.shared.AccountId
+import org.jooq.DSLContext
 
 internal class SqliteFeedRepository(
     private val jooq: SqliteJooq,
@@ -68,7 +69,7 @@ internal class SqliteFeedRepository(
             .selectFrom(FEEDS)
             .fetch()
             .map { it.toFeed() }
-            .filter { it.isDue(now) }
+            .filter { it.isDue(now) && (it.initialImportDone || it.registrationTimedOut(now)) }
             .sortedBy { it.fetch.lastFetchedAt ?: Instant.MIN }
             .take(limit)
     }
@@ -80,14 +81,39 @@ internal class SqliteFeedRepository(
         if (dsl.findByAccountId(feed.accountId) != null) return@transaction null
         if (dsl.findByUrl(feed.url) != null) return@transaction null
 
+        dsl.insert(feed)
+    }
+
+    override fun replace(
+        existingId: FeedId,
+        feed: NewFeed,
+    ): Feed? = jooq.transaction { dsl ->
+        // 入れ替えられると分かってから消す。消してから入らないと、記事ごと失う
+        val existing = dsl.selectFrom(FEEDS).where(FEEDS.ID.eq(existingId.value)).fetchOne()?.toFeed()
+            ?: return@transaction null
+        // 登録が済んだフィードは入れ替えない。やり直しの取得を待っている間に定期ポーリングが
+        // 取り込みを引き取っていると、配信した記事ごと消して次の取得で配り直す
+        if (existing.initialImportDone) return@transaction null
+        if (dsl.findByAccountId(feed.accountId)?.id?.let { it != existingId } == true) return@transaction null
+        if (dsl.findByUrl(feed.url)?.id?.let { it != existingId } == true) return@transaction null
+
+        dsl
+            .deleteFrom(FEEDS)
+            .where(FEEDS.ID.eq(existingId.value))
+            .execute()
+
+        dsl.insert(feed)
+    }
+
+    private fun DSLContext.insert(feed: NewFeed): Feed {
         val createdAt = Instant.now()
-        val id = dsl
-            .insertInto(FEEDS)
+        val id = insertInto(FEEDS)
             .set(FEEDS.ACCOUNT_ID, feed.accountId.value)
             .set(FEEDS.URL, feed.url)
             .set(FEEDS.TITLE, feed.title)
             .set(FEEDS.SITE_URL, feed.siteUrl)
             .set(FEEDS.FORMAT, feed.format)
+            .set(FEEDS.ICON_URL, feed.iconUrl)
             .set(FEEDS.POLL_INTERVAL_SECONDS, feed.pollIntervalSeconds)
             .set(FEEDS.INITIAL_IMPORT_DONE, 0L)
             .set(FEEDS.CREATED_AT, StoredInstant.format(createdAt))
@@ -96,13 +122,14 @@ internal class SqliteFeedRepository(
             ?.id
             ?: error("フィードの追加に失敗した")
 
-        Feed(
+        return Feed(
             id = FeedId(id),
             accountId = feed.accountId,
             url = feed.url,
             title = feed.title,
             siteUrl = feed.siteUrl,
             format = feed.format,
+            iconUrl = feed.iconUrl,
             pollIntervalSeconds = feed.pollIntervalSeconds,
             fetch = FeedFetchStatus(
                 validators = FeedFetchValidators.NONE,
@@ -120,6 +147,7 @@ internal class SqliteFeedRepository(
         title: String?,
         siteUrl: String?,
         format: String?,
+        iconUrl: String?,
     ) {
         jooq.transaction { dsl ->
 
@@ -128,6 +156,7 @@ internal class SqliteFeedRepository(
                 .set(FEEDS.TITLE, title)
                 .set(FEEDS.SITE_URL, siteUrl)
                 .set(FEEDS.FORMAT, format)
+                .set(FEEDS.ICON_URL, iconUrl)
                 .where(FEEDS.ID.eq(id.value))
                 .execute()
         }
@@ -189,19 +218,26 @@ internal class SqliteFeedRepository(
         }
     }
 
+    /**
+     * 登録の取り込みが、間隔を過ぎても終わっていない。
+     *
+     * 登録は取得を終えてから間を置かずに済む。過ぎているなら途中で終わっている
+     */
+    private fun Feed.registrationTimedOut(now: Instant): Boolean = createdAt.plusSeconds(pollIntervalSeconds) <= now
+
     private fun Feed.isDue(now: Instant): Boolean {
         val lastFetchedAt = fetch.lastFetchedAt ?: return true
         return lastFetchedAt.plusSeconds(pollIntervalSeconds) <= now
     }
 
-    private fun org.jooq.DSLContext.findByAccountId(accountId: AccountId): Feed? {
+    private fun DSLContext.findByAccountId(accountId: AccountId): Feed? {
         return selectFrom(FEEDS)
             .where(FEEDS.ACCOUNT_ID.eq(accountId.value))
             .fetchOne()
             ?.toFeed()
     }
 
-    private fun org.jooq.DSLContext.findByUrl(url: String): Feed? = selectFrom(FEEDS)
+    private fun DSLContext.findByUrl(url: String): Feed? = selectFrom(FEEDS)
         .where(FEEDS.URL.eq(url))
         .fetchOne()
         ?.toFeed()
@@ -213,6 +249,7 @@ internal class SqliteFeedRepository(
         title = title,
         siteUrl = siteUrl,
         format = format,
+        iconUrl = iconUrl,
         pollIntervalSeconds = pollIntervalSeconds!!,
         fetch = FeedFetchStatus(
             validators = FeedFetchValidators(

@@ -17,6 +17,10 @@ data class AdminAccountsScreenUiState(
 
         data class Loaded(
             val accounts: List<Account>,
+            val loadMoreVisible: Boolean,
+            val loadingMore: Boolean,
+            val loadMoreErrorMessage: String?,
+            val loadMoreButtonText: String,
         ) : Content
 
         data class Error(
@@ -27,15 +31,19 @@ data class AdminAccountsScreenUiState(
     /**
      * 一覧の 1 行。
      *
-     * @param acct 行の見出しとして大きく出す
-     * @param actorUrl 見出しの下に小さく出す
+     * @param displayName 行の見出しとして大きく出す。未設定なら空文字
+     * @param acct DisplayName の下に出す
+     * @param actorUrl Actor URL として出す
+     * @param iconUrl アイコン画像。無ければ null
      * @param createdAt 「追加: <値>」の形で出す
-     * @param username 行から開く画面のリンク先。文字としては出さない
+     * @param username 行から開く画面のリンク先。DisplayName 未設定時は見出しにも使う
      */
     data class Account(
         val username: String,
+        val displayName: String,
         val acct: String,
         val actorUrl: String,
+        val iconUrl: String?,
         val createdAt: String,
         val followerCount: Int,
     )
@@ -49,5 +57,7 @@ data class AdminAccountsScreenUiState(
         fun onClickAccount(username: String)
 
         fun onClickReload()
+
+        fun onClickLoadMore()
     }
 }

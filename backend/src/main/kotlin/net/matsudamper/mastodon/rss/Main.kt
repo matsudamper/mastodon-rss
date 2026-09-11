@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss
 
 import java.nio.file.Path
 import io.ktor.server.application.Application
+import io.ktor.server.application.ServerReady
 import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.cio.CIO
@@ -10,6 +11,8 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
 import net.matsudamper.mastodon.rss.actor.ActorKey
+import net.matsudamper.mastodon.rss.actor.actorHeaderRoutes
+import net.matsudamper.mastodon.rss.actor.actorIconRoutes
 import net.matsudamper.mastodon.rss.actor.actorRoutes
 import net.matsudamper.mastodon.rss.follower.followerRoutes
 import net.matsudamper.mastodon.rss.graphql.DiContainer
@@ -51,12 +54,22 @@ fun main() {
     // start が例外で終わった場合も含めてここ 1 か所で閉じられる
     Runtime.getRuntime().addShutdownHook(
         Thread {
-            // 処理中のリクエストが DB を触っている最中に閉じないよう、先にサーバーを止める。
+            // 待ち受けを止める前にポーリングを止める。投稿を受け取った相手はその場で
+            // Note やアクターの URL を引きに来るので、止めた後に投稿すると繋げずに終わる
+            deps.stopFeedPolling()
+
+            // 処理中のリクエストが DB を触っている最中に閉じないよう、次にサーバーを止める。
             // 待ち時間は docker stop の既定の猶予（10 秒）に収まる範囲にする
             server.stop(gracePeriodMillis = 1_000, timeoutMillis = 5_000)
             deps.close()
         },
     )
+
+    // 受け付けが始まってから動かす。投稿を受け取った相手はその場で Note やアクターの
+    // URL を引きに来るので、待ち受ける前に投稿すると相手は繋げずに終わる
+    server.monitor.subscribe(ServerReady) {
+        deps.startFeedPolling()
+    }
 
     // start(wait = true) は停止まで返ってこない
     server.start(wait = true)
@@ -104,9 +117,23 @@ fun Application.module(deps: AppDependencies) {
 
     // 画面が出ないときに理由を追えるよう、配信元を起動時に必ず出す。
     // 黙って 404 になると、設定し忘れなのか置き忘れなのかが分からない
-    val staticFiles = resolveStaticFiles(env.staticSrcDir)
+    val staticFiles = deps.staticFiles
+    logStaticFiles(srcDir = env.staticSrcDir, staticFiles = staticFiles)
 
     logAdminLogin(env)
+
+    val diContainer = DiContainer(
+        passwordHash = env.adminPasswordHash,
+        accountRepository = deps.repositories.accounts,
+        followerRepository = deps.repositories.followers,
+        domain = env.domain,
+        actorDirectory = deps.directory,
+        notePublisher = deps.notePublisher,
+        actorPublisher = deps.actorPublisher,
+        accountIconFiles = deps.accountIconFiles,
+        noteStore = deps.noteStore,
+        feedService = deps.feedService,
+    )
 
     val graphQl = GraphQlEngine.create(
         resolvers = listOf(
@@ -126,19 +153,7 @@ fun Application.module(deps: AppDependencies) {
                 cookieSecure = env.adminCookieSecure,
             )
         },
-        diContainer = DiContainer(
-            passwordHash = env.adminPasswordHash,
-            accountRepository = deps.repositories.accounts,
-            followerRepository = deps.repositories.followers,
-            feedRepository = deps.repositories.feeds,
-            feedItemRepository = deps.repositories.feedItems,
-            feedFetcher = deps.feedFetcher,
-            domain = env.domain,
-            actorDirectory = deps.directory,
-            notePublisher = deps.notePublisher,
-            actorPublisher = deps.actorPublisher,
-            noteStore = deps.noteStore,
-        ),
+        diContainer = diContainer,
         openTelemetry = deps.openTelemetry,
     )
 
@@ -157,15 +172,17 @@ fun Application.module(deps: AppDependencies) {
 
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
         webFingerRoutes(deps.directory)
-        actorRoutes(deps.directory, actorKey, deps.feedLinks, deps.actorProfiles)
+        actorRoutes(deps.directory, actorKey, deps.feedLinks, deps.actorProfiles, deps.webPageUrls)
+        actorIconRoutes(deps.directory, deps.actorIcons)
+        actorHeaderRoutes(deps.directory, deps.actorHeaders)
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)
 
         followerRoutes(deps.directory, deps.followerStore)
-        outboxRoutes(deps.directory, deps.noteStore)
+        outboxRoutes(deps.directory, deps.noteStore, deps.webPageUrls)
         featuredRoutes(deps.directory)
-        noteRoutes(env.domain, deps.noteStore)
+        noteRoutes(env.domain, deps.noteStore, deps.webPageUrls)
 
         nodeInfoRoutes(env.domain)
 
@@ -193,25 +210,27 @@ private fun Application.logAdminLogin(env: ServerEnv) {
 }
 
 /**
- * 静的ファイルの配信元を決めて、その結果を起動ログに出す。
+ * 静的ファイルの配信元を起動ログに出す。
  *
- * 配信できないときは null を返す。この場合 root は 404 になる。
+ * 配信できないときは、指定が無いのか実体が無いのかまで出す。黙って 404 になると
+ * 設定し忘れなのか置き忘れなのかが分からない。
  */
-private fun Application.resolveStaticFiles(srcDir: Path?): StaticFiles? {
+private fun Application.logStaticFiles(
+    srcDir: Path?,
+    staticFiles: StaticFiles?,
+) {
+    if (staticFiles != null) {
+        log.info("静的ファイルを ${staticFiles.root} から配信する")
+        return
+    }
+
     if (srcDir == null) {
         log.info(
             "STATIC_SRC_DIR が未設定なので静的ファイルを配信しない。" +
                 "管理画面を出すには :frontend の成果物を置いたディレクトリを指定する",
         )
-        return null
+        return
     }
 
-    val staticFiles = StaticFiles(srcDir)
-    if (!staticFiles.isAvailable()) {
-        log.warn("${staticFiles.root} が無いので静的ファイルを配信しない")
-        return null
-    }
-
-    log.info("静的ファイルを ${staticFiles.root} から配信する")
-    return staticFiles
+    log.warn("$srcDir が無いので静的ファイルを配信しない")
 }

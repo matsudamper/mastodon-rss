@@ -6,10 +6,16 @@ query AdminSession {
     }
 }
 
-query AdminAccountsScreen {
+query AdminAccountsScreen($cursor: String, $limit: Int) {
     admin {
-        adminAccounts {
-            ...AdminAccountListFields
+        adminAccounts(cursor: $cursor, limit: $limit) {
+            nodes {
+                ...AdminAccountListFields
+            }
+            pageInfo {
+                hasMore
+                nextCursor
+            }
         }
     }
 }
@@ -40,6 +46,7 @@ fragment AdminAccountListFields on AdminAccount {
         actorUrl
         displayName
         summary
+        iconUrl
     }
     createdAt
     followerCount
@@ -53,6 +60,7 @@ fragment AdminAccountScreenFields on AdminAccount {
         actorUrl
         displayName
         summary
+        iconUrl
     }
     createdAt
     followerCount
@@ -62,6 +70,7 @@ fragment AdminAccountScreenFields on AdminAccount {
         title
         siteUrl
         format
+        lastFetchedAt
     }
 }
 
@@ -97,6 +106,7 @@ mutation AdminSaveFeed($saveFeedQuery: SaveFeedQuery!) {
                 title
                 siteUrl
                 format
+                lastFetchedAt
             }
             failure {
                 reason
@@ -123,11 +133,7 @@ query AdminUnpublishedFeedItems($query: UnpublishedFeedItemsQuery!) {
 mutation AdminPostFeedItems($query: PostFeedItemsQuery!) {
     admin {
         postFeedItems(query: $query) {
-            items {
-                title
-                link
-                publishedAt
-            }
+            importedCount
             failure {
                 reason
             }
@@ -212,8 +218,6 @@ mutation AdminPostNote($username: String!, $body: String!) {
             note {
                 ...AdminNoteFields
             }
-            deliveryTargets
-            delivered
             failure {
                 unknownAccount
                 isEmpty

@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.navigation
 
 import androidx.navigation3.runtime.NavKey
+import net.matsudamper.mastodon.rss.shared.WebPagePath
 
 /**
  * 画面のパス。Navigation 3 のバックスタックに積むキーでもある。
@@ -79,7 +80,7 @@ sealed interface Screen : NavKey {
     ) : Screen {
         // 名前の前に `@` を置く。追加の画面と同じ階層に並ぶので、これが無いと
         // `new` という名前のアカウントを開けない
-        override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$ACCOUNT_PREFIX$username"
+        override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$ADMIN_ACCOUNT_PREFIX$username"
         override val title: String = "@$username の管理 | $SITE_NAME"
     }
 
@@ -93,7 +94,7 @@ sealed interface Screen : NavKey {
         val username: String,
     ) : Overlay {
         override val path: String =
-            "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$ACCOUNT_PREFIX$username/$FEEDS_SEGMENT/$NEW_SEGMENT"
+            "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$ADMIN_ACCOUNT_PREFIX$username/$FEEDS_SEGMENT/$NEW_SEGMENT"
         override val title: String = "@$username のフィードを追加 | $SITE_NAME"
         override val background: Screen = AdminAccount(username)
     }
@@ -101,7 +102,7 @@ sealed interface Screen : NavKey {
     data class AdminAccountProfileEdit(
         val username: String,
     ) : Overlay {
-        override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$ACCOUNT_PREFIX$username/profile"
+        override val path: String = "/$ADMIN_SEGMENT/$ACCOUNTS_SEGMENT/$ADMIN_ACCOUNT_PREFIX$username/profile"
         override val title: String = "@$username のプロフィールを編集 | $SITE_NAME"
         override val background: Screen = AdminAccount(username)
     }
@@ -117,8 +118,22 @@ sealed interface Screen : NavKey {
     data class Account(
         val username: String,
     ) : Screen {
-        override val path: String = "/$ACCOUNT_PREFIX$username"
+        override val path: String = WebPagePath.account(username)
         override val title: String = "@$username | $SITE_NAME"
+    }
+
+    /**
+     * フォロワーの一覧。[Account] の上にダイアログとして出す。
+     *
+     * アカウントの画面に並べると、開いただけで一覧の問い合わせまで走る。
+     * URL を持つので、一覧を開いた状態を指せる。
+     */
+    data class AccountFollowers(
+        val username: String,
+    ) : Overlay {
+        override val path: String = "${WebPagePath.account(username)}/$FOLLOWERS_SEGMENT"
+        override val title: String = "@$username のフォロワー | $SITE_NAME"
+        override val background: Screen = Account(username)
     }
 
     /**
@@ -131,7 +146,7 @@ sealed interface Screen : NavKey {
         val username: String,
         val noteId: String,
     ) : Overlay {
-        override val path: String = "/$ACCOUNT_PREFIX$username/$noteId"
+        override val path: String = WebPagePath.accountNote(username = username, noteId = noteId)
         override val title: String = "@$username の投稿 | $SITE_NAME"
         override val background: Screen = Account(username)
     }
@@ -162,8 +177,19 @@ sealed interface Screen : NavKey {
 
         private const val FEEDS_SEGMENT: String = "feeds"
 
-        /** アカウント画面の目印。ユーザー名に `@` は使えないので、これで一意に判別できる */
-        const val ACCOUNT_PREFIX: String = "@"
+        /**
+         * 投稿 1 件と同じ階層に並ぶ。投稿の id は UUIDv7 なのでこの綴りにはならない
+         */
+        private const val FOLLOWERS_SEGMENT: String = "followers"
+
+        /**
+         * 管理画面でアカウントを指すときの目印。
+         *
+         * 公開のアカウント画面のパスは外から指されるので [WebPagePath] が持つ。
+         * こちらは管理画面の中だけの綴りなので別に持つ。同じ値を使い回すと、
+         * 公開側の綴りを変えたときに管理画面の URL まで変わる
+         */
+        private const val ADMIN_ACCOUNT_PREFIX: String = "@"
 
         /**
          * `@name` の形のセグメントから名前を取り出す。名前が入っていなければ null。
@@ -172,12 +198,20 @@ sealed interface Screen : NavKey {
          * 持つことになり、片方だけ変えたときに API では引けるのに画面だけ見つからない、
          * という食い違いが出る。実在するかどうかと同じく、開いた先の画面が
          * サーバーに聞く。
+         *
+         * @param prefix 公開の画面なら [WebPagePath] のもの、管理画面なら [ADMIN_ACCOUNT_PREFIX]
          */
-        private fun accountNameOf(segment: String): String? {
-            if (!segment.startsWith(ACCOUNT_PREFIX)) return null
+        private fun accountNameOf(
+            segment: String,
+            prefix: String,
+        ): String? {
+            if (!segment.startsWith(prefix)) return null
 
-            return segment.removePrefix(ACCOUNT_PREFIX).ifEmpty { null }
+            return segment.removePrefix(prefix).ifEmpty { null }
         }
+
+        private fun adminAccountNameOf(segment: String): String? =
+            accountNameOf(segment = segment, prefix = ADMIN_ACCOUNT_PREFIX)
 
         /**
          * `window.location.pathname` から画面を決める。
@@ -202,16 +236,16 @@ sealed interface Screen : NavKey {
                     rest == listOf(ACCOUNTS_SEGMENT, NEW_SEGMENT) -> AdminAccountNew
 
                     rest.size == 2 && rest[0] == ACCOUNTS_SEGMENT -> {
-                        accountNameOf(rest[1])?.let { AdminAccount(it) } ?: NotFound(path)
+                        adminAccountNameOf(rest[1])?.let { AdminAccount(it) } ?: NotFound(path)
                     }
 
                     rest.size == 4 && rest[0] == ACCOUNTS_SEGMENT &&
                         rest[2] == FEEDS_SEGMENT && rest[3] == NEW_SEGMENT -> {
-                        accountNameOf(rest[1])?.let { AdminAccountFeedNew(it) } ?: NotFound(path)
+                        adminAccountNameOf(rest[1])?.let { AdminAccountFeedNew(it) } ?: NotFound(path)
                     }
 
                     rest.size == 3 && rest[0] == ACCOUNTS_SEGMENT && rest[2] == "profile" -> {
-                        val username = accountNameOf(rest[1])
+                        val username = adminAccountNameOf(rest[1])
                         if (username == null) NotFound(path) else AdminAccountProfileEdit(username)
                     }
 
@@ -219,10 +253,11 @@ sealed interface Screen : NavKey {
                 }
             }
 
-            accountNameOf(first)?.let { username ->
-                when (segments.size) {
-                    1 -> return Account(username)
-                    2 -> return AccountNote(username = username, noteId = segments[1])
+            accountNameOf(segment = first, prefix = WebPagePath.ACCOUNT_PREFIX)?.let { username ->
+                when {
+                    segments.size == 1 -> return Account(username)
+                    segments.size == 2 && segments[1] == FOLLOWERS_SEGMENT -> return AccountFollowers(username)
+                    segments.size == 2 -> return AccountNote(username = username, noteId = segments[1])
                 }
             }
 

@@ -79,7 +79,13 @@ Kotlin/Wasm のビルドに混ざる。
 ずれても誰も気付けないので `:shared` に置いて両方から見る。
 
 `:shared` は `:backend` と `:frontend` の両方から見る値だけを置く KMP モジュール
-（`jvm` と `wasmJs`）。
+（`jvm` と `wasmJs`）。外から指される画面のパス（`WebPagePath`）もここに置く。
+画面を出す `:frontend` と、そのパスを外向きの URL として申告する `:backend` で
+綴りがずれると、リンクだけが 404 になったり、画面はあるのに誰も辿り着けなくなる。
+
+`:backend:feature-mastodon` は `:shared` を見ない。ActivityPub の `url` に入れる
+画面の URL は、組み立てを `WebPageUrls` として受け取る。どのパスにどの画面を出すかは
+ActivityPub の都合ではないので、決めるのは渡す側（`:backend` の `DomainWebPageUrls`）。
 
 環境変数を読むのは `:backend` の入口（`ServerEnv`）だけにする。`:backend:repository` や
 `:backend:feature-mastodon` のような下位のモジュールは、値を引数で受け取る。

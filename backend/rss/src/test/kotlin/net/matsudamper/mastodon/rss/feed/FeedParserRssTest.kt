@@ -272,4 +272,106 @@ class FeedParserRssTest {
         val summary = item.summary?.text.orEmpty()
         assertTrue(summary.length <= 10, "切り捨てられていない: ${summary.length} 文字")
     }
+
+    @Test
+    fun `webfeeds のアイコンを読む`() {
+        val xml =
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:webfeeds="http://webfeeds.org/rss/1.0">
+              <channel>
+                <title>技術ブログ</title>
+                <webfeeds:icon>https://example.com/icon.png</webfeeds:icon>
+                <webfeeds:logo>https://example.com/logo.svg</webfeeds:logo>
+                <image>
+                  <url>https://example.com/image.png</url>
+                  <title>技術ブログ</title>
+                </image>
+              </channel>
+            </rss>
+            """.trimIndent()
+
+        val feed = FeedParser.parse(xml)
+
+        assertEquals("https://example.com/icon.png", feed.iconUrl)
+    }
+
+    @Test
+    fun `webfeeds の icon が無ければ logo を使う`() {
+        val xml =
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:webfeeds="http://webfeeds.org/rss/1.0">
+              <channel>
+                <title>技術ブログ</title>
+                <webfeeds:logo>https://example.com/logo.svg</webfeeds:logo>
+                <image>
+                  <url>https://example.com/image.png</url>
+                </image>
+              </channel>
+            </rss>
+            """.trimIndent()
+
+        assertEquals("https://example.com/logo.svg", FeedParser.parse(xml).iconUrl)
+    }
+
+    @Test
+    fun `webfeeds が無ければ channel の image を使う`() {
+        val xml =
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>技術ブログ</title>
+                <link>https://example.com/</link>
+                <image>
+                  <url>https://example.com/image.png</url>
+                  <title>技術ブログ</title>
+                  <link>https://example.com/</link>
+                </image>
+              </channel>
+            </rss>
+            """.trimIndent()
+
+        val feed = FeedParser.parse(xml)
+
+        assertEquals("https://example.com/image.png", feed.iconUrl)
+        // image の中の link を channel の link として拾っていないことも見る
+        assertEquals("https://example.com/", feed.link)
+    }
+
+    @Test
+    fun `RSS 1_0 の image は channel の外にあっても読む`() {
+        val xml =
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/">
+              <channel rdf:about="https://example.com/">
+                <title>技術ブログ</title>
+              </channel>
+              <image rdf:about="https://example.com/image.png">
+                <title>技術ブログ</title>
+                <url>https://example.com/image.png</url>
+                <link>https://example.com/</link>
+              </image>
+            </rdf:RDF>
+            """.trimIndent()
+
+        assertEquals("https://example.com/image.png", FeedParser.parse(xml).iconUrl)
+    }
+
+    @Test
+    fun `アイコンを名乗っていないフィードは null`() {
+        val xml =
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>技術ブログ</title>
+              </channel>
+            </rss>
+            """.trimIndent()
+
+        assertNull(FeedParser.parse(xml).iconUrl)
+    }
 }

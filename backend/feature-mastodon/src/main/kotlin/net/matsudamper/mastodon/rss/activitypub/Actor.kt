@@ -52,6 +52,16 @@ data class Actor(
     val url: String? = null,
     @SerialName("attachment")
     val attachment: List<ActorAttachment> = listOf(),
+    /**
+     * プロフィール画像。無ければ相手側の既定の画像が出る
+     */
+    @SerialName("icon")
+    val icon: Image? = null,
+    /**
+     * プロフィールヘッダー。Mastodon は Actor の `image` をヘッダーとして使う
+     */
+    @SerialName("image")
+    val image: Image? = null,
     @SerialName("publicKey")
     val publicKey: ActorPublicKey,
     /**
@@ -60,6 +70,24 @@ data class Actor(
     @SerialName("showFeatured")
     val showFeatured: Boolean = false,
 ) {
+    /**
+     * プロフィール画像。
+     *
+     * Mastodon は URL を辿って自分のところに取り込み、以後はそちらを出す。
+     * URL が変わらない限り取り直さないので、中身を差し替えても相手にはすぐ出ない。
+     */
+    @Serializable
+    data class Image(
+        @SerialName("type")
+        val type: String = TYPE_IMAGE,
+        @SerialName("url")
+        val url: String,
+    ) {
+        companion object {
+            const val TYPE_IMAGE: String = "Image"
+        }
+    }
+
     companion object {
         const val TYPE_SERVICE: String = "Service"
     }

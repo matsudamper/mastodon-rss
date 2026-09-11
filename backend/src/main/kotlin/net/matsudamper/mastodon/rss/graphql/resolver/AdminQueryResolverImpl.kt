@@ -9,9 +9,11 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.data.AccountsCursor
 import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountsConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
@@ -94,14 +96,37 @@ class AdminQueryResolverImpl : AdminQueryResolver {
 
     override fun adminAccounts(
         adminQuery: QlAdminQuery,
+        cursor: String?,
+        limit: Int?,
         env: DataFetchingEnvironment,
-    ): CompletionStage<DataFetcherResult<List<QlAdminAccount>>> {
+    ): CompletionStage<DataFetcherResult<QlAdminAccountsConnection>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val accounts = GraphQlEngine.diContainer(env).accountService.accounts()
+        val after = cursor?.let { AccountsCursor.decode(it) }
+
+        // 読めないカーソルは一覧の終わりとして扱う。外から来る値なので投げない
+        val connection = if (cursor != null && after == null) {
+            QlAdminAccountsConnection(
+                nodes = listOf(),
+                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+            )
+        } else {
+            val page = GraphQlEngine.diContainer(env).accountService.accounts(
+                after = after?.toPosition(),
+                limit = (limit ?: DEFAULT_ACCOUNTS_LIMIT).coerceIn(0, MAX_ACCOUNTS_LIMIT),
+            )
+
+            QlAdminAccountsConnection(
+                nodes = page.accounts.map { it.toGraphqlResponse() },
+                pageInfo = QlPageInfo(
+                    hasMore = page.hasMore,
+                    nextCursor = page.nextPosition?.let { AccountsCursor.of(it).encode() },
+                ),
+            )
+        }
 
         return CompletableFuture.completedFuture(
-            DataFetcherResult.Builder(accounts.map { it.toGraphqlResponse() }).build(),
+            DataFetcherResult.Builder(connection).build(),
         )
     }
 
@@ -132,5 +157,14 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         ).toGraphqlResponse()
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
+    }
+
+    private companion object {
+        /**
+         * limit を渡さなかったときに返す件数。渡さない呼び出しが一覧を全部引かないようにする
+         */
+        const val DEFAULT_ACCOUNTS_LIMIT = 10
+
+        const val MAX_ACCOUNTS_LIMIT = 50
     }
 }

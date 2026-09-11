@@ -164,6 +164,18 @@ Mastodon から検索できる名前は、管理画面から追加して `accoun
 使える文字は英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`、長さは 30 文字まで。
 既にある名前は追加できない。
 
+### フィードの自動取得
+
+登録したフィードはサーバーが定期的に取りに行き、新着記事をそのアカウントから投稿する。
+起動していれば操作は要らない。
+
+登録では記事を保存しない。登録した時点で既にあった記事も、最初の取得で新着として
+取り込んで投稿する。
+
+取得の間隔はフィードごとに `feeds.poll_interval_seconds` が持ち、登録時の既定は 900 秒（15 分）。
+管理画面から変える口はまだ無いので、変えるときは DB を直接更新する。
+取得に失敗したときの内容は `feeds.last_error` に残り、サーバーのログにも出る。
+
 ### API
 graphqlを使用している `POST /graphql`
 スキーマファースト`backend/graphql`モジュール参照
@@ -196,6 +208,7 @@ Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み
 | `DOMAIN` | **必須** | 外部に公開するドメイン。WebFinger の `acct:` とアクターの `id` に使う |
 | `ACTOR_PRIVATE_KEY_PATH` | `./data/actor-private-key.pem` | アクターの秘密鍵 (PEM)。無ければ起動時に生成して書き出す |
 | `ACTOR_PRIVATE_KEY_PEM` | なし | 秘密鍵の PEM を直接渡す場合に使う。`ACTOR_PRIVATE_KEY_PATH` とは併用できない |
+| `ICON_CACHE_DIR` | `./data/image-cache` | 取ってきたアイコンの置き場。無ければ書き込むときに作られる |
 | `STATIC_SRC_DIR` | なし | 配信する静的ファイルのディレクトリ。未設定なら何も配信しない |
 | `ADMIN_PASSWORD_HASH` | なし | 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない |
 | `ADMIN_COOKIE_SECURE` | `true` | セッション Cookie に `Secure` を付けるか。手元で http で試すときだけ `false` にする |

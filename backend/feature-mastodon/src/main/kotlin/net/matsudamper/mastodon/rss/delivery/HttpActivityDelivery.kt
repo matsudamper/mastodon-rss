@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.delivery
 
 import java.io.Closeable
+import kotlin.coroutines.cancellation.CancellationException
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -60,7 +61,12 @@ class HttpActivityDelivery(
                     header(HttpHeaders.ContentType, ActivityPubContentTypes.ActivityJson.toString())
                     setBody(body)
                 }
-            }.getOrElse { return DeliveryResult.Failed("POST に失敗した: $inbox ${it.message}") }
+            }.getOrElse { error ->
+                // runCatching は Throwable を拾うので、呼び出し元が消えた合図まで
+                // 配信の失敗に化ける。化けると送れていない記事が投稿済みとして残る
+                if (error is CancellationException) throw error
+                return DeliveryResult.Failed("POST に失敗した: $inbox ${error.message}")
+            }
 
         if (!response.status.isSuccess()) {
             return DeliveryResult.Failed("相手が受け取らなかった: $inbox ${response.status}")

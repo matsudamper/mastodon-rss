@@ -10,6 +10,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
+import net.matsudamper.mastodon.rss.frontend.logic.PagingLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
@@ -30,6 +31,8 @@ class AccountScreenViewModel(
     internal val eventHandler = events.asHandler()
 
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+
+    private val notesPaging = api.notes(username = username, limit = PAGE_SIZE)
 
     private var accountJob: Job? = null
     private var notesJob: Job? = null
@@ -63,6 +66,10 @@ class AccountScreenViewModel(
 
                     override fun onClickCopyAcct() {
                         copyAcct()
+                    }
+
+                    override fun onClickFollowerCount() {
+                        navigate(Screen.AccountFollowers(username))
                     }
                 },
             ),
@@ -104,15 +111,18 @@ class AccountScreenViewModel(
             }
     }
 
+    /**
+     * 一覧は先頭のページを watch して受け取る。続きを足したときもここに流れてくる
+     */
     private fun reloadNotes() {
         loadMoreJob?.cancel()
-        viewModelStateFlow.update { it.copy(notesLoading = true, notesError = null) }
+        viewModelStateFlow.update { it.copy(notesLoading = true, notesError = null, loadingMore = false) }
 
         notesJob?.cancel()
         notesJob =
             viewModelScope.launch {
-                try {
-                    when (val result = api.notes(username = username, limit = PAGE_SIZE)) {
+                notesPaging.watch().collect { result ->
+                    when (result) {
                         is AccountNotesResult.Success -> {
                             viewModelStateFlow.update {
                                 it.copy(
@@ -120,7 +130,6 @@ class AccountScreenViewModel(
                                     notesCursor = result.cursor,
                                     notesError = null,
                                     notesLoading = false,
-                                    loadingMore = false,
                                 )
                             }
                         }
@@ -130,14 +139,9 @@ class AccountScreenViewModel(
                                 it.copy(
                                     notesError = result.message,
                                     notesLoading = false,
-                                    loadingMore = false,
                                 )
                             }
                         }
-                    }
-                } finally {
-                    if (!isActive) {
-                        viewModelStateFlow.update { it.copy(notesLoading = false, loadingMore = false) }
                     }
                 }
             }
@@ -153,24 +157,16 @@ class AccountScreenViewModel(
         loadMoreJob =
             viewModelScope.launch {
                 try {
-                    when (val result = api.notes(username = username, cursor = cursor, limit = PAGE_SIZE)) {
-                        is AccountNotesResult.Success -> {
-                            viewModelStateFlow.update { current ->
-                                current.copy(
-                                    notes = current.notes + result.notes,
-                                    notesCursor = result.cursor,
-                                    notesError = null,
-                                    loadingMore = false,
-                                )
+                    when (val result = notesPaging.loadMore(cursor)) {
+                        PagingLoadMoreResult.Success -> {
+                            viewModelStateFlow.update {
+                                it.copy(notesError = null, loadingMore = false)
                             }
                         }
 
-                        is AccountNotesResult.Failure -> {
+                        is PagingLoadMoreResult.Failure -> {
                             viewModelStateFlow.update {
-                                it.copy(
-                                    notesError = result.message,
-                                    loadingMore = false,
-                                )
+                                it.copy(notesError = result.message, loadingMore = false)
                             }
                         }
                     }
@@ -212,6 +208,7 @@ class AccountScreenViewModel(
                         displayName = account.account.displayName.ifEmpty { account.account.username },
                         acct = account.account.acct,
                         actorUrl = account.account.actorUrl,
+                        iconUrl = account.iconUrl,
                         summary = account.summaryText(),
                         followerCount = account.followerCount.toString(),
                         noteCount = account.noteCount.toString(),
@@ -221,6 +218,7 @@ class AccountScreenViewModel(
                                 siteUrl = feed.siteUrl,
                             )
                         },
+                        initial = account.account.username.first().uppercase(),
                     ),
                     notes = state.notes.map { it.toUiState() },
                     notesError = state.notesError,

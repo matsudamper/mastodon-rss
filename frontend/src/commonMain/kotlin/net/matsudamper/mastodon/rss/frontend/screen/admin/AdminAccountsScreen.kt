@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -89,7 +90,7 @@ internal fun AdminAccountsContent(
                 }
 
                 is AdminAccountsScreenUiState.Content.Loaded -> Accounts(
-                    accounts = content.accounts,
+                    content = content,
                     wide = wide,
                     listener = uiState.listener,
                 )
@@ -100,17 +101,17 @@ internal fun AdminAccountsContent(
 
 @Composable
 private fun Accounts(
-    accounts: List<AdminAccountsScreenUiState.Account>,
+    content: AdminAccountsScreenUiState.Content.Loaded,
     wide: Boolean,
     listener: AdminAccountsScreenUiState.Listener,
 ) {
-    if (accounts.isEmpty()) {
+    if (content.accounts.isEmpty()) {
         SectionCard("アカウント") { Text("まだアカウントはありません。下のリンクから追加できます。") }
         return
     }
     val columns = if (wide) 2 else 1
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        accounts.chunked(columns).forEach { row ->
+        content.accounts.chunked(columns).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 row.forEach { account ->
                     AccountCard(
@@ -120,6 +121,25 @@ private fun Accounts(
                     )
                 }
                 repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+
+        if (content.loadMoreVisible) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                content.loadMoreErrorMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+                if (content.loadingMore) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                } else {
+                    Button(onClick = listener::onClickLoadMore) {
+                        Text(content.loadMoreButtonText)
+                    }
+                }
             }
         }
     }
@@ -134,9 +154,24 @@ private fun AccountCard(
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                AccountAvatar(account.username)
+                AccountAvatar(
+                    username = account.username,
+                    iconUrl = account.iconUrl,
+                )
                 Column(Modifier.weight(1f)) {
-                    SelectionContainer { Text(account.acct, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                    Text(
+                        text = account.displayName.ifEmpty { account.username },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    SelectionContainer {
+                        Text(
+                            text = account.acct,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontFamily = FontFamily.Monospace,
+                        )
+                    }
                     Text("フォロワー ${account.followerCount} 人", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }

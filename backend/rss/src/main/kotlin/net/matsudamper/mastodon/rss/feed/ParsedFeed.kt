@@ -65,6 +65,8 @@ data class FeedContent(
  * @param link フィードに対応する Web ページの URL
  * @param description フィードの説明（Atom の `subtitle`）
  * @param updatedAt フィード全体の更新日時。RSS 2.0 の `lastBuildDate` / Atom の `updated`
+ * @param iconUrl フィードが名乗っているアイコンの URL。相対のこともある
+ * @param headerUrl フィードが名乗っているカバー画像の URL。相対のこともある
  * @param items 記事。XML に現れた順のまま。並べ替えはしない
  */
 data class ParsedFeed(
@@ -73,6 +75,8 @@ data class ParsedFeed(
     val link: String?,
     val description: FeedContent?,
     val updatedAt: Instant?,
+    val iconUrl: String?,
+    val headerUrl: String? = null,
     val items: List<ParsedFeedItem>,
 )
 

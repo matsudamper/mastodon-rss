@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,15 +47,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
@@ -236,7 +240,6 @@ private fun CompactLoadedAccountContent(
                 state = state,
                 wide = false,
                 listener = listener,
-                onOpenExternal = onOpenExternal,
             )
         }
         state.feed?.let { feed ->
@@ -285,7 +288,6 @@ private fun WideLoadedAccountContent(
                     state = state,
                     wide = true,
                     listener = listener,
-                    onOpenExternal = onOpenExternal,
                 )
             }
         },
@@ -333,15 +335,15 @@ private fun WideLoadedAccountContent(
 /**
  * プロフィール。ヘッダー画像・アイコン・表示名・acct・説明・数値。
  *
- * 画像はまだ持っていない（Phase 6 の項目）ので、ユーザー名から決まる色で描く。
+ * アイコンが無いアカウントと、読めなかった場合はユーザー名から決まる色で描く。
  * 空の枠を置くより、アカウントごとに見分けが付く方が検証で役に立つ。
+ * ヘッダー画像はまだ持っていない。
  */
 @Composable
 private fun ProfileHeader(
     state: AccountUiState,
     wide: Boolean,
     listener: AccountScreenUiState.Listener,
-    onOpenExternal: (String) -> Unit,
 ) {
     val avatarSize = if (wide) 88.dp else 68.dp
     val colors = avatarColors(state.username)
@@ -381,6 +383,14 @@ private fun ProfileHeader(
                                 style = MaterialTheme.typography.headlineMedium,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
+                            )
+                            // 読めるまでと読めなかったときは下の頭文字を出す
+                            AsyncImage(
+                                model = state.iconUrl,
+                                // 読み上げるものが無い。名前は隣に文字で出ている
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
                             )
                         }
                     },
@@ -467,36 +477,42 @@ private fun ProfileHeader(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    Stat(value = state.followerCount, label = "フォロワー")
-                    Stat(value = state.noteCount, label = "配信した投稿")
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    val feedUrl = state.feed?.feedUrl
-                    if (feedUrl != null) {
-                        Button(onClick = { onOpenExternal(feedUrl) }) {
-                            Text("フィードを開く")
-                        }
-                    }
-                    OutlinedButton(onClick = { onOpenExternal(state.actorUrl) }) {
-                        Text("Actor JSON")
-                    }
+                    Stat(
+                        value = state.followerCount,
+                        label = "フォロワー",
+                        onClick = listener::onClickFollowerCount,
+                    )
+                    Stat(value = state.noteCount, label = "配信した投稿", onClick = null)
                 }
             }
         }
     }
 }
 
+/**
+ * 数値と、それが何の数かのラベル。
+ *
+ * 押せるものは同じ画面のリンクと同じ色と下線にする。canvas に描いているので、
+ * 押せてもカーソルは変わらない。見た目が同じだと隣の押せない数値と区別が付かない。
+ *
+ * @param onClick 押せないなら null
+ */
 @Composable
 private fun Stat(
     value: String,
     label: String,
+    onClick: (() -> Unit)?,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(
+        modifier = if (onClick == null) Modifier else Modifier.clickable(onClick = onClick),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
+            color = if (onClick == null) Color.Unspecified else MaterialTheme.colorScheme.primary,
+            textDecoration = if (onClick == null) null else TextDecoration.Underline,
         )
         Text(
             text = label,

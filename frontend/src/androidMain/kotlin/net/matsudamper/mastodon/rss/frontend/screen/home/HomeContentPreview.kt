@@ -15,10 +15,14 @@ private fun HomeContentPreview() {
                         HomeScreenUiState.Account(
                             username = "kotlin",
                             acct = "@kotlin@example.com",
+                            displayName = "Kotlin",
+                            iconUrl = null,
                         ),
                         HomeScreenUiState.Account(
                             username = "android",
                             acct = "@android@example.com",
+                            displayName = "Android",
+                            iconUrl = null,
                         ),
                     ),
                     loadMoreVisible = true,

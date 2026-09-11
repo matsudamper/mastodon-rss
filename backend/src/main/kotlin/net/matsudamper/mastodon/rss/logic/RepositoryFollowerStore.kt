@@ -2,7 +2,9 @@ package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.RemoteActor
+import net.matsudamper.mastodon.rss.follower.FollowAcceptResult
 import net.matsudamper.mastodon.rss.follower.FollowerStore
+import net.matsudamper.mastodon.rss.repository.FollowAcceptResult as RepositoryFollowAcceptResult
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
@@ -40,11 +42,17 @@ class RepositoryFollowerStore(
         username: String,
         followerActorUri: String,
         acceptedAt: Instant,
-    ): Boolean = followers.markAccepted(
-        username = username,
-        followerActorUri = followerActorUri,
-        acceptedAt = acceptedAt,
-    )
+    ): FollowAcceptResult = when (
+        followers.markAccepted(
+            username = username,
+            followerActorUri = followerActorUri,
+            acceptedAt = acceptedAt,
+        )
+    ) {
+        RepositoryFollowAcceptResult.FirstAccept -> FollowAcceptResult.FirstAccept
+        RepositoryFollowAcceptResult.AlreadyAccepted -> FollowAcceptResult.AlreadyAccepted
+        RepositoryFollowAcceptResult.NotFound -> FollowAcceptResult.NotFound
+    }
 
     override fun remove(
         username: String,
@@ -59,6 +67,19 @@ class RepositoryFollowerStore(
     override fun removeAccount(username: String): Int = followers.removeAccount(username)
 
     override fun removeRemoteActor(actorUri: String): Int = followers.removeRemoteActor(actorUri)
+
+    override fun findPublicKeyPem(actorUri: String): String? = followers.findPublicKeyPem(actorUri)
+
+    override fun rememberPublicKeyPem(
+        actorUri: String,
+        publicKeyPem: String,
+    ) {
+        followers.rememberPublicKeyPem(
+            actorUri = actorUri,
+            publicKeyPem = publicKeyPem,
+            readAt = Instant.now(),
+        )
+    }
 
     override fun list(
         username: String,

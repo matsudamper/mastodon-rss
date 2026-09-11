@@ -47,7 +47,9 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.PostFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UnpublishedFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UpdateAccountProfileQuery
+import net.matsudamper.mastodon.rss.frontend.logic.CachedPaging
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
+import net.matsudamper.mastodon.rss.frontend.logic.Paging
 import net.matsudamper.mastodon.rss.frontend.logic.account.Account
 import net.matsudamper.mastodon.rss.shared.FeedItemId
 
@@ -86,23 +88,48 @@ class AdminApi(
             .toSessionResult { it.admin.logout.adminSessionFields }
     }
 
-    fun accounts(): Flow<AdminAccountsResult> {
-        return client
-            .query(AdminAccountsScreenQuery())
-            .fetchPolicy(FetchPolicy.NetworkOnly)
-            .watch()
-            .map { response ->
-                if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
-                    return@map AdminAccountsResult.Failure(response.failureMessage())
-                }
-
-                val data = response.data
-                    ?: return@map AdminAccountsResult.Failure(response.failureMessage())
-
-                AdminAccountsResult.Success(
-                    data.admin.adminAccounts.map { it.adminAccountListFields.toAdminAccount() },
+    /**
+     * @param limit 1 ページで要求する件数。上限はサーバー側で決まる
+     */
+    fun accounts(limit: Int): Paging<AdminAccountsResult> {
+        return CachedPaging(
+            client = client,
+            firstPage = AdminAccountsScreenQuery(
+                cursor = Optional.absent(),
+                limit = Optional.present(limit),
+            ),
+            nextPage = { cursor ->
+                AdminAccountsScreenQuery(
+                    cursor = Optional.present(cursor),
+                    limit = Optional.present(limit),
                 )
-            }
+            },
+            appendPage = { cached, fetched ->
+                cached.copy(
+                    admin = cached.admin.copy(
+                        adminAccounts = cached.admin.adminAccounts.copy(
+                            nodes = cached.admin.adminAccounts.nodes + fetched.admin.adminAccounts.nodes,
+                            pageInfo = fetched.admin.adminAccounts.pageInfo,
+                        ),
+                    ),
+                )
+            },
+            toResult = { response -> response.toAdminAccountsResult() },
+        )
+    }
+
+    private fun ApolloResponse<AdminAccountsScreenQuery.Data>.toAdminAccountsResult(): AdminAccountsResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AdminAccountsResult.Failure(failureMessage())
+        }
+
+        val data = data ?: return AdminAccountsResult.Failure(failureMessage())
+
+        return AdminAccountsResult.Success(
+            accounts = data.admin.adminAccounts.nodes.map { it.adminAccountListFields.toAdminAccount() },
+            hasMore = data.admin.adminAccounts.pageInfo.hasMore,
+            nextCursor = data.admin.adminAccounts.pageInfo.nextCursor,
+        )
     }
 
     fun watchAccount(username: String): Flow<AdminAccountResult> {
@@ -180,34 +207,43 @@ class AdminApi(
     }
 
     /**
-     * @param cursor 直前のページの続きから取る。null なら先頭から
-     * @param limit 要求する件数。上限はサーバー側で決まる
+     * @param limit 1 ページで要求する件数。上限はサーバー側で決まる
      */
-    suspend fun notes(
-        username: String,
-        cursor: String? = null,
-        limit: Int,
-        networkOnly: Boolean = false,
-    ): AdminNotesResult {
-        val query = client
-            .query(
+    fun notes(username: String, limit: Int): Paging<AdminNotesResult> {
+        return CachedPaging(
+            client = client,
+            firstPage = AdminNotesQuery(
+                username = username,
+                cursor = Optional.absent(),
+                limit = limit,
+            ),
+            nextPage = { cursor ->
                 AdminNotesQuery(
                     username = username,
-                    cursor = Optional.presentIfNotNull(cursor),
+                    cursor = Optional.present(cursor),
                     limit = limit,
-                ),
-            )
-        val response = if (networkOnly) {
-            query.fetchPolicy(FetchPolicy.NetworkOnly).execute()
-        } else {
-            query.execute()
+                )
+            },
+            appendPage = { cached, fetched ->
+                cached.copy(
+                    admin = cached.admin.copy(
+                        notes = cached.admin.notes.copy(
+                            nodes = cached.admin.notes.nodes + fetched.admin.notes.nodes,
+                            pageInfo = fetched.admin.notes.pageInfo,
+                        ),
+                    ),
+                )
+            },
+            toResult = { response -> response.toAdminNotesResult() },
+        )
+    }
+
+    private fun ApolloResponse<AdminNotesQuery.Data>.toAdminNotesResult(): AdminNotesResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AdminNotesResult.Failure(failureMessage())
         }
 
-        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
-            return AdminNotesResult.Failure(response.failureMessage())
-        }
-
-        val data = response.data ?: return AdminNotesResult.Failure(response.failureMessage())
+        val data = data ?: return AdminNotesResult.Failure(failureMessage())
 
         return AdminNotesResult.Success(
             notes = data.admin.notes.nodes.map { it.adminNoteFields.toAdminNote() },
@@ -273,6 +309,7 @@ class AdminApi(
                     title = feed.title,
                     siteUrl = feed.siteUrl,
                     format = feed.format,
+                    lastFetchedAt = feed.lastFetchedAt,
                 ),
             )
         }
@@ -302,17 +339,9 @@ class AdminApi(
         ).execute()
         val result = response.data?.admin?.postFeedItems
             ?: return AdminPostFeedItemsResult.Failure(response.failureMessage())
-        val items = result.items
-        if (items != null) {
-            return AdminPostFeedItemsResult.Success(
-                items = items.map { item ->
-                    AdminUnpublishedFeedItem(
-                        title = item.title,
-                        link = item.link,
-                        publishedAt = item.publishedAt,
-                    )
-                },
-            )
+        val importedCount = result.importedCount
+        if (importedCount != null) {
+            return AdminPostFeedItemsResult.Success(importedCount = importedCount)
         }
         return AdminPostFeedItemsResult.Rejected(
             reason = result.failure?.reason?.toPostFeedItemsFailure()
@@ -408,8 +437,6 @@ class AdminApi(
 
         return AdminPostNoteResult.Success(
             note = note.adminNoteFields.toAdminNote(),
-            deliveryTargets = posted.deliveryTargets ?: 0,
-            delivered = posted.delivered ?: 0,
         )
     }
 
@@ -422,6 +449,7 @@ class AdminApi(
             displayName = account.displayName,
             summary = account.summary,
         ),
+        iconUrl = account.iconUrl,
         createdAt = createdAt,
         followerCount = followerCount,
         feed = feed?.let {
@@ -431,6 +459,7 @@ class AdminApi(
                 title = it.title,
                 siteUrl = it.siteUrl,
                 format = it.format,
+                lastFetchedAt = it.lastFetchedAt,
             )
         },
     )
@@ -444,6 +473,7 @@ class AdminApi(
             displayName = account.displayName,
             summary = account.summary,
         ),
+        iconUrl = account.iconUrl,
         createdAt = createdAt,
         followerCount = followerCount,
         feed = null,

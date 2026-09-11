@@ -5,4 +5,7 @@ type Feed {
     siteUrl: String
     format: String
     createdAt: UnixTime!
+
+    "最後に取りに行った時刻。取得できなかった場合も入る。一度も取りに行っていなければ null"
+    lastFetchedAt: UnixTime
 }

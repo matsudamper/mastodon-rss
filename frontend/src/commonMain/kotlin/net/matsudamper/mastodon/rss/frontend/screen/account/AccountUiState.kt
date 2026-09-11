@@ -15,18 +15,21 @@ data class AccountUiState(
      */
     val actorUrl: String,
     /**
+     * プロフィール画像の URL。無ければ [initial] を出す
+     */
+    val iconUrl: String?,
+    /**
      * プロフィールの説明文。出すものが無ければ null
      */
     val summary: String?,
     val followerCount: String,
     val noteCount: String,
     val feed: FeedUiState?,
-) {
     /**
-     * アバターの代わりに出す 1 文字
+     * アイコンが無いときにアバターの代わりに出す 1 文字
      */
-    val initial: String get() = username.first().uppercase()
-}
+    val initial: String,
+)
 
 data class FeedUiState(
     val feedUrl: String,

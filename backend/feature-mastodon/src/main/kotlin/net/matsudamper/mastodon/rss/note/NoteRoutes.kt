@@ -20,6 +20,7 @@ import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.url.WebPageUrls
 
 /**
  * 配信した投稿を返す。
@@ -30,6 +31,7 @@ import net.matsudamper.mastodon.rss.json.respondJson
 fun Route.noteRoutes(
     domain: String,
     notes: NoteStore,
+    webPages: WebPageUrls?,
 ) {
     get("/notes/{publicId}") {
         val publicId = call.parameters["publicId"]
@@ -46,6 +48,7 @@ fun Route.noteRoutes(
                 urls = ActorUrls(domain = domain, username = note.username),
                 note = note,
                 embedded = false,
+                webPages = webPages,
             ),
             contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
         )
@@ -62,6 +65,7 @@ fun Route.noteRoutes(
 fun Route.outboxRoutes(
     directory: ActorDirectory,
     notes: NoteStore,
+    webPages: WebPageUrls?,
 ) {
     get("/users/{username}/outbox") {
         val requested = call.parameters["username"]
@@ -105,7 +109,7 @@ fun Route.outboxRoutes(
                     published = note.publishedAt.toActivityPubPublished(),
                     to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
                     cc = listOf(urls.followers),
-                    target = noteDocument(urls = urls, note = note, embedded = true),
+                    target = noteDocument(urls = urls, note = note, embedded = true, webPages = webPages),
                 )
             }
 
@@ -193,6 +197,7 @@ private fun noteDocument(
     urls: ActorUrls,
     note: StoredNote,
     embedded: Boolean,
+    webPages: WebPageUrls?,
 ): Note {
     val noteUrls = NoteUrls(domain = urls.domain, publicId = note.publicId)
 
@@ -205,7 +210,7 @@ private fun noteDocument(
         to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
         cc = listOf(urls.followers),
         atomUri = noteUrls.noteUrl,
-        url = noteUrls.noteUrl,
+        url = webPages?.note(username = urls.username, publicId = note.publicId),
         attachment = note.attachmentImageUrl?.let { listOf(NoteAttachment(url = it)) },
     )
 }

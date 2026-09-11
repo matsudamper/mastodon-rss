@@ -18,6 +18,7 @@ private fun AdminAccountContentPreview() {
                         username = username,
                         acct = "@$username@example.com",
                         actorUrl = "https://example.com/users/$username",
+                        iconUrl = null,
                         createdAt = "2026-09-01 10:00",
                         followerCount = 128,
                         displayName = "",
@@ -28,18 +29,21 @@ private fun AdminAccountContentPreview() {
                         url = "https://example.com/feed.xml",
                         title = "Kotlin Updates",
                         format = "Atom 1.0",
+                        lastFetchedText = "最終チェック: 2026-09-06 12:34",
                         unpublishedItems = emptyList(),
-                        postedItems = null,
                         postingUnpublished = false,
                         unpublishedError = null,
                         listener = AndroidPreviewRegisteredFeedListener,
+                        postLatestButtonEnabled = true,
                     ),
-                    post = AdminAccountScreenUiState.Post(
+                    postDialog = AdminAccountScreenUiState.Post(
                         body = "新しい記事を公開しました。",
                         submitting = false,
-                        result = null,
                         error = null,
                         listener = AndroidPreviewPostListener,
+                        bodyInputEnabled = true,
+                        postButtonEnabled = true,
+                        closeEnabled = true,
                     ),
                     notes = listOf(
                         AdminAccountScreenUiState.Note(
@@ -78,6 +82,7 @@ private fun AdminAccountContentNoFeedPreview() {
                         username = username,
                         acct = "@$username@example.com",
                         actorUrl = "https://example.com/users/$username",
+                        iconUrl = null,
                         createdAt = "2026-09-01 10:00",
                         followerCount = 0,
                         displayName = "",
@@ -85,13 +90,7 @@ private fun AdminAccountContentNoFeedPreview() {
                         listener = AndroidPreviewAccountListener,
                     ),
                     feed = AdminAccountScreenUiState.Feed.NotRegistered(listener = AndroidPreviewNotRegisteredFeedListener),
-                    post = AdminAccountScreenUiState.Post(
-                        body = "",
-                        submitting = false,
-                        result = null,
-                        error = null,
-                        listener = AndroidPreviewPostListener,
-                    ),
+                    postDialog = null,
                     notes = emptyList(),
                     deleteNoteDialog = null,
                     deleteAccountDialog = null,
@@ -117,6 +116,8 @@ private object AndroidPreviewAccountListener : AdminAccountScreenUiState.Account
 
     override fun onClickEditProfile() = Unit
 
+    override fun onClickNewPost() = Unit
+
     override fun onClickDelete() = Unit
 }
 
@@ -132,6 +133,8 @@ private object AndroidPreviewPostListener : AdminAccountScreenUiState.PostListen
     override fun onBodyChanged(text: String) = Unit
 
     override fun onClickPost() = Unit
+
+    override fun onDismiss() = Unit
 }
 
 private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Listener {

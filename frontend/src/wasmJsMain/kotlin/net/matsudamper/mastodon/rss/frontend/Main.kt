@@ -8,6 +8,11 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import kotlinx.browser.document
 import kotlinx.browser.window
+import coil3.ImageLoader
+import coil3.compose.setSingletonImageLoaderFactory
+import coil3.network.ktor3.KtorNetworkFetcherFactory
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.js.Js
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.TransparentScreen
@@ -16,6 +21,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.WasmNavigator
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavController
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundScreen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
+import net.matsudamper.mastodon.rss.frontend.screen.account.AccountFollowersScreen
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountNoteScreen
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountFeedNewScreen
@@ -43,6 +49,12 @@ fun main() {
  */
 @Composable
 fun App() {
+    setSingletonImageLoaderFactory { context ->
+        ImageLoader.Builder(context)
+            .components { add(KtorNetworkFetcherFactory(httpClient = { HttpClient(Js) })) }
+            .build()
+    }
+
     AppTheme {
         val platformNavController = rememberNavController()
         val navController: Navigator = remember(platformNavController) {
@@ -101,6 +113,15 @@ fun App() {
                     AccountNoteScreen(
                         username = screen.username,
                         noteId = screen.noteId,
+                        platform = WasmScreenPlatform,
+                        navController = navController,
+                    )
+                }
+                entry<Screen.AccountFollowers>(
+                    metadata = TransparentScreen.asMetadata(),
+                ) { screen ->
+                    AccountFollowersScreen(
+                        username = screen.username,
                         platform = WasmScreenPlatform,
                         navController = navController,
                     )

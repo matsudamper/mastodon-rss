@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.actor.RemoteActor
@@ -52,6 +53,7 @@ class NotePublisherTest {
                 "https://b.example/users/bob" to null,
             ),
             delivery,
+            TestWebPageUrls,
         )
 
         val published = publisher.publish(sender, "<p>こんにちは</p>", attachmentImageUrl = null)
@@ -73,6 +75,7 @@ class NotePublisherTest {
         assertEquals("<p>こんにちは</p>", activity.target.content)
         assertEquals(7, UUID.fromString(published.publicId.value).version())
         assertEquals("https://example.com/notes/${published.publicId.value}", activity.target.id.value)
+        assertEquals("https://example.com/@${TestLocalActor.USERNAME}/${published.publicId.value}", activity.target.url)
         // 外側の Create が @context を持つので、中で重ねない
         assertNull(activity.target.context)
     }
@@ -81,7 +84,7 @@ class NotePublisherTest {
     fun `画像を渡すと attachment を付けて配る`() = runBlocking {
         val delivery = TestDelivery()
         val notes = FakeNoteStore()
-        val publisher = NotePublisher(notes, followers("https://a.example/users/alice" to null), delivery)
+        val publisher = NotePublisher(notes, followers("https://a.example/users/alice" to null), delivery, TestWebPageUrls)
 
         val published = publisher.publish(
             sender,
@@ -101,7 +104,7 @@ class NotePublisherTest {
     @Test
     fun `画像が無ければ attachment を付けない`() = runBlocking {
         val delivery = TestDelivery()
-        val publisher = NotePublisher(FakeNoteStore(), followers("https://a.example/users/alice" to null), delivery)
+        val publisher = NotePublisher(FakeNoteStore(), followers("https://a.example/users/alice" to null), delivery, TestWebPageUrls)
 
         publisher.publish(sender, "<p>本文</p>", attachmentImageUrl = null)
 
@@ -120,6 +123,7 @@ class NotePublisherTest {
                 "https://b.example/users/carol" to null,
             ),
             delivery,
+            TestWebPageUrls,
         )
 
         val published = publisher.publish(sender, "<p>まとめ</p>", attachmentImageUrl = null)
@@ -135,7 +139,7 @@ class NotePublisherTest {
     @Test
     fun `配る前に記録する`() = runBlocking {
         val notes = FakeNoteStore()
-        val publisher = NotePublisher(notes, followers("https://a.example/users/alice" to null), TestDelivery())
+        val publisher = NotePublisher(notes, followers("https://a.example/users/alice" to null), TestDelivery(), TestWebPageUrls)
 
         val published = publisher.publish(sender, "<p>本文</p>", attachmentImageUrl = null)
 
@@ -154,6 +158,7 @@ class NotePublisherTest {
             notes,
             followers("https://a.example/users/alice" to null),
             TestDelivery(result = DeliveryResult.Failed("届かない")),
+            TestWebPageUrls,
         )
 
         val published = publisher.publish(sender, "<p>本文</p>", attachmentImageUrl = null)
@@ -180,7 +185,7 @@ class NotePublisherTest {
             )
         }
 
-        val published = NotePublisher(FakeNoteStore(), pending, delivery).publish(sender, "<p>本文</p>", attachmentImageUrl = null)
+        val published = NotePublisher(FakeNoteStore(), pending, delivery, TestWebPageUrls).publish(sender, "<p>本文</p>", attachmentImageUrl = null)
 
         // 相手から見てフォローが成立していないので、送ると知らないアクターからの投稿になる
         assertEquals(0, published.deliveryAttemptCount)

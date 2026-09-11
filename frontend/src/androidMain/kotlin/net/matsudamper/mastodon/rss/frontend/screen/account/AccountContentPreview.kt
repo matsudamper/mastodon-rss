@@ -18,6 +18,7 @@ private fun AccountContentPreview() {
                         displayName = "Kotlin Updates",
                         acct = "@$username@example.com",
                         actorUrl = "https://example.com/users/$username",
+                        iconUrl = null,
                         summary = "Kotlin の更新を流す",
                         followerCount = "12",
                         noteCount = "3",
@@ -25,6 +26,7 @@ private fun AccountContentPreview() {
                             feedUrl = "https://example.com/blog/feed.xml",
                             siteUrl = "https://example.com/blog",
                         ),
+                        initial = username.first().uppercase(),
                     ),
                     notes = listOf(
                         NoteUiState(
