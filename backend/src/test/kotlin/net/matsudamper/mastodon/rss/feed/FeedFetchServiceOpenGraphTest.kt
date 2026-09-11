@@ -78,6 +78,16 @@ class FeedFetchServiceOpenGraphTest {
         }
 
     @Test
+    fun `URL として長すぎる og image は持たない`() =
+        runTest {
+            val requested = mutableListOf<String>()
+            // content には長さの上限が無い。保存も配信もこの値を毎回載せることになる
+            val service = serviceOf(requested) { html("https://example.com/" + "a".repeat(3000) + ".png") }
+
+            assertNull(service.fetchOpenGraphImageUrl("https://example.com/1"))
+        }
+
+    @Test
     fun `HTML でなければ読まない`() =
         runTest {
             val requested = mutableListOf<String>()

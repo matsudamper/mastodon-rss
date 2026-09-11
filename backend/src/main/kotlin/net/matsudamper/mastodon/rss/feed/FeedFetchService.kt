@@ -109,8 +109,10 @@ class FeedFetchService(
         // 呼び出し元のスレッドを借りない。ページを読むのは CPU の仕事
         val imageUrl = withContext(Dispatchers.Default) { OpenGraph.imageUrl(page.html) } ?: return null
 
-        // og:image は相対 URL でもよい。基準は飛んだ先のページ
-        return HttpUrl.sanitize(imageUrl, page.url)
+        // og:image は相対 URL でもよい。基準は飛んだ先のページ。
+        // content には長さの上限が無く、長すぎるものは DB にも Create の本文にも
+        // 毎回載るので、URL として妥当な長さを超えたら持たない
+        return HttpUrl.sanitize(imageUrl, page.url)?.takeIf { it.length <= MAX_IMAGE_URL_LENGTH }
     }
 
     /**
@@ -305,6 +307,7 @@ class FeedFetchService(
         private const val MAX_PAGE_BYTES = 2 * 1024 * 1024
         private const val MAX_PAGE_REDIRECTS = 3
         private const val PAGE_TIMEOUT_MILLIS = 10_000L
+        private const val MAX_IMAGE_URL_LENGTH = 2048
         private val XHTML = ContentType("application", "xhtml+xml")
 
         fun defaultClient(): HttpClient =
