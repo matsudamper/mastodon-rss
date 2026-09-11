@@ -1,19 +1,31 @@
 package net.matsudamper.mastodon.rss.inbox
 
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import net.matsudamper.mastodon.rss.FakeFollowerStore
+import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
+import net.matsudamper.mastodon.rss.TestWebPageUrls
+import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.activity.InboxActivity
+import net.matsudamper.mastodon.rss.actor.RemoteActor
+import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.delivery.DeliveryResult
+import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
+import net.matsudamper.mastodon.rss.note.StoredNote
 
 // Follow を受けてフォロワーとして記録し、Accept を返すところまで。
 // 記録が先で Accept が後、という順番がこのハンドラの肝になる。
@@ -26,6 +38,192 @@ class FollowHandlerTest {
     ): String {
         val idField = if (id == null) "" else """"id":"$id","""
         return """{$idField"type":"Follow","actor":"${TestRemoteActor.ACTOR_ID}","object":"$target"}"""
+    }
+
+    private fun followHandler(
+        delivery: TestDelivery,
+        followers: FakeFollowerStore,
+        notes: FakeNoteStore = FakeNoteStore(),
+        remoteActors: RemoteActors = TestRemoteActor.remoteActors(),
+    ): FollowHandler = FollowHandler(
+        remoteActors = remoteActors,
+        delivery = delivery,
+        followers = followers,
+        backfill = FollowBackfillPublisher(notes = notes, delivery = delivery, webPages = TestWebPageUrls),
+        // 過去の投稿の配信はそのまま実行する。テストの中で送り終わっている必要がある
+        backfillScope = CoroutineScope(Dispatchers.Unconfined),
+    )
+
+    private fun notesOf(count: Int): FakeNoteStore = FakeNoteStore().apply {
+        repeat(count) { index ->
+            add(
+                StoredNote(
+                    publicId = PublicNoteId("note-%02d".format(index)),
+                    username = TestLocalActor.USERNAME,
+                    contentHtml = "<p>$index</p>",
+                    publishedAt = Instant.parse("2026-08-10T00:00:00Z").plusSeconds(index.toLong()),
+                ),
+            )
+        }
+    }
+
+    private fun deliveredCreates(delivery: TestDelivery): List<CreateNoteActivity> = delivery.delivered
+        .map { AppJson.parseToJsonElement(it.body) as JsonObject }
+        .filter { (it["type"] as? JsonPrimitive)?.content == "Create" }
+        .map { AppJson.decodeFromJsonElement(CreateNoteActivity.serializer(), it) }
+
+    @Test
+    fun `フォローが成立したら過去の投稿を新しいフォロワーに配る`() = runBlocking {
+        val delivery = TestDelivery()
+        val notes = notesOf(3)
+
+        handle(
+            followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notes),
+            followJson(),
+        )
+
+        // 先頭は Accept。過去の投稿は古い順に続く
+        assertEquals(listOf(TestRemoteActor.INBOX), delivery.delivered.map { it.inbox }.distinct())
+        val creates = deliveredCreates(delivery)
+        assertEquals(listOf("<p>0</p>", "<p>1</p>", "<p>2</p>"), creates.map { it.target.content })
+    }
+
+    @Test
+    fun `再配信した Create は元の投稿と同じ id と日時になる`() = runBlocking {
+        val delivery = TestDelivery()
+        val notes = notesOf(1)
+
+        handle(
+            followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notes),
+            followJson(),
+        )
+
+        // 相手はこの id で重複を判断する。作り直すとタイムラインに 2 度並ぶ
+        val note = notes.added.single()
+        val create = deliveredCreates(delivery).single()
+        assertEquals("https://${TestLocalActor.DOMAIN}/notes/${note.publicId.value}#create", create.id.value)
+        assertEquals("https://${TestLocalActor.DOMAIN}/notes/${note.publicId.value}", create.target.id.value)
+        assertEquals(create.published, create.target.published)
+        assertEquals("2026-08-10T00:00:00Z", create.published)
+    }
+
+    @Test
+    fun `再配信する件数には上限がある`() = runBlocking {
+        val delivery = TestDelivery()
+
+        handle(
+            followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notesOf(25)),
+            followJson(),
+        )
+
+        val creates = deliveredCreates(delivery)
+        assertEquals(5, creates.size)
+        // 上限を超えるときは新しい方を残す
+        assertEquals("<p>24</p>", creates.last().target.content)
+        assertEquals("<p>20</p>", creates.first().target.content)
+    }
+
+    @Test
+    fun `Accept を返せなければ過去の投稿も配らない`() = runBlocking {
+        val delivery = TestDelivery(result = DeliveryResult.Failed("届かない"))
+
+        handle(
+            followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notesOf(3)),
+            followJson(),
+        )
+
+        // フォローが成立していない相手のタイムラインには並ばない
+        assertEquals(1, delivery.delivered.size)
+    }
+
+    @Test
+    fun `フォローが成立した後に作られた投稿は配らない`() = runBlocking {
+        val delivery = TestDelivery()
+        val notes = notesOf(1).apply {
+            add(
+                StoredNote(
+                    publicId = PublicNoteId("note-after"),
+                    username = TestLocalActor.USERNAME,
+                    contentHtml = "<p>フォローの後</p>",
+                    publishedAt = Instant.now().plusSeconds(60),
+                ),
+            )
+        }
+
+        handle(
+            followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notes),
+            followJson(),
+        )
+
+        // 成立後の投稿は通常の配信で届く。混ぜるとフォロー前の投稿が上限から押し出される
+        assertEquals(listOf("<p>0</p>"), deliveredCreates(delivery).map { it.target.content })
+    }
+
+    @Test
+    fun `成立後の投稿があっても上限まで過去の投稿を配る`() = runBlocking {
+        val delivery = TestDelivery()
+        val notes = notesOf(20).apply {
+            repeat(5) { index ->
+                add(
+                    StoredNote(
+                        publicId = PublicNoteId("note-after-$index"),
+                        username = TestLocalActor.USERNAME,
+                        contentHtml = "<p>フォローの後 $index</p>",
+                        publishedAt = Instant.now().plusSeconds(index + 1L),
+                    ),
+                )
+            }
+        }
+
+        handle(
+            followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notes),
+            followJson(),
+        )
+
+        // 成立後の投稿を数に含めて切ると、その分だけ過去の投稿が減る
+        assertEquals(5, deliveredCreates(delivery).size)
+    }
+
+    @Test
+    fun `Follow を送り直されても過去の投稿は配り直さない`() = runBlocking {
+        val delivery = TestDelivery()
+        val handler = followHandler(delivery = delivery, followers = FakeFollowerStore(), notes = notesOf(3))
+
+        handle(handler, followJson())
+        handle(handler, followJson())
+
+        // 相手のタイムラインには既に並んでいる。もう一度送っても負荷が増えるだけ
+        assertEquals(3, deliveredCreates(delivery).size)
+    }
+
+    @Test
+    fun `既にフォローしている相手には再配信しない`() = runBlocking {
+        val followers = FakeFollowerStore()
+        val delivery = TestDelivery()
+        val existingFollowerActorId = "https://other.example/users/bob"
+        val acceptedAt = Instant.parse("2026-08-10T00:00:00Z")
+        followers.record(
+            username = TestLocalActor.USERNAME,
+            follower = RemoteActor(
+                actorId = existingFollowerActorId,
+                inbox = "$existingFollowerActorId/inbox",
+                sharedInbox = null,
+                publicKeyPem = "pem",
+                profileUrl = null,
+                acct = null,
+            ),
+            followActivityUri = "https://other.example/activities/1",
+            receivedAt = acceptedAt,
+        )
+        followers.markAccepted(TestLocalActor.USERNAME, existingFollowerActorId, acceptedAt)
+
+        handle(
+            followHandler(delivery = delivery, followers = followers, notes = notesOf(3)),
+            followJson(),
+        )
+
+        // 送り先は Follow を送ってきた相手だけ
+        assertEquals(listOf(TestRemoteActor.INBOX), delivery.delivered.map { it.inbox }.distinct())
     }
 
     private suspend fun handle(
@@ -46,7 +244,7 @@ class FollowHandlerTest {
         val followers = FakeFollowerStore()
         val delivery = TestDelivery()
 
-        handle(FollowHandler(TestRemoteActor.remoteActors(), delivery, followers), followJson())
+        handle(followHandler(delivery = delivery, followers = followers), followJson())
 
         val row = followers.rows.single()
         assertEquals(TestLocalActor.USERNAME, row.username)
@@ -65,11 +263,7 @@ class FollowHandlerTest {
         val followers = FakeFollowerStore()
 
         handle(
-            FollowHandler(
-                TestRemoteActor.remoteActors(),
-                TestDelivery(result = DeliveryResult.Failed("届かない")),
-                followers,
-            ),
+            followHandler(delivery = TestDelivery(result = DeliveryResult.Failed("届かない")), followers = followers),
             followJson(),
         )
 
@@ -82,7 +276,7 @@ class FollowHandlerTest {
     fun `Accept の後の記録が一度失敗しても数える`() = runBlocking {
         val followers = FakeFollowerStore(failMarkAcceptedTimes = 1)
 
-        handle(FollowHandler(TestRemoteActor.remoteActors(), TestDelivery(), followers), followJson())
+        handle(followHandler(delivery = TestDelivery(), followers = followers), followJson())
 
         // ここで諦めると、相手にはフォロー中と見えるのに投稿が届かない状態が残る
         assertEquals(2, followers.markAcceptedAttempts)
@@ -90,10 +284,10 @@ class FollowHandlerTest {
     }
 
     @Test
-    fun `Accept の後の記録が false を返しても数える`() = runBlocking {
-        val followers = FakeFollowerStore(failMarkAcceptedReturnsFalseTimes = 1)
+    fun `Accept の後の記録が一度記録なしを返しても数える`() = runBlocking {
+        val followers = FakeFollowerStore(failMarkAcceptedNotFoundTimes = 1)
 
-        handle(FollowHandler(TestRemoteActor.remoteActors(), TestDelivery(), followers), followJson())
+        handle(followHandler(delivery = TestDelivery(), followers = followers), followJson())
 
         assertEquals(2, followers.markAcceptedAttempts)
         assertTrue(followers.rows.single().accepted)
@@ -104,7 +298,7 @@ class FollowHandlerTest {
         val delivery = TestDelivery()
 
         handle(
-            FollowHandler(TestRemoteActor.remoteActors(), delivery, FakeFollowerStore(failOnRecord = true)),
+            followHandler(delivery = delivery, followers = FakeFollowerStore(failOnRecord = true)),
             followJson(),
         )
 
@@ -117,7 +311,7 @@ class FollowHandlerTest {
         val followers = FakeFollowerStore()
         val delivery = TestDelivery()
 
-        handle(FollowHandler(TestRemoteActor.remoteActors(), delivery, followers), followJson(id = null))
+        handle(followHandler(delivery = delivery, followers = followers), followJson(id = null))
 
         // 送り直しと新しい Follow を区別できないので記録も Accept もしない
         assertEquals(emptyList(), followers.rows)
@@ -130,7 +324,7 @@ class FollowHandlerTest {
         val delivery = TestDelivery()
 
         handle(
-            FollowHandler(TestRemoteActor.remoteActors(), delivery, followers),
+            followHandler(delivery = delivery, followers = followers),
             followJson(target = "https://example.com/users/someone-else"),
         )
 
@@ -143,7 +337,10 @@ class FollowHandlerTest {
         val followers = FakeFollowerStore()
         val delivery = TestDelivery()
 
-        handle(FollowHandler(TestRemoteActors(), delivery, followers), followJson())
+        handle(
+            followHandler(remoteActors = TestRemoteActors(), delivery = delivery, followers = followers),
+            followJson(),
+        )
 
         // inbox も鍵も取れていないので、記録する中身が揃っていない
         assertEquals(emptyList(), followers.rows)
@@ -154,7 +351,7 @@ class FollowHandlerTest {
     fun `同じ Follow を二重に受けても行が増えない`() = runBlocking {
         val followers = FakeFollowerStore()
         val delivery = TestDelivery()
-        val handler = FollowHandler(TestRemoteActor.remoteActors(), delivery, followers)
+        val handler = followHandler(delivery = delivery, followers = followers)
 
         handle(handler, followJson())
         handle(handler, followJson())

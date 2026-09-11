@@ -158,8 +158,10 @@ class AdminAccountsScreenViewModel(
                     accounts = accounts.accounts.map { account ->
                         AdminAccountsScreenUiState.Account(
                             username = account.account.username,
+                            displayName = account.account.displayName,
                             acct = account.account.acct,
                             actorUrl = account.account.actorUrl,
+                            iconUrl = account.iconUrl,
                             createdAt = UnixTimeUtil.format(account.createdAt),
                             followerCount = account.followerCount,
                         )

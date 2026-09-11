@@ -14,15 +14,19 @@ private fun AdminAccountsContentPreview() {
                     accounts = listOf(
                         AdminAccountsScreenUiState.Account(
                             username = "kotlin",
+                            displayName = "Kotlin",
                             acct = "@kotlin@example.com",
                             actorUrl = "https://example.com/users/kotlin",
+                            iconUrl = null,
                             createdAt = "2026-09-01 10:00",
                             followerCount = 128,
                         ),
                         AdminAccountsScreenUiState.Account(
                             username = "android",
+                            displayName = "Android",
                             acct = "@android@example.com",
                             actorUrl = "https://example.com/users/android",
+                            iconUrl = null,
                             createdAt = "2026-09-02 11:00",
                             followerCount = 64,
                         ),

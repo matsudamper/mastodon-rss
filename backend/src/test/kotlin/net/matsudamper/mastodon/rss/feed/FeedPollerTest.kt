@@ -15,12 +15,15 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.FakeFeedHeaders
 import net.matsudamper.mastodon.rss.FakeFeedIcons
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
+import net.matsudamper.mastodon.rss.TestActorPublisher
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.Feed
@@ -85,8 +88,16 @@ class FeedPollerTest {
                 notes = noteStore,
                 followers = FakeFollowerStore(),
                 delivery = TestDelivery(),
+                webPages = TestWebPageUrls,
             ),
             icons = FakeFeedIcons(),
+            headers = FakeFeedHeaders(),
+            actorPublisher = TestActorPublisher.of(
+                repositories = repositories,
+                notes = FakeNoteStore(),
+                followers = FakeFollowerStore(),
+                delivery = TestDelivery(),
+            ),
         )
     }
 

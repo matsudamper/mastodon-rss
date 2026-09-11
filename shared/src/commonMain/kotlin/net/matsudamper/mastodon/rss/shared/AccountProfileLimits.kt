@@ -8,5 +8,5 @@ package net.matsudamper.mastodon.rss.shared
 object AccountProfileLimits {
     const val DISPLAY_NAME_MAX_LENGTH: Int = 30
 
-    const val SUMMARY_MAX_LENGTH: Int = 500
+    const val SUMMARY_MAX_LENGTH: Int = 1000
 }

@@ -31,12 +31,10 @@ sealed interface AdminNotesResult {
 
 sealed interface AdminPostNoteResult {
     /**
-     * 記録できた。[delivered] が [deliveryTargets] より少なければ届かなかった相手がいる
+     * 記録できた
      */
     data class Success(
         val note: AdminNote,
-        val deliveryTargets: Int,
-        val delivered: Int,
     ) : AdminPostNoteResult
 
     /**

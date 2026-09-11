@@ -41,7 +41,10 @@ class FeedFetchService(
         return runCatching {
             // 解決も同じ中に置く。/@handle のような形はここで YouTube のページを
             // 取りに行くので、外に出すと DNS の失敗やタイムアウトが素通りする
-            val resolved = resolveFeedUrl(trimmed) ?: return FetchResult.InvalidUrl
+            val resolved = when (val resolution = resolveFeedUrl(trimmed)) {
+                is FeedUrlResolution.Resolved -> resolution.feed
+                is FeedUrlResolution.Failed -> return resolution.result
+            }
 
             val response = client.get(resolved.feedUrl) {
                 header(HttpHeaders.UserAgent, USER_AGENT)
@@ -57,10 +60,12 @@ class FeedFetchService(
             val finalUrl = response.request.url.normalize()
             val bytes = response.readBodyUpTo(MAX_BODY_BYTES) ?: return FetchResult.TooLarge
 
-            val parsed = FeedParser.parse(bytes).withYouTubeChannelPage(
-                resolved = resolved,
-                needsDescription = needsDescription,
-            )
+            val parsed = FeedParser.parse(bytes)
+                .copy(headerUrl = runCatching { FeedHeaderParser.parse(bytes) }.getOrNull())
+                .withYouTubeChannelPage(
+                    resolved = resolved,
+                    needsDescription = needsDescription,
+                )
             FetchResult.Success(
                 requestedUrl = trimmed,
                 feedUrl = finalUrl,
@@ -80,7 +85,14 @@ class FeedFetchService(
         }
     }
 
-    private suspend fun resolveFeedUrl(url: String): ResolvedFeed? {
+    /**
+     * 取得しに行く URL を決める。
+     *
+     * 決められなかった理由は [FeedUrlResolution.Failed] に載せて返す。null にまとめると
+     * 呼び出し側では URL が不正だったことにしかできず、ページの取得に失敗したのか、
+     * ページが大きすぎたのか、ページからチャンネル ID を抜けなかったのかが消える
+     */
+    private suspend fun resolveFeedUrl(url: String): FeedUrlResolution {
         // YouTube はスキームの無い形も受けるので、先に解決してから確かめる。
         // 逆にすると YouTubeFeedResolver が対応している形を弾いてしまう。
         // ページを引く先は YouTubeFeedResolver が組み立てた YouTube の URL で、
@@ -99,15 +111,18 @@ class FeedFetchService(
                 }
                 if (!response.status.isSuccess()) {
                     response.discardBody()
-                    return null
+                    return FeedUrlResolution.Failed(FetchResult.HttpError(response.status.value))
                 }
 
-                val html = response.readBodyUpTo(MAX_PAGE_BYTES)?.decodeToString() ?: return null
-                val channelId = channelIdFromPageHtml(source.page, html) ?: return null
+                val html = response.readBodyUpTo(MAX_YOUTUBE_PAGE_BYTES)?.decodeToString()
+                    ?: return FeedUrlResolution.Failed(FetchResult.TooLarge)
+                val channelId = channelIdFromPageHtml(source.page, html)
+                    ?: return FeedUrlResolution.Failed(FetchResult.ChannelIdNotFound)
                 ResolvedFeed(
-                    feedUrl = YouTubeFeedResolver.feedUrlForChannel(channelId) ?: return null,
+                    feedUrl = YouTubeFeedResolver.feedUrlForChannel(channelId)
+                        ?: return FeedUrlResolution.Failed(FetchResult.ChannelIdNotFound),
                     youtubeChannelId = channelId,
-                    // 引いたのがチャンネルのページなら、説明文とアイコンはこの中にある。
+                    // 引いたのがチャンネルのページなら、説明文とプロフィール画像はこの中にある。
                     // 動画のページは持たせない。og:image がその動画のサムネイルなので、
                     // チャンネルのアイコンとして拾ってしまう
                     youtubeChannelPage = when (source.page) {
@@ -118,25 +133,25 @@ class FeedFetchService(
             }
         }
 
-        val parsed = runCatching { URI(resolved.feedUrl) }.getOrNull() ?: return null
+        val parsed = runCatching { URI(resolved.feedUrl) }.getOrNull()
+            ?: return FeedUrlResolution.Failed(FetchResult.InvalidUrl)
         // スキームは大文字小文字を区別しない。貼り付けた URL が HTTPS でも通す
         val scheme = parsed.scheme?.lowercase()
-        if (scheme != "http" && scheme != "https") return null
-        if (parsed.host.isNullOrBlank()) return null
+        if (scheme != "http" && scheme != "https") return FeedUrlResolution.Failed(FetchResult.InvalidUrl)
+        if (parsed.host.isNullOrBlank()) return FeedUrlResolution.Failed(FetchResult.InvalidUrl)
 
-        return resolved
+        return FeedUrlResolution.Resolved(resolved)
     }
 
     /**
      * YouTube のチャンネルのページから、フィードに無いものを補う。
      *
      * YouTube の Atom には `subtitle` も、アイコンを表す要素（`icon` / `logo`）も無い。
-     * チャンネル名は `title` にあるが、説明文とアイコンはチャンネルのページにしか
+     * チャンネル名は `title` にあるが、説明文・アイコン・ヘッダーはチャンネルのページにしか
      * 無いので、欠けているものがあるときだけそのページを引いて埋める。
      *
-     * 説明文は登録時にしか使わないので [needsDescription] で分ける。アイコンは
-     * 定期取得でも埋める。ここで埋めないと、取り込みのたびに `feeds.icon_url` が
-     * 空に戻り、アイコンが消える。
+     * 説明文は登録時にしか使わないので [needsDescription] で分ける。アイコンとヘッダーは
+     * 定期取得でも埋める。ここで埋めないと、取り込みのたびにプロフィール画像が欠ける。
      *
      * 取れなくてもフィード自体は使えるので、失敗は無いものとして扱い、
      * 取得の失敗にはしない。
@@ -148,7 +163,8 @@ class FeedFetchService(
         val channelId = resolved.youtubeChannelId ?: return this
         val wantsDescription = needsDescription && description == null
         val wantsIcon = iconUrl == null
-        if (!wantsDescription && !wantsIcon) return this
+        val wantsHeader = headerUrl == null
+        if (!wantsDescription && !wantsIcon && !wantsHeader) return this
 
         val html = resolved.youtubeChannelPage ?: fetchYouTubeChannelPage(channelId) ?: return this
 
@@ -159,10 +175,12 @@ class FeedFetchService(
             null
         }
         val pageIconUrl = if (wantsIcon) YouTubeFeedResolver.channelIconFromPageHtml(html) else null
+        val pageHeaderUrl = if (wantsHeader) YouTubeChannelHeader.fromPageHtml(html) else null
 
         return copy(
             description = pageDescription ?: description,
             iconUrl = pageIconUrl ?: iconUrl,
+            headerUrl = pageHeaderUrl ?: headerUrl,
         )
     }
 
@@ -176,7 +194,7 @@ class FeedFetchService(
                 response.discardBody()
                 return null
             }
-            response.readBodyUpTo(MAX_PAGE_BYTES)?.decodeToString()
+            response.readBodyUpTo(MAX_YOUTUBE_PAGE_BYTES)?.decodeToString()
         }.getOrElse { error ->
             if (error is CancellationException) throw error
             null
@@ -195,6 +213,19 @@ class FeedFetchService(
         val youtubeChannelId: String? = null,
         val youtubeChannelPage: String? = null,
     )
+
+    /**
+     * 取得しに行く URL を決められたかどうか。
+     */
+    private sealed interface FeedUrlResolution {
+        data class Resolved(
+            val feed: ResolvedFeed,
+        ) : FeedUrlResolution
+
+        data class Failed(
+            val result: FetchResult,
+        ) : FeedUrlResolution
+    }
 
     /**
      * 上限を超えたら null を返す。超えた時点で読むのをやめるので、
@@ -284,6 +315,14 @@ class FeedFetchService(
 
         data object TooLarge : FetchResult
 
+        /**
+         * YouTube のページは取れたが、そこからチャンネル ID を抜き出せなかった。
+         *
+         * 同意画面やレート制限のページが 200 で返ってくることがあり、
+         * 取得の成否だけでは区別できない
+         */
+        data object ChannelIdNotFound : FetchResult
+
         data class ParseError(
             val message: String,
         ) : FetchResult
@@ -293,7 +332,15 @@ class FeedFetchService(
         private val PERCENT_ENCODED = Regex("%[0-9A-Fa-f]{2}")
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val MAX_BODY_BYTES = 5 * 1024 * 1024
-        private const val MAX_PAGE_BYTES = 2 * 1024 * 1024
+
+        /**
+         * YouTube のページから読む上限。
+         *
+         * 引く先は YouTubeFeedResolver が組み立てた YouTube の URL に限られるので、
+         * 大きめに取る。実際のチャンネルのページは 2MiB を超えることがあり、
+         * そこで切ると `/@handle` のチャンネルを登録できない
+         */
+        private const val MAX_YOUTUBE_PAGE_BYTES = 50 * 1024 * 1024
 
         fun defaultClient(): HttpClient =
             HttpClient(CIO) {

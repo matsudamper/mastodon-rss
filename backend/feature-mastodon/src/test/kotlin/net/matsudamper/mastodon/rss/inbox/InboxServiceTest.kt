@@ -11,12 +11,18 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.http.Headers
+import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.actor.RemoteActors
+import net.matsudamper.mastodon.rss.crypto.RsaKeys
+import net.matsudamper.mastodon.rss.follower.FollowerFallbackPublicKeys
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
+import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
+import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.httpsignature.TestSigning
 
@@ -66,6 +72,12 @@ class InboxServiceTest {
          "actor":"$actor","object":"$target"}
         """.trimIndent().toByteArray()
 
+    private fun delete(actor: String = TestRemoteActor.ACTOR_ID): ByteArray =
+        """
+        {"id":"https://remote.example/activities/4","type":"Delete",
+         "actor":"$actor","object":"$actor"}
+        """.trimIndent().toByteArray()
+
     private fun undo(actor: String = TestRemoteActor.ACTOR_ID): ByteArray =
         """
         {"id":"https://remote.example/activities/2","type":"Undo",
@@ -101,7 +113,28 @@ class InboxServiceTest {
     private fun service(
         handlers: List<InboxActivityHandler>,
         remoteActors: RemoteActors = TestRemoteActor.remoteActors(),
-    ): InboxService = InboxService(verifier = HttpSignatureVerifier(remoteActors), handlers = handlers)
+        publicKeys: PublicKeys = remoteActors,
+    ): InboxService = InboxService(verifier = HttpSignatureVerifier(publicKeys), handlers = handlers)
+
+    /**
+     * フォローの記録に相手の鍵が残っている状態
+     */
+    private fun recordedFollower(): FakeFollowerStore =
+        FakeFollowerStore().apply {
+            record(
+                username = recipient.username,
+                follower = RemoteActor(
+                    actorId = TestRemoteActor.ACTOR_ID,
+                    inbox = TestRemoteActor.INBOX,
+                    sharedInbox = null,
+                    publicKeyPem = RsaKeys.encodeToPem(TestRemoteActor.keyPair.public),
+                    profileUrl = null,
+                    acct = null,
+                ),
+                followActivityUri = "https://remote.example/activities/1",
+                receivedAt = Instant.now(),
+            )
+        }
 
     @Test
     fun `type が一致するハンドラに渡す`() =
@@ -198,6 +231,40 @@ class InboxServiceTest {
             assertEquals(InboxResult.Accepted, result)
             val call = handler.calls.singleOrNull() ?: fail("ハンドラが呼ばれていない")
             assertNull(call.activity.actorId)
+            assertEquals(TestRemoteActor.ACTOR_ID, call.verifiedSignerActorId)
+        }
+
+    @Test
+    fun `鍵を引けない自分自身の Delete は受け流す`() =
+        runBlocking {
+            val handler = RecordingHandler("Delete")
+
+            val result =
+                service(listOf(handler), remoteActors = TestRemoteActors())
+                    .receive(recipient, signedRequest(delete()))
+
+            // 落とすと相手が送り直し続ける。検証は通っていないので掃除はしない
+            assertEquals(InboxResult.Accepted, result)
+            assertTrue(handler.calls.isEmpty(), "${handler.calls.size}")
+        }
+
+    @Test
+    fun `消えたアクターでもフォローの記録があれば Delete を検証できる`() =
+        runBlocking {
+            val handler = RecordingHandler("Delete")
+            val publicKeys =
+                FollowerFallbackPublicKeys(
+                    // アカウントが消えたと答えるサーバー
+                    remote = TestRemoteActors(missing = PublicKeyLookup.Gone),
+                    followers = recordedFollower(),
+                )
+
+            val result =
+                service(listOf(handler), publicKeys = publicKeys)
+                    .receive(recipient, signedRequest(delete()))
+
+            assertEquals(InboxResult.Accepted, result)
+            val call = handler.calls.singleOrNull() ?: fail("ハンドラが呼ばれていない")
             assertEquals(TestRemoteActor.ACTOR_ID, call.verifiedSignerActorId)
         }
 

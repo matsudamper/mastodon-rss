@@ -21,6 +21,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import net.matsudamper.mastodon.rss.FakeRepositories
+import net.matsudamper.mastodon.rss.TestImageBytes
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
@@ -48,6 +49,35 @@ class FeedIconServiceTest {
 
             assertEquals(2, engine.requestHistory.size)
             assertEquals(ICON_URL, assertNotNull(repositories.feedIcons.find(feedId)).sourceUrl)
+        }
+
+    @Test
+    fun `Content-Typeに応じた拡張子で保存する`() =
+        runTest {
+            val cases = listOf(
+                Triple("image/png", TestImageBytes.PNG, ".png"),
+                Triple("image/jpeg", TestImageBytes.JPEG, ".jpg"),
+                Triple("image/gif", TestImageBytes.GIF, ".gif"),
+                Triple("image/webp", TestImageBytes.WEBP, ".webp"),
+                Triple("image/x-icon", TestImageBytes.ICO, ".ico"),
+                Triple("image/vnd.microsoft.icon", TestImageBytes.ICO, ".ico"),
+            )
+
+            cases.forEach { (contentType, bytes, extension) ->
+                val repositories = FakeRepositories()
+                val feedId = repositories.addFeed()
+                val engine = MockEngine {
+                    respond(
+                        content = bytes,
+                        headers = headersOf("Content-Type", contentType),
+                    )
+                }
+
+                serviceOf(repositories, engine).refresh(feedId = feedId, iconUrl = ICON_URL)
+
+                val path = assertNotNull(repositories.feedIcons.find(feedId)).path
+                assertTrue(path.endsWith(extension), "保存先: $path")
+            }
         }
 
     @Test
@@ -97,7 +127,7 @@ class FeedIconServiceTest {
                     respond(content = "", status = HttpStatusCode.InternalServerError)
                 } else {
                     served = true
-                    respond(content = BYTES.decodeToString(), headers = headersOf("Content-Type", "image/png"))
+                    respond(content = BYTES, headers = headersOf("Content-Type", "image/png"))
                 }
             }
             val service = serviceOf(repositories, engine)
@@ -115,7 +145,7 @@ class FeedIconServiceTest {
             val feedId = repositories.addFeed()
             val engine = MockEngine {
                 respond(
-                    content = BYTES.decodeToString(),
+                    content = BYTES,
                     headers = headersOf(
                         "Content-Type" to listOf("image/png"),
                         "Cache-Control" to listOf("public, max-age=60"),
@@ -142,7 +172,7 @@ class FeedIconServiceTest {
             val feedId = repositories.addFeed()
             val engine = MockEngine {
                 respond(
-                    content = BYTES.decodeToString(),
+                    content = BYTES,
                     headers = headersOf(
                         "Content-Type" to listOf("image/png"),
                         "Cache-Control" to listOf("no-store"),
@@ -177,7 +207,7 @@ class FeedIconServiceTest {
     }
 
     private fun imageEngine(): MockEngine = MockEngine {
-        respond(content = BYTES.decodeToString(), headers = headersOf("Content-Type", "image/png"))
+        respond(content = BYTES, headers = headersOf("Content-Type", "image/png"))
     }
 
     private fun serviceOf(
@@ -199,6 +229,6 @@ class FeedIconServiceTest {
         const val FEED_URL = "https://example.com/feed.xml"
         const val SITE_URL = "https://example.com/"
         const val ICON_URL = "https://example.com/icon.png"
-        val BYTES = "PNG".toByteArray()
+        val BYTES: ByteArray = TestImageBytes.PNG
     }
 }

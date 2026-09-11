@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -13,14 +14,18 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondRedirect
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.FakeFeedHeaders
 import net.matsudamper.mastodon.rss.FakeFeedIcons
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.FakeStoredActorNames
+import net.matsudamper.mastodon.rss.TestActorPublisher
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.Account
@@ -330,7 +335,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(listOf("1 本目", "2 本目"), success.items.map { it.title })
+            assertEquals(2, success.importedCount)
             assertEquals(
                 listOf(FeedItemState.POSTED, FeedItemState.POSTED),
                 repositories.feedItems.items().map { it.state },
@@ -405,10 +410,7 @@ class FeedServiceTest {
 
             val result = service.postUnpublished(account.id)
 
-            assertEquals(
-                listOf("1 本目"),
-                assertIs<FeedService.PostUnpublishedResult.Success>(result).items.map { it.title },
-            )
+            assertEquals(1, assertIs<FeedService.PostUnpublishedResult.Success>(result).importedCount)
             assertEquals(3, noteStore.added.size)
         }
 
@@ -493,7 +495,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(listOf("1 本目"), success.items.map { it.title })
+            assertEquals(1, success.importedCount)
             assertEquals(
                 listOf("https://example.com/posts/1"),
                 noteStore.added.map { html ->
@@ -521,7 +523,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(listOf("1 本目"), success.items.map { it.title })
+            assertEquals(2, success.importedCount)
             assertEquals(
                 listOf(FeedItemState.SKIPPED, FeedItemState.POSTED),
                 repositories.feedItems.items().map { it.state },
@@ -545,7 +547,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(listOf("1 本目"), success.items.map { it.title })
+            assertEquals(1, success.importedCount)
             assertEquals(
                 listOf(
                     """<p>1 本目<br>記事の要約<br><a href="https://example.com/1">https://example.com/1</a></p>""",
@@ -566,7 +568,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(emptyList(), success.items)
+            assertEquals(2, success.importedCount)
             assertEquals(
                 listOf(FeedItemState.PENDING, FeedItemState.PENDING),
                 repositories.feedItems.items().map { it.state },
@@ -590,7 +592,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
-            assertEquals(listOf("1 本目", "2 本目", "3 本目"), success.items.map { it.title })
+            assertEquals(3, success.importedCount)
             assertEquals(3, noteStore.added.size)
         }
 
@@ -654,7 +656,7 @@ class FeedServiceTest {
                     Regex("""href="([^"]+)"""").find(html.contentHtml)?.groupValues?.get(1)
                 },
             )
-            assertEquals(listOf("1 本目", "2 本目", "3 本目"), success.items.map { it.title })
+            assertEquals(3, success.importedCount)
         }
 
     @Test
@@ -788,9 +790,7 @@ class FeedServiceTest {
                     override suspend fun refresh(
                         feedId: FeedId,
                         iconUrl: String?,
-                    ) {
-                        error("アイコンを置けなかった")
-                    }
+                    ): Boolean = error("アイコンを置けなかった")
                 },
             )
             service.save(accountId = account.id, url = FEED_URL)
@@ -799,6 +799,41 @@ class FeedServiceTest {
 
             assertEquals(listOf(null), results.map { it.error })
             assertEquals(1, noteStore.added.size)
+        }
+
+    @Test
+    fun `アイコンを名乗らないフィードにはサイトの favicon を充てる`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val icons = FakeFeedIcons()
+            val service = serviceOf(repositories, icons = icons)
+
+            // フィードとサイトが別のホストのときに、サイトの側から取ることを確かめる
+            service.save(accountId = account.id, url = OTHER_HOST_FEED_URL)
+
+            assertEquals(
+                "https://example.com/favicon.ico",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
+            assertEquals(listOf<String?>("https://example.com/favicon.ico"), icons.refreshed.map { it.second })
+        }
+
+    @Test
+    fun `登録し直しでも前の URL を favicon で上書きしない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, xmls = listOf(ICON_XML, FEED_XML))
+            service.save(accountId = account.id, url = FEED_URL)
+            repositories.feeds.clearInitialImportDone(assertNotNull(repositories.feeds.findByAccountId(account.id)).id)
+
+            service.save(accountId = account.id, url = FEED_URL)
+
+            assertEquals(
+                "https://example.com/icon.png",
+                assertNotNull(repositories.feeds.findByAccountId(account.id)).iconUrl,
+            )
         }
 
     @Test
@@ -976,6 +1011,69 @@ class FeedServiceTest {
             assertEquals(emptyList(), repositories.feedItems.items())
         }
 
+    @Test
+    fun `プロフィール画像が入れ替わったらフォロワーに Update を配る`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val followers = acceptedFollowerStore()
+            val delivery = TestDelivery()
+            val service = serviceOf(
+                repositories,
+                icons = FakeFeedIcons().apply { changed = true },
+                followers = followers,
+                delivery = delivery,
+            )
+
+            service.save(accountId = account.id, url = FEED_URL)
+
+            val update = assertNotNull(delivery.delivered.singleOrNull())
+            assertEquals(FOLLOWER_INBOX, update.inbox)
+            assertContains(update.body, "\"type\":\"Update\"")
+        }
+
+    @Test
+    fun `プロフィール画像が入れ替わらなければ Update を配らない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val delivery = TestDelivery()
+            val service = serviceOf(
+                repositories,
+                followers = acceptedFollowerStore(),
+                delivery = delivery,
+            )
+
+            service.save(accountId = account.id, url = FEED_URL)
+
+            assertEquals(emptyList(), delivery.delivered)
+        }
+
+    /**
+     * `Update` の宛先になるフォロワーを 1 人だけ持たせる。
+     */
+    private fun acceptedFollowerStore(): FakeFollowerStore =
+        FakeFollowerStore().apply {
+            record(
+                username = TestLocalActor.STORED_USERNAME,
+                follower = RemoteActor(
+                    actorId = "https://remote.example/users/follower",
+                    inbox = FOLLOWER_INBOX,
+                    sharedInbox = null,
+                    publicKeyPem = "pem",
+                    profileUrl = null,
+                    acct = null,
+                ),
+                followActivityUri = "https://remote.example/activities/follow",
+                receivedAt = CREATED_AT,
+            )
+            markAccepted(
+                username = TestLocalActor.STORED_USERNAME,
+                followerActorUri = "https://remote.example/users/follower",
+                acceptedAt = CREATED_AT,
+            )
+        }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         accounts: AccountRepository = repositories.accounts,
@@ -987,6 +1085,9 @@ class FeedServiceTest {
         actorDirectory: ActorDirectory = TestLocalActor.directory,
         engine: MockEngine? = null,
         icons: FeedIcons = FakeFeedIcons(),
+        headers: FeedHeaders = FakeFeedHeaders(),
+        followers: FakeFollowerStore = FakeFollowerStore(),
+        delivery: TestDelivery = TestDelivery(),
     ): FeedService {
         val mockEngine = engine ?: run {
             val bodies = ArrayDeque(xmls ?: listOf(xml))
@@ -1012,8 +1113,16 @@ class FeedServiceTest {
                 notes = noteStore,
                 followers = FakeFollowerStore(),
                 delivery = TestDelivery(),
+                webPages = TestWebPageUrls,
             ),
             icons = icons,
+            headers = headers,
+            actorPublisher = TestActorPublisher.of(
+                repositories = repositories,
+                notes = noteStore,
+                followers = followers,
+                delivery = delivery,
+            ),
         )
     }
 
@@ -1036,8 +1145,10 @@ class FeedServiceTest {
         // 登録時の取得が記録されるので、その間隔を過ぎるまで次の取得は来ない
         const val DUE_AFTER_SECONDS = 901L
         const val FEED_URL = "https://example.com/feed.xml"
+        const val FOLLOWER_INBOX = "https://remote.example/users/follower/inbox"
         const val OTHER_FEED_URL = "https://example.com/other.xml"
         const val REDIRECTED_FEED_URL = "https://cdn.example.net/rss/feed.xml"
+        const val OTHER_HOST_FEED_URL = "https://feeds.example.net/feed.xml"
         val FEED_XML = """
             <?xml version="1.0" encoding="UTF-8"?>
             <rss version="2.0">

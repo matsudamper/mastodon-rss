@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
 import java.util.TreeMap
+import net.matsudamper.mastodon.rss.repository.FollowAcceptResult
 import net.matsudamper.mastodon.rss.repository.Follower
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
@@ -44,17 +45,35 @@ internal class SqliteFollowerRepository(
         }
     }
 
+    /**
+     * まだ成立していない行だけを書き換える。件数で初回かどうかが分かるので、
+     * 状態を読んでから書くより競合に強い
+     */
     override fun markAccepted(
         username: String,
         followerActorUri: String,
         acceptedAt: Instant,
-    ): Boolean = jooq.transaction { dsl ->
-        dsl
+    ): FollowAcceptResult = jooq.transaction { dsl ->
+        val accepted = dsl
             .update(FOLLOWERS)
             .set(FOLLOWERS.STATE, STATE_ACCEPTED)
             .set(FOLLOWERS.ACCEPTED_AT, StoredInstant.format(acceptedAt))
             .where(FOLLOWERS.ID.`in`(followerIds(username, followerActorUri)))
+            .and(FOLLOWERS.STATE.ne(STATE_ACCEPTED))
             .execute() > 0
+
+        when {
+            accepted -> FollowAcceptResult.FirstAccept
+
+            dsl.fetchExists(
+                dsl
+                    .selectOne()
+                    .from(FOLLOWERS)
+                    .where(FOLLOWERS.ID.`in`(followerIds(username, followerActorUri))),
+            ) -> FollowAcceptResult.AlreadyAccepted
+
+            else -> FollowAcceptResult.NotFound
+        }
     }
 
     override fun remove(
@@ -99,6 +118,42 @@ internal class SqliteFollowerRepository(
         dsl.deleteFrom(REMOTE_ACTORS).where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri)).execute()
 
         removed
+    }
+
+    /**
+     * フォローが 1 件も残っていない相手の鍵は返さない。
+     *
+     * `remote_actors` の行はフォローを消しても残る。他のアカウントをフォローしている
+     * ことがあるため。返してしまうと、解除した相手の鍵で署名を通せる
+     */
+    override fun findPublicKeyPem(actorUri: String): String? = jooq.withConnection { dsl ->
+        dsl
+            .select(REMOTE_ACTORS.PUBLIC_KEY_PEM)
+            .from(REMOTE_ACTORS)
+            .join(FOLLOWERS)
+            .on(FOLLOWERS.REMOTE_ACTOR_ID.eq(REMOTE_ACTORS.ID))
+            .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))
+            .limit(1)
+            .fetchOne(REMOTE_ACTORS.PUBLIC_KEY_PEM)
+    }
+
+    /**
+     * 同じ鍵なら書かない。読むたびに書くと、変わっていない行の fetched_at だけが動く
+     */
+    override fun rememberPublicKeyPem(
+        actorUri: String,
+        publicKeyPem: String,
+        readAt: Instant,
+    ) {
+        jooq.transaction { dsl ->
+            dsl
+                .update(REMOTE_ACTORS)
+                .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, publicKeyPem)
+                .set(REMOTE_ACTORS.FETCHED_AT, StoredInstant.format(readAt))
+                .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))
+                .and(REMOTE_ACTORS.PUBLIC_KEY_PEM.ne(publicKeyPem))
+                .execute()
+        }
     }
 
     override fun list(

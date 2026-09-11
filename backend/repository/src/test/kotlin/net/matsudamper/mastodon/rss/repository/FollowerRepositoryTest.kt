@@ -64,7 +64,10 @@ class FollowerRepositoryTest {
             assertEquals(emptyList(), followers.list("admin", after = null, limit = 10))
             assertEquals(emptyList(), followers.deliveryTargets("admin"))
 
-            assertTrue(followers.markAccepted("admin", "https://remote.example/users/alice", now))
+            assertEquals(
+                FollowAcceptResult.FirstAccept,
+                followers.markAccepted("admin", "https://remote.example/users/alice", now),
+            )
 
             assertEquals(1, followers.count("admin"))
             assertEquals(
@@ -118,6 +121,17 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `Accept を返す前でも公開鍵の PEM を引ける`() {
+        withRepository { followers ->
+            followers.record(incomingFollow())
+
+            // 相手が消えると文書を引けなくなるので、Delete の検証はこの記録が頼りになる
+            assertEquals("pem", followers.findPublicKeyPem("https://remote.example/users/alice"))
+            assertNull(followers.findPublicKeyPem("https://remote.example/users/bob"))
+        }
+    }
+
+    @Test
     fun `acct は取れなかった回で消えないが、プロフィールの URL は消えたら消える`() {
         withRepository { followers ->
             followers.record(
@@ -135,6 +149,60 @@ class FollowerRepositoryTest {
             val stored = followers.list("admin", after = null, limit = 10).single()
             assertEquals("@alice@remote.example", stored.acct)
             assertNull(stored.profileUrl)
+        }
+    }
+
+    @Test
+    fun `記録済みの相手だけ公開鍵を読み直せる`() {
+        withRepository { followers ->
+            followers.record(incomingFollow())
+
+            followers.rememberPublicKeyPem(
+                actorUri = "https://remote.example/users/alice",
+                publicKeyPem = "読み直した pem",
+                readAt = now,
+            )
+            assertEquals("読み直した pem", followers.findPublicKeyPem("https://remote.example/users/alice"))
+
+            // フォローしていない相手の鍵は溜めない
+            followers.rememberPublicKeyPem(
+                actorUri = "https://remote.example/users/bob",
+                publicKeyPem = "pem",
+                readAt = now,
+            )
+            assertNull(followers.findPublicKeyPem("https://remote.example/users/bob"))
+        }
+    }
+
+    @Test
+    fun `フォローを解除した相手の公開鍵は返さない`() {
+        withRepository { followers ->
+            followers.record(incomingFollow())
+            assertTrue(followers.remove("admin", "https://remote.example/users/alice", followActivityUri = null))
+
+            // 消えたアクターの Delete を通す鍵なので、解除した相手の分を残すと署名を通せる
+            assertNull(followers.findPublicKeyPem("https://remote.example/users/alice"))
+        }
+    }
+
+    @Test
+    fun `初めて成立したときだけ FirstAccept を返す`() {
+        withRepository { followers ->
+            followers.record(incomingFollow())
+
+            assertEquals(
+                FollowAcceptResult.FirstAccept,
+                followers.markAccepted("admin", "https://remote.example/users/alice", now),
+            )
+            // Follow の送り直し。過去の投稿を配り直さないためにここで見分ける
+            assertEquals(
+                FollowAcceptResult.AlreadyAccepted,
+                followers.markAccepted("admin", "https://remote.example/users/alice", now),
+            )
+            assertEquals(
+                FollowAcceptResult.NotFound,
+                followers.markAccepted("feed1", "https://remote.example/users/alice", now),
+            )
         }
     }
 
@@ -172,7 +240,10 @@ class FollowerRepositoryTest {
             followers.record(incomingFollow())
             followers.record(incomingFollow(followActivityUri = "https://remote.example/activities/2"))
 
-            assertTrue(followers.markAccepted("admin", "https://remote.example/users/alice", now))
+            assertEquals(
+                FollowAcceptResult.FirstAccept,
+                followers.markAccepted("admin", "https://remote.example/users/alice", now),
+            )
 
             assertEquals(1, followers.count("admin"))
         }
@@ -388,7 +459,10 @@ class FollowerRepositoryTest {
         withRepository { followers ->
             assertFalse(followers.remove("admin", "https://remote.example/users/nobody", null))
             assertEquals(0, followers.removeRemoteActor("https://remote.example/users/nobody"))
-            assertFalse(followers.markAccepted("admin", "https://remote.example/users/nobody", now))
+            assertEquals(
+                FollowAcceptResult.NotFound,
+                followers.markAccepted("admin", "https://remote.example/users/nobody", now),
+            )
         }
     }
 }

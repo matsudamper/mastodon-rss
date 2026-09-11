@@ -15,23 +15,60 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.TestImageBytes
 
 // アイコンの取得元はフィードに配信元が書いた URL で、こちらでは選べない。
 // 取得は無認証のエンドポイントから呼ばれるので、何を取りに行って何を返すかを固定する。
 class IconFetchServiceTest {
     @Test
-    fun `画像として復号できる種類は取得元の種類のまま返す`() =
+    fun `画像として復号できる種類は扱える種類として返す`() =
         runTest {
             val engine = MockEngine {
                 respond(
-                    content = "PNG",
+                    content = TestImageBytes.PNG,
                     headers = headersOf("Content-Type", ContentType.Image.PNG.toString()),
                 )
             }
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertEquals(ContentType.Image.PNG, assertIs<IconFetchService.FetchResult.Success>(result).contentType)
+            assertEquals(IconImageType.PNG, assertIs<IconFetchService.FetchResult.Success>(result).imageType)
+        }
+
+    @Test
+    fun `ICO の別名もどちらも ICO として返す`() =
+        runTest {
+            listOf("image/x-icon", "image/vnd.microsoft.icon").forEach { contentType ->
+                val engine = MockEngine {
+                    respond(
+                        content = TestImageBytes.ICO,
+                        headers = headersOf("Content-Type", contentType),
+                    )
+                }
+
+                val result = serviceOf(engine).fetch("https://example.com/favicon.ico")
+
+                assertEquals(
+                    IconImageType.ICO,
+                    assertIs<IconFetchService.FetchResult.Success>(result).imageType,
+                    "取得元の種類: $contentType",
+                )
+            }
+        }
+
+    @Test
+    fun `名乗った種類と中身が違う応答は受けない`() =
+        runTest {
+            val engine = MockEngine {
+                respond(
+                    content = "<html>".toByteArray(),
+                    headers = headersOf("Content-Type", ContentType.Image.PNG.toString()),
+                )
+            }
+
+            val result = serviceOf(engine).fetch("https://example.com/icon.png")
+
+            assertEquals(IconFetchService.FetchResult.Failure, result)
         }
 
     @Test
@@ -39,7 +76,7 @@ class IconFetchServiceTest {
         runTest {
             val engine = MockEngine {
                 respond(
-                    content = "PNG",
+                    content = TestImageBytes.PNG,
                     headers = headersOf(
                         "Content-Type" to listOf("image/png"),
                         "Content-Encoding" to listOf("gzip"),
@@ -153,7 +190,7 @@ class IconFetchServiceTest {
         runTest {
             val engine = MockEngine {
                 respond(
-                    content = "PNG",
+                    content = TestImageBytes.PNG,
                     headers = headersOf(
                         "Content-Type" to listOf("image/png"),
                         "Cache-Control" to listOf("public, max-age=600"),
@@ -171,7 +208,7 @@ class IconFetchServiceTest {
         runTest {
             val engine = MockEngine {
                 respond(
-                    content = "PNG",
+                    content = TestImageBytes.PNG,
                     headers = headersOf(
                         "Content-Type" to listOf("image/png"),
                         // そのまま足すと期限の計算が溢れる大きさ
@@ -190,7 +227,7 @@ class IconFetchServiceTest {
         runTest {
             val engine = MockEngine {
                 respond(
-                    content = "PNG",
+                    content = TestImageBytes.PNG,
                     headers = headersOf(
                         "Content-Type" to listOf("image/png"),
                         "Cache-Control" to listOf("public, s-maxage=86400"),
@@ -208,7 +245,7 @@ class IconFetchServiceTest {
         runTest {
             val engine = MockEngine {
                 respond(
-                    content = "PNG",
+                    content = TestImageBytes.PNG,
                     headers = headersOf(
                         "Content-Type" to listOf("image/png"),
                         "Cache-Control" to listOf("no-store"),
@@ -222,7 +259,7 @@ class IconFetchServiceTest {
         }
 
     private fun pngEngine(): MockEngine = MockEngine {
-        respond(content = "PNG", headers = headersOf("Content-Type", "image/png"))
+        respond(content = TestImageBytes.PNG, headers = headersOf("Content-Type", "image/png"))
     }
 
     private fun redirectingEngine(): MockEngine = MockEngine { request ->
@@ -233,7 +270,7 @@ class IconFetchServiceTest {
                 headers = headersOf("Location", "https://cdn.example.net/icon.png"),
             )
         } else {
-            respond(content = "PNG", headers = headersOf("Content-Type", "image/png"))
+            respond(content = TestImageBytes.PNG, headers = headersOf("Content-Type", "image/png"))
         }
     }
 

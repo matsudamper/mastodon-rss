@@ -24,7 +24,7 @@ data class AdminAccountScreenUiState(
         /**
          * @param account この画面が扱うアカウント
          * @param feed RSS フィードの登録状況と入力欄
-         * @param post 投稿の入力欄
+         * @param postDialog 投稿ダイアログ。出していなければ null
          * @param notes 配信した投稿。新しい順
          * @param deleteNoteDialog 投稿を消す前の確認。出していなければ null
          * @param deleteAccountDialog アカウントを消す前の確認。出していなければ null
@@ -35,7 +35,7 @@ data class AdminAccountScreenUiState(
         data class Loaded(
             val account: Account,
             val feed: Feed,
-            val post: Post,
+            val postDialog: Post?,
             val notes: List<Note>,
             val deleteNoteDialog: DeleteNoteDialog?,
             val deleteAccountDialog: DeleteAccountDialog?,
@@ -52,12 +52,14 @@ data class AdminAccountScreenUiState(
 
     /**
      * @param acct Mastodon の検索窓に貼る形
+     * @param iconUrl アイコン画像。無ければ null
      * @param createdAt 「追加: <値>」の形で出す
      */
     data class Account(
         val username: String,
         val acct: String,
         val actorUrl: String,
+        val iconUrl: String?,
         val createdAt: String,
         val followerCount: Int,
         val displayName: String,
@@ -70,6 +72,8 @@ data class AdminAccountScreenUiState(
         fun onClickOpenAccount()
 
         fun onClickEditProfile()
+
+        fun onClickNewPost()
 
         /**
          * このアカウントを消す確認を出す
@@ -87,13 +91,11 @@ data class AdminAccountScreenUiState(
             val format: String?,
             val lastFetchedText: String,
             val unpublishedItems: List<UnpublishedItem>,
-            val postedItems: List<UnpublishedItem>?,
             val postingUnpublished: Boolean,
             val unpublishedError: String?,
             val listener: RegisteredListener,
-        ) : Feed {
-            val postLatestButtonEnabled: Boolean get() = !postingUnpublished
-        }
+            val postLatestButtonEnabled: Boolean,
+        ) : Feed
 
         /**
          * 追加はダイアログの画面に分けてあるので、ここに置くのは入口だけ
@@ -127,9 +129,8 @@ data class AdminAccountScreenUiState(
         val publishedAt: String?,
         val deleting: Boolean,
         val listener: SourceArticleListener,
-    ) {
-        val deleteButtonEnabled: Boolean get() = !deleting
-    }
+        val deleteButtonEnabled: Boolean,
+    )
 
     @Immutable
     interface SourceArticleListener {
@@ -148,25 +149,24 @@ data class AdminAccountScreenUiState(
 
     /**
      * @param submitting true の間は入力欄とボタンを押せなくする
-     * @param result 直前の投稿の結果。次の入力を始めたら消す
      */
     data class Post(
         val body: String,
         val submitting: Boolean,
-        val result: PostResult?,
         val error: String?,
         val listener: PostListener,
-    ) {
-        val bodyInputEnabled: Boolean get() = !submitting
-        val postButtonEnabled: Boolean get() = !submitting && body.isNotBlank()
-        val closeEnabled: Boolean get() = !submitting
-    }
+        val bodyInputEnabled: Boolean,
+        val postButtonEnabled: Boolean,
+        val closeEnabled: Boolean,
+    )
 
     @Immutable
     interface PostListener {
         fun onBodyChanged(text: String)
 
         fun onClickPost()
+
+        fun onDismiss()
     }
 
     /**
@@ -179,11 +179,10 @@ data class AdminAccountScreenUiState(
         val hasSourceArticle: Boolean,
         val deleting: Boolean,
         val listener: DeleteNoteDialogListener,
-    ) {
-        val confirmButtonEnabled: Boolean get() = !deleting
-        val deleteNoteOnlyButtonEnabled: Boolean get() = !deleting
-        val closeEnabled: Boolean get() = !deleting
-    }
+        val confirmButtonEnabled: Boolean,
+        val deleteNoteOnlyButtonEnabled: Boolean,
+        val closeEnabled: Boolean,
+    )
 
     @Immutable
     interface DeleteNoteDialogListener {
@@ -230,12 +229,6 @@ data class AdminAccountScreenUiState(
          */
         fun onClickDelete()
     }
-
-    data class PostResult(
-        val url: String,
-        val deliveryAttemptCount: Int,
-        val delivered: Int,
-    )
 
     /**
      * 画面全体に関わる操作。1 つの部品に閉じるものはその UiState が持つ

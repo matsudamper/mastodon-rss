@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
@@ -25,7 +26,7 @@ class NoteServiceTest {
 
     private fun service(): NoteService = NoteService(
         directory = TestLocalActor.directory,
-        publisher = NotePublisher(notes, FakeFollowerStore(), delivery),
+        publisher = NotePublisher(notes, FakeFollowerStore(), delivery, TestWebPageUrls),
         notes = notes,
     )
 
@@ -130,7 +131,7 @@ class NoteServiceTest {
         )
         val service = NoteService(
             directory = TestLocalActor.directory,
-            publisher = NotePublisher(notes, followers, delivery),
+            publisher = NotePublisher(notes, followers, delivery, TestWebPageUrls),
             notes = notes,
         )
         val posted = assertIs<NoteService.PostResult.Success>(

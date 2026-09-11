@@ -4,6 +4,7 @@ import java.security.PublicKey
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
+import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 
 /**
@@ -11,17 +12,21 @@ import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
  *
  * 本番は相手のサーバーに GET しに行くので、テストからは必ずこちらを通す。
  * 何も渡さなければ「どの keyId も引けず、どの inbox も分からない」サーバーになる。
+ *
+ * @param missing 引けない keyId をどう答えるか。既定は取りに行けなかった扱い。
+ *   アカウントが消えた相手を作るときは [PublicKeyLookup.Gone] を渡す
  */
 class TestRemoteActors(
     private val keys: Map<String, SignatureKey> = emptyMap(),
     private val actors: Map<String, RemoteActor> = emptyMap(),
+    private val missing: PublicKeyLookup = PublicKeyLookup.Unavailable,
 ) : RemoteActors {
     var findCallCount: Int = 0
         private set
 
-    override suspend fun find(keyId: String): SignatureKey? {
+    override suspend fun find(keyId: String): PublicKeyLookup {
         findCallCount++
-        return keys[keyId]
+        return keys[keyId]?.let { PublicKeyLookup.Found(it) } ?: missing
     }
 
     override suspend fun findActor(actorId: String): RemoteActor? = actors[actorId]

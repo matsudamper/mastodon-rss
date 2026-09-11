@@ -10,9 +10,10 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 interface FeedIcons {
     /**
      * @param iconUrl フィードが名乗っているアイコン。名乗っていなければ null で、置いてあるものを消す
+     * @return アクター文書に出るアイコンが入れ替わったか
      */
     suspend fun refresh(
         feedId: FeedId,
         iconUrl: String?,
-    )
+    ): Boolean
 }

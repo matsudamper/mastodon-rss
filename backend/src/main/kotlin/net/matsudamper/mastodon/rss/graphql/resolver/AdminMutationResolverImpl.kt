@@ -163,33 +163,34 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminUpdateAccountProfileResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
-        val updated = GraphQlEngine.diContainer(env).accountService.updateProfile(
-            username = query.username,
-            displayName = query.displayName,
-            summary = query.summary,
-        )
-        val result = when (updated) {
-            is AccountService.UpdateProfileResult.Success -> QlAdminUpdateAccountProfileResult(
-                adminAccount = updated.account.toGraphqlResponse(),
-                failure = null,
-            )
 
-            is AccountService.UpdateProfileResult.Failure -> QlAdminUpdateAccountProfileResult(
-                adminAccount = null,
-                failure = QlAdminUpdateAccountProfileFailure(
-                    unknownAccount = updated.unknownAccount,
-                    displayNameMaxLength = AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH.takeIf { updated.displayNameTooLong },
-                    summaryMaxLength = AccountProfileLimits.SUMMARY_MAX_LENGTH.takeIf { updated.summaryTooLong },
-                ),
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val updated = diContainer.accountService.updateProfile(
+                username = query.username,
+                displayName = query.displayName,
+                summary = query.summary,
             )
+            val result = when (updated) {
+                is AccountService.UpdateProfileResult.Success -> QlAdminUpdateAccountProfileResult(
+                    adminAccount = updated.account.toGraphqlResponse(),
+                    failure = null,
+                )
+
+                is AccountService.UpdateProfileResult.Failure -> QlAdminUpdateAccountProfileResult(
+                    adminAccount = null,
+                    failure = QlAdminUpdateAccountProfileFailure(
+                        unknownAccount = updated.unknownAccount,
+                        displayNameMaxLength = AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH.takeIf { updated.displayNameTooLong },
+                        summaryMaxLength = AccountProfileLimits.SUMMARY_MAX_LENGTH.takeIf { updated.summaryTooLong },
+                    ),
+                )
+            }
+            DataFetcherResult.Builder(result).build()
         }
-        return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
-    /**
-     * 配信の成否は投稿の成否と別に返す。相手のサーバーが受け取らなくても
-     * こちらの記録は残るので、どちらも分かる形にしないと画面で説明できない
-     */
     override fun postNote(
         adminMutation: QlAdminMutation,
         username: String,
@@ -212,8 +213,6 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                             contentHtml = posted.published.contentHtml,
                             publishedAt = posted.published.publishedAt.epochSecond,
                         ),
-                        deliveryTargets = posted.published.deliveryAttemptCount,
-                        delivered = posted.published.delivered,
                         failure = null,
                     )
                 }
@@ -221,8 +220,6 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                 is NoteService.PostResult.Failure -> {
                     QlAdminPostNoteResult(
                         note = null,
-                        deliveryTargets = null,
-                        delivered = null,
                         failure = QlAdminPostNoteFailure(
                             unknownAccount = posted.unknownAccount,
                             isEmpty = posted.isEmpty,

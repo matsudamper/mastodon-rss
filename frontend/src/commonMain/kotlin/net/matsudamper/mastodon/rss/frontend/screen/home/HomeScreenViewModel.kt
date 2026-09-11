@@ -136,6 +136,8 @@ class HomeScreenViewModel(
                         HomeScreenUiState.Account(
                             username = account.username,
                             acct = account.acct,
+                            displayName = account.displayName,
+                            iconUrl = account.iconUrl,
                         )
                     },
                     loadMoreVisible = accounts.hasMore,

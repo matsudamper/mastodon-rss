@@ -76,8 +76,15 @@ class HttpSignatureVerifier(
                 ?: return HttpSignatureResult.Rejected("署名対象のヘッダが揃っていない: ${signature.headers.joinToString(" ")}")
 
         val key =
-            publicKeys.find(signature.keyId)
-                ?: return HttpSignatureResult.Rejected("公開鍵を取得できない: ${signature.keyId}")
+            when (val lookup = publicKeys.find(signature.keyId)) {
+                is PublicKeyLookup.Found -> lookup.key
+
+                PublicKeyLookup.Gone ->
+                    return HttpSignatureResult.Rejected("アクターが消えていて公開鍵を取れない: ${signature.keyId}")
+
+                PublicKeyLookup.Unavailable ->
+                    return HttpSignatureResult.Rejected("公開鍵を取得できない: ${signature.keyId}")
+            }
 
         val verified =
             RsaSignature.verify(

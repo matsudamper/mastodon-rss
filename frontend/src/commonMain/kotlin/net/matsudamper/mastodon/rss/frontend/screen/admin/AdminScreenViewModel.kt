@@ -152,16 +152,20 @@ internal class AdminScreenViewModel(
                     }
 
                     else -> {
-                        AdminScreenUiState.Content.Login(
-                            password = state.password,
-                            submitting = state.submitting,
-                            error = state.error,
-                            input =
+                        val input =
                             if (session.passwordConfigured) {
                                 AdminScreenUiState.Content.Login.Input.Enabled
                             } else {
                                 AdminScreenUiState.Content.Login.Input.Disabled(LOGIN_DISABLED_MESSAGE)
-                            },
+                            }
+                        val passwordInputEnabled = input is AdminScreenUiState.Content.Login.Input.Enabled && !state.submitting
+                        AdminScreenUiState.Content.Login(
+                            password = state.password,
+                            submitting = state.submitting,
+                            error = state.error,
+                            input = input,
+                            passwordInputEnabled = passwordInputEnabled,
+                            loginButtonEnabled = passwordInputEnabled && state.password.isNotEmpty(),
                         )
                     }
                 }

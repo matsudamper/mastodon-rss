@@ -37,13 +37,14 @@ interface FollowerStore {
      * id で絞ると、同じ相手から続けて `Follow` が届いたときに、記録されている id が
      * 後から来た方に差し替わっていて、成立した関係を保留のまま残してしまう。
      *
-     * @return 更新できたら true
+     * 状態を見てから書き換えるまでを 1 つの操作にする。分けると、同じ `Follow` が
+     * 同時に 2 つ届いたときに両方が「初めて成立した」と読む
      */
     fun markAccepted(
         username: String,
         followerActorUri: String,
         acceptedAt: Instant,
-    ): Boolean
+    ): FollowAcceptResult
 
     /**
      * フォローを消す。
@@ -73,6 +74,25 @@ interface FollowerStore {
     fun removeRemoteActor(actorUri: String): Int
 
     /**
+     * 相手のアクターの公開鍵の PEM を返す。記録が無ければ null。
+     *
+     * `Follow` を受けたときに読んだもの。`Accept` を返せていない相手も対象にする。
+     * 相手のサーバーから引けなくなった鍵の代わりに使う
+     */
+    fun findPublicKeyPem(actorUri: String): String?
+
+    /**
+     * 記録済みの相手の公開鍵を、読み直したもので置き換える。記録が無ければ何もしない。
+     *
+     * 相手が鍵を替えた後も [findPublicKeyPem] が最後に読めた鍵を返せるようにする。
+     * `Follow` のときの鍵のままだと、消えた後の `Delete` を検証できない
+     */
+    fun rememberPublicKeyPem(
+        actorUri: String,
+        publicKeyPem: String,
+    )
+
+    /**
      * フォロワーのアクター URL を URL 順に返す。
      *
      * 位置は件数ではなく直前のページの最後の 1 件で指す。件数で数えると、
@@ -92,4 +112,20 @@ interface FollowerStore {
      * 投稿を配る先の inbox。`sharedInbox` があればそちらにまとまっている
      */
     fun deliveryTargets(username: String): List<String>
+}
+
+/**
+ * [FollowerStore.markAccepted] の結果。
+ *
+ * 初めて成立したのかどうかで、過去の投稿を配るかが変わる
+ */
+enum class FollowAcceptResult {
+    /** `Accept` 前の記録を成立させた */
+    FirstAccept,
+
+    /** 既に成立していた。`Follow` の送り直し */
+    AlreadyAccepted,
+
+    /** 記録が無い。書き込みに失敗したか、間に `Undo` が入った */
+    NotFound,
 }

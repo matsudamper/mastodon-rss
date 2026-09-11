@@ -4,11 +4,10 @@ import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 
 /**
- * 取ってきたアイコンの記録。中身はファイルに置き、ここには置き場と期限だけを持つ。
+ * 取ってきたアイコンの記録。
  *
- * 中身をこちらに持つのは、公開画面が canvas に描く都合で画像をバイト列で読む必要があり、
- * 配信元が CORS を許していないとブラウザからは読めないため。取り直す間隔は
- * 配信元の言い分（`Cache-Control`）で決まるので、期限も一緒に持つ。
+ * 中身は別に置き、ここにはその置き場を指す文字列と時刻だけを持つ。中身をこちらに入れると
+ * DB のファイルが画像のぶんだけ膨らむ。置き場をどこにするかは入れる側が決める。
  */
 interface FeedIconRepository {
     fun find(feedId: FeedId): FeedIcon?
@@ -28,9 +27,9 @@ interface FeedIconRepository {
 }
 
 /**
- * @param sourceUrl 取ってきた元の URL。`feeds.icon_url` が変わったかどうかの判断に使う
- * @param path 中身の置き場。置き場のディレクトリから見た相対パス
- * @param expiresAt この時刻を過ぎたら取り直す
+ * @param sourceUrl 取ってきた元の URL
+ * @param path 中身の置き場を指す文字列
+ * @param expiresAt 中身の有効期限
  */
 data class FeedIcon(
     val sourceUrl: String,

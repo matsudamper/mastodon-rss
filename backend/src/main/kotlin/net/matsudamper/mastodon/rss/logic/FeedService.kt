@@ -6,6 +6,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorPublisher
+import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedItemKey
 import net.matsudamper.mastodon.rss.feed.FeedText
@@ -23,6 +25,7 @@ import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
+import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.AccountId
@@ -37,6 +40,8 @@ class FeedService(
     private val actorDirectory: ActorDirectory,
     private val notePublisher: NotePublisher,
     private val icons: FeedIcons,
+    private val headers: FeedHeaders,
+    private val actorPublisher: ActorPublisher,
 ) {
     private val publishLock = Mutex()
 
@@ -47,6 +52,7 @@ class FeedService(
             is FeedFetchService.FetchResult.Success -> PreviewResult.Success(fetched.toPreview())
             FeedFetchService.FetchResult.InvalidUrl -> PreviewResult.Failure(PreviewFailure.INVALID_URL)
             FeedFetchService.FetchResult.TooLarge -> PreviewResult.Failure(PreviewFailure.FETCH_FAILED)
+            FeedFetchService.FetchResult.ChannelIdNotFound -> PreviewResult.Failure(PreviewFailure.FETCH_FAILED)
             is FeedFetchService.FetchResult.HttpError -> PreviewResult.Failure(PreviewFailure.FETCH_FAILED)
             is FeedFetchService.FetchResult.ParseError -> PreviewResult.Failure(PreviewFailure.PARSE_FAILED)
         }
@@ -72,7 +78,10 @@ class FeedService(
                     title = fetched.parsed.title,
                     siteUrl = HttpUrl.sanitize(fetched.parsed.link, fetched.feedUrl),
                     format = fetched.parsed.format.toDisplayName(),
-                    iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl),
+                    // 途中で終わった登録をやり直すときは、前に取り込んだ URL を favicon より先に使う
+                    iconUrl = HttpUrl.sanitize(fetched.parsed.iconUrl, fetched.feedUrl)
+                        ?: existing?.iconUrl
+                        ?: fetched.faviconUrl(),
                     pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS,
                 )
 
@@ -99,7 +108,12 @@ class FeedService(
                     validators = FeedFetchValidators.NONE,
                 )
                 feeds.markInitialImportDone(feed.id)
-                refreshIcon(feedId = feed.id, iconUrl = newFeed.iconUrl)
+                refreshImages(
+                    feedId = feed.id,
+                    accountId = accountId,
+                    iconUrl = newFeed.iconUrl,
+                    headerUrl = HttpUrl.sanitize(fetched.parsed.headerUrl, fetched.feedUrl),
+                )
                 val saved = feeds.find(feed.id) ?: feed.copy(initialImportDone = true)
                 SaveResult.Success(feed = saved)
             }
@@ -107,6 +121,8 @@ class FeedService(
             FeedFetchService.FetchResult.InvalidUrl -> SaveResult.Failure(SaveFailure.INVALID_URL)
 
             FeedFetchService.FetchResult.TooLarge -> SaveResult.Failure(SaveFailure.FETCH_FAILED)
+
+            FeedFetchService.FetchResult.ChannelIdNotFound -> SaveResult.Failure(SaveFailure.FETCH_FAILED)
 
             is FeedFetchService.FetchResult.HttpError -> SaveResult.Failure(SaveFailure.FETCH_FAILED)
 
@@ -176,12 +192,12 @@ class FeedService(
             is ImportLatestResult.Failure -> return PostUnpublishedResult.Failure(result.reason)
             is ImportLatestResult.Success -> result
         }
-        val posted = publishPending(
+        publishPending(
             feed = feed,
             username = account.username,
             htmlByKey = htmlByKey(feed = feed, items = imported.items, feedUrl = imported.feedUrl),
         )
-        return PostUnpublishedResult.Success(items = posted)
+        return PostUnpublishedResult.Success(importedCount = imported.importedCount)
     }
 
     /**
@@ -218,7 +234,7 @@ class FeedService(
     )
 
     /**
-     * @param description 一覧に並べる用に 1 行へ潰して切り詰めた説明
+     * @param description 一覧に並べる用に 1 行へ潰した説明
      * @param fullDescription 配信元が書いたままの説明。プロフィールに取り込むときに使う
      */
     data class FeedPreview(
@@ -310,8 +326,11 @@ class FeedService(
     }
 
     sealed interface PostUnpublishedResult {
+        /**
+         * @param importedCount 今回の取得で新しく取り込めた記事の件数
+         */
         data class Success(
-            val items: List<UnpublishedItem>,
+            val importedCount: Int,
         ) : PostUnpublishedResult
 
         data class Failure(
@@ -354,7 +373,12 @@ class FeedService(
         )
         importExistingItems(feed = feed, items = fetched.parsed.items, feedUrl = fetched.feedUrl)
 
-        refreshIcon(feedId = feed.id, iconUrl = iconUrl)
+        refreshImages(
+            feedId = feed.id,
+            accountId = feed.accountId,
+            iconUrl = iconUrl,
+            headerUrl = HttpUrl.sanitize(fetched.parsed.headerUrl, fetched.feedUrl),
+        )
 
         if (!feed.initialImportDone) {
             // 登録が途中で終わったフィード。ここで登録を終わらせる。
@@ -386,6 +410,7 @@ class FeedService(
         is FeedFetchService.FetchResult.Success -> error("成功は失敗の理由を持たない")
         FeedFetchService.FetchResult.InvalidUrl -> "URL として読めない"
         FeedFetchService.FetchResult.TooLarge -> "応答が大きすぎる"
+        FeedFetchService.FetchResult.ChannelIdNotFound -> "YouTube のページからチャンネル ID を取り出せなかった"
         is FeedFetchService.FetchResult.HttpError -> status?.let { "HTTP $it" } ?: message ?: "取得に失敗した"
         is FeedFetchService.FetchResult.ParseError -> "パースに失敗した"
     }
@@ -396,25 +421,75 @@ class FeedService(
      * 空で上書きすると、拾えなかった 1 回でアイコンが消える。YouTube のように
      * フィード本体ではなく別のページから拾う配信元では、そのページの取得が
      * 失敗しただけでも空になる。取り込み自体は成功しているので、
-     * 「名乗らなくなった」と「今回は拾えなかった」を区別できない
+     * 「名乗らなくなった」と「今回は拾えなかった」を区別できない。
+     *
+     * どちらも無いフィードには [faviconUrl] を充てる
      */
     private fun FeedFetchService.FetchResult.Success.iconUrlOrKeep(feed: Feed): String? =
-        HttpUrl.sanitize(parsed.iconUrl, feedUrl) ?: feed.iconUrl
+        HttpUrl.sanitize(parsed.iconUrl, feedUrl) ?: feed.iconUrl ?: faviconUrl()
 
     /**
-     * アイコンの入れ替え。落ちても記事の取り込みは進める。
+     * アイコンを名乗らないフィードに充てる、配信元のサイトの favicon。
      *
-     * 置き場が読めないなどで書けないことがある。アイコンが出ないだけの話なので、
-     * ここで投げると記事が配られなくなるほうが困る
+     * アイコンを表す要素を持たないフィードは多く、何も充てないとプロフィール画像が
+     * 空のままになる。名乗っているものと、前に取り込んだものが両方無いときだけ使う。
+     *
+     * 置き場は決め打ちにして、ここではページを引かない。`<link rel="icon">` を読むには
+     * 配信元が名乗った URL を引くことになり、取得先の検査を持つ IconFetchService を
+     * 通さない経路が増える。実際に取れるかどうかは、そこで引いたときに決まる。
+     *
+     * 基準はフィードが指す Web ページ。フィードだけ別のホストで配信していることがあり、
+     * フィードの URL から取ると別のサイトの favicon になる
      */
-    private suspend fun refreshIcon(
+    private fun FeedFetchService.FetchResult.Success.faviconUrl(): String? {
+        val siteUrl = HttpUrl.sanitize(parsed.link, feedUrl) ?: feedUrl
+        return runCatching { URI(siteUrl).resolve(FAVICON_PATH).toString() }.getOrNull()
+    }
+
+    /**
+     * アイコンとヘッダーの入れ替え。落ちても記事の取り込みは進める。
+     *
+     * 置き場が読めないなどで書けないことがある。画像が出ないだけの話なので、
+     * ここで投げると記事が配られなくなるほうが困る。
+     *
+     * 入れ替わったらフォロワーへ `Update{Actor}` を配る。相手はアクター文書を
+     * 取り直しに来ないので、配らないと古い画像を出し続ける。片方だけ変わっても
+     * 送る文書は同じアクター文書なので、2 つまとめて 1 回だけ配る
+     */
+    private suspend fun refreshImages(
         feedId: FeedId,
+        accountId: AccountId,
         iconUrl: String?,
+        headerUrl: String?,
     ) {
-        runCatching { icons.refresh(feedId = feedId, iconUrl = iconUrl) }
+        val iconChanged = refreshImage("アイコン", feedId) { icons.refresh(feedId = feedId, iconUrl = iconUrl) }
+        val headerChanged = refreshImage("ヘッダー", feedId) { headers.refresh(feedId = feedId, headerUrl = headerUrl) }
+        if (!iconChanged && !headerChanged) return
+
+        publishActorUpdate(accountId)
+    }
+
+    private suspend fun refreshImage(
+        name: String,
+        feedId: FeedId,
+        refresh: suspend () -> Boolean,
+    ): Boolean =
+        runCatching { refresh() }
+            .getOrElse { error ->
+                if (error is CancellationException) throw error
+                logger.warn("{}を入れ替えられなかった: feedId={}", name, feedId.value, error)
+                false
+            }
+
+    private suspend fun publishActorUpdate(accountId: AccountId) {
+        val account = accounts.findById(accountId) ?: return
+        val sender = actorDirectory.resolve(account.username) ?: return
+
+        runCatching { actorPublisher.update(sender = sender) }
             .onFailure { error ->
                 if (error is CancellationException) throw error
-                logger.warn("アイコンを入れ替えられなかった: feedId={}", feedId.value, error)
+                // 配れなくても取り込みは進める。届かなかった相手は次に変わったときに配り直される
+                logger.warn("アクターの更新を配れなかった: username={}", account.username, error)
             }
     }
 
@@ -452,6 +527,9 @@ class FeedService(
      * 投稿済みにするまでを直列化しないと、両方が同じ記事を取り出してフォロワーに
      * 2 回配信する。取り消す手段は無いので、入口を 1 本に絞って防ぐ
      *
+     * 投稿は配信前に作って記事へ id を結び付ける。配信できた後、投稿済みの記録を
+     * 残す前に落ちても、次は同じ id の投稿を配り直すので別投稿にはならない。
+     *
      * 今回取り込んだ分に絞らず、未投稿を全部投稿する。投稿できずに残る理由は
      * 配信先の不調や停止で消えるものが多く、取り込んだ回を逃すと二度と拾えない
      */
@@ -467,7 +545,32 @@ class FeedService(
             .forEach { stored ->
                 val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
                 val published = try {
-                    notePublisher.publish(sender = sender, contentHtml = html)
+                    val noteId = stored.noteId ?: notePublisher
+                        .create(sender = sender, contentHtml = html)
+                        .let { created ->
+                            val linkedNoteId = feedItems.linkNote(
+                                feedId = stored.id,
+                                note = NewNote(
+                                    username = created.username,
+                                    publicId = PublicNoteId(created.publicId.value),
+                                    contentHtml = created.contentHtml,
+                                    publishedAt = created.publishedAt,
+                                ),
+                            )
+                            if (linkedNoteId.value == created.publicId.value) {
+                                notePublisher.recordIfMissing(created)
+                            }
+                            linkedNoteId
+                        }
+                    when (
+                        val result = notePublisher.deliver(
+                            sender = sender,
+                            publicId = MastodonPublicNoteId(noteId.value),
+                        )
+                    ) {
+                        is NotePublisher.DeliverResult.Success -> result.published
+                        NotePublisher.DeliverResult.NotFound -> error("記事に紐付いた投稿が見つからない")
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -498,12 +601,17 @@ class FeedService(
                     format = fetched.parsed.format.toDisplayName(),
                     iconUrl = iconUrl,
                 )
-                importExistingItems(
+                val importedCount = importExistingItems(
                     feed = feed,
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
                 )
-                refreshIcon(feedId = feed.id, iconUrl = iconUrl)
+                refreshImages(
+                    feedId = feed.id,
+                    accountId = feed.accountId,
+                    iconUrl = iconUrl,
+                    headerUrl = HttpUrl.sanitize(fetched.parsed.headerUrl, fetched.feedUrl),
+                )
                 // 記録しないと定期ポーリングが直後に取り直し、成功した後も前の失敗が残る
                 feeds.recordFetchSuccess(
                     id = feed.id,
@@ -513,6 +621,7 @@ class FeedService(
                 ImportLatestResult.Success(
                     items = fetched.parsed.items,
                     feedUrl = fetched.feedUrl,
+                    importedCount = importedCount,
                 )
             }
 
@@ -522,6 +631,7 @@ class FeedService(
             }
 
             FeedFetchService.FetchResult.TooLarge,
+            FeedFetchService.FetchResult.ChannelIdNotFound,
             is FeedFetchService.FetchResult.HttpError,
             -> {
                 feed.recordFailure(fetched.failureReason())
@@ -539,6 +649,7 @@ class FeedService(
         data class Success(
             val items: List<ParsedFeedItem>,
             val feedUrl: String,
+            val importedCount: Int,
         ) : ImportLatestResult
 
         data class Failure(
@@ -553,7 +664,7 @@ class FeedService(
             title = parsed.title,
             siteUrl = HttpUrl.sanitize(parsed.link, feedUrl),
             format = parsed.format.toDisplayName(),
-            description = if (description == null) null else truncateDescription(description),
+            description = description?.let { FeedText.singleLine(it) },
             fullDescription = description,
             itemCount = parsed.items.size,
             sampleItems = parsed.items.newestFirst().take(PREVIEW_ITEM_LIMIT).map { it.toPreviewItem() },
@@ -575,23 +686,20 @@ class FeedService(
         publishedAt = publishedAt ?: updatedAt,
     )
 
-    private fun truncateDescription(text: String): String {
-        val normalized = FeedText.singleLine(text)
-        return FeedText.truncate(normalized, DESCRIPTION_LIMIT)
-    }
-
     /**
      * 取り込んだ記事を保存する。
      *
      * 既にある鍵は保存されない。同じ記事が新着として戻らないのはここで止めている
+     *
+     * @return 新しく保存できた記事の件数
      */
     private fun importExistingItems(
         feed: Feed,
         items: List<ParsedFeedItem>,
         feedUrl: String,
-    ) {
+    ): Int {
         val now = Instant.now()
-        items.forEach { item ->
+        return items.count { item ->
             val contentHtml = composeItemHtml(item, feedUrl)
             feedItems.add(
                 NewFeedItem(
@@ -604,7 +712,7 @@ class FeedService(
                     importedAt = now,
                     state = if (contentHtml == null) FeedItemState.SKIPPED else FeedItemState.PENDING,
                 ),
-            )
+            ) != null
         }
     }
 
@@ -663,8 +771,10 @@ class FeedService(
     private companion object {
         const val DEFAULT_POLL_INTERVAL_SECONDS = 900L
         const val PREVIEW_ITEM_LIMIT = 1
-        const val DESCRIPTION_LIMIT = 200
         const val POST_TITLE_MAX_CHARS = 200
         const val POST_DESCRIPTION_MAX_CHARS = 200
+
+        /** どのサイトでも同じ場所にあることになっている favicon の置き場 */
+        const val FAVICON_PATH = "/favicon.ico"
     }
 }

@@ -15,7 +15,7 @@ data class AdminFeed(
 )
 
 /**
- * @param description 一覧に並べる用に 1 行へ潰して切り詰めた説明
+ * @param description 一覧に並べる用に 1 行へ潰した説明
  * @param fullDescription 配信元が書いたままの説明。プロフィールに取り込むときに使う
  */
 data class AdminFeedPreview(
@@ -118,8 +118,11 @@ sealed interface AdminUnpublishedFeedItemsResult {
 }
 
 sealed interface AdminPostFeedItemsResult {
+    /**
+     * @param importedCount 今回の取得で新しく取り込めた記事の件数
+     */
     data class Success(
-        val items: List<AdminUnpublishedFeedItem>,
+        val importedCount: Int,
     ) : AdminPostFeedItemsResult
 
     data class Rejected(

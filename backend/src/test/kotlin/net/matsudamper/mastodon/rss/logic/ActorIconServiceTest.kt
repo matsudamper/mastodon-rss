@@ -15,6 +15,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.feed.IconImageType
 import net.matsudamper.mastodon.rss.repository.FeedIcon
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
@@ -108,7 +109,7 @@ class ActorIconServiceTest {
             icon = FeedIcon(
                 sourceUrl = sourceUrl,
                 contentType = "image/png",
-                path = store.write(feedId = feedId, bytes = BYTES),
+                path = store.write(feedId = feedId, bytes = BYTES, imageType = IconImageType.PNG),
                 fetchedAt = Instant.now(),
                 expiresAt = expiresAt,
             ),
