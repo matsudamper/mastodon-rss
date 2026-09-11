@@ -23,7 +23,7 @@ ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
 detekt = "2.0.0-alpha.6"
 composeRules = "0.6.6"
-opentelemetry = "1.65.0"
+opentelemetry = "1.66.0"
 opentelemetryApiIncubator = "1.65.0-alpha"
 opentelemetryInstrumentation = "2.31.1-alpha"
 
