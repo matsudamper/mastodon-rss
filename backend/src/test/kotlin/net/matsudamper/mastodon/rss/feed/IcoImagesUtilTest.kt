@@ -401,7 +401,7 @@ class IcoImagesUtilTest {
     }
 
     /**
-     * [IcoImagesUtil] が組み立てた PNG を読み戻す。IHDR と IDAT だけを見る、この
+     * [PngEncoder] が組み立てた PNG を読み戻す。IHDR と IDAT だけを見る、この
      * テスト専用の最小限のデコーダー（フィルタ無し・8 ビット RGBA だけを前提にする）
      */
     private fun decodePngRgba(png: ByteArray): Triple<Int, Int, ByteArray> {
