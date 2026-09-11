@@ -4,6 +4,7 @@ import net.matsudamper.mastodon.rss.repository.FeedHeader
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEED_HEADERS
+import net.matsudamper.mastodon.rss.repository.jooq.tables.records.FeedHeadersRecord
 
 internal class SqliteFeedHeaderRepository(
     private val jooq: SqliteJooq,
@@ -13,22 +14,7 @@ internal class SqliteFeedHeaderRepository(
             .selectFrom(FEED_HEADERS)
             .where(FEED_HEADERS.FEED_ID.eq(feedId.value))
             .fetchOne()
-            ?.let { record ->
-                val sourceUrl = requireNotNull(record.sourceUrl) { "feed_headers.source_url が null: feedId=${feedId.value}" }
-                val contentType = requireNotNull(record.contentType) { "feed_headers.content_type が null: feedId=${feedId.value}" }
-                val revision = requireNotNull(record.revision) { "feed_headers.revision が null: feedId=${feedId.value}" }
-                val path = requireNotNull(record.path) { "feed_headers.path が null: feedId=${feedId.value}" }
-                val fetchedAt = requireNotNull(record.fetchedAt) { "feed_headers.fetched_at が null: feedId=${feedId.value}" }
-                val expiresAt = requireNotNull(record.expiresAt) { "feed_headers.expires_at が null: feedId=${feedId.value}" }
-                FeedHeader(
-                    sourceUrl = sourceUrl,
-                    contentType = contentType,
-                    revision = revision,
-                    path = path,
-                    fetchedAt = StoredInstant.parse(fetchedAt),
-                    expiresAt = StoredInstant.parse(expiresAt),
-                )
-            }
+            ?.toFeedHeader()
     }
 
     override fun findByFeedIds(feedIds: Set<FeedId>): Map<FeedId, FeedHeader> {
@@ -41,20 +27,7 @@ internal class SqliteFeedHeaderRepository(
                 .fetch()
                 .associate { record ->
                     val feedId = FeedId(requireNotNull(record.feedId) { "feed_headers.feed_id が null" })
-                    val sourceUrl = requireNotNull(record.sourceUrl) { "feed_headers.source_url が null: feedId=${feedId.value}" }
-                    val contentType = requireNotNull(record.contentType) { "feed_headers.content_type が null: feedId=${feedId.value}" }
-                    val revision = requireNotNull(record.revision) { "feed_headers.revision が null: feedId=${feedId.value}" }
-                    val path = requireNotNull(record.path) { "feed_headers.path が null: feedId=${feedId.value}" }
-                    val fetchedAt = requireNotNull(record.fetchedAt) { "feed_headers.fetched_at が null: feedId=${feedId.value}" }
-                    val expiresAt = requireNotNull(record.expiresAt) { "feed_headers.expires_at が null: feedId=${feedId.value}" }
-                    feedId to FeedHeader(
-                        sourceUrl = sourceUrl,
-                        contentType = contentType,
-                        revision = revision,
-                        path = path,
-                        fetchedAt = StoredInstant.parse(fetchedAt),
-                        expiresAt = StoredInstant.parse(expiresAt),
-                    )
+                    feedId to record.toFeedHeader()
                 }
         }
     }
@@ -92,5 +65,22 @@ internal class SqliteFeedHeaderRepository(
                 .where(FEED_HEADERS.FEED_ID.eq(feedId.value))
                 .execute()
         }
+    }
+
+    private fun FeedHeadersRecord.toFeedHeader(): FeedHeader {
+        val sourceUrl = requireNotNull(sourceUrl) { "feed_headers.source_url が null: feedId=$feedId" }
+        val contentType = requireNotNull(contentType) { "feed_headers.content_type が null: feedId=$feedId" }
+        val revision = requireNotNull(revision) { "feed_headers.revision が null: feedId=$feedId" }
+        val path = requireNotNull(path) { "feed_headers.path が null: feedId=$feedId" }
+        val fetchedAt = requireNotNull(fetchedAt) { "feed_headers.fetched_at が null: feedId=$feedId" }
+        val expiresAt = requireNotNull(expiresAt) { "feed_headers.expires_at が null: feedId=$feedId" }
+        return FeedHeader(
+            sourceUrl = sourceUrl,
+            contentType = contentType,
+            revision = revision,
+            path = path,
+            fetchedAt = StoredInstant.parse(fetchedAt),
+            expiresAt = StoredInstant.parse(expiresAt),
+        )
     }
 }
