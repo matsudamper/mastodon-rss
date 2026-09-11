@@ -10,62 +10,53 @@ package net.matsudamper.mastodon.rss.feed
  */
 object YouTubeChannelHeader {
     fun fromPageHtml(html: String): String? =
-        bannerUrl(
-            html = html,
-            keys = listOf("\"pageHeaderViewModel\"", "\"banner\"", "\"imageBannerViewModel\"", "\"sources\""),
-            // pageHeaderViewModel -> banner だけ、この入れ物の階層の分だけ離れている
-            keyDistances = listOf(MAX_PAGE_HEADER_DISTANCE, MAX_KEY_DISTANCE, MAX_KEY_DISTANCE),
-        ) ?: bannerUrl(
-            html = html,
-            keys = listOf("\"c4TabbedHeaderRenderer\"", "\"banner\"", "\"thumbnails\""),
-            keyDistances = listOf(MAX_LEGACY_KEY_DISTANCE, MAX_LEGACY_KEY_DISTANCE),
-        )
+        CURRENT_BANNER_PATH.findBannerUrl(html) ?: LEGACY_BANNER_PATH.findBannerUrl(html)
 
     /**
-     * 先頭の鍵が見つかっても、その出現がバナーの実データとは限らない
-     * （[MAX_KEY_DISTANCE] のコメント参照）。1 か所で鍵の並びが崩れて諦めるのではなく、
-     * 先頭の鍵の次の出現から探し直す
+     * 埋め込み JSON の中で、バナー URL の配列までたどる鍵の並び。
+     *
+     * 鍵ごとに「直前の鍵の終わりからこの鍵まで」に許す文字数を持つ。
+     * 最後の鍵から配列の `[` までも、最後の鍵の許容距離を使う
      */
-    private fun bannerUrl(
-        html: String,
-        keys: List<String>,
-        keyDistances: List<Int>,
-    ): String? {
-        var searchFrom = 0
-        while (true) {
-            val head = html.indexOf(keys.first(), startIndex = searchFrom)
-            if (head < 0) return null
-            bannerUrlAt(html, keys, keyDistances, head)?.let { return it }
-            searchFrom = head + 1
+    private class BannerJsonPath(
+        val head: String,
+        val hops: List<KeyHop>,
+    ) {
+        /**
+         * 先頭の鍵が見つかっても、その出現がバナーの実データとは限らない
+         * （[MAX_KEY_DISTANCE] のコメント参照）。1 か所で鍵の並びが崩れて諦めるのではなく、
+         * 先頭の鍵の次の出現から探し直す
+         */
+        fun findBannerUrl(html: String): String? =
+            generateSequence(html.indexOf(head)) { previous -> html.indexOf(head, startIndex = previous + 1) }
+                .takeWhile { headIndex -> headIndex >= 0 }
+                .firstNotNullOfOrNull { headIndex -> bannerUrlAt(html, headIndex) }
+
+        private fun bannerUrlAt(html: String, headIndex: Int): String? {
+            val lastKeyEnd = hops.fold(headIndex + head.length) { searchFrom, hop ->
+                val found = html.indexOf(hop.key, startIndex = searchFrom)
+                if (found < 0 || found - searchFrom > hop.maxDistance) return null
+                found + hop.key.length
+            }
+
+            val arrayStart = html.indexOf('[', startIndex = lastKeyEnd)
+            if (arrayStart < 0 || arrayStart - lastKeyEnd > hops.last().maxDistance) return null
+            val arrayEnd = html.indexOf(']', startIndex = arrayStart + 1)
+            if (arrayEnd < 0 || arrayEnd - arrayStart > MAX_SOURCES_LENGTH) return null
+
+            // 同じバナーが小さい順に並ぶので、最後の 1 つが一番大きい
+            return URL_IN_JSON
+                .findAll(html.substring(arrayStart + 1, arrayEnd))
+                .map { match -> unescapeJsonUrl(match.groupValues[1]) }
+                .filter { url -> url.startsWith("https://") }
+                .lastOrNull()
         }
     }
 
-    private fun bannerUrlAt(
-        html: String,
-        keys: List<String>,
-        keyDistances: List<Int>,
-        head: Int,
-    ): String? {
-        var index = head + keys.first().length
-        keys.drop(1).forEachIndexed { hop, key ->
-            val found = html.indexOf(key, startIndex = index)
-            if (found < 0 || found - index > keyDistances[hop]) return null
-            index = found + key.length
-        }
-
-        val arrayDistance = keyDistances.last()
-        val arrayStart = html.indexOf('[', startIndex = index)
-        if (arrayStart < 0 || arrayStart - index > arrayDistance) return null
-        val arrayEnd = html.indexOf(']', startIndex = arrayStart + 1)
-        if (arrayEnd < 0 || arrayEnd - arrayStart > MAX_SOURCES_LENGTH) return null
-
-        // 同じバナーが小さい順に並ぶので、最後の 1 つが一番大きい
-        return URL_IN_JSON
-            .findAll(html.substring(arrayStart + 1, arrayEnd))
-            .map { match -> unescapeJsonUrl(match.groupValues[1]) }
-            .filter { url -> url.startsWith("https://") }
-            .lastOrNull()
-    }
+    private class KeyHop(
+        val key: String,
+        val maxDistance: Int,
+    )
 
     /**
      * JSON の文字列に入っている URL の書き方を戻す。
@@ -76,6 +67,24 @@ object YouTubeChannelHeader {
         value
             .replace("\\u0026", "&")
             .replace("\\/", "/")
+
+    private val CURRENT_BANNER_PATH = BannerJsonPath(
+        head = "\"pageHeaderViewModel\"",
+        hops = listOf(
+            // pageHeaderViewModel -> banner だけ、この入れ物の階層の分だけ離れている
+            KeyHop("\"banner\"", MAX_PAGE_HEADER_DISTANCE),
+            KeyHop("\"imageBannerViewModel\"", MAX_KEY_DISTANCE),
+            KeyHop("\"sources\"", MAX_KEY_DISTANCE),
+        ),
+    )
+
+    private val LEGACY_BANNER_PATH = BannerJsonPath(
+        head = "\"c4TabbedHeaderRenderer\"",
+        hops = listOf(
+            KeyHop("\"banner\"", MAX_LEGACY_KEY_DISTANCE),
+            KeyHop("\"thumbnails\"", MAX_LEGACY_KEY_DISTANCE),
+        ),
+    )
 
     private val URL_IN_JSON = Regex(""""url"\s*:\s*"((?:[^"\\]|\\.)*)"""")
 
