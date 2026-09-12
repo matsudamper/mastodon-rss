@@ -88,6 +88,18 @@ class FeedFetchServiceOpenGraphTest {
         }
 
     @Test
+    fun `内部を指す og image は持たない`() =
+        runTest {
+            val requested = mutableListOf<String>()
+            // ページは外、画像は内部。添付は連合先が取りに行くので、渡してはいけない
+            val service = serviceOf(requested, externalHosts = allowing(true, false)) {
+                html("http://127.0.0.1/ogp.png")
+            }
+
+            assertNull(service.fetchOpenGraphImageUrl("https://example.com/1"))
+        }
+
+    @Test
     fun `HTML でなければ読まない`() =
         runTest {
             val requested = mutableListOf<String>()

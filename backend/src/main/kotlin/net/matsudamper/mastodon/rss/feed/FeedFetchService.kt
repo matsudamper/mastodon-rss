@@ -131,8 +131,20 @@ class FeedFetchService(
         // og:image は相対 URL でもよい。基準は飛んだ先のページ。
         // content には長さの上限が無く、長すぎるものは DB にも Create の本文にも
         // 毎回載るので、URL として妥当な長さを超えたら持たない
-        return HttpUrl.sanitize(imageUrl, page.url)?.takeIf { it.length <= MAX_IMAGE_URL_LENGTH }
+        val absolute = HttpUrl.sanitize(imageUrl, page.url)?.takeIf { it.length <= MAX_IMAGE_URL_LENGTH } ?: return null
+
+        // この URL は添付として連合先に配られ、相手のサーバーが取りに行く。
+        // 内部を指す値を渡すと、相手のサーバーから内部を叩かせることになる
+        return absolute.takeIf { isExternal(it) }
     }
+
+    /**
+     * 名前を引くのは待たされることがあるので、取得と同じだけの上限を付ける
+     */
+    private suspend fun isExternal(url: String): Boolean =
+        withContext(Dispatchers.IO) {
+            withTimeoutOrNull(PAGE_TIMEOUT_MILLIS) { externalHosts.isExternal(url) }
+        } == true
 
     /**
      * リンク先はフィードの配信元が自由に書けるので、取りに行く前に
