@@ -9,6 +9,7 @@ import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
@@ -59,8 +60,6 @@ class FeedIconServiceTest {
                 Triple("image/jpeg", TestImageBytes.JPEG, ".jpg"),
                 Triple("image/gif", TestImageBytes.GIF, ".gif"),
                 Triple("image/webp", TestImageBytes.WEBP, ".webp"),
-                Triple("image/x-icon", TestImageBytes.ICO, ".ico"),
-                Triple("image/vnd.microsoft.icon", TestImageBytes.ICO, ".ico"),
             )
 
             cases.forEach { (contentType, bytes, extension) ->
@@ -78,6 +77,43 @@ class FeedIconServiceTest {
                 val path = assertNotNull(repositories.feedIcons.find(feedId)).path
                 assertTrue(path.endsWith(extension), "保存先: $path")
             }
+        }
+
+    @Test
+    fun `ICOは埋め込みのPNGに変換して保存する`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val feedId = repositories.addFeed()
+            val engine = MockEngine {
+                respond(content = TestImageBytes.ICO, headers = headersOf("Content-Type", "image/x-icon"))
+            }
+            val store = FeedIconStore(tempDir)
+
+            serviceOf(repositories, engine, store).refresh(feedId = feedId, iconUrl = ICON_URL)
+
+            val saved = assertNotNull(repositories.feedIcons.find(feedId))
+            assertTrue(saved.path.endsWith(".png"), "保存先: ${saved.path}")
+            assertEquals("image/png", saved.contentType)
+            assertContentEquals(TestImageBytes.PNG + TestImageBytes.PNG_IEND, assertNotNull(store.read(saved.path)))
+        }
+
+    @Test
+    fun `変換できないICOは保存しない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val feedId = repositories.addFeed()
+            // ICONDIR + ICONDIRENTRY はあるが、指す先が PNG 署名で始まらず、
+            // BITMAPINFOHEADER（40 バイト）を名乗るには短すぎる中身
+            val unusableIco = byteArrayOf(0, 0, 1, 0, 1, 0) +
+                byteArrayOf(32, 32, 0, 0, 1, 0, 32, 0, 4, 0, 0, 0, 22, 0, 0, 0) +
+                byteArrayOf(0x28, 0, 0, 0)
+            val engine = MockEngine {
+                respond(content = unusableIco, headers = headersOf("Content-Type", "image/x-icon"))
+            }
+
+            serviceOf(repositories, engine).refresh(feedId = feedId, iconUrl = ICON_URL)
+
+            assertNull(repositories.feedIcons.find(feedId))
         }
 
     @Test
