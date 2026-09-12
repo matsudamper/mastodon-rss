@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -25,6 +26,7 @@ import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
+import net.matsudamper.mastodon.rss.repository.FeedHeader
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
@@ -256,6 +258,66 @@ class AccountGraphQlTest {
             application { module(testDependencies(repositories = repositories)) }
 
             assertEquals(JsonNull, queryAccount("feed1").account().getValue("iconUrl"))
+        }
+
+    @Test
+    fun `保存したヘッダーは版付きの URL で引ける`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = Instant.now()))
+            val feed = assertNotNull(
+                repositories.feeds.add(
+                    NewFeed(
+                        accountId = account.id,
+                        url = "https://example.com/feed.xml",
+                        title = "サンプル",
+                        siteUrl = "https://example.com",
+                        format = "RSS 2.0",
+                        iconUrl = null,
+                        pollIntervalSeconds = 900,
+                    ),
+                ),
+            )
+            val now = Instant.now()
+            repositories.feedHeaders.save(
+                feedId = feed.id,
+                header = FeedHeader(
+                    sourceUrl = "https://example.com/header.jpg",
+                    contentType = "image/jpeg",
+                    revision = "rev1",
+                    path = "1/header.jpg",
+                    fetchedAt = now,
+                    expiresAt = now.plusSeconds(3600),
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            // 中身を返すのは Actor と同じパス。中身が変わったことが分かる版が付く
+            assertEquals(
+                "https://${TestServerEnv.DOMAIN}/users/feed1/header?v=rev1",
+                queryAccount("feed1").account().string("headerUrl"),
+            )
+        }
+
+    @Test
+    fun `ヘッダーを保存していないフィードは headerUrl が null`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = Instant.now()))
+            repositories.feeds.add(
+                NewFeed(
+                    accountId = account.id,
+                    url = "https://example.com/feed.xml",
+                    title = "サンプル",
+                    siteUrl = "https://example.com",
+                    format = "RSS 2.0",
+                    iconUrl = null,
+                    pollIntervalSeconds = 900,
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            assertEquals(JsonNull, queryAccount("feed1").account().getValue("headerUrl"))
         }
 
     @Test
@@ -616,7 +678,7 @@ class AccountGraphQlTest {
             val query =
                 "query Account(${'$'}username: String!) { " +
                     "account(username: ${'$'}username) { " +
-                    "id username acct actorUrl iconUrl followerCount noteCount feed { url siteUrl } } }"
+                    "id username acct actorUrl iconUrl headerUrl followerCount noteCount feed { url siteUrl } } }"
 
             setBody(
                 """{"query":${JsonPrimitive(query)},"variables":{"username":${JsonPrimitive(username)}}}""",

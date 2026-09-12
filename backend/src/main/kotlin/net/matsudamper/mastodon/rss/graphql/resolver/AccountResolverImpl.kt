@@ -65,6 +65,26 @@ class AccountResolverImpl : AccountResolver {
             }
     }
 
+    override fun headerUrl(
+        account: QlAccount,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<String?>> {
+        val domain = GraphQlEngine.diContainer(env).domain
+        return GraphQlEngine
+            .dataLoaders(env)
+            .headerVersionByAccountIdDataLoader
+            .get(env)
+            .load(account.id)
+            .thenApply { version ->
+                val headerUrl = if (version == null) {
+                    null
+                } else {
+                    ActorUrls(domain = domain, username = account.username).header(version)
+                }
+                DataFetcherResult.Builder<String?>(headerUrl).build()
+            }
+    }
+
     override fun feed(
         account: QlAccount,
         env: DataFetchingEnvironment,
