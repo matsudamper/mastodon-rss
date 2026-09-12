@@ -72,6 +72,31 @@ fragment AdminAccountScreenFields on AdminAccount {
         format
         lastFetchedAt
     }
+    deliveryQueue {
+        waitingCount
+        failedCount
+    }
+    retryingDeliveries(limit: 20) {
+        nodes {
+            inbox
+            attempts
+            nextAttemptAt
+            lastError
+        }
+        pageInfo {
+            hasMore
+        }
+    }
+    failedDeliveries(limit: 20) {
+        nodes {
+            inbox
+            attempts
+            lastError
+        }
+        pageInfo {
+            hasMore
+        }
+    }
 }
 
 query AdminPreviewFeed($url: String!) {

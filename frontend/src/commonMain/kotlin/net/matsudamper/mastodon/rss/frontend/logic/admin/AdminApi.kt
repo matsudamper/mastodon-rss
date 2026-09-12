@@ -462,6 +462,27 @@ class AdminApi(
                 lastFetchedAt = it.lastFetchedAt,
             )
         },
+        deliveryQueue = AdminDeliveryQueue(
+            waitingCount = deliveryQueue.waitingCount,
+            failedCount = deliveryQueue.failedCount,
+            retrying = retryingDeliveries.nodes.map { node ->
+                AdminRetryingDelivery(
+                    inbox = node.inbox,
+                    attempts = node.attempts,
+                    nextAttemptAt = node.nextAttemptAt,
+                    lastError = node.lastError,
+                )
+            },
+            retryingHasMore = retryingDeliveries.pageInfo.hasMore,
+            failed = failedDeliveries.nodes.map { node ->
+                AdminFailedDelivery(
+                    inbox = node.inbox,
+                    attempts = node.attempts,
+                    lastError = node.lastError,
+                )
+            },
+            failedHasMore = failedDeliveries.pageInfo.hasMore,
+        ),
     )
 
     private fun AdminAccountListFields.toAdminAccount(): AdminAccount = AdminAccount(
@@ -477,6 +498,7 @@ class AdminApi(
         createdAt = createdAt,
         followerCount = followerCount,
         feed = null,
+        deliveryQueue = null,
     )
 
     private fun ApolloResponse<AdminAccountScreenQuery.Data>.toAdminAccountResult(): AdminAccountResult {

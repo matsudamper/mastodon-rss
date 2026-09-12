@@ -18,6 +18,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteNoteResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeliveryQueue
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNotesResult
@@ -84,6 +85,12 @@ class AdminAccountScreenViewModel(
     private val notRegisteredFeedListener = object : AdminAccountScreenUiState.Feed.NotRegisteredListener {
         override fun onClickAddFeed() {
             navigate(Screen.AdminAccountFeedNew(username))
+        }
+    }
+
+    private val deliveryQueueListener = object : AdminAccountScreenUiState.DeliveryQueueListener {
+        override fun onClickReload() {
+            watchAccount()
         }
     }
 
@@ -644,6 +651,7 @@ class AdminAccountScreenViewModel(
                 AdminAccountScreenUiState.Content.Loaded(
                     account = found.toUiState(),
                     feed = state.feedUiState(found),
+                    deliveryQueue = found.deliveryQueue.toUiState(),
                     postDialog = state.postDialog?.toUiState(),
                     notes = state.notes.map { it.toUiState(state.deletingFeedItemIds) },
                     deleteNoteDialog = state.deleteNoteDialogUiState(),
@@ -763,6 +771,48 @@ class AdminAccountScreenViewModel(
 
             else -> AdminAccountScreenUiState.Feed.NotRegistered(listener = notRegisteredFeedListener)
         }
+    }
+
+    /**
+     * 一覧向けの問い合わせでは取っていないので null が来る。この画面では必ず取っている
+     */
+    private fun AdminDeliveryQueue?.toUiState(): AdminAccountScreenUiState.DeliveryQueue {
+        val queue = this ?: return AdminAccountScreenUiState.DeliveryQueue(
+            waitingCount = 0,
+            failedCount = 0,
+            retrying = emptyList(),
+            retryingMoreText = null,
+            failed = emptyList(),
+            failedMoreText = null,
+            listener = deliveryQueueListener,
+            retryingSectionVisible = false,
+            failedSectionVisible = false,
+        )
+
+        return AdminAccountScreenUiState.DeliveryQueue(
+            waitingCount = queue.waitingCount,
+            failedCount = queue.failedCount,
+            retrying = queue.retrying.map { delivery ->
+                AdminAccountScreenUiState.RetryingDelivery(
+                    inbox = delivery.inbox,
+                    attempts = delivery.attempts,
+                    nextAttemptAt = UnixTimeUtil.format(delivery.nextAttemptAt),
+                    lastError = delivery.lastError,
+                )
+            },
+            retryingMoreText = "他にもある。先頭の ${queue.retrying.size} 件だけ表示している".takeIf { queue.retryingHasMore },
+            failed = queue.failed.map { delivery ->
+                AdminAccountScreenUiState.FailedDelivery(
+                    inbox = delivery.inbox,
+                    attempts = delivery.attempts,
+                    lastError = delivery.lastError,
+                )
+            },
+            failedMoreText = "他にもある。新しい ${queue.failed.size} 件だけ表示している".takeIf { queue.failedHasMore },
+            listener = deliveryQueueListener,
+            retryingSectionVisible = queue.retrying.isNotEmpty(),
+            failedSectionVisible = queue.failed.isNotEmpty(),
+        )
     }
 
     private fun AdminAccount.toUiState(): AdminAccountScreenUiState.Account = AdminAccountScreenUiState.Account(

@@ -28,6 +28,8 @@ interface Repositories : AutoCloseable {
 
     val feedItems: FeedItemRepository
 
+    val deliveryQueue: DeliveryQueueRepository
+
     val feedIcons: FeedIconRepository
 
     val feedHeaders: FeedHeaderRepository

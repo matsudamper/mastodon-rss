@@ -1,9 +1,13 @@
 package net.matsudamper.mastodon.rss
 
+import java.time.Instant
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -22,6 +26,8 @@ import net.matsudamper.mastodon.rss.actor.StoredActorProfiles
 import net.matsudamper.mastodon.rss.actor.StoredFeedLinks
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.delivery.DeliveryRetryPolicy
+import net.matsudamper.mastodon.rss.delivery.DeliveryWorker
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
@@ -37,6 +43,7 @@ import net.matsudamper.mastodon.rss.logic.FeedIconService
 import net.matsudamper.mastodon.rss.logic.FeedIconStore
 import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
+import net.matsudamper.mastodon.rss.logic.NotePoster
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
 import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
@@ -56,8 +63,8 @@ import net.matsudamper.mastodon.rss.webpage.DomainWebPageUrls
  *
  * 何をどの順で作り、どの順で閉じるかをここ 1 か所に集める。以前は [main] の中で
  * `use` を入れ子にしていたが、抱えるものが増えるたびに入れ子が深くなり、
- * [Application.module] の引数も一緒に伸びていく形だった。Phase 4 の配信キューと
- * Phase 5 のスケジューラはどちらもここに並ぶ。
+ * [Application.module] の引数も一緒に伸びていく形だった。配信キューのワーカーと
+ * フィードの定期ポーリングもここに並ぶ。
  *
  * 外から作れるようにしてあるのはテストのため。フェイクを渡せば、
  * 本物の DB や外向きの HTTP を用意せずにルーティングを組み立てられる。
@@ -197,6 +204,12 @@ class AppDependencies(
         webPages = webPageUrls,
     )
 
+    val notePoster: NotePoster = NotePoster(
+        publisher = notePublisher,
+        followers = repositories.followers,
+        deliveryQueue = repositories.deliveryQueue,
+    )
+
     val actorPublisher: ActorPublisher = ActorPublisher(
         notes = noteStore,
         followers = followerStore,
@@ -213,7 +226,7 @@ class AppDependencies(
         feedItems = repositories.feedItems,
         fetcher = feedFetcher,
         actorDirectory = directory,
-        notePublisher = notePublisher,
+        notePoster = notePoster,
         icons = feedIcons,
         headers = feedHeaders,
         actorPublisher = actorPublisher,
@@ -221,41 +234,59 @@ class AppDependencies(
 
     private val feedPollingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private val deliveryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val backgroundStopped = AtomicBoolean(false)
+
+    /**
+     * 配信キューのワーカーを始める。
+     *
+     * 呼ぶまで 1 件も送らない。止めるのは [stopBackgroundWork]
+     */
+    fun startDeliveryWorker() {
+        DeliveryWorker(
+            queue = repositories.deliveryQueue,
+            delivery = delivery,
+            directory = directory,
+            retryPolicy = DeliveryRetryPolicy(
+                initialInterval = 30.seconds,
+                maxInterval = 24.hours,
+                giveUpAfter = 30.days,
+            ),
+            claimLimit = 8,
+            idleInterval = 1.seconds,
+            clock = Instant::now,
+        ).start(deliveryScope)
+    }
+
     /**
      * フィードの定期ポーリングを始める。
      *
-     * 呼ぶまで動かない。止めるのは [stopFeedPolling]
+     * 呼ぶまで動かない。止めるのは [stopBackgroundWork]
      */
     fun startFeedPolling() {
         FeedPoller(feedService).start(feedPollingScope)
     }
 
     /**
-     * 定期ポーリングを止めて、走っている取り込みが終わるまで待つ。
+     * 定期ポーリング・配信のワーカー・フォロー成立後の再配信を止めて、走っている分が終わるまで待つ。
      *
-     * 待ち受けを止める前に呼ぶ。投稿を受け取った相手はその場で Note やアクターの
-     * URL を引きに来るので、止めた後に投稿すると相手は繋げずに終わる。
-     * 何度呼んでもよい。待ち時間は docker stop の既定の猶予（10 秒）に収まる範囲にする
+     * 待ち受けを止める前に呼ぶ。投稿を受け取った相手はその場で Note やアクターの URL を
+     * 引きに来るので、止めた後に投稿や配信をすると相手は繋げずに終わる。
+     * 送信中の配信は待たない。行は `delivering` のまま残り、次の起動の復旧で送り直される。
+     *
+     * 何度呼んでもよい。待つのは最初の 1 回だけで、まとめて 3 秒までにする。
+     * 同期の DB 呼び出しはキャンセルでは止まらないので、1 つずつ待つと待ちが積み上がり、
+     * サーバーの停止（5 秒）と合わせて docker stop の既定の猶予（10 秒）を超える。
+     * 超えると DB を閉じる前に殺され、WAL が畳まれない
      */
-    fun stopFeedPolling() {
+    fun stopBackgroundWork() {
+        if (!backgroundStopped.compareAndSet(false, true)) return
+        val jobs = listOf(feedPollingScope, deliveryScope, followBackfillScope).map { it.coroutineContext.job }
+        jobs.forEach { it.cancel() }
         runBlocking {
             withTimeoutOrNull(3_000) {
-                feedPollingScope.coroutineContext.job.cancelAndJoin()
-            }
-        }
-    }
-
-    /**
-     * 走っている過去の投稿の配信を止めて、終わるまで待つ。
-     *
-     * 配信は DB と HTTP クライアントを使うので、閉じる前に止める。
-     * 途中で切れた分は届かないが、フォロー自体は成立しているので次の新着からは届く。
-     * 待ち時間は [stopFeedPolling] と同じ理由で短く切る
-     */
-    private fun stopFollowBackfill() {
-        runBlocking {
-            withTimeoutOrNull(3_000) {
-                followBackfillScope.coroutineContext.job.cancelAndJoin()
+                jobs.forEach { it.join() }
             }
         }
     }
@@ -267,9 +298,8 @@ class AppDependencies(
      * 後ろが開いたままになる。投げられたものは最初の 1 つにまとめて上げ直す。
      */
     override fun close() {
-        // 取り込みの途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ
-        stopFeedPolling()
-        stopFollowBackfill()
+        // 取り込みや送信の途中で DB や HTTP クライアントを閉じないよう、先に止めて終わるまで待つ
+        stopBackgroundWork()
 
         val failures = listOf<() -> Unit>(
             { feedFetcher.close() },

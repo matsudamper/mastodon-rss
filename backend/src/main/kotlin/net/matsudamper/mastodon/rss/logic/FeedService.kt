@@ -3,11 +3,10 @@ package net.matsudamper.mastodon.rss.logic
 import java.net.URI
 import java.time.Instant
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
-import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedItemKey
 import net.matsudamper.mastodon.rss.feed.FeedText
@@ -15,7 +14,6 @@ import net.matsudamper.mastodon.rss.feed.HtmlSanitizer
 import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.feed.ParsedFeedItem
 import net.matsudamper.mastodon.rss.feed.toDisplayName
-import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
@@ -25,7 +23,6 @@ import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
-import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.AccountId
@@ -38,13 +35,11 @@ class FeedService(
     private val feedItems: FeedItemRepository,
     private val fetcher: FeedFetchService,
     private val actorDirectory: ActorDirectory,
-    private val notePublisher: NotePublisher,
+    private val notePoster: NotePoster,
     private val icons: FeedIcons,
     private val headers: FeedHeaders,
     private val actorPublisher: ActorPublisher,
 ) {
-    private val publishLock = Mutex()
-
     private val logger = LoggerFactory.getLogger(FeedService::class.java)
 
     suspend fun preview(url: String): PreviewResult {
@@ -523,53 +518,35 @@ class FeedService(
     /**
      * 未投稿の記事を投稿して、投稿済みにする。
      *
-     * 定期ポーリングと管理画面からの手動投稿は同時に走りうる。取り出してから
-     * 投稿済みにするまでを直列化しないと、両方が同じ記事を取り出してフォロワーに
-     * 2 回配信する。取り消す手段は無いので、入口を 1 本に絞って防ぐ
-     *
-     * 投稿は配信前に作って記事へ id を結び付ける。配信できた後、投稿済みの記録を
-     * 残す前に落ちても、次は同じ id の投稿を配り直すので別投稿にはならない。
+     * 定期ポーリングと管理画面からの手動投稿は同時に走りうる。記事を投稿済みにするのと
+     * 投稿の記録・投函は投函の口が 1 トランザクションで確定させ、`pending` でなくなっていた
+     * 記事は何も書かずに飛ばされる。両方が同じ記事を取り出しても、投稿されるのは 1 回になる
      *
      * 今回取り込んだ分に絞らず、未投稿を全部投稿する。投稿できずに残る理由は
-     * 配信先の不調や停止で消えるものが多く、取り込んだ回を逃すと二度と拾えない
+     * アクターの引き当てなど一時的なものが多く、取り込んだ回を逃すと二度と拾えない
      */
     private suspend fun publishPending(
         feed: Feed,
         username: String,
         htmlByKey: Map<String, String?>,
-    ): List<UnpublishedItem> = publishLock.withLock {
-        val sender = actorDirectory.resolve(username) ?: return@withLock emptyList()
+    ): List<UnpublishedItem> {
+        val sender = actorDirectory.resolve(username) ?: return emptyList()
         val posted = mutableListOf<UnpublishedItem>()
         feedItems
             .findPending(feed.id, Int.MAX_VALUE)
             .forEach { stored ->
+                // 溜まっている記事を全部投函し終えるまで止まらないと、停止の待ち時間を超えて
+                // 閉じた DB に触りに行く。1 件ごとに止める合図を見る
+                currentCoroutineContext().ensureActive()
                 val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
-                val published = try {
-                    val noteId = stored.noteId ?: notePublisher
-                        .create(sender = sender, contentHtml = html)
-                        .let { created ->
-                            val linkedNoteId = feedItems.linkNote(
-                                feedId = stored.id,
-                                note = NewNote(
-                                    username = created.username,
-                                    publicId = PublicNoteId(created.publicId.value),
-                                    contentHtml = created.contentHtml,
-                                    publishedAt = created.publishedAt,
-                                ),
-                            )
-                            if (linkedNoteId.value == created.publicId.value) {
-                                notePublisher.recordIfMissing(created)
-                            }
-                            linkedNoteId
-                        }
-                    when (
-                        val result = notePublisher.deliver(
-                            sender = sender,
-                            publicId = MastodonPublicNoteId(noteId.value),
-                        )
-                    ) {
-                        is NotePublisher.DeliverResult.Success -> result.published
-                        NotePublisher.DeliverResult.NotFound -> error("記事に紐付いた投稿が見つからない")
+                val recordedNoteId = stored.noteId
+                val queued = try {
+                    // 配信の直前に投稿を紐付けていた頃の記事が残っていることがある。
+                    // 新しく作ると、既に届いている記事が別の投稿としてもう一度並ぶ
+                    if (recordedNoteId == null) {
+                        notePoster.post(sender = sender, contentHtml = html, feedItemId = stored.id)
+                    } else {
+                        notePoster.repost(sender = sender, publicId = recordedNoteId, feedItemId = stored.id)
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -580,14 +557,15 @@ class FeedService(
                     logger.warn("記事を投稿できなかった: フィード ${feed.id.value} の記事 ${stored.id.value}", e)
                     return@forEach
                 }
-                feedItems.markPosted(stored.id, Instant.now(), noteId = PublicNoteId(published.publicId.value))
+                // 取り出してから投函するまでの間に別の経路が投稿した記事
+                if (queued == null) return@forEach
                 posted += UnpublishedItem(
                     title = stored.title,
                     link = stored.link,
                     publishedAt = stored.publishedAt,
                 )
             }
-        posted
+        return posted
     }
 
     private suspend fun importLatest(feed: Feed): ImportLatestResult {

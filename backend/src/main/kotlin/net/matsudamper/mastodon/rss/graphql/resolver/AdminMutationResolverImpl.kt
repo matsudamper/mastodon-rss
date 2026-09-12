@@ -199,38 +199,32 @@ class AdminMutationResolverImpl : AdminMutationResolver {
     ): CompletionStage<DataFetcherResult<QlAdminPostNoteResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val diContainer = GraphQlEngine.diContainer(env)
-
-        // 配信は相手のサーバーへの POST を伴うので中断できる形で呼ぶ。
-        // GraphQL のリゾルバは CompletionStage を返す約束なので、そこに繋ぎ直す
-        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
-            val result = when (val posted = diContainer.noteService.post(username = username, body = body)) {
-                is NoteService.PostResult.Success -> {
-                    QlAdminPostNoteResult(
-                        note = QlAdminNote(
-                            id = PublicNoteId(posted.published.publicId.value),
-                            url = posted.published.url,
-                            contentHtml = posted.published.contentHtml,
-                            publishedAt = posted.published.publishedAt.epochSecond,
-                        ),
-                        failure = null,
-                    )
-                }
-
-                is NoteService.PostResult.Failure -> {
-                    QlAdminPostNoteResult(
-                        note = null,
-                        failure = QlAdminPostNoteFailure(
-                            unknownAccount = posted.unknownAccount,
-                            isEmpty = posted.isEmpty,
-                            maxLength = NoteService.MAX_LENGTH.takeIf { posted.tooLong },
-                        ),
-                    )
-                }
+        val result = when (val posted = GraphQlEngine.diContainer(env).noteService.post(username = username, body = body)) {
+            is NoteService.PostResult.Success -> {
+                QlAdminPostNoteResult(
+                    note = QlAdminNote(
+                        id = PublicNoteId(posted.queued.publicId.value),
+                        url = posted.queued.url,
+                        contentHtml = posted.queued.contentHtml,
+                        publishedAt = posted.queued.publishedAt.epochSecond,
+                    ),
+                    failure = null,
+                )
             }
 
-            DataFetcherResult.Builder(result).build()
+            is NoteService.PostResult.Failure -> {
+                QlAdminPostNoteResult(
+                    note = null,
+                    failure = QlAdminPostNoteFailure(
+                        unknownAccount = posted.unknownAccount,
+                        isEmpty = posted.isEmpty,
+                        maxLength = NoteService.MAX_LENGTH.takeIf { posted.tooLong },
+                    ),
+                )
+            }
         }
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(result).build())
     }
 
     override fun saveFeed(

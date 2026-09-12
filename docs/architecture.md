@@ -322,6 +322,46 @@ Cookie の `Secure` は既定で付ける。本番はリバースプロキシで
 
 総当たり対策（試行回数の制限）はまだ無い。Phase 7 で入れる。
 
+## 配信キュー
+
+こちらから相手の inbox に送るもののうち、投稿の `Create{Note}` はその場で送らず
+`delivery_queue` に投函して、`:backend` のワーカー（`DeliveryWorker`）が送る。
+送信中にプロセスが落ちても投函した行が残るので、次の起動で送り直せる。
+
+誰が何をするかは 3 つのモジュールに分かれる。
+
+- `:backend:feature-mastodon` の `NotePublisher.prepare` は `Create{Note}` を組み立てて
+  返すだけ。DB も触らず HTTP も出さない
+- `:backend:repository` の `DeliveryQueueRepository.enqueueNote` が投函の口。投稿の記録
+  （`notes`）・記事の投稿済み化（`feed_items`）・投函（`delivery_queue`）を 1 トランザクションで
+  書く。記事が `pending` でなければ何も書かない。同じ記事への投函が 2 回走っても投稿が
+  1 回しかできないのはここで止めている
+- 記事に投稿が紐付いたまま未投稿で残っている場合は、記録済みの id で投函し直す。
+  新しく作ると、既に届いている記事が別の投稿としてもう一度並ぶ
+- `:backend` の `NotePoster` が両方を繋ぐ。管理画面からの告知（`NoteService`）も
+  フィードの記事（`FeedService`）も同じ口を通る。記事の id は repository 側の概念なので、
+  `:backend:feature-mastodon` の型には持ち込まない
+
+ワーカーは `Main` が `ServerReady` で 1 つだけ回す。Ktor の routing には乗せない
+（リクエストと無関係に動くため）。同じ DB に対してアプリのプロセスを 2 つ動かす構成は
+サポートしない。起動時の復旧（`delivering` を `pending` に戻す）が、動いている他の
+プロセスの送信中の行まで巻き戻して二重に送る。
+
+取り出しは「送る時刻を過ぎた `pending` を選ぶ」と「`delivering` にして `attempts` を増やす」を
+1 トランザクションで行う。選ぶのは宛先のホストごとに 1 件までで、送る時刻が古いホストから
+順に取る。行を古い順に取ると、届かないホスト宛に溜まった分で 1 回分が埋まり、他のホスト宛が
+次まで待つ。取った行は並列に送るので、1 回の claim（8 件）が同時に相手にするホストの数であり
+同時実行数の上限になる。送れなかった行は間隔を空けて送り直し、投函から時間が経ちすぎた行は
+諦める。間隔と期限は `DeliveryRetryPolicy` が決める。
+
+相手が「受け取らない」と決めた応答（401・408・429 を除く 4xx と 501）は送り直さずに諦める。
+消えた inbox に 1 か月送り続けても届かない。落ちている・詰まっているだけの応答と、
+届かなかった場合は送り直す。区別は `DeliveryResult.Failed.retryable` が持つ。
+
+`Accept{Follow}`・`Delete{Note}`・`Delete{Actor}`・`Update{Actor}` はキューに載せず、今まで通りその場で送る。
+行の形は「署名するアカウント・宛先・送るボディ」と種別（`kind`）なので、載せるときに
+テーブルを作り直す必要は無い。
+
 ## 起動時の流れ
 
 ```mermaid
@@ -342,6 +382,7 @@ sequenceDiagram
     M->>R: verifyWritable
     R->>DB: health_check に書いて読み戻す
     Note over K: リクエスト受付開始
+    Note over M: ServerReady で配信ワーカーと定期ポーリングを始める
 ```
 
 スキーマの適用は起動時にはやらない。実 DB へは sqlite3def で手適用する運用で、

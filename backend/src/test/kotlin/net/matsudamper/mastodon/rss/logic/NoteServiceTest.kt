@@ -9,33 +9,49 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.coroutines.runBlocking
 import net.matsudamper.mastodon.rss.FakeFollowerStore
-import net.matsudamper.mastodon.rss.FakeNoteStore
+import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.note.NotePublisher
+import net.matsudamper.mastodon.rss.repository.IncomingFollow
+import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 // 管理画面から投稿する経路。
-// 本文をプレーンテキストで受けて HTML に組み立てるところがここの責務になる。
+// 本文をプレーンテキストで受けて HTML に組み立てるところと、
+// 記録と配信の投函が 1 回で確定するところがここの責務になる。
 class NoteServiceTest {
-    private val notes = FakeNoteStore()
+    private val repositories = FakeRepositories()
+
+    private val notes = RepositoryNoteStore(repositories.notes)
 
     private val delivery = TestDelivery()
 
-    private fun service(): NoteService = NoteService(
-        directory = TestLocalActor.directory,
-        publisher = NotePublisher(notes, FakeFollowerStore(), delivery, TestWebPageUrls),
-        notes = notes,
-    )
+    private fun service(followers: FakeFollowerStore = FakeFollowerStore()): NoteService {
+        val publisher = NotePublisher(notes, followers, delivery, TestWebPageUrls)
+        return NoteService(
+            directory = TestLocalActor.directory,
+            publisher = publisher,
+            poster = NotePoster(
+                publisher = publisher,
+                followers = repositories.followers,
+                deliveryQueue = repositories.deliveryQueue,
+            ),
+            notes = notes,
+        )
+    }
+
+    private fun added(): List<Note> = repositories.notes.all()
 
     @Test
     fun `段落と改行だけの HTML にする`() = runBlocking {
         val result = service().post(username = TestLocalActor.USERNAME, body = "こんにちは\n世界\n\n2 つめの段落")
 
         assertIs<NoteService.PostResult.Success>(result)
-        assertEquals("<p>こんにちは<br>世界</p><p>2 つめの段落</p>", notes.added.single().contentHtml)
+        assertEquals("<p>こんにちは<br>世界</p><p>2 つめの段落</p>", added().single().contentHtml)
     }
 
     @Test
@@ -43,7 +59,7 @@ class NoteServiceTest {
         service().post(username = TestLocalActor.USERNAME, body = "<script>alert(1)</script>")
 
         // 管理画面を通して任意のタグをフォロワーに配れないようにする
-        assertEquals("<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>", notes.added.single().contentHtml)
+        assertEquals("<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>", added().single().contentHtml)
     }
 
     @Test
@@ -51,7 +67,7 @@ class NoteServiceTest {
         val result = service().post(username = TestLocalActor.STORED_USERNAME, body = "本文")
 
         assertIs<NoteService.PostResult.Success>(result)
-        assertEquals(TestLocalActor.STORED_USERNAME, notes.added.single().username)
+        assertEquals(TestLocalActor.STORED_USERNAME, added().single().username)
     }
 
     @Test
@@ -60,7 +76,7 @@ class NoteServiceTest {
 
         assertIs<NoteService.PostResult.Failure>(result)
         assertEquals(true, result.unknownAccount)
-        assertEquals(emptyList(), notes.added)
+        assertEquals(emptyList(), added())
     }
 
     @Test
@@ -127,29 +143,25 @@ class NoteServiceTest {
             followerActorUri = follower.actorId,
             acceptedAt = FOLLOWED_AT,
         )
-        val service = NoteService(
-            directory = TestLocalActor.directory,
-            publisher = NotePublisher(notes, followers, delivery, TestWebPageUrls),
-            notes = notes,
-        )
+        val service = service(followers = followers)
         val posted = assertIs<NoteService.PostResult.Success>(
             service.post(username = TestLocalActor.USERNAME, body = "本文"),
         )
 
         val result = service.delete(
             username = TestLocalActor.USERNAME,
-            publicId = PublicNoteId(posted.published.publicId.value),
+            publicId = PublicNoteId(posted.queued.publicId.value),
         )
 
         val success = assertIs<NoteService.DeleteResult.Success>(result)
-        assertEquals(posted.published.publicId, success.deleted.publicId)
-        assertEquals(emptyList(), notes.added)
+        assertEquals(posted.queued.publicId, success.deleted.publicId)
+        assertEquals(emptyList(), added())
 
         // 消したことは配って初めて伝わる。届かないとフォロワーのタイムラインに残る
         val body = delivery.delivered.last().body
         assertContains(body, """"type":"Delete"""")
         assertContains(body, """"type":"Tombstone"""")
-        assertContains(body, posted.published.url)
+        assertContains(body, posted.queued.url)
         // 宛先が元の投稿と揃っていないと、受け取っても消さない実装がある
         assertContains(body, TestLocalActor.urls.followers)
     }
@@ -163,7 +175,7 @@ class NoteServiceTest {
         assertEquals(
             NoteService.DeleteFailure.UNKNOWN_ACCOUNT,
             assertIs<NoteService.DeleteResult.Failure>(
-                service().delete(username = "nobody", publicId = PublicNoteId(posted.published.publicId.value)),
+                service().delete(username = "nobody", publicId = PublicNoteId(posted.queued.publicId.value)),
             ).reason,
         )
         assertEquals(
@@ -178,11 +190,45 @@ class NoteServiceTest {
             assertIs<NoteService.DeleteResult.Failure>(
                 service().delete(
                     username = TestLocalActor.STORED_USERNAME,
-                    publicId = PublicNoteId(posted.published.publicId.value),
+                    publicId = PublicNoteId(posted.queued.publicId.value),
                 ),
             ).reason,
         )
-        assertEquals(1, notes.added.size)
+        assertEquals(1, added().size)
+    }
+
+    @Test
+    fun `投稿はフォロワーの inbox ごとにキューへ入り その場では送らない`() = runBlocking {
+        val follower = NewRemoteActor(
+            actorUri = "https://remote.example/users/follower",
+            inbox = "https://remote.example/users/follower/inbox",
+            sharedInbox = "https://remote.example/inbox",
+            publicKeyPem = "pem",
+        )
+        repositories.followers.record(
+            IncomingFollow(
+                username = TestLocalActor.USERNAME,
+                follower = follower,
+                followActivityUri = "https://remote.example/follows/1",
+                receivedAt = FOLLOWED_AT,
+            ),
+        )
+        repositories.followers.markAccepted(
+            username = TestLocalActor.USERNAME,
+            followerActorUri = follower.actorUri,
+            acceptedAt = FOLLOWED_AT,
+        )
+
+        val result = service().post(username = TestLocalActor.USERNAME, body = "本文")
+
+        val success = assertIs<NoteService.PostResult.Success>(result)
+        assertEquals(1, added().size)
+        // 送るのは配信ワーカー。ここで送ってしまうと、落ちたときに送り直せない
+        assertEquals(emptyList(), delivery.delivered)
+        val row = repositories.deliveryQueue.rows().single()
+        assertEquals("https://remote.example/inbox", row.inbox)
+        assertEquals(TestLocalActor.USERNAME, row.username)
+        assertContains(assertNotNull(row.body), success.queued.url)
     }
 
     @Test
@@ -198,7 +244,7 @@ class NoteServiceTest {
         assertIs<NoteService.PostResult.Failure>(tooLong)
         assertEquals(true, tooLong.tooLong)
 
-        assertEquals(emptyList(), notes.added)
+        assertEquals(emptyList(), added())
     }
 
     private companion object {

@@ -62,7 +62,7 @@ class NoteRoutesTest {
     fun `投稿のパーマリンクが返る`() =
         testApplication {
             val notes = FakeNoteStore()
-            notes.add(note("abc"))
+            notes.added += note("abc")
             installModule(notes)
 
             val response = client.get("/notes/abc")
@@ -108,7 +108,7 @@ class NoteRoutesTest {
     fun `outbox は cursor が無ければ総数と入口だけ返す`() =
         testApplication {
             val notes = FakeNoteStore()
-            notes.add(note("note-1"))
+            notes.added += note("note-1")
             installModule(notes)
 
             val response = client.get("/users/admin/outbox")
@@ -126,7 +126,7 @@ class NoteRoutesTest {
     fun `outbox の先頭ページは Create が並ぶ`() =
         testApplication {
             val notes = FakeNoteStore()
-            notes.add(note("note-1"))
+            notes.added += note("note-1")
             installModule(notes)
 
             val response = client.get("/users/admin/outbox?$COLLECTION_CURSOR_PARAM=")
@@ -160,11 +160,9 @@ class NoteRoutesTest {
         testApplication {
             val notes = FakeNoteStore()
             repeat(COLLECTION_PAGE_SIZE + 1) { index ->
-                notes.add(
-                    note(
-                        publicId = "note-$index",
-                        publishedAt = publishedAt.plusSeconds(index.toLong()),
-                    ),
+                notes.added += note(
+                    publicId = "note-$index",
+                    publishedAt = publishedAt.plusSeconds(index.toLong()),
                 )
             }
             installModule(notes)
@@ -202,7 +200,7 @@ class NoteRoutesTest {
     fun `featured は空のコレクションを返す`() =
         testApplication {
             val notes = FakeNoteStore()
-            notes.add(note("note-1"))
+            notes.added += note("note-1")
             installModule(notes)
 
             val response = client.get("/users/admin/collections/featured")
@@ -231,7 +229,7 @@ class NoteRoutesTest {
     fun `Accept が ld+json ならその Content-Type で返す`() =
         testApplication {
             val notes = FakeNoteStore()
-            notes.add(note("abc"))
+            notes.added += note("abc")
             installModule(notes)
 
             val accept = """application/ld+json; profile="https://www.w3.org/ns/activitystreams""""

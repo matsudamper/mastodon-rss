@@ -36,6 +36,30 @@ private fun AdminAccountContentPreview() {
                         listener = AndroidPreviewRegisteredFeedListener,
                         postLatestButtonEnabled = true,
                     ),
+                    deliveryQueue = AdminAccountScreenUiState.DeliveryQueue(
+                        waitingCount = 3,
+                        failedCount = 1,
+                        retrying = listOf(
+                            AdminAccountScreenUiState.RetryingDelivery(
+                                inbox = "https://mastodon.example/inbox",
+                                attempts = 2,
+                                nextAttemptAt = "2026-09-06 12:36",
+                                lastError = "相手が受け取らなかった: 503 Service Unavailable",
+                            ),
+                        ),
+                        retryingMoreText = null,
+                        failed = listOf(
+                            AdminAccountScreenUiState.FailedDelivery(
+                                inbox = "https://gone.example/inbox",
+                                attempts = 31,
+                                lastError = "POST に失敗した: Connection refused",
+                            ),
+                        ),
+                        failedMoreText = null,
+                        listener = AndroidPreviewDeliveryQueueListener,
+                        retryingSectionVisible = true,
+                        failedSectionVisible = true,
+                    ),
                     postDialog = AdminAccountScreenUiState.Post(
                         body = "新しい記事を公開しました。",
                         submitting = false,
@@ -90,6 +114,17 @@ private fun AdminAccountContentNoFeedPreview() {
                         listener = AndroidPreviewAccountListener,
                     ),
                     feed = AdminAccountScreenUiState.Feed.NotRegistered(listener = AndroidPreviewNotRegisteredFeedListener),
+                    deliveryQueue = AdminAccountScreenUiState.DeliveryQueue(
+                        waitingCount = 0,
+                        failedCount = 0,
+                        retrying = emptyList(),
+                        retryingMoreText = null,
+                        failed = emptyList(),
+                        failedMoreText = null,
+                        listener = AndroidPreviewDeliveryQueueListener,
+                        retryingSectionVisible = false,
+                        failedSectionVisible = false,
+                    ),
                     postDialog = null,
                     notes = emptyList(),
                     deleteNoteDialog = null,
@@ -127,6 +162,10 @@ private object AndroidPreviewRegisteredFeedListener : AdminAccountScreenUiState.
 
 private object AndroidPreviewNotRegisteredFeedListener : AdminAccountScreenUiState.Feed.NotRegisteredListener {
     override fun onClickAddFeed() = Unit
+}
+
+private object AndroidPreviewDeliveryQueueListener : AdminAccountScreenUiState.DeliveryQueueListener {
+    override fun onClickReload() = Unit
 }
 
 private object AndroidPreviewPostListener : AdminAccountScreenUiState.PostListener {

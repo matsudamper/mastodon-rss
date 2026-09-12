@@ -4,6 +4,7 @@ import java.time.Instant
 import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
+import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FeedIconRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
@@ -32,6 +33,8 @@ internal class SqliteRepositories(
     override val feeds: FeedRepository = SqliteFeedRepository(jooq)
 
     override val feedItems: FeedItemRepository = SqliteFeedItemRepository(jooq)
+
+    override val deliveryQueue: DeliveryQueueRepository = SqliteDeliveryQueueRepository(jooq)
 
     override val feedIcons: FeedIconRepository = SqliteFeedIconRepository(jooq)
 

@@ -15,13 +15,14 @@ import net.matsudamper.mastodon.rss.url.WebPageUrls
 import org.slf4j.LoggerFactory
 
 /**
- * 投稿を作って全フォロワーに配る。
+ * 投稿の `Create{Note}` を組み立てる（[prepare] / [prepareRecorded]）。投稿の削除はその場で配る（[delete]）。
  *
- * 記録してから配る。相手は受け取った直後にパーマリンクを引きに来ることがあるので、
- * 配信が先だと 404 を返してしまう。
+ * [prepare] は DB も触らず HTTP も出さない。記録と投函は `:backend` が repository の
+ * 投函の口で 1 トランザクションにまとめる。記録と配信をここで続けて行うと、
+ * 記事の投稿済み化と別々に確定して、途中で落ちたときに同じ記事を二重に投稿する。
  *
- * 配信はその場で 1 件ずつ送る。失敗しても再送はしないのでログに残すだけ。
- * 溜めて送り直す仕組みが要るのは、実際に取りこぼしが見えてからでよい。
+ * [delete] はまだキューに載せていない。載せているのは投稿だけで、削除は
+ * 管理画面からの操作でしか起きないため。失敗しても再送はしないのでログに残るだけ。
  */
 class NotePublisher(
     private val notes: NoteStore,
@@ -32,89 +33,60 @@ class NotePublisher(
     private val logger = LoggerFactory.getLogger(NotePublisher::class.java)
 
     /**
-     * 投稿を組み立てる。まだ記録も配信もしない。
+     * 投稿の id と時刻を決めて、フォロワーに送る `Create{Note}` の JSON を組み立てる。
      *
      * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと。ここでは中身を検査しない
      */
-    fun create(
+    fun prepare(
         sender: ActorUrls,
         contentHtml: String,
-    ): StoredNote {
+    ): PreparedNote {
         val publishedAt = Instant.now()
-        return StoredNote(
+        val note = StoredNote(
             publicId = PublicNoteId(UuidV7.generate(publishedAt.toEpochMilli())),
             username = sender.username,
             contentHtml = contentHtml,
             publishedAt = publishedAt,
         )
+
+        return note.toPrepared(sender)
     }
 
     /**
-     * 投稿がまだ記録されていなければ記録する。
+     * 記録済みの投稿から、同じ id・本文・公開日時で `Create{Note}` を組み立て直す。
      *
-     * フィード記事では repository 側が Note と記事の紐付けを同じトランザクションで
-     * 保存する。その後の配信口からも同じ [NoteStore] を見える状態に揃えるために使う。
-     */
-    fun recordIfMissing(note: StoredNote) {
-        val existing = notes.find(note.publicId)
-        if (existing == null) {
-            notes.add(note)
-        } else {
-            check(existing == note) { "同じ id の別投稿が既に記録されている" }
-        }
-    }
-
-    /**
-     * 記録済みの投稿をフォロワーへ配る。
+     * 配り切れていない投稿を投函し直すのに使う。新しく作ると同じ記事が別の投稿として届く。
+     * 同じ id で送る限り、受け取った側はアクティビティの id で冪等に扱う。
      *
-     * 同じ [publicId] で呼び直すと同じ `Create` / `Note` の id と本文・公開日時を使う。
+     * @return 記録が無いか、別のアカウントの投稿なら null
      */
-    suspend fun deliver(
+    fun prepareRecorded(
         sender: ActorUrls,
         publicId: PublicNoteId,
-    ): DeliverResult {
+    ): PreparedNote? {
         val note = notes.find(publicId)?.takeIf { it.username.equals(sender.username, ignoreCase = true) }
-            ?: return DeliverResult.NotFound
-        val urls = NoteUrls(domain = sender.domain, publicId = note.publicId)
+            ?: return null
 
-        val activityBodyBytes = AppJson.encodeToString(
-            CreateNoteActivity.serializer(),
-            CreateNoteActivityFactory.create(sender = sender, note = note, webPages = webPages),
-        ).toByteArray()
-
-        val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
-
-        logger.info(
-            "投稿を配った: ${sender.acct} ${note.publicId} 宛先=${result.deliveryAttemptCount} 成功=${result.delivered}",
-        )
-
-        return DeliverResult.Success(
-            PublishedNote(
-                publicId = note.publicId,
-                url = urls.noteUrl,
-                contentHtml = note.contentHtml,
-                publishedAt = note.publishedAt,
-                deliveryAttemptCount = result.deliveryAttemptCount,
-                delivered = result.delivered,
-            ),
-        )
+        return note.toPrepared(sender)
     }
 
     /**
-     * 投稿を記録して、そのまま全フォロワーに配る。
-     *
-     * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと。ここでは中身を検査しない
+     * 組み立ては [CreateNoteActivityFactory] に任せる。フォロー成立後の再配信と同じものを
+     * 作らないと、同じ投稿が相手のタイムラインに 2 度並ぶ
      */
-    suspend fun publish(
-        sender: ActorUrls,
-        contentHtml: String,
-    ): PublishedNote {
-        val note = create(sender = sender, contentHtml = contentHtml)
-        recordIfMissing(note)
-        return when (val result = deliver(sender = sender, publicId = note.publicId)) {
-            is DeliverResult.Success -> result.published
-            DeliverResult.NotFound -> error("作成した投稿が見つからない")
-        }
+    private fun StoredNote.toPrepared(sender: ActorUrls): PreparedNote {
+        val urls = NoteUrls(domain = sender.domain, publicId = publicId)
+
+        return PreparedNote(
+            publicId = publicId,
+            url = urls.noteUrl,
+            contentHtml = contentHtml,
+            publishedAt = publishedAt,
+            activityJson = AppJson.encodeToString(
+                CreateNoteActivity.serializer(),
+                CreateNoteActivityFactory.create(sender = sender, note = this, webPages = webPages),
+            ),
+        )
     }
 
     /**
@@ -123,7 +95,7 @@ class NotePublisher(
      * 記録を先に消す。配信が先だと、`Delete` を受け取った相手が確かめに来たときに
      * まだ本文を返してしまう。
      *
-     * 配れなかった相手のタイムラインには投稿が残る。再送しないのは [publish] と同じ。
+     * 配れなかった相手のタイムラインには投稿が残る。削除はキューに載せていないので送り直さない。
      *
      * @return 記録が無ければ null
      */
@@ -150,14 +122,6 @@ class NotePublisher(
         )
 
         return DeletedNote(publicId = publicId)
-    }
-
-    sealed interface DeliverResult {
-        data class Success(
-            val published: PublishedNote,
-        ) : DeliverResult
-
-        data object NotFound : DeliverResult
     }
 
     private suspend fun deliverToFollowers(
@@ -204,12 +168,16 @@ data class DeletedNote(
     val publicId: PublicNoteId,
 )
 
-/** 配信した結果。 */
-data class PublishedNote(
+/**
+ * 組み立てた投稿。記録する中身と、宛先に送る `Create{Note}` を持つ。
+ *
+ * @param url 相手がパーマリンクとして開く URL
+ * @param activityJson 署名対象になる JSON。宛先が何件でも同じものを送る
+ */
+data class PreparedNote(
     val publicId: PublicNoteId,
     val url: String,
     val contentHtml: String,
     val publishedAt: Instant,
-    val deliveryAttemptCount: Int,
-    val delivered: Int,
+    val activityJson: String,
 )

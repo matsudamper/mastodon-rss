@@ -28,6 +28,7 @@ import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
+import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
@@ -311,25 +312,43 @@ class FeedServiceTest {
     fun `登録時に既存の記事を保存しない`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(repositories, noteStore = noteStore)
+            val service = serviceOf(repositories)
 
             val result = service.save(accountId = account.id, url = FEED_URL)
 
             val success = assertIs<FeedService.SaveResult.Success>(result)
             assertEquals(true, success.feed.initialImportDone)
             assertEquals(emptyList(), repositories.feedItems.items())
-            assertEquals(0, noteStore.added.size)
+            assertEquals(0, repositories.notes.all().size)
+        }
+
+    @Test
+    fun `投稿が紐付いたまま未投稿で残った記事は同じ投稿を投函し直す`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val service = serviceOf(repositories, noteStore = RepositoryNoteStore(repositories.notes))
+            service.save(accountId = account.id, url = FEED_URL)
+            service.postUnpublished(account.id)
+            val first = repositories.feedItems.items().first()
+            val postedNoteId = assertNotNull(first.noteId)
+            // 配信の直前に投稿を紐付けていた頃の版が残す状態
+            repositories.feedItems.backToPending(first.id)
+
+            val result = service.postUnpublished(account.id)
+
+            assertIs<FeedService.PostUnpublishedResult.Success>(result)
+            assertEquals(postedNoteId, assertNotNull(repositories.feedItems.find(first.id)).noteId)
+            assertEquals(2, repositories.notes.all().size)
         }
 
     @Test
     fun `未投稿の記事を投稿すると notes に残る`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(repositories, noteStore = noteStore)
+            val service = serviceOf(repositories)
             service.save(accountId = account.id, url = FEED_URL)
 
             val result = service.postUnpublished(account.id)
@@ -342,11 +361,11 @@ class FeedServiceTest {
             )
             assertEquals(
                 listOf(TestLocalActor.STORED_USERNAME, TestLocalActor.STORED_USERNAME),
-                noteStore.added.map { it.username },
+                repositories.notes.all().map { it.username },
             )
             assertEquals(
                 listOf("https://example.com/1", "https://example.com/2"),
-                noteStore.added.map { html ->
+                repositories.notes.all().map { html ->
                     Regex("""href="([^"]+)"""").find(html.contentHtml)?.groupValues?.get(1)
                 },
             )
@@ -355,7 +374,7 @@ class FeedServiceTest {
                     """<p>1 本目<br><a href="https://example.com/1">https://example.com/1</a></p>""",
                     """<p>2 本目<br><a href="https://example.com/2">https://example.com/2</a></p>""",
                 ),
-                noteStore.added.map { it.contentHtml },
+                repositories.notes.all().map { it.contentHtml },
             )
         }
 
@@ -377,12 +396,11 @@ class FeedServiceTest {
     fun `投稿した記事は投稿の id から引ける`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(repositories, noteStore = noteStore)
+            val service = serviceOf(repositories)
             service.save(accountId = account.id, url = FEED_URL)
             service.postUnpublished(account.id)
-            val noteIds = noteStore.added.map { PublicNoteId(it.publicId.value) }
+            val noteIds = repositories.notes.all().map { PublicNoteId(it.publicId.value) }
 
             val items = service.itemsByNoteIds(noteIds)
 
@@ -397,9 +415,8 @@ class FeedServiceTest {
     fun `記事を消すと未投稿として取り込み直される`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(repositories, noteStore = noteStore)
+            val service = serviceOf(repositories)
             service.save(accountId = account.id, url = FEED_URL)
             service.postUnpublished(account.id)
             val posted = repositories.feedItems.items().first { it.title == "1 本目" }
@@ -411,7 +428,7 @@ class FeedServiceTest {
             val result = service.postUnpublished(account.id)
 
             assertEquals(1, assertIs<FeedService.PostUnpublishedResult.Success>(result).importedCount)
-            assertEquals(3, noteStore.added.size)
+            assertEquals(3, repositories.notes.all().size)
         }
 
     @Test
@@ -483,12 +500,10 @@ class FeedServiceTest {
     fun `相対リンクはフィード URL を基準に絶対化して投稿する`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(
                 repositories,
                 xml = RELATIVE_LINK_XML,
-                noteStore = noteStore,
             )
             service.save(accountId = account.id, url = FEED_URL)
 
@@ -498,7 +513,7 @@ class FeedServiceTest {
             assertEquals(1, success.importedCount)
             assertEquals(
                 listOf("https://example.com/posts/1"),
-                noteStore.added.map { html ->
+                repositories.notes.all().map { html ->
                     Regex("""href="([^"]+)"""").find(html.contentHtml)?.groupValues?.get(1)
                 },
             )
@@ -508,12 +523,10 @@ class FeedServiceTest {
     fun `題名もリンクも無い記事は未投稿に入らない`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(
                 repositories,
                 xml = EMPTY_ITEM_XML,
-                noteStore = noteStore,
             )
             service.save(accountId = account.id, url = FEED_URL)
 
@@ -528,19 +541,17 @@ class FeedServiceTest {
                 listOf(FeedItemState.SKIPPED, FeedItemState.POSTED),
                 repositories.feedItems.items().map { it.state },
             )
-            assertEquals(1, noteStore.added.size)
+            assertEquals(1, repositories.notes.all().size)
         }
 
     @Test
     fun `投稿本文は題名と説明とリンクを改行で並べる`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(
                 repositories,
                 xml = DESCRIPTION_ITEM_XML,
-                noteStore = noteStore,
             )
             service.save(accountId = account.id, url = FEED_URL)
 
@@ -552,7 +563,7 @@ class FeedServiceTest {
                 listOf(
                     """<p>1 本目<br>記事の要約<br><a href="https://example.com/1">https://example.com/1</a></p>""",
                 ),
-                noteStore.added.map { it.contentHtml },
+                repositories.notes.all().map { it.contentHtml },
             )
         }
 
@@ -560,9 +571,8 @@ class FeedServiceTest {
     fun `アクターを引けなければ PENDING のまま残す`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
-            val service = serviceOf(repositories, noteStore = noteStore)
+            val service = serviceOf(repositories)
             service.save(accountId = account.id, url = FEED_URL)
 
             val result = service.postUnpublished(account.id)
@@ -573,19 +583,17 @@ class FeedServiceTest {
                 listOf(FeedItemState.PENDING, FeedItemState.PENDING),
                 repositories.feedItems.items().map { it.state },
             )
-            assertEquals(0, noteStore.added.size)
+            assertEquals(0, repositories.notes.all().size)
         }
 
     @Test
     fun `投稿前に最新の記事を取り込む`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(
                 repositories,
                 xmls = listOf(FEED_XML, LATEST_XML),
-                noteStore = noteStore,
             )
             service.save(accountId = account.id, url = FEED_URL)
 
@@ -593,19 +601,17 @@ class FeedServiceTest {
 
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
             assertEquals(3, success.importedCount)
-            assertEquals(3, noteStore.added.size)
+            assertEquals(3, repositories.notes.all().size)
         }
 
     @Test
     fun `最新の取り込みに失敗したら投稿しない`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(
                 repositories,
                 statuses = listOf(HttpStatusCode.OK, HttpStatusCode.NotFound),
-                noteStore = noteStore,
             )
             service.save(accountId = account.id, url = FEED_URL)
 
@@ -614,14 +620,13 @@ class FeedServiceTest {
             val failure = assertIs<FeedService.PostUnpublishedResult.Failure>(result)
             assertEquals(FeedService.PostUnpublishedFailure.FETCH_FAILED, failure.reason)
             assertEquals(emptyList(), repositories.feedItems.items())
-            assertEquals(0, noteStore.added.size)
+            assertEquals(0, repositories.notes.all().size)
         }
 
     @Test
     fun `最新取得の最終 URL を基準に相対リンクを絶対化する`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             var firstFetch = true
             val engine = MockEngine { request ->
@@ -644,7 +649,7 @@ class FeedServiceTest {
                     )
                 }
             }
-            val service = serviceOf(repositories, noteStore = noteStore, engine = engine)
+            val service = serviceOf(repositories, engine = engine)
             service.save(accountId = account.id, url = FEED_URL)
 
             val result = service.postUnpublished(account.id)
@@ -652,7 +657,7 @@ class FeedServiceTest {
             val success = assertIs<FeedService.PostUnpublishedResult.Success>(result)
             assertEquals(
                 listOf("https://example.com/1", "https://example.com/2", "https://cdn.example.net/posts/3"),
-                noteStore.added.map { html ->
+                repositories.notes.all().map { html ->
                     Regex("""href="([^"]+)"""").find(html.contentHtml)?.groupValues?.get(1)
                 },
             )
@@ -686,12 +691,10 @@ class FeedServiceTest {
     fun `取得の時期が来たフィードの新着を投稿する`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(
                 repositories,
                 xmls = listOf(FEED_XML, FEED_XML, LATEST_XML),
-                noteStore = noteStore,
             )
             service.save(accountId = account.id, url = FEED_URL)
             service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
@@ -700,7 +703,7 @@ class FeedServiceTest {
 
             assertEquals(listOf(null), results.map { it.error })
             assertEquals(listOf("3 本目"), results.single().postedItems.map { it.title })
-            assertEquals(3, noteStore.added.size)
+            assertEquals(3, repositories.notes.all().size)
             val fetch = assertNotNull(repositories.feeds.findByAccountId(account.id)).fetch
             assertEquals(null, fetch.lastError)
             assertNotNull(fetch.lastSucceededAt)
@@ -710,15 +713,14 @@ class FeedServiceTest {
     fun `登録前からある記事も最初の定期ポーリングで投稿する`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(repositories, noteStore = noteStore)
+            val service = serviceOf(repositories)
             service.save(accountId = account.id, url = FEED_URL)
 
             val results = service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
 
             assertEquals(listOf("1 本目", "2 本目"), results.single().postedItems.map { it.title })
-            assertEquals(2, noteStore.added.size)
+            assertEquals(2, repositories.notes.all().size)
             assertEquals(
                 listOf(FeedItemState.POSTED, FeedItemState.POSTED),
                 repositories.feedItems.items().map { it.state },
@@ -780,12 +782,10 @@ class FeedServiceTest {
     fun `アイコンを入れ替えられなくても記事は取り込む`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(
                 repositories,
                 xmls = listOf(ICON_XML, ICON_XML),
-                noteStore = noteStore,
                 icons = object : FeedIcons {
                     override suspend fun refresh(
                         feedId: FeedId,
@@ -798,7 +798,7 @@ class FeedServiceTest {
             val results = service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
 
             assertEquals(listOf(null), results.map { it.error })
-            assertEquals(1, noteStore.added.size)
+            assertEquals(1, repositories.notes.all().size)
         }
 
     @Test
@@ -860,39 +860,36 @@ class FeedServiceTest {
     fun `投稿できなかった記事は次の取得で投稿し直す`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val unknownActor = ActorDirectory(
                 domain = TestLocalActor.DOMAIN,
                 stored = FakeStoredActorNames(storedUserNames = emptyList()),
             )
-            val failing = serviceOf(repositories, noteStore = noteStore, actorDirectory = unknownActor)
+            val failing = serviceOf(repositories, actorDirectory = unknownActor)
             failing.save(accountId = account.id, url = FEED_URL)
             failing.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
-            assertEquals(0, noteStore.added.size)
+            assertEquals(0, repositories.notes.all().size)
 
-            val results = serviceOf(repositories, noteStore = noteStore)
+            val results = serviceOf(repositories)
                 .pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS * 2), limit = 10)
 
             assertEquals(listOf("1 本目", "2 本目"), results.single().postedItems.map { it.title })
-            assertEquals(2, noteStore.added.size)
+            assertEquals(2, repositories.notes.all().size)
         }
 
     @Test
     fun `1 本が例外で落ちても残りのフィードを続ける`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val broken = assertNotNull(repositories.accounts.add(username = TestLocalActor.USERNAME, createdAt = CREATED_AT))
             val healthy = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(repositories, noteStore = noteStore)
+            val service = serviceOf(repositories)
             service.save(accountId = broken.id, url = FEED_URL)
             service.save(accountId = healthy.id, url = OTHER_FEED_URL)
             val brokenFeedId = assertNotNull(repositories.feeds.findByAccountId(broken.id)).id
 
             val results = serviceOf(
                 repositories,
-                noteStore = noteStore,
                 accounts = ThrowingAccountRepository(delegate = repositories.accounts, brokenId = broken.id),
             ).pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
 
@@ -905,18 +902,17 @@ class FeedServiceTest {
     fun `取得の時期が来ていないフィードは取りに行かない`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(repositories, noteStore = noteStore)
+            val service = serviceOf(repositories)
             service.save(accountId = account.id, url = FEED_URL)
             service.pollDue(now = Instant.now().plusSeconds(DUE_AFTER_SECONDS), limit = 10)
-            val postedByFirstPoll = noteStore.added.size
+            val postedByFirstPoll = repositories.notes.all().size
 
             // 取得した時刻を基準にするので、その 60 秒後はまだ来ていない
             val results = service.pollDue(now = Instant.now().plusSeconds(60), limit = 10)
 
             assertEquals(emptyList(), results)
-            assertEquals(postedByFirstPoll, noteStore.added.size)
+            assertEquals(postedByFirstPoll, repositories.notes.all().size)
         }
 
     @Test
@@ -953,25 +949,23 @@ class FeedServiceTest {
     fun `登録の取り込み中のフィードは取りに行かない`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(repositories, noteStore = noteStore)
+            val service = serviceOf(repositories)
             service.save(accountId = account.id, url = FEED_URL)
             repositories.feeds.clearInitialImportDone(assertNotNull(repositories.feeds.findByAccountId(account.id)).id)
 
             val results = service.pollDue(now = Instant.now().plusSeconds(60), limit = 10)
 
             assertEquals(emptyList(), results)
-            assertEquals(0, noteStore.added.size)
+            assertEquals(0, repositories.notes.all().size)
         }
 
     @Test
     fun `取り込みが終わらないまま間隔を過ぎたら取り込んで投稿する`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val service = serviceOf(repositories, xmls = listOf(FEED_XML, LATEST_XML), noteStore = noteStore)
+            val service = serviceOf(repositories, xmls = listOf(FEED_XML, LATEST_XML))
             service.save(accountId = account.id, url = FEED_URL)
             repositories.feeds.clearInitialImportDone(assertNotNull(repositories.feeds.findByAccountId(account.id)).id)
 
@@ -979,7 +973,7 @@ class FeedServiceTest {
 
             assertEquals(listOf(null), results.map { it.error })
             assertEquals(listOf("1 本目", "2 本目", "3 本目"), results.single().postedItems.map { it.title })
-            assertEquals(3, noteStore.added.size)
+            assertEquals(3, repositories.notes.all().size)
             assertEquals(true, assertNotNull(repositories.feeds.findByAccountId(account.id)).initialImportDone)
             assertEquals(
                 listOf(FeedItemState.POSTED, FeedItemState.POSTED, FeedItemState.POSTED),
@@ -991,12 +985,10 @@ class FeedServiceTest {
     fun `取得に失敗したら記録して投稿しない`() =
         runTest {
             val repositories = FakeRepositories()
-            val noteStore = FakeNoteStore()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val service = serviceOf(
                 repositories,
                 statuses = listOf(HttpStatusCode.OK, HttpStatusCode.NotFound),
-                noteStore = noteStore,
             )
             service.save(accountId = account.id, url = FEED_URL)
             val polledAt = Instant.now().plusSeconds(DUE_AFTER_SECONDS)
@@ -1004,7 +996,7 @@ class FeedServiceTest {
             val results = service.pollDue(now = polledAt, limit = 10)
 
             assertEquals(listOf("HTTP 404"), results.map { it.error })
-            assertEquals(0, noteStore.added.size)
+            assertEquals(0, repositories.notes.all().size)
             val feed = assertNotNull(repositories.feeds.findByAccountId(account.id))
             assertEquals("HTTP 404", feed.fetch.lastError)
             assertNotNull(feed.fetch.lastFetchedAt)
@@ -1079,10 +1071,10 @@ class FeedServiceTest {
         xml: String = FEED_XML,
         xmls: List<String>? = null,
         statuses: List<HttpStatusCode>? = null,
-        noteStore: FakeNoteStore = FakeNoteStore(),
         actorDirectory: ActorDirectory = TestLocalActor.directory,
         engine: MockEngine? = null,
         icons: FeedIcons = FakeFeedIcons(),
+        noteStore: NoteStore = FakeNoteStore(),
         headers: FeedHeaders = FakeFeedHeaders(),
         followers: FakeFollowerStore = FakeFollowerStore(),
         delivery: TestDelivery = TestDelivery(),
@@ -1107,11 +1099,15 @@ class FeedServiceTest {
             feedItems = repositories.feedItems,
             fetcher = FeedFetchService(HttpClient(mockEngine)),
             actorDirectory = actorDirectory,
-            notePublisher = NotePublisher(
-                notes = noteStore,
-                followers = FakeFollowerStore(),
-                delivery = TestDelivery(),
-                webPages = TestWebPageUrls,
+            notePoster = NotePoster(
+                publisher = NotePublisher(
+                    notes = noteStore,
+                    followers = FakeFollowerStore(),
+                    delivery = TestDelivery(),
+                    webPages = TestWebPageUrls,
+                ),
+                followers = repositories.followers,
+                deliveryQueue = repositories.deliveryQueue,
             ),
             icons = icons,
             headers = headers,

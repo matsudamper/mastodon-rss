@@ -4,7 +4,6 @@ import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.note.NotePosition
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.StoredNote
-import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
@@ -16,17 +15,6 @@ import net.matsudamper.mastodon.rss.shared.PublicNoteId
 class RepositoryNoteStore(
     private val notes: NoteRepository,
 ) : NoteStore {
-    override fun add(note: StoredNote) {
-        notes.add(
-            NewNote(
-                username = note.username,
-                publicId = PublicNoteId(note.publicId.value),
-                contentHtml = note.contentHtml,
-                publishedAt = note.publishedAt,
-            ),
-        )
-    }
-
     override fun find(publicId: MastodonPublicNoteId): StoredNote? = notes.find(PublicNoteId(publicId.value))?.toStored()
 
     override fun findByPublicIds(publicIds: Set<MastodonPublicNoteId>): Map<MastodonPublicNoteId, StoredNote> = notes
