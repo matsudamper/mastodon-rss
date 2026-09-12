@@ -209,6 +209,8 @@ class FollowHandlerTest {
                 inbox = "$existingFollowerActorId/inbox",
                 sharedInbox = null,
                 publicKeyPem = "pem",
+                profileUrl = null,
+                acct = null,
             ),
             followActivityUri = "https://other.example/activities/1",
             receivedAt = acceptedAt,

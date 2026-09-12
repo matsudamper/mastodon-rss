@@ -16,6 +16,7 @@ import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowAcceptResult
+import net.matsudamper.mastodon.rss.repository.Follower
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
@@ -200,9 +201,9 @@ class FakeFollowerRepository : FollowerRepository {
         username: String,
         after: String?,
         limit: Int,
-    ): List<String> = acceptedFollowers(username)
-        .sorted()
-        .filter { after == null || it > after }
+    ): List<Follower> = acceptedFollowers(username)
+        .sortedBy { it.actorUri }
+        .filter { after == null || it.actorUri > after }
         .take(limit)
 
     override fun count(username: String): Long = acceptedFollowers(username).size.toLong()
@@ -218,9 +219,15 @@ class FakeFollowerRepository : FollowerRepository {
 
     private val accepted = mutableSetOf<Pair<String, String>>()
 
-    private fun acceptedFollowers(username: String): List<String> = stored
+    private fun acceptedFollowers(username: String): List<Follower> = stored
         .filter { it.username == username && (username to it.follower.actorUri) in accepted }
-        .map { it.follower.actorUri }
+        .map {
+            Follower(
+                actorUri = it.follower.actorUri,
+                profileUrl = it.follower.profileUrl,
+                acct = it.follower.acct,
+            )
+        }
 }
 
 /**

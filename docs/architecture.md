@@ -14,7 +14,7 @@
 
 `:backend:feature-mastodon` は ActivityPub の実装をまとめたモジュール。
 WebFinger・Actor・inbox・NodeInfo の応答、HTTP Signature の署名と検証、
-相手のアクター文書の取得、`Accept` の送信までが入る。後から単体のライブラリとして
+相手のアクター文書と相手のホストの WebFinger の取得、`Accept` の送信までが入る。後から単体のライブラリとして
 切り出せるようにしてあるので、次を守る。
 
 - このアプリ固有のものを入れない。`ServerEnv` も `Repositories` も参照しない。

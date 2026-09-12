@@ -7,6 +7,7 @@ import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.Follower
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.shared.AccountId
 import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
@@ -40,11 +41,11 @@ class AccountService(
     fun followerCounts(usernames: Set<String>): Map<String, Long> = followers.counts(usernames)
 
     /**
-     * フォロワーのアクター URL を、URL 順で `afterActorUrl` の次から `limit` 件返す
+     * フォロワーを、アクター URL 順で `afterActorUrl` の次から `limit` 件返す
      */
     fun followers(username: String, afterActorUrl: String?, limit: Int): FollowersPage {
         if (limit <= 0) {
-            return FollowersPage(actorUrls = listOf(), hasMore = false, nextActorUrl = null)
+            return FollowersPage(followers = listOf(), hasMore = false, nextActorUrl = null)
         }
 
         // 続きがあるかは 1 件多く引いて見る。数え直すと、読んでいる間に増減した分だけ食い違う
@@ -53,11 +54,25 @@ class AccountService(
         val page = fetched.take(limit)
 
         return FollowersPage(
-            actorUrls = page,
+            followers = page.map { it.toProfile() },
             hasMore = hasMore,
-            nextActorUrl = if (hasMore) page.last() else null,
+            nextActorUrl = if (hasMore) page.last().actorUri else null,
         )
     }
+
+    /**
+     * 保存してあるものから、画面に出す形を作る。
+     *
+     * URL は相手が `url` を持たなければアクター文書の URL を出す。実装によっては
+     * JSON が開くが、開ける先が何も無いよりは辿れる。
+     *
+     * acct は組み立てない。フォローを受けた時点で WebFinger で確定させたものを
+     * 保存してあり、ここで作り直すと確定させた値と食い違う。
+     */
+    private fun Follower.toProfile(): FollowerProfile = FollowerProfile(
+        url = profileUrl ?: actorUri,
+        acct = acct,
+    )
 
     /**
      * 追加した順で [after] の次から [limit] 件返す
@@ -195,9 +210,21 @@ class AccountService(
      * @param nextActorUrl 続きがある場合の、次に渡す `afterActorUrl`
      */
     data class FollowersPage(
-        val actorUrls: List<String>,
+        val followers: List<FollowerProfile>,
         val hasMore: Boolean,
         val nextActorUrl: String?,
+    )
+
+    /**
+     * 一覧に出すフォロワー 1 人。
+     *
+     * @param url 人が開くリンク
+     * @param acct Mastodon の検索窓に貼る `@name@host` の形。acct を保存する前から
+     *   居るフォロワーと、WebFinger で確定できなかった相手は null
+     */
+    data class FollowerProfile(
+        val url: String,
+        val acct: String?,
     )
 
     /**

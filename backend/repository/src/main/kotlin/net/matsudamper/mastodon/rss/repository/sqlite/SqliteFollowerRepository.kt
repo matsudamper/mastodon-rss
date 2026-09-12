@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 import java.time.Instant
 import java.util.TreeMap
 import net.matsudamper.mastodon.rss.repository.FollowAcceptResult
+import net.matsudamper.mastodon.rss.repository.Follower
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
@@ -159,9 +160,9 @@ internal class SqliteFollowerRepository(
         username: String,
         after: String?,
         limit: Int,
-    ): List<String> = jooq.withConnection { dsl ->
+    ): List<Follower> = jooq.withConnection { dsl ->
         dsl
-            .select(REMOTE_ACTORS.ACTOR_URI)
+            .select(REMOTE_ACTORS.ACTOR_URI, REMOTE_ACTORS.PROFILE_URL, REMOTE_ACTORS.ACCT)
             .from(FOLLOWERS)
             .join(REMOTE_ACTORS)
             .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
@@ -171,7 +172,14 @@ internal class SqliteFollowerRepository(
             // URL 順。位置を指す鍵が返す値そのもので済む
             .orderBy(REMOTE_ACTORS.ACTOR_URI)
             .limit(limit)
-            .fetch(REMOTE_ACTORS.ACTOR_URI)
+            .fetch()
+            .map {
+                Follower(
+                    actorUri = it.value1(),
+                    profileUrl = it.value2(),
+                    acct = it.value3(),
+                )
+            }
     }
 
     override fun count(username: String): Long = jooq.withConnection { dsl ->
@@ -224,6 +232,11 @@ internal class SqliteFollowerRepository(
     /**
      * 相手のアクターは毎回上書きする。inbox も鍵も相手の都合で変わるので、
      * 取り直したものが最新になる。
+     *
+     * ただし acct は取れなかった回で消さない。`Follow` の再送のたびに読み直しており、
+     * WebFinger が一度落ちただけで一覧が「未取得」に戻ると、次に成功する
+     * `Follow` が来るまで直らない。アクター文書から読むものは、読めた時点の値で
+     * 上書きする。相手が `url` を消したなら、こちらも消えるのが正しい。
      */
     private fun upsertRemoteActor(
         dsl: DSLContext,
@@ -232,18 +245,25 @@ internal class SqliteFollowerRepository(
     ): Long {
         val fetchedAt = StoredInstant.format(now)
 
+        // WebFinger が落ちた回に、既に入っている acct を消さないための式
+        val keptAcct = DSL.coalesce(DSL.value(actor.acct, REMOTE_ACTORS.ACCT), REMOTE_ACTORS.ACCT)
+
         dsl
             .insertInto(REMOTE_ACTORS)
             .set(REMOTE_ACTORS.ACTOR_URI, actor.actorUri)
             .set(REMOTE_ACTORS.INBOX, actor.inbox)
             .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
             .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
+            .set(REMOTE_ACTORS.PROFILE_URL, actor.profileUrl)
+            .set(REMOTE_ACTORS.ACCT, actor.acct)
             .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
             .onConflict(REMOTE_ACTORS.ACTOR_URI)
             .doUpdate()
             .set(REMOTE_ACTORS.INBOX, actor.inbox)
             .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
             .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
+            .set(REMOTE_ACTORS.PROFILE_URL, actor.profileUrl)
+            .set(REMOTE_ACTORS.ACCT, keptAcct)
             .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
             .execute()
 

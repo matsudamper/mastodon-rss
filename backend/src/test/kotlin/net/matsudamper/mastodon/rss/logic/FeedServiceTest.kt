@@ -1061,6 +1061,8 @@ class FeedServiceTest {
                     inbox = FOLLOWER_INBOX,
                     sharedInbox = null,
                     publicKeyPem = "pem",
+                    profileUrl = null,
+                    acct = null,
                 ),
                 followActivityUri = "https://remote.example/activities/follow",
                 receivedAt = CREATED_AT,

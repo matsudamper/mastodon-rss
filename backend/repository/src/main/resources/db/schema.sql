@@ -131,6 +131,15 @@ CREATE TABLE remote_actors (
     -- 同じインスタンス宛の配信をまとめる先。持たない実装があるので NULL を許す
     shared_inbox TEXT,
     public_key_pem TEXT NOT NULL,
+    -- 人が見るプロフィールのページ。アクター文書の url。
+    -- actor_uri を開くと実装によっては JSON が返るので別に持つ。
+    -- 持たない相手がいるので NULL を許す
+    profile_url TEXT,
+    -- Mastodon の検索窓に貼る @name@host。フォローを受けた時点で相手のホストの
+    -- WebFinger を引いて確定させたものを入れる。アクター文書の preferredUsername と
+    -- URL のホストからは決まらない（WEB_DOMAIN と LOCAL_DOMAIN が別の運用がある）。
+    -- 保存する前から居るフォロワーは NULL のまま
+    acct TEXT,
     -- 最後にアクター文書を取り直した時刻。相手が鍵を替えると古い鍵では
     -- 検証が通らなくなるので、取り直す判断に使う
     fetched_at TEXT NOT NULL

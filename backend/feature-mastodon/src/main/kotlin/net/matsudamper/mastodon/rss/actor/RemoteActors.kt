@@ -35,10 +35,16 @@ interface RemoteActors :
  * @param sharedInbox 同じインスタンス宛をまとめて送れる inbox。持たない実装もある。
  *   [inbox] と同じ制限がかかる
  * @param publicKeyPem 署名の検証に使う公開鍵の PEM
+ * @param profileUrl 人が見るプロフィールのページ。[actorId] を開くと JSON を返す実装が
+ *   あるので別に持つ。無い実装があるので null を許す
+ * @param acct Mastodon の検索窓に貼る `@name@host` の形。アクター文書だけでは決まらないので
+ *   WebFinger で確定させる。確定できない相手があるので null を許す
  */
 data class RemoteActor(
     val actorId: String,
     val inbox: String,
     val sharedInbox: String?,
     val publicKeyPem: String,
+    val profileUrl: String?,
+    val acct: String?,
 )

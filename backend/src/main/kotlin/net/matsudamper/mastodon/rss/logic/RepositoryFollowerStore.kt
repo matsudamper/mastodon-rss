@@ -31,6 +31,8 @@ class RepositoryFollowerStore(
                     inbox = follower.inbox,
                     sharedInbox = follower.sharedInbox,
                     publicKeyPem = follower.publicKeyPem,
+                    profileUrl = follower.profileUrl,
+                    acct = follower.acct,
                 ),
                 followActivityUri = followActivityUri,
                 receivedAt = receivedAt,
@@ -81,11 +83,17 @@ class RepositoryFollowerStore(
         )
     }
 
+    /**
+     * `followers` コレクションに並べるのはアクターの id だけなので、
+     * 保存してあるプロフィールの URL や名前は落とす
+     */
     override fun list(
         username: String,
         after: String?,
         limit: Int,
-    ): List<String> = followers.list(username = username, after = after, limit = limit)
+    ): List<String> = followers
+        .list(username = username, after = after, limit = limit)
+        .map { it.actorUri }
 
     override fun count(username: String): Long = followers.count(username)
 

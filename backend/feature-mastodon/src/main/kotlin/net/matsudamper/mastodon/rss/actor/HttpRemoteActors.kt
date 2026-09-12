@@ -3,6 +3,8 @@ package net.matsudamper.mastodon.rss.actor
 import java.io.Closeable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -55,6 +57,11 @@ class HttpRemoteActors(
      */
     private val documents: ExpiringCache<String, RemoteActorDocument> = createExpiringCache()
 
+    /**
+     * 同じ [client] を使うので、[close] で一緒に閉じる
+     */
+    private val acctResolver = WebFingerAcctResolver(client)
+
     override suspend fun find(keyId: String): PublicKeyLookup {
         val url = parseHttpsUrl(keyId) ?: return PublicKeyLookup.Unavailable
 
@@ -100,8 +107,22 @@ class HttpRemoteActors(
             // sharedInbox が無くても inbox に 1 通ずつ送れば配信自体はできる
             sharedInbox = document.endpoints?.sharedInbox?.takeIf { isDeliverable(it, url) },
             publicKeyPem = publicKeyPem,
+            // 管理画面から人が開くリンクになる。https で、アクターと同じホストのものに限る。
+            // 他所のホストを指せると、フォローするだけでこちらの画面に任意のリンクを載せられる
+            profileUrl = document.url.asString()?.takeIf { parseHttpsUrl(it) != null && isSameHost(it, url) },
+            // acct が無くてもフォローは成立するので、確定できなければ null のまま先へ進む
+            acct = acctResolver.resolve(
+                actorId = actorId,
+                actorUrl = url,
+                preferredUsername = document.preferredUsername.asString(),
+            ),
         )
     }
+
+    /**
+     * 文字列として読めるものだけ拾う。型が違うものは無かったことにする
+     */
+    private fun JsonElement?.asString(): String? = (this as? JsonPrimitive)?.takeIf { it.isString }?.content
 
     /**
      * POST しに行ってよい宛先か。https で、取得先と同じホストであること
@@ -177,12 +198,16 @@ class HttpRemoteActors(
             .getOrNull()
             ?.takeIf { it.protocol == URLProtocol.HTTPS }
 
+    /**
+     * ポートまで見る。ホストが同じでも別のポートは別の接続先で、
+     * 配信先として通すと相手が指した別のサーバーに POST することになる
+     */
     private fun isSameHost(
         raw: String,
         expected: Url,
     ): Boolean {
-        val host = runCatching { Url(raw) }.getOrNull()?.host ?: return false
-        return host.equals(expected.host, ignoreCase = true)
+        val url = runCatching { Url(raw) }.getOrNull() ?: return false
+        return url.host.equals(expected.host, ignoreCase = true) && url.port == expected.port
     }
 
     private companion object {
@@ -232,6 +257,15 @@ private data class RemoteActorDocument(
     val id: String? = null,
     @SerialName("inbox")
     val inbox: String? = null,
+    /**
+     * ActivityStreams では文字列のほかに `Link` オブジェクトや配列も取り得る。
+     * [String] で受けると、型が違うだけで文書全体のデコードに失敗して
+     * 署名の鍵まで読めなくなるので、読める形のときだけ拾う
+     */
+    @SerialName("url")
+    val url: JsonElement? = null,
+    @SerialName("preferredUsername")
+    val preferredUsername: JsonElement? = null,
     @SerialName("publicKey")
     val publicKey: RemoteActorPublicKey? = null,
     @SerialName("endpoints")

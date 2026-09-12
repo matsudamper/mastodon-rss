@@ -67,7 +67,7 @@ jOOQ には SQL を直接読む `DDLDatabase` もあるが、そちらは jOOQ �
 | テーブル | 内容 |
 | --- | --- |
 | `accounts` | 応答するアカウント。`username` は大文字小文字を区別せず一意 |
-| `remote_actors` | 相手のサーバーのアクター。inbox と公開鍵 |
+| `remote_actors` | 相手のサーバーのアクター。inbox と公開鍵、プロフィールの URL と acct |
 | `followers` | 成立しているフォロー。アカウントの名前と `remote_actors` の関連 |
 | `notes` | 配信した投稿。相手がパーマリンクを引きに来るので残す |
 | `feeds` | アカウントに紐づく RSS/Atom フィード。アカウントと 1:1 |

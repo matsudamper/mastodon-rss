@@ -81,6 +81,8 @@ class AppDependenciesTest {
                     inbox = "https://remote.example/users/alice/inbox",
                     sharedInbox = null,
                     publicKeyPem = "",
+                    profileUrl = null,
+                    acct = null,
                 ),
                 followActivityUri = "https://remote.example/activities/follow-1",
                 receivedAt = Instant.now(),
