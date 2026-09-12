@@ -101,7 +101,7 @@ object OpenGraph {
             }
 
             index = if (name in rawTextTags) {
-                val closing = html.indexOf("</$name", tagEnd + 1, ignoreCase = true)
+                val closing = closingTagAt(html, name, tagEnd + 1)
                 // 閉じていない script などの中に本物の meta は無い
                 if (closing < 0) break else closing
             } else {
@@ -110,6 +110,30 @@ object OpenGraph {
         }
 
         return secureImageUrl ?: imageUrl
+    }
+
+    /**
+     * [name] を閉じるタグの位置。見つからなければ -1。
+     *
+     * 名前の後ろが区切りになっているものだけを数える。前方一致で見ると
+     * `</scripture>` を `</script>` として扱い、その後ろにある script の中身を
+     * 要素として読んでしまう
+     */
+    private fun closingTagAt(
+        html: String,
+        name: String,
+        from: Int,
+    ): Int {
+        var index = from
+        while (index <= html.length) {
+            val found = html.indexOf("</$name", index, ignoreCase = true)
+            if (found < 0) return -1
+
+            val after = html.getOrNull(found + name.length + CLOSING_TAG_PREFIX_LENGTH)
+            if (after == null || after.isWhitespace() || after == '>' || after == '/') return found
+            index = found + 1
+        }
+        return -1
     }
 
     /**
@@ -212,6 +236,9 @@ object OpenGraph {
             if (code == null || code !in 1..Character.MAX_CODE_POINT) match.value else String(Character.toChars(code))
         }
     }
+
+    /** `</` の 2 文字 */
+    private const val CLOSING_TAG_PREFIX_LENGTH = 2
 
     private const val COMMENT_OPEN = "<!--"
     private const val COMMENT_CLOSE = "-->"

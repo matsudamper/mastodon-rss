@@ -189,6 +189,19 @@ class OpenGraphTest {
     }
 
     @Test
+    fun `名前の途中までしか一致しない閉じタグでは script を抜けない`() {
+        val html =
+            """
+            <head>
+            <script>document.write('</scripture><meta property="og:image" content="https://evil.example/a.png">')</script>
+            <meta property="og:image" content="https://example.com/a.png">
+            </head>
+            """.trimIndent()
+
+        assertEquals("https://example.com/a.png", OpenGraph.imageUrl(html))
+    }
+
+    @Test
     fun `og image が無ければ null`() {
         val html = """<head><meta name="description" content="説明"><meta property="og:title" content="題名"></head>"""
 
