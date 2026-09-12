@@ -140,6 +140,39 @@ class HttpRemoteActorsTest {
     }
 
     @Test
+    fun `ポートを落とした subject は裏付けを取ってから出す`() {
+        val actorId = "https://remote.example:8443/users/alice"
+        val client = HttpClient(
+            MockEngine { request ->
+                when {
+                    request.url.encodedPath != "/.well-known/webfinger" ->
+                        respondJson(
+                            """
+                            {
+                              "id": "$actorId",
+                              "inbox": "$actorId/inbox",
+                              "preferredUsername": "alice",
+                              "publicKey": { "publicKeyPem": "pem" }
+                            }
+                            """.trimIndent(),
+                        )
+
+                    // 8443 の側はポートの無い acct を名乗る。443 の側は知らないと答える
+                    request.url.port == 8443 ->
+                        respondJson(webFinger(subject = "acct:alice@remote.example", selfHref = actorId))
+
+                    else -> respondError(HttpStatusCode.NotFound)
+                }
+            },
+        )
+
+        val actor = HttpRemoteActors(client = client).use { runBlocking { it.findActor(actorId) } }
+
+        // ポートが違えば別の接続先。裏付けが取れないものは出さない
+        assertNull(assertNotNull(actor).acct)
+    }
+
+    @Test
     fun `WebFinger には JRD の media type で問い合わせる`() {
         val fetched = findActor(
             document = actorDocument(""""preferredUsername": "alice","""),

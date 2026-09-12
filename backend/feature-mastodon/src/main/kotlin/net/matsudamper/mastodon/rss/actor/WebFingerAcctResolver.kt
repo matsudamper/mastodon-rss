@@ -1,19 +1,22 @@
 package net.matsudamper.mastodon.rss.actor
 
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.io.readByteArray
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
-import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.request
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.http.isSuccess
+import io.ktor.utils.io.readRemaining
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.webfinger.WebFingerLink
@@ -83,7 +86,8 @@ internal class WebFingerAcctResolver(
             return null
         }
 
-        if (acct.host.equals(actorUrl.host, ignoreCase = true)) return acct.text
+        // ポートまで含めて同じでなければ、別の接続先を名乗っているので裏付けを取る
+        if (acct.host.equals(authority, ignoreCase = true)) return acct.text
 
         // 名乗られたホスト側の WebFinger。LOCAL_DOMAIN 側はアクターのホストへ
         // リダイレクトするのが普通なので、移った先はどちらでもよい
@@ -91,7 +95,7 @@ internal class WebFingerAcctResolver(
             fetch(
                 authority = acct.host,
                 resource = "$ACCT_SCHEME${acct.name}@${acct.host}",
-                allowedHosts = setOf(acct.host, actorUrl.host),
+                allowedHosts = setOf(acct.host.substringBefore(':'), actorUrl.host),
                 requiredPort = null,
             ) ?: return null
 
@@ -151,13 +155,9 @@ internal class WebFingerAcctResolver(
             return null
         }
 
-        val body = runCatching { response.bodyAsText() }.getOrNull()
+        val body = runCatching { response.readBodyUpTo(MAX_BODY_BYTES) }.getOrNull()
         if (body == null) {
-            logger.info("WebFinger の応答を読めなかった: $resource")
-            return null
-        }
-        if (body.length > MAX_BODY_CHARS) {
-            logger.info("WebFinger の応答が大きすぎる: $resource")
+            logger.info("WebFinger の応答を読めないか大きすぎる: $resource")
             return null
         }
 
@@ -166,6 +166,23 @@ internal class WebFingerAcctResolver(
             logger.info("WebFinger の応答を読めなかった: $resource")
         }
         return document
+    }
+
+    /**
+     * 上限を超えたら null を返す。超えた時点で読むのをやめるので、
+     * 大きすぎる応答をメモリに展開しない。
+     *
+     * 途中でやめた場合は残りを読む相手がいなくなるので、channel を閉じて
+     * 接続を返す。閉じないと繰り返すうちに接続が尽きる
+     */
+    private suspend fun HttpResponse.readBodyUpTo(limit: Int): String? {
+        val channel = bodyAsChannel()
+        val bytes = channel.readRemaining((limit + 1).toLong()).readByteArray()
+        if (bytes.size > limit) {
+            channel.cancel(null)
+            return null
+        }
+        return bytes.decodeToString()
     }
 
     /**
@@ -233,7 +250,7 @@ internal class WebFingerAcctResolver(
         /**
          * 読み込む応答の上限。JRD は `subject` と数本の `links` で、数 KB にしかならない
          */
-        const val MAX_BODY_CHARS = 64 * 1024
+        const val MAX_BODY_BYTES = 64 * 1024
     }
 }
 
