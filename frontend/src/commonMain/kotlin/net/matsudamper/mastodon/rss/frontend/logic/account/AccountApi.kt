@@ -200,6 +200,7 @@ class AccountApi(
                 summary = account.summary,
             ),
             iconUrl = account.iconUrl,
+            headerUrl = account.headerUrl,
             followerCount = account.followerCount,
             noteCount = account.noteCount,
             feed = account.feed?.let { feed ->

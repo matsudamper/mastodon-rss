@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.logic.NoteService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
 class DiContainer(
@@ -19,6 +20,7 @@ class DiContainer(
     followerRepository: FollowerRepository,
     val domain: String,
     val actorDirectory: ActorDirectory,
+    val feedHeaderRepository: FeedHeaderRepository,
     notePublisher: NotePublisher,
     actorPublisher: ActorPublisher,
     accountIconFiles: AccountIconFiles,

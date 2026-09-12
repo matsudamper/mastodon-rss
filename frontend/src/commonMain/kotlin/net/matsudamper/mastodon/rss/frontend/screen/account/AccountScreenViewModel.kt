@@ -209,6 +209,7 @@ class AccountScreenViewModel(
                         acct = account.account.acct,
                         actorUrl = account.account.actorUrl,
                         iconUrl = account.iconUrl,
+                        headerUrl = account.headerUrl,
                         summary = account.summaryText(),
                         followerCount = account.followerCount.toString(),
                         noteCount = account.noteCount.toString(),

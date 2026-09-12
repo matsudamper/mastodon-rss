@@ -333,7 +333,6 @@ private fun WideLoadedAccountContent(
  *
  * アイコンが無いアカウントと、読めなかった場合はユーザー名から決まる色で描く。
  * 空の枠を置くより、アカウントごとに見分けが付く方が検証で役に立つ。
- * ヘッダー画像はまだ持っていない。
  */
 @Composable
 private fun ProfileHeader(
@@ -356,7 +355,14 @@ private fun ProfileHeader(
                     .fillMaxWidth()
                     .height(if (wide) 132.dp else 88.dp)
                     .background(Brush.linearGradient(colors)),
-            )
+            ) {
+                AsyncImage(
+                    model = state.headerUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
 
             Row(
                 modifier = Modifier
