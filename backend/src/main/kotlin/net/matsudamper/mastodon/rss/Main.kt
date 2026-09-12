@@ -131,6 +131,7 @@ fun Application.module(deps: AppDependencies) {
         domain = env.domain,
         actorDirectory = deps.directory,
         deliveryQueueRepository = deps.repositories.deliveryQueue,
+        feedHeaderRepository = deps.repositories.feedHeaders,
         notePublisher = deps.notePublisher,
         notePoster = deps.notePoster,
         actorPublisher = deps.actorPublisher,

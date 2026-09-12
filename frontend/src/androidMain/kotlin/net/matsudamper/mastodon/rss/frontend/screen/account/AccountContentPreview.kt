@@ -19,6 +19,7 @@ private fun AccountContentPreview() {
                         acct = "@$username@example.com",
                         actorUrl = "https://example.com/users/$username",
                         iconUrl = null,
+                        headerUrl = null,
                         summary = "Kotlin の更新を流す",
                         followerCount = "12",
                         noteCount = "3",
