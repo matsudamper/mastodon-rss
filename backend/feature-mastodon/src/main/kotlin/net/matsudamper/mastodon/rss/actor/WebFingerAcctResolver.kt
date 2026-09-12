@@ -89,6 +89,11 @@ internal class WebFingerAcctResolver(
         // ポートまで含めて同じでなければ、別の接続先を名乗っているので裏付けを取る
         if (acct.host.equals(authority, ignoreCase = true)) return acct.text
 
+        if (!isDelegatableHost(acct.host)) {
+            logger.info("委譲先として引けないホストを名乗っている: $actorId acct=${acct.text}")
+            return null
+        }
+
         // 名乗られたホスト側の WebFinger。LOCAL_DOMAIN 側はアクターのホストへ
         // リダイレクトするのが普通なので、移った先はどちらでもよい
         val delegated =
@@ -140,6 +145,7 @@ internal class WebFingerAcctResolver(
 
         if (!response.status.isSuccess()) {
             logger.info("WebFinger が失敗を返した: $resource status=${response.status.value}")
+            response.discardBody()
             return null
         }
 
@@ -152,6 +158,7 @@ internal class WebFingerAcctResolver(
                 (requiredPort != null && finalUrl.port != requiredPort)
         if (movedAway) {
             logger.info("WebFinger が別の宛先へ移った: $resource 移った先=${finalUrl.host}")
+            response.discardBody()
             return null
         }
 
@@ -166,6 +173,15 @@ internal class WebFingerAcctResolver(
             logger.info("WebFinger の応答を読めなかった: $resource")
         }
         return document
+    }
+
+    /**
+     * 読まずに捨てる。読む相手がいないまま置くと接続が返らず、
+     * 繰り返すうちに接続が尽きる。ヘッダーだけ返して body を送り続ける相手に、
+     * 共有のクライアントの接続を握られないようにする
+     */
+    private suspend fun HttpResponse.discardBody() {
+        runCatching { bodyAsChannel().cancel(null) }
     }
 
     /**
@@ -213,6 +229,27 @@ internal class WebFingerAcctResolver(
             raw.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '_' || it == '.' || it == '-' }
 
     /**
+     * 裏付けのために引きに行ってよいホストか。
+     *
+     * 委譲先は相手が `subject` に書いてきた文字列で、こちらが選べない。
+     * 名前解決の結果まではここでは見られないが、IP を直に書く形と
+     * 手元を指す名前は弾いておく。フェディバースのインスタンスは
+     * ドメイン名で運用されるので、これで落ちる相手はいない。
+     */
+    private fun isDelegatableHost(raw: String): Boolean {
+        val host = raw.substringBefore(':')
+        if (host.isEmpty()) return false
+
+        // IPv6 は [::1] の形で来る。IPv4 は数字とドットだけ
+        if (host.startsWith("[") || host.all { it.isDigit() || it == '.' }) return false
+
+        val lowered = host.lowercase()
+        if (lowered == "localhost" || LOCAL_SUFFIXES.any { lowered.endsWith(it) }) return false
+
+        return host.contains('.')
+    }
+
+    /**
      * acct のホストとして出してよいか。
      *
      * ホストは相手のサーバーが決めるので、こちらから形を決めきれない。
@@ -246,6 +283,11 @@ internal class WebFingerAcctResolver(
          * 他の実装まで同じとは限らないので緩めに取る
          */
         const val MAX_USERNAME_LENGTH = 64
+
+        /**
+         * 名前解決が手元や社内に向く可能性が高いドメイン。委譲先には引かない
+         */
+        val LOCAL_SUFFIXES = listOf(".local", ".localhost", ".internal", ".home.arpa")
 
         /**
          * 読み込む応答の上限。JRD は `subject` と数本の `links` で、数 KB にしかならない

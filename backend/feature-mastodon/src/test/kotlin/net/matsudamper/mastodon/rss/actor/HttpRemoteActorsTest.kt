@@ -173,6 +173,27 @@ class HttpRemoteActorsTest {
     }
 
     @Test
+    fun `内部アドレスを名乗る subject は引きに行かない`() {
+        val requestedHosts = mutableListOf<String>()
+        val client = HttpClient(
+            MockEngine { request ->
+                requestedHosts += request.url.host
+                if (request.url.encodedPath == "/.well-known/webfinger") {
+                    respondJson(webFinger(subject = "acct:alice@127.0.0.1:8443", selfHref = ACTOR_ID))
+                } else {
+                    respondJson(actorDocument(""""preferredUsername": "alice","""))
+                }
+            },
+        )
+
+        val actor = HttpRemoteActors(client = client).use { runBlocking { it.findActor(ACTOR_ID) } }
+
+        // 裏付けに行く先は相手が書いた文字列。手元を指すものに GET させない
+        assertNull(assertNotNull(actor).acct)
+        assertFalse(requestedHosts.contains("127.0.0.1"), "引きに行った先: $requestedHosts")
+    }
+
+    @Test
     fun `WebFinger には JRD の media type で問い合わせる`() {
         val fetched = findActor(
             document = actorDocument(""""preferredUsername": "alice","""),
