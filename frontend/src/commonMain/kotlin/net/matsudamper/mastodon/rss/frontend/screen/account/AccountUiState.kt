@@ -19,6 +19,10 @@ data class AccountUiState(
      */
     val iconUrl: String?,
     /**
+     * プロフィールヘッダー画像の URL。無ければ背景色を出す
+     */
+    val headerUrl: String?,
+    /**
      * プロフィールの説明文。出すものが無ければ null
      */
     val summary: String?,

@@ -547,6 +547,8 @@ class FakeFeedHeaderRepository : FeedHeaderRepository {
 
     override fun find(feedId: FeedId): FeedHeader? = stored[feedId]
 
+    override fun findByFeedIds(feedIds: Set<FeedId>): Map<FeedId, FeedHeader> = stored.filterKeys { it in feedIds }
+
     override fun save(
         feedId: FeedId,
         header: FeedHeader,

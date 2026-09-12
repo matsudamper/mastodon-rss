@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.dataloader.DataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.FeedByAccountIdDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.FeedItemByNoteDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.FollowerCountDataLoaderDefine
+import net.matsudamper.mastodon.rss.dataloader.HeaderVersionByAccountIdDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.NoteCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.OtelBatchLoaderScheduler
 import org.dataloader.DataLoader
@@ -36,6 +37,13 @@ class DataLoaders(
     val noteCountDataLoader by register { NoteCountDataLoaderDefine(diContainer.noteService) }
 
     val feedByAccountIdDataLoader by register { FeedByAccountIdDataLoaderDefine(diContainer.feedService) }
+
+    val headerVersionByAccountIdDataLoader by register {
+        HeaderVersionByAccountIdDataLoaderDefine(
+            feedService = diContainer.feedService,
+            headers = diContainer.feedHeaderRepository,
+        )
+    }
 
     val accountNoteDataLoader by register { AccountNoteDataLoaderDefine(diContainer.noteStore) }
 
