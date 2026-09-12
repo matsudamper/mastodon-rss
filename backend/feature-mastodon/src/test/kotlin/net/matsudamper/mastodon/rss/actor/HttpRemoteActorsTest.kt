@@ -173,6 +173,28 @@ class HttpRemoteActorsTest {
     }
 
     @Test
+    fun `委譲先が綴りを正規化しても裏付けとして扱う`() {
+        val client = HttpClient(
+            MockEngine { request ->
+                when {
+                    request.url.encodedPath != "/.well-known/webfinger" ->
+                        respondJson(actorDocument(""""preferredUsername": "alice","""))
+
+                    request.url.host == "remote.example" ->
+                        respondJson(webFinger(subject = "acct:alice@EXAMPLE.COM", selfHref = ACTOR_ID))
+
+                    else -> respondJson(webFinger(subject = "acct:alice@example.com", selfHref = ACTOR_ID))
+                }
+            },
+        )
+
+        val actor = HttpRemoteActors(client = client).use { runBlocking { it.findActor(ACTOR_ID) } }
+
+        // ドメインの綴りの違いで落とすと、裏付けが取れている相手まで「未取得」になる
+        assertEquals("@alice@EXAMPLE.COM", assertNotNull(actor).acct)
+    }
+
+    @Test
     fun `内部アドレスを名乗る subject は引きに行かない`() {
         val requestedHosts = mutableListOf<String>()
         val client = HttpClient(

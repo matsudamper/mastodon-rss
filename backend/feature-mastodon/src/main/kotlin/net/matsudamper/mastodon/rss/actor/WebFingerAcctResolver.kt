@@ -104,8 +104,10 @@ internal class WebFingerAcctResolver(
                 requiredPort = null,
             ) ?: return null
 
+        // ドメインの綴りは大文字小文字を区別しない。正規化の違いで落とすと、
+        // 裏付けが取れている相手まで「未取得」になる
         val confirmed = delegated.acctPointingTo(actorId)
-        if (confirmed?.text != acct.text) {
+        if (confirmed == null || !confirmed.text.equals(acct.text, ignoreCase = true)) {
             logger.info("acct のホストが名乗りを裏付けない: $actorId acct=${acct.text}")
             return null
         }
