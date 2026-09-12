@@ -41,6 +41,7 @@ class AppDependenciesTest {
             deps.notePublisher.publish(
                 sender = ActorUrls(domain = TestServerEnv.DOMAIN, username = TestServerEnv.USERNAME),
                 contentHtml = "<p>本文</p>",
+                attachmentImageUrl = null,
             )
         }
 
@@ -60,6 +61,7 @@ class AppDependenciesTest {
             deps.notePublisher.publish(
                 sender = ActorUrls(domain = TestServerEnv.DOMAIN, username = TestServerEnv.USERNAME),
                 contentHtml = "<p>本文</p>",
+                attachmentImageUrl = null,
             )
         }
 

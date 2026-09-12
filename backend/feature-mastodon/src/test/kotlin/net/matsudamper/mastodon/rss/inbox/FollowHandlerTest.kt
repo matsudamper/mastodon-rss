@@ -62,6 +62,7 @@ class FollowHandlerTest {
                     username = TestLocalActor.USERNAME,
                     contentHtml = "<p>$index</p>",
                     publishedAt = Instant.parse("2026-08-10T00:00:00Z").plusSeconds(index.toLong()),
+                    attachmentImageUrl = null,
                 ),
             )
         }
@@ -146,6 +147,7 @@ class FollowHandlerTest {
                     username = TestLocalActor.USERNAME,
                     contentHtml = "<p>フォローの後</p>",
                     publishedAt = Instant.now().plusSeconds(60),
+                    attachmentImageUrl = null,
                 ),
             )
         }
@@ -170,6 +172,7 @@ class FollowHandlerTest {
                         username = TestLocalActor.USERNAME,
                         contentHtml = "<p>フォローの後 $index</p>",
                         publishedAt = Instant.now().plusSeconds(index + 1L),
+                        attachmentImageUrl = null,
                     ),
                 )
             }

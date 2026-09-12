@@ -35,10 +35,13 @@ class NotePublisher(
      * 投稿を組み立てる。まだ記録も配信もしない。
      *
      * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと。ここでは中身を検査しない
+     * @param attachmentImageUrl 添える画像の URL。無ければ null。
+     *   http / https の URL であることは呼び出し側で確かめてから渡すこと
      */
     fun create(
         sender: ActorUrls,
         contentHtml: String,
+        attachmentImageUrl: String?,
     ): StoredNote {
         val publishedAt = Instant.now()
         return StoredNote(
@@ -46,6 +49,7 @@ class NotePublisher(
             username = sender.username,
             contentHtml = contentHtml,
             publishedAt = publishedAt,
+            attachmentImageUrl = attachmentImageUrl,
         )
     }
 
@@ -104,12 +108,15 @@ class NotePublisher(
      * 投稿を記録して、そのまま全フォロワーに配る。
      *
      * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと。ここでは中身を検査しない
+     * @param attachmentImageUrl 添える画像の URL。無ければ null。
+     *   http / https の URL であることは呼び出し側で確かめてから渡すこと
      */
     suspend fun publish(
         sender: ActorUrls,
         contentHtml: String,
+        attachmentImageUrl: String?,
     ): PublishedNote {
-        val note = create(sender = sender, contentHtml = contentHtml)
+        val note = create(sender = sender, contentHtml = contentHtml, attachmentImageUrl = attachmentImageUrl)
         recordIfMissing(note)
         return when (val result = deliver(sender = sender, publicId = note.publicId)) {
             is DeliverResult.Success -> result.published

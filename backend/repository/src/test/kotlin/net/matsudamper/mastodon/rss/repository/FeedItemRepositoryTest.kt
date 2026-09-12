@@ -339,6 +339,7 @@ class FeedItemRepositoryTest {
         publishedAt = publishedAt,
         importedAt = CREATED_AT,
         state = state,
+        ogImageUrl = null,
     )
 
     private fun note(publicId: PublicNoteId): NewNote = NewNote(
@@ -346,6 +347,7 @@ class FeedItemRepositoryTest {
         publicId = publicId,
         contentHtml = "<p>本文</p>",
         publishedAt = CREATED_AT,
+        attachmentImageUrl = null,
     )
 
     private fun withRepositories(block: (Repositories) -> Unit) {

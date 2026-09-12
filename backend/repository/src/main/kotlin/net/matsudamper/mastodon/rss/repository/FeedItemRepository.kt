@@ -137,6 +137,8 @@ interface FeedItemRepository {
  * @param publishedAt 配信元が名乗っている公開日時。順序付けに使う。
  *   信用しきれない（未来の日時や、更新のたびに現在時刻になるものがある）
  * @param noteId 投稿に使う `notes.public_id`。PENDING でも配信前に入ることがある
+ * @param ogImageUrl リンク先のページの `og:image`。取り込みのときに 1 回だけ取りに行く。
+ *   取れなければ null。投稿に添付する画像になる
  */
 data class FeedItem(
     val id: FeedItemId,
@@ -150,6 +152,7 @@ data class FeedItem(
     val state: FeedItemState,
     val postedAt: Instant?,
     val noteId: PublicNoteId?,
+    val ogImageUrl: String?,
 )
 
 /** 保存する記事。id はまだ無い */
@@ -162,6 +165,7 @@ data class NewFeedItem(
     val publishedAt: Instant?,
     val importedAt: Instant,
     val state: FeedItemState,
+    val ogImageUrl: String?,
 )
 
 enum class FeedItemState {

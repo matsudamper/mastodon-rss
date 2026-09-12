@@ -546,7 +546,7 @@ class FeedService(
                 val html = htmlByKey[stored.itemKey] ?: stored.contentHtml ?: return@forEach
                 val published = try {
                     val noteId = stored.noteId ?: notePublisher
-                        .create(sender = sender, contentHtml = html)
+                        .create(sender = sender, contentHtml = html, attachmentImageUrl = stored.ogImageUrl)
                         .let { created ->
                             val linkedNoteId = feedItems.linkNote(
                                 feedId = stored.id,
@@ -555,6 +555,7 @@ class FeedService(
                                     publicId = PublicNoteId(created.publicId.value),
                                     contentHtml = created.contentHtml,
                                     publishedAt = created.publishedAt,
+                                    attachmentImageUrl = created.attachmentImageUrl,
                                 ),
                             )
                             if (linkedNoteId.value == created.publicId.value) {
@@ -687,30 +688,53 @@ class FeedService(
     )
 
     /**
-     * 取り込んだ記事を保存する。
+     * 新着だけを保存する。
      *
-     * 既にある鍵は保存されない。同じ記事が新着として戻らないのはここで止めている
+     * 既にある鍵は保存されない。同じ記事が新着として戻らないのはここで止めている。
+     * 保存の前に既にある鍵を引くのは、記事ごとにリンク先のページまで取りに行くため。
+     * [FeedItemRepository.add] は既にある鍵なら保存せず戻るので、先に確かめないと
+     * 取り込みのたびに配信元のサイト全体を取り直すことになる
      *
      * @return 新しく保存できた記事の件数
      */
-    private fun importExistingItems(
+    private suspend fun importExistingItems(
         feed: Feed,
         items: List<ParsedFeedItem>,
         feedUrl: String,
     ): Int {
         val now = Instant.now()
-        return items.count { item ->
+        // 同じ鍵が 2 度出てくるフィードがある。潰さないと同じリンク先を 2 回取りに行く
+        val keyed = items.associateBy { FeedItemKey.of(feed.url, it).dedupeKey }
+        val existingKeys = feedItems.findExistingKeys(feed.id, keyed.keys)
+        // 応答しないリンクが続いても取り込みが止まらないようにする。
+        // 過ぎた分と溢れた分は画像無しで取り込む
+        val openGraphDeadline = Instant.now().plusMillis(OPEN_GRAPH_BUDGET_MILLIS)
+        var openGraphLookups = 0
+
+        return keyed.count { (itemKey, item) ->
+            if (itemKey in existingKeys) return@count false
+
             val contentHtml = composeItemHtml(item, feedUrl)
+            val link = resolveItemLink(item.link, feedUrl)
+            val withinOpenGraphLimits =
+                openGraphLookups < OPEN_GRAPH_MAX_LOOKUPS && Instant.now().isBefore(openGraphDeadline)
+            val ogImageUrl = if (link.isBlank() || !withinOpenGraphLimits) {
+                null
+            } else {
+                openGraphLookups++
+                fetcher.fetchOpenGraphImageUrl(link)
+            }
             feedItems.add(
                 NewFeedItem(
                     feedId = feed.id,
-                    itemKey = FeedItemKey.of(feed.url, item).dedupeKey,
+                    itemKey = itemKey,
                     title = item.title,
                     link = item.link,
                     contentHtml = contentHtml,
                     publishedAt = item.publishedAt ?: item.updatedAt,
                     importedAt = now,
                     state = if (contentHtml == null) FeedItemState.SKIPPED else FeedItemState.PENDING,
+                    ogImageUrl = ogImageUrl,
                 ),
             ) != null
         }
@@ -773,6 +797,8 @@ class FeedService(
         const val PREVIEW_ITEM_LIMIT = 1
         const val POST_TITLE_MAX_CHARS = 200
         const val POST_DESCRIPTION_MAX_CHARS = 200
+        const val OPEN_GRAPH_BUDGET_MILLIS = 30_000L
+        const val OPEN_GRAPH_MAX_LOOKUPS = 20
 
         /** どのサイトでも同じ場所にあることになっている favicon の置き場 */
         const val FAVICON_PATH = "/favicon.ico"

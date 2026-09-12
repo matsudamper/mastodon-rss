@@ -307,6 +307,7 @@ class AccountServiceTest {
                 publicId = PublicNoteId("note-1"),
                 contentHtml = "<p>本文</p>",
                 publishedAt = CREATED_AT,
+                attachmentImageUrl = null,
             ),
         )
 
@@ -321,6 +322,7 @@ class AccountServiceTest {
                 publishedAt = CREATED_AT,
                 importedAt = CREATED_AT,
                 state = FeedItemState.PENDING,
+                ogImageUrl = null,
             ),
         )
 

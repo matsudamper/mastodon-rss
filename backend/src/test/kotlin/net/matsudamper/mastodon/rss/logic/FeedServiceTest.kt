@@ -12,6 +12,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondRedirect
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import net.matsudamper.mastodon.rss.FakeFeedHeaders
@@ -27,6 +29,7 @@ import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
+import net.matsudamper.mastodon.rss.feed.TestExternalHosts
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountRepository
@@ -1072,6 +1075,79 @@ class FeedServiceTest {
             )
         }
 
+    @Test
+    fun `記事のリンク先の og image を取り込んで投稿に添える`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val noteStore = FakeNoteStore()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val engine = MockEngine { request ->
+                if (request.url.encodedPath.endsWith("feed.xml")) {
+                    respond(
+                        content = FEED_XML,
+                        status = HttpStatusCode.OK,
+                        headers = headersOf("Content-Type", "application/rss+xml"),
+                    )
+                } else {
+                    respond(
+                        content = """<html><head><meta property="og:image" content="/ogp${request.url.encodedPath}.png"></head></html>""",
+                        status = HttpStatusCode.OK,
+                        headers = headersOf("Content-Type", "text/html; charset=utf-8"),
+                    )
+                }
+            }
+            val service = serviceOf(repositories, noteStore = noteStore, engine = engine)
+
+            service.save(accountId = account.id, url = FEED_URL)
+
+            service.postUnpublished(account.id)
+
+            // og:image は相対 URL でもよいので、記事のページを基準に絶対化する
+            assertEquals(
+                listOf("https://example.com/ogp/1.png", "https://example.com/ogp/2.png"),
+                repositories.feedItems.items().map { it.ogImageUrl },
+            )
+
+            assertEquals(
+                listOf("https://example.com/ogp/1.png", "https://example.com/ogp/2.png"),
+                noteStore.added.map { it.attachmentImageUrl },
+            )
+        }
+
+    @Test
+    fun `取り込み済みの記事のリンク先は取り直さない`() =
+        runTest {
+            val repositories = FakeRepositories()
+            val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
+            val pages = mutableListOf<String>()
+            val engine = MockEngine { request ->
+                if (request.url.encodedPath.endsWith("feed.xml")) {
+                    respond(
+                        content = FEED_XML,
+                        status = HttpStatusCode.OK,
+                        headers = headersOf("Content-Type", "application/rss+xml"),
+                    )
+                } else {
+                    pages += request.url.toString()
+                    respond(
+                        content = """<html><head><meta property="og:image" content="/ogp.png"></head></html>""",
+                        status = HttpStatusCode.OK,
+                        headers = headersOf("Content-Type", "text/html; charset=utf-8"),
+                    )
+                }
+            }
+            val service = serviceOf(repositories, engine = engine)
+            service.save(accountId = account.id, url = FEED_URL)
+            service.postUnpublished(account.id)
+            val first = pages.toList()
+
+            service.postUnpublished(account.id)
+
+            // 2 回目は記事が増えていないので、リンク先を取り直さない
+            assertEquals(first, pages)
+            assertEquals(listOf("https://example.com/1", "https://example.com/2"), first)
+        }
+
     private fun serviceOf(
         repositories: FakeRepositories,
         accounts: AccountRepository = repositories.accounts,
@@ -1090,7 +1166,12 @@ class FeedServiceTest {
         val mockEngine = engine ?: run {
             val bodies = ArrayDeque(xmls ?: listOf(xml))
             val codes = ArrayDeque(statuses ?: listOf(status))
-            MockEngine {
+            MockEngine { request ->
+                // 記事のリンク先を取りに行く OGP の取得。フィードの応答を消費させない
+                if (request.headers[HttpHeaders.Accept]?.contains(ContentType.Text.Html.toString()) == true) {
+                    return@MockEngine respond(content = "", status = HttpStatusCode.NotFound)
+                }
+
                 val code = if (codes.size > 1) codes.removeFirst() else codes.first()
                 val body = if (bodies.size > 1) bodies.removeFirst() else bodies.first()
                 respond(
@@ -1105,7 +1186,8 @@ class FeedServiceTest {
             accounts = accounts,
             feeds = repositories.feeds,
             feedItems = repositories.feedItems,
-            fetcher = FeedFetchService(HttpClient(mockEngine)),
+            // 実際の DNS を引かせない。引けるかどうかでテストの結果が変わる
+            fetcher = FeedFetchService(HttpClient(mockEngine), externalHosts = TestExternalHosts),
             actorDirectory = actorDirectory,
             notePublisher = NotePublisher(
                 notes = noteStore,

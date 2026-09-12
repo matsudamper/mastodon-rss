@@ -37,7 +37,7 @@ class NoteService(
             return PostResult.Failure(unknownAccount = false, isEmpty = false, tooLong = true)
         }
 
-        return PostResult.Success(publisher.publish(sender = urls, contentHtml = toHtml(text)))
+        return PostResult.Success(publisher.publish(sender = urls, contentHtml = toHtml(text), attachmentImageUrl = null))
     }
 
     /**

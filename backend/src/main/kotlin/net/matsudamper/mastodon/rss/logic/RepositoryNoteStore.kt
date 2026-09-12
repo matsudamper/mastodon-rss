@@ -23,6 +23,7 @@ class RepositoryNoteStore(
                 publicId = PublicNoteId(note.publicId.value),
                 contentHtml = note.contentHtml,
                 publishedAt = note.publishedAt,
+                attachmentImageUrl = note.attachmentImageUrl,
             ),
         )
     }
@@ -84,5 +85,6 @@ class RepositoryNoteStore(
         username = username,
         contentHtml = contentHtml,
         publishedAt = publishedAt,
+        attachmentImageUrl = attachmentImageUrl,
     )
 }

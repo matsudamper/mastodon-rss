@@ -2,7 +2,11 @@ package net.matsudamper.mastodon.rss.feed
 
 import java.io.Closeable
 import java.net.URI
+import java.nio.charset.Charset
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -12,10 +16,13 @@ import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.request
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.URLBuilder
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
+import io.ktor.http.charset
+import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readRemaining
 import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.channelIdFromPageHtml
@@ -23,7 +30,13 @@ import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.resolve
 
 class FeedFetchService(
     private val client: HttpClient = defaultClient(),
+    private val externalHosts: ExternalHosts = InternalHosts(),
 ) : Closeable {
+    /**
+     * 記事のリンク先を取る口。飛ばされた先を自分で見るために、client には追わせない
+     */
+    private val pageClient: HttpClient = client.config { followRedirects = false }
+
     /**
      * フィードを取得して解析する。
      *
@@ -83,6 +96,114 @@ class FeedFetchService(
                 else -> FetchResult.HttpError(message = error::class.simpleName ?: "取得に失敗した")
             }
         }
+    }
+
+    /**
+     * 記事のリンク先のページを取って `og:image` を返す。
+     *
+     * 取れなければ null を返して、記事の取り込みはそのまま続ける。画像は投稿の
+     * 飾りなので、配信元のページが落ちているだけで記事を落とすほうが困る。
+     *
+     * 打ち切りをフィードより短くするのは、記事の数だけ繰り返すため。1 本が
+     * 黙り込んだだけで取り込み全体が待たされる。打ち切れるのは取得までで、
+     * 読むほうは中断点を持たないので外に出してある。走査は入力長に比例する
+     * ([OpenGraph]) ので、そこで待たされることはない
+     *
+     * @return 絶対化した http / https の URL。見つからなければ null
+     */
+    suspend fun fetchOpenGraphImageUrl(url: String): String? {
+        // 打ち切りは呼び出し元とは別の時計で測る。仮想時間で回っている相手の
+        // 上で測ると、こちらが応答を待っている間に時計が進んで、取りに行く前に
+        // 打ち切られたことになる
+        val page = withContext(Dispatchers.IO) {
+            withTimeoutOrNull(PAGE_TIMEOUT_MILLIS) {
+                runCatching { loadPage(url) }
+                    .getOrElse { error ->
+                        if (error is CancellationException) throw error
+                        null
+                    }
+            }
+        } ?: return null
+
+        // 呼び出し元のスレッドを借りない。ページを読むのは CPU の仕事
+        val imageUrl = withContext(Dispatchers.Default) { OpenGraph.imageUrl(page.html) } ?: return null
+
+        // og:image は相対 URL でもよい。基準は飛んだ先のページ。
+        // content には長さの上限が無く、長すぎるものは DB にも Create の本文にも
+        // 毎回載るので、URL として妥当な長さを超えたら持たない
+        val absolute = HttpUrl.sanitize(imageUrl, page.url)?.takeIf { it.length <= MAX_IMAGE_URL_LENGTH } ?: return null
+
+        // この URL は添付として連合先に配られ、相手のサーバーが取りに行く。
+        // 内部を指す値を渡すと、相手のサーバーから内部を叩かせることになる
+        return absolute.takeIf { isExternal(it) }
+    }
+
+    /**
+     * 名前を引くのは待たされることがあるので、取得と同じだけの上限を付ける
+     */
+    private suspend fun isExternal(url: String): Boolean =
+        withContext(Dispatchers.IO) {
+            withTimeoutOrNull(PAGE_TIMEOUT_MILLIS) { externalHosts.isExternal(url) }
+        } == true
+
+    /**
+     * リンク先はフィードの配信元が自由に書けるので、取りに行く前に
+     * [externalHosts] で内部向けかどうかを見る。飛ばされた先も同じなので、
+     * リダイレクトは client に任せず自分で辿って毎回見る。
+     */
+    private suspend fun loadPage(url: String): FetchedPage? {
+        var target = HttpUrl.sanitize(url) ?: return null
+
+        repeat(MAX_PAGE_REDIRECTS + 1) {
+            if (!externalHosts.isExternal(target)) return null
+
+            val response = pageClient.get(target) {
+                header(HttpHeaders.UserAgent, USER_AGENT)
+                // OGP は HTML にしか無い。PDF や画像を指す link を取りに行かないよう先に伝える
+                header(HttpHeaders.Accept, "text/html;q=1.0, application/xhtml+xml;q=0.9, */*;q=0.1")
+            }
+
+            val location = response.headers[HttpHeaders.Location]
+            if (response.status.value in 300..399 && location != null) {
+                response.discardBody()
+                target = HttpUrl.sanitize(location, target) ?: return null
+                return@repeat
+            }
+
+            if (!response.status.isSuccess() || !response.isHtml()) {
+                response.discardBody()
+                return null
+            }
+
+            val bytes = response.readBodyUpTo(MAX_PAGE_BYTES) ?: return null
+            return FetchedPage(url = target, html = String(bytes, response.bodyCharset() ?: Charsets.UTF_8))
+        }
+
+        return null
+    }
+
+    /**
+     * 取れたページ。[url] は飛んだ先で、相対 URL を解決する基準になる
+     */
+    private data class FetchedPage(
+        val url: String,
+        val html: String,
+    )
+
+    /**
+     * 本文の文字コード。名乗っていなければ null。
+     *
+     * 名乗りが読めない綴りでも取り込みは続けたいので、例外にはしない
+     */
+    private fun HttpResponse.bodyCharset(): Charset? =
+        runCatching { contentType()?.charset() }.getOrNull()
+
+    /**
+     * HTML として読める応答か。XHTML を配るページがあるので両方を通す
+     */
+    private fun HttpResponse.isHtml(): Boolean {
+        val type = contentType() ?: return false
+        return type.match(ContentType.Text.Html) || type.match(XHTML)
     }
 
     /**
@@ -292,6 +413,8 @@ class FeedFetchService(
     }
 
     override fun close() {
+        // engine は client のものなので、こちらを先に閉じても取りに行けなくならない
+        pageClient.close()
         client.close()
     }
 
@@ -332,6 +455,11 @@ class FeedFetchService(
         private val PERCENT_ENCODED = Regex("%[0-9A-Fa-f]{2}")
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val MAX_BODY_BYTES = 5 * 1024 * 1024
+        private const val MAX_PAGE_BYTES = 2 * 1024 * 1024
+        private const val MAX_PAGE_REDIRECTS = 3
+        private const val PAGE_TIMEOUT_MILLIS = 10_000L
+        private const val MAX_IMAGE_URL_LENGTH = 2048
+        private val XHTML = ContentType("application", "xhtml+xml")
 
         /**
          * YouTube のページから読む上限。

@@ -39,6 +39,7 @@ import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
+import net.matsudamper.mastodon.rss.feed.TestExternalHosts
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
@@ -1305,7 +1306,8 @@ class AdminGraphQlTest {
                     headers = headersOf("Content-Type", "application/rss+xml"),
                 )
             }
-            return FeedFetchService(HttpClient(engine))
+            // 実際の DNS を引かせない。引けるかどうかでテストの結果が変わる
+            return FeedFetchService(HttpClient(engine), externalHosts = TestExternalHosts)
         }
 
         const val FEED_FIELDS = "id url title siteUrl format createdAt lastFetchedAt"

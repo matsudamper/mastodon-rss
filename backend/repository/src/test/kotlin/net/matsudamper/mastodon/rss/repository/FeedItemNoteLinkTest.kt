@@ -37,6 +37,7 @@ class FeedItemNoteLinkTest {
                         publishedAt = CREATED_AT,
                         importedAt = CREATED_AT,
                         state = FeedItemState.PENDING,
+                        ogImageUrl = null,
                     ),
                 ),
             )
@@ -65,6 +66,7 @@ class FeedItemNoteLinkTest {
                         publishedAt = CREATED_AT,
                         importedAt = CREATED_AT,
                         state = FeedItemState.PENDING,
+                        ogImageUrl = null,
                     ),
                 ),
             )
@@ -116,6 +118,7 @@ class FeedItemNoteLinkTest {
         publicId = publicId,
         contentHtml = "<p>本文</p>",
         publishedAt = CREATED_AT,
+        attachmentImageUrl = null,
     )
 
     private fun withRepositories(block: (Repositories) -> Unit) {
