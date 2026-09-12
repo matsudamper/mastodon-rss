@@ -181,6 +181,8 @@ class FeedHeaderServiceTest {
 
         override fun find(feedId: FeedId): FeedHeader? = values[feedId]
 
+        override fun findByFeedIds(feedIds: Set<FeedId>): Map<FeedId, FeedHeader> = values.filterKeys { it in feedIds }
+
         override fun save(
             feedId: FeedId,
             header: FeedHeader,
