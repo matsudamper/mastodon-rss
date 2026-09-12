@@ -2,15 +2,17 @@ package net.matsudamper.mastodon.rss.feed
 
 import java.net.InetAddress
 import java.net.UnknownHostException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeoutOrNull
 import io.ktor.http.Url
 
 /**
  * 取りに行ってよい URL かを見る係。
  *
- * 名前を引く実装を外から差せるようにしてあるのは、テストで実際の DNS を
- * 引かせないため。差せないと、名前が引けるかどうかでテストの結果が変わる。
+ * 実装を外から差せるようにしてあるのは、テストで実際の DNS を引かせないため。
+ * 差せないと、名前が引けるかどうかでテストの結果が変わる。
  */
 interface ExternalHosts {
     suspend fun isExternal(url: String): Boolean
@@ -26,26 +28,48 @@ interface ExternalHosts {
  * 名前を引いた結果で判断するので、引いた後に別のアドレスへ差し替えられる形
  * （DNS rebinding）は防げない。取りに行くのが画像 1 枚のためであることを踏まえて、
  * ここでは名前解決の 1 回ぶんだけを見る。
+ *
+ * @param resolveAddresses 名前を引く。テストで実際の DNS を引かせないために差せる
+ * @param lookupTimeoutMillis 名前を引くのを待つ上限。取り込みを待たせないための打ち切り
  */
-object InternalHosts : ExternalHosts {
+class InternalHosts(
+    private val resolveAddresses: (String) -> List<InetAddress> = { InetAddress.getAllByName(it).toList() },
+    private val lookupTimeoutMillis: Long = LOOKUP_TIMEOUT_MILLIS,
+) : ExternalHosts {
     /**
      * 名前を引けない場合も false にする。引けない先は取りに行っても意味が無い。
      */
     override suspend fun isExternal(url: String): Boolean {
         val host = runCatching { Url(url).host }.getOrNull()?.takeIf { it.isNotBlank() } ?: return false
 
-        val addresses = withContext(Dispatchers.IO) {
-            try {
-                InetAddress.getAllByName(host).toList()
-            } catch (_: UnknownHostException) {
-                listOf()
-            }
-        }
+        val addresses = lookup(host)
         if (addresses.isEmpty()) return false
 
         // 1 つでも内部を指していれば断る。名前が複数のアドレスを持つとき、
         // どれで繋ぐかはこちらでは決められない
         return addresses.none { isInternal(it) }
+    }
+
+    /**
+     * 名前を引く。引けない、または待ちきれなければ空を返す。
+     *
+     * 名前解決は中断できないので、待つ側だけを打ち切る。呼び出し元の仕事に
+     * ぶら下げると、打ち切った後も引き終わるまで戻ってこない
+     */
+    private suspend fun lookup(host: String): List<InetAddress> {
+        val lookup = CoroutineScope(Dispatchers.IO).async {
+            try {
+                resolveAddresses(host)
+            } catch (_: UnknownHostException) {
+                listOf()
+            }
+        }
+
+        return withTimeoutOrNull(lookupTimeoutMillis) { lookup.await() }
+            ?: run {
+                lookup.cancel()
+                listOf()
+            }
     }
 
     /**
@@ -93,5 +117,9 @@ object InternalHosts : ExternalHosts {
 
             else -> false
         }
+    }
+
+    companion object {
+        private const val LOOKUP_TIMEOUT_MILLIS = 5_000L
     }
 }

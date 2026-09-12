@@ -30,7 +30,7 @@ import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.resolve
 
 class FeedFetchService(
     private val client: HttpClient = defaultClient(),
-    private val externalHosts: ExternalHosts = InternalHosts,
+    private val externalHosts: ExternalHosts = InternalHosts(),
 ) : Closeable {
     /**
      * 記事のリンク先を取る口。飛ばされた先を自分で見るために、client には追わせない
