@@ -20,8 +20,7 @@ class RepositoryFeedLinks(
     override fun find(username: String): FeedLinks {
         val account = accounts.findByUsername(username) ?: return FeedLinks.EMPTY
         val feed = feeds.findByAccountId(account.id) ?: return FeedLinks.EMPTY
-        // 取り込みが取ってこない形の URL（http(s) 以外）から入ったものは、配信側も出さない
-        val header = headers.find(feed.id)?.takeIf { HttpUrl.sanitize(it.sourceUrl, feed.url) != null }
+        val header = headers.find(feed.id)?.takeIf { FeedHeaderVisibility.isPublic(it, feed) }
 
         // 相手のプロフィールに出る外部リンクになるので、http / https 以外は落とす
         return FeedLinks(

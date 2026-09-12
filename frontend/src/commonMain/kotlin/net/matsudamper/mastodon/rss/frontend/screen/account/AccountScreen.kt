@@ -240,7 +240,6 @@ private fun CompactLoadedAccountContent(
                 state = state,
                 wide = false,
                 listener = listener,
-                onOpenExternal = onOpenExternal,
             )
         }
         state.feed?.let { feed ->
@@ -289,7 +288,6 @@ private fun WideLoadedAccountContent(
                     state = state,
                     wide = true,
                     listener = listener,
-                    onOpenExternal = onOpenExternal,
                 )
             }
         },
@@ -339,14 +337,12 @@ private fun WideLoadedAccountContent(
  *
  * アイコンが無いアカウントと、読めなかった場合はユーザー名から決まる色で描く。
  * 空の枠を置くより、アカウントごとに見分けが付く方が検証で役に立つ。
- * ヘッダー画像はまだ持っていない。
  */
 @Composable
 private fun ProfileHeader(
     state: AccountUiState,
     wide: Boolean,
     listener: AccountScreenUiState.Listener,
-    onOpenExternal: (String) -> Unit,
 ) {
     val avatarSize = if (wide) 88.dp else 68.dp
     val colors = avatarColors(state.username)
@@ -363,7 +359,14 @@ private fun ProfileHeader(
                     .fillMaxWidth()
                     .height(if (wide) 132.dp else 88.dp)
                     .background(Brush.linearGradient(colors)),
-            )
+            ) {
+                AsyncImage(
+                    model = state.headerUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
 
             Row(
                 modifier = Modifier
@@ -486,18 +489,6 @@ private fun ProfileHeader(
                         onClick = listener::onClickFollowerCount,
                     )
                     Stat(value = state.noteCount, label = "配信した投稿", onClick = null)
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    val feedUrl = state.feed?.feedUrl
-                    if (feedUrl != null) {
-                        Button(onClick = { onOpenExternal(feedUrl) }) {
-                            Text("フィードを開く")
-                        }
-                    }
-                    OutlinedButton(onClick = { onOpenExternal(state.actorUrl) }) {
-                        Text("Actor JSON")
-                    }
                 }
             }
         }

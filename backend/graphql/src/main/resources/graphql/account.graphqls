@@ -17,6 +17,9 @@ type Account {
     "プロフィール画像の URL。無ければnull"
     iconUrl: String @lazy
 
+    "プロフィールヘッダー画像の URL。無ければnull"
+    headerUrl: String @lazy
+
     "Accept を返せたフォロワーの数"
     followerCount: Int! @lazy
 
