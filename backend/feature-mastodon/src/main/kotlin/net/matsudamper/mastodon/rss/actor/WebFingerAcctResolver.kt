@@ -239,7 +239,8 @@ internal class WebFingerAcctResolver(
      * ドメイン名で運用されるので、これで落ちる相手はいない。
      */
     private fun isDelegatableHost(raw: String): Boolean {
-        val host = raw.substringBefore(':')
+        // 末尾のドットは DNS のルートラベル。付けたままだと localhost. が素通りする
+        val host = raw.substringBefore(':').trimEnd('.')
         if (host.isEmpty()) return false
 
         // IPv6 は [::1] の形で来る。IPv4 は数字とドットだけ

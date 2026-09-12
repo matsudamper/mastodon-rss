@@ -201,7 +201,8 @@ class HttpRemoteActorsTest {
             MockEngine { request ->
                 requestedHosts += request.url.host
                 if (request.url.encodedPath == "/.well-known/webfinger") {
-                    respondJson(webFinger(subject = "acct:alice@127.0.0.1:8443", selfHref = ACTOR_ID))
+                    // 末尾のドットは DNS のルートラベル。付けても手元を指すことに変わりはない
+                    respondJson(webFinger(subject = "acct:alice@localhost.:8443", selfHref = ACTOR_ID))
                 } else {
                     respondJson(actorDocument(""""preferredUsername": "alice","""))
                 }
@@ -212,7 +213,7 @@ class HttpRemoteActorsTest {
 
         // 裏付けに行く先は相手が書いた文字列。手元を指すものに GET させない
         assertNull(assertNotNull(actor).acct)
-        assertFalse(requestedHosts.contains("127.0.0.1"), "引きに行った先: $requestedHosts")
+        assertFalse(requestedHosts.any { it.startsWith("localhost") }, "引きに行った先: $requestedHosts")
     }
 
     @Test
