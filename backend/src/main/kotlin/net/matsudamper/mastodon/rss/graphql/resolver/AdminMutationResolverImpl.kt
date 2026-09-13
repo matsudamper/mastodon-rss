@@ -9,6 +9,7 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
+import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.graphql.GraphQlContext
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
@@ -41,7 +42,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlUpdateAccountProfileQuery
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.FeedService
-import net.matsudamper.mastodon.rss.logic.NoteService
+import net.matsudamper.mastodon.rss.logic.NoteComposer
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
@@ -199,26 +200,45 @@ class AdminMutationResolverImpl : AdminMutationResolver {
     ): CompletionStage<DataFetcherResult<QlAdminPostNoteResult>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val result = when (val posted = GraphQlEngine.diContainer(env).noteService.post(username = username, body = body)) {
-            is NoteService.PostResult.Success -> {
-                QlAdminPostNoteResult(
-                    note = QlAdminNote(
-                        id = PublicNoteId(posted.queued.publicId.value),
-                        url = posted.queued.url,
-                        contentHtml = posted.queued.contentHtml,
-                        publishedAt = posted.queued.publishedAt.epochSecond,
-                    ),
-                    failure = null,
-                )
-            }
+        val diContainer = GraphQlEngine.diContainer(env)
+        val sender = diContainer.actorDirectory.resolve(username)
 
-            is NoteService.PostResult.Failure -> {
-                QlAdminPostNoteResult(
+        val result = if (sender == null) {
+            QlAdminPostNoteResult(
+                note = null,
+                failure = QlAdminPostNoteFailure(unknownAccount = true, isEmpty = false, maxLength = null),
+            )
+        } else {
+            when (val composed = NoteComposer.compose(body)) {
+                is NoteComposer.ComposeResult.Composed -> {
+                    val queued = diContainer.noteEnqueuer.enqueue(
+                        sender = sender,
+                        contentHtml = composed.contentHtml,
+                        feedItemId = null,
+                    ) ?: error("記事を伴わない投稿が投函できなかった")
+
+                    QlAdminPostNoteResult(
+                        note = QlAdminNote(
+                            id = PublicNoteId(queued.publicId.value),
+                            url = queued.url,
+                            contentHtml = queued.contentHtml,
+                            publishedAt = queued.publishedAt.epochSecond,
+                        ),
+                        failure = null,
+                    )
+                }
+
+                NoteComposer.ComposeResult.Empty -> QlAdminPostNoteResult(
+                    note = null,
+                    failure = QlAdminPostNoteFailure(unknownAccount = false, isEmpty = true, maxLength = null),
+                )
+
+                NoteComposer.ComposeResult.TooLong -> QlAdminPostNoteResult(
                     note = null,
                     failure = QlAdminPostNoteFailure(
-                        unknownAccount = posted.unknownAccount,
-                        isEmpty = posted.isEmpty,
-                        maxLength = NoteService.MAX_LENGTH.takeIf { posted.tooLong },
+                        unknownAccount = false,
+                        isEmpty = false,
+                        maxLength = NoteComposer.MAX_LENGTH,
                     ),
                 )
             }
@@ -287,28 +307,29 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         val diContainer = GraphQlEngine.diContainer(env)
 
         return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
-            val result = when (
-                val deleted = diContainer.noteService.delete(
-                    username = query.username,
-                    publicId = query.noteId,
+            val sender = diContainer.actorDirectory.resolve(query.username)
+            val deleted = sender?.let {
+                diContainer.notePublisher.delete(
+                    sender = it,
+                    publicId = MastodonPublicNoteId(query.noteId.value),
                 )
-            ) {
-                is NoteService.DeleteResult.Success -> QlAdminDeleteNoteResult(
-                    deletedId = PublicNoteId(deleted.deleted.publicId.value),
+            }
+
+            val result = when {
+                deleted != null -> QlAdminDeleteNoteResult(
+                    deletedId = PublicNoteId(deleted.publicId.value),
                     failure = null,
                 )
 
-                is NoteService.DeleteResult.Failure -> QlAdminDeleteNoteResult(
+                sender == null -> QlAdminDeleteNoteResult(
                     deletedId = null,
-                    failure = QlAdminDeleteNoteFailure(
-                        reason = when (deleted.reason) {
-                            NoteService.DeleteFailure.UNKNOWN_ACCOUNT ->
-                                QlAdminDeleteNoteFailureReason.UNKNOWN_ACCOUNT
+                    failure = QlAdminDeleteNoteFailure(reason = QlAdminDeleteNoteFailureReason.UNKNOWN_ACCOUNT),
+                )
 
-                            NoteService.DeleteFailure.NOT_FOUND ->
-                                QlAdminDeleteNoteFailureReason.NOT_FOUND
-                        },
-                    ),
+                // そのアカウントの投稿に無い。他のアカウントの投稿も id だけでは消せない
+                else -> QlAdminDeleteNoteResult(
+                    deletedId = null,
+                    failure = QlAdminDeleteNoteFailure(reason = QlAdminDeleteNoteFailureReason.NOT_FOUND),
                 )
             }
 
