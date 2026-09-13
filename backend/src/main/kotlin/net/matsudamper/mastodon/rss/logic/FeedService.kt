@@ -35,7 +35,7 @@ class FeedService(
     private val feedItems: FeedItemRepository,
     private val fetcher: FeedFetchService,
     private val actorDirectory: ActorDirectory,
-    private val notePoster: NotePoster,
+    private val noteEnqueuer: NoteEnqueuer,
     private val icons: FeedIcons,
     private val headers: FeedHeaders,
     private val actorPublisher: ActorPublisher,
@@ -544,9 +544,9 @@ class FeedService(
                     // 配信の直前に投稿を紐付けていた頃の記事が残っていることがある。
                     // 新しく作ると、既に届いている記事が別の投稿としてもう一度並ぶ
                     if (recordedNoteId == null) {
-                        notePoster.post(sender = sender, contentHtml = html, feedItemId = stored.id)
+                        noteEnqueuer.enqueue(sender = sender, contentHtml = html, feedItemId = stored.id)
                     } else {
-                        notePoster.repost(sender = sender, publicId = recordedNoteId, feedItemId = stored.id)
+                        noteEnqueuer.reenqueue(sender = sender, publicId = recordedNoteId, feedItemId = stored.id)
                     }
                 } catch (e: CancellationException) {
                     throw e

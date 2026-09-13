@@ -25,7 +25,7 @@ import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.logic.FeedService
-import net.matsudamper.mastodon.rss.logic.NotePoster
+import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.Feed
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
@@ -83,7 +83,7 @@ class FeedPollerTest {
             feedItems = repositories.feedItems,
             fetcher = FeedFetchService(HttpClient(engine)),
             actorDirectory = TestLocalActor.directory,
-            notePoster = NotePoster(
+            noteEnqueuer = NoteEnqueuer(
                 publisher = NotePublisher(
                     notes = FakeNoteStore(),
                     followers = FakeFollowerStore(),

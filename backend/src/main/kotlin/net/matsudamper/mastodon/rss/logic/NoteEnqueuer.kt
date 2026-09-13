@@ -24,19 +24,19 @@ import org.slf4j.LoggerFactory
  *
  * 配信はここでは行わない。投函した行は配信ワーカーが拾って送る。
  */
-class NotePoster(
+class NoteEnqueuer(
     private val publisher: NotePublisher,
     private val followers: FollowerRepository,
     private val deliveryQueue: DeliveryQueueRepository,
 ) {
-    private val logger = LoggerFactory.getLogger(NotePoster::class.java)
+    private val logger = LoggerFactory.getLogger(NoteEnqueuer::class.java)
 
     /**
      * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと
      * @param feedItemId 記事から投稿するなら、その記事。管理画面からの告知は null
      * @return 記事が既に投稿済みか消えていて何も書かなかったなら null
      */
-    fun post(
+    fun enqueue(
         sender: ActorUrls,
         contentHtml: String,
         feedItemId: FeedItemId?,
@@ -72,7 +72,7 @@ class NotePoster(
      *
      * @return 投稿の記録が無い、または記事が既に投稿済みで何も書かなかったなら null
      */
-    fun repost(
+    fun reenqueue(
         sender: ActorUrls,
         publicId: PublicNoteId,
         feedItemId: FeedItemId,

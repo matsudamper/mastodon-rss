@@ -133,7 +133,7 @@ fun Application.module(deps: AppDependencies) {
         deliveryQueueRepository = deps.repositories.deliveryQueue,
         feedHeaderRepository = deps.repositories.feedHeaders,
         notePublisher = deps.notePublisher,
-        notePoster = deps.notePoster,
+        noteEnqueuer = deps.noteEnqueuer,
         actorPublisher = deps.actorPublisher,
         accountIconFiles = deps.accountIconFiles,
         noteStore = deps.noteStore,

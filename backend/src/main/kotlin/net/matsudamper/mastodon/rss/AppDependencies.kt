@@ -43,7 +43,7 @@ import net.matsudamper.mastodon.rss.logic.FeedIconService
 import net.matsudamper.mastodon.rss.logic.FeedIconStore
 import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
-import net.matsudamper.mastodon.rss.logic.NotePoster
+import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
 import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
@@ -204,7 +204,7 @@ class AppDependencies(
         webPages = webPageUrls,
     )
 
-    val notePoster: NotePoster = NotePoster(
+    val noteEnqueuer: NoteEnqueuer = NoteEnqueuer(
         publisher = notePublisher,
         followers = repositories.followers,
         deliveryQueue = repositories.deliveryQueue,
@@ -226,7 +226,7 @@ class AppDependencies(
         feedItems = repositories.feedItems,
         fetcher = feedFetcher,
         actorDirectory = directory,
-        notePoster = notePoster,
+        noteEnqueuer = noteEnqueuer,
         icons = feedIcons,
         headers = feedHeaders,
         actorPublisher = actorPublisher,

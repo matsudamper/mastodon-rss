@@ -34,7 +34,7 @@ class AppDependenciesTest {
         deps.acceptFollower()
 
         val queued = assertNotNull(
-            deps.notePoster.post(
+            deps.noteEnqueuer.enqueue(
                 sender = ActorUrls(domain = TestServerEnv.DOMAIN, username = TestServerEnv.USERNAME),
                 contentHtml = "<p>本文</p>",
                 feedItemId = null,
@@ -52,7 +52,7 @@ class AppDependenciesTest {
         val deps = testDependencies()
         deps.acceptFollower()
 
-        deps.notePoster.post(
+        deps.noteEnqueuer.enqueue(
             sender = ActorUrls(domain = TestServerEnv.DOMAIN, username = TestServerEnv.USERNAME),
             contentHtml = "<p>本文</p>",
             feedItemId = null,

@@ -1099,7 +1099,7 @@ class FeedServiceTest {
             feedItems = repositories.feedItems,
             fetcher = FeedFetchService(HttpClient(mockEngine)),
             actorDirectory = actorDirectory,
-            notePoster = NotePoster(
+            noteEnqueuer = NoteEnqueuer(
                 publisher = NotePublisher(
                     notes = noteStore,
                     followers = FakeFollowerStore(),

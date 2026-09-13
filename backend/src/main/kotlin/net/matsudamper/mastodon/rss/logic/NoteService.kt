@@ -18,7 +18,7 @@ import net.matsudamper.mastodon.rss.shared.PublicNoteId
 class NoteService(
     private val directory: ActorDirectory,
     private val publisher: NotePublisher,
-    private val poster: NotePoster,
+    private val poster: NoteEnqueuer,
     private val notes: NoteStore,
 ) {
     /**
@@ -40,7 +40,7 @@ class NoteService(
             return PostResult.Failure(unknownAccount = false, isEmpty = false, tooLong = true)
         }
 
-        val queued = poster.post(sender = urls, contentHtml = toHtml(text), feedItemId = null)
+        val queued = poster.enqueue(sender = urls, contentHtml = toHtml(text), feedItemId = null)
             ?: error("記事を伴わない投稿が投函できなかった")
 
         return PostResult.Success(queued)

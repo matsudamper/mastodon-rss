@@ -35,7 +35,7 @@ class NoteServiceTest {
         return NoteService(
             directory = TestLocalActor.directory,
             publisher = publisher,
-            poster = NotePoster(
+            poster = NoteEnqueuer(
                 publisher = publisher,
                 followers = repositories.followers,
                 deliveryQueue = repositories.deliveryQueue,
