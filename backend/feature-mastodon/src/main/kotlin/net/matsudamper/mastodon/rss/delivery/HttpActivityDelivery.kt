@@ -9,6 +9,7 @@ import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
 import io.ktor.http.isSuccess
 import io.opentelemetry.api.OpenTelemetry
@@ -40,7 +41,9 @@ class HttpActivityDelivery(
         sender: ActorUrls,
         body: ByteArray,
     ): DeliveryResult {
-        val url = runCatching { Url(inbox) }.getOrNull() ?: return DeliveryResult.Failed("inbox の URL を読めない: $inbox")
+        val url = runCatching { Url(inbox) }.getOrNull()
+            // 読めない URL は次に読めるようになることが無いので送り直さない
+            ?: return DeliveryResult.Failed(reason = "inbox の URL を読めない: $inbox", retryable = false)
 
         val headers =
             signer.sign(
@@ -65,11 +68,15 @@ class HttpActivityDelivery(
                 // runCatching は Throwable を拾うので、呼び出し元が消えた合図まで
                 // 配信の失敗に化ける。化けると送れていない記事が投稿済みとして残る
                 if (error is CancellationException) throw error
-                return DeliveryResult.Failed("POST に失敗した: $inbox ${error.message}")
+                // 届いていないので、相手が戻れば送れる
+                return DeliveryResult.Failed(reason = "POST に失敗した: $inbox ${error.message}", retryable = true)
             }
 
         if (!response.status.isSuccess()) {
-            return DeliveryResult.Failed("相手が受け取らなかった: $inbox ${response.status}")
+            return DeliveryResult.Failed(
+                reason = "相手が受け取らなかった: $inbox ${response.status}",
+                retryable = isRetryable(response.status),
+            )
         }
 
         return DeliveryResult.Delivered
@@ -80,6 +87,27 @@ class HttpActivityDelivery(
     }
 
     private companion object {
+        /**
+         * 相手の応答が、送り直せば届きうるものか。
+         *
+         * 4xx は相手が「受け取らない」と決めた応答なので送り直さない。ただし
+         * 401 は鍵の入れ替えの途中、408 と 429 は詰まっているだけで、どちらも後なら通る。
+         * 501 は実装していないという意味なので送り直さない。
+         * Mastodon 自身もこの区切りで捨てているので、こちらも合わせる
+         */
+        fun isRetryable(status: HttpStatusCode): Boolean {
+            if (status == HttpStatusCode.NotImplemented) return false
+            if (status.value !in 400..499) return true
+
+            return status in RETRYABLE_CLIENT_ERRORS
+        }
+
+        val RETRYABLE_CLIENT_ERRORS = setOf(
+            HttpStatusCode.Unauthorized,
+            HttpStatusCode.RequestTimeout,
+            HttpStatusCode.TooManyRequests,
+        )
+
         /** 署名した `(request-target)` と実際に送るリクエストラインを揃える */
         fun requestTarget(url: Url): String =
             if (url.encodedQuery.isEmpty()) {

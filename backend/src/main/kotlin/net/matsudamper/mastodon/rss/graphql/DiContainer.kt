@@ -6,11 +6,14 @@ import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import net.matsudamper.mastodon.rss.logic.AccountIconFiles
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
+import net.matsudamper.mastodon.rss.logic.DeliveryQueueService
 import net.matsudamper.mastodon.rss.logic.FeedService
-import net.matsudamper.mastodon.rss.logic.NoteService
+import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
+import net.matsudamper.mastodon.rss.logic.NoteReader
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
@@ -18,10 +21,12 @@ class DiContainer(
     passwordHash: PasswordHash?,
     accountRepository: AccountRepository,
     followerRepository: FollowerRepository,
+    deliveryQueueRepository: DeliveryQueueRepository,
     val domain: String,
     val actorDirectory: ActorDirectory,
     val feedHeaderRepository: FeedHeaderRepository,
-    notePublisher: NotePublisher,
+    val notePublisher: NotePublisher,
+    val noteEnqueuer: NoteEnqueuer,
     actorPublisher: ActorPublisher,
     accountIconFiles: AccountIconFiles,
     val noteStore: NoteStore,
@@ -32,14 +37,16 @@ class DiContainer(
     val accountService: AccountService = AccountService(
         accounts = accountRepository,
         followers = followerRepository,
+        deliveryQueue = deliveryQueueRepository,
         actorPublisher = actorPublisher,
         iconFiles = accountIconFiles,
         domain = domain,
     )
 
-    val noteService: NoteService = NoteService(
+    val noteReader: NoteReader = NoteReader(
         directory = actorDirectory,
-        publisher = notePublisher,
         notes = noteStore,
     )
+
+    val deliveryQueueService: DeliveryQueueService = DeliveryQueueService(deliveryQueueRepository)
 }

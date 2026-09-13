@@ -74,7 +74,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
             )
         } else {
             val diContainer = GraphQlEngine.diContainer(env)
-            val page = diContainer.noteService.notes(
+            val page = diContainer.noteReader.notes(
                 username = username,
                 after = notesCursorPosition?.toPosition(),
                 limit = limit,

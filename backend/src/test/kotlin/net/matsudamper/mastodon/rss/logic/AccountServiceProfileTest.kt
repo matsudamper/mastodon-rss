@@ -36,6 +36,7 @@ class AccountServiceProfileTest {
     private fun serviceOf(repositories: FakeRepositories): AccountService = AccountService(
         accounts = repositories.accounts,
         followers = repositories.followers,
+        deliveryQueue = repositories.deliveryQueue,
         actorPublisher = ActorPublisher(
             notes = RepositoryNoteStore(repositories.notes),
             followers = RepositoryFollowerStore(repositories.followers),

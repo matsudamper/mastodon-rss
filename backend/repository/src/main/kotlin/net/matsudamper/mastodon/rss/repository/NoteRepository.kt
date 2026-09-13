@@ -29,7 +29,8 @@ interface NoteRepository {
     /**
      * 消す。消えていれば何もしない。
      *
-     * 消した投稿を元にした記事（`feed_items`）は残り、`note_id` だけが外れる
+     * 消した投稿を元にした記事（`feed_items`）は残り、`note_id` だけが外れる。
+     * まだ配っていない配信（`delivery_queue`）は一緒に消える
      */
     fun delete(publicId: PublicNoteId)
 

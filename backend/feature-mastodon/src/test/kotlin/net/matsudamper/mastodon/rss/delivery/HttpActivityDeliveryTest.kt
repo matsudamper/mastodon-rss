@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.cio.CIO
@@ -164,5 +165,40 @@ class HttpActivityDeliveryTest {
             }
 
         assertIs<DeliveryResult.Failed>(result)
+    }
+
+    @Test
+    fun `相手が受け取らないと決めた応答は送り直さない`() {
+        assertEquals(false, deliverTo(HttpStatusCode.BadRequest).retryable)
+        assertEquals(false, deliverTo(HttpStatusCode.Forbidden).retryable)
+        assertEquals(false, deliverTo(HttpStatusCode.NotFound).retryable)
+        assertEquals(false, deliverTo(HttpStatusCode.Gone).retryable)
+        assertEquals(false, deliverTo(HttpStatusCode.NotImplemented).retryable)
+    }
+
+    @Test
+    fun `詰まっているだけの応答は送り直す`() {
+        // 鍵の入れ替え中・詰まっている・落ちている。後なら通る
+        assertEquals(true, deliverTo(HttpStatusCode.Unauthorized).retryable)
+        assertEquals(true, deliverTo(HttpStatusCode.RequestTimeout).retryable)
+        assertEquals(true, deliverTo(HttpStatusCode.TooManyRequests).retryable)
+        assertEquals(true, deliverTo(HttpStatusCode.InternalServerError).retryable)
+        assertEquals(true, deliverTo(HttpStatusCode.ServiceUnavailable).retryable)
+    }
+
+    private fun deliverTo(status: HttpStatusCode): DeliveryResult.Failed {
+        val client = HttpClient(MockEngine { respond(content = "", status = status) })
+        val result =
+            runBlocking {
+                HttpActivityDelivery(TestActorKey.value, client = client).use { delivery ->
+                    delivery.deliver(
+                        inbox = "https://example.com/users/alice/inbox",
+                        sender = sender,
+                        body = """{"type":"Create"}""".toByteArray(),
+                    )
+                }
+            }
+
+        return assertIs<DeliveryResult.Failed>(result)
     }
 }
