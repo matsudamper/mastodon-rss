@@ -721,8 +721,7 @@ private fun avatarColors(username: String): List<Color> {
         Color(0xFF2F5FA8) to Color(0xFF6795DE),
     )
 
-    // hashCode は負にもなるので、剰余を取る前に絶対値にする
-    val index = (username.hashCode().let { if (it == Int.MIN_VALUE) 0 else kotlin.math.abs(it) }) % palette.size
+    val index = username.hashCode().mod(palette.size)
     val (start, end) = palette[index]
     return listOf(start, end)
 }
