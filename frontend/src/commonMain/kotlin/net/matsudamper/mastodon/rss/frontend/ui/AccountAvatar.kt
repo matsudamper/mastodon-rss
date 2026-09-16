@@ -17,7 +17,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlin.math.abs
 import coil3.compose.AsyncImage
 
 @Composable
@@ -49,7 +48,14 @@ internal fun AccountAvatar(
     }
 }
 
-private fun avatarColors(username: String): List<Color> {
+/**
+ * ユーザー名から決まる 2 色。アイコンとヘッダーの代わりに使う。
+ *
+ * 同じ名前なら必ず同じ色になるようにする。開くたびに色が変わると、
+ * 名前を変えながら検証しているときに見分けが付かない。
+ * 画面ごとに色が変わらないよう、名前から色を決めるのはここだけにする。
+ */
+internal fun avatarColors(username: String): List<Color> {
     val palette = listOf(
         Color(0xFF4A3FD1) to Color(0xFF7B6FF0),
         Color(0xFF1E7A6F) to Color(0xFF3FB8A6),
@@ -57,7 +63,6 @@ private fun avatarColors(username: String): List<Color> {
         Color(0xFF8C2F6B) to Color(0xFFD167AC),
         Color(0xFF2F5FA8) to Color(0xFF6795DE),
     )
-    val hash = username.hashCode().let { if (it == Int.MIN_VALUE) 0 else abs(it) }
-    val (start, end) = palette[hash % palette.size]
+    val (start, end) = palette[username.hashCode().mod(palette.size)]
     return listOf(start, end)
 }

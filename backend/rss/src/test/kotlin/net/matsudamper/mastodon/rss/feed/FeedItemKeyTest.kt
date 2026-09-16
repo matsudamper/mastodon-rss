@@ -32,8 +32,14 @@ class FeedItemKeyTest {
 
         assertEquals(FeedItemKey.Source.HASH, key.keySource)
         assertEquals(64, key.dedupeKey.length, "SHA-256 の 16 進表記になっていない: ${key.dedupeKey}")
-        // 同じ入力からは同じ鍵が出る
-        assertEquals(key, FeedItemKey.of(feedUrl, item(title = "記事の題名")))
+    }
+
+    @Test
+    fun `同じ記事からは何度でも同じ鍵が出る`() {
+        val first = FeedItemKey.of(feedUrl, item(title = "記事の題名"))
+        val second = FeedItemKey.of(feedUrl, item(title = "記事の題名"))
+
+        assertEquals(first, second)
     }
 
     @Test

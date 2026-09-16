@@ -92,7 +92,6 @@ object FeedText {
         val cut = text.offsetByCodePoints(0, maxLength - ellipsisLength)
         val head = text.substring(0, cut)
 
-        // 切った位置が単語の途中でなければ戻す必要は無い
         val splitsWord = cut < text.length && !text[cut].isWhitespace()
         val lastSpace = head.indexOfLast { it.isWhitespace() }
         val trimmed =

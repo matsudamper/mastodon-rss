@@ -21,7 +21,6 @@ data class AdminScreenUiState(
             sealed interface Input {
                 data object Enabled : Input
 
-                // 無効化してメッセージを出す
                 data class Disabled(
                     val message: String,
                 ) : Input
