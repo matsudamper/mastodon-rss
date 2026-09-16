@@ -41,6 +41,7 @@ import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.logic.NoteComposer
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewNote
@@ -581,6 +582,66 @@ class AdminGraphQlTest {
         }
 
     @Test
+    fun `知らないアカウントには投稿しない`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(passwordConfigured = true, repositories = repositories)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val result = mutatePostNote(username = "nobody", body = "お知らせ", token = token)
+                .admin()
+                .obj("postNote")
+
+            assertEquals(JsonNull, result.getValue("note"))
+            assertEquals(true, result.failure().boolean("unknownAccount"))
+            assertEquals(emptyList(), repositories.notes.all())
+        }
+
+    @Test
+    fun `空白だけの本文は投稿しない`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(passwordConfigured = true, repositories = repositories)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+
+            val result = mutatePostNote(username = "feed1", body = "   ", token = token)
+                .admin()
+                .obj("postNote")
+
+            assertEquals(JsonNull, result.getValue("note"))
+            assertEquals(true, result.failure().boolean("isEmpty"))
+            assertEquals(emptyList(), repositories.notes.all())
+        }
+
+    @Test
+    fun `入力上限ちょうどの本文は投稿できて、超えると拒否される`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(passwordConfigured = true, repositories = repositories)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            mutateAddAccount("feed1", token)
+
+            val justFit = mutatePostNote(
+                username = "feed1",
+                body = "あ".repeat(NoteComposer.MAX_LENGTH),
+                token = token,
+            ).admin().obj("postNote")
+
+            assertNotEquals(JsonNull, justFit.getValue("note"))
+
+            val tooLong = mutatePostNote(
+                username = "feed1",
+                body = "あ".repeat(NoteComposer.MAX_LENGTH + 1),
+                token = token,
+            ).admin().obj("postNote")
+
+            assertEquals(JsonNull, tooLong.getValue("note"))
+            assertEquals(NoteComposer.MAX_LENGTH, tooLong.failure().int("maxLength"))
+            assertEquals(1, repositories.notes.all().size)
+        }
+
+    @Test
     fun `retryingDeliveries と failedDeliveries は宛先と回数と理由を返す`() =
         testApplication {
             val repositories = FakeRepositories()
@@ -870,6 +931,20 @@ class AdminGraphQlTest {
 
             assertEquals(JsonNull, result.getValue("deletedId"))
             assertEquals("NOT_FOUND", result.obj("failure").string("reason"))
+        }
+
+    @Test
+    fun `知らないアカウントの投稿は消せない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+
+            val result = mutateDeleteNote(username = "nobody", noteId = "missing", token = token)
+                .admin()
+                .obj("deleteNote")
+
+            assertEquals(JsonNull, result.getValue("deletedId"))
+            assertEquals("UNKNOWN_ACCOUNT", result.obj("failure").string("reason"))
         }
 
     @Test
@@ -1255,7 +1330,8 @@ class AdminGraphQlTest {
         graphQl(
             query =
             "mutation Post(${'$'}username: String!, ${'$'}body: String!) { admin { " +
-                "postNote(username: ${'$'}username, body: ${'$'}body) { note { url } failure { isEmpty } } } }",
+                "postNote(username: ${'$'}username, body: ${'$'}body) { note { url } " +
+                "failure { unknownAccount isEmpty maxLength } } } }",
             token = token,
             variables = """{"username":${JsonPrimitive(username)},"body":${JsonPrimitive(body)}}""",
         )
