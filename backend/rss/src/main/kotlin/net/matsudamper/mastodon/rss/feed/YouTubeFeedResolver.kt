@@ -174,7 +174,6 @@ object YouTubeFeedResolver {
         val second = segments.getOrNull(1)
 
         return when {
-            // 既にフィードの URL。そのまま通す
             first == "feeds" && second == "videos.xml" -> {
                 fromFeedQuery(query)
             }
