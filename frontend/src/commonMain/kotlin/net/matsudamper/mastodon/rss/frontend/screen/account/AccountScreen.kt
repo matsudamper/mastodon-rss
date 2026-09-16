@@ -73,6 +73,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.TwoPaneScrollState
+import net.matsudamper.mastodon.rss.frontend.ui.avatarColors
 import net.matsudamper.mastodon.rss.frontend.ui.rememberCoordinatedTwoPaneScrollableModifier
 import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
@@ -704,24 +705,4 @@ private fun NotesPagingFooter(
             }
         }
     }
-}
-
-/**
- * ユーザー名から決まる 2 色。アイコンとヘッダーの代わりに使う。
- *
- * 同じ名前なら必ず同じ色になるようにする。開くたびに色が変わると、
- * 名前を変えながら検証しているときに見分けが付かない。
- */
-private fun avatarColors(username: String): List<Color> {
-    val palette = listOf(
-        Color(0xFF4A3FD1) to Color(0xFF7B6FF0),
-        Color(0xFF1E7A6F) to Color(0xFF3FB8A6),
-        Color(0xFFB05A1E) to Color(0xFFE79A4B),
-        Color(0xFF8C2F6B) to Color(0xFFD167AC),
-        Color(0xFF2F5FA8) to Color(0xFF6795DE),
-    )
-
-    val index = username.hashCode().mod(palette.size)
-    val (start, end) = palette[index]
-    return listOf(start, end)
 }
