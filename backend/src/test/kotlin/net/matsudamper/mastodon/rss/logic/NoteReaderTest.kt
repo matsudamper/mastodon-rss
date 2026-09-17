@@ -26,7 +26,7 @@ class NoteReaderTest {
             deliveryQueue = repositories.deliveryQueue,
         )
         repeat(count) { index ->
-            enqueuer.enqueue(sender = TestLocalActor.urls, contentHtml = "<p>本文 $index</p>", feedItemId = null)
+            enqueuer.enqueue(sender = TestLocalActor.urls, contentHtml = "<p>本文 $index</p>")
         }
     }
 

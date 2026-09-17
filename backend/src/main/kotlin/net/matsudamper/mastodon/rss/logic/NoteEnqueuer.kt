@@ -32,11 +32,32 @@ class NoteEnqueuer(
     private val logger = LoggerFactory.getLogger(NoteEnqueuer::class.java)
 
     /**
+     * 記事に紐付かない投稿を投函する。管理画面からの告知に使う。
+     *
      * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと
-     * @param feedItemId 記事から投稿するなら、その記事。管理画面からの告知は null
-     * @return 記事が既に投稿済みか消えていて何も書かなかったなら null
      */
     fun enqueue(
+        sender: ActorUrls,
+        contentHtml: String,
+    ): QueuedNote {
+        // 記事を伴わないので、記事の状態で弾かれることがない
+        return enqueuePrepared(sender = sender, contentHtml = contentHtml, feedItemId = null)
+            ?: error("記事を伴わない投函が弾かれた")
+    }
+
+    /**
+     * 記事から投稿を投函する。
+     *
+     * @param contentHtml 本文。サニタイズ済みの HTML を渡すこと
+     * @return 記事が既に投稿済みか消えていて何も書かなかったなら null
+     */
+    fun enqueueForFeedItem(
+        sender: ActorUrls,
+        contentHtml: String,
+        feedItemId: FeedItemId,
+    ): QueuedNote? = enqueuePrepared(sender = sender, contentHtml = contentHtml, feedItemId = feedItemId)
+
+    private fun enqueuePrepared(
         sender: ActorUrls,
         contentHtml: String,
         feedItemId: FeedItemId?,

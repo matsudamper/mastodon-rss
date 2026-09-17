@@ -9,7 +9,6 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
@@ -33,12 +32,9 @@ class AppDependenciesTest {
         val deps = testDependencies(env = TestServerEnv.of("STATIC_SRC_DIR" to staticSrcDir.toString()))
         deps.acceptFollower()
 
-        val queued = assertNotNull(
-            deps.noteEnqueuer.enqueue(
-                sender = ActorUrls(domain = TestServerEnv.DOMAIN, username = TestServerEnv.USERNAME),
-                contentHtml = "<p>本文</p>",
-                feedItemId = null,
-            ),
+        val queued = deps.noteEnqueuer.enqueue(
+            sender = ActorUrls(domain = TestServerEnv.DOMAIN, username = TestServerEnv.USERNAME),
+            contentHtml = "<p>本文</p>",
         )
 
         assertContains(
@@ -55,7 +51,6 @@ class AppDependenciesTest {
         deps.noteEnqueuer.enqueue(
             sender = ActorUrls(domain = TestServerEnv.DOMAIN, username = TestServerEnv.USERNAME),
             contentHtml = "<p>本文</p>",
-            feedItemId = null,
         )
 
         // 出すと相手のパーマリンクが 404 のページを指す。無ければ相手は id に倒す

@@ -544,7 +544,7 @@ class FeedService(
                     // 配信の直前に投稿を紐付けていた頃の記事が残っていることがある。
                     // 新しく作ると、既に届いている記事が別の投稿としてもう一度並ぶ
                     if (recordedNoteId == null) {
-                        noteEnqueuer.enqueue(sender = sender, contentHtml = html, feedItemId = stored.id)
+                        noteEnqueuer.enqueueForFeedItem(sender = sender, contentHtml = html, feedItemId = stored.id)
                     } else {
                         noteEnqueuer.reenqueue(sender = sender, publicId = recordedNoteId, feedItemId = stored.id)
                     }

@@ -57,9 +57,7 @@ class NoteDeleteTest {
             followerActorUri = follower.actorId,
             acceptedAt = FOLLOWED_AT,
         )
-        val queued = assertNotNull(
-            enqueuer.enqueue(sender = TestLocalActor.urls, contentHtml = "<p>本文</p>", feedItemId = null),
-        )
+        val queued = enqueuer.enqueue(sender = TestLocalActor.urls, contentHtml = "<p>本文</p>")
 
         val deleted = assertNotNull(publisher.delete(sender = TestLocalActor.urls, publicId = queued.publicId))
 
@@ -77,9 +75,7 @@ class NoteDeleteTest {
 
     @Test
     fun `無い投稿と他のアカウントの投稿は消せない`() = runBlocking {
-        val queued = assertNotNull(
-            enqueuer.enqueue(sender = TestLocalActor.urls, contentHtml = "<p>本文</p>", feedItemId = null),
-        )
+        val queued = enqueuer.enqueue(sender = TestLocalActor.urls, contentHtml = "<p>本文</p>")
         val other = assertNotNull(TestLocalActor.directory.resolve(TestLocalActor.STORED_USERNAME))
 
         assertNull(publisher.delete(sender = TestLocalActor.urls, publicId = PublicNoteId("missing")))

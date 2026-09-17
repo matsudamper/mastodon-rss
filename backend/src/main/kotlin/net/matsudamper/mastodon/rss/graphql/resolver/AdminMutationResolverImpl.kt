@@ -214,8 +214,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                     val queued = diContainer.noteEnqueuer.enqueue(
                         sender = sender,
                         contentHtml = composed.contentHtml,
-                        feedItemId = null,
-                    ) ?: error("記事を伴わない投稿が投函できなかった")
+                    )
 
                     QlAdminPostNoteResult(
                         note = QlAdminNote(

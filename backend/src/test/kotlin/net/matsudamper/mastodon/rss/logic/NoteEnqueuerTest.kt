@@ -37,9 +37,8 @@ class NoteEnqueuerTest {
     fun `保存されているアカウントからも投函できる`() = runBlocking {
         val sender = assertNotNull(TestLocalActor.directory.resolve(TestLocalActor.STORED_USERNAME))
 
-        val queued = enqueuer().enqueue(sender = sender, contentHtml = "<p>本文</p>", feedItemId = null)
+        enqueuer().enqueue(sender = sender, contentHtml = "<p>本文</p>")
 
-        assertNotNull(queued)
         assertEquals(TestLocalActor.STORED_USERNAME, added().single().username)
     }
 
@@ -65,9 +64,7 @@ class NoteEnqueuerTest {
             acceptedAt = FOLLOWED_AT,
         )
 
-        val queued = assertNotNull(
-            enqueuer().enqueue(sender = SENDER, contentHtml = "<p>本文</p>", feedItemId = null),
-        )
+        val queued = enqueuer().enqueue(sender = SENDER, contentHtml = "<p>本文</p>")
 
         assertEquals(1, added().size)
         // 送るのは配信ワーカー。ここで送ってしまうと、落ちたときに送り直せない
