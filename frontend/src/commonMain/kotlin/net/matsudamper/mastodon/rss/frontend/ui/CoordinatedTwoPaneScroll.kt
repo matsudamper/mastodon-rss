@@ -221,9 +221,14 @@ internal fun CoordinatedTwoPaneLayout(
             }
         },
     ) { measurables, constraints ->
+        // 幅や高さが無制限のまま来ることがある。無制限を大きさとして渡すと
+        // Compose の上限（1 辺 16777215）を超えて落ちるので、その軸は中身の大きさで決める
+        val width = constraints.maxWidth.takeIf { constraints.hasBoundedWidth }
+
         val headerPlaceable = measurables.first { it.layoutId == "header" }.measure(
-            constraints.copy(
-                minWidth = constraints.maxWidth,
+            Constraints(
+                minWidth = width ?: 0,
+                maxWidth = width ?: Constraints.Infinity,
                 minHeight = 0,
                 maxHeight = Constraints.Infinity,
             ),
@@ -231,15 +236,23 @@ internal fun CoordinatedTwoPaneLayout(
         val visibleHeaderHeight = (headerPlaceable.height - headerCollapsePx)
             .roundToInt()
             .coerceIn(0, headerPlaceable.height)
-        val panesHeight = (constraints.maxHeight - visibleHeaderHeight).coerceAtLeast(0)
+        val panesHeight = constraints.maxHeight
+            .takeIf { constraints.hasBoundedHeight }
+            ?.let { (it - visibleHeaderHeight).coerceAtLeast(0) }
         val panesPlaceable = measurables.first { it.layoutId == "panes" }.measure(
-            Constraints.fixed(
-                width = constraints.maxWidth,
-                height = panesHeight,
+            Constraints(
+                minWidth = width ?: 0,
+                maxWidth = width ?: Constraints.Infinity,
+                minHeight = panesHeight ?: 0,
+                maxHeight = panesHeight ?: Constraints.Infinity,
             ),
         )
 
-        layout(constraints.maxWidth, constraints.maxHeight) {
+        val layoutWidth = width ?: maxOf(headerPlaceable.width, panesPlaceable.width)
+        val layoutHeight = constraints.maxHeight.takeIf { constraints.hasBoundedHeight }
+            ?: (visibleHeaderHeight + panesPlaceable.height)
+
+        layout(layoutWidth, layoutHeight) {
             headerPlaceable.place(x = 0, y = visibleHeaderHeight - headerPlaceable.height)
             panesPlaceable.place(x = 0, y = visibleHeaderHeight)
         }
