@@ -5,11 +5,11 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
 /**
  * アクティビティに署名を付けて相手の inbox に POST する。
  *
- * ネットワークに出る唯一の口なので interface にしておく。フォローに
- * `Accept` を返せているかどうかは、ここを差し替えれば実際に送らずに確かめられる。
+ * ネットワークに出る唯一の口なので interface にしておく。ここを差し替えれば、
+ * 実際に送らずに配信ワーカーの振る舞いを確かめられる。
  *
  * リトライは持たない。失敗したらその場で諦めて [DeliveryResult.Failed] を返す。
- * 配信キューは投稿を配る Phase 4 で作る。TODO.md に項目がある。
+ * 送り直しは `:backend` の配信ワーカーが決める。こちらへ渡すものは [ActivityQueue] に投函する。
  */
 interface ActivityDelivery : AutoCloseable {
     /**

@@ -8,7 +8,7 @@ import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeRepositories
-import net.matsudamper.mastodon.rss.TestDelivery
+import net.matsudamper.mastodon.rss.TestActivityQueue
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorUrls
@@ -23,10 +23,10 @@ class NoteEnqueuerTest {
 
     private val notes = RepositoryNoteStore(repositories.notes)
 
-    private val delivery = TestDelivery()
+    private val queue = TestActivityQueue()
 
     private fun enqueuer(): NoteEnqueuer = NoteEnqueuer(
-        publisher = NotePublisher(notes, FakeFollowerStore(), delivery, TestWebPageUrls),
+        publisher = NotePublisher(notes, FakeFollowerStore(), queue, TestWebPageUrls),
         followers = repositories.followers,
         deliveryQueue = repositories.deliveryQueue,
     )
@@ -68,7 +68,7 @@ class NoteEnqueuerTest {
 
         assertEquals(1, added().size)
         // 送るのは配信ワーカー。ここで送ってしまうと、落ちたときに送り直せない
-        assertEquals(emptyList(), delivery.delivered)
+        assertEquals(emptyList(), queue.queued)
         val row = repositories.deliveryQueue.rows().single()
         assertEquals("https://remote.example/inbox", row.inbox)
         assertEquals(TestLocalActor.USERNAME, row.username)

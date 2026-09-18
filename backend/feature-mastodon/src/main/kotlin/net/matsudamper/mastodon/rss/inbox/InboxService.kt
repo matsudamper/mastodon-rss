@@ -1,12 +1,11 @@
 package net.matsudamper.mastodon.rss.inbox
 
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.delivery.ActivityQueue
 import net.matsudamper.mastodon.rss.follower.FollowerFallbackPublicKeys
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
@@ -158,16 +157,14 @@ class InboxService(
          *   `Accept` の宛先になる inbox をここから取る
          * @param followers フォローの記録。配信先だけでなく、相手が消えて
          *   アクター文書を引けなくなったときの公開鍵の引き先にもなる
-         * @param delivery こちらから相手の inbox に POST する口
+         * @param queue こちらから相手の inbox に送るものを投函する口
          * @param notes フォロー成立後に配り直す過去の投稿の引き先
-         * @param backfillScope 過去の投稿を配る間、inbox の応答を待たせないためのスコープ
          */
         fun default(
             remoteActors: RemoteActors,
-            delivery: ActivityDelivery,
+            queue: ActivityQueue,
             followers: FollowerStore,
             notes: NoteStore,
-            backfillScope: CoroutineScope,
             webPages: WebPageUrls?,
         ): InboxService =
             InboxService(
@@ -177,10 +174,9 @@ class InboxService(
                 handlers = listOf(
                     FollowHandler(
                         remoteActors = remoteActors,
-                        delivery = delivery,
+                        queue = queue,
                         followers = followers,
-                        backfill = FollowBackfillPublisher(notes = notes, delivery = delivery, webPages = webPages),
-                        backfillScope = backfillScope,
+                        backfill = FollowBackfillPublisher(notes = notes, queue = queue, webPages = webPages),
                     ),
                     UndoFollowHandler(followers),
                     DeleteActorHandler(followers),

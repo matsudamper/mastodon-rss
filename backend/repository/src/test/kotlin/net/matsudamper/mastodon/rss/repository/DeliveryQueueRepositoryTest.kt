@@ -447,6 +447,70 @@ class DeliveryQueueRepositoryTest {
         }
     }
 
+    @Test
+    fun `投稿を伴わない配信を投函できる`() {
+        withRepositories { repositories ->
+            val queued = repositories.deliveryQueue.enqueueActivity(
+                ActivityPost(
+                    kind = DeliveryKind.ACCEPT_FOLLOW,
+                    username = USERNAME,
+                    body = ACCEPT_BODY,
+                    inboxes = listOf(INBOX_A, INBOX_B),
+                    enqueuedAt = now,
+                    notePublicId = null,
+                ),
+            )
+
+            assertEquals(2, queued)
+            val claimed = repositories.deliveryQueue.claim(now = now, limit = 10)
+            assertEquals(listOf(DeliveryKind.ACCEPT_FOLLOW, DeliveryKind.ACCEPT_FOLLOW), claimed.map { it.kind })
+            assertEquals(listOf(ACCEPT_BODY, ACCEPT_BODY), claimed.map { it.body })
+        }
+    }
+
+    @Test
+    fun `記録済みの投稿を投函すると投稿を消したときに一緒に消える`() {
+        withRepositories { repositories ->
+            repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = emptyList()))
+
+            val queued = repositories.deliveryQueue.enqueueActivity(
+                ActivityPost(
+                    kind = DeliveryKind.CREATE_NOTE,
+                    username = USERNAME,
+                    body = BODY,
+                    inboxes = listOf(INBOX_A),
+                    enqueuedAt = now,
+                    notePublicId = PublicNoteId("n1"),
+                ),
+            )
+            assertEquals(1, queued)
+
+            repositories.notes.delete(PublicNoteId("n1"))
+
+            assertEquals(emptyList(), repositories.deliveryQueue.claim(now = now, limit = 10))
+        }
+    }
+
+    @Test
+    fun `消えた投稿を配る行は投函しない`() {
+        withRepositories { repositories ->
+            // 外部キーで入らないので、投函そのものを止める
+            val queued = repositories.deliveryQueue.enqueueActivity(
+                ActivityPost(
+                    kind = DeliveryKind.CREATE_NOTE,
+                    username = USERNAME,
+                    body = BODY,
+                    inboxes = listOf(INBOX_A),
+                    enqueuedAt = now,
+                    notePublicId = PublicNoteId("missing"),
+                ),
+            )
+
+            assertEquals(0, queued)
+            assertEquals(emptyList(), repositories.deliveryQueue.claim(now = now, limit = 10))
+        }
+    }
+
     private fun notePost(
         publicId: String,
         inboxes: List<String>,
@@ -500,6 +564,7 @@ class DeliveryQueueRepositoryTest {
     private companion object {
         const val USERNAME = "admin"
         const val BODY = """{"type":"Create"}"""
+        const val ACCEPT_BODY = """{"type":"Accept"}"""
         const val INBOX_A = "https://a.example/inbox"
         const val INBOX_B = "https://b.example/inbox"
         const val INBOX_C = "https://c.example/inbox"

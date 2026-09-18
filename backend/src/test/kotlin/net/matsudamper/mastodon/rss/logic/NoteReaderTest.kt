@@ -7,7 +7,7 @@ import kotlin.test.assertNull
 import kotlinx.coroutines.runBlocking
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeRepositories
-import net.matsudamper.mastodon.rss.TestDelivery
+import net.matsudamper.mastodon.rss.TestActivityQueue
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.note.NotePublisher
@@ -21,7 +21,7 @@ class NoteReaderTest {
 
     private fun enqueue(count: Int) {
         val enqueuer = NoteEnqueuer(
-            publisher = NotePublisher(notes, FakeFollowerStore(), TestDelivery(), TestWebPageUrls),
+            publisher = NotePublisher(notes, FakeFollowerStore(), TestActivityQueue(), TestWebPageUrls),
             followers = repositories.followers,
             deliveryQueue = repositories.deliveryQueue,
         )

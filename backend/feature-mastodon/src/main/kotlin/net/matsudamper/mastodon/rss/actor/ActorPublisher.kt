@@ -4,8 +4,8 @@ import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.DeleteActorActivity
 import net.matsudamper.mastodon.rss.activity.UpdateActorActivity
 import net.matsudamper.mastodon.rss.crypto.UuidV7
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
-import net.matsudamper.mastodon.rss.delivery.DeliveryResult
+import net.matsudamper.mastodon.rss.delivery.ActivityQueue
+import net.matsudamper.mastodon.rss.delivery.QueuedActivityKind
 import net.matsudamper.mastodon.rss.entity.ActivityPubId
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
@@ -16,13 +16,13 @@ import org.slf4j.LoggerFactory
 /**
  * アクター情報の更新と削除をフォロワーへ配る。
  *
- * 配信は [net.matsudamper.mastodon.rss.note.NotePublisher] と同じくその場で
- * 1 件ずつ送り、失敗しても再送しない。
+ * 組み立てた `Update` / `Delete` は配信キューに投函する。送るのは配信ワーカーなので、
+ * ここを抜けた時点では誰にも届いていない。
  */
 class ActorPublisher(
     private val notes: NoteStore,
     private val followers: FollowerStore,
-    private val delivery: ActivityDelivery,
+    private val queue: ActivityQueue,
     private val actorKey: ActorKey,
     private val feedLinks: StoredFeedLinks,
     private val profiles: StoredActorProfiles,
@@ -37,7 +37,7 @@ class ActorPublisher(
      * 中身を受け取ると、更新の保存とここの組み立てで別々に同じものを作ることになり、
      * 片方だけ変わったときに相手の表示だけが食い違う。
      */
-    suspend fun update(sender: ActorUrls) {
+    fun update(sender: ActorUrls) {
         val targets = followers.deliveryTargets(sender.username)
         val body = AppJson.encodeToString(
             UpdateActorActivity.serializer(),
@@ -54,17 +54,17 @@ class ActorPublisher(
                     webPages = webPages,
                 ),
             ),
-        ).toByteArray()
+        )
 
-        var delivered = 0
-        targets.forEach { inbox ->
-            when (val result = delivery.deliver(inbox = inbox, sender = sender, body = body)) {
-                is DeliveryResult.Delivered -> delivered++
-                is DeliveryResult.Failed -> logger.warn("配れなかった: ${sender.acct} → $inbox ${result.reason}")
-            }
-        }
+        val queued = queue.enqueue(
+            kind = QueuedActivityKind.UPDATE_ACTOR,
+            sender = sender,
+            inboxes = targets,
+            body = body,
+            notePublicId = null,
+        )
 
-        logger.info("アクターの更新を配った: ${sender.acct} 宛先=${targets.size} 成功=$delivered")
+        logger.info("アクターの更新を投函した: ${sender.acct} 宛先=$queued")
     }
 
     /**
@@ -73,7 +73,7 @@ class ActorPublisher(
      * 配る前に配信先を控えてから、フォロワーと投稿の記録を消す。記録を残したまま配ると、
      * `Delete` を受けた相手が確かめに来たときにまだアクターの中身を返してしまう。
      */
-    suspend fun delete(sender: ActorUrls): DeletedActor {
+    fun delete(sender: ActorUrls): DeletedActor {
         val targets = followers.deliveryTargets(sender.username)
 
         val deletedNotes = notes.deleteByUsername(sender.username)
@@ -89,20 +89,18 @@ class ActorPublisher(
                 to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
                 target = sender.actorId,
             ),
-        ).toByteArray()
+        )
 
-        var delivered = 0
-        targets.forEach { inbox ->
-            when (val result = delivery.deliver(inbox = inbox, sender = sender, body = body)) {
-                is DeliveryResult.Delivered -> delivered++
-
-                // 再送しないので、届かなかったことはここに残っているものが唯一の手がかり
-                is DeliveryResult.Failed -> logger.warn("配れなかった: ${sender.acct} → $inbox ${result.reason}")
-            }
-        }
+        val queued = queue.enqueue(
+            kind = QueuedActivityKind.DELETE_ACTOR,
+            sender = sender,
+            inboxes = targets,
+            body = body,
+            notePublicId = null,
+        )
 
         logger.info(
-            "アクターの削除を配った: ${sender.acct} 宛先=${targets.size} 成功=$delivered " +
+            "アクターの削除を投函した: ${sender.acct} 宛先=$queued " +
                 "消した投稿=$deletedNotes 件 外したフォロワー=$removedFollowers 件",
         )
 
@@ -110,7 +108,6 @@ class ActorPublisher(
             deletedNotes = deletedNotes,
             removedFollowers = removedFollowers,
             targets = targets.size,
-            delivered = delivered,
         )
     }
 }
@@ -118,12 +115,10 @@ class ActorPublisher(
 /**
  * @param deletedNotes 消した投稿の数
  * @param removedFollowers 外したフォロワーの数。`Accept` を返せていないものも含む
- * @param targets `Delete` を送った宛先の数
- * @param delivered そのうち相手が受け取った数
+ * @param targets `Delete` を投函した宛先の数。届いたかどうかは配信ワーカーが決める
  */
 data class DeletedActor(
     val deletedNotes: Int,
     val removedFollowers: Int,
     val targets: Int,
-    val delivered: Int,
 )

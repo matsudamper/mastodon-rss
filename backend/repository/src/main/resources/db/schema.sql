@@ -20,8 +20,8 @@ CREATE TABLE delivery_queue (
     -- こちらから相手の inbox に送る配信の待ち行列。1 行 = 1 宛先への 1 件。
     -- 成功した行は消し、諦めた行だけを failed で残す
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- 何を送るか。いまは投稿の Create（create_note）だけ。Accept や Update{Actor} を
-    -- 載せるときはここに値を増やす。行の形は種別に依らないので作り直さずに済む
+    -- 何を送るか。create_note / accept_follow / delete_note / delete_actor / update_actor。
+    -- 行の形は種別に依らないので、種別を増やしてもテーブルは作り直さずに済む
     kind TEXT NOT NULL,
     -- 署名するこちらのアカウントの名前。followers と同じ理由で外部キーにしない
     username TEXT COLLATE NOCASE NOT NULL,

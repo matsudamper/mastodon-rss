@@ -6,6 +6,7 @@ import java.util.Locale
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.ActivityPost
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
@@ -590,6 +591,7 @@ class FakeDeliveryQueueRepository(
         post.inboxes.forEach { inbox ->
             stored += Row(
                 id = DeliveryId(nextId++),
+                kind = DeliveryKind.CREATE_NOTE,
                 notePublicId = post.note.publicId,
                 username = post.note.username,
                 inbox = inbox,
@@ -611,6 +613,7 @@ class FakeDeliveryQueueRepository(
         post.inboxes.forEach { inbox ->
             stored += Row(
                 id = DeliveryId(nextId++),
+                kind = DeliveryKind.CREATE_NOTE,
                 notePublicId = post.publicId,
                 username = post.username,
                 inbox = inbox,
@@ -623,6 +626,29 @@ class FakeDeliveryQueueRepository(
             )
         }
         return EnqueueNoteResult.Queued(deliveries = post.inboxes.size)
+    }
+
+    override fun enqueueActivity(post: ActivityPost): Int {
+        val notePublicId = post.notePublicId
+        // 本物は外部キーで繋ぐので、消えた投稿を配る行は入らない
+        if (notePublicId != null && notes.find(notePublicId) == null) return 0
+
+        post.inboxes.forEach { inbox ->
+            stored += Row(
+                id = DeliveryId(nextId++),
+                kind = post.kind,
+                notePublicId = notePublicId,
+                username = post.username,
+                inbox = inbox,
+                body = post.body,
+                state = State.PENDING,
+                attempts = 0,
+                nextAttemptAt = post.enqueuedAt,
+                enqueuedAt = post.enqueuedAt,
+                lastError = null,
+            )
+        }
+        return post.inboxes.size
     }
 
     override fun claim(
@@ -639,7 +665,7 @@ class FakeDeliveryQueueRepository(
             val current = checkNotNull(find(row.id))
             ClaimedDelivery(
                 id = current.id,
-                kind = DeliveryKind.CREATE_NOTE,
+                kind = current.kind,
                 username = current.username,
                 inbox = current.inbox,
                 body = checkNotNull(current.body),
@@ -752,7 +778,8 @@ class FakeDeliveryQueueRepository(
 
     data class Row(
         val id: DeliveryId,
-        val notePublicId: PublicNoteId,
+        val kind: DeliveryKind,
+        val notePublicId: PublicNoteId?,
         val username: String,
         val inbox: String,
         val body: String?,

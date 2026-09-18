@@ -30,6 +30,19 @@ class ActorDirectory(
         return ActorUrls(domain = domain, username = found)
     }
 
+    /**
+     * 保存されていない名前からも URL を組み立てる。
+     *
+     * アカウントを消したことを配る `Delete{Actor}` の署名にだけ使う。行は配るより先に
+     * 消えているので、引き当てに頼ると送る前に諦めることになる。
+     * 名前の形だけは確かめる。`test-1/inbox` のようなものから keyId を作らせない。
+     */
+    fun resolveRemoved(username: String): ActorUrls? {
+        if (!ActorUsernameUtil.isValid(username)) return null
+
+        return ActorUrls(domain = domain, username = username)
+    }
+
     fun resolve(usernames: Set<String>): Map<String, ActorUrls> {
         if (usernames.isEmpty()) return emptyMap()
         val candidates = usernames.filter { it.isNotEmpty() && ActorUsernameUtil.isValid(it) }

@@ -7,7 +7,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
-import net.matsudamper.mastodon.rss.TestDelivery
+import net.matsudamper.mastodon.rss.TestActivityQueue
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
@@ -19,7 +19,7 @@ import net.matsudamper.mastodon.rss.json.AppJson
 class NotePublisherTest {
     private val sender = TestLocalActor.urls
 
-    private fun publisher(): NotePublisher = NotePublisher(FakeNoteStore(), FakeFollowerStore(), TestDelivery(), TestWebPageUrls)
+    private fun publisher(): NotePublisher = NotePublisher(FakeNoteStore(), FakeFollowerStore(), TestActivityQueue(), TestWebPageUrls)
 
     @Test
     fun `Create に包んだ Note を組み立てる`() {
@@ -51,15 +51,15 @@ class NotePublisherTest {
     }
 
     @Test
-    fun `組み立てるだけで記録も配信もしない`() {
+    fun `組み立てるだけで記録も投函もしない`() {
         val notes = FakeNoteStore()
-        val delivery = TestDelivery()
-        val publisher = NotePublisher(notes, FakeFollowerStore(), delivery, TestWebPageUrls)
+        val queue = TestActivityQueue()
+        val publisher = NotePublisher(notes, FakeFollowerStore(), queue, TestWebPageUrls)
 
         publisher.prepare(sender, "<p>本文</p>")
 
         assertTrue(notes.added.isEmpty())
-        assertTrue(delivery.delivered.isEmpty())
+        assertTrue(queue.queued.isEmpty())
     }
 
     @Test

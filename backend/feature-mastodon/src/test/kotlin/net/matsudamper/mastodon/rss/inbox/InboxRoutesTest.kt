@@ -4,8 +4,6 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.client.request.get
@@ -19,13 +17,13 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
-import net.matsudamper.mastodon.rss.TestDelivery
+import net.matsudamper.mastodon.rss.TestActivityQueue
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.delivery.ActivityQueue
 import net.matsudamper.mastodon.rss.httpsignature.TestSigning
 import net.matsudamper.mastodon.rss.json.AppJson
 
@@ -50,7 +48,7 @@ class InboxRoutesTest {
 
     private fun ApplicationTestBuilder.installModule(
         remoteActors: RemoteActors = TestRemoteActor.remoteActors(),
-        delivery: ActivityDelivery = TestDelivery(),
+        queue: ActivityQueue = TestActivityQueue(),
     ) {
         application {
             routing {
@@ -58,10 +56,9 @@ class InboxRoutesTest {
                     directory = TestLocalActor.directory,
                     service = InboxService.default(
                         remoteActors = remoteActors,
-                        delivery = delivery,
+                        queue = queue,
                         followers = FakeFollowerStore(),
                         notes = FakeNoteStore(),
-                        backfillScope = CoroutineScope(Dispatchers.Unconfined),
                         webPages = TestWebPageUrls,
                     ),
                 )
@@ -202,14 +199,14 @@ class InboxRoutesTest {
         }
 
     @Test
-    fun `Follow を受けたら相手の inbox に Accept を返す`() =
+    fun `Follow を受けたら相手の inbox 宛に Accept を投函する`() =
         testApplication {
-            val delivery = TestDelivery()
-            installModule(delivery = delivery)
+            val queue = TestActivityQueue()
+            installModule(queue = queue)
 
             postInbox(body = follow())
 
-            val sent = delivery.delivered.single()
+            val sent = queue.queued.single()
             assertEquals(TestRemoteActor.INBOX, sent.inbox)
             assertEquals(fixedActor, sent.sender.actorId)
 
@@ -226,14 +223,14 @@ class InboxRoutesTest {
     @Test
     fun `Accept の id はアクターごとに一意になる`() =
         testApplication {
-            val delivery = TestDelivery()
-            installModule(delivery = delivery)
+            val queue = TestActivityQueue()
+            installModule(queue = queue)
 
             postInbox(body = follow())
             postInbox(body = follow())
 
             val ids =
-                delivery.delivered.map {
+                queue.queued.map {
                     (AppJson.parseToJsonElement(it.body) as JsonObject)["id"]?.jsonPrimitive?.content
                 }
 
@@ -245,21 +242,21 @@ class InboxRoutesTest {
     @Test
     fun `宛先の違う Follow には Accept を返さない`() =
         testApplication {
-            val delivery = TestDelivery()
-            installModule(delivery = delivery)
+            val queue = TestActivityQueue()
+            installModule(queue = queue)
 
             // 署名も actor も正しいが、フォローしようとしている相手が別のアクター
             val response = postInbox(body = follow(target = "https://${TestLocalActor.DOMAIN}/users/other"))
 
             assertEquals(HttpStatusCode.Accepted, response.status)
-            assertTrue(delivery.delivered.isEmpty(), "${delivery.delivered}")
+            assertTrue(queue.queued.isEmpty(), "${queue.queued}")
         }
 
     @Test
     fun `Follow 以外には Accept を返さない`() =
         testApplication {
-            val delivery = TestDelivery()
-            installModule(delivery = delivery)
+            val queue = TestActivityQueue()
+            installModule(queue = queue)
 
             val undo =
                 """
@@ -270,20 +267,20 @@ class InboxRoutesTest {
             val response = postInbox(body = undo)
 
             assertEquals(HttpStatusCode.Accepted, response.status)
-            assertTrue(delivery.delivered.isEmpty(), "${delivery.delivered}")
+            assertTrue(queue.queued.isEmpty(), "${queue.queued}")
         }
 
     @Test
     fun `相手の inbox を引けなくても202で返す`() =
         testApplication {
-            val delivery = TestDelivery()
+            val queue = TestActivityQueue()
             // 鍵は引けるが inbox が分からない相手
-            installModule(remoteActors = TestRemoteActor.remoteActors(inbox = null), delivery = delivery)
+            installModule(remoteActors = TestRemoteActor.remoteActors(inbox = null), queue = queue)
 
             val response = postInbox(body = follow())
 
             // 送れなかったことを 5xx で伝えると、相手は同じ Follow を送り直し続ける
             assertEquals(HttpStatusCode.Accepted, response.status)
-            assertTrue(delivery.delivered.isEmpty(), "${delivery.delivered}")
+            assertTrue(queue.queued.isEmpty(), "${queue.queued}")
         }
 }

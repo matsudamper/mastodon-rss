@@ -26,6 +26,7 @@ import net.matsudamper.mastodon.rss.actor.StoredActorProfiles
 import net.matsudamper.mastodon.rss.actor.StoredFeedLinks
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.delivery.ActivityQueue
 import net.matsudamper.mastodon.rss.delivery.DeliveryRetryPolicy
 import net.matsudamper.mastodon.rss.delivery.DeliveryWorker
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
@@ -44,6 +45,7 @@ import net.matsudamper.mastodon.rss.logic.FeedIconStore
 import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
+import net.matsudamper.mastodon.rss.logic.RepositoryActivityQueue
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
 import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
@@ -117,6 +119,11 @@ class AppDependencies(
 
     val noteStore: NoteStore = RepositoryNoteStore(repositories.notes)
 
+    val activityQueue: ActivityQueue = RepositoryActivityQueue(
+        deliveryQueue = repositories.deliveryQueue,
+        clock = Instant::now,
+    )
+
     // 毎回引き直す。持ち回すと、追加したアカウントが引けるようになるまで間が空く
     val directory: ActorDirectory = ActorDirectory(
         domain = env.domain,
@@ -174,33 +181,24 @@ class AppDependencies(
     val actorProfiles: StoredActorProfiles = RepositoryActorProfiles(repositories.accounts)
 
     /**
-     * フォロー成立後に過去の投稿を配る間、inbox の応答を待たせないためのスコープ。
-     *
-     * 配り終える前にプロセスが落ちたら、その分は届かない。フォロー自体は
-     * 成立しているので、次の新着からは普通に届く
-     */
-    private val followBackfillScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    /**
      * inbox が受け取ったアクティビティの検証と振り分け。
      *
      * 何をどう組み合わせるかは ActivityPub 側の話なので
      * [InboxService.default] に任せる。ここで決めるのは、その材料になる
-     * [remoteActors] と [delivery] を本番のものにするかフェイクにするかだけ。
+     * [remoteActors] を本番のものにするかフェイクにするかだけ。
      */
     val inboxService: InboxService = InboxService.default(
         remoteActors = remoteActors,
-        delivery = delivery,
+        queue = activityQueue,
         followers = followerStore,
         notes = noteStore,
-        backfillScope = followBackfillScope,
         webPages = webPageUrls,
     )
 
     val notePublisher: NotePublisher = NotePublisher(
         notes = noteStore,
         followers = followerStore,
-        delivery = delivery,
+        queue = activityQueue,
         webPages = webPageUrls,
     )
 
@@ -213,7 +211,7 @@ class AppDependencies(
     val actorPublisher: ActorPublisher = ActorPublisher(
         notes = noteStore,
         followers = followerStore,
-        delivery = delivery,
+        queue = activityQueue,
         actorKey = actorKey,
         feedLinks = feedLinks,
         profiles = actorProfiles,

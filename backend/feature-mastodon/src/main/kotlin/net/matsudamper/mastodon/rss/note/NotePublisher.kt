@@ -6,8 +6,8 @@ import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.activity.DeleteNoteActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.crypto.UuidV7
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
-import net.matsudamper.mastodon.rss.delivery.DeliveryResult
+import net.matsudamper.mastodon.rss.delivery.ActivityQueue
+import net.matsudamper.mastodon.rss.delivery.QueuedActivityKind
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
@@ -15,19 +15,19 @@ import net.matsudamper.mastodon.rss.url.WebPageUrls
 import org.slf4j.LoggerFactory
 
 /**
- * 投稿の `Create{Note}` を組み立てる（[prepare] / [prepareRecorded]）。投稿の削除はその場で配る（[delete]）。
+ * 投稿の `Create{Note}` を組み立てる（[prepare] / [prepareRecorded]）。投稿の削除は配信キューに投函する（[delete]）。
  *
  * [prepare] は DB も触らず HTTP も出さない。記録と投函は `:backend` が repository の
  * 投函の口で 1 トランザクションにまとめる。記録と配信をここで続けて行うと、
  * 記事の投稿済み化と別々に確定して、途中で落ちたときに同じ記事を二重に投稿する。
  *
- * [delete] はまだキューに載せていない。載せているのは投稿だけで、削除は
- * 管理画面からの操作でしか起きないため。失敗しても再送はしないのでログに残るだけ。
+ * [delete] は組み立てと投函の両方を行う。投稿の記録を消すのと同じ順序で決まるので、
+ * `Create` のように呼び出し側に組み立てだけを返すと、順序を外から間違えられる。
  */
 class NotePublisher(
     private val notes: NoteStore,
     private val followers: FollowerStore,
-    private val delivery: ActivityDelivery,
+    private val queue: ActivityQueue,
     private val webPages: WebPageUrls?,
 ) {
     private val logger = LoggerFactory.getLogger(NotePublisher::class.java)
@@ -92,14 +92,12 @@ class NotePublisher(
     /**
      * 投稿を消して、消したことをフォロワーに配る。
      *
-     * 記録を先に消す。配信が先だと、`Delete` を受け取った相手が確かめに来たときに
-     * まだ本文を返してしまう。
-     *
-     * 配れなかった相手のタイムラインには投稿が残る。削除はキューに載せていないので送り直さない。
+     * 記録を先に消す。投函が先だと、`Delete` を受け取った相手が確かめに来たときに
+     * まだ本文を返してしまう。記録を消すと、まだ配っていない `Create` も一緒に消える。
      *
      * @return 記録が無ければ null
      */
-    suspend fun delete(
+    fun delete(
         sender: ActorUrls,
         publicId: PublicNoteId,
     ): DeletedNote? {
@@ -110,47 +108,24 @@ class NotePublisher(
         val urls = NoteUrls(domain = sender.domain, publicId = publicId)
         notes.delete(publicId)
 
-        val activityBodyBytes = AppJson.encodeToString(
+        val body = AppJson.encodeToString(
             DeleteNoteActivity.serializer(),
             deleteActivity(sender = sender, urls = urls),
-        ).toByteArray()
-
-        val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
-
-        logger.info(
-            "投稿の削除を配った: ${sender.acct} $publicId 宛先=${result.deliveryAttemptCount} 成功=${result.delivered}",
         )
+
+        // 投稿は既に消えているので、行は投稿に繋がない。繋ぐと外部キーで入らない
+        val queued = queue.enqueue(
+            kind = QueuedActivityKind.DELETE_NOTE,
+            sender = sender,
+            inboxes = followers.deliveryTargets(sender.username),
+            body = body,
+            notePublicId = null,
+        )
+
+        logger.info("投稿の削除を投函した: ${sender.acct} $publicId 宛先=$queued")
 
         return DeletedNote(publicId = publicId)
     }
-
-    private suspend fun deliverToFollowers(
-        sender: ActorUrls,
-        body: ByteArray,
-    ): DeliveryCount {
-        val deliveryInboxes = followers.deliveryTargets(sender.username)
-        var delivered = 0
-
-        deliveryInboxes.forEach { inbox ->
-            when (val result = delivery.deliver(inbox = inbox, sender = sender, body = body)) {
-                is DeliveryResult.Delivered -> {
-                    delivered++
-                }
-
-                is DeliveryResult.Failed -> {
-                    // 再送しないので、届かなかったことはここに残っているものが唯一の手がかり
-                    logger.warn("配れなかった: ${sender.acct} → $inbox ${result.reason}")
-                }
-            }
-        }
-
-        return DeliveryCount(deliveryAttemptCount = deliveryInboxes.size, delivered = delivered)
-    }
-
-    private data class DeliveryCount(
-        val deliveryAttemptCount: Int,
-        val delivered: Int,
-    )
 
     private fun deleteActivity(
         sender: ActorUrls,

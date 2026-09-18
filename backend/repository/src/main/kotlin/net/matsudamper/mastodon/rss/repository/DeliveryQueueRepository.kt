@@ -43,6 +43,19 @@ interface DeliveryQueueRepository {
     fun requeueNote(post: RecordedNotePost): EnqueueNoteResult
 
     /**
+     * 投稿を新しく作らない配信を、宛先ごとに投函する。
+     *
+     * `Accept{Follow}` や `Delete{Actor}` のように、送る中身が既に決まっていて
+     * `notes` にも `feed_items` にも書かないものが通る。
+     *
+     * [ActivityPost.notePublicId] を渡すと、その投稿がある場合だけ投函する。
+     * 消えていれば 1 行も書かない。フォロー成立後に過去の投稿を配るときに使う。
+     *
+     * @return 投函した行の数。投稿が消えていて何も書かなかったなら 0
+     */
+    fun enqueueActivity(post: ActivityPost): Int
+
+    /**
      * 送る時刻を過ぎた `pending` を `delivering` にして返す。宛先のホストごとに 1 件まで。
      *
      * 送る時刻が古いホストから順に選ぶ。行を古い順に選ぶと、送れないホスト宛が溜まった分だけ
@@ -182,6 +195,26 @@ data class RecordedNotePost(
     val feedItemId: FeedItemId,
 )
 
+/**
+ * 投函する、投稿を新しく作らない配信。
+ *
+ * @param kind 何を送る行か
+ * @param username 署名するこちらのアカウントの名前
+ * @param body 署名対象になる JSON。宛先ごとに同じものを送る
+ * @param inboxes 宛先。同じ宛先は 1 つにまとめてから渡すこと
+ * @param enqueuedAt 投函した時刻。最初の 1 回はこの時刻にすぐ送る
+ * @param notePublicId 記録済みの投稿を配るなら、その投稿。投稿を消したら未配信の行も
+ *   一緒に消える。投稿を伴わない種別では null
+ */
+data class ActivityPost(
+    val kind: DeliveryKind,
+    val username: String,
+    val body: String,
+    val inboxes: List<String>,
+    val enqueuedAt: Instant,
+    val notePublicId: PublicNoteId?,
+)
+
 sealed interface EnqueueNoteResult {
     /**
      * @param deliveries 投函した配信の数。宛先の数と同じ
@@ -204,6 +237,26 @@ enum class DeliveryKind {
      * 投稿を包んだ `Create`
      */
     CREATE_NOTE,
+
+    /**
+     * `Follow` を受理した `Accept`
+     */
+    ACCEPT_FOLLOW,
+
+    /**
+     * 投稿を消した `Delete`
+     */
+    DELETE_NOTE,
+
+    /**
+     * アクターを消した `Delete`。配る時点でアカウントの行は消えている
+     */
+    DELETE_ACTOR,
+
+    /**
+     * アクター情報を更新した `Update`
+     */
+    UPDATE_ACTOR,
 }
 
 /**

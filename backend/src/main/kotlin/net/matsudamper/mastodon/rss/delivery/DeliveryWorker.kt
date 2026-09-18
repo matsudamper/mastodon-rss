@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
+import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import org.slf4j.LoggerFactory
 
@@ -106,7 +107,7 @@ class DeliveryWorker(
      */
     private suspend fun deliverOne(row: ClaimedDelivery) {
         try {
-            val sender = directory.resolve(row.username)
+            val sender = resolveSender(row)
             if (sender == null) {
                 queue.giveUp(row.id, "アカウントが無い: ${row.username}")
                 logger.warn("配信を諦めた: アカウントが無い ${row.username} → ${row.inbox}")
@@ -159,6 +160,23 @@ class DeliveryWorker(
             releaseToRetry(row, "結果を記録できなかった: ${e.message}")
         }
     }
+
+    /**
+     * 署名するアクターを引く。
+     *
+     * `Delete{Actor}` はアカウントの行を消した後に配るので、引き当てに頼ると送れない。
+     * 他の種別では引き当てに通す。通さないと、消して同じ名前で作り直したときに
+     * 消しそこねた行が新しいアカウントとして配られる
+     */
+    private fun resolveSender(row: ClaimedDelivery) =
+        when (row.kind) {
+            DeliveryKind.DELETE_ACTOR -> directory.resolveRemoved(row.username)
+            DeliveryKind.CREATE_NOTE,
+            DeliveryKind.ACCEPT_FOLLOW,
+            DeliveryKind.DELETE_NOTE,
+            DeliveryKind.UPDATE_ACTOR,
+            -> directory.resolve(row.username)
+        }
 
     /**
      * 記録に失敗した行を送り直し待ちに戻す。ここでも落ちたら諦めて delivering のまま残す

@@ -9,7 +9,7 @@ import kotlin.test.assertNotNull
 import kotlinx.coroutines.test.runTest
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestActorKey
-import net.matsudamper.mastodon.rss.TestDelivery
+import net.matsudamper.mastodon.rss.TestActivityQueue
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
@@ -40,7 +40,7 @@ class AccountServiceProfileTest {
         actorPublisher = ActorPublisher(
             notes = RepositoryNoteStore(repositories.notes),
             followers = RepositoryFollowerStore(repositories.followers),
-            delivery = TestDelivery(),
+            queue = TestActivityQueue(),
             actorKey = TestActorKey.value,
             feedLinks = RepositoryFeedLinks(
                 accounts = repositories.accounts,

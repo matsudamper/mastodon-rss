@@ -4,9 +4,7 @@ import java.time.Instant
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activity.OutgoingActivity
@@ -14,8 +12,8 @@ import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
 import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
-import net.matsudamper.mastodon.rss.delivery.DeliveryResult
+import net.matsudamper.mastodon.rss.delivery.ActivityQueue
+import net.matsudamper.mastodon.rss.delivery.QueuedActivityKind
 import net.matsudamper.mastodon.rss.follower.FollowAcceptResult
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
@@ -29,24 +27,22 @@ import org.slf4j.LoggerFactory
  * こちらが `Accept` を相手の inbox に返して初めて確定する。返さないと
  * Mastodon の画面ではフォローボタンが保留のまま戻らない。
  *
- * 送信は inbox の応答を返す前に行う。配信キューが無いので、ここで送らないと
- * 送る機会が無い。相手のサーバーが応答しない場合に備えて、
- * HTTP クライアント側にタイムアウトを入れてある。
+ * `Accept` は配信キューに投函する。ここで送らずに済むので、相手のサーバーが遅くても
+ * inbox の応答は待たされない。送れなかった分は配信ワーカーが送り直す。
  *
- * 記録してから `Accept` を返す。逆にすると、記録に失敗したときに相手だけが
+ * 記録してから `Accept` を投函する。逆にすると、記録に失敗したときに相手だけが
  * フォローできたつもりになり、こちらには送り先が残らない。記録できなければ
- * `Accept` も返さないので、相手からは保留のまま見える。
+ * `Accept` も投函しないので、相手からは保留のまま見える。
  *
  * 初めて成立したときだけ、フォローより前の投稿を新しいフォロワーにだけ配る。詳しくは
  * [net.matsudamper.mastodon.rss.note.FollowBackfillPublisher] にある。
- * 送るのは inbox の応答を返した後で、こちらの応答を待たせない。
+ * 投函は `Accept` の後に行う。同じ宛先へは投函した順に送られる。
  */
 class FollowHandler(
     private val remoteActors: RemoteActors,
-    private val delivery: ActivityDelivery,
+    private val queue: ActivityQueue,
     private val followers: FollowerStore,
     private val backfill: FollowBackfillPublisher,
-    private val backfillScope: CoroutineScope,
 ) : InboxActivityHandler {
     override val type: String = "Follow"
 
@@ -92,7 +88,7 @@ class FollowHandler(
         }
         if (recorded.isFailure) {
             logger.warn(
-                "Follow を記録できなかったので Accept を返さない: ${recipient.acct} ← $verifiedSignerActorId",
+                "Follow を記録できなかったので Accept を投函しない: ${recipient.acct} ← $verifiedSignerActorId",
                 recorded.exceptionOrNull(),
             )
             return
@@ -106,65 +102,66 @@ class FollowHandler(
                 target = LinkOrObject.Embedded(rawActivityJson),
             )
 
-        val serializedAcceptBody = AppJson.encodeToString(OutgoingActivity.serializer(), accept).toByteArray()
+        val enqueued = runCatching {
+            queue.enqueue(
+                kind = QueuedActivityKind.ACCEPT_FOLLOW,
+                sender = recipient,
+                inboxes = listOf(follower.inbox),
+                body = AppJson.encodeToString(OutgoingActivity.serializer(), accept),
+                notePublicId = null,
+            )
+        }
+        if (enqueued.isFailure) {
+            // 相手から見るとフォローが保留のまま残る。記録は残るが `Accept` 前の状態なので
+            // フォロワーには数えない。相手が `Follow` を送り直せばやり直しになる
+            logger.warn(
+                "Follow に Accept を投函できなかった: ${recipient.acct} ← $verifiedSignerActorId",
+                enqueued.exceptionOrNull(),
+            )
+            return
+        }
 
-        when (val result = delivery.deliver(inbox = follower.inbox, sender = recipient, body = serializedAcceptBody)) {
-            is DeliveryResult.Delivered -> {
-                val accepted = markAccepted(
-                    recipient = recipient,
-                    verifiedSignerActorId = verifiedSignerActorId,
-                    acceptedAt = Instant.now(),
-                )
+        // 投函できた時点でフォロワーとして数える。送れたかどうかは配信ワーカーが決めるので、
+        // ここで待つと inbox の応答が相手のタイムアウトに掛かる
+        val accepted = markAccepted(
+            recipient = recipient,
+            verifiedSignerActorId = verifiedSignerActorId,
+            acceptedAt = Instant.now(),
+        )
 
-                logger.info("Follow に Accept を返した: ${recipient.acct} ← $verifiedSignerActorId")
+        logger.info("Follow に Accept を投函した: ${recipient.acct} ← $verifiedSignerActorId")
 
-                // 送り直しでは配らない。相手のタイムラインには既に並んでいて、
-                // 同じものをもう一度署名付きで送りつけるだけになる
-                if (accepted == FollowAcceptResult.FirstAccept) {
-                    // 通常の配信はフォロワーとして数えられてから始まるので、境目は
-                    // 記録が済んだ後に取る。先に取ると、記録を待っている間の投稿が
-                    // どちらからも漏れる。境目が重なって二重に送っても、
-                    // 同じ id なので相手側で落ちる
-                    val backfillUntil = Instant.now()
+        // 送り直しでは配らない。相手のタイムラインには既に並んでいて、
+        // 同じものをもう一度署名付きで送りつけるだけになる
+        if (accepted != FollowAcceptResult.FirstAccept) return
 
-                    // inbox の応答を待たせない。最大 5 件を順に送るので、
-                    // ここで待つと相手のタイムアウトと Follow の再送を招く
-                    backfillScope.launch {
-                        runCatching {
-                            backfill.deliverRecentNotes(
-                                sender = recipient,
-                                inbox = follower.inbox,
-                                publishedBefore = backfillUntil,
-                            )
-                        }.onFailure { failure ->
-                            logger.warn(
-                                "過去の投稿を配れなかった: ${recipient.acct} → $verifiedSignerActorId",
-                                failure,
-                            )
-                        }
-                    }
-                }
-            }
+        // 通常の配信はフォロワーとして数えられてから始まるので、境目は
+        // 記録が済んだ後に取る。先に取ると、記録を待っている間の投稿が
+        // どちらからも漏れる。境目が重なって二重に投函しても、
+        // 同じ id なので相手側で落ちる
+        val backfillUntil = Instant.now()
 
-            is DeliveryResult.Failed -> {
-                // 相手から見るとフォローが保留のまま残る。再送はしないので、
-                // 何が起きたのかはここに残っているものが唯一の手がかりになる。
-                // 記録は残るが `Accept` 前の状態なのでフォロワーには数えない
-                logger.warn("Follow に Accept を返せなかった: ${recipient.acct} ← $verifiedSignerActorId ${result.reason}")
-            }
+        runCatching {
+            backfill.enqueueRecentNotes(
+                sender = recipient,
+                inbox = follower.inbox,
+                publishedBefore = backfillUntil,
+            )
+        }.onFailure { failure ->
+            // 配れなくてもフォローは成立している。次の新着からは普通に届く
+            logger.warn("過去の投稿を投函できなかった: ${recipient.acct} → $verifiedSignerActorId", failure)
         }
     }
 
     /**
-     * `Accept` を返せたことを記録する。
+     * `Accept` を投函できたことを記録する。
      *
-     * ここまで来た時点で相手はフォローできたつもりなので、`Follow` は送り直されない。
+     * 投函した時点で相手には `Accept` が届く前提になり、`Follow` は送り直されない。
      * 記録に失敗したまま終えると、相手の画面ではフォロー中なのに投稿が 1 つも
      * 届かない状態が残り続ける。書き込みが一時的に通らないだけのこともあるので、
      * 何度か試してから諦める。
      *
      * 諦めた場合に直す手立ては無いので、運用者が気付けるようにログに残す。
-     * 取りこぼしを溜めて後から流す仕組みは、配信キューを入れるときに一緒に考える。
      *
      * @return 記録できなかった場合は [FollowAcceptResult.NotFound]
      */
@@ -183,7 +180,7 @@ class FollowHandler(
             } catch (e: Exception) {
                 if (attempt == MARK_ACCEPTED_ATTEMPTS - 1) {
                     logger.error(
-                        "Accept は返せたがフォロワーとして記録できなかった。" +
+                        "Accept は投函できたがフォロワーとして記録できなかった。" +
                             "相手にはフォロー中と見えるが投稿は届かない: ${recipient.acct} ← $verifiedSignerActorId",
                         e,
                     )
@@ -196,7 +193,7 @@ class FollowHandler(
 
             if (attempt == MARK_ACCEPTED_ATTEMPTS - 1) {
                 logger.error(
-                    "Accept は返せたがフォロワーとして記録できなかった。" +
+                    "Accept は投函できたがフォロワーとして記録できなかった。" +
                         "相手にはフォロー中と見えるが投稿は届かない: ${recipient.acct} ← $verifiedSignerActorId",
                 )
             } else {

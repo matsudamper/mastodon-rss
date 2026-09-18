@@ -1,11 +1,10 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
-import kotlinx.coroutines.sync.Semaphore
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
-import net.matsudamper.mastodon.rss.delivery.DeliveryResult
+import net.matsudamper.mastodon.rss.delivery.ActivityQueue
+import net.matsudamper.mastodon.rss.delivery.QueuedActivityKind
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.url.WebPageUrls
@@ -22,24 +21,19 @@ import org.slf4j.LoggerFactory
  * `Create.id` と `Note.id` と `published` は初回配信と一致する。相手はこの id で
  * 重複を判断するので、既に持っている投稿を二重に並べずに済む。
  *
- * 古い順に送る。相手は受け取り順ではなく `published` で並べるが、
- * 途中で失敗したときに新しい方から欠けるより、古い方から欠ける方が読める形になる。
+ * 古い順に投函する。相手は受け取り順ではなく `published` で並べるが、
+ * 同じホスト宛は投函した順に 1 件ずつ送られるので、途中で止まったときに
+ * 新しい方から欠けるより古い方から欠ける方が読める形になる。
+ *
+ * 投函は `Accept` の後に行う。先に届いた `Create` は、フォローが成立していない相手からの
+ * ものとして相手のタイムラインに入らない。
  */
 class FollowBackfillPublisher(
     private val notes: NoteStore,
-    private val delivery: ActivityDelivery,
+    private val queue: ActivityQueue,
     private val webPages: WebPageUrls?,
 ) {
     private val logger = LoggerFactory.getLogger(FollowBackfillPublisher::class.java)
-
-    /**
-     * 同時に走る配信の数。
-     *
-     * 署名を作れる相手なら、別々のアクターから `Follow` を並べて送るだけで
-     * この配信を好きなだけ起こせる。空きが無ければ配らない。待ち行列にすると、
-     * 送りつけられた分がそのまま溜まって同じことになる
-     */
-    private val running = Semaphore(permits = MAX_CONCURRENT_BACKFILLS)
 
     /**
      * @param inbox 新しいフォロワーの inbox。`sharedInbox` は使わない。
@@ -47,25 +41,7 @@ class FollowBackfillPublisher(
      * @param publishedBefore フォローが成立した時刻。これ以降の投稿は通常の配信で
      *   届くので送らない。含めると、その分だけフォロー前の投稿が上限から押し出される
      */
-    suspend fun deliverRecentNotes(
-        sender: ActorUrls,
-        inbox: String,
-        publishedBefore: Instant,
-    ) {
-        if (!running.tryAcquire()) {
-            // 配れなくてもフォローは成立している。次の新着からは普通に届く
-            logger.warn("過去の投稿を配る余裕が無いので諦めた: ${sender.acct} → $inbox")
-            return
-        }
-
-        try {
-            deliver(sender = sender, inbox = inbox, publishedBefore = publishedBefore)
-        } finally {
-            running.release()
-        }
-    }
-
-    private suspend fun deliver(
+    fun enqueueRecentNotes(
         sender: ActorUrls,
         inbox: String,
         publishedBefore: Instant,
@@ -80,29 +56,25 @@ class FollowBackfillPublisher(
         )
         if (recentNotes.isEmpty()) return
 
-        var delivered = 0
+        var queued = 0
         recentNotes.reversed().forEach { note ->
-            // 送っている間に管理画面から消されることがある。消えた投稿を送ると、
-            // 相手には `Delete` の後から `Create` が届いて消したものが戻る
-            if (notes.find(note.publicId) == null) return@forEach
-
             val body = AppJson.encodeToString(
                 CreateNoteActivity.serializer(),
                 CreateNoteActivityFactory.create(sender = sender, note = note, webPages = webPages),
-            ).toByteArray()
+            )
 
-            when (val result = delivery.deliver(inbox = inbox, sender = sender, body = body)) {
-                is DeliveryResult.Delivered -> delivered++
-
-                is DeliveryResult.Failed -> {
-                    // 再送はしない。届かなくてもフォロー自体は成立しているので、
-                    // 次の新着からは普通に届く
-                    logger.warn("過去の投稿を配れなかった: ${sender.acct} → $inbox ${note.publicId} ${result.reason}")
-                }
-            }
+            // 投函した行を投稿に繋ぐ。投函から送るまでの間に管理画面から消されても、
+            // 行ごと消えて送られない。送ると、相手には `Delete` の後から `Create` が届く
+            queued += queue.enqueue(
+                kind = QueuedActivityKind.CREATE_NOTE,
+                sender = sender,
+                inboxes = listOf(inbox),
+                body = body,
+                notePublicId = note.publicId,
+            )
         }
 
-        logger.info("フォローされたので過去の投稿を配った: ${sender.acct} → $inbox 宛先=${recentNotes.size} 成功=$delivered")
+        logger.info("フォローされたので過去の投稿を投函した: ${sender.acct} → $inbox 投函=$queued/${recentNotes.size}")
     }
 
     private companion object {
@@ -114,11 +86,5 @@ class FollowBackfillPublisher(
          * タイムラインが埋まる程度の件数にする
          */
         const val BACKFILL_LIMIT: Int = 5
-
-        /**
-         * 同時に走らせる数。通常のフォローは重ならないので、
-         * 並べて送られたときに外向きの HTTP が際限なく増えないことだけを見る
-         */
-        const val MAX_CONCURRENT_BACKFILLS: Int = 2
     }
 }

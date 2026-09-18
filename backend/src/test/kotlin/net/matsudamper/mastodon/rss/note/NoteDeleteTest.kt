@@ -9,7 +9,7 @@ import kotlin.test.assertNull
 import kotlinx.coroutines.runBlocking
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeRepositories
-import net.matsudamper.mastodon.rss.TestDelivery
+import net.matsudamper.mastodon.rss.TestActivityQueue
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActor
@@ -18,17 +18,17 @@ import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
 import net.matsudamper.mastodon.rss.repository.Note
 
-// 削除はキューに載せずその場で配る。管理画面はこの経路を直に呼ぶ
+// 削除も配信キューに投函する。管理画面はこの経路を直に呼ぶ
 class NoteDeleteTest {
     private val repositories = FakeRepositories()
 
     private val notes = RepositoryNoteStore(repositories.notes)
 
-    private val delivery = TestDelivery()
+    private val queue = TestActivityQueue()
 
     private val followers = FakeFollowerStore()
 
-    private val publisher = NotePublisher(notes, followers, delivery, TestWebPageUrls)
+    private val publisher = NotePublisher(notes, followers, queue, TestWebPageUrls)
 
     private val enqueuer = NoteEnqueuer(
         publisher = publisher,
@@ -39,7 +39,7 @@ class NoteDeleteTest {
     private fun added(): List<Note> = repositories.notes.all()
 
     @Test
-    fun `投稿を消すと記録が消え Delete を配る`() = runBlocking {
+    fun `投稿を消すと記録が消え Delete を投函する`() = runBlocking {
         val follower = RemoteActor(
             actorId = "https://remote.example/users/follower",
             inbox = "https://remote.example/users/follower/inbox",
@@ -65,7 +65,7 @@ class NoteDeleteTest {
         assertEquals(emptyList(), added())
 
         // 消したことは配って初めて伝わる。届かないとフォロワーのタイムラインに残る
-        val body = delivery.delivered.last().body
+        val body = queue.queued.last().body
         assertContains(body, """"type":"Delete"""")
         assertContains(body, """"type":"Tombstone"""")
         assertContains(body, queued.url)

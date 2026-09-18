@@ -21,7 +21,7 @@ import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.FakeStoredActorNames
 import net.matsudamper.mastodon.rss.TestActorPublisher
-import net.matsudamper.mastodon.rss.TestDelivery
+import net.matsudamper.mastodon.rss.TestActivityQueue
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
@@ -1009,17 +1009,17 @@ class FeedServiceTest {
             val repositories = FakeRepositories()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
             val followers = acceptedFollowerStore()
-            val delivery = TestDelivery()
+            val queue = TestActivityQueue()
             val service = serviceOf(
                 repositories,
                 icons = FakeFeedIcons().apply { changed = true },
                 followers = followers,
-                delivery = delivery,
+                queue = queue,
             )
 
             service.save(accountId = account.id, url = FEED_URL)
 
-            val update = assertNotNull(delivery.delivered.singleOrNull())
+            val update = assertNotNull(queue.queued.singleOrNull())
             assertEquals(FOLLOWER_INBOX, update.inbox)
             assertContains(update.body, "\"type\":\"Update\"")
         }
@@ -1029,16 +1029,16 @@ class FeedServiceTest {
         runTest {
             val repositories = FakeRepositories()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val delivery = TestDelivery()
+            val queue = TestActivityQueue()
             val service = serviceOf(
                 repositories,
                 followers = acceptedFollowerStore(),
-                delivery = delivery,
+                queue = queue,
             )
 
             service.save(accountId = account.id, url = FEED_URL)
 
-            assertEquals(emptyList(), delivery.delivered)
+            assertEquals(emptyList(), queue.queued)
         }
 
     /**
@@ -1077,7 +1077,7 @@ class FeedServiceTest {
         noteStore: NoteStore = FakeNoteStore(),
         headers: FeedHeaders = FakeFeedHeaders(),
         followers: FakeFollowerStore = FakeFollowerStore(),
-        delivery: TestDelivery = TestDelivery(),
+        queue: TestActivityQueue = TestActivityQueue(),
     ): FeedService {
         val mockEngine = engine ?: run {
             val bodies = ArrayDeque(xmls ?: listOf(xml))
@@ -1103,7 +1103,7 @@ class FeedServiceTest {
                 publisher = NotePublisher(
                     notes = noteStore,
                     followers = FakeFollowerStore(),
-                    delivery = TestDelivery(),
+                    queue = TestActivityQueue(),
                     webPages = TestWebPageUrls,
                 ),
                 followers = repositories.followers,
@@ -1115,7 +1115,7 @@ class FeedServiceTest {
                 repositories = repositories,
                 notes = noteStore,
                 followers = followers,
-                delivery = delivery,
+                queue = queue,
             ),
         )
     }

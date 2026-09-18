@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.repository.ActivityPost
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
@@ -53,6 +54,7 @@ internal class SqliteDeliveryQueueRepository(
 
                 insertDeliveries(
                     dsl = dsl,
+                    kind = DeliveryKind.CREATE_NOTE,
                     username = post.note.username,
                     notePublicId = post.note.publicId,
                     body = post.body,
@@ -78,6 +80,7 @@ internal class SqliteDeliveryQueueRepository(
 
                 insertDeliveries(
                     dsl = dsl,
+                    kind = DeliveryKind.CREATE_NOTE,
                     username = post.username,
                     notePublicId = post.publicId,
                     body = post.body,
@@ -90,6 +93,27 @@ internal class SqliteDeliveryQueueRepository(
         } catch (_: FeedItemNotPending) {
             EnqueueNoteResult.FeedItemNotPending
         }
+
+    override fun enqueueActivity(post: ActivityPost): Int = jooq.transaction { dsl ->
+        val notePublicId = post.notePublicId
+        // 投稿を配る行は外部キーで投稿に繋ぐ。消えた後に入れると外部キーで落ちるので、
+        // 同じトランザクションの中で確かめてから入れる
+        if (notePublicId != null && !dsl.fetchExists(DSL.selectOne().from(NOTES).where(NOTES.PUBLIC_ID.eq(notePublicId.value)))) {
+            return@transaction 0
+        }
+
+        insertDeliveries(
+            dsl = dsl,
+            kind = post.kind,
+            username = post.username,
+            notePublicId = notePublicId,
+            body = post.body,
+            inboxes = post.inboxes,
+            enqueuedAt = post.enqueuedAt,
+        )
+
+        post.inboxes.size
+    }
 
     /**
      * 記事を投稿済みにする。`pending` でなければ [FeedItemNotPending] でトランザクションごと巻き戻す
@@ -114,8 +138,9 @@ internal class SqliteDeliveryQueueRepository(
 
     private fun insertDeliveries(
         dsl: DSLContext,
+        kind: DeliveryKind,
         username: String,
-        notePublicId: PublicNoteId,
+        notePublicId: PublicNoteId?,
         body: String,
         inboxes: List<String>,
         enqueuedAt: Instant,
@@ -124,7 +149,7 @@ internal class SqliteDeliveryQueueRepository(
         inboxes.forEach { inbox ->
             dsl
                 .insertInto(DELIVERY_QUEUE)
-                .set(DELIVERY_QUEUE.KIND, DeliveryKindDbValue.of(DeliveryKind.CREATE_NOTE).dbValue)
+                .set(DELIVERY_QUEUE.KIND, DeliveryKindDbValue.of(kind).dbValue)
                 .set(DELIVERY_QUEUE.USERNAME, username)
                 .set(DELIVERY_QUEUE.INBOX, inbox)
                 .set(DELIVERY_QUEUE.INBOX_HOST, InboxHost.of(inbox))
@@ -135,7 +160,7 @@ internal class SqliteDeliveryQueueRepository(
                 .set(DELIVERY_QUEUE.NEXT_ATTEMPT_AT, enqueuedAtText)
                 .set(DELIVERY_QUEUE.ENQUEUED_AT, enqueuedAtText)
                 .set(DELIVERY_QUEUE.LAST_ERROR, null as String?)
-                .set(DELIVERY_QUEUE.NOTE_PUBLIC_ID, notePublicId.value)
+                .set(DELIVERY_QUEUE.NOTE_PUBLIC_ID, notePublicId?.value)
                 .execute()
         }
     }
