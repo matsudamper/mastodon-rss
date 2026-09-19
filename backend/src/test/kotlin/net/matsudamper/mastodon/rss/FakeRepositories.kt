@@ -8,6 +8,7 @@ import net.matsudamper.mastodon.rss.repository.AccountDeletion
 import net.matsudamper.mastodon.rss.repository.AccountDeletionResult
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.ActorUpdatePost
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
 import net.matsudamper.mastodon.rss.repository.DeliveryKind
@@ -709,6 +710,32 @@ class FakeDeliveryQueueRepository(
             )
         }
         return EnqueueNoteResult.Queued(deliveries = post.inboxes.size)
+    }
+
+    override fun enqueueActorUpdate(post: ActorUpdatePost): Int {
+        // 送り残した古い更新を残すと、それが後から届いて相手の表示が 1 つ前に戻る
+        stored.removeAll {
+            it.kind == DeliveryKind.UPDATE_ACTOR && it.state == State.PENDING && it.username == post.username
+        }
+
+        post.inboxes.forEach { inbox ->
+            stored += Row(
+                id = DeliveryId(nextId++),
+                kind = DeliveryKind.UPDATE_ACTOR,
+                notePublicId = null,
+                targetActorUri = null,
+                username = post.username,
+                inbox = inbox,
+                body = post.body,
+                state = State.PENDING,
+                attempts = 0,
+                nextAttemptAt = post.enqueuedAt,
+                enqueuedAt = post.enqueuedAt,
+                lastError = null,
+            )
+        }
+
+        return post.inboxes.size
     }
 
     override fun enqueueNoteDeletion(post: NoteDeletionPost): Int {

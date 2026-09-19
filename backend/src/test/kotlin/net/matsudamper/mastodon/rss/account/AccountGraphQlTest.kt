@@ -22,12 +22,12 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import net.matsudamper.mastodon.rss.FakeFollowerRepository
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.repository.FeedHeader
-import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewNote
@@ -523,7 +523,7 @@ class AccountGraphQlTest {
             assertFalse(response.containsKey("errors"))
         }
 
-    private fun FollowerRepository.acceptFollow(username: String, actorUri: String) {
+    private fun FakeFollowerRepository.acceptFollow(username: String, actorUri: String) {
         record(
             IncomingFollow(
                 username = username,
