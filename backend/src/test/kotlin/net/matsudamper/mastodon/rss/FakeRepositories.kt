@@ -906,6 +906,8 @@ class FakeDeliveryQueueRepository(
         return targets.size
     }
 
+    override fun hasUnsent(): Boolean = stored.any { it.state != State.FAILED }
+
     override fun counts(username: String): DeliveryQueueCounts {
         val mine = stored.filter { it.username.equals(username, ignoreCase = true) }
         return DeliveryQueueCounts(

@@ -13,6 +13,7 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
+import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import org.slf4j.LoggerFactory
 
@@ -30,6 +31,9 @@ import org.slf4j.LoggerFactory
  * キャンセルされたら送信中の行は `delivering` のまま残し、次の起動の復旧に任せる。
  * HTTP のタイムアウトは停止に使える時間より長いので、送り終わるのを待たない。
  *
+ * @param directory 署名するこちらのアカウントの引き先
+ * @param deletedActorDirectory 消したアカウントの引き先。消したことを伝える `Delete{Actor}` は
+ *   これで引いて署名する
  * @param backfill フォローが成立した相手に過去の投稿を配る。成立するのは `Accept` が
  *   届いたときなので、始められるのはここになる
  * @param claimLimit 1 回の claim で取り出す数。同時に相手にするホストの数であり、同時実行数の上限でもある
@@ -40,6 +44,7 @@ class DeliveryWorker(
     private val queue: DeliveryQueueRepository,
     private val delivery: ActivityDelivery,
     private val directory: ActorDirectory,
+    private val deletedActorDirectory: ActorDirectory,
     private val retryPolicy: DeliveryRetryPolicy,
     private val backfill: FollowBackfillPublisher,
     private val claimLimit: Int,
@@ -121,7 +126,7 @@ class DeliveryWorker(
         backfillScope: CoroutineScope,
     ) {
         try {
-            val sender = directory.resolve(row.username)
+            val sender = resolveSender(row)
             if (sender == null) {
                 queue.giveUp(row.id, "アカウントが無い: ${row.username}")
                 logger.warn("配信を諦めた: アカウントが無い ${row.username} → ${row.inbox}")
@@ -182,6 +187,20 @@ class DeliveryWorker(
             logger.error("配信の結果を記録できなかった: ${row.id.value} → ${row.inbox}", e)
             releaseToRetry(row, "結果を記録できなかった: ${e.message}")
         }
+    }
+
+    /**
+     * 署名するこちらのアカウントを引く。
+     *
+     * 消したアカウントとして署名してよいのは、消したことを伝える `Delete{Actor}` だけ。
+     * 他の種別まで引けると、消した後に投函された行が旧アクターとして送られて、
+     * `Delete` の後から投稿が届く
+     */
+    private fun resolveSender(row: ClaimedDelivery): ActorUrls? {
+        directory.resolve(row.username)?.let { return it }
+        if (row.kind != DeliveryKind.DELETE_ACTOR) return null
+
+        return deletedActorDirectory.resolve(row.username)
     }
 
     /**

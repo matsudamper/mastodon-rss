@@ -144,7 +144,12 @@ class AccountService(
         // 保存し直しただけで全フォロワーの inbox に POST が飛ぶ
         val changed = account.displayName != updated.displayName || account.summary != updated.summary
         if (changed) {
-            actorEnqueuer.enqueueUpdate(sender = managed.urls)
+            // 投函できなくても保存は返す。失敗を返すと、同じ内容で送り直されても
+            // 今度は変わっていないと判断されて、結局どちらも起きない
+            runCatching { actorEnqueuer.enqueueUpdate(sender = managed.urls) }
+                .onFailure { error ->
+                    logger.warn("アクターの更新を投函できなかった: ${'$'}{managed.urls.acct}", error)
+                }
         }
 
         return UpdateProfileResult.Success(managed)

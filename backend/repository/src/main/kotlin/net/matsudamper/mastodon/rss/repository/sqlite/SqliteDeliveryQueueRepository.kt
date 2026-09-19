@@ -118,11 +118,18 @@ internal class SqliteDeliveryQueueRepository(
     }
 
     override fun enqueueActorUpdate(post: ActorUpdatePost): Int = jooq.transaction { dsl ->
-        // 送り残した古い更新を残すと、それが後から届いて相手の表示が 1 つ前に戻る
+        // 送り残した古い更新を残すと、それが後から届いて相手の表示が 1 つ前に戻る。
+        // 送っている最中の行も消す。残すと、送れなかったときに送り直し待ちに戻って、
+        // 新しい更新が届いた後から古い内容が届く
         dsl
             .deleteFrom(DELIVERY_QUEUE)
             .where(DELIVERY_QUEUE.KIND.eq(DeliveryKindDbValue.UPDATE_ACTOR.dbValue))
-            .and(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
+            .and(
+                DELIVERY_QUEUE.STATE.`in`(
+                    DeliveryStateDbValue.PENDING.dbValue,
+                    DeliveryStateDbValue.DELIVERING.dbValue,
+                ),
+            )
             .and(DELIVERY_QUEUE.USERNAME.eq(post.username))
             .execute()
 
@@ -335,6 +342,15 @@ internal class SqliteDeliveryQueueRepository(
             .set(DELIVERY_QUEUE.STATE, DeliveryStateDbValue.PENDING.dbValue)
             .where(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.DELIVERING.dbValue))
             .execute()
+    }
+
+    override fun hasUnsent(): Boolean = jooq.withConnection { dsl ->
+        dsl.fetchExists(
+            DSL
+                .selectOne()
+                .from(DELIVERY_QUEUE)
+                .where(DELIVERY_QUEUE.STATE.ne(DeliveryStateDbValue.FAILED.dbValue)),
+        )
     }
 
     override fun counts(username: String): DeliveryQueueCounts = jooq.withConnection { dsl ->

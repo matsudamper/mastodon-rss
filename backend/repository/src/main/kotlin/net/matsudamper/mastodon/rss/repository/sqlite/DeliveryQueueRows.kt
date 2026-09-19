@@ -50,10 +50,11 @@ internal object DeliveryQueueRows {
     }
 
     /**
-     * その相手への、まだ送っていない `Accept` を消す。
+     * その相手への、送り終えていない `Accept` を消す。
      *
-     * 送っている最中の行は消さない。消しても相手には届くので、
-     * 消えた行の結果を記録できなくなるだけになる。
+     * 送っている最中の行も消す。残すと、送れなかったときに送り直し待ちに戻って、
+     * 相手が居なくなった後も諦めるまで送り続ける。消えた行の結果は記録できなくなるが、
+     * [DeliveryQueueRepository.markDelivered] も送り直しの記録も、行が無い場合を許容する。
      *
      * @return 消えた件数
      */
@@ -63,13 +64,13 @@ internal object DeliveryQueueRows {
         followerActorUri: String,
     ): Int = dsl
         .deleteFrom(DELIVERY_QUEUE)
-        .where(pendingAccept())
+        .where(unsentAccept())
         .and(DELIVERY_QUEUE.USERNAME.eq(username))
         .and(DELIVERY_QUEUE.TARGET_ACTOR_URI.eq(followerActorUri))
         .execute()
 
     /**
-     * その相手への、まだ送っていない `Accept` を全部消す。相手が消えたときに使う。
+     * その相手への、送り終えていない `Accept` を全部消す。相手が消えたときに使う。
      *
      * こちらのどのアカウントへのフォローだったかは問わない。相手が消えた以上、
      * どのアカウントの `Accept` も届ける先が無い。
@@ -81,12 +82,12 @@ internal object DeliveryQueueRows {
         followerActorUri: String,
     ): Int = dsl
         .deleteFrom(DELIVERY_QUEUE)
-        .where(pendingAccept())
+        .where(unsentAccept())
         .and(DELIVERY_QUEUE.TARGET_ACTOR_URI.eq(followerActorUri))
         .execute()
 
     /**
-     * そのアカウントの、まだ送っていない `Accept` を全部消す。
+     * そのアカウントの、送り終えていない `Accept` を全部消す。
      * フォローをまとめて消すときに使う。
      *
      * @return 消えた件数
@@ -96,10 +97,13 @@ internal object DeliveryQueueRows {
         username: String,
     ): Int = dsl
         .deleteFrom(DELIVERY_QUEUE)
-        .where(pendingAccept())
+        .where(unsentAccept())
         .and(DELIVERY_QUEUE.USERNAME.eq(username))
         .execute()
 
-    private fun pendingAccept(): Condition = DELIVERY_QUEUE.KIND.eq(DeliveryKindDbValue.ACCEPT_FOLLOW.dbValue)
-        .and(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
+    /**
+     * まだ送り終えていない `Accept`。諦めた行は残す。送れなかった記録まで消す理由が無い
+     */
+    private fun unsentAccept(): Condition = DELIVERY_QUEUE.KIND.eq(DeliveryKindDbValue.ACCEPT_FOLLOW.dbValue)
+        .and(DELIVERY_QUEUE.STATE.`in`(DeliveryStateDbValue.PENDING.dbValue, DeliveryStateDbValue.DELIVERING.dbValue))
 }

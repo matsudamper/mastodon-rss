@@ -134,20 +134,19 @@ class AppDependencies(
     )
 
     /**
-     * 消したアカウントも引ける名前の引き先。
+     * 消したアカウントだけを引ける名前の引き先。
      *
      * 消した後も `Delete{Actor}` を送り切るまでは、そのアカウントとして署名できる
      * 必要がある。外から見える引き当て（[directory]）に混ぜると、消したアカウントが
-     * WebFinger や Actor から見えたままになる
+     * WebFinger や Actor から見えたままになる。
+     *
+     * 生きているアカウントは返さない。どちらも引ける 1 つの口にすると、消した後に
+     * 投函された行まで旧アクターとして送れてしまう
      */
-    private val signingDirectory: ActorDirectory = ActorDirectory(
+    private val deletedActorDirectory: ActorDirectory = ActorDirectory(
         domain = env.domain,
         stored = object : StoredActorNames {
-            override fun find(username: String): String? {
-                val account = repositories.accounts.findByUsername(username)
-                    ?: repositories.accounts.findDeletedByUsername(username)
-                return account?.username
-            }
+            override fun find(username: String): String? = repositories.accounts.findDeletedByUsername(username)?.username
 
             override fun finds(usernames: Set<String>): Map<String, String> {
                 return usernames.mapNotNull { username -> find(username)?.let { username to it } }.toMap()
@@ -279,7 +278,8 @@ class AppDependencies(
         DeliveryWorker(
             queue = repositories.deliveryQueue,
             delivery = delivery,
-            directory = signingDirectory,
+            directory = directory,
+            deletedActorDirectory = deletedActorDirectory,
             retryPolicy = DeliveryRetryPolicy(
                 initialInterval = 30.seconds,
                 maxInterval = 24.hours,
@@ -368,10 +368,13 @@ class AppDependencies(
             // ここから先で失敗すると、開いた DB が閉じられないまま起動が止まる
             return runCatching {
                 val loadActorKey = ActorKeyLoader.load(env.actorPrivateKey)
-                if (loadActorKey == null && repositories.followers.hasAny()) {
+                // 送り残した配信は、消したアカウントの Delete{Actor} のようにフォロワーが
+                // 1 人も残っていない形でも起きる。新しい鍵で署名すると、相手が覚えている
+                // 鍵で検証できずに届かない
+                if (loadActorKey == null && (repositories.followers.hasAny() || repositories.deliveryQueue.hasUnsent())) {
                     throw IllegalStateException(
-                        "フォロワーが記録されているのにアクターの秘密鍵が無い。" +
-                            "鍵を失った状態で新しい鍵を作ると既存のフォロワーから見て別人になるため起動しない。" +
+                        "フォロワーか送り残した配信があるのにアクターの秘密鍵が無い。" +
+                            "鍵を失った状態で新しい鍵を作ると相手から見て別人になるため起動しない。" +
                             "以前の鍵を ACTOR_PRIVATE_KEY_PATH に戻すこと",
                     )
                 }

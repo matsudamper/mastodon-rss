@@ -19,8 +19,10 @@ import net.matsudamper.mastodon.rss.FakeDeliveryQueueRepository
 import net.matsudamper.mastodon.rss.FakeNoteRepository
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
+import net.matsudamper.mastodon.rss.FakeStoredActorNames
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
+import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
@@ -92,6 +94,24 @@ class DeliveryWorkerTest {
     }
 
     @Test
+    fun `消したアカウントとして署名するのは Delete だけ`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery()
+        // 引き当てを済ませた後にアカウントが消え、その後で投函された形
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"), username = DELETED_USERNAME)
+
+        runWorker(
+            repositories.deliveryQueue,
+            delivery,
+            deletedActorDirectory = deletedActorDirectory(listOf(DELETED_USERNAME)),
+        )
+
+        // 送ると、消したことを伝えた後から投稿が届く
+        assertEquals(emptyList(), delivery.delivered)
+        assertEquals(FakeDeliveryQueueRepository.State.FAILED, repositories.deliveryQueue.rows().single().state)
+    }
+
+    @Test
     fun `失敗した行は送り直しを待つ`() = runTest {
         val repositories = FakeRepositories()
         val delivery = RecordingDelivery(failing = setOf("https://a.example/inbox"))
@@ -116,6 +136,7 @@ class DeliveryWorkerTest {
             queue = repositories.deliveryQueue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
             clock = { current },
             retryPolicy = TEST_RETRY_POLICY,
@@ -202,6 +223,7 @@ class DeliveryWorkerTest {
             queue = queue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
@@ -227,6 +249,7 @@ class DeliveryWorkerTest {
             queue = queue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
             clock = { current },
             retryPolicy = TEST_RETRY_POLICY,
@@ -258,6 +281,7 @@ class DeliveryWorkerTest {
             queue = queue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
@@ -283,6 +307,7 @@ class DeliveryWorkerTest {
             queue = repositories.deliveryQueue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
             backfill = backfillPublisher(delivery),
             claimLimit = 8,
@@ -385,6 +410,7 @@ class DeliveryWorkerTest {
             queue = repositories.deliveryQueue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
@@ -415,11 +441,13 @@ class DeliveryWorkerTest {
         clock: () -> Instant = { now },
         retryPolicy: DeliveryRetryPolicy = TEST_RETRY_POLICY,
         notes: FakeNoteStore = FakeNoteStore(),
+        deletedActorDirectory: ActorDirectory = deletedActorDirectory(),
     ) {
         val worker = DeliveryWorker(
             queue = queue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory,
             retryPolicy = retryPolicy,
             backfill = backfillPublisher(delivery = delivery, notes = notes),
             idleInterval = IDLE,
@@ -443,6 +471,14 @@ class DeliveryWorkerTest {
         followActivityUri = "$FOLLOWER_ACTOR_URI/follows/1",
         receivedAt = now,
         acceptBody = """{"type":"Accept"}""",
+    )
+
+    /**
+     * 消したアカウントの引き先。既定では 1 つも消えていない
+     */
+    private fun deletedActorDirectory(deleted: List<String> = emptyList()): ActorDirectory = ActorDirectory(
+        domain = TestLocalActor.DOMAIN,
+        stored = FakeStoredActorNames(storedUserNames = deleted),
     )
 
     private fun backfillPublisher(
@@ -590,6 +626,7 @@ class DeliveryWorkerTest {
     }
 
     private companion object {
+        const val DELETED_USERNAME = "gone"
         const val FOLLOWER_ACTOR_URI = "https://a.example/users/alice"
         const val FOLLOWER_INBOX = "https://a.example/users/alice/inbox"
 

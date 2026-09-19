@@ -380,6 +380,51 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
+    fun `送っている最中の Accept も 取り消されたら消える`() {
+        withRepositories { repositories ->
+            repositories.followers.record(incomingFollow())
+            // 送り始めた後に Undo や Delete{Actor} が届く形
+            repositories.deliveryQueue.claim(now = now, limit = 10)
+
+            repositories.followers.removeRemoteActor(FOLLOWER_ACTOR_URI)
+
+            // 残すと、送れなかったときに送り直し待ちに戻って相手が居なくなった後も送り続ける
+            assertEquals(0, repositories.deliveryQueue.recoverDelivering())
+            assertEquals(emptyList(), repositories.deliveryQueue.claim(now = now, limit = 10))
+        }
+    }
+
+    @Test
+    fun `送っている最中の古い Update も 新しい更新で消える`() {
+        withRepositories { repositories ->
+            repositories.deliveryQueue.enqueueActorUpdate(actorUpdatePost(body = """{"type":"Update","id":"1"}"""))
+            repositories.deliveryQueue.claim(now = now, limit = 10)
+
+            repositories.deliveryQueue.enqueueActorUpdate(actorUpdatePost(body = """{"type":"Update","id":"2"}"""))
+
+            // 古い方が送り直し待ちに戻ると、新しい更新の後から届いて表示が 1 つ前に戻る
+            assertEquals(0, repositories.deliveryQueue.recoverDelivering())
+            val claimed = repositories.deliveryQueue.claim(now = now, limit = 10).single()
+            assertEquals("""{"type":"Update","id":"2"}""", claimed.body)
+        }
+    }
+
+    @Test
+    fun `送るものが残っているかを見られる`() {
+        withRepositories { repositories ->
+            assertEquals(false, repositories.deliveryQueue.hasUnsent())
+
+            repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A)))
+            assertEquals(true, repositories.deliveryQueue.hasUnsent())
+
+            // 諦めた行は数えない。鍵が要るのは送るものが残っているときだけ
+            val claimed = repositories.deliveryQueue.claim(now = now, limit = 10).single()
+            repositories.deliveryQueue.giveUp(claimed.id, error = "諦めた")
+            assertEquals(false, repositories.deliveryQueue.hasUnsent())
+        }
+    }
+
+    @Test
     fun `成功した行は消える`() {
         withRepositories { repositories ->
             repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A)))
@@ -575,6 +620,13 @@ class DeliveryQueueRepositoryTest {
         followActivityUri = followActivityUri,
         receivedAt = now,
         acceptBody = acceptBody,
+    )
+
+    private fun actorUpdatePost(body: String): ActorUpdatePost = ActorUpdatePost(
+        username = USERNAME,
+        body = body,
+        inboxes = listOf(INBOX_A),
+        enqueuedAt = now,
     )
 
     private fun notePost(
