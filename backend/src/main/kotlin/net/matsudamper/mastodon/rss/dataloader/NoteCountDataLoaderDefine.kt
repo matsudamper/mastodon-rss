@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.dataloader
 
 import net.matsudamper.mastodon.rss.graphql.otelSupplyAsync
-import net.matsudamper.mastodon.rss.logic.NoteService
+import net.matsudamper.mastodon.rss.logic.NoteReader
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderFactory
 
@@ -11,14 +11,14 @@ import org.dataloader.DataLoaderFactory
  * 一覧に並んだアカウントの分を 1 回の問い合わせでまとめる
  */
 class NoteCountDataLoaderDefine(
-    private val noteService: NoteService,
+    private val noteReader: NoteReader,
 ) : DataLoaderDefine<String, Int> {
     override val key: String = this::class.java.name
 
     override fun getDataLoader(): DataLoader<String, Int> {
         return DataLoaderFactory.newMappedDataLoader { keys, _ ->
             otelSupplyAsync {
-                noteService.noteCounts(keys).mapValues { it.value.toInt() }
+                noteReader.noteCounts(keys).mapValues { it.value.toInt() }
             }
         }
     }

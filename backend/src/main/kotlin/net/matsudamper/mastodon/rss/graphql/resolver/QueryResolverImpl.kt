@@ -101,7 +101,7 @@ class QueryResolverImpl : QueryResolver {
                 pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
             )
         } else {
-            val page = GraphQlEngine.diContainer(env).noteService.noteIds(
+            val page = GraphQlEngine.diContainer(env).noteReader.noteIds(
                 username = query.username,
                 after = cursor?.toPosition(),
                 limit = query.limit,
@@ -172,7 +172,7 @@ class QueryResolverImpl : QueryResolver {
         id: PublicNoteId,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAccountNote?>> {
-        val note = GraphQlEngine.diContainer(env).noteService.note(username = username, publicId = id)
+        val note = GraphQlEngine.diContainer(env).noteReader.note(username = username, publicId = id)
         return CompletableFuture.completedFuture(
             DataFetcherResult.Builder<QlAccountNote?>(note?.let { QlAccountNote(id = id) }).build(),
         )

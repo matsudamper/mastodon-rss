@@ -6,12 +6,15 @@ import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.StoredNote
 
 /**
- * 投稿の記録の差し替え。オンメモリで持つ
+ * 投稿の記録の差し替え。オンメモリで持つ。
+ *
+ * 記録する口は本物には無い（投稿の記録は配信の投函と 1 トランザクションで確定させる）ので、
+ * テストが状態を作るための [add] だけを持つ
  */
 class FakeNoteStore : NoteStore {
     val added: MutableList<StoredNote> = mutableListOf()
 
-    override fun add(note: StoredNote) {
+    fun add(note: StoredNote) {
         added += note
     }
 

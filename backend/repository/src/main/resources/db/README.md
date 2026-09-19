@@ -72,6 +72,7 @@ jOOQ には SQL を直接読む `DDLDatabase` もあるが、そちらは jOOQ �
 | `notes` | 配信した投稿。相手がパーマリンクを引きに来るので残す |
 | `feeds` | アカウントに紐づく RSS/Atom フィード。アカウントと 1:1 |
 | `feed_items` | 取り込んだ記事。投稿するかどうかの状態と、差分検出の鍵、投稿した `notes.public_id` を持つ |
+| `delivery_queue` | 相手の inbox に送る配信の待ち行列。1 宛先 1 行。送れた行は消え、諦めた行は `failed` で残る |
 | `feed_icons` | 取ってきたアイコンの置き場と期限。中身は `ICON_CACHE_DIR` のファイル |
 | `health_check` | 起動時の書き込み確認用。行は常に 1 件 |
 
