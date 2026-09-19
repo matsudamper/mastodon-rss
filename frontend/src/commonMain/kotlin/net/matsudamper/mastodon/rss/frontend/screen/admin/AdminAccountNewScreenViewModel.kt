@@ -36,20 +36,12 @@ class AdminAccountNewScreenViewModel(
                         navigate(Screen.Admin)
                     }
 
-                    override fun onClickAccounts() {
-                        navigate(Screen.AdminAccounts)
-                    }
-
                     override fun onUsernameChanged(text: String) {
                         viewModelStateFlow.update { it.copy(username = text, error = null) }
                     }
 
                     override fun onClickAdd() {
                         add()
-                    }
-
-                    override fun onClickAddAnother() {
-                        viewModelStateFlow.update { it.copy(added = null, username = "", error = null) }
                     }
                 },
             ),
@@ -86,9 +78,7 @@ class AdminAccountNewScreenViewModel(
         viewModelScope.launch {
             when (val result = api.addAccount(state.username.trim())) {
                 is AdminAddAccountResult.Success -> {
-                    viewModelStateFlow.update {
-                        it.copy(submitting = false, added = result.acct)
-                    }
+                    navigate(Screen.AdminAccount(result.username))
                 }
 
                 is AdminAddAccountResult.Rejected -> {
@@ -131,8 +121,6 @@ class AdminAccountNewScreenViewModel(
             }
         }
 
-        if (state.added != null) return AdminAccountNewScreenUiState.Content.Added(state.added)
-
         return AdminAccountNewScreenUiState.Content.Input(
             username = state.username,
             submitting = state.submitting,
@@ -147,7 +135,6 @@ class AdminAccountNewScreenViewModel(
         val username: String = "",
         val submitting: Boolean = false,
         val error: String? = null,
-        val added: String? = null,
     )
 
     interface Event {

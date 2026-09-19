@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -10,7 +9,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,7 +26,6 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
-import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
 @Composable
 internal fun AdminAccountNewScreen(
@@ -77,11 +74,6 @@ internal fun AdminAccountNewContent(
                 }
 
                 is AdminAccountNewScreenUiState.Content.Input -> InputCard(content, uiState.listener)
-
-                is AdminAccountNewScreenUiState.Content.Added -> AddedCard(
-                    content = content,
-                    listener = uiState.listener,
-                )
             }
         }
     }
@@ -109,13 +101,3 @@ private fun InputCard(content: AdminAccountNewScreenUiState.Content.Input, liste
     }
 }
 
-@Composable
-private fun AddedCard(content: AdminAccountNewScreenUiState.Content.Added, listener: AdminAccountNewScreenUiState.Listener) {
-    SectionCard("追加した") {
-        Text("${content.acct} が Mastodon から検索できるようになった。")
-        TextLink("一覧を見る", listener::onClickAccounts)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = listener::onClickAddAnother) { Text("続けて追加") }
-        }
-    }
-}
