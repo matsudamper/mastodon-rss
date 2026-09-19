@@ -506,8 +506,9 @@ class DeliveryQueueRepositoryTest {
                 repositories.deliveryQueue.scheduleRetry(claimed.id, nextAttemptAt = now.plusSeconds(delay), error = "e")
             }
 
-            // まだ一度も送っていない行
+            // 初回を送っている最中の行。claim が attempts を増やすが、まだ失敗していない
             repositories.deliveryQueue.enqueueNote(notePost(publicId = "n3", inboxes = listOf(INBOX_C)))
+            repositories.deliveryQueue.claim(now = now, limit = 10)
 
             val retrying = repositories.deliveryQueue.listRetrying(after = null, limit = 10)
             assertEquals(listOf(INBOX_B, INBOX_A), retrying.map { it.inbox })

@@ -157,7 +157,7 @@ class AdminDeliveriesScreenViewModel(
                             } else {
                                 "次は ${UnixTimeUtil.format(delivery.nextAttemptAt)}"
                             },
-                            attemptsText = "${delivery.attempts} 回失敗",
+                            attemptsText = "${delivery.attempts} 回送ろうとした",
                             lastError = delivery.lastError,
                         )
                     },

@@ -928,7 +928,7 @@ class FakeDeliveryQueueRepository(
         after: DeliveryQueuePosition?,
         limit: Int,
     ): List<AccountRetryingDelivery> = stored
-        .filter { it.state != State.FAILED && it.attempts > 0 }
+        .filter { it.state != State.FAILED && it.lastError != null }
         .map { row ->
             AccountRetryingDelivery(
                 id = row.id,

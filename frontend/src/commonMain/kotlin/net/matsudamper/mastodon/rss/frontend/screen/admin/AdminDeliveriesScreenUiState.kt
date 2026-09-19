@@ -39,7 +39,7 @@ data class AdminDeliveriesScreenUiState(
      * @param kindText 何を送る配信か
      * @param acct どのアカウントとして送るか
      * @param statusText 送っている最中か、次にいつ送るか
-     * @param attemptsText 送ろうとした回数
+     * @param attemptsText これまでに送ろうとした回数
      */
     data class Delivery(
         val kindText: String,

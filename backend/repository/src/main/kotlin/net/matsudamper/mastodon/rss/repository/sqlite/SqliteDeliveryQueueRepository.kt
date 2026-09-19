@@ -380,8 +380,8 @@ internal class SqliteDeliveryQueueRepository(
             dsl
                 .selectFrom(DELIVERY_QUEUE)
                 .where(DELIVERY_QUEUE.STATE.ne(DeliveryStateDbValue.FAILED.dbValue))
-                // 一度も送っていない行は滞っていない
-                .and(DELIVERY_QUEUE.ATTEMPTS.gt(0L))
+                // 初回の送信中は attempts が 1 でも失敗していない
+                .and(DELIVERY_QUEUE.LAST_ERROR.isNotNull)
                 .and(after?.let { laterThan(it) } ?: DSL.noCondition())
                 .orderBy(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.asc(), DELIVERY_QUEUE.ID.asc())
                 .limit(limit)
