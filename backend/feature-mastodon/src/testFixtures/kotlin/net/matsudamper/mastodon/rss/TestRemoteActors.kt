@@ -52,6 +52,7 @@ class TestRemoteActors(
                             inbox = inbox,
                             sharedInbox = null,
                             publicKeyPem = RsaKeys.encodeToPem(publicKey),
+                            profile = TestRemoteActor.noProfile,
                         ),
                     )
                 },

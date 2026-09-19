@@ -17,6 +17,7 @@ import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.Note
+import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 
 // 投稿を消すと記録が消えて、消したことの配信が投函される。管理画面はこの経路を通る
 class NoteDeleteTest {
@@ -80,6 +81,7 @@ class NoteDeleteTest {
                     inbox = "$followerActorUri/inbox",
                     sharedInbox = null,
                     publicKeyPem = "pem",
+                    profile = RemoteActorProfile(preferredUsername = null, displayName = null, profileUrl = null, iconUrl = null),
                 ),
                 followActivityUri = "https://remote.example/follows/1",
                 receivedAt = FOLLOWED_AT,

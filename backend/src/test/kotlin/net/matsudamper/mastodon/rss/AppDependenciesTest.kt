@@ -12,6 +12,7 @@ import kotlin.test.assertFalse
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 
 // 投函する `Create` に入る画面の URL は、ルーティングが返す JSON と同じものでなければならない。
@@ -77,6 +78,7 @@ class AppDependenciesTest {
                     inbox = "https://remote.example/users/alice/inbox",
                     sharedInbox = null,
                     publicKeyPem = "",
+                    profile = RemoteActorProfile(preferredUsername = null, displayName = null, profileUrl = null, iconUrl = null),
                 ),
                 followActivityUri = "https://remote.example/activities/follow-1",
                 receivedAt = Instant.now(),

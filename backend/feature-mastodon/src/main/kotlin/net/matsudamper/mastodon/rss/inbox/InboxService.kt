@@ -169,6 +169,7 @@ class InboxService(
                         followers = followers,
                     ),
                     UndoFollowHandler(followers),
+                    UpdateActorHandler(followers),
                     DeleteActorHandler(followers),
                 ),
             )

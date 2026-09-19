@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
+import java.net.URI
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
@@ -19,6 +20,8 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAccountsConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
 import net.matsudamper.mastodon.rss.graphql.model.QueryResolver
+import net.matsudamper.mastodon.rss.remoteactor.RemoteActorIconUrls
+import net.matsudamper.mastodon.rss.repository.StoredFollower
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 class QueryResolverImpl : QueryResolver {
@@ -147,14 +150,15 @@ class QueryResolverImpl : QueryResolver {
                     )
 
                     else -> {
-                        val page = GraphQlEngine.diContainer(env).accountService.followers(
+                        val diContainer = GraphQlEngine.diContainer(env)
+                        val page = diContainer.accountService.followers(
                             username = account.urls.username,
                             afterActorUrl = cursor?.afterActorUrl,
                             limit = query.limit.coerceIn(0, MAX_FOLLOWERS_LIMIT),
                         )
 
                         QlAccountFollowersConnection(
-                            nodes = page.actorUrls.map { QlAccountFollower(url = it, acct = NOT_FETCHED_ACCT) },
+                            nodes = page.followers.map { it.toGraphqlResponse(diContainer.remoteActorIconUrls) },
                             pageInfo = QlPageInfo(
                                 hasMore = page.hasMore,
                                 nextCursor = page.nextActorUrl?.let { FollowersCursor(afterActorUrl = it).encode() },
@@ -182,10 +186,24 @@ class QueryResolverImpl : QueryResolver {
         const val MAX_ACCOUNTS_LIMIT = 100
 
         const val MAX_FOLLOWERS_LIMIT = 100
-
-        /**
-         * 相手の名前を保存するまでの間に返すもの（#197）
-         */
-        const val NOT_FETCHED_ACCT = "未取得"
     }
+}
+
+/**
+ * 相手が名乗っていないものは null のまま返す。
+ *
+ * `acct` のドメインをアクター文書の URL から作るのは、相手が名乗るのは
+ * ドメインより前だけのため。相手のサーバーが別のドメインの acct を
+ * 名乗っている場合はそちらが正だが、確かめるには相手の WebFinger を
+ * 引くことになるので、ここでは URL のホストで組み立てる
+ */
+private fun StoredFollower.toGraphqlResponse(iconUrls: RemoteActorIconUrls): QlAccountFollower {
+    val host = runCatching { URI(actorUri).host }.getOrNull()
+
+    return QlAccountFollower(
+        url = profileUrl ?: actorUri,
+        acct = if (preferredUsername != null && host != null) "@$preferredUsername@$host" else null,
+        displayName = displayName,
+        iconUrl = iconUrl?.let { iconUrls.icon(actorUri = actorUri, sourceUrl = it) },
+    )
 }

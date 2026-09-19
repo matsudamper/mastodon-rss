@@ -1,8 +1,6 @@
 package net.matsudamper.mastodon.rss.actor
 
 import java.io.Closeable
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -100,6 +98,7 @@ class HttpRemoteActors(
             // sharedInbox が無くても inbox に 1 通ずつ送れば配信自体はできる
             sharedInbox = document.endpoints?.sharedInbox?.takeIf { isDeliverable(it, url) },
             publicKeyPem = publicKeyPem,
+            profile = document.profile(),
         )
     }
 
@@ -218,44 +217,3 @@ class HttpRemoteActors(
             }
     }
 }
-
-/**
- * 相手のアクター文書のうち、こちらが見る部分だけ。
- *
- * こちらが返す [net.matsudamper.mastodon.rss.activitypub.Actor] を使い回さないのは、
- * あちらが「返すときに必ず入れるもの」を必須にしているため。相手の実装が
- * `following` を省略しただけで鍵が読めなくなるのは筋が悪い。
- */
-@Serializable
-private data class RemoteActorDocument(
-    @SerialName("id")
-    val id: String? = null,
-    @SerialName("inbox")
-    val inbox: String? = null,
-    @SerialName("publicKey")
-    val publicKey: RemoteActorPublicKey? = null,
-    @SerialName("endpoints")
-    val endpoints: RemoteActorEndpoints? = null,
-)
-
-/**
- * `endpoints` の中身。`sharedInbox` はここにしか無い。
- *
- * 同じインスタンスに複数のフォロワーがいる場合、1 人ずつ inbox に送る代わりに
- * ここへ 1 回送れば済む。
- */
-@Serializable
-private data class RemoteActorEndpoints(
-    @SerialName("sharedInbox")
-    val sharedInbox: String? = null,
-)
-
-@Serializable
-private data class RemoteActorPublicKey(
-    @SerialName("id")
-    val id: String? = null,
-    @SerialName("owner")
-    val owner: String? = null,
-    @SerialName("publicKeyPem")
-    val publicKeyPem: String,
-)

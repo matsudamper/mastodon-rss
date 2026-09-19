@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.RemoteActor
+import net.matsudamper.mastodon.rss.actor.RemoteActorProfile
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 
 /**
@@ -38,6 +39,7 @@ class FakeFollowerStore(
                 inbox = follower.inbox,
                 sharedInbox = follower.sharedInbox,
                 publicKeyPem = follower.publicKeyPem,
+                profile = follower.profile,
                 followActivityUri = followActivityUri,
                 acceptBody = acceptBody,
             )
@@ -50,6 +52,7 @@ class FakeFollowerStore(
             inbox = follower.inbox,
             sharedInbox = follower.sharedInbox,
             publicKeyPem = follower.publicKeyPem,
+            profile = follower.profile,
             followActivityUri = followActivityUri,
             acceptBody = acceptBody,
             accepted = false,
@@ -105,6 +108,15 @@ class FakeFollowerStore(
         }
     }
 
+    override fun rememberProfile(
+        actorUri: String,
+        profile: RemoteActorProfile,
+    ) {
+        rows.replaceAll { row ->
+            if (row.followerActorUri == actorUri) row.copy(profile = profile) else row
+        }
+    }
+
     override fun list(
         username: String,
         after: String?,
@@ -129,6 +141,7 @@ class FakeFollowerStore(
         val inbox: String,
         val sharedInbox: String?,
         val publicKeyPem: String,
+        val profile: RemoteActorProfile,
         val followActivityUri: String,
         val acceptBody: String,
         val accepted: Boolean,

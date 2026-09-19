@@ -34,14 +34,17 @@ import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
+import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
+import net.matsudamper.mastodon.rss.repository.StoredFollower
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
@@ -316,21 +319,37 @@ class FakeFollowerRepository(
         }
     }
 
+    override fun rememberProfile(
+        actorUri: String,
+        profile: RemoteActorProfile,
+    ) {
+        stored.replaceAll { follow ->
+            if (follow.follower.actorUri == actorUri) {
+                follow.copy(follower = follow.follower.copy(profile = profile))
+            } else {
+                follow
+            }
+        }
+    }
+
+    override fun findIconUrl(actorUri: String): String? =
+        stored.firstOrNull { it.follower.actorUri == actorUri }?.follower?.profile?.iconUrl
+
     override fun list(
         username: String,
         after: String?,
         limit: Int,
-    ): List<String> = acceptedFollowers(username)
-        .sorted()
-        .filter { after == null || it > after }
+    ): List<StoredFollower> = acceptedFollowers(username)
+        .sortedBy { it.follower.actorUri }
+        .filter { after == null || it.follower.actorUri > after }
         .take(limit)
+        .map { it.follower.toStoredFollower() }
 
     override fun count(username: String): Long = acceptedFollowers(username).size.toLong()
 
     override fun counts(usernames: Set<String>): Map<String, Long> = usernames.associateWith { count(it) }
 
-    override fun deliveryTargets(username: String): List<String> = stored
-        .filter { it.username == username && (username to it.follower.actorUri) in accepted }
+    override fun deliveryTargets(username: String): List<String> = acceptedFollowers(username)
         .map { it.follower.sharedInbox ?: it.follower.inbox }
         .distinct()
 
@@ -338,9 +357,16 @@ class FakeFollowerRepository(
 
     private val accepted = mutableSetOf<Pair<String, String>>()
 
-    private fun acceptedFollowers(username: String): List<String> = stored
+    private fun acceptedFollowers(username: String): List<IncomingFollow> = stored
         .filter { it.username == username && (username to it.follower.actorUri) in accepted }
-        .map { it.follower.actorUri }
+
+    private fun NewRemoteActor.toStoredFollower(): StoredFollower = StoredFollower(
+        actorUri = actorUri,
+        preferredUsername = profile.preferredUsername,
+        displayName = profile.displayName,
+        profileUrl = profile.profileUrl,
+        iconUrl = profile.iconUrl,
+    )
 }
 
 /**
