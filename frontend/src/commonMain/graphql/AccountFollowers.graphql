@@ -3,6 +3,8 @@ query AccountFollowersQuery($query: AccountFollowersQuery!) {
         nodes {
             url
             acct
+            displayName
+            iconUrl
         }
         pageInfo {
             hasMore
