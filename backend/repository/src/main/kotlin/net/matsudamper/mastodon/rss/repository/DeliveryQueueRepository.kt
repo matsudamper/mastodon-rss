@@ -68,9 +68,19 @@ interface DeliveryQueueRepository {
     fun exists(id: DeliveryId): Boolean
 
     /**
-     * 送れたので行を消す
+     * 送れたので行を消す。
+     *
+     * 送れたことで確定する記録が種別ごとにあるので、行を消すのと一緒に書く。
+     * 分けると、書く前に落ちたときに「送ったのに記録が無い」状態が残り、
+     * 行はもう無いので直す手立てが無くなる。
+     *
+     * @param deliveredAt 送れた時刻。フォローが成立した時刻として記録する
+     * @return 送れたことで何が確定したか
      */
-    fun markDelivered(id: DeliveryId)
+    fun markDelivered(
+        id: DeliveryId,
+        deliveredAt: Instant,
+    ): DeliveredOutcome
 
     /**
      * 送れなかったので、時刻を指定して `pending` に戻す
@@ -204,6 +214,35 @@ enum class DeliveryKind {
      * 投稿を包んだ `Create`
      */
     CREATE_NOTE,
+
+    /**
+     * 受け取った `Follow` への `Accept`
+     */
+    ACCEPT_FOLLOW,
+}
+
+/**
+ * 送れたことで確定したもの。
+ *
+ * 呼び出し側は、送れて初めて始められる後処理をここから判断する
+ */
+sealed interface DeliveredOutcome {
+    /**
+     * 行を消した以外に何も起きていない
+     */
+    data object None : DeliveredOutcome
+
+    /**
+     * `Accept` が届いてフォローが初めて成立した。送り直しの `Accept` では返らない。
+     *
+     * @param followerActorUri 成立した相手
+     * @param inbox 相手の inbox。`sharedInbox` ではないので、この相手にだけ送れる
+     */
+    data class FollowAccepted(
+        val username: String,
+        val followerActorUri: String,
+        val inbox: String,
+    ) : DeliveredOutcome
 }
 
 /**

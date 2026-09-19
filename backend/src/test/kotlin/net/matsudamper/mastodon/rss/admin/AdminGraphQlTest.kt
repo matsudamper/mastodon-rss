@@ -563,12 +563,12 @@ class AdminGraphQlTest {
                     follower = follower,
                     followActivityUri = "https://remote.example/follows/1",
                     receivedAt = Instant.parse("2026-08-16T00:00:00Z"),
+                    acceptBody = """{"type":"Accept"}""",
                 ),
             )
             repositories.followers.markAccepted(
                 username = "feed1",
                 followerActorUri = follower.actorUri,
-                acceptedAt = Instant.parse("2026-08-16T00:00:00Z"),
             )
 
             mutatePostNote(username = "feed1", body = "お知らせ", token = token).admin().obj("postNote")

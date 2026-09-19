@@ -32,8 +32,9 @@ class UndoFollowHandlerTest {
             ),
             followActivityUri = followUri,
             receivedAt = now,
+            acceptBody = "{}",
         )
-        markAccepted(TestLocalActor.USERNAME, TestRemoteActor.ACTOR_ID, now)
+        markAccepted(TestLocalActor.USERNAME, TestRemoteActor.ACTOR_ID)
     }
 
     private suspend fun handle(

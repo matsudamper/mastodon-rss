@@ -20,27 +20,20 @@ import java.time.Instant
  */
 interface FollowerRepository {
     /**
-     * `Follow` を受けたことを記録する。`Accept` を返す前の状態で入る。
+     * `Follow` を受けたことを記録して、`Accept` を投函する。`Accept` を返す前の状態で入る。
      *
-     * 同じ相手からの `Follow` が既に記録されていれば何もしない。`Accept` を返し損ねると
+     * 同じ相手からの `Follow` が既に記録されていれば行は増やさない。`Accept` が届かないと
      * 相手は同じ `Follow` を送り直してくるので、二重に受けても行が増えない形にする。
+     * 未送信の `Accept` が残っていれば、最後に受けた `Follow` への `Accept` で置き換える。
+     *
+     * 記録と投函を 1 トランザクションで確定させる。記録できなかったフォローに `Accept` を
+     * 返すと、相手だけがフォローできたつもりになり、こちらには送り先が残らない。
+     * 逆に投函だけが落ちると、相手には保留のまま見えるのに送り直す機会が無くなる。
+     *
+     * フォローが成立するのは `Accept` を送れたときで、[DeliveryQueueRepository.markDelivered]
+     * がその場で状態を書き換える。
      */
     fun record(follow: IncomingFollow)
-
-    /**
-     * `Accept` を返せたことを記録して、フォロワーとして数えられるようにする。
-     *
-     * どの `Follow` に対する `Accept` だったかは問わない。相手から見ると、送った
-     * `Follow` のどれか 1 つに `Accept` が返れば関係は成立する。
-     *
-     * 状態の確認と書き換えは 1 つのトランザクションで行う。分けると、同じ `Follow` が
-     * 同時に 2 つ届いたときに両方が「初めて成立した」と読む
-     */
-    fun markAccepted(
-        username: String,
-        followerActorUri: String,
-        acceptedAt: Instant,
-    ): FollowAcceptResult
 
     /**
      * フォローを消す。`Undo{Follow}` で呼ぶ。
@@ -147,22 +140,6 @@ interface FollowerRepository {
 }
 
 /**
- * [FollowerRepository.markAccepted] の結果。
- *
- * 呼び出し側は初めて成立したかどうかで振る舞いを変える
- */
-enum class FollowAcceptResult {
-    /** `Accept` 前の記録を成立させた */
-    FirstAccept,
-
-    /** 既に成立していた。`Follow` の送り直し */
-    AlreadyAccepted,
-
-    /** 記録が無い */
-    NotFound,
-}
-
-/**
  * 受け取った `Follow` を記録するのに要るもの。
  *
  * 相手のアクターの中身を一緒に受け取るのは、`Follow` を処理する時点で
@@ -172,12 +149,14 @@ enum class FollowAcceptResult {
  * @param username フォローされたこちらのアカウントの名前
  * @param followActivityUri 受け取った `Follow` の id
  * @param receivedAt 受け取った時刻。相手のアクター文書を読んだ時刻としても記録する
+ * @param acceptBody 相手に返す `Accept` の JSON。署名対象になる
  */
 data class IncomingFollow(
     val username: String,
     val follower: NewRemoteActor,
     val followActivityUri: String,
     val receivedAt: Instant,
+    val acceptBody: String,
 )
 
 /**

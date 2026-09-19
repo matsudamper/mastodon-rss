@@ -56,12 +56,12 @@ class NoteEnqueuerTest {
                 follower = follower,
                 followActivityUri = "https://remote.example/follows/1",
                 receivedAt = FOLLOWED_AT,
+                acceptBody = """{"type":"Accept"}""",
             ),
         )
         repositories.followers.markAccepted(
             username = TestLocalActor.USERNAME,
             followerActorUri = follower.actorUri,
-            acceptedAt = FOLLOWED_AT,
         )
 
         val queued = enqueuer().enqueue(sender = SENDER, contentHtml = "<p>本文</p>")

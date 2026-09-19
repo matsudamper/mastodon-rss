@@ -2,9 +2,7 @@ package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.RemoteActor
-import net.matsudamper.mastodon.rss.follower.FollowAcceptResult
 import net.matsudamper.mastodon.rss.follower.FollowerStore
-import net.matsudamper.mastodon.rss.repository.FollowAcceptResult as RepositoryFollowAcceptResult
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
@@ -22,6 +20,7 @@ class RepositoryFollowerStore(
         follower: RemoteActor,
         followActivityUri: String,
         receivedAt: Instant,
+        acceptBody: String,
     ) {
         followers.record(
             IncomingFollow(
@@ -34,24 +33,9 @@ class RepositoryFollowerStore(
                 ),
                 followActivityUri = followActivityUri,
                 receivedAt = receivedAt,
+                acceptBody = acceptBody,
             ),
         )
-    }
-
-    override fun markAccepted(
-        username: String,
-        followerActorUri: String,
-        acceptedAt: Instant,
-    ): FollowAcceptResult = when (
-        followers.markAccepted(
-            username = username,
-            followerActorUri = followerActorUri,
-            acceptedAt = acceptedAt,
-        )
-    ) {
-        RepositoryFollowAcceptResult.FirstAccept -> FollowAcceptResult.FirstAccept
-        RepositoryFollowAcceptResult.AlreadyAccepted -> FollowAcceptResult.AlreadyAccepted
-        RepositoryFollowAcceptResult.NotFound -> FollowAcceptResult.NotFound
     }
 
     override fun remove(

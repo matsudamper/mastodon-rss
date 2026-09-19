@@ -48,6 +48,7 @@ import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
 import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
+import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
@@ -174,26 +175,27 @@ class AppDependencies(
     val actorProfiles: StoredActorProfiles = RepositoryActorProfiles(repositories.accounts)
 
     /**
-     * フォロー成立後に過去の投稿を配る間、inbox の応答を待たせないためのスコープ。
-     *
-     * 配り終える前にプロセスが落ちたら、その分は届かない。フォロー自体は
-     * 成立しているので、次の新着からは普通に届く
-     */
-    private val followBackfillScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    /**
      * inbox が受け取ったアクティビティの検証と振り分け。
      *
      * 何をどう組み合わせるかは ActivityPub 側の話なので
      * [InboxService.default] に任せる。ここで決めるのは、その材料になる
-     * [remoteActors] と [delivery] を本番のものにするかフェイクにするかだけ。
+     * [remoteActors] を本番のものにするかフェイクにするかだけ。
      */
     val inboxService: InboxService = InboxService.default(
         remoteActors = remoteActors,
-        delivery = delivery,
         followers = followerStore,
+    )
+
+    /**
+     * フォローが成立した相手に、フォローより前の投稿を配る。
+     *
+     * 成立するのは `Accept` を送れたときなので、始めるのは配信ワーカーになる。
+     * 配り終える前にプロセスが落ちたら、その分は届かない。フォロー自体は
+     * 成立しているので、次の新着からは普通に届く
+     */
+    private val followBackfillPublisher: FollowBackfillPublisher = FollowBackfillPublisher(
         notes = noteStore,
-        backfillScope = followBackfillScope,
+        delivery = delivery,
         webPages = webPageUrls,
     )
 
@@ -253,6 +255,7 @@ class AppDependencies(
                 maxInterval = 24.hours,
                 giveUpAfter = 30.days,
             ),
+            backfill = followBackfillPublisher,
             claimLimit = 8,
             idleInterval = 1.seconds,
             clock = Instant::now,
@@ -282,7 +285,7 @@ class AppDependencies(
      */
     fun stopBackgroundWork() {
         if (!backgroundStopped.compareAndSet(false, true)) return
-        val jobs = listOf(feedPollingScope, deliveryScope, followBackfillScope).map { it.coroutineContext.job }
+        val jobs = listOf(feedPollingScope, deliveryScope).map { it.coroutineContext.job }
         jobs.forEach { it.cancel() }
         runBlocking {
             withTimeoutOrNull(3_000) {

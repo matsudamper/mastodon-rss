@@ -80,12 +80,12 @@ class AppDependenciesTest {
                 ),
                 followActivityUri = "https://remote.example/activities/follow-1",
                 receivedAt = Instant.now(),
+                acceptBody = """{"type":"Accept"}""",
             ),
         )
         repositories.followers.markAccepted(
             username = TestServerEnv.USERNAME,
             followerActorUri = followerActorUri,
-            acceptedAt = Instant.now(),
         )
     }
 }

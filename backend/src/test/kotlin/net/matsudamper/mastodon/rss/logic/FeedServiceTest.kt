@@ -1056,11 +1056,11 @@ class FeedServiceTest {
                 ),
                 followActivityUri = "https://remote.example/activities/follow",
                 receivedAt = CREATED_AT,
+                acceptBody = """{"type":"Accept"}""",
             )
             markAccepted(
                 username = TestLocalActor.STORED_USERNAME,
                 followerActorUri = "https://remote.example/users/follower",
-                acceptedAt = CREATED_AT,
             )
         }
 

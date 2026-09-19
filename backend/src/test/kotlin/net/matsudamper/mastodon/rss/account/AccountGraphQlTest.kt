@@ -166,12 +166,12 @@ class AccountGraphQlTest {
                     ),
                     followActivityUri = "https://mastodon.example/activities/1",
                     receivedAt = Instant.now(),
+                    acceptBody = """{"type":"Accept"}""",
                 ),
             )
             repositories.followers.markAccepted(
                 username = "feed1",
                 followerActorUri = "https://mastodon.example/users/alice",
-                acceptedAt = Instant.now(),
             )
             repositories.notes.add(
                 NewNote(
@@ -466,6 +466,7 @@ class AccountGraphQlTest {
                     ),
                     followActivityUri = "https://mastodon.example/activities/bob",
                     receivedAt = Instant.now(),
+                    acceptBody = """{"type":"Accept"}""",
                 ),
             )
             application { module(testDependencies(repositories = repositories)) }
@@ -534,9 +535,10 @@ class AccountGraphQlTest {
                 ),
                 followActivityUri = "$actorUri/activities/1",
                 receivedAt = Instant.now(),
+                acceptBody = """{"type":"Accept"}""",
             ),
         )
-        markAccepted(username = username, followerActorUri = actorUri, acceptedAt = Instant.now())
+        markAccepted(username = username, followerActorUri = actorUri)
     }
 
     private suspend fun ApplicationTestBuilder.queryFollowers(

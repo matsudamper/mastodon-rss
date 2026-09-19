@@ -51,11 +51,11 @@ class NoteDeleteTest {
             follower = follower,
             followActivityUri = "https://remote.example/follows/1",
             receivedAt = FOLLOWED_AT,
+            acceptBody = """{"type":"Accept"}""",
         )
         followers.markAccepted(
             username = TestLocalActor.USERNAME,
             followerActorUri = follower.actorId,
-            acceptedAt = FOLLOWED_AT,
         )
         val queued = enqueuer.enqueue(sender = TestLocalActor.urls, contentHtml = "<p>本文</p>")
 

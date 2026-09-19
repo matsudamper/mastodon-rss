@@ -28,6 +28,7 @@ class FollowerFallbackPublicKeysTest {
                 ),
                 followActivityUri = "https://remote.example/activities/1",
                 receivedAt = now,
+                acceptBody = "{}",
             )
         }
 

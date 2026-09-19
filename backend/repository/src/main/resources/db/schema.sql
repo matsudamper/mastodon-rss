@@ -20,8 +20,8 @@ CREATE TABLE delivery_queue (
     -- こちらから相手の inbox に送る配信の待ち行列。1 行 = 1 宛先への 1 件。
     -- 成功した行は消し、諦めた行だけを failed で残す
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- 何を送るか。いまは投稿の Create（create_note）だけ。Accept や Update{Actor} を
-    -- 載せるときはここに値を増やす。行の形は種別に依らないので作り直さずに済む
+    -- 何を送るか。投稿の Create（create_note）と、Follow への応答（accept_follow）。
+    -- 行の形は種別に依らないので、種別を足しても作り直さずに済む
     kind TEXT NOT NULL,
     -- 署名するこちらのアカウントの名前。followers と同じ理由で外部キーにしない
     username TEXT COLLATE NOCASE NOT NULL,
@@ -45,7 +45,10 @@ CREATE TABLE delivery_queue (
     last_error TEXT,
     -- この行が配る投稿。投稿を消したら未配信の Create も一緒に消えるように外部キーで繋ぐ。
     -- 残すと、消したはずの投稿が復旧した相手に後から届く。投稿を伴わない種別では NULL
-    note_public_id TEXT REFERENCES notes (public_id) ON DELETE CASCADE
+    note_public_id TEXT REFERENCES notes (public_id) ON DELETE CASCADE,
+    -- この行が相手にする向こうのアクター。accept_follow で、送れたときに
+    -- どのフォローを成立させるかを決めるのに使う。関係しない種別では NULL
+    target_actor_uri TEXT
 );
 
 CREATE TABLE feed_icons (
@@ -169,6 +172,8 @@ CREATE TABLE remote_actors (
 );
 
 CREATE INDEX delivery_queue_note_public_id ON delivery_queue (note_public_id);
+
+CREATE INDEX delivery_queue_target_actor_uri ON delivery_queue (target_actor_uri);
 
 CREATE INDEX delivery_queue_state_inbox_host_next_attempt_at_id ON delivery_queue (state, inbox_host, next_attempt_at, id);
 

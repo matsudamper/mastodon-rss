@@ -9,7 +9,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
+import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import org.slf4j.LoggerFactory
 
@@ -27,6 +30,8 @@ import org.slf4j.LoggerFactory
  * キャンセルされたら送信中の行は `delivering` のまま残し、次の起動の復旧に任せる。
  * HTTP のタイムアウトは停止に使える時間より長いので、送り終わるのを待たない。
  *
+ * @param backfill フォローが成立した相手に過去の投稿を配る。成立するのは `Accept` が
+ *   届いたときなので、始められるのはここになる
  * @param claimLimit 1 回の claim で取り出す数。同時に相手にするホストの数であり、同時実行数の上限でもある
  * @param idleInterval claim が 0 件だったときに次を見に行くまでの待ち。
  *   新しい投稿が入ってから送り始めるまでの遅れの上限になる
@@ -36,6 +41,7 @@ class DeliveryWorker(
     private val delivery: ActivityDelivery,
     private val directory: ActorDirectory,
     private val retryPolicy: DeliveryRetryPolicy,
+    private val backfill: FollowBackfillPublisher,
     private val claimLimit: Int,
     private val idleInterval: Duration,
     private val clock: () -> Instant,
@@ -45,6 +51,9 @@ class DeliveryWorker(
      */
     fun start(scope: CoroutineScope): Job =
         scope.launch {
+            // 成立したフォローへの配り直しをここに乗せる。1 回の claim の中で待つと、
+            // 過去の投稿を配り終えるまで次の claim が始まらない
+            val backfillScope = this
             // 復旧も繰り返しの中で試す。外で投げると繰り返しが始まらず、次に再起動するまで配信が止まる
             var recovered = false
             while (true) {
@@ -80,7 +89,7 @@ class DeliveryWorker(
                     continue
                 }
 
-                deliverAll(claimed)
+                deliverAll(claimed = claimed, backfillScope = backfillScope)
             }
         }
 
@@ -90,10 +99,13 @@ class DeliveryWorker(
      * 1 行に 1 本のコルーチンを当てる。宛先のホストは行ごとに違うので、
      * 同じインスタンスに 2 本同時に向かうことはない
      */
-    private suspend fun deliverAll(claimed: List<ClaimedDelivery>) {
+    private suspend fun deliverAll(
+        claimed: List<ClaimedDelivery>,
+        backfillScope: CoroutineScope,
+    ) {
         coroutineScope {
             claimed.forEach { row ->
-                launch { deliverOne(row) }
+                launch { deliverOne(row = row, backfillScope = backfillScope) }
             }
         }
     }
@@ -104,7 +116,10 @@ class DeliveryWorker(
      * 例外はこの行の失敗として扱う。キャンセルだけは投げ直して、失敗として記録しない。
      * 記録すると、送れていない行が `pending` に戻って停止中に送り直される
      */
-    private suspend fun deliverOne(row: ClaimedDelivery) {
+    private suspend fun deliverOne(
+        row: ClaimedDelivery,
+        backfillScope: CoroutineScope,
+    ) {
         try {
             val sender = directory.resolve(row.username)
             if (sender == null) {
@@ -136,7 +151,16 @@ class DeliveryWorker(
             }
 
             when (result) {
-                is DeliveryResult.Delivered -> queue.markDelivered(row.id)
+                is DeliveryResult.Delivered -> {
+                    when (val outcome = queue.markDelivered(id = row.id, deliveredAt = clock())) {
+                        DeliveredOutcome.None -> Unit
+
+                        is DeliveredOutcome.FollowAccepted -> {
+                            logger.info("Accept が届いてフォローが成立した: ${sender.acct} ← ${outcome.followerActorUri}")
+                            backfillRecentNotes(sender = sender, accepted = outcome, scope = backfillScope)
+                        }
+                    }
+                }
 
                 is DeliveryResult.Failed -> {
                     // 相手が受け取らないと決めた応答は、間を空けても同じ答えが返る。
@@ -157,6 +181,35 @@ class DeliveryWorker(
             // 送れていた行を戻すと二重に届くことがあるが、受信側は id で冪等に扱う
             logger.error("配信の結果を記録できなかった: ${row.id.value} → ${row.inbox}", e)
             releaseToRetry(row, "結果を記録できなかった: ${e.message}")
+        }
+    }
+
+    /**
+     * フォローが成立した相手に、フォローより前の投稿を配る。
+     *
+     * 配信の結果は記録済みなので、ここで落ちてもキューには残らない。配れなくても
+     * フォローは成立していて、次の新着からは普通に届く
+     */
+    private fun backfillRecentNotes(
+        sender: ActorUrls,
+        accepted: DeliveredOutcome.FollowAccepted,
+        scope: CoroutineScope,
+    ) {
+        // 通常の配信はフォロワーとして数えられてから始まるので、境目は成立した後に取る。
+        // 先に取ると、成立を待っている間の投稿がどちらからも漏れる。境目が重なって
+        // 二重に送っても、同じ id なので相手側で落ちる
+        val backfillUntil = clock()
+
+        scope.launch {
+            runCatching {
+                backfill.deliverRecentNotes(
+                    sender = sender,
+                    inbox = accepted.inbox,
+                    publishedBefore = backfillUntil,
+                )
+            }.onFailure { failure ->
+                logger.warn("過去の投稿を配れなかった: ${sender.acct} → ${accepted.followerActorUri}", failure)
+            }
         }
     }
 

@@ -164,6 +164,7 @@ class AccountServiceTest {
                 ),
                 followActivityUri = "$FOLLOWER_ACTOR_URI/follows/2",
                 receivedAt = CREATED_AT,
+                acceptBody = """{"type":"Accept"}""",
             ),
         )
 
@@ -294,12 +295,12 @@ class AccountServiceTest {
                 ),
                 followActivityUri = "$FOLLOWER_ACTOR_URI/follows/1",
                 receivedAt = CREATED_AT,
+                acceptBody = """{"type":"Accept"}""",
             ),
         )
         followers.markAccepted(
             username = USERNAME,
             followerActorUri = FOLLOWER_ACTOR_URI,
-            acceptedAt = CREATED_AT,
         )
 
         notes.add(

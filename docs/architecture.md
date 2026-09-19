@@ -324,11 +324,12 @@ Cookie の `Secure` は既定で付ける。本番はリバースプロキシで
 
 ## 配信キュー
 
-こちらから相手の inbox に送るもののうち、投稿の `Create{Note}` はその場で送らず
-`delivery_queue` に投函して、`:backend` のワーカー（`DeliveryWorker`）が送る。
-送信中にプロセスが落ちても投函した行が残るので、次の起動で送り直せる。
+こちらから相手の inbox に送るもののうち、投稿の `Create{Note}` と `Follow` への
+`Accept` はその場で送らず `delivery_queue` に投函して、`:backend` のワーカー
+（`DeliveryWorker`）が送る。送信中にプロセスが落ちても投函した行が残るので、
+次の起動で送り直せる。
 
-誰が何をするかは 3 つのモジュールに分かれる。
+投稿の場合、誰が何をするかは 3 つのモジュールに分かれる。
 
 - `:backend:feature-mastodon` の `NotePublisher.prepare` は `Create{Note}` を組み立てて
   返すだけ。DB も触らず HTTP も出さない
@@ -341,6 +342,13 @@ Cookie の `Secure` は既定で付ける。本番はリバースプロキシで
 - `:backend` の `NoteEnqueuer` が両方を繋ぐ。管理画面からの告知（GraphQL の resolver）も
   フィードの記事（`FeedService`）も同じ口を通る。記事の id は repository 側の概念なので、
   `:backend:feature-mastodon` の型には持ち込まない
+
+`Accept` も同じ形で、`:backend:feature-mastodon` の `FollowHandler` が組み立てて
+`FollowerStore.record` に預け、`:backend:repository` の `FollowerRepository.record` が
+フォローの記録と投函を 1 トランザクションで書く。フォローが成立するのは `Accept` を
+送れたときなので、状態を `accepted` にするのは `markDelivered` になる。相手に届いて
+初めて成立するものを、送る前に成立させない。初めて成立したときだけ、フォローより前の
+投稿をその相手に配る（`FollowBackfillPublisher`）。送り直しの `Accept` では配らない。
 
 ワーカーは `Main` が `ServerReady` で 1 つだけ回す。Ktor の routing には乗せない
 （リクエストと無関係に動くため）。同じ DB に対してアプリのプロセスを 2 つ動かす構成は
