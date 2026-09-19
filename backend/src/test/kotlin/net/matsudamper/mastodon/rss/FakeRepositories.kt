@@ -883,6 +883,7 @@ class FakeDeliveryQueueRepository(
         .map { row ->
             RetryingDelivery(
                 id = row.id,
+                kind = row.kind,
                 inbox = row.inbox,
                 attempts = row.attempts,
                 nextAttemptAt = checkNotNull(row.nextAttemptAt),
@@ -905,7 +906,9 @@ class FakeDeliveryQueueRepository(
         .filter { it.username.equals(username, ignoreCase = true) && it.state == State.FAILED }
         .sortedByDescending { it.id.value }
         .filter { afterId == null || it.id.value < afterId.value }
-        .map { row -> FailedDelivery(id = row.id, inbox = row.inbox, attempts = row.attempts, lastError = row.lastError) }
+        .map { row ->
+            FailedDelivery(id = row.id, kind = row.kind, inbox = row.inbox, attempts = row.attempts, lastError = row.lastError)
+        }
         .take(limit.coerceAtLeast(0))
 
     override fun deleteByUsername(username: String): Int {

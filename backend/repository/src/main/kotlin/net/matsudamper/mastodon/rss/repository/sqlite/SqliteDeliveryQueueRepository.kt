@@ -373,6 +373,7 @@ internal class SqliteDeliveryQueueRepository(
                 .map { record ->
                     RetryingDelivery(
                         id = DeliveryId(record.get(DELIVERY_QUEUE.ID)),
+                        kind = DeliveryKindDbValue.parse(record.get(DELIVERY_QUEUE.KIND)).toDeliveryKind(),
                         inbox = record.get(DELIVERY_QUEUE.INBOX),
                         attempts = record.get(DELIVERY_QUEUE.ATTEMPTS).toInt(),
                         nextAttemptAt = StoredInstant.parse(record.get(DELIVERY_QUEUE.NEXT_ATTEMPT_AT)),
@@ -413,6 +414,7 @@ internal class SqliteDeliveryQueueRepository(
                 .map { record ->
                     FailedDelivery(
                         id = DeliveryId(record.get(DELIVERY_QUEUE.ID)),
+                        kind = DeliveryKindDbValue.parse(record.get(DELIVERY_QUEUE.KIND)).toDeliveryKind(),
                         inbox = record.get(DELIVERY_QUEUE.INBOX),
                         attempts = record.get(DELIVERY_QUEUE.ATTEMPTS).toInt(),
                         lastError = record.get(DELIVERY_QUEUE.LAST_ERROR),

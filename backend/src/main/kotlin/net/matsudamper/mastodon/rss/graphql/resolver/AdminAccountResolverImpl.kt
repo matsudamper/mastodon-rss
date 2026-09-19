@@ -93,6 +93,7 @@ class AdminAccountResolverImpl : AdminAccountResolver {
             QlAdminRetryingDeliveriesConnection(
                 nodes = page.deliveries.map { delivery ->
                     QlAdminRetryingDelivery(
+                        kind = delivery.kind.toGraphqlResponse(),
                         inbox = delivery.inbox,
                         attempts = delivery.attempts,
                         nextAttemptAt = delivery.nextAttemptAt.epochSecond,
@@ -135,6 +136,7 @@ class AdminAccountResolverImpl : AdminAccountResolver {
             QlAdminFailedDeliveriesConnection(
                 nodes = page.deliveries.map { delivery ->
                     QlAdminFailedDelivery(
+                        kind = delivery.kind.toGraphqlResponse(),
                         inbox = delivery.inbox,
                         attempts = delivery.attempts,
                         lastError = delivery.lastError,

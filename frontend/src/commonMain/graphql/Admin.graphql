@@ -78,6 +78,7 @@ fragment AdminAccountScreenFields on AdminAccount {
     }
     retryingDeliveries(limit: 20) {
         nodes {
+            kind
             inbox
             attempts
             nextAttemptAt
@@ -89,6 +90,7 @@ fragment AdminAccountScreenFields on AdminAccount {
     }
     failedDeliveries(limit: 20) {
         nodes {
+            kind
             inbox
             attempts
             lastError

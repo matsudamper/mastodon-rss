@@ -346,9 +346,12 @@ data class DeliveryQueueCounts(
 
 /**
  * 送り直しを待っている行 1 件
+ *
+ * @param kind 何を送る行か。何が滞っているかは宛先だけでは分からない
  */
 data class RetryingDelivery(
     val id: DeliveryId,
+    val kind: DeliveryKind,
     val inbox: String,
     val attempts: Int,
     val nextAttemptAt: Instant,
@@ -372,9 +375,12 @@ data class RetryingDeliveryPosition(
 
 /**
  * 諦めた行 1 件。もう送らないので次に送る時刻は無い
+ *
+ * @param kind 何を送る行か
  */
 data class FailedDelivery(
     val id: DeliveryId,
+    val kind: DeliveryKind,
     val inbox: String,
     val attempts: Int,
     val lastError: String?,
