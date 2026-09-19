@@ -16,23 +16,23 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import net.matsudamper.mastodon.rss.FakeFeedHeaders
 import net.matsudamper.mastodon.rss.FakeFeedIcons
-import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.FakeStoredActorNames
 import net.matsudamper.mastodon.rss.TestActorPublisher
-import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
 import net.matsudamper.mastodon.rss.repository.FeedItemState
+import net.matsudamper.mastodon.rss.repository.IncomingFollow
+import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.shared.AccountId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
@@ -1008,20 +1008,18 @@ class FeedServiceTest {
         runTest {
             val repositories = FakeRepositories()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val followers = acceptedFollowerStore()
-            val delivery = TestDelivery()
+            repositories.addAcceptedFollower()
             val service = serviceOf(
                 repositories,
                 icons = FakeFeedIcons().apply { changed = true },
-                followers = followers,
-                delivery = delivery,
             )
 
             service.save(accountId = account.id, url = FEED_URL)
 
-            val update = assertNotNull(delivery.delivered.singleOrNull())
+            val update = assertNotNull(repositories.deliveryQueue.rows().singleOrNull())
+            assertEquals(DeliveryKind.UPDATE_ACTOR, update.kind)
             assertEquals(FOLLOWER_INBOX, update.inbox)
-            assertContains(update.body, "\"type\":\"Update\"")
+            assertContains(assertNotNull(update.body), "\"type\":\"Update\"")
         }
 
     @Test
@@ -1029,40 +1027,38 @@ class FeedServiceTest {
         runTest {
             val repositories = FakeRepositories()
             val account = assertNotNull(repositories.accounts.add(username = TestLocalActor.STORED_USERNAME, createdAt = CREATED_AT))
-            val delivery = TestDelivery()
-            val service = serviceOf(
-                repositories,
-                followers = acceptedFollowerStore(),
-                delivery = delivery,
-            )
+            repositories.addAcceptedFollower()
+            val service = serviceOf(repositories)
 
             service.save(accountId = account.id, url = FEED_URL)
 
-            assertEquals(emptyList(), delivery.delivered)
+            assertEquals(emptyList(), repositories.deliveryQueue.rows())
         }
 
     /**
      * `Update` の宛先になるフォロワーを 1 人だけ持たせる。
      */
-    private fun acceptedFollowerStore(): FakeFollowerStore =
-        FakeFollowerStore().apply {
-            record(
+    private fun FakeRepositories.addAcceptedFollower() {
+        val followerActorUri = "https://remote.example/users/follower"
+        followers.record(
+            IncomingFollow(
                 username = TestLocalActor.STORED_USERNAME,
-                follower = RemoteActor(
-                    actorId = "https://remote.example/users/follower",
+                follower = NewRemoteActor(
+                    actorUri = followerActorUri,
                     inbox = FOLLOWER_INBOX,
                     sharedInbox = null,
                     publicKeyPem = "pem",
                 ),
                 followActivityUri = "https://remote.example/activities/follow",
                 receivedAt = CREATED_AT,
-            )
-            markAccepted(
-                username = TestLocalActor.STORED_USERNAME,
-                followerActorUri = "https://remote.example/users/follower",
-                acceptedAt = CREATED_AT,
-            )
+                acceptBody = """{"type":"Accept"}""",
+            ),
+        )
+        // Accept が届いて初めてフォロワーになる。投函した行はここで消える
+        deliveryQueue.claim(now = CREATED_AT, limit = 10).forEach {
+            deliveryQueue.markDelivered(id = it.id, deliveredAt = CREATED_AT)
         }
+    }
 
     private fun serviceOf(
         repositories: FakeRepositories,
@@ -1076,8 +1072,6 @@ class FeedServiceTest {
         icons: FeedIcons = FakeFeedIcons(),
         noteStore: NoteStore = FakeNoteStore(),
         headers: FeedHeaders = FakeFeedHeaders(),
-        followers: FakeFollowerStore = FakeFollowerStore(),
-        delivery: TestDelivery = TestDelivery(),
     ): FeedService {
         val mockEngine = engine ?: run {
             val bodies = ArrayDeque(xmls ?: listOf(xml))
@@ -1102,8 +1096,6 @@ class FeedServiceTest {
             noteEnqueuer = NoteEnqueuer(
                 publisher = NotePublisher(
                     notes = noteStore,
-                    followers = FakeFollowerStore(),
-                    delivery = TestDelivery(),
                     webPages = TestWebPageUrls,
                 ),
                 followers = repositories.followers,
@@ -1111,12 +1103,7 @@ class FeedServiceTest {
             ),
             icons = icons,
             headers = headers,
-            actorPublisher = TestActorPublisher.of(
-                repositories = repositories,
-                notes = noteStore,
-                followers = followers,
-                delivery = delivery,
-            ),
+            actorEnqueuer = TestActorPublisher.enqueuerOf(repositories),
         )
     }
 

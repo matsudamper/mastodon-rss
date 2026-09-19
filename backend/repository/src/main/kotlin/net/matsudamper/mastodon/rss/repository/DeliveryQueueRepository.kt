@@ -43,6 +43,31 @@ interface DeliveryQueueRepository {
     fun requeueNote(post: RecordedNotePost): EnqueueNoteResult
 
     /**
+     * 投稿を消して、消したことを宛先ごとに投函する。
+     *
+     * 記録を消すのと投函を 1 トランザクションで確定させる。記録だけ消すと、
+     * 相手のタイムラインには残ったままになる。投函だけすると、`Delete` を受けた相手が
+     * 確かめに来たときにまだ本文を返す。
+     *
+     * 消した投稿に紐付く未配信の `Create` も一緒に消える。消したはずの投稿を
+     * この後で配らない。投函する行は投稿に紐付けない。紐付けると、いま消した投稿と
+     * 一緒に消える。
+     *
+     * @return 投函した配信の数。宛先の数と同じ
+     */
+    fun enqueueNoteDeletion(post: NoteDeletionPost): Int
+
+    /**
+     * アクター情報の更新を宛先ごとに投函する。
+     *
+     * まだ送っていない同じアカウントの更新は、いま渡されたもので置き換える。
+     * 続けて 2 回変えたときに古い方が後から届くと、相手の表示が 1 つ前に戻る。
+     *
+     * @return 投函した配信の数。宛先の数と同じ
+     */
+    fun enqueueActorUpdate(post: ActorUpdatePost): Int
+
+    /**
      * 送る時刻を過ぎた `pending` を `delivering` にして返す。宛先のホストごとに 1 件まで。
      *
      * 送る時刻が古いホストから順に選ぶ。行を古い順に選ぶと、送れないホスト宛が溜まった分だけ
@@ -68,9 +93,19 @@ interface DeliveryQueueRepository {
     fun exists(id: DeliveryId): Boolean
 
     /**
-     * 送れたので行を消す
+     * 送れたので行を消す。
+     *
+     * 送れたことで確定する記録が種別ごとにあるので、行を消すのと一緒に書く。
+     * 分けると、書く前に落ちたときに「送ったのに記録が無い」状態が残り、
+     * 行はもう無いので直す手立てが無くなる。
+     *
+     * @param deliveredAt 送れた時刻。フォローが成立した時刻として記録する
+     * @return 送れたことで何が確定したか
      */
-    fun markDelivered(id: DeliveryId)
+    fun markDelivered(
+        id: DeliveryId,
+        deliveredAt: Instant,
+    ): DeliveredOutcome
 
     /**
      * 送れなかったので、時刻を指定して `pending` に戻す
@@ -182,6 +217,38 @@ data class RecordedNotePost(
     val feedItemId: FeedItemId,
 )
 
+/**
+ * 投函する投稿の削除。
+ *
+ * @param publicId 消す投稿。この投稿の記録も一緒に消える
+ * @param username 署名するこちらのアカウントの名前
+ * @param body 署名対象になる `Delete{Note}` の JSON
+ * @param inboxes 宛先。同じ宛先は 1 つにまとめてから渡すこと
+ * @param enqueuedAt 投函した時刻。最初の 1 回はこの時刻にすぐ送る
+ */
+data class NoteDeletionPost(
+    val publicId: PublicNoteId,
+    val username: String,
+    val body: String,
+    val inboxes: List<String>,
+    val enqueuedAt: Instant,
+)
+
+/**
+ * 投函するアクター情報の更新。
+ *
+ * @param username 署名するこちらのアカウントの名前
+ * @param body 署名対象になる `Update{Actor}` の JSON
+ * @param inboxes 宛先。同じ宛先は 1 つにまとめてから渡すこと
+ * @param enqueuedAt 投函した時刻。最初の 1 回はこの時刻にすぐ送る
+ */
+data class ActorUpdatePost(
+    val username: String,
+    val body: String,
+    val inboxes: List<String>,
+    val enqueuedAt: Instant,
+)
+
 sealed interface EnqueueNoteResult {
     /**
      * @param deliveries 投函した配信の数。宛先の数と同じ
@@ -204,6 +271,50 @@ enum class DeliveryKind {
      * 投稿を包んだ `Create`
      */
     CREATE_NOTE,
+
+    /**
+     * 消した投稿の `Delete`
+     */
+    DELETE_NOTE,
+
+    /**
+     * アクター情報の `Update`
+     */
+    UPDATE_ACTOR,
+
+    /**
+     * 消したアクターの `Delete`
+     */
+    DELETE_ACTOR,
+
+    /**
+     * 受け取った `Follow` への `Accept`
+     */
+    ACCEPT_FOLLOW,
+}
+
+/**
+ * 送れたことで確定したもの。
+ *
+ * 呼び出し側は、送れて初めて始められる後処理をここから判断する
+ */
+sealed interface DeliveredOutcome {
+    /**
+     * 行を消した以外に何も起きていない
+     */
+    data object None : DeliveredOutcome
+
+    /**
+     * `Accept` が届いてフォローが初めて成立した。送り直しの `Accept` では返らない。
+     *
+     * @param followerActorUri 成立した相手
+     * @param inbox 相手の inbox。`sharedInbox` ではないので、この相手にだけ送れる
+     */
+    data class FollowAccepted(
+        val username: String,
+        val followerActorUri: String,
+        val inbox: String,
+    ) : DeliveredOutcome
 }
 
 /**
@@ -235,9 +346,12 @@ data class DeliveryQueueCounts(
 
 /**
  * 送り直しを待っている行 1 件
+ *
+ * @param kind 何を送る行か。何が滞っているかは宛先だけでは分からない
  */
 data class RetryingDelivery(
     val id: DeliveryId,
+    val kind: DeliveryKind,
     val inbox: String,
     val attempts: Int,
     val nextAttemptAt: Instant,
@@ -261,9 +375,12 @@ data class RetryingDeliveryPosition(
 
 /**
  * 諦めた行 1 件。もう送らないので次に送る時刻は無い
+ *
+ * @param kind 何を送る行か
  */
 data class FailedDelivery(
     val id: DeliveryId,
+    val kind: DeliveryKind,
     val inbox: String,
     val attempts: Int,
     val lastError: String?,

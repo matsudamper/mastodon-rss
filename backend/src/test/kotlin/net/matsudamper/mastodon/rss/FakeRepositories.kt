@@ -4,9 +4,13 @@ import java.net.URI
 import java.time.Instant
 import java.util.Locale
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountDeletion
+import net.matsudamper.mastodon.rss.repository.AccountDeletionResult
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.ActorUpdatePost
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
+import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
 import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
@@ -23,13 +27,13 @@ import net.matsudamper.mastodon.rss.repository.FeedItem
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
-import net.matsudamper.mastodon.rss.repository.FollowAcceptResult
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.Note
+import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.NoteRepository
@@ -57,9 +61,29 @@ class FakeRepositories : Repositories {
         onDeleted = { accountId ->
             feeds.deleteByAccountId(accountId)?.also { feedItems.deleteByFeed(it) }
         },
+        // 名前で持っているものと送り残した配信を消すのと、Delete{Actor} の投函を
+        // 1 トランザクションで書くのは本物の repository。ここで繋がないと、
+        // 消したアカウントの投稿が後から配られる
+        onAccountDeletion = { deletion ->
+            val deletedNotes = notes.deleteByUsername(deletion.username)
+            val removedFollowers = followers.removeAccount(deletion.username)
+            deliveryQueue.deleteByUsername(deletion.username)
+            deliveryQueue.enqueueActorDeletion(deletion)
+
+            FakeAccountRepository.AccountDeletionCounts(
+                deletedNotes = deletedNotes,
+                removedFollowers = removedFollowers,
+            )
+        },
+        hasDeliveries = { username -> deliveryQueue.hasRows(username) },
     )
 
-    override val followers: FollowerRepository = FakeFollowerRepository()
+    // Follow の記録と Accept の投函が 1 トランザクションで確定するのは本物の
+    // repository。ここで繋がないと、記録だけ残って Accept が送られない
+    override val followers: FakeFollowerRepository = FakeFollowerRepository(
+        onRecorded = { follow -> deliveryQueue.enqueueAccept(follow) },
+        onRemoved = { username, followerActorUri -> deliveryQueue.deletePendingAccept(username, followerActorUri) },
+    )
 
     // フィードを消すと記事も消えるのは SQLite の ON DELETE CASCADE。
     // ここで繋がないと、消したフィードの記事が残って重複判定に効いてしまう
@@ -81,8 +105,13 @@ class FakeRepositories : Repositories {
         },
     )
 
-    // 投函は投稿の記録と記事の投稿済み化を一緒に書くので、両方のフェイクを繋ぐ
-    override val deliveryQueue: FakeDeliveryQueueRepository = FakeDeliveryQueueRepository(notes = notes, feedItems = feedItems)
+    // 投函は投稿の記録と記事の投稿済み化を一緒に書くので、両方のフェイクを繋ぐ。
+    // Accept が送れたときにフォローが成立するのも本物と同じく配信キューが書く
+    override val deliveryQueue: FakeDeliveryQueueRepository = FakeDeliveryQueueRepository(
+        notes = notes,
+        feedItems = feedItems,
+        markAccepted = { username, followerActorUri -> followers.markAccepted(username, followerActorUri) },
+    )
 
     override fun verifyWritable() {
         verifyWritableCallCount++
@@ -95,16 +124,23 @@ class FakeRepositories : Repositories {
 
 class FakeAccountRepository(
     private val onDeleted: (accountId: AccountId) -> Unit = {},
+    private val onAccountDeletion: (AccountDeletion) -> AccountDeletionCounts = { AccountDeletionCounts(0, 0) },
+    private val hasDeliveries: (username: String) -> Boolean = { false },
 ) : AccountRepository {
     private val stored = mutableListOf<Account>()
     private var nextId = 1L
 
+    /**
+     * 消していないものだけ。消した行は名前を押さえるためだけに残る
+     */
+    private val alive: List<Account> get() = stored.filter { it.deletedAt == null }
+
     @Deprecated("ページングに移行する。list(after, limit) を使う")
-    override fun list(): List<Account> = stored.toList()
+    override fun list(): List<Account> = alive.toList()
 
     override fun list(after: AccountPosition?, limit: Int): List<Account> {
         if (limit <= 0) return listOf()
-        val sorted = stored.sortedWith(compareBy({ it.createdAt }, { it.id.value }))
+        val sorted = alive.sortedWith(compareBy({ it.createdAt }, { it.id.value }))
         val laterThanAfter = if (after == null) {
             sorted
         } else {
@@ -113,9 +149,9 @@ class FakeAccountRepository(
         return laterThanAfter.take(limit)
     }
 
-    override fun findById(id: AccountId): Account? = stored.firstOrNull { it.id == id }
+    override fun findById(id: AccountId): Account? = alive.firstOrNull { it.id == id }
 
-    override fun findByUsername(username: String): Account? = stored.firstOrNull { it.username.equals(username, ignoreCase = true) }
+    override fun findByUsername(username: String): Account? = alive.firstOrNull { it.username.equals(username, ignoreCase = true) }
 
     override fun findByUsernames(usernames: Collection<String>): Map<String, Account> =
         usernames.mapNotNull { username ->
@@ -127,7 +163,9 @@ class FakeAccountRepository(
         username: String,
         createdAt: Instant,
     ): Account? {
-        if (findByUsername(username) != null) return null
+        // 消した行も名前を押さえている。作り直せると、送り残した Delete{Actor} が
+        // 新しいアカウントのものとして配られる
+        if (stored.any { it.username.equals(username, ignoreCase = true) }) return null
 
         return Account(
             id = AccountId(nextId++),
@@ -135,6 +173,7 @@ class FakeAccountRepository(
             createdAt = createdAt,
             displayName = null,
             summary = null,
+            deletedAt = null,
         ).also { stored += it }
     }
 
@@ -143,7 +182,7 @@ class FakeAccountRepository(
         displayName: String?,
         summary: String?,
     ): Account? {
-        val index = stored.indexOfFirst { it.id == id }
+        val index = stored.indexOfFirst { it.id == id && it.deletedAt == null }
         if (index == -1) return null
 
         val updated = stored[index].copy(displayName = displayName, summary = summary)
@@ -151,40 +190,83 @@ class FakeAccountRepository(
         return updated
     }
 
-    override fun delete(id: AccountId): Boolean {
-        if (!stored.removeAll { it.id == id }) return false
-        onDeleted(id)
-        return true
+    override fun findDeletedByUsername(username: String): Account? = stored
+        .firstOrNull { it.username.equals(username, ignoreCase = true) && it.deletedAt != null }
+
+    override fun markDeleted(deletion: AccountDeletion): AccountDeletionResult? {
+        val index = stored.indexOfFirst { it.id == deletion.id && it.deletedAt == null }
+        if (index == -1) return null
+
+        stored[index] = stored[index].copy(deletedAt = deletion.deletedAt)
+
+        // フィードと記事が外部キーで消えるのは本物の DB。ここで繋がないと、
+        // 消したアカウントのフィード URL が埋まったままになる
+        onDeleted(deletion.id)
+        val counts = onAccountDeletion(deletion)
+
+        return AccountDeletionResult(
+            deletedNotes = counts.deletedNotes,
+            removedFollowers = counts.removedFollowers,
+            deliveries = deletion.inboxes.size,
+        )
     }
+
+    override fun purgeDeleted(): Int {
+        val purged = stored.filter { it.deletedAt != null && hasDeliveries(it.username).not() }
+        stored.removeAll(purged)
+        return purged.size
+    }
+
+    /**
+     * [markDeleted] で消えた数。名前で持っているものは外部キーでは消えない
+     */
+    data class AccountDeletionCounts(
+        val deletedNotes: Int,
+        val removedFollowers: Int,
+    )
 }
 
 /**
  * 記録するだけの [FollowerRepository]。ルーティングのテストでは中身を見ない
+ *
+ * @param onRecorded 記録と一緒に `Accept` を投函する
+ * @param onRemoved 解除された相手への、まだ送っていない `Accept` を消す
  */
-class FakeFollowerRepository : FollowerRepository {
+class FakeFollowerRepository(
+    private val onRecorded: (IncomingFollow) -> Unit = {},
+    private val onRemoved: (username: String, followerActorUri: String) -> Unit = { _, _ -> },
+) : FollowerRepository {
     private val stored = mutableListOf<IncomingFollow>()
 
     override fun record(follow: IncomingFollow) {
         if (stored.none { it.username == follow.username && it.follower.actorUri == follow.follower.actorUri }) {
             stored += follow
         }
+        onRecorded(follow)
     }
 
-    override fun markAccepted(
+    /**
+     * `Accept` が届いてフォローが成立した状況を作る。本物では配信キューがここを書く
+     *
+     * @return 初めて成立したなら true
+     */
+    fun markAccepted(
         username: String,
         followerActorUri: String,
-        acceptedAt: Instant,
-    ): FollowAcceptResult = when {
-        stored.none { it.username == username && it.follower.actorUri == followerActorUri } -> FollowAcceptResult.NotFound
-        accepted.add(username to followerActorUri) -> FollowAcceptResult.FirstAccept
-        else -> FollowAcceptResult.AlreadyAccepted
+    ): Boolean {
+        if (stored.none { it.username == username && it.follower.actorUri == followerActorUri }) return false
+        return accepted.add(username to followerActorUri)
     }
 
     override fun remove(
         username: String,
         followerActorUri: String,
         followActivityUri: String?,
-    ): Boolean = stored.removeAll { it.username == username && it.follower.actorUri == followerActorUri }
+    ): Boolean {
+        val removed = stored.removeAll { it.username == username && it.follower.actorUri == followerActorUri }
+        if (removed) onRemoved(username, followerActorUri)
+        return removed
+    }
 
     override fun removeAccount(username: String): Int {
         val before = stored.size
@@ -575,6 +657,7 @@ class FakeFeedItemRepository : FeedItemRepository {
 class FakeDeliveryQueueRepository(
     private val notes: FakeNoteRepository,
     private val feedItems: FakeFeedItemRepository,
+    private val markAccepted: (username: String, followerActorUri: String) -> Boolean = { _, _ -> false },
 ) : DeliveryQueueRepository {
     private val stored = mutableListOf<Row>()
     private var nextId = 1L
@@ -590,7 +673,9 @@ class FakeDeliveryQueueRepository(
         post.inboxes.forEach { inbox ->
             stored += Row(
                 id = DeliveryId(nextId++),
+                kind = DeliveryKind.CREATE_NOTE,
                 notePublicId = post.note.publicId,
+                targetActorUri = null,
                 username = post.note.username,
                 inbox = inbox,
                 body = post.body,
@@ -611,7 +696,9 @@ class FakeDeliveryQueueRepository(
         post.inboxes.forEach { inbox ->
             stored += Row(
                 id = DeliveryId(nextId++),
+                kind = DeliveryKind.CREATE_NOTE,
                 notePublicId = post.publicId,
+                targetActorUri = null,
                 username = post.username,
                 inbox = inbox,
                 body = post.body,
@@ -623,6 +710,118 @@ class FakeDeliveryQueueRepository(
             )
         }
         return EnqueueNoteResult.Queued(deliveries = post.inboxes.size)
+    }
+
+    override fun enqueueActorUpdate(post: ActorUpdatePost): Int {
+        // 送り残した古い更新を残すと、それが後から届いて相手の表示が 1 つ前に戻る
+        stored.removeAll {
+            it.kind == DeliveryKind.UPDATE_ACTOR && it.state == State.PENDING && it.username == post.username
+        }
+
+        post.inboxes.forEach { inbox ->
+            stored += Row(
+                id = DeliveryId(nextId++),
+                kind = DeliveryKind.UPDATE_ACTOR,
+                notePublicId = null,
+                targetActorUri = null,
+                username = post.username,
+                inbox = inbox,
+                body = post.body,
+                state = State.PENDING,
+                attempts = 0,
+                nextAttemptAt = post.enqueuedAt,
+                enqueuedAt = post.enqueuedAt,
+                lastError = null,
+            )
+        }
+
+        return post.inboxes.size
+    }
+
+    override fun enqueueNoteDeletion(post: NoteDeletionPost): Int {
+        // 未配信の Create が一緒に消えるのは本物の外部キー。消してから投函しないと、
+        // いま入れた delete_note まで巻き込まれる
+        notes.delete(post.publicId)
+
+        post.inboxes.forEach { inbox ->
+            stored += Row(
+                id = DeliveryId(nextId++),
+                kind = DeliveryKind.DELETE_NOTE,
+                notePublicId = null,
+                targetActorUri = null,
+                username = post.username,
+                inbox = inbox,
+                body = post.body,
+                state = State.PENDING,
+                attempts = 0,
+                nextAttemptAt = post.enqueuedAt,
+                enqueuedAt = post.enqueuedAt,
+                lastError = null,
+            )
+        }
+
+        return post.inboxes.size
+    }
+
+    /**
+     * アカウントを消したことを宛先ごとに投函する
+     */
+    fun enqueueActorDeletion(deletion: AccountDeletion) {
+        deletion.inboxes.forEach { inbox ->
+            stored += Row(
+                id = DeliveryId(nextId++),
+                kind = DeliveryKind.DELETE_ACTOR,
+                notePublicId = null,
+                targetActorUri = null,
+                username = deletion.username,
+                inbox = inbox,
+                body = deletion.body,
+                state = State.PENDING,
+                attempts = 0,
+                nextAttemptAt = deletion.deletedAt,
+                enqueuedAt = deletion.deletedAt,
+                lastError = null,
+            )
+        }
+    }
+
+    fun hasRows(username: String): Boolean = stored.any { it.username.equals(username, ignoreCase = true) }
+
+    /**
+     * `Follow` の記録と一緒に `Accept` を投函する。
+     *
+     * 送り直された `Follow` の分だけ増やさず、最後のもので置き換える
+     */
+    fun enqueueAccept(follow: IncomingFollow) {
+        deletePendingAccept(username = follow.username, followerActorUri = follow.follower.actorUri)
+
+        stored += Row(
+            id = DeliveryId(nextId++),
+            kind = DeliveryKind.ACCEPT_FOLLOW,
+            notePublicId = null,
+            targetActorUri = follow.follower.actorUri,
+            username = follow.username,
+            // sharedInbox にはまとめない。Accept は Follow を送ってきた相手への応答
+            inbox = follow.follower.inbox,
+            body = follow.acceptBody,
+            state = State.PENDING,
+            attempts = 0,
+            nextAttemptAt = follow.receivedAt,
+            enqueuedAt = follow.receivedAt,
+            lastError = null,
+        )
+    }
+
+    fun deletePendingAccept(
+        username: String,
+        followerActorUri: String,
+    ) {
+        stored.removeAll {
+            it.kind == DeliveryKind.ACCEPT_FOLLOW &&
+                it.state == State.PENDING &&
+                it.username == username &&
+                it.targetActorUri == followerActorUri
+        }
     }
 
     override fun claim(
@@ -639,7 +838,7 @@ class FakeDeliveryQueueRepository(
             val current = checkNotNull(find(row.id))
             ClaimedDelivery(
                 id = current.id,
-                kind = DeliveryKind.CREATE_NOTE,
+                kind = current.kind,
                 username = current.username,
                 inbox = current.inbox,
                 body = checkNotNull(current.body),
@@ -654,8 +853,23 @@ class FakeDeliveryQueueRepository(
 
     override fun exists(id: DeliveryId): Boolean = find(id) != null
 
-    override fun markDelivered(id: DeliveryId) {
+    override fun markDelivered(
+        id: DeliveryId,
+        deliveredAt: Instant,
+    ): DeliveredOutcome {
+        val row = find(id) ?: return DeliveredOutcome.None
         stored.removeAll { it.id == id }
+
+        if (row.kind != DeliveryKind.ACCEPT_FOLLOW) return DeliveredOutcome.None
+
+        val followerActorUri = checkNotNull(row.targetActorUri) { "accept_follow の行に相手のアクターが無い" }
+        if (!markAccepted(row.username, followerActorUri)) return DeliveredOutcome.None
+
+        return DeliveredOutcome.FollowAccepted(
+            username = row.username,
+            followerActorUri = followerActorUri,
+            inbox = row.inbox,
+        )
     }
 
     override fun scheduleRetry(
@@ -696,6 +910,7 @@ class FakeDeliveryQueueRepository(
         .map { row ->
             RetryingDelivery(
                 id = row.id,
+                kind = row.kind,
                 inbox = row.inbox,
                 attempts = row.attempts,
                 nextAttemptAt = checkNotNull(row.nextAttemptAt),
@@ -718,7 +933,9 @@ class FakeDeliveryQueueRepository(
         .filter { it.username.equals(username, ignoreCase = true) && it.state == State.FAILED }
         .sortedByDescending { it.id.value }
         .filter { afterId == null || it.id.value < afterId.value }
-        .map { row -> FailedDelivery(id = row.id, inbox = row.inbox, attempts = row.attempts, lastError = row.lastError) }
+        .map { row ->
+            FailedDelivery(id = row.id, kind = row.kind, inbox = row.inbox, attempts = row.attempts, lastError = row.lastError)
+        }
         .take(limit.coerceAtLeast(0))
 
     override fun deleteByUsername(username: String): Int {
@@ -752,7 +969,9 @@ class FakeDeliveryQueueRepository(
 
     data class Row(
         val id: DeliveryId,
-        val notePublicId: PublicNoteId,
+        val kind: DeliveryKind,
+        val notePublicId: PublicNoteId?,
+        val targetActorUri: String?,
         val username: String,
         val inbox: String,
         val body: String?,

@@ -20,31 +20,26 @@ import net.matsudamper.mastodon.rss.actor.RemoteActor
  */
 interface FollowerStore {
     /**
-     * `Follow` を受けたことを記録する。同じ相手からの記録が既にあれば何もしない
+     * `Follow` を受けたことを記録して、`Accept` の送り出しを預ける。
+     *
+     * 同じ相手からの記録が既にあれば行は増やさない。まだ送れていない `Accept` が
+     * 残っていれば、最後に受けた `Follow` への `Accept` で置き換える。
+     *
+     * 記録と送り出しは一方だけが残らない。記録できなかったフォローに `Accept` を
+     * 返すと、相手だけがフォローできたつもりになり、こちらには送り先が残らない。
+     *
+     * フォローが成立するのは `Accept` を送れたときで、[list] と [count] と
+     * [deliveryTargets] に出るのもそこから。送れるまで何度送り直すかは実装側が決める。
+     *
+     * @param acceptBody 相手に返す `Accept` の JSON
      */
     fun record(
         username: String,
         follower: RemoteActor,
         followActivityUri: String,
         receivedAt: Instant,
+        acceptBody: String,
     )
-
-    /**
-     * `Accept` を返せたことを記録して、フォロワーとして数えられるようにする。
-     *
-     * どの `Follow` に対する `Accept` だったかは問わない。相手から見ると、
-     * 送った `Follow` のどれか 1 つに `Accept` が返れば関係は成立する。
-     * id で絞ると、同じ相手から続けて `Follow` が届いたときに、記録されている id が
-     * 後から来た方に差し替わっていて、成立した関係を保留のまま残してしまう。
-     *
-     * 状態を見てから書き換えるまでを 1 つの操作にする。分けると、同じ `Follow` が
-     * 同時に 2 つ届いたときに両方が「初めて成立した」と読む
-     */
-    fun markAccepted(
-        username: String,
-        followerActorUri: String,
-        acceptedAt: Instant,
-    ): FollowAcceptResult
 
     /**
      * フォローを消す。
@@ -112,20 +107,4 @@ interface FollowerStore {
      * 投稿を配る先の inbox。`sharedInbox` があればそちらにまとまっている
      */
     fun deliveryTargets(username: String): List<String>
-}
-
-/**
- * [FollowerStore.markAccepted] の結果。
- *
- * 初めて成立したのかどうかで、過去の投稿を配るかが変わる
- */
-enum class FollowAcceptResult {
-    /** `Accept` 前の記録を成立させた */
-    FirstAccept,
-
-    /** 既に成立していた。`Follow` の送り直し */
-    AlreadyAccepted,
-
-    /** 記録が無い。書き込みに失敗したか、間に `Undo` が入った */
-    NotFound,
 }

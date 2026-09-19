@@ -1,12 +1,14 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.repository.ActorUpdatePost
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
-import net.matsudamper.mastodon.rss.repository.DeliveryKind
+import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FailedDelivery
+import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
@@ -91,6 +93,55 @@ internal class SqliteDeliveryQueueRepository(
             EnqueueNoteResult.FeedItemNotPending
         }
 
+    override fun enqueueNoteDeletion(post: NoteDeletionPost): Int = jooq.transaction { dsl ->
+        // 未配信の Create は外部キーで一緒に消える。残すと、消した投稿が後から届く
+        dsl
+            .deleteFrom(NOTES)
+            .where(NOTES.PUBLIC_ID.eq(post.publicId.value))
+            .execute()
+
+        post.inboxes.forEach { inbox ->
+            DeliveryQueueRows.insertPending(
+                dsl = dsl,
+                kind = DeliveryKindDbValue.DELETE_NOTE,
+                username = post.username,
+                inbox = inbox,
+                body = post.body,
+                enqueuedAt = post.enqueuedAt,
+                // いま消した投稿に紐付けると、この行も一緒に消える
+                notePublicId = null,
+                targetActorUri = null,
+            )
+        }
+
+        post.inboxes.size
+    }
+
+    override fun enqueueActorUpdate(post: ActorUpdatePost): Int = jooq.transaction { dsl ->
+        // 送り残した古い更新を残すと、それが後から届いて相手の表示が 1 つ前に戻る
+        dsl
+            .deleteFrom(DELIVERY_QUEUE)
+            .where(DELIVERY_QUEUE.KIND.eq(DeliveryKindDbValue.UPDATE_ACTOR.dbValue))
+            .and(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
+            .and(DELIVERY_QUEUE.USERNAME.eq(post.username))
+            .execute()
+
+        post.inboxes.forEach { inbox ->
+            DeliveryQueueRows.insertPending(
+                dsl = dsl,
+                kind = DeliveryKindDbValue.UPDATE_ACTOR,
+                username = post.username,
+                inbox = inbox,
+                body = post.body,
+                enqueuedAt = post.enqueuedAt,
+                notePublicId = null,
+                targetActorUri = null,
+            )
+        }
+
+        post.inboxes.size
+    }
+
     /**
      * 記事を投稿済みにする。`pending` でなければ [FeedItemNotPending] でトランザクションごと巻き戻す
      */
@@ -120,23 +171,17 @@ internal class SqliteDeliveryQueueRepository(
         inboxes: List<String>,
         enqueuedAt: Instant,
     ) {
-        val enqueuedAtText = StoredInstant.format(enqueuedAt)
         inboxes.forEach { inbox ->
-            dsl
-                .insertInto(DELIVERY_QUEUE)
-                .set(DELIVERY_QUEUE.KIND, DeliveryKindDbValue.of(DeliveryKind.CREATE_NOTE).dbValue)
-                .set(DELIVERY_QUEUE.USERNAME, username)
-                .set(DELIVERY_QUEUE.INBOX, inbox)
-                .set(DELIVERY_QUEUE.INBOX_HOST, InboxHost.of(inbox))
-                .set(DELIVERY_QUEUE.BODY, body)
-                .set(DELIVERY_QUEUE.STATE, DeliveryStateDbValue.PENDING.dbValue)
-                .set(DELIVERY_QUEUE.ATTEMPTS, 0L)
-                // 最初の 1 回はすぐ送る
-                .set(DELIVERY_QUEUE.NEXT_ATTEMPT_AT, enqueuedAtText)
-                .set(DELIVERY_QUEUE.ENQUEUED_AT, enqueuedAtText)
-                .set(DELIVERY_QUEUE.LAST_ERROR, null as String?)
-                .set(DELIVERY_QUEUE.NOTE_PUBLIC_ID, notePublicId.value)
-                .execute()
+            DeliveryQueueRows.insertPending(
+                dsl = dsl,
+                kind = DeliveryKindDbValue.CREATE_NOTE,
+                username = username,
+                inbox = inbox,
+                body = body,
+                enqueuedAt = enqueuedAt,
+                notePublicId = notePublicId.value,
+                targetActorUri = null,
+            )
         }
     }
 
@@ -200,12 +245,55 @@ internal class SqliteDeliveryQueueRepository(
         dsl.fetchExists(DSL.selectOne().from(DELIVERY_QUEUE).where(DELIVERY_QUEUE.ID.eq(id.value)))
     }
 
-    override fun markDelivered(id: DeliveryId) {
-        jooq.transaction { dsl ->
-            dsl
-                .deleteFrom(DELIVERY_QUEUE)
-                .where(DELIVERY_QUEUE.ID.eq(id.value))
-                .execute()
+    /**
+     * 行を消すのと、送れたことで確定する記録を 1 トランザクションで書く
+     */
+    override fun markDelivered(
+        id: DeliveryId,
+        deliveredAt: Instant,
+    ): DeliveredOutcome = jooq.transaction { dsl ->
+        // 送っている間に投稿やアカウントが消されると、行ごと消える
+        val row = dsl
+            .selectFrom(DELIVERY_QUEUE)
+            .where(DELIVERY_QUEUE.ID.eq(id.value))
+            .fetchOne()
+            ?: return@transaction DeliveredOutcome.None
+
+        dsl
+            .deleteFrom(DELIVERY_QUEUE)
+            .where(DELIVERY_QUEUE.ID.eq(id.value))
+            .execute()
+
+        when (DeliveryKindDbValue.parse(row.get(DELIVERY_QUEUE.KIND))) {
+            DeliveryKindDbValue.CREATE_NOTE,
+            DeliveryKindDbValue.DELETE_NOTE,
+            DeliveryKindDbValue.UPDATE_ACTOR,
+            DeliveryKindDbValue.DELETE_ACTOR,
+            -> DeliveredOutcome.None
+
+            DeliveryKindDbValue.ACCEPT_FOLLOW -> {
+                val username = row.get(DELIVERY_QUEUE.USERNAME)
+                val followerActorUri = checkNotNull(row.get(DELIVERY_QUEUE.TARGET_ACTOR_URI)) {
+                    "accept_follow の行に相手のアクターが無い"
+                }
+
+                val firstAccept = FollowerRows.markAccepted(
+                    dsl = dsl,
+                    username = username,
+                    followerActorUri = followerActorUri,
+                    acceptedAt = deliveredAt,
+                )
+
+                if (firstAccept) {
+                    DeliveredOutcome.FollowAccepted(
+                        username = username,
+                        followerActorUri = followerActorUri,
+                        inbox = row.get(DELIVERY_QUEUE.INBOX),
+                    )
+                } else {
+                    DeliveredOutcome.None
+                }
+            }
         }
     }
 
@@ -285,6 +373,7 @@ internal class SqliteDeliveryQueueRepository(
                 .map { record ->
                     RetryingDelivery(
                         id = DeliveryId(record.get(DELIVERY_QUEUE.ID)),
+                        kind = DeliveryKindDbValue.parse(record.get(DELIVERY_QUEUE.KIND)).toDeliveryKind(),
                         inbox = record.get(DELIVERY_QUEUE.INBOX),
                         attempts = record.get(DELIVERY_QUEUE.ATTEMPTS).toInt(),
                         nextAttemptAt = StoredInstant.parse(record.get(DELIVERY_QUEUE.NEXT_ATTEMPT_AT)),
@@ -325,6 +414,7 @@ internal class SqliteDeliveryQueueRepository(
                 .map { record ->
                     FailedDelivery(
                         id = DeliveryId(record.get(DELIVERY_QUEUE.ID)),
+                        kind = DeliveryKindDbValue.parse(record.get(DELIVERY_QUEUE.KIND)).toDeliveryKind(),
                         inbox = record.get(DELIVERY_QUEUE.INBOX),
                         attempts = record.get(DELIVERY_QUEUE.ATTEMPTS).toInt(),
                         lastError = record.get(DELIVERY_QUEUE.LAST_ERROR),

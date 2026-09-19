@@ -585,6 +585,7 @@ private fun DeliveryQueueCard(queue: AdminAccountScreenUiState.DeliveryQueue) {
                 Text("送り直しを待っている配信", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 queue.retrying.forEach { delivery ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(delivery.kindText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                         Text(delivery.inbox, style = MaterialTheme.typography.bodySmall)
                         Text(
                             "${delivery.attempts} 回失敗  次は ${delivery.nextAttemptAt}",
@@ -603,6 +604,7 @@ private fun DeliveryQueueCard(queue: AdminAccountScreenUiState.DeliveryQueue) {
                 Text("諦めた配信", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 queue.failed.forEach { delivery ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(delivery.kindText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                         Text(delivery.inbox, style = MaterialTheme.typography.bodySmall)
                         Text("${delivery.attempts} 回失敗", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         delivery.lastError?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }

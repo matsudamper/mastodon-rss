@@ -22,12 +22,12 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import net.matsudamper.mastodon.rss.FakeFollowerRepository
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.repository.FeedHeader
-import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewNote
@@ -166,12 +166,12 @@ class AccountGraphQlTest {
                     ),
                     followActivityUri = "https://mastodon.example/activities/1",
                     receivedAt = Instant.now(),
+                    acceptBody = """{"type":"Accept"}""",
                 ),
             )
             repositories.followers.markAccepted(
                 username = "feed1",
                 followerActorUri = "https://mastodon.example/users/alice",
-                acceptedAt = Instant.now(),
             )
             repositories.notes.add(
                 NewNote(
@@ -466,6 +466,7 @@ class AccountGraphQlTest {
                     ),
                     followActivityUri = "https://mastodon.example/activities/bob",
                     receivedAt = Instant.now(),
+                    acceptBody = """{"type":"Accept"}""",
                 ),
             )
             application { module(testDependencies(repositories = repositories)) }
@@ -522,7 +523,7 @@ class AccountGraphQlTest {
             assertFalse(response.containsKey("errors"))
         }
 
-    private fun FollowerRepository.acceptFollow(username: String, actorUri: String) {
+    private fun FakeFollowerRepository.acceptFollow(username: String, actorUri: String) {
         record(
             IncomingFollow(
                 username = username,
@@ -534,9 +535,10 @@ class AccountGraphQlTest {
                 ),
                 followActivityUri = "$actorUri/activities/1",
                 receivedAt = Instant.now(),
+                acceptBody = """{"type":"Accept"}""",
             ),
         )
-        markAccepted(username = username, followerActorUri = actorUri, acceptedAt = Instant.now())
+        markAccepted(username = username, followerActorUri = actorUri)
     }
 
     private suspend fun ApplicationTestBuilder.queryFollowers(

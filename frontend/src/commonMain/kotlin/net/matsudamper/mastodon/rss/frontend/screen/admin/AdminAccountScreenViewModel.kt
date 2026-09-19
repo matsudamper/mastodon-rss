@@ -18,6 +18,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteAccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeleteNoteResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeliveryKind
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeliveryQueue
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminFeedItem
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminNote
@@ -794,6 +795,7 @@ class AdminAccountScreenViewModel(
             failedCount = queue.failedCount,
             retrying = queue.retrying.map { delivery ->
                 AdminAccountScreenUiState.RetryingDelivery(
+                    kindText = delivery.kind.toText(),
                     inbox = delivery.inbox,
                     attempts = delivery.attempts,
                     nextAttemptAt = UnixTimeUtil.format(delivery.nextAttemptAt),
@@ -803,6 +805,7 @@ class AdminAccountScreenViewModel(
             retryingMoreText = "他にもある。先頭の ${queue.retrying.size} 件だけ表示している".takeIf { queue.retryingHasMore },
             failed = queue.failed.map { delivery ->
                 AdminAccountScreenUiState.FailedDelivery(
+                    kindText = delivery.kind.toText(),
                     inbox = delivery.inbox,
                     attempts = delivery.attempts,
                     lastError = delivery.lastError,
@@ -906,6 +909,19 @@ class AdminAccountScreenViewModel(
 
         fun showSnackbar(message: String)
     }
+
+    /**
+     * 配信の種別を画面に出す言葉にする
+     */
+    private fun AdminDeliveryKind.toText(): String =
+        when (this) {
+            AdminDeliveryKind.CREATE_NOTE -> "投稿"
+            AdminDeliveryKind.DELETE_NOTE -> "投稿の削除"
+            AdminDeliveryKind.ACCEPT_FOLLOW -> "フォローの承認"
+            AdminDeliveryKind.UPDATE_ACTOR -> "アカウント情報の更新"
+            AdminDeliveryKind.DELETE_ACTOR -> "アカウントの削除"
+            AdminDeliveryKind.UNKNOWN -> "不明"
+        }
 
     private companion object {
         /**

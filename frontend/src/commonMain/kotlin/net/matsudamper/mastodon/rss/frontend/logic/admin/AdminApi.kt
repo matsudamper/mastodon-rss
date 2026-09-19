@@ -467,6 +467,7 @@ class AdminApi(
             failedCount = deliveryQueue.failedCount,
             retrying = retryingDeliveries.nodes.map { node ->
                 AdminRetryingDelivery(
+                    kind = node.kind.toAdminDeliveryKind(),
                     inbox = node.inbox,
                     attempts = node.attempts,
                     nextAttemptAt = node.nextAttemptAt,
@@ -476,6 +477,7 @@ class AdminApi(
             retryingHasMore = retryingDeliveries.pageInfo.hasMore,
             failed = failedDeliveries.nodes.map { node ->
                 AdminFailedDelivery(
+                    kind = node.kind.toAdminDeliveryKind(),
                     inbox = node.inbox,
                     attempts = node.attempts,
                     lastError = node.lastError,

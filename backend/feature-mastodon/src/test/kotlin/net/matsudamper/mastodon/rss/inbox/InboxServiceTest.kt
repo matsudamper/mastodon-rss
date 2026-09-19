@@ -131,6 +131,7 @@ class InboxServiceTest {
                 ),
                 followActivityUri = "https://remote.example/activities/1",
                 receivedAt = Instant.now(),
+                acceptBody = "{}",
             )
         }
 

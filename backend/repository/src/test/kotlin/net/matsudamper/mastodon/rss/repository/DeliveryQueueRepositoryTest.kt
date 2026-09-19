@@ -112,7 +112,7 @@ class DeliveryQueueRepositoryTest {
                 notePost(publicId = "n1", inboxes = listOf(INBOX_A), feedItemId = item.id),
             )
             // 配信の直前に投稿を紐付けていた頃の版が残した、投稿が紐付いたままの未投稿記事
-            repositories.deliveryQueue.claim(now = now, limit = 10).forEach { repositories.deliveryQueue.markDelivered(it.id) }
+            repositories.deliveryQueue.claim(now = now, limit = 10).forEach { repositories.deliveryQueue.markDelivered(id = it.id, deliveredAt = now) }
             backToPending(item.id)
 
             val result = repositories.deliveryQueue.requeueNote(
@@ -266,12 +266,102 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
+    fun `Follow を記録すると Accept が投函される`() {
+        withRepositories { repositories ->
+            repositories.followers.record(incomingFollow())
+
+            val claimed = repositories.deliveryQueue.claim(now = now, limit = 10).single()
+            assertEquals(DeliveryKind.ACCEPT_FOLLOW, claimed.kind)
+            assertEquals(ACCEPT_BODY, claimed.body)
+            // sharedInbox にはまとめない。Accept は Follow を送ってきた相手だけへの応答
+            assertEquals(FOLLOWER_INBOX, claimed.inbox)
+        }
+    }
+
+    @Test
+    fun `Accept が届いたらフォロワーとして数える`() {
+        withRepositories { repositories ->
+            repositories.followers.record(incomingFollow())
+            val claimed = repositories.deliveryQueue.claim(now = now, limit = 10).single()
+
+            val outcome = repositories.deliveryQueue.markDelivered(id = claimed.id, deliveredAt = now)
+
+            assertEquals(
+                DeliveredOutcome.FollowAccepted(
+                    username = USERNAME,
+                    followerActorUri = FOLLOWER_ACTOR_URI,
+                    inbox = FOLLOWER_INBOX,
+                ),
+                outcome,
+            )
+            assertEquals(1, repositories.followers.count(USERNAME))
+        }
+    }
+
+    @Test
+    fun `送り直した Accept が届いても初めての成立にはしない`() {
+        withRepositories { repositories ->
+            repositories.followers.record(incomingFollow())
+            val first = repositories.deliveryQueue.claim(now = now, limit = 10).single()
+            repositories.deliveryQueue.markDelivered(id = first.id, deliveredAt = now)
+
+            // Accept を受け取れていないと思った相手が Follow を送り直してくる形
+            repositories.followers.record(incomingFollow(followActivityUri = "https://remote.example/activities/2"))
+            val second = repositories.deliveryQueue.claim(now = now, limit = 10).single()
+
+            // ここで初めての成立として返すと、過去の投稿が配り直される
+            assertEquals(
+                DeliveredOutcome.None,
+                repositories.deliveryQueue.markDelivered(id = second.id, deliveredAt = now),
+            )
+            assertEquals(1, repositories.followers.count(USERNAME))
+        }
+    }
+
+    @Test
+    fun `Follow を送り直されても未送信の Accept は 1 つ`() {
+        withRepositories { repositories ->
+            repositories.followers.record(incomingFollow())
+            repositories.followers.record(
+                incomingFollow(
+                    followActivityUri = "https://remote.example/activities/2",
+                    acceptBody = """{"type":"Accept","id":"2"}""",
+                ),
+            )
+
+            val claimed = repositories.deliveryQueue.claim(now = now, limit = 10)
+            // 送り直された分だけ Accept が増えると、相手には同じ応答が何通も届く
+            assertEquals(1, claimed.size)
+            assertEquals("""{"type":"Accept","id":"2"}""", claimed.single().body)
+        }
+    }
+
+    @Test
+    fun `フォローを解除すると未送信の Accept が消える`() {
+        withRepositories { repositories ->
+            repositories.followers.record(incomingFollow())
+
+            assertEquals(
+                true,
+                repositories.followers.remove(
+                    username = USERNAME,
+                    followerActorUri = FOLLOWER_ACTOR_URI,
+                    followActivityUri = null,
+                ),
+            )
+
+            // 解除された相手に返しても、相手にはもう対応するフォローが無い
+            assertEquals(emptyList(), repositories.deliveryQueue.claim(now = now, limit = 10))
+        }
+    }
+
+    @Test
     fun `成功した行は消える`() {
         withRepositories { repositories ->
             repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A)))
             val claimed = repositories.deliveryQueue.claim(now = now, limit = 10).single()
 
-            repositories.deliveryQueue.markDelivered(claimed.id)
+            repositories.deliveryQueue.markDelivered(id = claimed.id, deliveredAt = now)
 
             assertEquals(DeliveryQueueCounts(waiting = 0, failed = 0), repositories.deliveryQueue.counts(USERNAME))
             assertEquals(0, repositories.deliveryQueue.recoverDelivering())
@@ -447,6 +537,22 @@ class DeliveryQueueRepositoryTest {
         }
     }
 
+    private fun incomingFollow(
+        followActivityUri: String = "https://remote.example/activities/1",
+        acceptBody: String = ACCEPT_BODY,
+    ): IncomingFollow = IncomingFollow(
+        username = USERNAME,
+        follower = NewRemoteActor(
+            actorUri = FOLLOWER_ACTOR_URI,
+            inbox = FOLLOWER_INBOX,
+            sharedInbox = INBOX_A,
+            publicKeyPem = "pem",
+        ),
+        followActivityUri = followActivityUri,
+        receivedAt = now,
+        acceptBody = acceptBody,
+    )
+
     private fun notePost(
         publicId: String,
         inboxes: List<String>,
@@ -503,5 +609,8 @@ class DeliveryQueueRepositoryTest {
         const val INBOX_A = "https://a.example/inbox"
         const val INBOX_B = "https://b.example/inbox"
         const val INBOX_C = "https://c.example/inbox"
+        const val ACCEPT_BODY = """{"type":"Accept"}"""
+        const val FOLLOWER_ACTOR_URI = "https://a.example/users/alice"
+        const val FOLLOWER_INBOX = "https://a.example/users/alice/inbox"
     }
 }
