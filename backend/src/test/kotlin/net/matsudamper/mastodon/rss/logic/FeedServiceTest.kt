@@ -1102,8 +1102,6 @@ class FeedServiceTest {
             noteEnqueuer = NoteEnqueuer(
                 publisher = NotePublisher(
                     notes = noteStore,
-                    followers = FakeFollowerStore(),
-                    delivery = TestDelivery(),
                     webPages = TestWebPageUrls,
                 ),
                 followers = repositories.followers,

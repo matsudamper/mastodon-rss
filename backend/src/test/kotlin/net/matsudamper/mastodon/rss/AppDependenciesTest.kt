@@ -83,9 +83,10 @@ class AppDependenciesTest {
                 acceptBody = """{"type":"Accept"}""",
             ),
         )
-        repositories.followers.markAccepted(
-            username = TestServerEnv.USERNAME,
-            followerActorUri = followerActorUri,
-        )
+        // Accept が届いて初めてフォロワーになる。投函した行はここで消える
+        val now = Instant.now()
+        repositories.deliveryQueue.claim(now = now, limit = 10).forEach {
+            repositories.deliveryQueue.markDelivered(id = it.id, deliveredAt = now)
+        }
     }
 }

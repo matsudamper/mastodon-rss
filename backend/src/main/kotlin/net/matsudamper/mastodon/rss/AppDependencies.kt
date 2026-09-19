@@ -201,8 +201,6 @@ class AppDependencies(
 
     val notePublisher: NotePublisher = NotePublisher(
         notes = noteStore,
-        followers = followerStore,
-        delivery = delivery,
         webPages = webPageUrls,
     )
 

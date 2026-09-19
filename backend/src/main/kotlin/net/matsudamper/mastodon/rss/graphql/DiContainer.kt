@@ -10,7 +10,6 @@ import net.matsudamper.mastodon.rss.logic.DeliveryQueueService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.NoteReader
-import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
@@ -25,7 +24,6 @@ class DiContainer(
     val domain: String,
     val actorDirectory: ActorDirectory,
     val feedHeaderRepository: FeedHeaderRepository,
-    val notePublisher: NotePublisher,
     val noteEnqueuer: NoteEnqueuer,
     actorPublisher: ActorPublisher,
     accountIconFiles: AccountIconFiles,

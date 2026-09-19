@@ -7,6 +7,7 @@ import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FailedDelivery
+import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
@@ -90,6 +91,30 @@ internal class SqliteDeliveryQueueRepository(
         } catch (_: FeedItemNotPending) {
             EnqueueNoteResult.FeedItemNotPending
         }
+
+    override fun enqueueNoteDeletion(post: NoteDeletionPost): Int = jooq.transaction { dsl ->
+        // 未配信の Create は外部キーで一緒に消える。残すと、消した投稿が後から届く
+        dsl
+            .deleteFrom(NOTES)
+            .where(NOTES.PUBLIC_ID.eq(post.publicId.value))
+            .execute()
+
+        post.inboxes.forEach { inbox ->
+            DeliveryQueueRows.insertPending(
+                dsl = dsl,
+                kind = DeliveryKindDbValue.DELETE_NOTE,
+                username = post.username,
+                inbox = inbox,
+                body = post.body,
+                enqueuedAt = post.enqueuedAt,
+                // いま消した投稿に紐付けると、この行も一緒に消える
+                notePublicId = null,
+                targetActorUri = null,
+            )
+        }
+
+        post.inboxes.size
+    }
 
     /**
      * 記事を投稿済みにする。`pending` でなければ [FeedItemNotPending] でトランザクションごと巻き戻す
@@ -214,7 +239,9 @@ internal class SqliteDeliveryQueueRepository(
             .execute()
 
         when (DeliveryKindDbValue.parse(row.get(DELIVERY_QUEUE.KIND))) {
-            DeliveryKindDbValue.CREATE_NOTE -> DeliveredOutcome.None
+            DeliveryKindDbValue.CREATE_NOTE,
+            DeliveryKindDbValue.DELETE_NOTE,
+            -> DeliveredOutcome.None
 
             DeliveryKindDbValue.ACCEPT_FOLLOW -> {
                 val username = row.get(DELIVERY_QUEUE.USERNAME)

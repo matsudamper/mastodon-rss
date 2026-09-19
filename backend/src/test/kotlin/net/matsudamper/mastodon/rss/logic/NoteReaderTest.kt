@@ -21,7 +21,7 @@ class NoteReaderTest {
 
     private fun enqueue(count: Int) {
         val enqueuer = NoteEnqueuer(
-            publisher = NotePublisher(notes, FakeFollowerStore(), TestDelivery(), TestWebPageUrls),
+            publisher = NotePublisher(notes, TestWebPageUrls),
             followers = repositories.followers,
             deliveryQueue = repositories.deliveryQueue,
         )

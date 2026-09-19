@@ -19,7 +19,7 @@ import net.matsudamper.mastodon.rss.json.AppJson
 class NotePublisherTest {
     private val sender = TestLocalActor.urls
 
-    private fun publisher(): NotePublisher = NotePublisher(FakeNoteStore(), FakeFollowerStore(), TestDelivery(), TestWebPageUrls)
+    private fun publisher(): NotePublisher = NotePublisher(FakeNoteStore(), TestWebPageUrls)
 
     @Test
     fun `Create に包んだ Note を組み立てる`() {
@@ -54,7 +54,7 @@ class NotePublisherTest {
     fun `組み立てるだけで記録も配信もしない`() {
         val notes = FakeNoteStore()
         val delivery = TestDelivery()
-        val publisher = NotePublisher(notes, FakeFollowerStore(), delivery, TestWebPageUrls)
+        val publisher = NotePublisher(notes, TestWebPageUrls)
 
         publisher.prepare(sender, "<p>本文</p>")
 

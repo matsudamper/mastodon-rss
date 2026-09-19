@@ -324,9 +324,9 @@ Cookie の `Secure` は既定で付ける。本番はリバースプロキシで
 
 ## 配信キュー
 
-こちらから相手の inbox に送るもののうち、投稿の `Create{Note}` と `Follow` への
-`Accept` はその場で送らず `delivery_queue` に投函して、`:backend` のワーカー
-（`DeliveryWorker`）が送る。送信中にプロセスが落ちても投函した行が残るので、
+こちらから相手の inbox に送るもののうち、投稿の `Create{Note}` と `Delete{Note}`、
+`Follow` への `Accept` はその場で送らず `delivery_queue` に投函して、`:backend` の
+ワーカー（`DeliveryWorker`）が送る。送信中にプロセスが落ちても投函した行が残るので、
 次の起動で送り直せる。
 
 投稿の場合、誰が何をするかは 3 つのモジュールに分かれる。
@@ -342,6 +342,11 @@ Cookie の `Secure` は既定で付ける。本番はリバースプロキシで
 - `:backend` の `NoteEnqueuer` が両方を繋ぐ。管理画面からの告知（GraphQL の resolver）も
   フィードの記事（`FeedService`）も同じ口を通る。記事の id は repository 側の概念なので、
   `:backend:feature-mastodon` の型には持ち込まない
+
+投稿を消すときは `NotePublisher.prepareDelete` が `Delete{Note}` を組み立て、
+`DeliveryQueueRepository.enqueueNoteDeletion` が投稿の記録を消すのと投函を
+1 トランザクションで書く。消した投稿に紐付く未配信の `Create` は外部キーで一緒に消える。
+`Delete` の行は投稿に紐付けない。紐付けると、いま消した投稿と一緒に消えて配られない。
 
 `Accept` も同じ形で、`:backend:feature-mastodon` の `FollowHandler` が組み立てて
 `FollowerStore.record` に預け、`:backend:repository` の `FollowerRepository.record` が

@@ -26,7 +26,7 @@ class NoteEnqueuerTest {
     private val delivery = TestDelivery()
 
     private fun enqueuer(): NoteEnqueuer = NoteEnqueuer(
-        publisher = NotePublisher(notes, FakeFollowerStore(), delivery, TestWebPageUrls),
+        publisher = NotePublisher(notes, TestWebPageUrls),
         followers = repositories.followers,
         deliveryQueue = repositories.deliveryQueue,
     )
@@ -59,10 +59,10 @@ class NoteEnqueuerTest {
                 acceptBody = """{"type":"Accept"}""",
             ),
         )
-        repositories.followers.markAccepted(
-            username = TestLocalActor.USERNAME,
-            followerActorUri = follower.actorUri,
-        )
+        // Accept が届いて初めてフォロワーになる。投函した行はここで消える
+        repositories.deliveryQueue.claim(now = FOLLOWED_AT, limit = 10).forEach {
+            repositories.deliveryQueue.markDelivered(id = it.id, deliveredAt = FOLLOWED_AT)
+        }
 
         val queued = enqueuer().enqueue(sender = SENDER, contentHtml = "<p>本文</p>")
 

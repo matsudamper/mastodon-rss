@@ -29,6 +29,7 @@ import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NotePost
@@ -652,6 +653,31 @@ class FakeDeliveryQueueRepository(
             )
         }
         return EnqueueNoteResult.Queued(deliveries = post.inboxes.size)
+    }
+
+    override fun enqueueNoteDeletion(post: NoteDeletionPost): Int {
+        // 未配信の Create が一緒に消えるのは本物の外部キー。消してから投函しないと、
+        // いま入れた delete_note まで巻き込まれる
+        notes.delete(post.publicId)
+
+        post.inboxes.forEach { inbox ->
+            stored += Row(
+                id = DeliveryId(nextId++),
+                kind = DeliveryKind.DELETE_NOTE,
+                notePublicId = null,
+                targetActorUri = null,
+                username = post.username,
+                inbox = inbox,
+                body = post.body,
+                state = State.PENDING,
+                attempts = 0,
+                nextAttemptAt = post.enqueuedAt,
+                enqueuedAt = post.enqueuedAt,
+                lastError = null,
+            )
+        }
+
+        return post.inboxes.size
     }
 
     /**

@@ -43,6 +43,21 @@ interface DeliveryQueueRepository {
     fun requeueNote(post: RecordedNotePost): EnqueueNoteResult
 
     /**
+     * 投稿を消して、消したことを宛先ごとに投函する。
+     *
+     * 記録を消すのと投函を 1 トランザクションで確定させる。記録だけ消すと、
+     * 相手のタイムラインには残ったままになる。投函だけすると、`Delete` を受けた相手が
+     * 確かめに来たときにまだ本文を返す。
+     *
+     * 消した投稿に紐付く未配信の `Create` も一緒に消える。消したはずの投稿を
+     * この後で配らない。投函する行は投稿に紐付けない。紐付けると、いま消した投稿と
+     * 一緒に消える。
+     *
+     * @return 投函した配信の数。宛先の数と同じ
+     */
+    fun enqueueNoteDeletion(post: NoteDeletionPost): Int
+
+    /**
      * 送る時刻を過ぎた `pending` を `delivering` にして返す。宛先のホストごとに 1 件まで。
      *
      * 送る時刻が古いホストから順に選ぶ。行を古い順に選ぶと、送れないホスト宛が溜まった分だけ
@@ -192,6 +207,23 @@ data class RecordedNotePost(
     val feedItemId: FeedItemId,
 )
 
+/**
+ * 投函する投稿の削除。
+ *
+ * @param publicId 消す投稿。この投稿の記録も一緒に消える
+ * @param username 署名するこちらのアカウントの名前
+ * @param body 署名対象になる `Delete{Note}` の JSON
+ * @param inboxes 宛先。同じ宛先は 1 つにまとめてから渡すこと
+ * @param enqueuedAt 投函した時刻。最初の 1 回はこの時刻にすぐ送る
+ */
+data class NoteDeletionPost(
+    val publicId: PublicNoteId,
+    val username: String,
+    val body: String,
+    val inboxes: List<String>,
+    val enqueuedAt: Instant,
+)
+
 sealed interface EnqueueNoteResult {
     /**
      * @param deliveries 投函した配信の数。宛先の数と同じ
@@ -214,6 +246,11 @@ enum class DeliveryKind {
      * 投稿を包んだ `Create`
      */
     CREATE_NOTE,
+
+    /**
+     * 消した投稿の `Delete`
+     */
+    DELETE_NOTE,
 
     /**
      * 受け取った `Follow` への `Accept`

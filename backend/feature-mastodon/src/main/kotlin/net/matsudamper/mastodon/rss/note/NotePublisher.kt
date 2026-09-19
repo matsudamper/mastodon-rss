@@ -6,32 +6,21 @@ import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.activity.DeleteNoteActivity
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.crypto.UuidV7
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
-import net.matsudamper.mastodon.rss.delivery.DeliveryResult
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
-import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.url.WebPageUrls
-import org.slf4j.LoggerFactory
 
 /**
- * 投稿の `Create{Note}` を組み立てる（[prepare] / [prepareRecorded]）。投稿の削除はその場で配る（[delete]）。
+ * 投稿の `Create{Note}` と、投稿を消す `Delete{Note}` を組み立てる。
  *
- * [prepare] は DB も触らず HTTP も出さない。記録と投函は `:backend` が repository の
+ * どれも DB を触らず HTTP も出さない。記録と投函は `:backend` が repository の
  * 投函の口で 1 トランザクションにまとめる。記録と配信をここで続けて行うと、
  * 記事の投稿済み化と別々に確定して、途中で落ちたときに同じ記事を二重に投稿する。
- *
- * [delete] はまだキューに載せていない。載せているのは投稿だけで、削除は
- * 管理画面からの操作でしか起きないため。失敗しても再送はしないのでログに残るだけ。
  */
 class NotePublisher(
     private val notes: NoteStore,
-    private val followers: FollowerStore,
-    private val delivery: ActivityDelivery,
     private val webPages: WebPageUrls?,
 ) {
-    private val logger = LoggerFactory.getLogger(NotePublisher::class.java)
-
     /**
      * 投稿の id と時刻を決めて、フォロワーに送る `Create{Note}` の JSON を組み立てる。
      *
@@ -90,67 +79,31 @@ class NotePublisher(
     }
 
     /**
-     * 投稿を消して、消したことをフォロワーに配る。
+     * 記録済みの投稿から `Delete{Note}` を組み立てる。
      *
-     * 記録を先に消す。配信が先だと、`Delete` を受け取った相手が確かめに来たときに
-     * まだ本文を返してしまう。
+     * 記録を消すのは呼び出し側で、投函と同じトランザクションになる。ここで先に消すと、
+     * 投函できなかったときに本文だけが消えて、相手のタイムラインには残り続ける。
      *
-     * 配れなかった相手のタイムラインには投稿が残る。削除はキューに載せていないので送り直さない。
-     *
-     * @return 記録が無ければ null
+     * @return 記録が無いか、別のアカウントの投稿なら null
      */
-    suspend fun delete(
+    fun prepareDelete(
         sender: ActorUrls,
         publicId: PublicNoteId,
-    ): DeletedNote? {
+    ): PreparedNoteDeletion? {
         // 他のアカウントの投稿を publicId だけで消せないようにする
         notes.find(publicId)?.takeIf { it.username.equals(sender.username, ignoreCase = true) }
             ?: return null
 
         val urls = NoteUrls(domain = sender.domain, publicId = publicId)
-        notes.delete(publicId)
 
-        val activityBodyBytes = AppJson.encodeToString(
-            DeleteNoteActivity.serializer(),
-            deleteActivity(sender = sender, urls = urls),
-        ).toByteArray()
-
-        val result = deliverToFollowers(sender = sender, body = activityBodyBytes)
-
-        logger.info(
-            "投稿の削除を配った: ${sender.acct} $publicId 宛先=${result.deliveryAttemptCount} 成功=${result.delivered}",
+        return PreparedNoteDeletion(
+            publicId = publicId,
+            activityJson = AppJson.encodeToString(
+                DeleteNoteActivity.serializer(),
+                deleteActivity(sender = sender, urls = urls),
+            ),
         )
-
-        return DeletedNote(publicId = publicId)
     }
-
-    private suspend fun deliverToFollowers(
-        sender: ActorUrls,
-        body: ByteArray,
-    ): DeliveryCount {
-        val deliveryInboxes = followers.deliveryTargets(sender.username)
-        var delivered = 0
-
-        deliveryInboxes.forEach { inbox ->
-            when (val result = delivery.deliver(inbox = inbox, sender = sender, body = body)) {
-                is DeliveryResult.Delivered -> {
-                    delivered++
-                }
-
-                is DeliveryResult.Failed -> {
-                    // 再送しないので、届かなかったことはここに残っているものが唯一の手がかり
-                    logger.warn("配れなかった: ${sender.acct} → $inbox ${result.reason}")
-                }
-            }
-        }
-
-        return DeliveryCount(deliveryAttemptCount = deliveryInboxes.size, delivered = delivered)
-    }
-
-    private data class DeliveryCount(
-        val deliveryAttemptCount: Int,
-        val delivered: Int,
-    )
 
     private fun deleteActivity(
         sender: ActorUrls,
@@ -166,6 +119,16 @@ class NotePublisher(
 
 data class DeletedNote(
     val publicId: PublicNoteId,
+)
+
+/**
+ * 組み立てた投稿の削除。
+ *
+ * @param activityJson 署名対象になる JSON。宛先が何件でも同じものを送る
+ */
+data class PreparedNoteDeletion(
+    val publicId: PublicNoteId,
+    val activityJson: String,
 )
 
 /**
