@@ -7,6 +7,20 @@ data class AccountNote(
     val url: String,
     val contentHtml: String,
     val publishedAt: Instant,
+    val favouriteCount: Int,
+    val reactions: List<NoteReaction>,
+)
+
+/**
+ * 投稿に届いたスタンプ 1 種類。
+ *
+ * @param name 絵文字そのもの、またはカスタム絵文字の名前
+ * @param imageUrl カスタム絵文字の画像。絵文字そのものなら null
+ */
+data class NoteReaction(
+    val name: String,
+    val imageUrl: String?,
+    val count: Int,
 )
 
 sealed interface AccountNotesResult {

@@ -93,6 +93,12 @@ internal fun AccountNoteContent(
 
                     is AccountNoteScreenUiState.Content.Loaded -> {
                         NoteContent(content.contentHtml, Modifier.fillMaxWidth())
+                        content.reactions?.let { reactions ->
+                            NoteReactions(
+                                uiState = reactions,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                         Text(
                             text = content.publishedAt,
                             style = MaterialTheme.typography.bodySmall,

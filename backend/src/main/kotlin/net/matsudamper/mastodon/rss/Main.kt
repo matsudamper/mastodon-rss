@@ -140,6 +140,7 @@ fun Application.module(deps: AppDependencies) {
         actorEnqueuer = deps.actorEnqueuer,
         accountIconFiles = deps.accountIconFiles,
         noteStore = deps.noteStore,
+        noteReactionRepository = deps.repositories.noteReactions,
         feedService = deps.feedService,
     )
 

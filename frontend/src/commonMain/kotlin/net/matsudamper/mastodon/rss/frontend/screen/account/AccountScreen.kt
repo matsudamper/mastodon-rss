@@ -657,6 +657,13 @@ private fun NoteCard(
         ) {
             noteContent(note.contentHtml, Modifier.fillMaxWidth())
 
+            note.reactions?.let { reactions ->
+                NoteReactions(
+                    uiState = reactions,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             Text(
                 text = note.publishedAt,
                 style = MaterialTheme.typography.bodySmall,

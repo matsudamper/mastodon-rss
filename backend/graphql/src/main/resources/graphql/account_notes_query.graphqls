@@ -20,4 +20,22 @@ type AccountNote {
     contentHtml: String! @lazy
 
     publishedAt: UnixTime! @lazy
+
+    "届いたお気に入りの数"
+    favouriteCount: Int! @lazy
+
+    "届いたスタンプ。押された数が多い順"
+    reactions: [NoteReaction!]! @lazy
+}
+
+"投稿に届いたスタンプ 1 種類"
+type NoteReaction {
+    "絵文字そのもの、またはカスタム絵文字の名前"
+    name: String!
+
+    "カスタム絵文字の画像 URL。絵文字そのものなら null"
+    imageUrl: String
+
+    "押された数"
+    count: Int!
 }

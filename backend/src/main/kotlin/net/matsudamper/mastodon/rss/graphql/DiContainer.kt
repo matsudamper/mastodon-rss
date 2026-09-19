@@ -16,6 +16,7 @@ import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.NoteReactionRepository
 
 class DiContainer(
     passwordHash: PasswordHash?,
@@ -30,6 +31,7 @@ class DiContainer(
     actorEnqueuer: ActorEnqueuer,
     accountIconFiles: AccountIconFiles,
     val noteStore: NoteStore,
+    val noteReactionRepository: NoteReactionRepository,
     val feedService: FeedService,
 ) {
     val adminLoginService: AdminLoginService = AdminLoginService(passwordHash)

@@ -47,9 +47,36 @@ data class NoteUiState(
     val url: String,
     val contentHtml: String,
     val publishedAt: String,
+    /**
+     * 届いたお気に入りとスタンプ。1 つも届いていなければ null
+     */
+    val reactions: NoteReactionsUiState?,
     val listener: Listener,
 ) {
     interface Listener {
         fun onClick()
     }
 }
+
+/**
+ * 投稿に届いた反応
+ *
+ * @param favouriteCount お気に入りの数。誰も押していなければ null
+ * @param stamps 絵文字のスタンプ。押された数が多い順
+ */
+data class NoteReactionsUiState(
+    val favouriteCount: String?,
+    val stamps: List<NoteReactionUiState>,
+)
+
+/**
+ * 投稿に届いたスタンプ 1 種類
+ *
+ * @param name 絵文字そのもの、またはカスタム絵文字の名前
+ * @param imageUrl カスタム絵文字の画像。読めないときと絵文字そのものは [name] を出す
+ */
+data class NoteReactionUiState(
+    val name: String,
+    val imageUrl: String?,
+    val count: String,
+)

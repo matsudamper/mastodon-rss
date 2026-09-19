@@ -75,6 +75,10 @@ class AccountNoteScreenViewModel(
             is AccountNoteResult.Success -> AccountNoteScreenUiState.Content.Loaded(
                 contentHtml = result.note.contentHtml,
                 publishedAt = UnixTimeUtil.format(result.note.publishedAt.epochSeconds),
+                reactions = noteReactionsUiState(
+                    favouriteCount = result.note.favouriteCount,
+                    reactions = result.note.reactions,
+                ),
             )
         }
 

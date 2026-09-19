@@ -17,6 +17,10 @@ data class AccountNoteScreenUiState(
         data class Loaded(
             val contentHtml: String,
             val publishedAt: String,
+            /**
+             * 届いたお気に入りとスタンプ。1 つも届いていなければ null
+             */
+            val reactions: NoteReactionsUiState?,
         ) : Content
 
         data class Error(

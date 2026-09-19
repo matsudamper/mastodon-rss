@@ -15,4 +15,10 @@ fragment AccountNoteFields on AccountNote {
     url
     contentHtml
     publishedAt
+    favouriteCount
+    reactions {
+        name
+        imageUrl
+        count
+    }
 }
