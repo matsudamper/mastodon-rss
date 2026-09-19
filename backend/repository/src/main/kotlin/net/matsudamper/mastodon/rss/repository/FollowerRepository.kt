@@ -32,8 +32,13 @@ interface FollowerRepository {
      *
      * フォローが成立するのは `Accept` を送れたときで、[DeliveryQueueRepository.markDelivered]
      * がその場で状態を書き換える。
+     *
+     * 消したアカウント宛は記録しない。`Follow` を処理している間に消されることがあり、
+     * 記録すると消えたアカウントにフォロワーと `Accept` が生えて、名前が二度と空かない。
+     *
+     * @return 記録したら true。宛先のアカウントが消えていれば false
      */
-    fun record(follow: IncomingFollow)
+    fun record(follow: IncomingFollow): Boolean
 
     /**
      * フォローを消す。`Undo{Follow}` で呼ぶ。

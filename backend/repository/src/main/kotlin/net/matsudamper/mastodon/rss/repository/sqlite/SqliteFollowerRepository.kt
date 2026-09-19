@@ -5,6 +5,7 @@ import java.util.TreeMap
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FOLLOWERS
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.REMOTE_ACTORS
 import net.matsudamper.mastodon.rss.repository.sqlite.db.DeliveryKindDbValue
@@ -22,8 +23,19 @@ internal class SqliteFollowerRepository(
      * 途中で落ちると、誰も指していない相手のアクターの行や、
      * 記録の無いフォローへの `Accept` が残る。
      */
-    override fun record(follow: IncomingFollow) {
+    override fun record(follow: IncomingFollow): Boolean =
         jooq.transaction { dsl ->
+            // 引き当てから記録までの間にアカウントが消えることがある。消えた後に記録すると、
+            // フォロワーと Accept が生えて、そのアカウントの名前が二度と空かない
+            val deleted = dsl.fetchExists(
+                DSL
+                    .selectOne()
+                    .from(ACCOUNTS)
+                    .where(ACCOUNTS.USERNAME.eq(follow.username))
+                    .and(ACCOUNTS.DELETED_AT.isNotNull),
+            )
+            if (deleted) return@transaction false
+
             val remoteActorId = upsertRemoteActor(dsl, follow.follower, follow.receivedAt)
 
             dsl
@@ -63,8 +75,9 @@ internal class SqliteFollowerRepository(
                 notePublicId = null,
                 targetActorUri = follow.follower.actorUri,
             )
+
+            true
         }
-    }
 
     override fun remove(
         username: String,

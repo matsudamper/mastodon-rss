@@ -31,7 +31,10 @@ interface FollowerStore {
      * フォローが成立するのは `Accept` を送れたときで、[list] と [count] と
      * [deliveryTargets] に出るのもそこから。送れるまで何度送り直すかは実装側が決める。
      *
+     * 消したアカウント宛は記録しない。`Follow` を処理している間に消されることがある。
+     *
      * @param acceptBody 相手に返す `Accept` の JSON
+     * @return 記録したら true。宛先のアカウントが消えていれば false
      */
     fun record(
         username: String,
@@ -39,7 +42,7 @@ interface FollowerStore {
         followActivityUri: String,
         receivedAt: Instant,
         acceptBody: String,
-    )
+    ): Boolean
 
     /**
      * フォローを消す。

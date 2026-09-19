@@ -93,6 +93,12 @@ class FollowHandler(
             return
         }
 
+        // 引き当てた後に消されたアカウント宛。返す先のアカウントがもう無い
+        if (recorded.getOrDefault(false).not()) {
+            logger.info("消えたアカウント宛の Follow なので受け付けない: ${recipient.acct} ← $verifiedSignerActorId")
+            return
+        }
+
         logger.info("Follow を記録して Accept を投函した: ${recipient.acct} ← $verifiedSignerActorId")
     }
 

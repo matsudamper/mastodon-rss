@@ -21,7 +21,7 @@ class RepositoryFollowerStore(
         followActivityUri: String,
         receivedAt: Instant,
         acceptBody: String,
-    ) {
+    ): Boolean =
         followers.record(
             IncomingFollow(
                 username = username,
@@ -36,7 +36,6 @@ class RepositoryFollowerStore(
                 acceptBody = acceptBody,
             ),
         )
-    }
 
     override fun remove(
         username: String,

@@ -11,9 +11,11 @@ import net.matsudamper.mastodon.rss.follower.FollowerStore
  * こちらが受け持つのは、inbox のハンドラや配信が何をどの順で呼んだかの確認。
  *
  * @param failOnRecord 記録に失敗する状況を作る
+ * @param deletedUsernames 消えたアカウント。宛先がもう無い状況を作る
  */
 class FakeFollowerStore(
     private val failOnRecord: Boolean = false,
+    private val deletedUsernames: Set<String> = emptySet(),
 ) : FollowerStore {
     val rows: MutableList<Row> = mutableListOf()
 
@@ -23,15 +25,16 @@ class FakeFollowerStore(
         followActivityUri: String,
         receivedAt: Instant,
         acceptBody: String,
-    ) {
+    ): Boolean {
         if (failOnRecord) throw IllegalStateException("記録に失敗した想定")
+        if (username in deletedUsernames) return false
 
         // 一意制約と同じ判定。同じ相手からの Follow が既にあれば、
         // 預かる `Accept` だけを最後のもので置き換える
         val index = rows.indexOfFirst { it.username == username && it.followerActorUri == follower.actorId }
         if (index >= 0) {
             rows[index] = rows[index].copy(acceptBody = acceptBody)
-            return
+            return true
         }
 
         rows += Row(
@@ -44,6 +47,8 @@ class FakeFollowerStore(
             acceptBody = acceptBody,
             accepted = false,
         )
+
+        return true
     }
 
     /**

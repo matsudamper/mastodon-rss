@@ -425,6 +425,30 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
+    fun `消したアカウント宛の Follow は記録も投函もしない`() {
+        withRepositories { repositories ->
+            val account = assertNotNull(repositories.accounts.add(username = USERNAME, createdAt = now))
+            repositories.accounts.markDeleted(
+                AccountDeletion(
+                    id = account.id,
+                    username = account.username,
+                    body = """{"type":"Delete"}""",
+                    inboxes = emptyList(),
+                    deletedAt = now,
+                ),
+            )
+
+            // Follow を処理している間にアカウントが消された形
+            assertEquals(false, repositories.followers.record(incomingFollow()))
+
+            // 記録すると、消えたアカウントに Accept が生えて名前が二度と空かない
+            assertEquals(0, repositories.followers.count(USERNAME))
+            assertEquals(emptyList(), repositories.deliveryQueue.claim(now = now, limit = 10))
+            assertEquals(1, repositories.accounts.purgeDeleted())
+        }
+    }
+
+    @Test
     fun `成功した行は消える`() {
         withRepositories { repositories ->
             repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A)))
