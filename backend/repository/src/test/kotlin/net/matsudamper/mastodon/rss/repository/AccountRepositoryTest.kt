@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 class AccountRepositoryTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-account-test")
@@ -161,25 +162,21 @@ class AccountRepositoryTest {
 
             val page1 = repositories.accounts.list(after = null, limit = 2)
             val after = page1.last().position()
-            repositories.accounts.delete(page1.last().id)
+            repositories.deleteAccount(page1.last())
 
             assertEquals(listOf("c", "d"), repositories.accounts.list(after = after, limit = 2).map { it.username })
         }
     }
 
     @Test
-    fun `同じ名前で作り直しても途中のアカウントを飛ばさない`() {
+    fun `消した名前は作り直せない`() {
         withRepositories { repositories ->
-            listOf("a", "b", "c", "d").forEachIndexed { index, username ->
-                repositories.accounts.add(username = username, createdAt = CREATED_AT.plusSeconds(index.toLong()))
-            }
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            repositories.deleteAccount(account)
 
-            val page1 = repositories.accounts.list(after = null, limit = 2)
-            val after = page1.last().position()
-            repositories.accounts.delete(page1.last().id)
-            repositories.accounts.add(username = "b", createdAt = CREATED_AT.plusSeconds(10))
-
-            assertEquals(listOf("c", "d"), repositories.accounts.list(after = after, limit = 2).map { it.username })
+            // 作り直せると、送り残した Delete{Actor} が新しいアカウントのものとして配られる
+            assertNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT.plusSeconds(10)))
+            assertNull(repositories.accounts.findByUsername("feed1"))
         }
     }
 
@@ -226,7 +223,7 @@ class AccountRepositoryTest {
                 ),
             )
 
-            assertEquals(true, repositories.accounts.delete(account.id))
+            assertNotNull(repositories.deleteAccount(account))
 
             assertNull(repositories.accounts.findById(account.id))
             // 消えていないと、同じフィードを登録し直せない
@@ -236,14 +233,77 @@ class AccountRepositoryTest {
     }
 
     @Test
-    fun `消えているアカウントを消しても false`() {
+    fun `消えているアカウントを消しても何も起きない`() {
         withRepositories { repositories ->
             val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
-            repositories.accounts.delete(account.id)
+            repositories.deleteAccount(account)
 
-            assertEquals(false, repositories.accounts.delete(account.id))
+            // 2 回目も投函すると、同じ削除が 2 度配られる
+            assertNull(repositories.deleteAccount(account))
         }
     }
+
+    @Test
+    fun `消すと宛先ごとに Delete が投函され 送り残した配信は消える`() {
+        withRepositories { repositories ->
+            val account = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            repositories.deliveryQueue.enqueueNote(
+                NotePost(
+                    note = NewNote(
+                        username = "feed1",
+                        publicId = PublicNoteId("note-1"),
+                        contentHtml = "<p>本文</p>",
+                        publishedAt = CREATED_AT,
+                    ),
+                    body = """{"type":"Create"}""",
+                    inboxes = listOf(INBOX),
+                    enqueuedAt = CREATED_AT,
+                    feedItemId = null,
+                ),
+            )
+
+            val deleted = assertNotNull(repositories.deleteAccount(account, inboxes = listOf(INBOX)))
+
+            assertEquals(1, deleted.deletedNotes)
+            assertEquals(1, deleted.deliveries)
+            // 消えたアカウントの投稿が後から届かないよう、送り残しは消える
+            val claimed = repositories.deliveryQueue.claim(now = DELETED_AT, limit = 10)
+            assertEquals(listOf(DeliveryKind.DELETE_ACTOR), claimed.map { it.kind })
+            assertNull(repositories.notes.find(PublicNoteId("note-1")))
+        }
+    }
+
+    @Test
+    fun `配信を送り切った削除済みアカウントだけが片付く`() {
+        withRepositories { repositories ->
+            val sending = assertNotNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            val done = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+            repositories.deleteAccount(sending, inboxes = listOf(INBOX))
+            repositories.deleteAccount(done)
+
+            assertEquals(1, repositories.accounts.purgeDeleted())
+
+            // 送り切るまでは名前を押さえたままにする
+            assertNull(repositories.accounts.add(username = "feed1", createdAt = CREATED_AT))
+            assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+        }
+    }
+
+    /**
+     * アカウントを消して `Delete{Actor}` を投函する
+     */
+    private fun Repositories.deleteAccount(
+        account: Account,
+        inboxes: List<String> = emptyList(),
+    ): AccountDeletionResult? = accounts.markDeleted(
+        AccountDeletion(
+            id = account.id,
+            username = account.username,
+            body = """{"type":"Delete"}""",
+            inboxes = inboxes,
+            deletedAt = DELETED_AT,
+        ),
+    )
 
     private fun withRepositories(block: (Repositories) -> Unit) {
         val dbPath = tempDir.resolve("test.db")
@@ -254,9 +314,12 @@ class AccountRepositoryTest {
 
     private companion object {
         const val FEED_URL = "https://example.com/feed.xml"
+        const val INBOX = "https://remote.example/inbox"
         const val POLL_INTERVAL_SECONDS = 900L
 
         // 秒未満まで持つ。文字列で保存しているので、桁が落ちるとここで分かる
         val CREATED_AT: Instant = Instant.parse("2026-08-16T01:02:03.123456Z")
+
+        val DELETED_AT: Instant = CREATED_AT.plusSeconds(60)
     }
 }

@@ -32,8 +32,9 @@ class DeleteActorHandlerTest {
                 ),
                 followActivityUri = "https://remote.example/activities/$index",
                 receivedAt = now,
+                acceptBody = "{}",
             )
-            markAccepted(username, TestRemoteActor.ACTOR_ID, now)
+            markAccepted(username, TestRemoteActor.ACTOR_ID)
         }
     }
 

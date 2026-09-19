@@ -563,13 +563,14 @@ class AdminGraphQlTest {
                     follower = follower,
                     followActivityUri = "https://remote.example/follows/1",
                     receivedAt = Instant.parse("2026-08-16T00:00:00Z"),
+                    acceptBody = """{"type":"Accept"}""",
                 ),
             )
-            repositories.followers.markAccepted(
-                username = "feed1",
-                followerActorUri = follower.actorUri,
-                acceptedAt = Instant.parse("2026-08-16T00:00:00Z"),
-            )
+            // Accept が届いて初めてフォロワーになる。投函した行はここで消える
+            val acceptedAt = Instant.parse("2026-08-16T00:00:00Z")
+            repositories.deliveryQueue.claim(now = acceptedAt, limit = 10).forEach {
+                repositories.deliveryQueue.markDelivered(id = it.id, deliveredAt = acceptedAt)
+            }
 
             mutatePostNote(username = "feed1", body = "お知らせ", token = token).admin().obj("postNote")
 
@@ -842,7 +843,7 @@ class AdminGraphQlTest {
         }
 
     @Test
-    fun `deleteAccount で消したアカウントは同じフィードで登録し直せる`() =
+    fun `deleteAccount で消したアカウントのフィードは別のアカウントで登録し直せる`() =
         testApplication {
             val repositories = FakeRepositories()
             applicationWith(
@@ -870,9 +871,21 @@ class AdminGraphQlTest {
                 repositories.notes.list(username = "feed1", after = null, limit = 10),
             )
 
-            // 同じ名前と同じ URL で最初から登録し直せる
-            mutateAddAccount("feed1", token)
-            val newAccountId = queryAccount("feed1", token)
+            // 消した名前は Delete{Actor} を送り切るまで空かない
+            assertEquals(
+                true,
+                mutateAddAccount("feed1", token)
+                    .admin()
+                    .obj("addAccount")
+                    .obj("failure")
+                    .getValue("isDuplicated")
+                    .jsonPrimitive
+                    .boolean,
+            )
+
+            // フィードは一緒に消えるので、同じ URL を別のアカウントで登録できる
+            mutateAddAccount("feed2", token)
+            val newAccountId = queryAccount("feed2", token)
                 .admin()
                 .obj("adminAccount")
                 .obj("account")

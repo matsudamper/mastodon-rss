@@ -32,7 +32,23 @@ class FollowerRepositoryTest {
     }
 
     private fun <T> withRepository(block: (FollowerRepository) -> T): T =
-        createRepositories(DatabaseConfig(path = dbPath)).use { block(it.followers) }
+        withRepositories { block(it.followers) }
+
+    private fun <T> withRepositories(block: (Repositories) -> T): T =
+        createRepositories(DatabaseConfig(path = dbPath)).use { block(it) }
+
+    /**
+     * 投函された `Accept` が全部相手に届いた状況を作る。
+     *
+     * フォローが成立するのは `Accept` を送れたときなので、記録しただけでは数えられない
+     */
+    private fun Repositories.acceptDelivered() {
+        while (true) {
+            val claimed = deliveryQueue.claim(now = now, limit = 50)
+            if (claimed.isEmpty()) break
+            claimed.forEach { deliveryQueue.markDelivered(id = it.id, deliveredAt = now) }
+        }
+    }
 
     private fun incomingFollow(
         username: String = "admin",
@@ -49,21 +65,20 @@ class FollowerRepositoryTest {
         ),
         followActivityUri = followActivityUri,
         receivedAt = now,
+        acceptBody = """{"type":"Accept"}""",
     )
 
     @Test
     fun `Accept を返すまではフォロワーに数えない`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(incomingFollow())
 
             assertEquals(0, followers.count("admin"), "Accept 前なのに数えている")
             assertEquals(emptyList(), followers.list("admin", after = null, limit = 10))
             assertEquals(emptyList(), followers.deliveryTargets("admin"))
 
-            assertEquals(
-                FollowAcceptResult.FirstAccept,
-                followers.markAccepted("admin", "https://remote.example/users/alice", now),
-            )
+            repositories.acceptDelivered()
 
             assertEquals(1, followers.count("admin"))
             assertEquals(
@@ -75,7 +90,8 @@ class FollowerRepositoryTest {
 
     @Test
     fun `Accept を返す前でも公開鍵の PEM を引ける`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(incomingFollow())
 
             // 相手が消えると文書を引けなくなるので、Delete の検証はこの記録が頼りになる
@@ -86,7 +102,8 @@ class FollowerRepositoryTest {
 
     @Test
     fun `記録済みの相手だけ公開鍵を読み直せる`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(incomingFollow())
 
             followers.rememberPublicKeyPem(
@@ -108,7 +125,8 @@ class FollowerRepositoryTest {
 
     @Test
     fun `フォローを解除した相手の公開鍵は返さない`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(incomingFollow())
             assertTrue(followers.remove("admin", "https://remote.example/users/alice", followActivityUri = null))
 
@@ -118,31 +136,11 @@ class FollowerRepositoryTest {
     }
 
     @Test
-    fun `初めて成立したときだけ FirstAccept を返す`() {
-        withRepository { followers ->
-            followers.record(incomingFollow())
-
-            assertEquals(
-                FollowAcceptResult.FirstAccept,
-                followers.markAccepted("admin", "https://remote.example/users/alice", now),
-            )
-            // Follow の送り直し。過去の投稿を配り直さないためにここで見分ける
-            assertEquals(
-                FollowAcceptResult.AlreadyAccepted,
-                followers.markAccepted("admin", "https://remote.example/users/alice", now),
-            )
-            assertEquals(
-                FollowAcceptResult.NotFound,
-                followers.markAccepted("feed1", "https://remote.example/users/alice", now),
-            )
-        }
-    }
-
-    @Test
     fun `同じ相手からの Follow を二重に受けても行が増えない`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(incomingFollow())
-            followers.markAccepted("admin", "https://remote.example/users/alice", now)
+            repositories.acceptDelivered()
 
             // Accept を返し損ねたと思って送り直してくる形。id は同じ
             followers.record(incomingFollow())
@@ -155,9 +153,10 @@ class FollowerRepositoryTest {
 
     @Test
     fun `アカウント名の大文字小文字は区別しない`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(incomingFollow(username = "Feed1"))
-            followers.markAccepted("feed1", "https://remote.example/users/alice", now)
+            repositories.acceptDelivered()
 
             // ActorDirectory は保存されている綴りを返すが、揺れても同じものを指す
             assertEquals(1, followers.count("FEED1"))
@@ -166,16 +165,14 @@ class FollowerRepositoryTest {
 
     @Test
     fun `別の Follow が後から届いていても Accept を返せた分は数える`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             // 同じ相手からの 2 通目が先に記録され、1 通目の Accept が後から届く形。
             // どちらか 1 つに Accept が返れば、相手から見て関係は成立している
             followers.record(incomingFollow())
             followers.record(incomingFollow(followActivityUri = "https://remote.example/activities/2"))
 
-            assertEquals(
-                FollowAcceptResult.FirstAccept,
-                followers.markAccepted("admin", "https://remote.example/users/alice", now),
-            )
+            repositories.acceptDelivered()
 
             assertEquals(1, followers.count("admin"))
         }
@@ -183,9 +180,10 @@ class FollowerRepositoryTest {
 
     @Test
     fun `Follow の id を指定して解除できる`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(incomingFollow())
-            followers.markAccepted("admin", "https://remote.example/users/alice", now)
+            repositories.acceptDelivered()
 
             // 別のアクティビティの id では消えない。Undo の object が id だけで
             // 来たとき、それが本当に Follow の id だったのかはここで判断する
@@ -211,7 +209,8 @@ class FollowerRepositoryTest {
 
     @Test
     fun `アクターごと消すと全てのフォローが消える`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(incomingFollow(username = "admin"))
             followers.record(
                 incomingFollow(username = "feed1", followActivityUri = "https://remote.example/activities/2"),
@@ -222,9 +221,7 @@ class FollowerRepositoryTest {
                     followActivityUri = "https://remote.example/activities/3",
                 ),
             )
-            followers.markAccepted("admin", "https://remote.example/users/alice", now)
-            followers.markAccepted("feed1", "https://remote.example/users/alice", now)
-            followers.markAccepted("admin", "https://remote.example/users/bob", now)
+            repositories.acceptDelivered()
 
             assertEquals(2, followers.removeRemoteActor("https://remote.example/users/alice"))
 
@@ -234,14 +231,15 @@ class FollowerRepositoryTest {
             // 同じ相手をもう一度記録できる。remote_actors の行ごと消えているので、
             // 一意制約に引っかかって入らない、という形にならないこと
             followers.record(incomingFollow(followActivityUri = "https://remote.example/activities/4"))
-            followers.markAccepted("admin", "https://remote.example/users/alice", now)
+            repositories.acceptDelivered()
             assertEquals(2, followers.count("admin"))
         }
     }
 
     @Test
     fun `配信先は sharedInbox にまとまる`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(
                 incomingFollow(
                     actorUri = "https://a.example/users/alice",
@@ -261,13 +259,7 @@ class FollowerRepositoryTest {
                     followActivityUri = "https://remote.example/activities/3",
                 ),
             )
-            listOf(
-                "https://a.example/users/alice",
-                "https://a.example/users/bob",
-                "https://b.example/users/carol",
-            ).forEachIndexed { index, actorUri ->
-                followers.markAccepted("admin", actorUri, now)
-            }
+            repositories.acceptDelivered()
 
             assertEquals(
                 listOf("https://a.example/inbox", "https://b.example/users/carol/inbox"),
@@ -278,7 +270,8 @@ class FollowerRepositoryTest {
 
     @Test
     fun `URL 順に返り、cursor で続きから取れる`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             repeat(5) { index ->
                 followers.record(
                     incomingFollow(
@@ -286,7 +279,7 @@ class FollowerRepositoryTest {
                         followActivityUri = "https://remote.example/activities/$index",
                     ),
                 )
-                followers.markAccepted("admin", "https://remote.example/users/u$index", now)
+                repositories.acceptDelivered()
             }
 
             val first = followers.list("admin", after = null, limit = 2)
@@ -314,9 +307,10 @@ class FollowerRepositoryTest {
 
     @Test
     fun `まとめて数えると渡した綴りで返る`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(incomingFollow(username = "Feed1"))
-            followers.markAccepted("feed1", "https://remote.example/users/alice", now)
+            repositories.acceptDelivered()
             followers.record(
                 incomingFollow(
                     username = "admin",
@@ -336,7 +330,8 @@ class FollowerRepositoryTest {
 
     @Test
     fun `Accept を返せていないフォローも hasAny では数える`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             assertFalse(followers.hasAny())
 
             followers.record(incomingFollow())
@@ -349,21 +344,24 @@ class FollowerRepositoryTest {
 
     @Test
     fun `開き直してもフォロワーが残っている`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(incomingFollow())
-            followers.markAccepted("admin", "https://remote.example/users/alice", now)
+            repositories.acceptDelivered()
         }
 
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             assertEquals(1, followers.count("admin"))
         }
     }
 
     @Test
     fun `アカウントのフォローをまとめて消せる`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             followers.record(incomingFollow())
-            followers.markAccepted("admin", "https://remote.example/users/alice", now)
+            repositories.acceptDelivered()
             followers.record(
                 incomingFollow(
                     actorUri = "https://remote.example/users/bob",
@@ -376,7 +374,7 @@ class FollowerRepositoryTest {
                     followActivityUri = "https://remote.example/activities/3",
                 ),
             )
-            followers.markAccepted("feed1", "https://remote.example/users/alice", now)
+            repositories.acceptDelivered()
 
             // Accept を返せていないものも消える
             assertEquals(2, followers.removeAccount("admin"))
@@ -388,13 +386,10 @@ class FollowerRepositoryTest {
 
     @Test
     fun `記録が無い相手の操作は false`() {
-        withRepository { followers ->
+        withRepositories { repositories ->
+            val followers = repositories.followers
             assertFalse(followers.remove("admin", "https://remote.example/users/nobody", null))
             assertEquals(0, followers.removeRemoteActor("https://remote.example/users/nobody"))
-            assertEquals(
-                FollowAcceptResult.NotFound,
-                followers.markAccepted("admin", "https://remote.example/users/nobody", now),
-            )
         }
     }
 }

@@ -10,9 +10,12 @@ import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.data.AccountsCursor
+import net.matsudamper.mastodon.rss.graphql.data.DeliveryQueueCursor
 import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountRetryingDeliveriesConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountRetryingDelivery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountsConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
@@ -39,6 +42,50 @@ class AdminQueryResolverImpl : AdminQueryResolver {
                 ),
             ).build(),
         )
+    }
+
+    override fun retryingDeliveries(
+        adminQuery: QlAdminQuery,
+        cursor: String?,
+        limit: Int,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminAccountRetryingDeliveriesConnection>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val position = cursor?.let { DeliveryQueueCursor.decode(it) }
+
+        // 読めないカーソルは、消えた行を指していたのと同じ扱いにする
+        val connection = if (cursor != null && position == null) {
+            QlAdminAccountRetryingDeliveriesConnection(
+                nodes = emptyList(),
+                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+            )
+        } else {
+            val page = GraphQlEngine.diContainer(env).deliveryQueueService.retrying(
+                after = position?.toPosition(),
+                limit = limit,
+            )
+
+            QlAdminAccountRetryingDeliveriesConnection(
+                nodes = page.deliveries.map { delivery ->
+                    QlAdminAccountRetryingDelivery(
+                        kind = delivery.kind.toGraphqlResponse(),
+                        username = delivery.username,
+                        inbox = delivery.inbox,
+                        attempts = delivery.attempts,
+                        nextAttemptAt = delivery.nextAttemptAt.epochSecond,
+                        sending = delivery.sending,
+                        lastError = delivery.lastError,
+                    )
+                },
+                pageInfo = QlPageInfo(
+                    hasMore = page.hasMore,
+                    nextCursor = page.nextPosition?.let { DeliveryQueueCursor.of(it).encode() },
+                ),
+            )
+        }
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(connection).build())
     }
 
     override fun adminAccount(

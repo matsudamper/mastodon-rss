@@ -63,6 +63,17 @@ sealed interface Screen : NavKey {
     }
 
     /**
+     * 一度は送れず、送り直しを待っている配信の一覧。アカウントを問わない。
+     *
+     * アカウントごとの画面にも件数は出るが、どのアカウントで何が滞っているかは
+     * 1 つずつ開かないと分からない
+     */
+    data object AdminDeliveries : Screen {
+        override val path: String = "/$ADMIN_SEGMENT/$DELIVERIES_SEGMENT"
+        override val title: String = "送り直しを待っている配信 | $SITE_NAME"
+    }
+
+    /**
      * アカウントの追加
      */
     data object AdminAccountNew : Screen {
@@ -173,6 +184,8 @@ sealed interface Screen : NavKey {
 
         private const val ACCOUNTS_SEGMENT: String = "accounts"
 
+        private const val DELIVERIES_SEGMENT: String = "deliveries"
+
         private const val NEW_SEGMENT: String = "new"
 
         private const val FEEDS_SEGMENT: String = "feeds"
@@ -232,6 +245,8 @@ sealed interface Screen : NavKey {
                     rest.isEmpty() -> Admin
 
                     rest == listOf(ACCOUNTS_SEGMENT) -> AdminAccounts
+
+                    rest == listOf(DELIVERIES_SEGMENT) -> AdminDeliveries
 
                     rest == listOf(ACCOUNTS_SEGMENT, NEW_SEGMENT) -> AdminAccountNew
 

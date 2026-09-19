@@ -8,6 +8,10 @@ import net.matsudamper.mastodon.rss.shared.AccountId
  *
  * 名前は大文字小文字を区別せずに一意にする。区別して持てると同じ acct を指す行が
  * 2 つ並び、どちらを返すかが引き方で変わる。
+ *
+ * 消したアカウントは行を残して [Account.deletedAt] を入れる。読み出しは
+ * [findDeletedByUsername] を除いて生きているものだけを返すので、外から見ると消えている。
+ * 行を残すのは、消えたアカウントとして署名する `Delete{Actor}` を送り切るため。
  */
 interface AccountRepository {
     /**
@@ -58,16 +62,69 @@ interface AccountRepository {
     ): Account?
 
     /**
-     * 消す。フィードと記事も外部キーで一緒に消える。
+     * 消したアカウントを名前で引く。生きているものは返さない。
      *
-     * 投稿とフォロワーは `accounts` を参照していないのでここでは消えない。
-     * 名前で持っているものは、同じ名前で作り直したアカウントに引き継がれてしまうので、
-     * 呼び出し側でこれより先に消しておくこと。
-     *
-     * @return 消したら true。既に無ければ false
+     * 送り残した配信に署名するためだけの口。通常の引き当て（`ActorDirectory`）に
+     * 出すと、消したアカウントが外から見えたままになる。
      */
-    fun delete(id: AccountId): Boolean
+    fun findDeletedByUsername(username: String): Account?
+
+    /**
+     * アカウントを消して、消したことを宛先ごとに投函する。
+     *
+     * 行は残して消した時刻を入れる。消えたアカウントとして署名する `Delete{Actor}` を
+     * 送り切るまで、名前を押さえたままにする必要がある。
+     *
+     * 一緒に消えるのは、登録したフィードと取り込んだ記事（外部キー）、配信した投稿、
+     * フォロワー、まだ送っていない配信。名前で持っているもの（投稿とフォロワー）を
+     * 残すと、同じ名前で作り直したアカウントに引き継がれる。送り残した配信を残すと、
+     * 消えたアカウントの投稿が後から届く。
+     *
+     * 全部を 1 トランザクションで確定させる。途中で切れると、消えたはずの
+     * アカウントの投稿が引けたり、誰にも消えたことが伝わらないまま残ったりする。
+     *
+     * @return 既に消えているか行が無ければ null
+     */
+    fun markDeleted(deletion: AccountDeletion): AccountDeletionResult?
+
+    /**
+     * 消したアカウントのうち、送る配信が 1 件も残っていないものを本当に消す。
+     *
+     * 諦めた配信（`failed`）も残っている間は消さない。何を送れなかったのかが
+     * 分からなくなる。消すまでその名前は空かない。
+     *
+     * @return 消えた件数
+     */
+    fun purgeDeleted(): Int
 }
+
+/**
+ * 消すアカウントと、消したことを伝える配信。
+ *
+ * @param id 消すアカウント
+ * @param username 署名するこちらのアカウントの名前
+ * @param body 署名対象になる `Delete{Actor}` の JSON
+ * @param inboxes 宛先。同じ宛先は 1 つにまとめてから渡すこと
+ * @param deletedAt 消した時刻。投函した時刻としても記録する
+ */
+data class AccountDeletion(
+    val id: AccountId,
+    val username: String,
+    val body: String,
+    val inboxes: List<String>,
+    val deletedAt: Instant,
+)
+
+/**
+ * @param deletedNotes 消した投稿の数
+ * @param removedFollowers 外したフォロワーの数。`Accept` を返せていないものも含む
+ * @param deliveries 投函した配信の数。宛先の数と同じ
+ */
+data class AccountDeletionResult(
+    val deletedNotes: Int,
+    val removedFollowers: Int,
+    val deliveries: Int,
+)
 
 /**
  * ページの位置。
@@ -84,6 +141,7 @@ data class AccountPosition(
  * 応答するアカウント 1 つ。
  *
  * @param username `acct:<username>@<domain>` と `/users/<username>` に入る名前
+ * @param deletedAt 消した時刻。生きているアカウントでは null
  */
 data class Account(
     val id: AccountId,
@@ -91,6 +149,7 @@ data class Account(
     val createdAt: Instant,
     val displayName: String?,
     val summary: String?,
+    val deletedAt: Instant?,
 ) {
     fun position(): AccountPosition = AccountPosition(createdAt = createdAt, id = id)
 }

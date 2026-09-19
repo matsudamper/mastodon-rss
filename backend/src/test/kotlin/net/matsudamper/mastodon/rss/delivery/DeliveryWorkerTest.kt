@@ -17,12 +17,22 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import net.matsudamper.mastodon.rss.FakeDeliveryQueueRepository
 import net.matsudamper.mastodon.rss.FakeNoteRepository
+import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
+import net.matsudamper.mastodon.rss.FakeStoredActorNames
 import net.matsudamper.mastodon.rss.TestLocalActor
+import net.matsudamper.mastodon.rss.TestWebPageUrls
+import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
+import net.matsudamper.mastodon.rss.note.StoredNote
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
+import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
+import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
@@ -43,6 +53,62 @@ class DeliveryWorkerTest {
         assertEquals(emptyList(), repositories.deliveryQueue.rows())
         assertEquals(setOf("https://a.example/inbox", "https://b.example/inbox"), delivery.delivered.toSet())
         assertEquals(TestLocalActor.USERNAME, assertNotNull(delivery.senders.firstOrNull()).username)
+    }
+
+    @Test
+    fun `Accept が届いたらフォロワーとして数え 過去の投稿を配る`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery()
+        val notes = FakeNoteStore().apply {
+            add(
+                StoredNote(
+                    publicId = MastodonPublicNoteId("note-1"),
+                    username = TestLocalActor.USERNAME,
+                    contentHtml = "<p>フォローより前</p>",
+                    publishedAt = now.minusSeconds(60),
+                ),
+            )
+        }
+        repositories.followers.record(incomingFollow())
+
+        runWorker(repositories.deliveryQueue, delivery, notes = notes)
+
+        // Accept が届いて初めて成立する。数え始めるのも配り始めるのもここから
+        assertEquals(1, repositories.followers.count(TestLocalActor.USERNAME))
+        assertEquals(listOf(FOLLOWER_INBOX, FOLLOWER_INBOX), delivery.delivered)
+        assertEquals(emptyList(), repositories.deliveryQueue.rows())
+    }
+
+    @Test
+    fun `Accept が届かなければフォロワーに数えず 過去の投稿も配らない`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery(failing = setOf(FOLLOWER_INBOX))
+        repositories.followers.record(incomingFollow())
+
+        runWorker(repositories.deliveryQueue, delivery)
+
+        assertEquals(0, repositories.followers.count(TestLocalActor.USERNAME))
+        assertEquals(emptyList(), delivery.delivered)
+        // 送り直しを待つ。1 回届かなかっただけで保留のまま残さない
+        assertEquals(FakeDeliveryQueueRepository.State.PENDING, repositories.deliveryQueue.rows().single().state)
+    }
+
+    @Test
+    fun `消したアカウントとして署名するのは Delete だけ`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery()
+        // 引き当てを済ませた後にアカウントが消え、その後で投函された形
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"), username = DELETED_USERNAME)
+
+        runWorker(
+            repositories.deliveryQueue,
+            delivery,
+            deletedActorDirectory = deletedActorDirectory(listOf(DELETED_USERNAME)),
+        )
+
+        // 送ると、消したことを伝えた後から投稿が届く
+        assertEquals(emptyList(), delivery.delivered)
+        assertEquals(FakeDeliveryQueueRepository.State.FAILED, repositories.deliveryQueue.rows().single().state)
     }
 
     @Test
@@ -70,9 +136,11 @@ class DeliveryWorkerTest {
             queue = repositories.deliveryQueue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
             clock = { current },
             retryPolicy = TEST_RETRY_POLICY,
+            backfill = backfillPublisher(delivery),
             claimLimit = 8,
         )
 
@@ -155,9 +223,11 @@ class DeliveryWorkerTest {
             queue = queue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
+            backfill = backfillPublisher(delivery),
             claimLimit = 8,
         )
         val job = worker.start(this)
@@ -179,9 +249,11 @@ class DeliveryWorkerTest {
             queue = queue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
             clock = { current },
             retryPolicy = TEST_RETRY_POLICY,
+            backfill = backfillPublisher(delivery),
             claimLimit = 8,
         )
 
@@ -209,9 +281,11 @@ class DeliveryWorkerTest {
             queue = queue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
+            backfill = backfillPublisher(delivery),
             claimLimit = 8,
         )
 
@@ -233,7 +307,9 @@ class DeliveryWorkerTest {
             queue = repositories.deliveryQueue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
+            backfill = backfillPublisher(delivery),
             claimLimit = 8,
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
@@ -334,9 +410,11 @@ class DeliveryWorkerTest {
             queue = repositories.deliveryQueue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
             idleInterval = IDLE,
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
+            backfill = backfillPublisher(delivery),
             claimLimit = 8,
         )
 
@@ -362,12 +440,16 @@ class DeliveryWorkerTest {
         claimLimit: Int = 8,
         clock: () -> Instant = { now },
         retryPolicy: DeliveryRetryPolicy = TEST_RETRY_POLICY,
+        notes: FakeNoteStore = FakeNoteStore(),
+        deletedActorDirectory: ActorDirectory = deletedActorDirectory(),
     ) {
         val worker = DeliveryWorker(
             queue = queue,
             delivery = delivery,
             directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory,
             retryPolicy = retryPolicy,
+            backfill = backfillPublisher(delivery = delivery, notes = notes),
             idleInterval = IDLE,
             claimLimit = claimLimit,
             clock = clock,
@@ -377,6 +459,36 @@ class DeliveryWorkerTest {
         advanceTimeBy(IDLE * 10 + 10.seconds)
         job.cancelAndJoin()
     }
+
+    private fun incomingFollow(): IncomingFollow = IncomingFollow(
+        username = TestLocalActor.USERNAME,
+        follower = NewRemoteActor(
+            actorUri = FOLLOWER_ACTOR_URI,
+            inbox = FOLLOWER_INBOX,
+            sharedInbox = null,
+            publicKeyPem = "pem",
+        ),
+        followActivityUri = "$FOLLOWER_ACTOR_URI/follows/1",
+        receivedAt = now,
+        acceptBody = """{"type":"Accept"}""",
+    )
+
+    /**
+     * 消したアカウントの引き先。既定では 1 つも消えていない
+     */
+    private fun deletedActorDirectory(deleted: List<String> = emptyList()): ActorDirectory = ActorDirectory(
+        domain = TestLocalActor.DOMAIN,
+        stored = FakeStoredActorNames(storedUserNames = deleted),
+    )
+
+    private fun backfillPublisher(
+        delivery: RecordingDelivery,
+        notes: FakeNoteStore = FakeNoteStore(),
+    ): FollowBackfillPublisher = FollowBackfillPublisher(
+        notes = notes,
+        delivery = delivery,
+        webPages = TestWebPageUrls,
+    )
 
     private fun FakeRepositories.enqueue(
         inboxes: List<String>,
@@ -442,12 +554,15 @@ class DeliveryWorkerTest {
     ) : DeliveryQueueRepository by delegate {
         private var failed = false
 
-        override fun markDelivered(id: DeliveryId) {
+        override fun markDelivered(
+            id: DeliveryId,
+            deliveredAt: Instant,
+        ): DeliveredOutcome {
             if (!failed) {
                 failed = true
                 throw IllegalStateException("DB がロックされている")
             }
-            delegate.markDelivered(id)
+            return delegate.markDelivered(id = id, deliveredAt = deliveredAt)
         }
     }
 
@@ -511,6 +626,10 @@ class DeliveryWorkerTest {
     }
 
     private companion object {
+        const val DELETED_USERNAME = "gone"
+        const val FOLLOWER_ACTOR_URI = "https://a.example/users/alice"
+        const val FOLLOWER_INBOX = "https://a.example/users/alice/inbox"
+
         val IDLE = 100.milliseconds
 
         // 本番と同じ間隔。テストは時刻を自分で進めるので、実際に待つことはない

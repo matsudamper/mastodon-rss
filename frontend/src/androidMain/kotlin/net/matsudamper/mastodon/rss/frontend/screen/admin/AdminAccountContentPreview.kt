@@ -41,6 +41,7 @@ private fun AdminAccountContentPreview() {
                         failedCount = 1,
                         retrying = listOf(
                             AdminAccountScreenUiState.RetryingDelivery(
+                                kindText = "投稿",
                                 inbox = "https://mastodon.example/inbox",
                                 attempts = 2,
                                 nextAttemptAt = "2026-09-06 12:36",
@@ -50,6 +51,7 @@ private fun AdminAccountContentPreview() {
                         retryingMoreText = null,
                         failed = listOf(
                             AdminAccountScreenUiState.FailedDelivery(
+                                kindText = "フォローの承認",
                                 inbox = "https://gone.example/inbox",
                                 attempts = 31,
                                 lastError = "POST に失敗した: Connection refused",

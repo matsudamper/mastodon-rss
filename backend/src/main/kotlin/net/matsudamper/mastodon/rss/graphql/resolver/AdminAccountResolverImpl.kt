@@ -6,8 +6,8 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
+import net.matsudamper.mastodon.rss.graphql.data.DeliveryQueueCursor
 import net.matsudamper.mastodon.rss.graphql.data.FailedDeliveriesCursor
-import net.matsudamper.mastodon.rss.graphql.data.RetryingDeliveriesCursor
 import net.matsudamper.mastodon.rss.graphql.model.AdminAccountResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeliveryQueueCounts
@@ -75,7 +75,7 @@ class AdminAccountResolverImpl : AdminAccountResolver {
     ): CompletionStage<DataFetcherResult<QlAdminRetryingDeliveriesConnection>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val position = cursor?.let { RetryingDeliveriesCursor.decode(it) }
+        val position = cursor?.let { DeliveryQueueCursor.decode(it) }
 
         // 読めないカーソルは、消えた行を指していたのと同じ扱いにする
         val connection = if (cursor != null && position == null) {
@@ -93,6 +93,7 @@ class AdminAccountResolverImpl : AdminAccountResolver {
             QlAdminRetryingDeliveriesConnection(
                 nodes = page.deliveries.map { delivery ->
                     QlAdminRetryingDelivery(
+                        kind = delivery.kind.toGraphqlResponse(),
                         inbox = delivery.inbox,
                         attempts = delivery.attempts,
                         nextAttemptAt = delivery.nextAttemptAt.epochSecond,
@@ -101,7 +102,7 @@ class AdminAccountResolverImpl : AdminAccountResolver {
                 },
                 pageInfo = QlPageInfo(
                     hasMore = page.hasMore,
-                    nextCursor = page.nextPosition?.let { RetryingDeliveriesCursor.of(it).encode() },
+                    nextCursor = page.nextPosition?.let { DeliveryQueueCursor.of(it).encode() },
                 ),
             )
         }
@@ -135,6 +136,7 @@ class AdminAccountResolverImpl : AdminAccountResolver {
             QlAdminFailedDeliveriesConnection(
                 nodes = page.deliveries.map { delivery ->
                     QlAdminFailedDelivery(
+                        kind = delivery.kind.toGraphqlResponse(),
                         inbox = delivery.inbox,
                         attempts = delivery.attempts,
                         lastError = delivery.lastError,

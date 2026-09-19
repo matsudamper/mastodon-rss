@@ -30,6 +30,7 @@ import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountNewScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountProfileEditScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountsScreen
+import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminDeliveriesScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreen
 import net.matsudamper.mastodon.rss.frontend.screen.home.HomeScreen
 import net.matsudamper.mastodon.rss.frontend.ui.AppTheme
@@ -137,6 +138,9 @@ fun App() {
                 }
                 entry<Screen.AdminAccounts> {
                     AdminAccountsScreen(navController = navController)
+                }
+                entry<Screen.AdminDeliveries> {
+                    AdminDeliveriesScreen(navController = navController)
                 }
                 entry<Screen.AdminAccountNew> {
                     AdminAccountNewScreen(navController = navController)

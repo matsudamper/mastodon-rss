@@ -11,13 +11,12 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import net.matsudamper.mastodon.rss.FakeRepositories
-import net.matsudamper.mastodon.rss.TestActorKey
-import net.matsudamper.mastodon.rss.TestDelivery
+import net.matsudamper.mastodon.rss.TestActorPublisher
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
-import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.feed.IconImageType
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.FeedIcon
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
@@ -39,9 +38,8 @@ class AccountServiceTest {
     fun `消すとフォロワーと投稿とフィードと記事が消える`() = runTest {
         val repositories = FakeRepositories()
         val account = repositories.withFullAccount()
-        val delivery = TestDelivery()
 
-        val result = serviceOf(repositories, delivery).delete(USERNAME)
+        val result = serviceOf(repositories).delete(USERNAME)
 
         assertIs<AccountService.DeleteResult.Success>(result)
         assertNull(repositories.accounts.findById(account.id))
@@ -68,7 +66,7 @@ class AccountServiceTest {
             ),
         )
 
-        val result = serviceOf(repositories, TestDelivery()).delete(USERNAME)
+        val result = serviceOf(repositories).delete(USERNAME)
 
         assertIs<AccountService.DeleteResult.Success>(result)
         assertNull(iconStore.read(path))
@@ -93,93 +91,75 @@ class AccountServiceTest {
             ),
         )
 
-        val result = serviceOf(repositories, TestDelivery()).delete(USERNAME)
+        val result = serviceOf(repositories).delete(USERNAME)
 
         assertIs<AccountService.DeleteResult.Success>(result)
         assertNull(iconStore.read(path))
     }
 
     @Test
-    fun `消したことをフォロワーに配る`() = runTest {
+    fun `消したことを伝える Delete を投函する`() = runTest {
         val repositories = FakeRepositories()
         repositories.withFullAccount()
-        val delivery = TestDelivery()
 
-        val result = serviceOf(repositories, delivery).delete(USERNAME)
+        val result = serviceOf(repositories).delete(USERNAME)
 
         assertIs<AccountService.DeleteResult.Success>(result)
 
-        val body = delivery.delivered.single().body
+        val row = repositories.deliveryQueue.rows().single()
+        assertEquals(DeliveryKind.DELETE_ACTOR, row.kind)
+        val body = assertNotNull(row.body)
         assertContains(body, "\"type\":\"Delete\"")
         // object がアクター自身でないと、相手はアカウントではなく投稿の削除として扱う
         assertContains(body, "\"object\":\"https://${TestLocalActor.DOMAIN}/users/$USERNAME\"")
     }
 
     @Test
-    fun `消した後に同じ名前とフィードで登録し直せる`() = runTest {
+    fun `消した名前は Delete を送り切るまで作り直せない`() = runTest {
         val repositories = FakeRepositories()
         repositories.withFullAccount()
-        serviceOf(repositories, TestDelivery()).delete(USERNAME)
 
-        val added = assertNotNull(repositories.accounts.add(username = USERNAME, createdAt = CREATED_AT))
-        val feed = assertNotNull(repositories.feeds.add(newFeed(added)))
+        serviceOf(repositories).delete(USERNAME)
 
-        assertEquals(FEED_URL, feed.url)
-        // 前のアカウントの投稿とフォロワーを引き継がない
-        assertEquals(0L, repositories.notes.count(USERNAME))
-        assertEquals(0L, repositories.followers.count(USERNAME))
+        // 作り直せると、送り残した Delete が新しいアカウントのものとして配られる
+        assertNull(repositories.accounts.add(username = USERNAME, createdAt = CREATED_AT))
     }
 
     @Test
-    fun `2 回目の削除は配信しない`() = runTest {
+    fun `消すとフィードの URL は空く`() = runTest {
         val repositories = FakeRepositories()
         repositories.withFullAccount()
-        val delivery = TestDelivery()
-        val service = serviceOf(repositories, delivery)
+
+        serviceOf(repositories).delete(USERNAME)
+
+        val other = assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT))
+        assertEquals(FEED_URL, assertNotNull(repositories.feeds.add(newFeed(other))).url)
+    }
+
+    @Test
+    fun `2 回目の削除は投函しない`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.withFullAccount()
+        val service = serviceOf(repositories)
         service.delete(USERNAME)
 
         val result = service.delete(USERNAME)
 
         val failure = assertIs<AccountService.DeleteResult.Failure>(result)
         assertEquals(AccountService.DeleteFailure.UNKNOWN_ACCOUNT, failure.reason)
-        // 1 回目の分だけ。消せた 1 つしか配信まで進まない
-        assertEquals(1, delivery.delivered.size)
-    }
-
-    @Test
-    fun `消した名前で作り直した後のフォローは Accept を返すまで数えない`() = runTest {
-        val repositories = FakeRepositories()
-        repositories.withFullAccount()
-        serviceOf(repositories, TestDelivery()).delete(USERNAME)
-        repositories.accounts.add(username = USERNAME, createdAt = CREATED_AT)
-
-        repositories.followers.record(
-            IncomingFollow(
-                username = USERNAME,
-                follower = NewRemoteActor(
-                    actorUri = FOLLOWER_ACTOR_URI,
-                    inbox = FOLLOWER_INBOX,
-                    sharedInbox = null,
-                    publicKeyPem = "pem",
-                ),
-                followActivityUri = "$FOLLOWER_ACTOR_URI/follows/2",
-                receivedAt = CREATED_AT,
-            ),
-        )
-
-        assertEquals(0L, repositories.followers.count(USERNAME))
+        // 1 回目の分だけ。消せた 1 つしか投函まで進まない
+        assertEquals(1, repositories.deliveryQueue.rows().size)
     }
 
     @Test
     fun `知らないアカウントは消せない`() = runTest {
         val repositories = FakeRepositories()
-        val delivery = TestDelivery()
 
-        val result = serviceOf(repositories, delivery).delete("nobody")
+        val result = serviceOf(repositories).delete("nobody")
 
         val failure = assertIs<AccountService.DeleteResult.Failure>(result)
         assertEquals(AccountService.DeleteFailure.UNKNOWN_ACCOUNT, failure.reason)
-        assertEquals(emptyList(), delivery.delivered)
+        assertEquals(emptyList(), repositories.deliveryQueue.rows())
     }
 
     @Test
@@ -187,7 +167,7 @@ class AccountServiceTest {
         val repositories = FakeRepositories()
         repositories.accounts.add(username = USERNAME, createdAt = CREATED_AT)
 
-        val result = serviceOf(repositories, TestDelivery()).updateProfile(
+        val result = serviceOf(repositories).updateProfile(
             username = USERNAME,
             displayName = "😀".repeat(AccountProfileLimits.DISPLAY_NAME_MAX_LENGTH),
             summary = "",
@@ -200,16 +180,15 @@ class AccountServiceTest {
     fun `プロフィールを更新するとフォロワーに Update Actor を配る`() = runTest {
         val repositories = FakeRepositories()
         repositories.withFullAccount()
-        val delivery = TestDelivery()
 
-        val result = serviceOf(repositories, delivery).updateProfile(
+        val result = serviceOf(repositories).updateProfile(
             username = USERNAME,
             displayName = "更新後",
             summary = "新しい説明",
         )
 
         assertIs<AccountService.UpdateProfileResult.Success>(result)
-        val body = delivery.delivered.single().body
+        val body = assertNotNull(repositories.deliveryQueue.rows().single().body)
         assertContains(body, "\"type\":\"Update\"")
         assertContains(body, "\"actor\":\"https://${TestLocalActor.DOMAIN}/users/$USERNAME\"")
         assertContains(body, "\"name\":\"更新後\"")
@@ -220,16 +199,15 @@ class AccountServiceTest {
     fun `配る Update Actor には保存しているフィードの attachment と画面の url も入る`() = runTest {
         val repositories = FakeRepositories()
         repositories.withFullAccount()
-        val delivery = TestDelivery()
 
-        val result = serviceOf(repositories, delivery).updateProfile(
+        val result = serviceOf(repositories).updateProfile(
             username = USERNAME,
             displayName = "更新後",
             summary = "新しい説明",
         )
 
         assertIs<AccountService.UpdateProfileResult.Success>(result)
-        val body = delivery.delivered.single().body
+        val body = assertNotNull(repositories.deliveryQueue.rows().single().body)
         assertContains(body, "\"inbox\":\"https://${TestLocalActor.DOMAIN}/users/$USERNAME/inbox\"")
         assertContains(body, FEED_URL)
         assertContains(body, "\"url\":\"${TestWebPageUrls.profile(USERNAME)}\"")
@@ -239,36 +217,21 @@ class AccountServiceTest {
     fun `表示名も説明文も変わらない保存では配らない`() = runTest {
         val repositories = FakeRepositories()
         repositories.withFullAccount()
-        val delivery = TestDelivery()
-        val service = serviceOf(repositories, delivery)
+        val service = serviceOf(repositories)
         service.updateProfile(username = USERNAME, displayName = "更新後", summary = "新しい説明")
 
         val result = service.updateProfile(username = USERNAME, displayName = "更新後", summary = "新しい説明")
 
         assertIs<AccountService.UpdateProfileResult.Success>(result)
-        assertEquals(1, delivery.delivered.size)
+        // 送り残した更新は置き換わる。古い方が後から届くと相手の表示が 1 つ前に戻る
+        assertEquals(1, repositories.deliveryQueue.rows().size)
     }
 
-    private fun serviceOf(
-        repositories: FakeRepositories,
-        delivery: TestDelivery,
-    ): AccountService = AccountService(
+    private fun serviceOf(repositories: FakeRepositories): AccountService = AccountService(
         accounts = repositories.accounts,
         followers = repositories.followers,
-        deliveryQueue = repositories.deliveryQueue,
-        actorPublisher = ActorPublisher(
-            notes = RepositoryNoteStore(repositories.notes),
-            followers = RepositoryFollowerStore(repositories.followers),
-            delivery = delivery,
-            actorKey = TestActorKey.value,
-            feedLinks = RepositoryFeedLinks(
-                accounts = repositories.accounts,
-                feeds = repositories.feeds,
-                headers = repositories.feedHeaders,
-            ),
-            profiles = RepositoryActorProfiles(repositories.accounts),
-            webPages = TestWebPageUrls,
-        ),
+        actorPublisher = TestActorPublisher.of(repositories),
+        actorEnqueuer = TestActorPublisher.enqueuerOf(repositories),
         iconFiles = AccountIconFiles(
             feeds = repositories.feeds,
             icons = repositories.feedIcons,
@@ -294,13 +257,13 @@ class AccountServiceTest {
                 ),
                 followActivityUri = "$FOLLOWER_ACTOR_URI/follows/1",
                 receivedAt = CREATED_AT,
+                acceptBody = """{"type":"Accept"}""",
             ),
         )
-        followers.markAccepted(
-            username = USERNAME,
-            followerActorUri = FOLLOWER_ACTOR_URI,
-            acceptedAt = CREATED_AT,
-        )
+        // Accept が届いて初めてフォロワーになる。投函した行はここで消える
+        deliveryQueue.claim(now = CREATED_AT, limit = 10).forEach {
+            deliveryQueue.markDelivered(id = it.id, deliveredAt = CREATED_AT)
+        }
 
         notes.add(
             NewNote(

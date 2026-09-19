@@ -151,16 +151,22 @@ data class AdminAccountScreenUiState(
     }
 
     /**
+     * @param kindText 何を送る配信か。宛先だけでは何が滞っているのか分からない
      * @param nextAttemptAt 次に送る時刻
      */
     data class RetryingDelivery(
+        val kindText: String,
         val inbox: String,
         val attempts: Int,
         val nextAttemptAt: String,
         val lastError: String?,
     )
 
+    /**
+     * @param kindText 何を送る配信か
+     */
     data class FailedDelivery(
+        val kindText: String,
         val inbox: String,
         val attempts: Int,
         val lastError: String?,

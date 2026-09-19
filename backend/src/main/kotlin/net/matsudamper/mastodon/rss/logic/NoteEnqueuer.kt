@@ -3,12 +3,14 @@ package net.matsudamper.mastodon.rss.logic
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.mastodon.rss.note.DeletedNote
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.PreparedNote
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
@@ -83,6 +85,35 @@ class NoteEnqueuer(
 
             EnqueueNoteResult.FeedItemNotPending -> null
         }
+    }
+
+    /**
+     * 投稿を消して、消したことの配信を投函する。
+     *
+     * 記録を消すのと投函は repository 側で 1 トランザクションになる。
+     *
+     * @return 記録が無い、または別のアカウントの投稿なら null
+     */
+    fun enqueueDeletion(
+        sender: ActorUrls,
+        publicId: MastodonPublicNoteId,
+    ): DeletedNote? {
+        val prepared = publisher.prepareDelete(sender = sender, publicId = publicId) ?: return null
+        val inboxes = followers.deliveryTargets(sender.username)
+
+        val deliveries = deliveryQueue.enqueueNoteDeletion(
+            NoteDeletionPost(
+                publicId = PublicNoteId(prepared.publicId.value),
+                username = sender.username,
+                body = prepared.activityJson,
+                inboxes = inboxes,
+                enqueuedAt = Instant.now(),
+            ),
+        )
+
+        logger.info("投稿を消して削除を投函した: ${sender.acct} ${prepared.publicId} 宛先=$deliveries")
+
+        return DeletedNote(publicId = prepared.publicId)
     }
 
     /**

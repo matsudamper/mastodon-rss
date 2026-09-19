@@ -6,9 +6,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
-import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeRepositories
-import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorUrls
@@ -23,10 +21,8 @@ class NoteEnqueuerTest {
 
     private val notes = RepositoryNoteStore(repositories.notes)
 
-    private val delivery = TestDelivery()
-
     private fun enqueuer(): NoteEnqueuer = NoteEnqueuer(
-        publisher = NotePublisher(notes, FakeFollowerStore(), delivery, TestWebPageUrls),
+        publisher = NotePublisher(notes, TestWebPageUrls),
         followers = repositories.followers,
         deliveryQueue = repositories.deliveryQueue,
     )
@@ -56,19 +52,18 @@ class NoteEnqueuerTest {
                 follower = follower,
                 followActivityUri = "https://remote.example/follows/1",
                 receivedAt = FOLLOWED_AT,
+                acceptBody = """{"type":"Accept"}""",
             ),
         )
-        repositories.followers.markAccepted(
-            username = TestLocalActor.USERNAME,
-            followerActorUri = follower.actorUri,
-            acceptedAt = FOLLOWED_AT,
-        )
+        // Accept が届いて初めてフォロワーになる。投函した行はここで消える
+        repositories.deliveryQueue.claim(now = FOLLOWED_AT, limit = 10).forEach {
+            repositories.deliveryQueue.markDelivered(id = it.id, deliveredAt = FOLLOWED_AT)
+        }
 
         val queued = enqueuer().enqueue(sender = SENDER, contentHtml = "<p>本文</p>")
 
         assertEquals(1, added().size)
-        // 送るのは配信ワーカー。ここで送ってしまうと、落ちたときに送り直せない
-        assertEquals(emptyList(), delivery.delivered)
+        // 送るのは配信ワーカー。組み立てた行が残っているだけで、まだ誰にも届いていない
         val row = repositories.deliveryQueue.rows().single()
         assertEquals("https://remote.example/inbox", row.inbox)
         assertEquals(TestLocalActor.USERNAME, row.username)

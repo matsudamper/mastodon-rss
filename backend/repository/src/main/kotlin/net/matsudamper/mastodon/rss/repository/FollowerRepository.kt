@@ -20,27 +20,25 @@ import java.time.Instant
  */
 interface FollowerRepository {
     /**
-     * `Follow` を受けたことを記録する。`Accept` を返す前の状態で入る。
+     * `Follow` を受けたことを記録して、`Accept` を投函する。`Accept` を返す前の状態で入る。
      *
-     * 同じ相手からの `Follow` が既に記録されていれば何もしない。`Accept` を返し損ねると
+     * 同じ相手からの `Follow` が既に記録されていれば行は増やさない。`Accept` が届かないと
      * 相手は同じ `Follow` を送り直してくるので、二重に受けても行が増えない形にする。
-     */
-    fun record(follow: IncomingFollow)
-
-    /**
-     * `Accept` を返せたことを記録して、フォロワーとして数えられるようにする。
+     * 未送信の `Accept` が残っていれば、最後に受けた `Follow` への `Accept` で置き換える。
      *
-     * どの `Follow` に対する `Accept` だったかは問わない。相手から見ると、送った
-     * `Follow` のどれか 1 つに `Accept` が返れば関係は成立する。
+     * 記録と投函を 1 トランザクションで確定させる。記録できなかったフォローに `Accept` を
+     * 返すと、相手だけがフォローできたつもりになり、こちらには送り先が残らない。
+     * 逆に投函だけが落ちると、相手には保留のまま見えるのに送り直す機会が無くなる。
      *
-     * 状態の確認と書き換えは 1 つのトランザクションで行う。分けると、同じ `Follow` が
-     * 同時に 2 つ届いたときに両方が「初めて成立した」と読む
+     * フォローが成立するのは `Accept` を送れたときで、[DeliveryQueueRepository.markDelivered]
+     * がその場で状態を書き換える。
+     *
+     * 消したアカウント宛は記録しない。`Follow` を処理している間に消されることがあり、
+     * 記録すると消えたアカウントにフォロワーと `Accept` が生えて、名前が二度と空かない。
+     *
+     * @return 記録したら true。宛先のアカウントが消えていれば false
      */
-    fun markAccepted(
-        username: String,
-        followerActorUri: String,
-        acceptedAt: Instant,
-    ): FollowAcceptResult
+    fun record(follow: IncomingFollow): Boolean
 
     /**
      * フォローを消す。`Undo{Follow}` で呼ぶ。
@@ -63,6 +61,7 @@ interface FollowerRepository {
      * `Accept` を返せていないものも消える。`followers.username` はアカウントを
      * 参照していないので外部キーでは消えず、残すと同じ名前で作り直したアカウントを
      * 前のフォロワーがフォローしている状態になる。
+     * まだ送っていない `Accept` も一緒に消える。返す先が無い。
      *
      * @return 消えた件数
      */
@@ -73,6 +72,8 @@ interface FollowerRepository {
      *
      * こちらのどのアカウントをフォローしていたかに関わらず全部消える。
      * 相手が消えた以上、フォローの相手として残しておく意味が無い。
+     * その相手へのまだ送っていない `Accept` も一緒に消える。残すと、消えた相手に
+     * 送り続けて諦めるまでキューに残る。
      *
      * @return 消えたフォローの数
      */
@@ -147,22 +148,6 @@ interface FollowerRepository {
 }
 
 /**
- * [FollowerRepository.markAccepted] の結果。
- *
- * 呼び出し側は初めて成立したかどうかで振る舞いを変える
- */
-enum class FollowAcceptResult {
-    /** `Accept` 前の記録を成立させた */
-    FirstAccept,
-
-    /** 既に成立していた。`Follow` の送り直し */
-    AlreadyAccepted,
-
-    /** 記録が無い */
-    NotFound,
-}
-
-/**
  * 受け取った `Follow` を記録するのに要るもの。
  *
  * 相手のアクターの中身を一緒に受け取るのは、`Follow` を処理する時点で
@@ -172,12 +157,14 @@ enum class FollowAcceptResult {
  * @param username フォローされたこちらのアカウントの名前
  * @param followActivityUri 受け取った `Follow` の id
  * @param receivedAt 受け取った時刻。相手のアクター文書を読んだ時刻としても記録する
+ * @param acceptBody 相手に返す `Accept` の JSON。署名対象になる
  */
 data class IncomingFollow(
     val username: String,
     val follower: NewRemoteActor,
     val followActivityUri: String,
     val receivedAt: Instant,
+    val acceptBody: String,
 )
 
 /**

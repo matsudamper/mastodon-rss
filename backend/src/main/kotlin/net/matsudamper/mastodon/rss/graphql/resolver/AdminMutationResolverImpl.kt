@@ -308,7 +308,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val sender = diContainer.actorDirectory.resolve(query.username)
             val deleted = sender?.let {
-                diContainer.notePublisher.delete(
+                diContainer.noteEnqueuer.enqueueDeletion(
                     sender = it,
                     publicId = MastodonPublicNoteId(query.noteId.value),
                 )

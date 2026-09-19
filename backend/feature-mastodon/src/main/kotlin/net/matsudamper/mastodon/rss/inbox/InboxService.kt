@@ -1,21 +1,16 @@
 package net.matsudamper.mastodon.rss.inbox
 
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.follower.FollowerFallbackPublicKeys
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
-import net.matsudamper.mastodon.rss.note.NoteStore
-import net.matsudamper.mastodon.rss.url.WebPageUrls
 import org.slf4j.LoggerFactory
 
 /**
@@ -151,24 +146,18 @@ class InboxService(
          * 署名の検証と Follow への `Accept` は ActivityPub として要るもので、
          * 使う側が選ぶものではない。組み立てを呼び出し側に書かせると
          * 「どのハンドラが要るか」がモジュールの外に漏れるので、ここに置く。
-         * 種類ごとの処理はハンドラを足す形になっていて、Phase 3 の `Undo` と
-         * `Delete` はこの一覧に並ぶ。
+         *
+         * ここから相手に送ることはしない。返すものは記録と一緒に預けて、
+         * 送るのは受け取り側の都合と切り離す。
          *
          * @param remoteActors 相手のアクターの引き先。署名検証に使う公開鍵と、
          *   `Accept` の宛先になる inbox をここから取る
          * @param followers フォローの記録。配信先だけでなく、相手が消えて
          *   アクター文書を引けなくなったときの公開鍵の引き先にもなる
-         * @param delivery こちらから相手の inbox に POST する口
-         * @param notes フォロー成立後に配り直す過去の投稿の引き先
-         * @param backfillScope 過去の投稿を配る間、inbox の応答を待たせないためのスコープ
          */
         fun default(
             remoteActors: RemoteActors,
-            delivery: ActivityDelivery,
             followers: FollowerStore,
-            notes: NoteStore,
-            backfillScope: CoroutineScope,
-            webPages: WebPageUrls?,
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(
@@ -177,10 +166,7 @@ class InboxService(
                 handlers = listOf(
                     FollowHandler(
                         remoteActors = remoteActors,
-                        delivery = delivery,
                         followers = followers,
-                        backfill = FollowBackfillPublisher(notes = notes, delivery = delivery, webPages = webPages),
-                        backfillScope = backfillScope,
                     ),
                     UndoFollowHandler(followers),
                     DeleteActorHandler(followers),

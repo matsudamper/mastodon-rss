@@ -2,12 +2,13 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
 import java.util.TreeMap
-import net.matsudamper.mastodon.rss.repository.FollowAcceptResult
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FOLLOWERS
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.REMOTE_ACTORS
+import net.matsudamper.mastodon.rss.repository.sqlite.db.DeliveryKindDbValue
 import org.jooq.Condition
 import org.jooq.DSLContext
 import org.jooq.Record1
@@ -18,11 +19,23 @@ internal class SqliteFollowerRepository(
     private val jooq: SqliteJooq,
 ) : FollowerRepository {
     /**
-     * 2 テーブルへの書き込みを 1 トランザクションにまとめる。
-     * 途中で落ちると、誰も指していない相手のアクターの行が残る。
+     * 3 テーブルへの書き込みを 1 トランザクションにまとめる。
+     * 途中で落ちると、誰も指していない相手のアクターの行や、
+     * 記録の無いフォローへの `Accept` が残る。
      */
-    override fun record(follow: IncomingFollow) {
+    override fun record(follow: IncomingFollow): Boolean =
         jooq.transaction { dsl ->
+            // 引き当てから記録までの間にアカウントが消えることがある。消えた後に記録すると、
+            // フォロワーと Accept が生えて、そのアカウントの名前が二度と空かない
+            val deleted = dsl.fetchExists(
+                DSL
+                    .selectOne()
+                    .from(ACCOUNTS)
+                    .where(ACCOUNTS.USERNAME.eq(follow.username))
+                    .and(ACCOUNTS.DELETED_AT.isNotNull),
+            )
+            if (deleted) return@transaction false
+
             val remoteActorId = upsertRemoteActor(dsl, follow.follower, follow.receivedAt)
 
             dsl
@@ -41,39 +54,30 @@ internal class SqliteFollowerRepository(
                 .doUpdate()
                 .set(FOLLOWERS.FOLLOW_ACTIVITY_URI, follow.followActivityUri)
                 .execute()
+
+            // 送り直された `Follow` の分だけ `Accept` が増えないよう、
+            // 未送信のものは最後に受けた `Follow` への `Accept` で置き換える
+            DeliveryQueueRows.deletePendingAccept(
+                dsl = dsl,
+                username = follow.username,
+                followerActorUri = follow.follower.actorUri,
+            )
+
+            DeliveryQueueRows.insertPending(
+                dsl = dsl,
+                kind = DeliveryKindDbValue.ACCEPT_FOLLOW,
+                username = follow.username,
+                // `sharedInbox` には送らない。`Accept` は相手 1 人への応答で、
+                // まとめて送ると同じサーバーの他の利用者にも届く
+                inbox = follow.follower.inbox,
+                body = follow.acceptBody,
+                enqueuedAt = follow.receivedAt,
+                notePublicId = null,
+                targetActorUri = follow.follower.actorUri,
+            )
+
+            true
         }
-    }
-
-    /**
-     * まだ成立していない行だけを書き換える。件数で初回かどうかが分かるので、
-     * 状態を読んでから書くより競合に強い
-     */
-    override fun markAccepted(
-        username: String,
-        followerActorUri: String,
-        acceptedAt: Instant,
-    ): FollowAcceptResult = jooq.transaction { dsl ->
-        val accepted = dsl
-            .update(FOLLOWERS)
-            .set(FOLLOWERS.STATE, STATE_ACCEPTED)
-            .set(FOLLOWERS.ACCEPTED_AT, StoredInstant.format(acceptedAt))
-            .where(FOLLOWERS.ID.`in`(followerIds(username, followerActorUri)))
-            .and(FOLLOWERS.STATE.ne(STATE_ACCEPTED))
-            .execute() > 0
-
-        when {
-            accepted -> FollowAcceptResult.FirstAccept
-
-            dsl.fetchExists(
-                dsl
-                    .selectOne()
-                    .from(FOLLOWERS)
-                    .where(FOLLOWERS.ID.`in`(followerIds(username, followerActorUri))),
-            ) -> FollowAcceptResult.AlreadyAccepted
-
-            else -> FollowAcceptResult.NotFound
-        }
-    }
 
     override fun remove(
         username: String,
@@ -81,7 +85,7 @@ internal class SqliteFollowerRepository(
         followActivityUri: String?,
     ): Boolean = jooq.transaction { dsl ->
         val condition: Condition = FOLLOWERS.ID
-            .`in`(followerIds(username, followerActorUri))
+            .`in`(FollowerRows.ids(username = username, followerActorUri = followerActorUri))
             .let { base ->
                 if (followActivityUri == null) {
                     base
@@ -90,10 +94,20 @@ internal class SqliteFollowerRepository(
                 }
             }
 
-        dsl.deleteFrom(FOLLOWERS).where(condition).execute() > 0
+        val removed = dsl.deleteFrom(FOLLOWERS).where(condition).execute() > 0
+
+        // 解除された相手に `Accept` を送っても、相手にはもう対応するフォローが無い
+        if (removed) {
+            DeliveryQueueRows.deletePendingAccept(dsl = dsl, username = username, followerActorUri = followerActorUri)
+        }
+
+        removed
     }
 
     override fun removeAccount(username: String): Int = jooq.transaction { dsl ->
+        // 消したフォローへの `Accept` は返す先が無い
+        DeliveryQueueRows.deletePendingAcceptsOfAccount(dsl = dsl, username = username)
+
         // `remote_actors` は残す。同じ相手が他のアカウントもフォローしていることがあり、
         // ここで消すと外部キーでそちらのフォローまで消える
         dsl
@@ -109,6 +123,9 @@ internal class SqliteFollowerRepository(
      * 一緒に消えるが、それだと何件消えたのかが分からない。
      */
     override fun removeRemoteActor(actorUri: String): Int = jooq.transaction { dsl ->
+        // 消えた相手に `Accept` を送っても届かない。残すと、諦めるまで送り直し続ける
+        DeliveryQueueRows.deletePendingAcceptsToActor(dsl = dsl, followerActorUri = actorUri)
+
         val removed = dsl
             .deleteFrom(FOLLOWERS)
             .where(FOLLOWERS.REMOTE_ACTOR_ID.`in`(remoteActorId(actorUri)))
@@ -256,35 +273,14 @@ internal class SqliteFollowerRepository(
         ) { "相手のアクターの行を作れなかった: ${actor.actorUri}" }
     }
 
-    /**
-     * 名前とアクター URL の組からフォローの行を引く副問い合わせ。
-     * 更新と削除で同じ絞り込みを使う。
-     */
-    private fun followerIds(
-        username: String,
-        followerActorUri: String,
-    ): Select<Record1<Long>> = DSL
-        .select(FOLLOWERS.ID)
-        .from(FOLLOWERS)
-        .join(REMOTE_ACTORS)
-        .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
-        .where(FOLLOWERS.USERNAME.eq(username))
-        .and(REMOTE_ACTORS.ACTOR_URI.eq(followerActorUri))
-
     private fun remoteActorId(actorUri: String): Select<Record1<Long>> = DSL
         .select(REMOTE_ACTORS.ID)
         .from(REMOTE_ACTORS)
         .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))
 
     private companion object {
-        /**
-         * `Follow` は受けたが `Accept` を返せていない
-         */
-        const val STATE_PENDING = "pending"
+        const val STATE_PENDING = FollowerRows.STATE_PENDING
 
-        /**
-         * `Accept` を返せた。ここまで来たものだけをフォロワーとして数える
-         */
-        const val STATE_ACCEPTED = "accepted"
+        const val STATE_ACCEPTED = FollowerRows.STATE_ACCEPTED
     }
 }

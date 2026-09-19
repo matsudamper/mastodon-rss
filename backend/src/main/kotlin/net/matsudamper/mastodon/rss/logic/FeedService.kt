@@ -6,7 +6,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedItemKey
 import net.matsudamper.mastodon.rss.feed.FeedText
@@ -38,7 +37,7 @@ class FeedService(
     private val noteEnqueuer: NoteEnqueuer,
     private val icons: FeedIcons,
     private val headers: FeedHeaders,
-    private val actorPublisher: ActorPublisher,
+    private val actorEnqueuer: ActorEnqueuer,
 ) {
     private val logger = LoggerFactory.getLogger(FeedService::class.java)
 
@@ -476,15 +475,15 @@ class FeedService(
                 false
             }
 
-    private suspend fun publishActorUpdate(accountId: AccountId) {
+    private fun publishActorUpdate(accountId: AccountId) {
         val account = accounts.findById(accountId) ?: return
         val sender = actorDirectory.resolve(account.username) ?: return
 
-        runCatching { actorPublisher.update(sender = sender) }
+        runCatching { actorEnqueuer.enqueueUpdate(sender = sender) }
             .onFailure { error ->
                 if (error is CancellationException) throw error
-                // 配れなくても取り込みは進める。届かなかった相手は次に変わったときに配り直される
-                logger.warn("アクターの更新を配れなかった: username={}", account.username, error)
+                // 投函できなくても取り込みは進める。届かなかった相手は次に変わったときに配り直される
+                logger.warn("アクターの更新を投函できなかった: username={}", account.username, error)
             }
     }
 

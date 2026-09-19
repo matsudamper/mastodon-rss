@@ -35,6 +35,7 @@ import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.logic.AccountIconFiles
+import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
 import net.matsudamper.mastodon.rss.logic.ActorHeaderService
 import net.matsudamper.mastodon.rss.logic.ActorIconService
 import net.matsudamper.mastodon.rss.logic.FeedHeaderService
@@ -48,6 +49,7 @@ import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
 import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
+import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
@@ -131,6 +133,27 @@ class AppDependencies(
         },
     )
 
+    /**
+     * 消したアカウントだけを引ける名前の引き先。
+     *
+     * 消した後も `Delete{Actor}` を送り切るまでは、そのアカウントとして署名できる
+     * 必要がある。外から見える引き当て（[directory]）に混ぜると、消したアカウントが
+     * WebFinger や Actor から見えたままになる。
+     *
+     * 生きているアカウントは返さない。どちらも引ける 1 つの口にすると、消した後に
+     * 投函された行まで旧アクターとして送れてしまう
+     */
+    private val deletedActorDirectory: ActorDirectory = ActorDirectory(
+        domain = env.domain,
+        stored = object : StoredActorNames {
+            override fun find(username: String): String? = repositories.accounts.findDeletedByUsername(username)?.username
+
+            override fun finds(usernames: Set<String>): Map<String, String> {
+                return usernames.mapNotNull { username -> find(username)?.let { username to it } }.toMap()
+            }
+        },
+    )
+
     val feedLinks: StoredFeedLinks = RepositoryFeedLinks(
         accounts = repositories.accounts,
         feeds = repositories.feeds,
@@ -174,33 +197,32 @@ class AppDependencies(
     val actorProfiles: StoredActorProfiles = RepositoryActorProfiles(repositories.accounts)
 
     /**
-     * フォロー成立後に過去の投稿を配る間、inbox の応答を待たせないためのスコープ。
-     *
-     * 配り終える前にプロセスが落ちたら、その分は届かない。フォロー自体は
-     * 成立しているので、次の新着からは普通に届く
-     */
-    private val followBackfillScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    /**
      * inbox が受け取ったアクティビティの検証と振り分け。
      *
      * 何をどう組み合わせるかは ActivityPub 側の話なので
      * [InboxService.default] に任せる。ここで決めるのは、その材料になる
-     * [remoteActors] と [delivery] を本番のものにするかフェイクにするかだけ。
+     * [remoteActors] を本番のものにするかフェイクにするかだけ。
      */
     val inboxService: InboxService = InboxService.default(
         remoteActors = remoteActors,
-        delivery = delivery,
         followers = followerStore,
+    )
+
+    /**
+     * フォローが成立した相手に、フォローより前の投稿を配る。
+     *
+     * 成立するのは `Accept` を送れたときなので、始めるのは配信ワーカーになる。
+     * 配り終える前にプロセスが落ちたら、その分は届かない。フォロー自体は
+     * 成立しているので、次の新着からは普通に届く
+     */
+    private val followBackfillPublisher: FollowBackfillPublisher = FollowBackfillPublisher(
         notes = noteStore,
-        backfillScope = followBackfillScope,
+        delivery = delivery,
         webPages = webPageUrls,
     )
 
     val notePublisher: NotePublisher = NotePublisher(
         notes = noteStore,
-        followers = followerStore,
-        delivery = delivery,
         webPages = webPageUrls,
     )
 
@@ -211,13 +233,16 @@ class AppDependencies(
     )
 
     val actorPublisher: ActorPublisher = ActorPublisher(
-        notes = noteStore,
-        followers = followerStore,
-        delivery = delivery,
         actorKey = actorKey,
         feedLinks = feedLinks,
         profiles = actorProfiles,
         webPages = webPageUrls,
+    )
+
+    val actorEnqueuer: ActorEnqueuer = ActorEnqueuer(
+        publisher = actorPublisher,
+        followers = repositories.followers,
+        deliveryQueue = repositories.deliveryQueue,
     )
 
     val feedService: FeedService = FeedService(
@@ -229,7 +254,7 @@ class AppDependencies(
         noteEnqueuer = noteEnqueuer,
         icons = feedIcons,
         headers = feedHeaders,
-        actorPublisher = actorPublisher,
+        actorEnqueuer = actorEnqueuer,
     )
 
     private val feedPollingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -242,21 +267,31 @@ class AppDependencies(
      * 配信キューのワーカーを始める。
      *
      * 呼ぶまで 1 件も送らない。止めるのは [stopBackgroundWork]
+     *
+     * @return 片付いた削除済みアカウントの数
      */
-    fun startDeliveryWorker() {
+    fun startDeliveryWorker(): Int {
+        // 送る配信が無くなった削除済みアカウントをここで片付ける。名前が空くのもここ。
+        // 動いている間に空になった分は次の起動まで残る
+        val purgedAccounts = repositories.accounts.purgeDeleted()
+
         DeliveryWorker(
             queue = repositories.deliveryQueue,
             delivery = delivery,
             directory = directory,
+            deletedActorDirectory = deletedActorDirectory,
             retryPolicy = DeliveryRetryPolicy(
                 initialInterval = 30.seconds,
                 maxInterval = 24.hours,
                 giveUpAfter = 30.days,
             ),
+            backfill = followBackfillPublisher,
             claimLimit = 8,
             idleInterval = 1.seconds,
             clock = Instant::now,
         ).start(deliveryScope)
+
+        return purgedAccounts
     }
 
     /**
@@ -282,7 +317,7 @@ class AppDependencies(
      */
     fun stopBackgroundWork() {
         if (!backgroundStopped.compareAndSet(false, true)) return
-        val jobs = listOf(feedPollingScope, deliveryScope, followBackfillScope).map { it.coroutineContext.job }
+        val jobs = listOf(feedPollingScope, deliveryScope).map { it.coroutineContext.job }
         jobs.forEach { it.cancel() }
         runBlocking {
             withTimeoutOrNull(3_000) {
@@ -333,10 +368,13 @@ class AppDependencies(
             // ここから先で失敗すると、開いた DB が閉じられないまま起動が止まる
             return runCatching {
                 val loadActorKey = ActorKeyLoader.load(env.actorPrivateKey)
-                if (loadActorKey == null && repositories.followers.hasAny()) {
+                // 送り残した配信は、消したアカウントの Delete{Actor} のようにフォロワーが
+                // 1 人も残っていない形でも起きる。新しい鍵で署名すると、相手が覚えている
+                // 鍵で検証できずに届かない
+                if (loadActorKey == null && (repositories.followers.hasAny() || repositories.deliveryQueue.hasUnsent())) {
                     throw IllegalStateException(
-                        "フォロワーが記録されているのにアクターの秘密鍵が無い。" +
-                            "鍵を失った状態で新しい鍵を作ると既存のフォロワーから見て別人になるため起動しない。" +
+                        "フォロワーか送り残した配信があるのにアクターの秘密鍵が無い。" +
+                            "鍵を失った状態で新しい鍵を作ると相手から見て別人になるため起動しない。" +
                             "以前の鍵を ACTOR_PRIVATE_KEY_PATH に戻すこと",
                     )
                 }

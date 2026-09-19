@@ -47,5 +47,7 @@ data class AdminScreenUiState(
         fun onClickAccounts()
 
         fun onClickNewAccount()
+
+        fun onClickDeliveries()
     }
 }

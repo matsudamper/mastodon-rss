@@ -5,11 +5,11 @@ import java.util.Base64
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.repository.RetryingDeliveryPosition
+import net.matsudamper.mastodon.rss.repository.DeliveryQueuePosition
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 
 /**
- * 送り直し待ちの配信の一覧の続きを指す印。
+ * 配信キューの一覧の続きを指す印。
  *
  * [NotesCursor] と同じく JSON を base64 にしたもので、外からは中身の無い文字列として扱う。
  *
@@ -18,7 +18,7 @@ import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
  * @param afterId 同じ時刻の中でこの id より後ろを返す
  */
 @Serializable
-data class RetryingDeliveriesCursor(
+data class DeliveryQueueCursor(
     @SerialName("afterEpochSecond")
     val afterEpochSecond: Long,
     @SerialName("afterNano")
@@ -26,7 +26,7 @@ data class RetryingDeliveriesCursor(
     @SerialName("afterId")
     val afterId: Long,
 ) {
-    fun toPosition(): RetryingDeliveryPosition = RetryingDeliveryPosition(
+    fun toPosition(): DeliveryQueuePosition = DeliveryQueuePosition(
         nextAttemptAt = Instant.ofEpochSecond(afterEpochSecond, afterNano),
         id = DeliveryId(afterId),
     )
@@ -37,7 +37,7 @@ data class RetryingDeliveriesCursor(
         )
 
     companion object {
-        fun of(position: RetryingDeliveryPosition): RetryingDeliveriesCursor = RetryingDeliveriesCursor(
+        fun of(position: DeliveryQueuePosition): DeliveryQueueCursor = DeliveryQueueCursor(
             afterEpochSecond = position.nextAttemptAt.epochSecond,
             afterNano = position.nextAttemptAt.nano.toLong(),
             afterId = position.id.value,
@@ -47,7 +47,7 @@ data class RetryingDeliveriesCursor(
          * 読めなければ null を返す。外から来る値なので、壊れていても投げない。
          * 時刻にできない数値も読めなかったものとして扱う
          */
-        fun decode(value: String): RetryingDeliveriesCursor? {
+        fun decode(value: String): DeliveryQueueCursor? {
             val json = runCatching { DECODER.decode(value).decodeToString() }.getOrNull() ?: return null
             val cursor = runCatching { AppJson.decodeFromString(serializer(), json) }.getOrNull() ?: return null
             return cursor.takeIf { runCatching { it.toPosition() }.isSuccess }

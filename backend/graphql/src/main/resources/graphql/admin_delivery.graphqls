@@ -7,6 +7,53 @@ type AdminDeliveryQueueCounts {
     failedCount: Int!
 }
 
+"配信が何を送るものか"
+enum AdminDeliveryKind {
+    "投稿を包んだ Create"
+    CREATE_NOTE
+
+    "消した投稿の Delete"
+    DELETE_NOTE
+
+    "受け取った Follow への Accept"
+    ACCEPT_FOLLOW
+
+    "アクター情報の Update"
+    UPDATE_ACTOR
+
+    "消したアクターの Delete"
+    DELETE_ACTOR
+}
+
+type AdminAccountRetryingDeliveriesConnection {
+    nodes: [AdminAccountRetryingDelivery!]!
+    pageInfo: PageInfo!
+}
+
+"一度は送れず、送り直しを待っている配信 1 件。アカウントは問わない"
+type AdminAccountRetryingDelivery {
+    "何を送る配信か"
+    kind: AdminDeliveryKind!
+
+    "署名するこちらのアカウントの名前"
+    username: String!
+
+    "宛先の inbox"
+    inbox: String!
+
+    "送ろうとした回数"
+    attempts: Int!
+
+    "次に送る時刻"
+    nextAttemptAt: UnixTime!
+
+    "いま送っている最中か"
+    sending: Boolean!
+
+    "最後に送れなかった理由"
+    lastError: String
+}
+
 type AdminRetryingDeliveriesConnection {
     nodes: [AdminRetryingDelivery!]!
     pageInfo: PageInfo!
@@ -14,6 +61,9 @@ type AdminRetryingDeliveriesConnection {
 
 "一度は送れず、送り直しを待っている配信 1 件"
 type AdminRetryingDelivery {
+    "何を送る配信か"
+    kind: AdminDeliveryKind!
+
     "宛先の inbox"
     inbox: String!
 
@@ -34,6 +84,9 @@ type AdminFailedDeliveriesConnection {
 
 "諦めた配信 1 件。もう送らない"
 type AdminFailedDelivery {
+    "何を送る配信か"
+    kind: AdminDeliveryKind!
+
     "宛先の inbox"
     inbox: String!
 

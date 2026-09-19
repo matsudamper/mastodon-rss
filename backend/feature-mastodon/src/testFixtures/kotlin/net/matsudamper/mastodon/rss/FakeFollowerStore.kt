@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.RemoteActor
-import net.matsudamper.mastodon.rss.follower.FollowAcceptResult
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 
 /**
@@ -12,29 +11,38 @@ import net.matsudamper.mastodon.rss.follower.FollowerStore
  * こちらが受け持つのは、inbox のハンドラや配信が何をどの順で呼んだかの確認。
  *
  * @param failOnRecord 記録に失敗する状況を作る
- * @param failMarkAcceptedTimes `Accept` の記録が最初の何回か例外で失敗する状況を作る
- * @param failMarkAcceptedNotFoundTimes `Accept` の記録が最初の何回か記録なしを返す状況を作る
+ * @param deletedUsernames 消えたアカウント。宛先がもう無い状況を作る
  */
 class FakeFollowerStore(
     private val failOnRecord: Boolean = false,
-    private var failMarkAcceptedTimes: Int = 0,
-    private var failMarkAcceptedNotFoundTimes: Int = 0,
+    private val deletedUsernames: Set<String> = emptySet(),
 ) : FollowerStore {
     val rows: MutableList<Row> = mutableListOf()
-
-    var markAcceptedAttempts: Int = 0
-        private set
 
     override fun record(
         username: String,
         follower: RemoteActor,
         followActivityUri: String,
         receivedAt: Instant,
-    ) {
+        acceptBody: String,
+    ): Boolean {
         if (failOnRecord) throw IllegalStateException("記録に失敗した想定")
+        if (username in deletedUsernames) return false
 
-        // 一意制約と同じ判定。同じ相手からの Follow が既にあれば触らない
-        if (rows.any { it.username == username && it.followerActorUri == follower.actorId }) return
+        // 一意制約と同じ判定。同じ相手からの Follow が既にあれば、行は増やさず、
+        // 相手の情報と最後に受けた Follow の id、預かる `Accept` を差し替える。
+        // 成立したかどうかは触らない
+        val index = rows.indexOfFirst { it.username == username && it.followerActorUri == follower.actorId }
+        if (index >= 0) {
+            rows[index] = rows[index].copy(
+                inbox = follower.inbox,
+                sharedInbox = follower.sharedInbox,
+                publicKeyPem = follower.publicKeyPem,
+                followActivityUri = followActivityUri,
+                acceptBody = acceptBody,
+            )
+            return true
+        }
 
         rows += Row(
             username = username,
@@ -43,33 +51,24 @@ class FakeFollowerStore(
             sharedInbox = follower.sharedInbox,
             publicKeyPem = follower.publicKeyPem,
             followActivityUri = followActivityUri,
+            acceptBody = acceptBody,
             accepted = false,
         )
+
+        return true
     }
 
-    override fun markAccepted(
+    /**
+     * 預かった `Accept` が相手に届いた状況を作る。本物では配信キューがここを書く
+     */
+    fun markAccepted(
         username: String,
         followerActorUri: String,
-        acceptedAt: Instant,
-    ): FollowAcceptResult {
-        markAcceptedAttempts++
-        if (failMarkAcceptedTimes > 0) {
-            failMarkAcceptedTimes--
-            throw IllegalStateException("記録に失敗した想定")
-        }
-        if (failMarkAcceptedNotFoundTimes > 0) {
-            failMarkAcceptedNotFoundTimes--
-            return FollowAcceptResult.NotFound
-        }
-
-        val index = rows.indexOfFirst {
-            it.username == username && it.followerActorUri == followerActorUri
-        }
-        if (index < 0) return FollowAcceptResult.NotFound
-        if (rows[index].accepted) return FollowAcceptResult.AlreadyAccepted
+    ) {
+        val index = rows.indexOfFirst { it.username == username && it.followerActorUri == followerActorUri }
+        if (index < 0) return
 
         rows[index] = rows[index].copy(accepted = true)
-        return FollowAcceptResult.FirstAccept
     }
 
     override fun remove(
@@ -131,6 +130,7 @@ class FakeFollowerStore(
         val sharedInbox: String?,
         val publicKeyPem: String,
         val followActivityUri: String,
+        val acceptBody: String,
         val accepted: Boolean,
     )
 }

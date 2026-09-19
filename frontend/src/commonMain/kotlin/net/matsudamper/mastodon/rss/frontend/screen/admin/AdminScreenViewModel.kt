@@ -44,6 +44,10 @@ internal class AdminScreenViewModel(
                         navigate(Screen.AdminAccountNew)
                     }
 
+                    override fun onClickDeliveries() {
+                        navigate(Screen.AdminDeliveries)
+                    }
+
                     override fun onPasswordChanged(text: String) {
                         viewModelStateFlow.update { it.copy(password = text, error = null) }
                     }

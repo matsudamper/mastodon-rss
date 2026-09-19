@@ -11,6 +11,7 @@ import com.apollographql.cache.normalized.FetchPolicy
 import com.apollographql.cache.normalized.fetchPolicy
 import com.apollographql.cache.normalized.watch
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountIdQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountRetryingDeliveriesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
@@ -115,6 +116,57 @@ class AdminApi(
                 )
             },
             toResult = { response -> response.toAdminAccountsResult() },
+        )
+    }
+
+    fun retryingDeliveries(limit: Int): Paging<AdminAccountRetryingDeliveriesResult> {
+        return CachedPaging(
+            client = client,
+            firstPage = AdminAccountRetryingDeliveriesQuery(
+                cursor = Optional.absent(),
+                limit = limit,
+            ),
+            nextPage = { cursor ->
+                AdminAccountRetryingDeliveriesQuery(
+                    cursor = Optional.present(cursor),
+                    limit = limit,
+                )
+            },
+            appendPage = { cached, fetched ->
+                cached.copy(
+                    admin = cached.admin.copy(
+                        retryingDeliveries = cached.admin.retryingDeliveries.copy(
+                            nodes = cached.admin.retryingDeliveries.nodes + fetched.admin.retryingDeliveries.nodes,
+                            pageInfo = fetched.admin.retryingDeliveries.pageInfo,
+                        ),
+                    ),
+                )
+            },
+            toResult = { response -> response.toRetryingDeliveriesResult() },
+        )
+    }
+
+    private fun ApolloResponse<AdminAccountRetryingDeliveriesQuery.Data>.toRetryingDeliveriesResult(): AdminAccountRetryingDeliveriesResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AdminAccountRetryingDeliveriesResult.Failure(failureMessage())
+        }
+
+        val data = data ?: return AdminAccountRetryingDeliveriesResult.Failure(failureMessage())
+
+        return AdminAccountRetryingDeliveriesResult.Success(
+            deliveries = data.admin.retryingDeliveries.nodes.map { node ->
+                AdminAccountRetryingDelivery(
+                    kind = node.kind.toAdminDeliveryKind(),
+                    username = node.username,
+                    inbox = node.inbox,
+                    attempts = node.attempts,
+                    nextAttemptAt = node.nextAttemptAt,
+                    sending = node.sending,
+                    lastError = node.lastError,
+                )
+            },
+            hasMore = data.admin.retryingDeliveries.pageInfo.hasMore,
+            nextCursor = data.admin.retryingDeliveries.pageInfo.nextCursor,
         )
     }
 
@@ -467,6 +519,7 @@ class AdminApi(
             failedCount = deliveryQueue.failedCount,
             retrying = retryingDeliveries.nodes.map { node ->
                 AdminRetryingDelivery(
+                    kind = node.kind.toAdminDeliveryKind(),
                     inbox = node.inbox,
                     attempts = node.attempts,
                     nextAttemptAt = node.nextAttemptAt,
@@ -476,6 +529,7 @@ class AdminApi(
             retryingHasMore = retryingDeliveries.pageInfo.hasMore,
             failed = failedDeliveries.nodes.map { node ->
                 AdminFailedDelivery(
+                    kind = node.kind.toAdminDeliveryKind(),
                     inbox = node.inbox,
                     attempts = node.attempts,
                     lastError = node.lastError,
