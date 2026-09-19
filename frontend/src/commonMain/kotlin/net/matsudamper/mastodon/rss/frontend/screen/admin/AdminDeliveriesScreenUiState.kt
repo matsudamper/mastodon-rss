@@ -16,7 +16,7 @@ data class AdminDeliveriesScreenUiState(
         data object RequireLogin : Content
 
         /**
-         * @param emptyText 1 件も無いことを伝える一行。残っていれば null
+         * @param emptyText 1 件も無いことを伝える一行。1 件でもあれば null
          * @param loadMoreButtonText 続きを取るボタンの文字。取り損ねた後は誘い方が変わる
          */
         data class Loaded(
@@ -39,14 +39,14 @@ data class AdminDeliveriesScreenUiState(
      * @param kindText 何を送る配信か
      * @param acct どのアカウントとして送るか
      * @param statusText 送っている最中か、次にいつ送るか
-     * @param attemptsText 送ろうとした回数。まだ一度も送っていなければ null
+     * @param attemptsText 送ろうとした回数
      */
     data class Delivery(
         val kindText: String,
         val acct: String,
         val inbox: String,
         val statusText: String,
-        val attemptsText: String?,
+        val attemptsText: String,
         val lastError: String?,
     )
 

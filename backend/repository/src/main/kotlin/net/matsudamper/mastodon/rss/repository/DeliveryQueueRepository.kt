@@ -157,20 +157,20 @@ interface DeliveryQueueRepository {
     fun counts(username: String): DeliveryQueueCounts
 
     /**
-     * まだ送り終えていない行を、次に送る時刻の順に返す。アカウントは問わない。
+     * 一度は失敗して、まだ諦めていない行を、次に送る時刻の順に返す。アカウントは問わない。
      *
-     * 諦めた行は出さない。もう送らないので、待っているものと混ぜると
-     * 何を待っているのかが読めなくなる。
+     * 一度も送っていない行は出さない。投函した直後の行まで混ざると、
+     * 滞っているものがどれなのか読めなくなる。
      *
      * 位置を件数で数えず、直前のページの最後の 1 件で指す。ワーカーが動いている間は
      * 行が出入りするので、件数で数えると同じ行が 2 回出たり抜けたりする。
      *
      * @param after この位置より後ろを返す。null なら先頭から
      */
-    fun listUnsent(
+    fun listRetrying(
         after: DeliveryQueuePosition?,
         limit: Int,
-    ): List<UnsentDelivery>
+    ): List<AccountRetryingDelivery>
 
     /**
      * 一度は失敗して送り直しを待っている行（`pending` かつ `attempts > 0`）を、次に送る時刻の順に返す。
@@ -370,13 +370,13 @@ data class DeliveryQueueCounts(
 )
 
 /**
- * まだ送り終えていない行 1 件。アカウントを問わない一覧に使う
+ * 送り直しを待っている行 1 件。アカウントを問わない一覧に使う
  *
  * @param kind 何を送る行か
  * @param username 署名するこちらのアカウントの名前
  * @param sending 送っている最中か。送る時刻を待っているだけなら false
  */
-data class UnsentDelivery(
+data class AccountRetryingDelivery(
     val id: DeliveryId,
     val kind: DeliveryKind,
     val username: String,

@@ -10,10 +10,10 @@ import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.PagingLoadMoreResult
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminAccountRetryingDeliveriesResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeliveryKind
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminUnsentDeliveriesResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 class AdminDeliveriesScreenViewModel(
@@ -23,7 +23,7 @@ class AdminDeliveriesScreenViewModel(
     private val events = EventSender<Event>()
     internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
-    private val deliveriesPaging = api.unsentDeliveries(limit = PAGE_SIZE)
+    private val deliveriesPaging = api.retryingDeliveries(limit = PAGE_SIZE)
     private var sessionJob: Job? = null
     private var deliveriesJob: Job? = null
     private var loadMoreJob: Job? = null
@@ -105,7 +105,7 @@ class AdminDeliveriesScreenViewModel(
 
     private fun loadMore() {
         val state = viewModelStateFlow.value
-        val deliveries = state.deliveries as? AdminUnsentDeliveriesResult.Success ?: return
+        val deliveries = state.deliveries as? AdminAccountRetryingDeliveriesResult.Success ?: return
         if (state.loadingMore) return
         val cursor = deliveries.nextCursor ?: return
 
@@ -142,9 +142,10 @@ class AdminDeliveriesScreenViewModel(
         return when (val deliveries = state.deliveries) {
             null -> AdminDeliveriesScreenUiState.Content.Loading
 
-            is AdminUnsentDeliveriesResult.Failure -> AdminDeliveriesScreenUiState.Content.Error(deliveries.message)
+            is AdminAccountRetryingDeliveriesResult.Failure ->
+                AdminDeliveriesScreenUiState.Content.Error(deliveries.message)
 
-            is AdminUnsentDeliveriesResult.Success -> {
+            is AdminAccountRetryingDeliveriesResult.Success -> {
                 AdminDeliveriesScreenUiState.Content.Loaded(
                     deliveries = deliveries.deliveries.map { delivery ->
                         AdminDeliveriesScreenUiState.Delivery(
@@ -156,11 +157,11 @@ class AdminDeliveriesScreenViewModel(
                             } else {
                                 "次は ${UnixTimeUtil.format(delivery.nextAttemptAt)}"
                             },
-                            attemptsText = "${delivery.attempts} 回失敗".takeIf { delivery.attempts > 0 },
+                            attemptsText = "${delivery.attempts} 回失敗",
                             lastError = delivery.lastError,
                         )
                     },
-                    emptyText = "送るものは残っていない。".takeIf { deliveries.deliveries.isEmpty() },
+                    emptyText = "送り直しを待っている配信は無い。".takeIf { deliveries.deliveries.isEmpty() },
                     loadMoreVisible = deliveries.hasMore,
                     loadingMore = state.loadingMore,
                     loadMoreErrorMessage = state.loadMoreErrorMessage,
@@ -185,7 +186,7 @@ class AdminDeliveriesScreenViewModel(
 
     private data class ViewModelState(
         val session: AdminSessionResult? = null,
-        val deliveries: AdminUnsentDeliveriesResult? = null,
+        val deliveries: AdminAccountRetryingDeliveriesResult? = null,
         val loadingMore: Boolean = false,
         val loadMoreErrorMessage: String? = null,
     )

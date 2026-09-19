@@ -63,14 +63,14 @@ sealed interface Screen : NavKey {
     }
 
     /**
-     * まだ送り終えていない配信の一覧。アカウントを問わない。
+     * 一度は送れず、送り直しを待っている配信の一覧。アカウントを問わない。
      *
      * アカウントごとの画面にも件数は出るが、どのアカウントで何が滞っているかは
      * 1 つずつ開かないと分からない
      */
     data object AdminDeliveries : Screen {
         override val path: String = "/$ADMIN_SEGMENT/$DELIVERIES_SEGMENT"
-        override val title: String = "配信の待ち行列 | $SITE_NAME"
+        override val title: String = "送り直しを待っている配信 | $SITE_NAME"
     }
 
     /**

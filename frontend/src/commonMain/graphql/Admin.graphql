@@ -303,9 +303,9 @@ mutation AdminDeleteAccount($query: DeleteAccountQuery!) {
     }
 }
 
-query AdminUnsentDeliveries($cursor: String, $limit: Int!) {
+query AdminAccountRetryingDeliveries($cursor: String, $limit: Int!) {
     admin {
-        unsentDeliveries(cursor: $cursor, limit: $limit) {
+        retryingDeliveries(cursor: $cursor, limit: $limit) {
             nodes {
                 kind
                 username

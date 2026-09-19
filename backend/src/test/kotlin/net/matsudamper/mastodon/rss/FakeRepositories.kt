@@ -8,6 +8,7 @@ import net.matsudamper.mastodon.rss.repository.AccountDeletion
 import net.matsudamper.mastodon.rss.repository.AccountDeletionResult
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.AccountRetryingDelivery
 import net.matsudamper.mastodon.rss.repository.ActorUpdatePost
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
@@ -41,7 +42,6 @@ import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
-import net.matsudamper.mastodon.rss.repository.UnsentDelivery
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
@@ -82,6 +82,7 @@ class FakeRepositories : Repositories {
     // Follow の記録と Accept の投函が 1 トランザクションで確定するのは本物の
     // repository。ここで繋がないと、記録だけ残って Accept が送られない
     override val followers: FakeFollowerRepository = FakeFollowerRepository(
+        isDeletedAccount = { username -> accounts.findDeletedByUsername(username) != null },
         onRecorded = { follow -> deliveryQueue.enqueueAccept(follow) },
         onRemoved = { username, followerActorUri -> deliveryQueue.deletePendingAccept(username, followerActorUri) },
         onAccountRemoved = { username -> deliveryQueue.deletePendingAcceptsOfAccount(username) },
@@ -236,6 +237,7 @@ class FakeAccountRepository(
  * @param onRemoved 解除された相手への、まだ送っていない `Accept` を消す
  */
 class FakeFollowerRepository(
+    private val isDeletedAccount: (username: String) -> Boolean = { false },
     private val onRecorded: (IncomingFollow) -> Unit = {},
     private val onRemoved: (username: String, followerActorUri: String) -> Unit = { _, _ -> },
     private val onAccountRemoved: (username: String) -> Unit = {},
@@ -243,11 +245,16 @@ class FakeFollowerRepository(
 ) : FollowerRepository {
     private val stored = mutableListOf<IncomingFollow>()
 
-    override fun record(follow: IncomingFollow) {
+    override fun record(follow: IncomingFollow): Boolean {
+        // 消えたアカウント宛には記録しない。本物はアカウントの行を同じトランザクションで見る
+        if (isDeletedAccount(follow.username)) return false
+
         if (stored.none { it.username == follow.username && it.follower.actorUri == follow.follower.actorUri }) {
             stored += follow
         }
         onRecorded(follow)
+
+        return true
     }
 
     /**
@@ -917,13 +924,13 @@ class FakeDeliveryQueueRepository(
         )
     }
 
-    override fun listUnsent(
+    override fun listRetrying(
         after: DeliveryQueuePosition?,
         limit: Int,
-    ): List<UnsentDelivery> = stored
-        .filter { it.state != State.FAILED }
+    ): List<AccountRetryingDelivery> = stored
+        .filter { it.state != State.FAILED && it.attempts > 0 }
         .map { row ->
-            UnsentDelivery(
+            AccountRetryingDelivery(
                 id = row.id,
                 kind = row.kind,
                 username = row.username,
@@ -934,7 +941,7 @@ class FakeDeliveryQueueRepository(
                 lastError = row.lastError,
             )
         }
-        .sortedWith(compareBy<UnsentDelivery> { it.nextAttemptAt }.thenBy { it.id.value })
+        .sortedWith(compareBy<AccountRetryingDelivery> { it.nextAttemptAt }.thenBy { it.id.value })
         .filter { delivery ->
             after == null ||
                 delivery.nextAttemptAt > after.nextAttemptAt ||

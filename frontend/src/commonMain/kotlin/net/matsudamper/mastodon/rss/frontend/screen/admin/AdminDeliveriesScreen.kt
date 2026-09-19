@@ -63,14 +63,14 @@ internal fun AdminDeliveriesScreen(
 internal fun AdminDeliveriesContent(
     uiState: AdminDeliveriesScreenUiState,
 ) {
-    AdminScaffold("配信の待ち行列", listener = uiState.listener) { wide ->
+    AdminScaffold("送り直しを待っている配信", listener = uiState.listener) { wide ->
         Column(
             modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(if (wide) 24.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "配信の待ち行列",
+                    "送り直しを待っている配信",
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
@@ -107,7 +107,7 @@ private fun Deliveries(
     listener: AdminDeliveriesScreenUiState.Listener,
 ) {
     content.emptyText?.let {
-        SectionCard("待っている配信") { Text(it) }
+        SectionCard("送り直しを待っている配信") { Text(it) }
         return
     }
 
@@ -115,7 +115,7 @@ private fun Deliveries(
         modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SectionCard("待っている配信") {
+        SectionCard("送り直しを待っている配信") {
             content.deliveries.forEachIndexed { index, delivery ->
                 if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Delivery(delivery)
@@ -160,9 +160,11 @@ private fun Delivery(delivery: AdminDeliveriesScreenUiState.Delivery) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        delivery.attemptsText?.let {
-            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        Text(
+            delivery.attemptsText,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         delivery.lastError?.let {
             Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
         }

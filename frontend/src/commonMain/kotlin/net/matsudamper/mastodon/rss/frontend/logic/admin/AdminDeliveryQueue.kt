@@ -73,12 +73,12 @@ internal fun GraphQlAdminDeliveryKind.toAdminDeliveryKind(): AdminDeliveryKind =
     }
 
 /**
- * まだ送り終えていない配信。アカウントを問わない一覧に出す。
+ * 一度は送れず、送り直しを待っている配信。アカウントを問わない一覧に出す。
  *
  * @param sending いま送っている最中か
  * @param nextAttemptAt 次に送る時刻。エポックからの秒数
  */
-data class AdminUnsentDelivery(
+data class AdminAccountRetryingDelivery(
     val kind: AdminDeliveryKind,
     val username: String,
     val inbox: String,

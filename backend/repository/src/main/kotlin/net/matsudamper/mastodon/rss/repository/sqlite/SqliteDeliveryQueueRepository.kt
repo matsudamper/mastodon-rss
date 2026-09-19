@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.repository.AccountRetryingDelivery
 import net.matsudamper.mastodon.rss.repository.ActorUpdatePost
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
@@ -13,7 +14,6 @@ import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
-import net.matsudamper.mastodon.rss.repository.UnsentDelivery
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.DELIVERY_QUEUE
@@ -370,22 +370,24 @@ internal class SqliteDeliveryQueueRepository(
         )
     }
 
-    override fun listUnsent(
+    override fun listRetrying(
         after: DeliveryQueuePosition?,
         limit: Int,
-    ): List<UnsentDelivery> {
+    ): List<AccountRetryingDelivery> {
         if (limit <= 0) return emptyList()
 
         return jooq.withConnection { dsl ->
             dsl
                 .selectFrom(DELIVERY_QUEUE)
                 .where(DELIVERY_QUEUE.STATE.ne(DeliveryStateDbValue.FAILED.dbValue))
+                // 一度も送っていない行は滞っていない
+                .and(DELIVERY_QUEUE.ATTEMPTS.gt(0L))
                 .and(after?.let { laterThan(it) } ?: DSL.noCondition())
                 .orderBy(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.asc(), DELIVERY_QUEUE.ID.asc())
                 .limit(limit)
                 .fetch()
                 .map { record ->
-                    UnsentDelivery(
+                    AccountRetryingDelivery(
                         id = DeliveryId(record.get(DELIVERY_QUEUE.ID)),
                         kind = DeliveryKindDbValue.parse(record.get(DELIVERY_QUEUE.KIND)).toDeliveryKind(),
                         username = record.get(DELIVERY_QUEUE.USERNAME),

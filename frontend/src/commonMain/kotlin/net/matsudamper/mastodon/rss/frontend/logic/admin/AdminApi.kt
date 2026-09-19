@@ -11,6 +11,7 @@ import com.apollographql.cache.normalized.FetchPolicy
 import com.apollographql.cache.normalized.fetchPolicy
 import com.apollographql.cache.normalized.watch
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountIdQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountRetryingDeliveriesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
@@ -26,7 +27,6 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnpublishedFeedItemsQuery
-import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnsentDeliveriesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUpdateAccountProfileMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountListFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountScreenFields
@@ -119,15 +119,15 @@ class AdminApi(
         )
     }
 
-    fun unsentDeliveries(limit: Int): Paging<AdminUnsentDeliveriesResult> {
+    fun retryingDeliveries(limit: Int): Paging<AdminAccountRetryingDeliveriesResult> {
         return CachedPaging(
             client = client,
-            firstPage = AdminUnsentDeliveriesQuery(
+            firstPage = AdminAccountRetryingDeliveriesQuery(
                 cursor = Optional.absent(),
                 limit = limit,
             ),
             nextPage = { cursor ->
-                AdminUnsentDeliveriesQuery(
+                AdminAccountRetryingDeliveriesQuery(
                     cursor = Optional.present(cursor),
                     limit = limit,
                 )
@@ -135,27 +135,27 @@ class AdminApi(
             appendPage = { cached, fetched ->
                 cached.copy(
                     admin = cached.admin.copy(
-                        unsentDeliveries = cached.admin.unsentDeliveries.copy(
-                            nodes = cached.admin.unsentDeliveries.nodes + fetched.admin.unsentDeliveries.nodes,
-                            pageInfo = fetched.admin.unsentDeliveries.pageInfo,
+                        retryingDeliveries = cached.admin.retryingDeliveries.copy(
+                            nodes = cached.admin.retryingDeliveries.nodes + fetched.admin.retryingDeliveries.nodes,
+                            pageInfo = fetched.admin.retryingDeliveries.pageInfo,
                         ),
                     ),
                 )
             },
-            toResult = { response -> response.toUnsentDeliveriesResult() },
+            toResult = { response -> response.toRetryingDeliveriesResult() },
         )
     }
 
-    private fun ApolloResponse<AdminUnsentDeliveriesQuery.Data>.toUnsentDeliveriesResult(): AdminUnsentDeliveriesResult {
+    private fun ApolloResponse<AdminAccountRetryingDeliveriesQuery.Data>.toRetryingDeliveriesResult(): AdminAccountRetryingDeliveriesResult {
         if (exception != null || errors.orEmpty().isNotEmpty()) {
-            return AdminUnsentDeliveriesResult.Failure(failureMessage())
+            return AdminAccountRetryingDeliveriesResult.Failure(failureMessage())
         }
 
-        val data = data ?: return AdminUnsentDeliveriesResult.Failure(failureMessage())
+        val data = data ?: return AdminAccountRetryingDeliveriesResult.Failure(failureMessage())
 
-        return AdminUnsentDeliveriesResult.Success(
-            deliveries = data.admin.unsentDeliveries.nodes.map { node ->
-                AdminUnsentDelivery(
+        return AdminAccountRetryingDeliveriesResult.Success(
+            deliveries = data.admin.retryingDeliveries.nodes.map { node ->
+                AdminAccountRetryingDelivery(
                     kind = node.kind.toAdminDeliveryKind(),
                     username = node.username,
                     inbox = node.inbox,
@@ -165,8 +165,8 @@ class AdminApi(
                     lastError = node.lastError,
                 )
             },
-            hasMore = data.admin.unsentDeliveries.pageInfo.hasMore,
-            nextCursor = data.admin.unsentDeliveries.pageInfo.nextCursor,
+            hasMore = data.admin.retryingDeliveries.pageInfo.hasMore,
+            nextCursor = data.admin.retryingDeliveries.pageInfo.nextCursor,
         )
     }
 

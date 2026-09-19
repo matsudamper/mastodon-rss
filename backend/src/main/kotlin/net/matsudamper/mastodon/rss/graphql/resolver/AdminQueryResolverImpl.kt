@@ -20,8 +20,8 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnpublishedFeedItemsResult
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnsentDeliveriesConnection
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminUnsentDelivery
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountRetryingDeliveriesConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountRetryingDelivery
 import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
 import net.matsudamper.mastodon.rss.graphql.model.QlUnpublishedFeedItemsQuery
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
@@ -44,31 +44,31 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         )
     }
 
-    override fun unsentDeliveries(
+    override fun retryingDeliveries(
         adminQuery: QlAdminQuery,
         cursor: String?,
         limit: Int,
         env: DataFetchingEnvironment,
-    ): CompletionStage<DataFetcherResult<QlAdminUnsentDeliveriesConnection>> {
+    ): CompletionStage<DataFetcherResult<QlAdminAccountRetryingDeliveriesConnection>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
         val position = cursor?.let { DeliveryQueueCursor.decode(it) }
 
         // 読めないカーソルは、消えた行を指していたのと同じ扱いにする
         val connection = if (cursor != null && position == null) {
-            QlAdminUnsentDeliveriesConnection(
+            QlAdminAccountRetryingDeliveriesConnection(
                 nodes = emptyList(),
                 pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
             )
         } else {
-            val page = GraphQlEngine.diContainer(env).deliveryQueueService.unsent(
+            val page = GraphQlEngine.diContainer(env).deliveryQueueService.retrying(
                 after = position?.toPosition(),
                 limit = limit,
             )
 
-            QlAdminUnsentDeliveriesConnection(
+            QlAdminAccountRetryingDeliveriesConnection(
                 nodes = page.deliveries.map { delivery ->
-                    QlAdminUnsentDelivery(
+                    QlAdminAccountRetryingDelivery(
                         kind = delivery.kind.toGraphqlResponse(),
                         username = delivery.username,
                         inbox = delivery.inbox,

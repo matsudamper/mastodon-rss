@@ -495,6 +495,30 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
+    fun `アカウントを問わない送り直し待ちの一覧は、送り直しを待っている行だけを次に送る時刻の順に返す`() {
+        withRepositories { repositories ->
+            repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A)))
+            repositories.deliveryQueue.enqueueNote(
+                notePost(publicId = "n2", inboxes = listOf(INBOX_B), username = OTHER_USERNAME),
+            )
+            repositories.deliveryQueue.claim(now = now, limit = 10).forEach { claimed ->
+                val delay = if (claimed.inbox == INBOX_A) 20L else 10L
+                repositories.deliveryQueue.scheduleRetry(claimed.id, nextAttemptAt = now.plusSeconds(delay), error = "e")
+            }
+
+            // まだ一度も送っていない行
+            repositories.deliveryQueue.enqueueNote(notePost(publicId = "n3", inboxes = listOf(INBOX_C)))
+
+            val retrying = repositories.deliveryQueue.listRetrying(after = null, limit = 10)
+            assertEquals(listOf(INBOX_B, INBOX_A), retrying.map { it.inbox })
+            assertEquals(listOf(OTHER_USERNAME, USERNAME), retrying.map { it.username })
+
+            val secondPage = repositories.deliveryQueue.listRetrying(after = retrying.first().position, limit = 10)
+            assertEquals(listOf(INBOX_A), secondPage.map { it.inbox })
+        }
+    }
+
+    @Test
     fun `諦めた行は body と次の時刻が消えて failed に数えられる`() {
         withRepositories { repositories ->
             repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A)))
@@ -705,6 +729,7 @@ class DeliveryQueueRepositoryTest {
 
     private companion object {
         const val USERNAME = "admin"
+        const val OTHER_USERNAME = "other"
         const val BODY = """{"type":"Create"}"""
         const val INBOX_A = "https://a.example/inbox"
         const val INBOX_B = "https://b.example/inbox"
