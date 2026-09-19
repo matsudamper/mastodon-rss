@@ -54,10 +54,23 @@ inbox は署名が通れば 202、通らなければ 401 を返す。検証の�
 [HttpSignatureVerifier.kt](../backend/feature-mastodon/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
 の KDoc にある。
 
-届いたアクティビティのうち処理するのは `Follow` と `Undo` と `Delete` の 3 つ。
-`Follow` はフォロワーとして記録してから相手の inbox に `Accept` を返し、
-`Undo` はその記録を消す。`Delete` は送り主自身の削除のときだけ、その相手の
-フォローを全部消す。それ以外の種類は種類と送り主をログに出すだけ。
+届いたアクティビティのうち処理するのは `Follow` と `Like` と `EmojiReact` と
+`Undo` と `Delete` の 5 つ。`Follow` はフォロワーとして記録してから相手の inbox に
+`Accept` を返す。`Like` と `EmojiReact` はこちらが配信した投稿への反応として記録する。
+`Undo` は `object` が何だったのかで、フォローの記録か反応のどちらかを消す。
+`Delete` は送り主自身の削除のときだけ、その相手のフォローと反応を全部消す。
+それ以外の種類は種類と送り主をログに出すだけ。
+
+反応は `Like` と `EmojiReact` の 2 つの種類で届く。Mastodon のお気に入りは
+`content` を持たない `Like` で、Misskey は同じ `Like` の `content` に押した絵文字を
+載せてくる。`EmojiReact` は Misskey と Pleroma が送ってくる同じ形のもので、
+違いは `type` だけ。カスタム絵文字は `content` が `:name:` の形になり、画像は
+同じアクティビティの `tag` に並ぶ `Emoji` の `icon` にある。
+
+反応は面識の無いサーバーからも届くので、対象が宛先のアカウントの投稿かどうかを
+見てから記録する。誰が押したかは公開画面に出さない。取り消しの `Undo` は、元の
+アクティビティの id で指してくることも、`object` に丸ごと埋めてくることもある。
+id が無い形のために、投稿と絵文字の組でも引き当てられるようにしてある。
 
 記録は DB に残るので、再起動してもフォロワーは残る。`Accept` を返せなかった
 フォローは記録には残るがフォロワーには数えない。相手から見て成立していないため。

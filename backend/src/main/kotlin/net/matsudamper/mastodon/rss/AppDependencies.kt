@@ -49,9 +49,11 @@ import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
 import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
+import net.matsudamper.mastodon.rss.logic.RepositoryReactionStore
 import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
+import net.matsudamper.mastodon.rss.reaction.ReactionStore
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
@@ -118,6 +120,8 @@ class AppDependencies(
     val followerStore: FollowerStore = RepositoryFollowerStore(repositories.followers)
 
     val noteStore: NoteStore = RepositoryNoteStore(repositories.notes)
+
+    val reactionStore: ReactionStore = RepositoryReactionStore(repositories.noteReactions)
 
     // 毎回引き直す。持ち回すと、追加したアカウントが引けるようになるまで間が空く
     val directory: ActorDirectory = ActorDirectory(
@@ -206,6 +210,9 @@ class AppDependencies(
     val inboxService: InboxService = InboxService.default(
         remoteActors = remoteActors,
         followers = followerStore,
+        notes = noteStore,
+        reactions = reactionStore,
+        domain = env.domain,
     )
 
     /**

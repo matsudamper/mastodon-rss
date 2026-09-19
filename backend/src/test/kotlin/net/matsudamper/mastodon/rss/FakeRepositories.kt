@@ -34,10 +34,13 @@ import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.NewNoteReaction
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NotePost
+import net.matsudamper.mastodon.rss.repository.NoteReactionCount
+import net.matsudamper.mastodon.rss.repository.NoteReactionRepository
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.Repositories
@@ -106,7 +109,12 @@ class FakeRepositories : Repositories {
         onDeleted = { publicId ->
             feedItems.clearNoteId(publicId)
             deliveryQueue.deleteByNote(publicId)
+            noteReactions.deleteByNote(publicId)
         },
+    )
+
+    override val noteReactions: FakeNoteReactionRepository = FakeNoteReactionRepository(
+        hasNote = { publicId -> notes.find(publicId) != null },
     )
 
     // 投函は投稿の記録と記事の投稿済み化を一緒に書くので、両方のフェイクを繋ぐ。
@@ -1069,5 +1077,74 @@ class FakeFeedIconRepository : FeedIconRepository {
 
     override fun delete(feedId: FeedId) {
         stored.remove(feedId)
+    }
+}
+
+/**
+ * 反応の置き場。投稿が無ければ記録しないのと、同じ相手の同じ反応を重ねないのは
+ * 本物の一意制約と外部キーに合わせてある
+ */
+class FakeNoteReactionRepository(
+    private val hasNote: (publicId: PublicNoteId) -> Boolean,
+) : NoteReactionRepository {
+    private val stored = mutableListOf<NewNoteReaction>()
+
+    override fun add(reaction: NewNoteReaction): Boolean {
+        if (!hasNote(reaction.notePublicId)) return false
+
+        val duplicated = stored.any {
+            it.activityUri == reaction.activityUri ||
+                (
+                    it.notePublicId == reaction.notePublicId &&
+                        it.actorUri == reaction.actorUri &&
+                        it.emoji == reaction.emoji
+                    )
+        }
+        if (duplicated) return false
+
+        stored += reaction
+        return true
+    }
+
+    override fun removeByActivityUri(
+        actorUri: String,
+        activityUri: String,
+    ): Boolean = stored.removeAll { it.actorUri == actorUri && it.activityUri == activityUri }
+
+    override fun removeByEmoji(
+        notePublicId: PublicNoteId,
+        actorUri: String,
+        emoji: String,
+    ): Boolean = stored.removeAll {
+        it.notePublicId == notePublicId && it.actorUri == actorUri && it.emoji == emoji
+    }
+
+    override fun removeByActor(actorUri: String): Int {
+        val before = stored.size
+        stored.removeAll { it.actorUri == actorUri }
+        return before - stored.size
+    }
+
+    override fun countsByNotes(notePublicIds: Set<PublicNoteId>): Map<PublicNoteId, List<NoteReactionCount>> = stored
+        .filter { it.notePublicId in notePublicIds }
+        .groupBy { it.notePublicId }
+        .mapValues { (_, reactions) ->
+            reactions
+                .groupBy { it.emoji }
+                .map { (emoji, sameEmoji) ->
+                    NoteReactionCount(
+                        emoji = emoji,
+                        emojiImageUrl = sameEmoji.firstNotNullOfOrNull { it.emojiImageUrl },
+                        count = sameEmoji.size,
+                    )
+                }
+                .sortedWith(compareByDescending<NoteReactionCount> { it.count }.thenBy { it.emoji })
+        }
+
+    /**
+     * 投稿を消すと反応も消えるのは SQLite の ON DELETE CASCADE
+     */
+    fun deleteByNote(publicId: PublicNoteId) {
+        stored.removeAll { it.notePublicId == publicId }
     }
 }

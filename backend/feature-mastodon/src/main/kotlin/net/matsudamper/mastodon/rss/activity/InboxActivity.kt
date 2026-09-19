@@ -27,6 +27,11 @@ data class InboxActivity(
     /** `object` は Kotlin の予約語なので名前を変えて受ける */
     @SerialName("object")
     val target: LinkOrObject? = null,
+    /**
+     * 反応に載ってくる絵文字。お気に入りの `Like` には入らない
+     */
+    @SerialName("content")
+    val content: String? = null,
 ) {
     /** 実行した相手のアクター id。取れなければ null */
     val actorId: String?

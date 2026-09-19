@@ -5,6 +5,7 @@ import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.follower.FollowerStore
+import net.matsudamper.mastodon.rss.reaction.ReactionStore
 import org.slf4j.LoggerFactory
 
 /**
@@ -23,6 +24,7 @@ import org.slf4j.LoggerFactory
  */
 class DeleteActorHandler(
     private val followers: FollowerStore,
+    private val reactions: ReactionStore,
 ) : InboxActivityHandler {
     override val type: String = "Delete"
 
@@ -50,6 +52,13 @@ class DeleteActorHandler(
         // 残り、消えた相手に送り続けることになる
         val removed = followers.removeRemoteActor(deleteObjectId)
 
-        logger.info("アクターが削除されたのでフォロワーから外した: $deleteObjectId 解除したフォロー=$removed 件")
+        // 消えた相手が押した反応も一緒に消す。残すと、もう居ない相手の
+        // お気に入りやスタンプが公開画面に出たままになる
+        val removedReactions = reactions.removeActor(deleteObjectId)
+
+        logger.info(
+            "アクターが削除されたので記録から外した: $deleteObjectId " +
+                "解除したフォロー=$removed 件 取り消した反応=$removedReactions 件",
+        )
     }
 }

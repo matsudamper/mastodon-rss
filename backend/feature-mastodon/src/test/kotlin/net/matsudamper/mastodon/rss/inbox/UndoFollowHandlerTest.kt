@@ -47,7 +47,6 @@ class UndoFollowHandlerTest {
             recipient = recipient,
             verifiedSignerActorId = verifiedSignerActorId,
             activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), rawActivityJson),
-            rawActivityJson = rawActivityJson,
         )
     }
 

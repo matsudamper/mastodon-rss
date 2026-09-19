@@ -11,6 +11,8 @@ import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.note.NoteStore
+import net.matsudamper.mastodon.rss.reaction.ReactionStore
 import org.slf4j.LoggerFactory
 
 /**
@@ -154,10 +156,16 @@ class InboxService(
          *   `Accept` の宛先になる inbox をここから取る
          * @param followers フォローの記録。配信先だけでなく、相手が消えて
          *   アクター文書を引けなくなったときの公開鍵の引き先にもなる
+         * @param notes 反応の対象の投稿の引き先。こちらが配信した投稿への反応だけを記録する
+         * @param reactions お気に入りとスタンプの記録
+         * @param domain こちらのドメイン。反応の対象がこちらの投稿かどうかの判断に使う
          */
         fun default(
             remoteActors: RemoteActors,
             followers: FollowerStore,
+            notes: NoteStore,
+            reactions: ReactionStore,
+            domain: String,
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(
@@ -168,8 +176,23 @@ class InboxService(
                         remoteActors = remoteActors,
                         followers = followers,
                     ),
-                    UndoFollowHandler(followers),
-                    DeleteActorHandler(followers),
+                    ReactionHandler(
+                        type = ReactionHandler.LIKE_TYPE,
+                        domain = domain,
+                        notes = notes,
+                        reactions = reactions,
+                    ),
+                    ReactionHandler(
+                        type = ReactionHandler.EMOJI_REACT_TYPE,
+                        domain = domain,
+                        notes = notes,
+                        reactions = reactions,
+                    ),
+                    UndoHandler(
+                        reactions = UndoReactionHandler(domain = domain, reactions = reactions),
+                        follows = UndoFollowHandler(followers),
+                    ),
+                    DeleteActorHandler(followers = followers, reactions = reactions),
                 ),
             )
     }
