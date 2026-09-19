@@ -92,6 +92,9 @@ internal class SqliteFollowerRepository(
     }
 
     override fun removeAccount(username: String): Int = jooq.transaction { dsl ->
+        // 消したフォローへの `Accept` は返す先が無い
+        DeliveryQueueRows.deletePendingAcceptsOfAccount(dsl = dsl, username = username)
+
         // `remote_actors` は残す。同じ相手が他のアカウントもフォローしていることがあり、
         // ここで消すと外部キーでそちらのフォローまで消える
         dsl
@@ -107,6 +110,9 @@ internal class SqliteFollowerRepository(
      * 一緒に消えるが、それだと何件消えたのかが分からない。
      */
     override fun removeRemoteActor(actorUri: String): Int = jooq.transaction { dsl ->
+        // 消えた相手に `Accept` を送っても届かない。残すと、諦めるまで送り直し続ける
+        DeliveryQueueRows.deletePendingAcceptsToActor(dsl = dsl, followerActorUri = actorUri)
+
         val removed = dsl
             .deleteFrom(FOLLOWERS)
             .where(FOLLOWERS.REMOTE_ACTOR_ID.`in`(remoteActorId(actorUri)))

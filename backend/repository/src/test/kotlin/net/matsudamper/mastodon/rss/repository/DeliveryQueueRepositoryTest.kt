@@ -356,6 +356,30 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
+    fun `相手のアクターごと消えると未送信の Accept も消える`() {
+        withRepositories { repositories ->
+            repositories.followers.record(incomingFollow())
+
+            // 相手が Follow の直後に消えた形。Accept はまだ送れていない
+            repositories.followers.removeRemoteActor(FOLLOWER_ACTOR_URI)
+
+            // 残すと、消えた相手に諦めるまで送り直し続ける
+            assertEquals(emptyList(), repositories.deliveryQueue.claim(now = now, limit = 10))
+        }
+    }
+
+    @Test
+    fun `アカウントのフォローをまとめて消すと未送信の Accept も消える`() {
+        withRepositories { repositories ->
+            repositories.followers.record(incomingFollow())
+
+            repositories.followers.removeAccount(USERNAME)
+
+            assertEquals(emptyList(), repositories.deliveryQueue.claim(now = now, limit = 10))
+        }
+    }
+
+    @Test
     fun `成功した行は消える`() {
         withRepositories { repositories ->
             repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = listOf(INBOX_A)))

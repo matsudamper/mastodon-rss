@@ -4,6 +4,7 @@ import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.DELIVERY_QUEUE
 import net.matsudamper.mastodon.rss.repository.sqlite.db.DeliveryKindDbValue
 import net.matsudamper.mastodon.rss.repository.sqlite.db.DeliveryStateDbValue
+import org.jooq.Condition
 import org.jooq.DSLContext
 
 /**
@@ -62,9 +63,43 @@ internal object DeliveryQueueRows {
         followerActorUri: String,
     ): Int = dsl
         .deleteFrom(DELIVERY_QUEUE)
-        .where(DELIVERY_QUEUE.KIND.eq(DeliveryKindDbValue.ACCEPT_FOLLOW.dbValue))
-        .and(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
+        .where(pendingAccept())
         .and(DELIVERY_QUEUE.USERNAME.eq(username))
         .and(DELIVERY_QUEUE.TARGET_ACTOR_URI.eq(followerActorUri))
         .execute()
+
+    /**
+     * その相手への、まだ送っていない `Accept` を全部消す。相手が消えたときに使う。
+     *
+     * こちらのどのアカウントへのフォローだったかは問わない。相手が消えた以上、
+     * どのアカウントの `Accept` も届ける先が無い。
+     *
+     * @return 消えた件数
+     */
+    fun deletePendingAcceptsToActor(
+        dsl: DSLContext,
+        followerActorUri: String,
+    ): Int = dsl
+        .deleteFrom(DELIVERY_QUEUE)
+        .where(pendingAccept())
+        .and(DELIVERY_QUEUE.TARGET_ACTOR_URI.eq(followerActorUri))
+        .execute()
+
+    /**
+     * そのアカウントの、まだ送っていない `Accept` を全部消す。
+     * フォローをまとめて消すときに使う。
+     *
+     * @return 消えた件数
+     */
+    fun deletePendingAcceptsOfAccount(
+        dsl: DSLContext,
+        username: String,
+    ): Int = dsl
+        .deleteFrom(DELIVERY_QUEUE)
+        .where(pendingAccept())
+        .and(DELIVERY_QUEUE.USERNAME.eq(username))
+        .execute()
+
+    private fun pendingAccept(): Condition = DELIVERY_QUEUE.KIND.eq(DeliveryKindDbValue.ACCEPT_FOLLOW.dbValue)
+        .and(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
 }

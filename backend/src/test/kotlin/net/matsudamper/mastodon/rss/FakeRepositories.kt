@@ -83,6 +83,8 @@ class FakeRepositories : Repositories {
     override val followers: FakeFollowerRepository = FakeFollowerRepository(
         onRecorded = { follow -> deliveryQueue.enqueueAccept(follow) },
         onRemoved = { username, followerActorUri -> deliveryQueue.deletePendingAccept(username, followerActorUri) },
+        onAccountRemoved = { username -> deliveryQueue.deletePendingAcceptsOfAccount(username) },
+        onRemoteActorRemoved = { followerActorUri -> deliveryQueue.deletePendingAcceptsToActor(followerActorUri) },
     )
 
     // フィードを消すと記事も消えるのは SQLite の ON DELETE CASCADE。
@@ -235,6 +237,8 @@ class FakeAccountRepository(
 class FakeFollowerRepository(
     private val onRecorded: (IncomingFollow) -> Unit = {},
     private val onRemoved: (username: String, followerActorUri: String) -> Unit = { _, _ -> },
+    private val onAccountRemoved: (username: String) -> Unit = {},
+    private val onRemoteActorRemoved: (followerActorUri: String) -> Unit = {},
 ) : FollowerRepository {
     private val stored = mutableListOf<IncomingFollow>()
 
@@ -269,6 +273,8 @@ class FakeFollowerRepository(
     }
 
     override fun removeAccount(username: String): Int {
+        onAccountRemoved(username)
+
         val before = stored.size
         stored.removeAll { it.username.equals(username, ignoreCase = true) }
         // 行ごと消える本物と揃える。残すと、同じ名前で作り直した後の Follow が
@@ -278,6 +284,8 @@ class FakeFollowerRepository(
     }
 
     override fun removeRemoteActor(actorUri: String): Int {
+        onRemoteActorRemoved(actorUri)
+
         val before = stored.size
         stored.removeAll { it.follower.actorUri == actorUri }
         return before - stored.size
@@ -816,13 +824,18 @@ class FakeDeliveryQueueRepository(
         username: String,
         followerActorUri: String,
     ) {
-        stored.removeAll {
-            it.kind == DeliveryKind.ACCEPT_FOLLOW &&
-                it.state == State.PENDING &&
-                it.username == username &&
-                it.targetActorUri == followerActorUri
-        }
+        stored.removeAll { it.isPendingAccept() && it.username == username && it.targetActorUri == followerActorUri }
     }
+
+    fun deletePendingAcceptsOfAccount(username: String) {
+        stored.removeAll { it.isPendingAccept() && it.username.equals(username, ignoreCase = true) }
+    }
+
+    fun deletePendingAcceptsToActor(followerActorUri: String) {
+        stored.removeAll { it.isPendingAccept() && it.targetActorUri == followerActorUri }
+    }
+
+    private fun Row.isPendingAccept(): Boolean = kind == DeliveryKind.ACCEPT_FOLLOW && state == State.PENDING
 
     override fun claim(
         now: Instant,
