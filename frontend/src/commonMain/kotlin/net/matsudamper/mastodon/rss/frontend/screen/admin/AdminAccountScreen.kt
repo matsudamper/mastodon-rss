@@ -236,6 +236,9 @@ private fun CompactLoadedAdminAccountContent(
         item(key = "feed") {
             FeedCard(content.feed)
         }
+        item(key = "delivery-queue") {
+            DeliveryQueueCard(content.deliveryQueue)
+        }
         adminNotesItems(content, uiState.listener, noteContent)
     }
 }
@@ -302,6 +305,7 @@ private fun WideLoadedAdminAccountContent(
                     ) {
                         AccountCard(account = content.account)
                         FeedCard(content.feed)
+                        DeliveryQueueCard(content.deliveryQueue)
                     }
                 }
             }
@@ -558,6 +562,59 @@ private fun FeedCard(feed: AdminAccountScreenUiState.Feed) {
 }
 
 @Composable
+private fun DeliveryQueueCard(queue: AdminAccountScreenUiState.DeliveryQueue) {
+    AdminSectionCard(title = "配信キュー") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("配信待ち", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${queue.waitingCount} 件", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("諦めた", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${queue.failedCount} 件", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            }
+            OutlinedButton(onClick = queue.listener::onClickReload) { Text("更新") }
+        }
+        if (queue.retryingSectionVisible) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("送り直しを待っている配信", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                queue.retrying.forEach { delivery ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(delivery.inbox, style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "${delivery.attempts} 回失敗  次は ${delivery.nextAttemptAt}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        delivery.lastError?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
+                    }
+                }
+                queue.retryingMoreText?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+        }
+        if (queue.failedSectionVisible) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("諦めた配信", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                queue.failed.forEach { delivery ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(delivery.inbox, style = MaterialTheme.typography.bodySmall)
+                        Text("${delivery.attempts} 回失敗", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        delivery.lastError?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
+                    }
+                }
+                queue.failedMoreText?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+        }
+    }
+}
+
+@Composable
 private fun FeedItemSummary(countText: String, items: List<AdminAccountScreenUiState.UnpublishedItem>) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(countText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
@@ -651,7 +708,7 @@ private fun PostDialog(post: AdminAccountScreenUiState.Post) {
         },
         confirmButton = {
             Button(onClick = post.listener::onClickPost, enabled = post.postButtonEnabled) {
-                Text(if (post.submitting) "配信中" else "投稿する")
+                Text(if (post.submitting) "投稿中" else "投稿する")
             }
         },
         dismissButton = {

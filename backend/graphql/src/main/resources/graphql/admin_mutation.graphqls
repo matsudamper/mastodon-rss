@@ -14,7 +14,7 @@ type AdminMutation {
     "アカウントを消す。フォロワーと配信した投稿、登録したフィードと取り込んだ記事も消える。"
     deleteAccount(query: DeleteAccountQuery!): AdminDeleteAccountResult! @lazy
 
-    "アカウントとして投稿し、フォロワーに配る"
+    "アカウントとして投稿し、フォロワーへの配信をキューに入れる。相手に届くのはこの後"
     postNote(username: String!, body: String!): AdminPostNoteResult! @lazy
 
     "RSS フィードを登録する"
@@ -88,7 +88,7 @@ enum AdminDeleteNoteFailureReason {
 }
 
 type AdminPostNoteResult {
-    "配信できたかに関わらず、記録できていれば入る"
+    "記録できていれば入る。配信はこの後キューから行う"
     note: AdminNote
 
     "投稿できなかった場合だけ入る"

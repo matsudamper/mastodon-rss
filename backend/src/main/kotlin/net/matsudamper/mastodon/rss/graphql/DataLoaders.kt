@@ -34,7 +34,7 @@ class DataLoaders(
 
     val followerCountDataLoader by register { FollowerCountDataLoaderDefine(diContainer.accountService) }
 
-    val noteCountDataLoader by register { NoteCountDataLoaderDefine(diContainer.noteService) }
+    val noteCountDataLoader by register { NoteCountDataLoaderDefine(diContainer.noteReader) }
 
     val feedByAccountIdDataLoader by register { FeedByAccountIdDataLoaderDefine(diContainer.feedService) }
 
