@@ -1093,14 +1093,18 @@ class FakeNoteReactionRepository(
         if (!hasNote(reaction.notePublicId)) return false
 
         val duplicated = stored.any {
-            it.activityUri == reaction.activityUri ||
+            it.actorUri == reaction.actorUri &&
                 (
-                    it.notePublicId == reaction.notePublicId &&
-                        it.actorUri == reaction.actorUri &&
-                        it.emoji == reaction.emoji
+                    it.activityUri == reaction.activityUri ||
+                        (it.notePublicId == reaction.notePublicId && it.emoji == reaction.emoji)
                     )
         }
         if (duplicated) return false
+
+        val storedByActor = stored.count {
+            it.notePublicId == reaction.notePublicId && it.actorUri == reaction.actorUri
+        }
+        if (storedByActor >= MAX_REACTIONS_PER_ACTOR) return false
 
         stored += reaction
         return true
@@ -1146,5 +1150,12 @@ class FakeNoteReactionRepository(
      */
     fun deleteByNote(publicId: PublicNoteId) {
         stored.removeAll { it.notePublicId == publicId }
+    }
+
+    private companion object {
+        /**
+         * 1 つの投稿に、1 人の相手が持てる反応の数。本物と同じ数にしてある
+         */
+        const val MAX_REACTIONS_PER_ACTOR = 8
     }
 }

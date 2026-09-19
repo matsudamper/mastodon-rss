@@ -22,6 +22,16 @@ internal class SqliteNoteReactionRepository(
         )
         if (noteExists.not()) return@transaction false
 
+        // 数えるのと入れるのを同じトランザクションに入れる。分けると、同じ相手からの
+        // 反応が並んだときに上限を越えた分まで入る
+        val storedByActor = dsl
+            .selectCount()
+            .from(NOTE_REACTIONS)
+            .where(NOTE_REACTIONS.NOTE_PUBLIC_ID.eq(reaction.notePublicId.value))
+            .and(NOTE_REACTIONS.ACTOR_URI.eq(reaction.actorUri))
+            .fetchOne(0, Int::class.java) ?: 0
+        if (storedByActor >= MAX_REACTIONS_PER_ACTOR) return@transaction false
+
         val inserted = dsl
             .insertInto(NOTE_REACTIONS)
             .set(NOTE_REACTIONS.NOTE_PUBLIC_ID, reaction.notePublicId.value)
@@ -97,5 +107,16 @@ internal class SqliteNoteReactionRepository(
                     },
                 )
         }
+    }
+
+    private companion object {
+        /**
+         * 1 つの投稿に、1 人の相手が持てる反応の数。
+         *
+         * 絵文字が違えば一意制約に当たらないので、content を変えるだけで
+         * 1 人が何行でも積める。押せる絵文字は Misskey でも 1 投稿に 1 つで、
+         * お気に入りと合わせてもこの数に届かない
+         */
+        const val MAX_REACTIONS_PER_ACTOR = 8
     }
 }

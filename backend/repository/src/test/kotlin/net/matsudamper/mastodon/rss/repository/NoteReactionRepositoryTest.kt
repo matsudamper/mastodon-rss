@@ -112,6 +112,52 @@ class NoteReactionRepositoryTest {
     }
 
     @Test
+    fun `1 人の相手が積める反応には上限がある`() {
+        withRepositories { repositories ->
+            val reactions = repositories.noteReactions
+
+            // 絵文字を変えれば一意制約には当たらないので、上限が無いと際限なく入る
+            val added = (1..20).count { index ->
+                reactions.add(reaction(activityUri = "https://remote.example/likes/$index", emoji = "絵文字$index"))
+            }
+
+            assertEquals(8, added)
+
+            // 別の相手は自分の分を押せる
+            assertTrue(
+                reactions.add(
+                    reaction(
+                        activityUri = "https://remote.example/likes/100",
+                        emoji = "👍",
+                        actorUri = "https://remote.example/users/bob",
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `別の相手が同じアクティビティの id を使っても弾かれない`() {
+        withRepositories { repositories ->
+            val reactions = repositories.noteReactions
+            val activityUri = "https://remote.example/likes/1"
+
+            assertTrue(reactions.add(reaction(activityUri = activityUri, emoji = "👍")))
+
+            // id を全体で一意にすると、先に書き込むだけで他人の反応を弾ける
+            assertTrue(
+                reactions.add(
+                    reaction(
+                        activityUri = activityUri,
+                        emoji = "👍",
+                        actorUri = "https://remote.example/users/bob",
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
     fun `配信していない投稿への反応は記録しない`() {
         withRepositories { repositories ->
             val added = repositories.noteReactions.add(

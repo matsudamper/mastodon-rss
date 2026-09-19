@@ -14,16 +14,21 @@ class FakeReactionStore : ReactionStore {
     val rows: MutableList<ReceivedReaction> = mutableListOf()
 
     override fun add(reaction: ReceivedReaction): Boolean {
-        // 一意制約と同じ判定
+        // 一意制約と同じ判定。アクティビティの id は相手ごとに見る
         val duplicated = rows.any {
-            it.activityUri == reaction.activityUri ||
+            it.actorUri == reaction.actorUri &&
                 (
-                    it.notePublicId == reaction.notePublicId &&
-                        it.actorUri == reaction.actorUri &&
-                        it.emoji == reaction.emoji
+                    it.activityUri == reaction.activityUri ||
+                        (it.notePublicId == reaction.notePublicId && it.emoji == reaction.emoji)
                     )
         }
         if (duplicated) return false
+
+        // 本物は 1 人が 1 つの投稿に積める数を制限している
+        val storedByActor = rows.count {
+            it.notePublicId == reaction.notePublicId && it.actorUri == reaction.actorUri
+        }
+        if (storedByActor >= MAX_REACTIONS_PER_ACTOR) return false
 
         rows += reaction
         return true
@@ -46,5 +51,12 @@ class FakeReactionStore : ReactionStore {
         val before = rows.size
         rows.removeAll { it.actorUri == actorUri }
         return before - rows.size
+    }
+
+    private companion object {
+        /**
+         * 1 つの投稿に、1 人の相手が持てる反応の数。本物と同じ数にしてある
+         */
+        const val MAX_REACTIONS_PER_ACTOR = 8
     }
 }

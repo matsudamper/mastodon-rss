@@ -167,8 +167,8 @@ CREATE TABLE note_reactions (
     note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
     -- 押した相手のアクター文書の URL。フォロワーとは限らないので remote_actors は引かない
     actor_uri TEXT NOT NULL,
-    -- 受け取った Like / EmojiReact の id。取り消しは id で指されるので一意にする
-    activity_uri TEXT NOT NULL UNIQUE,
+    -- 受け取った Like / EmojiReact の id。取り消しは id で指されるので覚えておく
+    activity_uri TEXT NOT NULL,
     -- 絵文字そのもの、またはカスタム絵文字の :name: 。お気に入りは空文字。
     -- NULL にしないのは、SQLite の UNIQUE が NULL 同士を別物として扱い、
     -- 同じ相手のお気に入りが何行でも入るため
@@ -177,7 +177,10 @@ CREATE TABLE note_reactions (
     emoji_image_url TEXT,
     created_at TEXT NOT NULL,
     -- 同じ相手が同じ反応を重ねない。取り消しが届かないまま押し直されても増えない
-    UNIQUE (note_public_id, actor_uri, emoji)
+    UNIQUE (note_public_id, actor_uri, emoji),
+    -- 同じアクティビティの送り直しで増えない。id を相手ごとに見るのは、
+    -- 全体で一意にすると、他人が使う id を先に書き込んでその相手の反応を弾けるため
+    UNIQUE (actor_uri, activity_uri)
 );
 
 CREATE TABLE remote_actors (
