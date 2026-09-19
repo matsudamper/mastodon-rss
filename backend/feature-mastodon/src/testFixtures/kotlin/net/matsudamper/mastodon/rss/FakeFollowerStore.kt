@@ -29,11 +29,18 @@ class FakeFollowerStore(
         if (failOnRecord) throw IllegalStateException("記録に失敗した想定")
         if (username in deletedUsernames) return false
 
-        // 一意制約と同じ判定。同じ相手からの Follow が既にあれば、
-        // 預かる `Accept` だけを最後のもので置き換える
+        // 一意制約と同じ判定。同じ相手からの Follow が既にあれば、行は増やさず、
+        // 相手の情報と最後に受けた Follow の id、預かる `Accept` を差し替える。
+        // 成立したかどうかは触らない
         val index = rows.indexOfFirst { it.username == username && it.followerActorUri == follower.actorId }
         if (index >= 0) {
-            rows[index] = rows[index].copy(acceptBody = acceptBody)
+            rows[index] = rows[index].copy(
+                inbox = follower.inbox,
+                sharedInbox = follower.sharedInbox,
+                publicKeyPem = follower.publicKeyPem,
+                followActivityUri = followActivityUri,
+                acceptBody = acceptBody,
+            )
             return true
         }
 

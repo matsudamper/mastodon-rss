@@ -731,7 +731,7 @@ class FakeDeliveryQueueRepository(
     override fun enqueueActorUpdate(post: ActorUpdatePost): Int {
         // 送り残した古い更新を残すと、それが後から届いて相手の表示が 1 つ前に戻る
         stored.removeAll {
-            it.kind == DeliveryKind.UPDATE_ACTOR && it.state == State.PENDING && it.username == post.username
+            it.kind == DeliveryKind.UPDATE_ACTOR && it.isUnsent() && it.username == post.username
         }
 
         post.inboxes.forEach { inbox ->
@@ -832,18 +832,23 @@ class FakeDeliveryQueueRepository(
         username: String,
         followerActorUri: String,
     ) {
-        stored.removeAll { it.isPendingAccept() && it.username == username && it.targetActorUri == followerActorUri }
+        stored.removeAll { it.isUnsentAccept() && it.username == username && it.targetActorUri == followerActorUri }
     }
 
     fun deletePendingAcceptsOfAccount(username: String) {
-        stored.removeAll { it.isPendingAccept() && it.username.equals(username, ignoreCase = true) }
+        stored.removeAll { it.isUnsentAccept() && it.username.equals(username, ignoreCase = true) }
     }
 
     fun deletePendingAcceptsToActor(followerActorUri: String) {
-        stored.removeAll { it.isPendingAccept() && it.targetActorUri == followerActorUri }
+        stored.removeAll { it.isUnsentAccept() && it.targetActorUri == followerActorUri }
     }
 
-    private fun Row.isPendingAccept(): Boolean = kind == DeliveryKind.ACCEPT_FOLLOW && state == State.PENDING
+    private fun Row.isUnsentAccept(): Boolean = kind == DeliveryKind.ACCEPT_FOLLOW && isUnsent()
+
+    /**
+     * 送り終えていない行。諦めた行は送れなかった記録として残す
+     */
+    private fun Row.isUnsent(): Boolean = state == State.PENDING || state == State.DELIVERING
 
     override fun claim(
         now: Instant,
