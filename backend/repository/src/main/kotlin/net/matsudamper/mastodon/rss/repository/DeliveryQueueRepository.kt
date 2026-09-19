@@ -58,6 +58,16 @@ interface DeliveryQueueRepository {
     fun enqueueNoteDeletion(post: NoteDeletionPost): Int
 
     /**
+     * アクター情報の更新を宛先ごとに投函する。
+     *
+     * まだ送っていない同じアカウントの更新は、いま渡されたもので置き換える。
+     * 続けて 2 回変えたときに古い方が後から届くと、相手の表示が 1 つ前に戻る。
+     *
+     * @return 投函した配信の数。宛先の数と同じ
+     */
+    fun enqueueActorUpdate(post: ActorUpdatePost): Int
+
+    /**
      * 送る時刻を過ぎた `pending` を `delivering` にして返す。宛先のホストごとに 1 件まで。
      *
      * 送る時刻が古いホストから順に選ぶ。行を古い順に選ぶと、送れないホスト宛が溜まった分だけ
@@ -224,6 +234,21 @@ data class NoteDeletionPost(
     val enqueuedAt: Instant,
 )
 
+/**
+ * 投函するアクター情報の更新。
+ *
+ * @param username 署名するこちらのアカウントの名前
+ * @param body 署名対象になる `Update{Actor}` の JSON
+ * @param inboxes 宛先。同じ宛先は 1 つにまとめてから渡すこと
+ * @param enqueuedAt 投函した時刻。最初の 1 回はこの時刻にすぐ送る
+ */
+data class ActorUpdatePost(
+    val username: String,
+    val body: String,
+    val inboxes: List<String>,
+    val enqueuedAt: Instant,
+)
+
 sealed interface EnqueueNoteResult {
     /**
      * @param deliveries 投函した配信の数。宛先の数と同じ
@@ -251,6 +276,16 @@ enum class DeliveryKind {
      * 消した投稿の `Delete`
      */
     DELETE_NOTE,
+
+    /**
+     * アクター情報の `Update`
+     */
+    UPDATE_ACTOR,
+
+    /**
+     * 消したアクターの `Delete`
+     */
+    DELETE_ACTOR,
 
     /**
      * 受け取った `Follow` への `Accept`

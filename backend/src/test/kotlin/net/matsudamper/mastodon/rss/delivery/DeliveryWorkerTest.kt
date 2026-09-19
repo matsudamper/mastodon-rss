@@ -27,10 +27,10 @@ import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.note.StoredNote
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
-import net.matsudamper.mastodon.rss.repository.IncomingFollow
-import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
+import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId

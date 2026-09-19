@@ -35,6 +35,7 @@ import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.logic.AccountIconFiles
+import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
 import net.matsudamper.mastodon.rss.logic.ActorHeaderService
 import net.matsudamper.mastodon.rss.logic.ActorIconService
 import net.matsudamper.mastodon.rss.logic.FeedHeaderService
@@ -132,6 +133,28 @@ class AppDependencies(
         },
     )
 
+    /**
+     * 消したアカウントも引ける名前の引き先。
+     *
+     * 消した後も `Delete{Actor}` を送り切るまでは、そのアカウントとして署名できる
+     * 必要がある。外から見える引き当て（[directory]）に混ぜると、消したアカウントが
+     * WebFinger や Actor から見えたままになる
+     */
+    private val signingDirectory: ActorDirectory = ActorDirectory(
+        domain = env.domain,
+        stored = object : StoredActorNames {
+            override fun find(username: String): String? {
+                val account = repositories.accounts.findByUsername(username)
+                    ?: repositories.accounts.findDeletedByUsername(username)
+                return account?.username
+            }
+
+            override fun finds(usernames: Set<String>): Map<String, String> {
+                return usernames.mapNotNull { username -> find(username)?.let { username to it } }.toMap()
+            }
+        },
+    )
+
     val feedLinks: StoredFeedLinks = RepositoryFeedLinks(
         accounts = repositories.accounts,
         feeds = repositories.feeds,
@@ -211,13 +234,16 @@ class AppDependencies(
     )
 
     val actorPublisher: ActorPublisher = ActorPublisher(
-        notes = noteStore,
-        followers = followerStore,
-        delivery = delivery,
         actorKey = actorKey,
         feedLinks = feedLinks,
         profiles = actorProfiles,
         webPages = webPageUrls,
+    )
+
+    val actorEnqueuer: ActorEnqueuer = ActorEnqueuer(
+        publisher = actorPublisher,
+        followers = repositories.followers,
+        deliveryQueue = repositories.deliveryQueue,
     )
 
     val feedService: FeedService = FeedService(
@@ -229,7 +255,7 @@ class AppDependencies(
         noteEnqueuer = noteEnqueuer,
         icons = feedIcons,
         headers = feedHeaders,
-        actorPublisher = actorPublisher,
+        actorEnqueuer = actorEnqueuer,
     )
 
     private val feedPollingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -242,12 +268,18 @@ class AppDependencies(
      * 配信キューのワーカーを始める。
      *
      * 呼ぶまで 1 件も送らない。止めるのは [stopBackgroundWork]
+     *
+     * @return 片付いた削除済みアカウントの数
      */
-    fun startDeliveryWorker() {
+    fun startDeliveryWorker(): Int {
+        // 送る配信が無くなった削除済みアカウントをここで片付ける。名前が空くのもここ。
+        // 動いている間に空になった分は次の起動まで残る
+        val purgedAccounts = repositories.accounts.purgeDeleted()
+
         DeliveryWorker(
             queue = repositories.deliveryQueue,
             delivery = delivery,
-            directory = directory,
+            directory = signingDirectory,
             retryPolicy = DeliveryRetryPolicy(
                 initialInterval = 30.seconds,
                 maxInterval = 24.hours,
@@ -258,6 +290,8 @@ class AppDependencies(
             idleInterval = 1.seconds,
             clock = Instant::now,
         ).start(deliveryScope)
+
+        return purgedAccounts
     }
 
     /**

@@ -4,6 +4,8 @@ import java.net.URI
 import java.time.Instant
 import java.util.Locale
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountDeletion
+import net.matsudamper.mastodon.rss.repository.AccountDeletionResult
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
@@ -29,8 +31,8 @@ import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
-import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.Note
+import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.NoteRepository
@@ -58,6 +60,21 @@ class FakeRepositories : Repositories {
         onDeleted = { accountId ->
             feeds.deleteByAccountId(accountId)?.also { feedItems.deleteByFeed(it) }
         },
+        // 名前で持っているものと送り残した配信を消すのと、Delete{Actor} の投函を
+        // 1 トランザクションで書くのは本物の repository。ここで繋がないと、
+        // 消したアカウントの投稿が後から配られる
+        onAccountDeletion = { deletion ->
+            val deletedNotes = notes.deleteByUsername(deletion.username)
+            val removedFollowers = followers.removeAccount(deletion.username)
+            deliveryQueue.deleteByUsername(deletion.username)
+            deliveryQueue.enqueueActorDeletion(deletion)
+
+            FakeAccountRepository.AccountDeletionCounts(
+                deletedNotes = deletedNotes,
+                removedFollowers = removedFollowers,
+            )
+        },
+        hasDeliveries = { username -> deliveryQueue.hasRows(username) },
     )
 
     // Follow の記録と Accept の投函が 1 トランザクションで確定するのは本物の
@@ -106,16 +123,23 @@ class FakeRepositories : Repositories {
 
 class FakeAccountRepository(
     private val onDeleted: (accountId: AccountId) -> Unit = {},
+    private val onAccountDeletion: (AccountDeletion) -> AccountDeletionCounts = { AccountDeletionCounts(0, 0) },
+    private val hasDeliveries: (username: String) -> Boolean = { false },
 ) : AccountRepository {
     private val stored = mutableListOf<Account>()
     private var nextId = 1L
 
+    /**
+     * 消していないものだけ。消した行は名前を押さえるためだけに残る
+     */
+    private val alive: List<Account> get() = stored.filter { it.deletedAt == null }
+
     @Deprecated("ページングに移行する。list(after, limit) を使う")
-    override fun list(): List<Account> = stored.toList()
+    override fun list(): List<Account> = alive.toList()
 
     override fun list(after: AccountPosition?, limit: Int): List<Account> {
         if (limit <= 0) return listOf()
-        val sorted = stored.sortedWith(compareBy({ it.createdAt }, { it.id.value }))
+        val sorted = alive.sortedWith(compareBy({ it.createdAt }, { it.id.value }))
         val laterThanAfter = if (after == null) {
             sorted
         } else {
@@ -124,9 +148,9 @@ class FakeAccountRepository(
         return laterThanAfter.take(limit)
     }
 
-    override fun findById(id: AccountId): Account? = stored.firstOrNull { it.id == id }
+    override fun findById(id: AccountId): Account? = alive.firstOrNull { it.id == id }
 
-    override fun findByUsername(username: String): Account? = stored.firstOrNull { it.username.equals(username, ignoreCase = true) }
+    override fun findByUsername(username: String): Account? = alive.firstOrNull { it.username.equals(username, ignoreCase = true) }
 
     override fun findByUsernames(usernames: Collection<String>): Map<String, Account> =
         usernames.mapNotNull { username ->
@@ -138,7 +162,9 @@ class FakeAccountRepository(
         username: String,
         createdAt: Instant,
     ): Account? {
-        if (findByUsername(username) != null) return null
+        // 消した行も名前を押さえている。作り直せると、送り残した Delete{Actor} が
+        // 新しいアカウントのものとして配られる
+        if (stored.any { it.username.equals(username, ignoreCase = true) }) return null
 
         return Account(
             id = AccountId(nextId++),
@@ -146,6 +172,7 @@ class FakeAccountRepository(
             createdAt = createdAt,
             displayName = null,
             summary = null,
+            deletedAt = null,
         ).also { stored += it }
     }
 
@@ -154,7 +181,7 @@ class FakeAccountRepository(
         displayName: String?,
         summary: String?,
     ): Account? {
-        val index = stored.indexOfFirst { it.id == id }
+        val index = stored.indexOfFirst { it.id == id && it.deletedAt == null }
         if (index == -1) return null
 
         val updated = stored[index].copy(displayName = displayName, summary = summary)
@@ -162,11 +189,40 @@ class FakeAccountRepository(
         return updated
     }
 
-    override fun delete(id: AccountId): Boolean {
-        if (!stored.removeAll { it.id == id }) return false
-        onDeleted(id)
-        return true
+    override fun findDeletedByUsername(username: String): Account? = stored
+        .firstOrNull { it.username.equals(username, ignoreCase = true) && it.deletedAt != null }
+
+    override fun markDeleted(deletion: AccountDeletion): AccountDeletionResult? {
+        val index = stored.indexOfFirst { it.id == deletion.id && it.deletedAt == null }
+        if (index == -1) return null
+
+        stored[index] = stored[index].copy(deletedAt = deletion.deletedAt)
+
+        // フィードと記事が外部キーで消えるのは本物の DB。ここで繋がないと、
+        // 消したアカウントのフィード URL が埋まったままになる
+        onDeleted(deletion.id)
+        val counts = onAccountDeletion(deletion)
+
+        return AccountDeletionResult(
+            deletedNotes = counts.deletedNotes,
+            removedFollowers = counts.removedFollowers,
+            deliveries = deletion.inboxes.size,
+        )
     }
+
+    override fun purgeDeleted(): Int {
+        val purged = stored.filter { it.deletedAt != null && hasDeliveries(it.username).not() }
+        stored.removeAll(purged)
+        return purged.size
+    }
+
+    /**
+     * [markDeleted] で消えた数。名前で持っているものは外部キーでは消えない
+     */
+    data class AccountDeletionCounts(
+        val deletedNotes: Int,
+        val removedFollowers: Int,
+    )
 }
 
 /**
@@ -679,6 +735,30 @@ class FakeDeliveryQueueRepository(
 
         return post.inboxes.size
     }
+
+    /**
+     * アカウントを消したことを宛先ごとに投函する
+     */
+    fun enqueueActorDeletion(deletion: AccountDeletion) {
+        deletion.inboxes.forEach { inbox ->
+            stored += Row(
+                id = DeliveryId(nextId++),
+                kind = DeliveryKind.DELETE_ACTOR,
+                notePublicId = null,
+                targetActorUri = null,
+                username = deletion.username,
+                inbox = inbox,
+                body = deletion.body,
+                state = State.PENDING,
+                attempts = 0,
+                nextAttemptAt = deletion.deletedAt,
+                enqueuedAt = deletion.deletedAt,
+                lastError = null,
+            )
+        }
+    }
+
+    fun hasRows(username: String): Boolean = stored.any { it.username.equals(username, ignoreCase = true) }
 
     /**
      * `Follow` の記録と一緒に `Accept` を投函する。

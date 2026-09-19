@@ -5,12 +5,13 @@ import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.Account
+import net.matsudamper.mastodon.rss.repository.AccountDeletion
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
-import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.shared.AccountId
 import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
+import org.slf4j.LoggerFactory
 
 /**
  * 管理画面から見たアカウントの操作。
@@ -18,11 +19,13 @@ import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 class AccountService(
     private val accounts: AccountRepository,
     private val followers: FollowerRepository,
-    private val deliveryQueue: DeliveryQueueRepository,
     private val actorPublisher: ActorPublisher,
+    private val actorEnqueuer: ActorEnqueuer,
     private val iconFiles: AccountIconFiles,
     private val domain: String,
 ) {
+    private val logger = LoggerFactory.getLogger(AccountService::class.java)
+
     /**
      * 名前で 1 つ引く。応答しない名前なら null
      */
@@ -112,12 +115,12 @@ class AccountService(
     }
 
     /**
-     * 表示名と説明文を保存して、変わっていればフォロワーに `Update{Actor}` を配る。
+     * 表示名と説明文を保存して、変わっていればフォロワーへの `Update{Actor}` を投函する。
      *
-     * 配れなくても保存は巻き戻さない。届かなかった相手の表示が古いまま残るだけで、
+     * 投函できなくても保存は巻き戻さない。届かなかった相手の表示が古いまま残るだけで、
      * 次に変えたときに配り直される
      */
-    suspend fun updateProfile(
+    fun updateProfile(
         username: String,
         displayName: String,
         summary: String,
@@ -141,41 +144,48 @@ class AccountService(
         // 保存し直しただけで全フォロワーの inbox に POST が飛ぶ
         val changed = account.displayName != updated.displayName || account.summary != updated.summary
         if (changed) {
-            actorPublisher.update(sender = managed.urls)
+            actorEnqueuer.enqueueUpdate(sender = managed.urls)
         }
 
         return UpdateProfileResult.Success(managed)
     }
 
     /**
-     * アカウントを消して、消したことをフォロワーに配る。
+     * アカウントを消して、消したことをフォロワーに配るために投函する。
      *
-     * 配信した投稿とフォロワー、登録したフィードと取り込んだ記事も一緒に消える。
-     * 名前で持っているもの（投稿とフォロワー）を残すと、同じ名前で作り直したときに
-     * 引き継がれるので、消えるものはこの 1 回で消し切る。
+     * 配信した投稿とフォロワー、登録したフィードと取り込んだ記事、送り残した配信も
+     * 一緒に消える。名前で持っているもの（投稿とフォロワー）を残すと、同じ名前で
+     * 作り直したときに引き継がれるので、消えるものはこの 1 回で消し切る。
      *
-     * アカウントの行を先に消す。消えていればその名前は引き当てられなくなり、
-     * 投稿の配信や `Follow` の受理が止まる。後から入った行が消し漏れて、
-     * 作り直したアカウントに引き継がれることがなくなる。
-     * 消せた 1 つだけが以降に進むので、同時に呼ばれても配信は 1 回になる。
+     * 消した後もアカウントの行は残り、その名前は空かない。`Delete{Actor}` を
+     * 送り切るまで、消えたアカウントとして署名できる必要がある。
+     * 消せた 1 つだけが投函するので、同時に呼ばれても配信は 1 回になる。
      */
-    suspend fun delete(username: String): DeleteResult {
+    fun delete(username: String): DeleteResult {
         val account = accounts.findByUsername(username)
             ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
 
-        // 行が消えると置き場を引けなくなるので、消す前に控える
+        // 消すと置き場を引けなくなるので、消す前に控える
         val imagePaths = iconFiles.locateAll(account.id)
+        val sender = ActorUrls(domain = domain, username = account.username)
+        val inboxes = followers.deliveryTargets(account.username)
 
-        if (!accounts.delete(account.id)) {
-            return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
-        }
-
-        // 送り残しがあると、消えたアカウントとして署名しようとして送れない行を延々と送り直す
-        deliveryQueue.deleteByUsername(account.username)
+        val deleted = accounts.markDeleted(
+            AccountDeletion(
+                id = account.id,
+                username = account.username,
+                body = actorPublisher.prepareDelete(sender),
+                inboxes = inboxes,
+                deletedAt = Instant.now(),
+            ),
+        ) ?: return DeleteResult.Failure(DeleteFailure.UNKNOWN_ACCOUNT)
 
         imagePaths.forEach(iconFiles::delete)
 
-        actorPublisher.delete(ActorUrls(domain = domain, username = account.username))
+        logger.info(
+            "アカウントを消して削除を投函した: ${sender.acct} 宛先=${deleted.deliveries} " +
+                "消した投稿=${deleted.deletedNotes} 件 外したフォロワー=${deleted.removedFollowers} 件",
+        )
 
         return DeleteResult.Success
     }

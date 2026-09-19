@@ -68,8 +68,11 @@ fun main() {
 
     // 受け付けが始まってから動かす。投稿を受け取った相手はその場で Note やアクターの
     // URL を引きに来るので、待ち受ける前に送ると相手は繋げずに終わる
-    server.monitor.subscribe(ServerReady) {
-        deps.startDeliveryWorker()
+    server.monitor.subscribe(ServerReady) { application ->
+        val purgedAccounts = deps.startDeliveryWorker()
+        if (purgedAccounts > 0) {
+            application.log.info("配信を送り切った削除済みアカウント $purgedAccounts 件を片付けた")
+        }
         deps.startFeedPolling()
     }
 
@@ -134,6 +137,7 @@ fun Application.module(deps: AppDependencies) {
         feedHeaderRepository = deps.repositories.feedHeaders,
         noteEnqueuer = deps.noteEnqueuer,
         actorPublisher = deps.actorPublisher,
+        actorEnqueuer = deps.actorEnqueuer,
         accountIconFiles = deps.accountIconFiles,
         noteStore = deps.noteStore,
         feedService = deps.feedService,

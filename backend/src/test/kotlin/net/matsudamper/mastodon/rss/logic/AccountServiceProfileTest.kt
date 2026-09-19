@@ -8,11 +8,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.test.runTest
 import net.matsudamper.mastodon.rss.FakeRepositories
-import net.matsudamper.mastodon.rss.TestActorKey
-import net.matsudamper.mastodon.rss.TestDelivery
 import net.matsudamper.mastodon.rss.TestLocalActor
-import net.matsudamper.mastodon.rss.TestWebPageUrls
-import net.matsudamper.mastodon.rss.actor.ActorPublisher
 
 class AccountServiceProfileTest {
     private val iconStore = FeedIconStore(Files.createTempDirectory("account-profile-icon"))
@@ -36,20 +32,8 @@ class AccountServiceProfileTest {
     private fun serviceOf(repositories: FakeRepositories): AccountService = AccountService(
         accounts = repositories.accounts,
         followers = repositories.followers,
-        deliveryQueue = repositories.deliveryQueue,
-        actorPublisher = ActorPublisher(
-            notes = RepositoryNoteStore(repositories.notes),
-            followers = RepositoryFollowerStore(repositories.followers),
-            delivery = TestDelivery(),
-            actorKey = TestActorKey.value,
-            feedLinks = RepositoryFeedLinks(
-                accounts = repositories.accounts,
-                feeds = repositories.feeds,
-                headers = repositories.feedHeaders,
-            ),
-            profiles = RepositoryActorProfiles(repositories.accounts),
-            webPages = TestWebPageUrls,
-        ),
+        actorPublisher = TestActorPublisher.of(repositories),
+        actorEnqueuer = TestActorPublisher.enqueuerOf(repositories),
         iconFiles = AccountIconFiles(
             feeds = repositories.feeds,
             icons = repositories.feedIcons,

@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.repository.ActorUpdatePost
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
@@ -108,6 +109,31 @@ internal class SqliteDeliveryQueueRepository(
                 body = post.body,
                 enqueuedAt = post.enqueuedAt,
                 // いま消した投稿に紐付けると、この行も一緒に消える
+                notePublicId = null,
+                targetActorUri = null,
+            )
+        }
+
+        post.inboxes.size
+    }
+
+    override fun enqueueActorUpdate(post: ActorUpdatePost): Int = jooq.transaction { dsl ->
+        // 送り残した古い更新を残すと、それが後から届いて相手の表示が 1 つ前に戻る
+        dsl
+            .deleteFrom(DELIVERY_QUEUE)
+            .where(DELIVERY_QUEUE.KIND.eq(DeliveryKindDbValue.UPDATE_ACTOR.dbValue))
+            .and(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
+            .and(DELIVERY_QUEUE.USERNAME.eq(post.username))
+            .execute()
+
+        post.inboxes.forEach { inbox ->
+            DeliveryQueueRows.insertPending(
+                dsl = dsl,
+                kind = DeliveryKindDbValue.UPDATE_ACTOR,
+                username = post.username,
+                inbox = inbox,
+                body = post.body,
+                enqueuedAt = post.enqueuedAt,
                 notePublicId = null,
                 targetActorUri = null,
             )
@@ -241,6 +267,8 @@ internal class SqliteDeliveryQueueRepository(
         when (DeliveryKindDbValue.parse(row.get(DELIVERY_QUEUE.KIND))) {
             DeliveryKindDbValue.CREATE_NOTE,
             DeliveryKindDbValue.DELETE_NOTE,
+            DeliveryKindDbValue.UPDATE_ACTOR,
+            DeliveryKindDbValue.DELETE_ACTOR,
             -> DeliveredOutcome.None
 
             DeliveryKindDbValue.ACCEPT_FOLLOW -> {

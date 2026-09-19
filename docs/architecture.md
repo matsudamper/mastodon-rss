@@ -324,10 +324,11 @@ Cookie の `Secure` は既定で付ける。本番はリバースプロキシで
 
 ## 配信キュー
 
-こちらから相手の inbox に送るもののうち、投稿の `Create{Note}` と `Delete{Note}`、
-`Follow` への `Accept` はその場で送らず `delivery_queue` に投函して、`:backend` の
-ワーカー（`DeliveryWorker`）が送る。送信中にプロセスが落ちても投函した行が残るので、
-次の起動で送り直せる。
+こちらから相手の inbox に送るものは、フォロー成立後に過去の投稿を配るぶんを除いて
+その場で送らず `delivery_queue` に投函して、`:backend` のワーカー（`DeliveryWorker`）が
+送る。投稿の `Create{Note}` と `Delete{Note}`、`Follow` への `Accept`、アクターの
+`Update{Actor}` と `Delete{Actor}` が載っている。送信中にプロセスが落ちても投函した行が
+残るので、次の起動で送り直せる。
 
 投稿の場合、誰が何をするかは 3 つのモジュールに分かれる。
 
@@ -354,6 +355,18 @@ Cookie の `Secure` は既定で付ける。本番はリバースプロキシで
 送れたときなので、状態を `accepted` にするのは `markDelivered` になる。相手に届いて
 初めて成立するものを、送る前に成立させない。初めて成立したときだけ、フォローより前の
 投稿をその相手に配る（`FollowBackfillPublisher`）。送り直しの `Accept` では配らない。
+
+アクターの更新は `ActorPublisher.prepareUpdate` が組み立てて `ActorEnqueuer` が投函する。
+まだ送っていない同じアカウントの更新は投函時に置き換える。続けて 2 回変えたときに
+古い方が後から届くと、相手の表示が 1 つ前に戻る。
+
+アカウントを消すときは `AccountRepository.markDeleted` が、消えるもの（フィードと記事・
+投稿・フォロワー・送り残した配信）を消すのと `Delete{Actor}` の投函を 1 トランザクションで
+書く。`accounts` の行は消さず `deleted_at` を入れる。消えたアカウントとして署名して
+`Delete{Actor}` を送り切る必要があるため。読み出しは生きているものだけを返すので外からは
+消えて見え、署名だけが消した行も引ける（`AppDependencies` の `signingDirectory`）。
+その名前は行が残っている間は作り直せない。作り直せると、送り残した行が新しい
+アカウントのものとして配られる。行は起動時に、配信が 1 件も残っていないものから片付く。
 
 ワーカーは `Main` が `ServerReady` で 1 つだけ回す。Ktor の routing には乗せない
 （リクエストと無関係に動くため）。同じ DB に対してアプリのプロセスを 2 つ動かす構成は

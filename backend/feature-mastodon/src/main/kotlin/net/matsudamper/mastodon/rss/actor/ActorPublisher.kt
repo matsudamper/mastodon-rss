@@ -4,126 +4,64 @@ import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.DeleteActorActivity
 import net.matsudamper.mastodon.rss.activity.UpdateActorActivity
 import net.matsudamper.mastodon.rss.crypto.UuidV7
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
-import net.matsudamper.mastodon.rss.delivery.DeliveryResult
 import net.matsudamper.mastodon.rss.entity.ActivityPubId
-import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.url.WebPageUrls
-import org.slf4j.LoggerFactory
 
 /**
- * アクター情報の更新と削除をフォロワーへ配る。
+ * アクター情報の更新と削除を組み立てる。
  *
- * 配信は [net.matsudamper.mastodon.rss.note.NotePublisher] と同じくその場で
- * 1 件ずつ送り、失敗しても再送しない。
+ * どちらも DB を触らず HTTP も出さない。保存と投函は `:backend` が repository の
+ * 口で 1 トランザクションにまとめる。
  */
 class ActorPublisher(
-    private val notes: NoteStore,
-    private val followers: FollowerStore,
-    private val delivery: ActivityDelivery,
     private val actorKey: ActorKey,
     private val feedLinks: StoredFeedLinks,
     private val profiles: StoredActorProfiles,
     private val webPages: WebPageUrls?,
 ) {
-    private val logger = LoggerFactory.getLogger(ActorPublisher::class.java)
-
     /**
-     * 今のアクター情報をフォロワーへ配る。
+     * 今のアクター情報から `Update{Actor}` を組み立てる。
      *
      * 載せるのは Actor エンドポイントと同じ引き先から組み立てた文書。呼び出し元から
      * 中身を受け取ると、更新の保存とここの組み立てで別々に同じものを作ることになり、
      * 片方だけ変わったときに相手の表示だけが食い違う。
+     *
+     * @return 署名対象になる JSON。宛先が何件でも同じものを送る
      */
-    suspend fun update(sender: ActorUrls) {
-        val targets = followers.deliveryTargets(sender.username)
-        val body = AppJson.encodeToString(
-            UpdateActorActivity.serializer(),
-            UpdateActorActivity(
-                // 同じアクターを何度更新しても、相手の重複判定で落ちない id にする
-                id = ActivityPubId("${sender.actorId}#update-${UuidV7.generate()}"),
-                actor = sender.actorId,
-                to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
-                updatedActor = actorDocument(
-                    urls = sender,
-                    actorKey = actorKey,
-                    feedLinks = feedLinks.find(sender.username),
-                    profile = profiles.find(sender.username),
-                    webPages = webPages,
-                ),
+    fun prepareUpdate(sender: ActorUrls): String = AppJson.encodeToString(
+        UpdateActorActivity.serializer(),
+        UpdateActorActivity(
+            // 同じアクターを何度更新しても、相手の重複判定で落ちない id にする
+            id = ActivityPubId("${sender.actorId}#update-${UuidV7.generate()}"),
+            actor = sender.actorId,
+            to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
+            updatedActor = actorDocument(
+                urls = sender,
+                actorKey = actorKey,
+                feedLinks = feedLinks.find(sender.username),
+                profile = profiles.find(sender.username),
+                webPages = webPages,
             ),
-        ).toByteArray()
-
-        var delivered = 0
-        targets.forEach { inbox ->
-            when (val result = delivery.deliver(inbox = inbox, sender = sender, body = body)) {
-                is DeliveryResult.Delivered -> delivered++
-                is DeliveryResult.Failed -> logger.warn("配れなかった: ${sender.acct} → $inbox ${result.reason}")
-            }
-        }
-
-        logger.info("アクターの更新を配った: ${sender.acct} 宛先=${targets.size} 成功=$delivered")
-    }
+        ),
+    )
 
     /**
-     * アクターを消して、消したことを配る。
+     * アクターを消したことを伝える `Delete{Actor}` を組み立てる。
      *
-     * 配る前に配信先を控えてから、フォロワーと投稿の記録を消す。記録を残したまま配ると、
-     * `Delete` を受けた相手が確かめに来たときにまだアクターの中身を返してしまう。
+     * 記録を消すのは呼び出し側で、投函と同じトランザクションになる。
+     *
+     * @return 署名対象になる JSON
      */
-    suspend fun delete(sender: ActorUrls): DeletedActor {
-        val targets = followers.deliveryTargets(sender.username)
-
-        val deletedNotes = notes.deleteByUsername(sender.username)
-        val removedFollowers = followers.removeAccount(sender.username)
-
-        val body = AppJson.encodeToString(
-            DeleteActorActivity.serializer(),
-            DeleteActorActivity(
-                // 削除のたびに変える。同じ名前で作り直して再度消すと、
-                // アクターの id から決めた固定の値では 2 回目が相手の重複判定で落ちる
-                id = ActivityPubId("${sender.actorId}#delete-${UuidV7.generate()}"),
-                actor = sender.actorId,
-                to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
-                target = sender.actorId,
-            ),
-        ).toByteArray()
-
-        var delivered = 0
-        targets.forEach { inbox ->
-            when (val result = delivery.deliver(inbox = inbox, sender = sender, body = body)) {
-                is DeliveryResult.Delivered -> delivered++
-
-                // 再送しないので、届かなかったことはここに残っているものが唯一の手がかり
-                is DeliveryResult.Failed -> logger.warn("配れなかった: ${sender.acct} → $inbox ${result.reason}")
-            }
-        }
-
-        logger.info(
-            "アクターの削除を配った: ${sender.acct} 宛先=${targets.size} 成功=$delivered " +
-                "消した投稿=$deletedNotes 件 外したフォロワー=$removedFollowers 件",
-        )
-
-        return DeletedActor(
-            deletedNotes = deletedNotes,
-            removedFollowers = removedFollowers,
-            targets = targets.size,
-            delivered = delivered,
-        )
-    }
+    fun prepareDelete(sender: ActorUrls): String = AppJson.encodeToString(
+        DeleteActorActivity.serializer(),
+        DeleteActorActivity(
+            // 削除のたびに変える。同じ名前で作り直して再度消すと、
+            // アクターの id から決めた固定の値では 2 回目が相手の重複判定で落ちる
+            id = ActivityPubId("${sender.actorId}#delete-${UuidV7.generate()}"),
+            actor = sender.actorId,
+            to = listOf(ActivityStreamsIri.PUBLIC_AUDIENCE),
+            target = sender.actorId,
+        ),
+    )
 }
-
-/**
- * @param deletedNotes 消した投稿の数
- * @param removedFollowers 外したフォロワーの数。`Accept` を返せていないものも含む
- * @param targets `Delete` を送った宛先の数
- * @param delivered そのうち相手が受け取った数
- */
-data class DeletedActor(
-    val deletedNotes: Int,
-    val removedFollowers: Int,
-    val targets: Int,
-    val delivered: Int,
-)

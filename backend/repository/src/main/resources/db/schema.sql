@@ -13,7 +13,11 @@ CREATE TABLE accounts (
     -- Actor の name。未設定なら username を出す
     display_name TEXT,
     -- Actor の summary。未設定なら既定の文言を出す
-    summary TEXT
+    summary TEXT,
+    -- 消した時刻。NULL なら生きている。行を残すのは、消えたアカウントとして署名する
+    -- Delete{Actor} を送り切るため。名前も押さえたままにして、送り残した行が
+    -- 同じ名前で作り直したアカウントのものとして配られないようにする
+    deleted_at TEXT
 );
 
 CREATE TABLE delivery_queue (
