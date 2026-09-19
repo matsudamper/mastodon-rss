@@ -1,8 +1,11 @@
 package net.matsudamper.mastodon.rss.frontend
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.window.ComposeViewport
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
@@ -36,7 +39,39 @@ import net.matsudamper.mastodon.rss.frontend.ui.AppTheme
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     ComposeViewport(document.body!!) {
-        App()
+        Box(Modifier.fallbackToWindowSize()) {
+            App()
+        }
+    }
+}
+
+/**
+ * 大きさが無制限で測られたときに、ウィンドウの大きさで測り直す。
+ *
+ * Compose の Web 実装はキャンバスの大きさが決まる前に最初の測定が走ることがあり、
+ * そのとき画面全体が無制限の制約で測られる。無制限をそのまま受けると、
+ * 制約の最大値を自分の大きさにする部品（Material3 の TopAppBar など）が
+ * Compose の扱える大きさ（1 辺 16777215）を超えて落ちる。
+ *
+ * 大きさが決まっているときは何もしない。
+ */
+private fun Modifier.fallbackToWindowSize(): Modifier = layout { measurable, constraints ->
+    val fallback = constraints.copy(
+        maxWidth = if (constraints.hasBoundedWidth) {
+            constraints.maxWidth
+        } else {
+            (window.innerWidth * density).toInt()
+        },
+        maxHeight = if (constraints.hasBoundedHeight) {
+            constraints.maxHeight
+        } else {
+            (window.innerHeight * density).toInt()
+        },
+    )
+
+    val placeable = measurable.measure(fallback)
+    layout(placeable.width, placeable.height) {
+        placeable.place(0, 0)
     }
 }
 
