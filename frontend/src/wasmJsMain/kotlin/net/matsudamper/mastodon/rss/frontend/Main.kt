@@ -6,6 +6,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
+import kotlin.js.ExperimentalWasmJsInterop
 import kotlinx.browser.document
 import kotlinx.browser.window
 import coil3.ImageLoader
@@ -32,7 +33,6 @@ import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountsScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreen
 import net.matsudamper.mastodon.rss.frontend.screen.home.HomeScreen
 import net.matsudamper.mastodon.rss.frontend.ui.AppTheme
-import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.HTMLElement
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -58,11 +58,22 @@ fun main() {
  * ブラウザが WebGL2 に対応していても、GPU がブロックリストに掛かっていたり
  * リモートデスクトップ越しで仮想ディスプレイアダプターになっていると作れない。
  * 対応の有無ではなく実際に作って確かめる。
+ *
+ * 作れたコンテキストはその場で手放す。同時に持てる数をブラウザが制限していて、
+ * 参照を捨てただけではいつ解放されるか決まらない。残り 1 つの環境では、この直後に
+ * Compose が作るコンテキストが上限に掛かり、避けたかった白い画面になる。
  */
-private fun canUseWebGl2(): Boolean {
-    val canvas = document.createElement("canvas") as HTMLCanvasElement
-    return canvas.getContext("webgl2") != null
-}
+@OptIn(ExperimentalWasmJsInterop::class)
+private fun canUseWebGl2(): Boolean = js(
+    """{
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('webgl2');
+        if (context === null) return false;
+        const loseContext = context.getExtension('WEBGL_lose_context');
+        if (loseContext !== null) loseContext.loseContext();
+        return true;
+    }""",
+)
 
 private fun createWebGl2UnavailableNotice(): HTMLElement {
     val notice = document.createElement("div") as HTMLElement
