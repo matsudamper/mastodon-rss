@@ -1,10 +1,11 @@
 package net.matsudamper.mastodon.rss.logic
 
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
+import net.matsudamper.mastodon.rss.repository.DeliveryQueuePosition
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FailedDelivery
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
-import net.matsudamper.mastodon.rss.repository.RetryingDeliveryPosition
+import net.matsudamper.mastodon.rss.repository.UnsentDelivery
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 
 /**
@@ -19,11 +20,33 @@ class DeliveryQueueService(
     fun counts(username: String): DeliveryQueueCounts = deliveryQueue.counts(username)
 
     /**
+     * まだ送り終えていない配信を、アカウントを問わず次に送る時刻の順に返す。
+     *
+     * @param limit 要求された件数。[MAX_LIST_LIMIT] を超える指定は切り詰める
+     */
+    fun unsent(
+        after: DeliveryQueuePosition?,
+        limit: Int,
+    ): UnsentPage {
+        val size = limit.coerceIn(0, MAX_LIST_LIMIT)
+        if (size == 0) return UnsentPage(deliveries = emptyList(), hasMore = false, nextPosition = null)
+
+        val fetched = deliveryQueue.listUnsent(after = after, limit = size + 1)
+        val page = fetched.take(size)
+
+        return UnsentPage(
+            deliveries = page,
+            hasMore = fetched.size > size,
+            nextPosition = page.lastOrNull()?.position.takeIf { fetched.size > size },
+        )
+    }
+
+    /**
      * @param limit 要求された件数。[MAX_LIST_LIMIT] を超える指定は切り詰める
      */
     fun retrying(
         username: String,
-        after: RetryingDeliveryPosition?,
+        after: DeliveryQueuePosition?,
         limit: Int,
     ): RetryingPage {
         val size = limit.coerceIn(0, MAX_LIST_LIMIT)
@@ -60,10 +83,19 @@ class DeliveryQueueService(
     /**
      * @param nextPosition 次のページを取るときに渡す位置。null なら最後のページ
      */
+    data class UnsentPage(
+        val deliveries: List<UnsentDelivery>,
+        val hasMore: Boolean,
+        val nextPosition: DeliveryQueuePosition?,
+    )
+
+    /**
+     * @param nextPosition 次のページを取るときに渡す位置。null なら最後のページ
+     */
     data class RetryingPage(
         val deliveries: List<RetryingDelivery>,
         val hasMore: Boolean,
-        val nextPosition: RetryingDeliveryPosition?,
+        val nextPosition: DeliveryQueuePosition?,
     )
 
     data class FailedPage(

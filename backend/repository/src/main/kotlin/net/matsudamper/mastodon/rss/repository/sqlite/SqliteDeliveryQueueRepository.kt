@@ -5,6 +5,7 @@ import net.matsudamper.mastodon.rss.repository.ActorUpdatePost
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
+import net.matsudamper.mastodon.rss.repository.DeliveryQueuePosition
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FailedDelivery
@@ -12,7 +13,7 @@ import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
-import net.matsudamper.mastodon.rss.repository.RetryingDeliveryPosition
+import net.matsudamper.mastodon.rss.repository.UnsentDelivery
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.DELIVERY_QUEUE
@@ -369,9 +370,39 @@ internal class SqliteDeliveryQueueRepository(
         )
     }
 
+    override fun listUnsent(
+        after: DeliveryQueuePosition?,
+        limit: Int,
+    ): List<UnsentDelivery> {
+        if (limit <= 0) return emptyList()
+
+        return jooq.withConnection { dsl ->
+            dsl
+                .selectFrom(DELIVERY_QUEUE)
+                .where(DELIVERY_QUEUE.STATE.ne(DeliveryStateDbValue.FAILED.dbValue))
+                .and(after?.let { laterThan(it) } ?: DSL.noCondition())
+                .orderBy(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.asc(), DELIVERY_QUEUE.ID.asc())
+                .limit(limit)
+                .fetch()
+                .map { record ->
+                    UnsentDelivery(
+                        id = DeliveryId(record.get(DELIVERY_QUEUE.ID)),
+                        kind = DeliveryKindDbValue.parse(record.get(DELIVERY_QUEUE.KIND)).toDeliveryKind(),
+                        username = record.get(DELIVERY_QUEUE.USERNAME),
+                        inbox = record.get(DELIVERY_QUEUE.INBOX),
+                        attempts = record.get(DELIVERY_QUEUE.ATTEMPTS).toInt(),
+                        // 諦めた行を除いてあるので、次に送る時刻は必ずある
+                        nextAttemptAt = StoredInstant.parse(record.get(DELIVERY_QUEUE.NEXT_ATTEMPT_AT)),
+                        sending = record.get(DELIVERY_QUEUE.STATE) == DeliveryStateDbValue.DELIVERING.dbValue,
+                        lastError = record.get(DELIVERY_QUEUE.LAST_ERROR),
+                    )
+                }
+        }
+    }
+
     override fun listRetrying(
         username: String,
-        after: RetryingDeliveryPosition?,
+        after: DeliveryQueuePosition?,
         limit: Int,
     ): List<RetryingDelivery> {
         if (limit <= 0) return emptyList()
@@ -404,7 +435,7 @@ internal class SqliteDeliveryQueueRepository(
      *
      * 時刻だけで比べると、同じ時刻の行がページの境目に来たときに落ちるか重複する
      */
-    private fun laterThan(cursor: RetryingDeliveryPosition): Condition {
+    private fun laterThan(cursor: DeliveryQueuePosition): Condition {
         val nextAttemptAt = StoredInstant.format(cursor.nextAttemptAt)
 
         return DELIVERY_QUEUE.NEXT_ATTEMPT_AT.gt(nextAttemptAt)

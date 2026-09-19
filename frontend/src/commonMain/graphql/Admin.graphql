@@ -302,3 +302,23 @@ mutation AdminDeleteAccount($query: DeleteAccountQuery!) {
         }
     }
 }
+
+query AdminUnsentDeliveries($cursor: String, $limit: Int!) {
+    admin {
+        unsentDeliveries(cursor: $cursor, limit: $limit) {
+            nodes {
+                kind
+                username
+                inbox
+                attempts
+                nextAttemptAt
+                sending
+                lastError
+            }
+            pageInfo {
+                hasMore
+                nextCursor
+            }
+        }
+    }
+}

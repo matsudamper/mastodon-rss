@@ -25,6 +25,35 @@ enum AdminDeliveryKind {
     DELETE_ACTOR
 }
 
+type AdminUnsentDeliveriesConnection {
+    nodes: [AdminUnsentDelivery!]!
+    pageInfo: PageInfo!
+}
+
+"まだ送り終えていない配信 1 件"
+type AdminUnsentDelivery {
+    "何を送る配信か"
+    kind: AdminDeliveryKind!
+
+    "署名するこちらのアカウントの名前"
+    username: String!
+
+    "宛先の inbox"
+    inbox: String!
+
+    "送ろうとした回数"
+    attempts: Int!
+
+    "次に送る時刻"
+    nextAttemptAt: UnixTime!
+
+    "いま送っている最中か"
+    sending: Boolean!
+
+    "最後に送れなかった理由。まだ一度も送っていなければ null"
+    lastError: String
+}
+
 type AdminRetryingDeliveriesConnection {
     nodes: [AdminRetryingDelivery!]!
     pageInfo: PageInfo!

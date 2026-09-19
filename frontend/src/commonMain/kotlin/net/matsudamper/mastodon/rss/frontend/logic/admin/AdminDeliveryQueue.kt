@@ -71,3 +71,19 @@ internal fun GraphQlAdminDeliveryKind.toAdminDeliveryKind(): AdminDeliveryKind =
         GraphQlAdminDeliveryKind.DELETE_ACTOR -> AdminDeliveryKind.DELETE_ACTOR
         GraphQlAdminDeliveryKind.UNKNOWN__ -> AdminDeliveryKind.UNKNOWN
     }
+
+/**
+ * まだ送り終えていない配信。アカウントを問わない一覧に出す。
+ *
+ * @param sending いま送っている最中か
+ * @param nextAttemptAt 次に送る時刻。エポックからの秒数
+ */
+data class AdminUnsentDelivery(
+    val kind: AdminDeliveryKind,
+    val username: String,
+    val inbox: String,
+    val attempts: Int,
+    val nextAttemptAt: Long,
+    val sending: Boolean,
+    val lastError: String?,
+)

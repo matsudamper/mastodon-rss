@@ -15,6 +15,9 @@ type AdminQuery {
 
     "未投稿の記事を返す"
     unpublishedFeedItems(query: UnpublishedFeedItemsQuery!): AdminUnpublishedFeedItemsResult! @lazy
+
+    "まだ送り終えていない配信。アカウントを問わない。次に送る時刻の順"
+    unsentDeliveries(cursor: String, limit: Int!): AdminUnsentDeliveriesConnection! @lazy
 }
 
 type AdminAccountsConnection {

@@ -26,6 +26,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnpublishedFeedItemsQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnsentDeliveriesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUpdateAccountProfileMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountListFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountScreenFields
@@ -115,6 +116,57 @@ class AdminApi(
                 )
             },
             toResult = { response -> response.toAdminAccountsResult() },
+        )
+    }
+
+    fun unsentDeliveries(limit: Int): Paging<AdminUnsentDeliveriesResult> {
+        return CachedPaging(
+            client = client,
+            firstPage = AdminUnsentDeliveriesQuery(
+                cursor = Optional.absent(),
+                limit = limit,
+            ),
+            nextPage = { cursor ->
+                AdminUnsentDeliveriesQuery(
+                    cursor = Optional.present(cursor),
+                    limit = limit,
+                )
+            },
+            appendPage = { cached, fetched ->
+                cached.copy(
+                    admin = cached.admin.copy(
+                        unsentDeliveries = cached.admin.unsentDeliveries.copy(
+                            nodes = cached.admin.unsentDeliveries.nodes + fetched.admin.unsentDeliveries.nodes,
+                            pageInfo = fetched.admin.unsentDeliveries.pageInfo,
+                        ),
+                    ),
+                )
+            },
+            toResult = { response -> response.toUnsentDeliveriesResult() },
+        )
+    }
+
+    private fun ApolloResponse<AdminUnsentDeliveriesQuery.Data>.toUnsentDeliveriesResult(): AdminUnsentDeliveriesResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AdminUnsentDeliveriesResult.Failure(failureMessage())
+        }
+
+        val data = data ?: return AdminUnsentDeliveriesResult.Failure(failureMessage())
+
+        return AdminUnsentDeliveriesResult.Success(
+            deliveries = data.admin.unsentDeliveries.nodes.map { node ->
+                AdminUnsentDelivery(
+                    kind = node.kind.toAdminDeliveryKind(),
+                    username = node.username,
+                    inbox = node.inbox,
+                    attempts = node.attempts,
+                    nextAttemptAt = node.nextAttemptAt,
+                    sending = node.sending,
+                    lastError = node.lastError,
+                )
+            },
+            hasMore = data.admin.unsentDeliveries.pageInfo.hasMore,
+            nextCursor = data.admin.unsentDeliveries.pageInfo.nextCursor,
         )
     }
 

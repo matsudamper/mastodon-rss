@@ -35,4 +35,6 @@ private object AndroidPreviewAdminListener : AdminScreenUiState.Listener {
     override fun onClickAccounts() = Unit
 
     override fun onClickNewAccount() = Unit
+
+    override fun onClickDeliveries() = Unit
 }

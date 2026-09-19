@@ -13,6 +13,7 @@ import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
 import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
+import net.matsudamper.mastodon.rss.repository.DeliveryQueuePosition
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FailedDelivery
@@ -40,7 +41,7 @@ import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
-import net.matsudamper.mastodon.rss.repository.RetryingDeliveryPosition
+import net.matsudamper.mastodon.rss.repository.UnsentDelivery
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
@@ -916,9 +917,34 @@ class FakeDeliveryQueueRepository(
         )
     }
 
+    override fun listUnsent(
+        after: DeliveryQueuePosition?,
+        limit: Int,
+    ): List<UnsentDelivery> = stored
+        .filter { it.state != State.FAILED }
+        .map { row ->
+            UnsentDelivery(
+                id = row.id,
+                kind = row.kind,
+                username = row.username,
+                inbox = row.inbox,
+                attempts = row.attempts,
+                nextAttemptAt = checkNotNull(row.nextAttemptAt),
+                sending = row.state == State.DELIVERING,
+                lastError = row.lastError,
+            )
+        }
+        .sortedWith(compareBy<UnsentDelivery> { it.nextAttemptAt }.thenBy { it.id.value })
+        .filter { delivery ->
+            after == null ||
+                delivery.nextAttemptAt > after.nextAttemptAt ||
+                (delivery.nextAttemptAt == after.nextAttemptAt && delivery.id.value > after.id.value)
+        }
+        .take(limit.coerceAtLeast(0))
+
     override fun listRetrying(
         username: String,
-        after: RetryingDeliveryPosition?,
+        after: DeliveryQueuePosition?,
         limit: Int,
     ): List<RetryingDelivery> = stored
         .filter { it.username.equals(username, ignoreCase = true) && it.state == State.PENDING && it.attempts > 0 }
