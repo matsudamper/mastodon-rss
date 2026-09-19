@@ -10,6 +10,7 @@ import net.matsudamper.mastodon.rss.repository.FeedIconRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.NoteReactionRepository
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.HEALTH_CHECK
@@ -29,6 +30,8 @@ internal class SqliteRepositories(
     override val followers: FollowerRepository = SqliteFollowerRepository(jooq)
 
     override val notes: NoteRepository = SqliteNoteRepository(jooq)
+
+    override val noteReactions: NoteReactionRepository = SqliteNoteReactionRepository(jooq)
 
     override val feeds: FeedRepository = SqliteFeedRepository(jooq)
 

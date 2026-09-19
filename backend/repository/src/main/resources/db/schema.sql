@@ -160,6 +160,26 @@ CREATE TABLE notes (
     published_at TEXT NOT NULL
 );
 
+CREATE TABLE note_reactions (
+    -- 相手から届いた、投稿 1 件への反応。お気に入り（Like）と絵文字のスタンプ
+    -- （Misskey の Like / EmojiReact）を同じ形で持つ
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
+    -- 押した相手のアクター文書の URL。フォロワーとは限らないので remote_actors は引かない
+    actor_uri TEXT NOT NULL,
+    -- 受け取った Like / EmojiReact の id。取り消しは id で指されるので一意にする
+    activity_uri TEXT NOT NULL UNIQUE,
+    -- 絵文字そのもの、またはカスタム絵文字の :name: 。お気に入りは空文字。
+    -- NULL にしないのは、SQLite の UNIQUE が NULL 同士を別物として扱い、
+    -- 同じ相手のお気に入りが何行でも入るため
+    emoji TEXT NOT NULL,
+    -- カスタム絵文字の画像 URL。Unicode の絵文字とお気に入りでは NULL
+    emoji_image_url TEXT,
+    created_at TEXT NOT NULL,
+    -- 同じ相手が同じ反応を重ねない。取り消しが届かないまま押し直されても増えない
+    UNIQUE (note_public_id, actor_uri, emoji)
+);
+
 CREATE TABLE remote_actors (
     -- 相手のサーバーのアクター。フォロワーの inbox と公開鍵の置き場
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,3 +208,5 @@ CREATE INDEX feed_items_feed_id_state_published_at_id ON feed_items (feed_id, st
 CREATE INDEX feed_items_note_id ON feed_items (note_id);
 
 CREATE INDEX notes_username_published_at ON notes (username, published_at);
+
+CREATE INDEX note_reactions_note_public_id ON note_reactions (note_public_id);
