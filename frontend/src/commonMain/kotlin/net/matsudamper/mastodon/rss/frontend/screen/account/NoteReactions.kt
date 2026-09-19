@@ -11,6 +11,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -44,21 +48,34 @@ internal fun NoteReactions(
 
         uiState.stamps.forEach { reaction ->
             ReactionChip(count = reaction.count) {
-                if (reaction.imageUrl == null) {
-                    Text(
-                        text = reaction.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                } else {
-                    AsyncImage(
-                        model = reaction.imageUrl,
-                        // 絵文字の名前は隣に出ないので、読み上げるものとして名前を渡す
-                        contentDescription = reaction.name,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+                ReactionEmoji(reaction)
             }
         }
+    }
+}
+
+/**
+ * スタンプの絵文字。カスタム絵文字は画像で、読めなければ名前を出す。
+ *
+ * 画像が出せないときに空の枠だけが残ると、何が押されたのか分からなくなる
+ */
+@Composable
+private fun ReactionEmoji(reaction: NoteReactionUiState) {
+    var imageFailed by remember(reaction.imageUrl) { mutableStateOf(false) }
+
+    if (reaction.imageUrl == null || imageFailed) {
+        Text(
+            text = reaction.name,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    } else {
+        AsyncImage(
+            model = reaction.imageUrl,
+            // 絵文字の名前は隣に出ないので、読み上げるものとして名前を渡す
+            contentDescription = reaction.name,
+            modifier = Modifier.size(20.dp),
+            onError = { imageFailed = true },
+        )
     }
 }
 
