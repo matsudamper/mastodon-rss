@@ -23,6 +23,9 @@ internal interface ExpiringCache<K : Any, V : Any> {
         value: V,
         ttlMillis: Long,
     )
+
+    /** 期限を待たずに捨てる。覚えている値が古いと分かったときに使う */
+    fun invalidate(key: K)
 }
 
 /**
@@ -52,6 +55,10 @@ private class InMemoryExpiringCache<K : Any, V : Any> : ExpiringCache<K, V> {
         ttlMillis: Long,
     ) {
         entries[key] = Entry(value = value, expiresAtMillis = System.currentTimeMillis() + ttlMillis)
+    }
+
+    override fun invalidate(key: K) {
+        entries.remove(key)
     }
 
     private class Entry<V>(

@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.httpsignature
 
+import java.security.PublicKey
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -177,6 +178,39 @@ class HttpSignatureVerifierTest {
         }
 
     @Test
+    fun `覚えている鍵が古ければ引き直して通す`() =
+        runBlocking {
+            // 相手が鍵を替えると、替わったことは通らない署名が届いて初めて分かる
+            val publicKeys = RotatingPublicKeys(before = RsaKeys.generateKeyPair().public, after = TestRemoteActor.keyPair.public)
+
+            val result = verifier(publicKeys).verify(request(signedHeaders()))
+
+            assertIs<HttpSignatureResult.Verified>(result)
+            assertEquals(1, publicKeys.refreshCallCount)
+        }
+
+    @Test
+    fun `引き直しても合わなければ通らない`() =
+        runBlocking {
+            val publicKeys = RotatingPublicKeys(before = RsaKeys.generateKeyPair().public, after = RsaKeys.generateKeyPair().public)
+
+            val result = verifier(publicKeys).verify(request(signedHeaders()))
+
+            val rejected = assertIs<HttpSignatureResult.Rejected>(result)
+            assertTrue(rejected.reason.contains("引き直した鍵でも署名が一致しない"))
+        }
+
+    @Test
+    fun `署名が通れば引き直しには行かない`() =
+        runBlocking {
+            val publicKeys = TestRemoteActor.remoteActors()
+
+            verifier(publicKeys).verify(request(signedHeaders()))
+
+            assertEquals(0, publicKeys.refreshCallCount)
+        }
+
+    @Test
     fun `鍵を引きに行く前に明らかな不備で落とす`() =
         runBlocking {
             // 形が壊れたリクエストのたびに相手のサーバーを引きに行かない
@@ -187,4 +221,30 @@ class HttpSignatureVerifierTest {
 
             assertEquals(0, publicKeys.findCallCount)
         }
+
+    /**
+     * 鍵を替えた相手。[find] は替える前の鍵を、[refresh] は替えた後の鍵を返す
+     */
+    private class RotatingPublicKeys(
+        private val before: PublicKey,
+        private val after: PublicKey,
+    ) : PublicKeys {
+        var refreshCallCount: Int = 0
+            private set
+
+        override suspend fun find(keyId: String): PublicKeyLookup = found(keyId, before)
+
+        override suspend fun refresh(keyId: String): PublicKeyLookup {
+            refreshCallCount++
+            return found(keyId, after)
+        }
+
+        private fun found(
+            keyId: String,
+            publicKey: PublicKey,
+        ): PublicKeyLookup =
+            PublicKeyLookup.Found(
+                SignatureKey(keyId = keyId, owner = TestRemoteActor.ACTOR_ID, publicKey = publicKey),
+            )
+    }
 }

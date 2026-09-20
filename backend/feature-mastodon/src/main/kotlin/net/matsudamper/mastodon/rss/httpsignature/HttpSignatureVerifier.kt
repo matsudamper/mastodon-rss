@@ -86,18 +86,34 @@ class HttpSignatureVerifier(
                     return HttpSignatureResult.Rejected("公開鍵を取得できない: ${signature.keyId}")
             }
 
-        val verified =
-            RsaSignature.verify(
-                publicKey = key.publicKey,
-                data = signingString.toByteArray(Charsets.UTF_8),
-                signature = signature.signature,
-            )
-        if (!verified) {
-            return HttpSignatureResult.Rejected("署名が一致しない: ${signature.keyId}")
+        if (matches(signature, signingString, key)) {
+            return HttpSignatureResult.Verified(keyId = key.keyId, owner = key.owner)
         }
 
-        return HttpSignatureResult.Verified(keyId = key.keyId, owner = key.owner)
+        // 相手が鍵を替えていることがある。替わったことは、こちらが覚えている鍵では
+        // 通らない署名が届いて初めて分かるので、ここで 1 回だけ引き直して試す。
+        // 引き直さないと、覚えている鍵を捨てるまでの間その相手を拒み続ける
+        val refreshed =
+            (publicKeys.refresh(signature.keyId) as? PublicKeyLookup.Found)?.key
+                ?: return HttpSignatureResult.Rejected("署名が一致しない: ${signature.keyId}")
+
+        if (!matches(signature, signingString, refreshed)) {
+            return HttpSignatureResult.Rejected("引き直した鍵でも署名が一致しない: ${signature.keyId}")
+        }
+
+        return HttpSignatureResult.Verified(keyId = refreshed.keyId, owner = refreshed.owner)
     }
+
+    private fun matches(
+        signature: SignatureHeader,
+        signingString: String,
+        key: SignatureKey,
+    ): Boolean =
+        RsaSignature.verify(
+            publicKey = key.publicKey,
+            data = signingString.toByteArray(Charsets.UTF_8),
+            signature = signature.signature,
+        )
 
     private companion object {
         const val SIGNATURE_HEADER = "Signature"

@@ -55,6 +55,11 @@ class HttpRemoteActors(
      */
     private val documents: ExpiringCache<String, RemoteActorDocument> = createExpiringCache()
 
+    /**
+     * 直前に相手のサーバーへ取りに行ったアクター。[refresh] の間隔を空けるのに使う
+     */
+    private val recentlyFetched: ExpiringCache<String, Unit> = createExpiringCache()
+
     override suspend fun find(keyId: String): PublicKeyLookup {
         val url = parseHttpsUrl(keyId) ?: return PublicKeyLookup.Unavailable
 
@@ -81,6 +86,21 @@ class HttpRemoteActors(
         return PublicKeyLookup.Found(
             SignatureKey(keyId = keyId, owner = keyOwnerActorId, publicKey = decodedPublicKey),
         )
+    }
+
+    /**
+     * 覚えている文書を捨ててから引き直す。
+     *
+     * 間隔を空けるのは、通らない署名を投げ込むだけで相手のサーバーへの GET を
+     * 出させられるため。直前に取りに行ったばかりなら、そのとき読んだ鍵が最新なので
+     * 取り直しても同じものにしかならない。
+     */
+    override suspend fun refresh(keyId: String): PublicKeyLookup {
+        val cacheKey = keyId.substringBefore('#')
+        if (recentlyFetched.get(cacheKey) != null) return PublicKeyLookup.Unavailable
+
+        documents.invalidate(cacheKey)
+        return find(keyId)
     }
 
     override suspend fun findActor(actorId: String): RemoteActor? {
@@ -128,6 +148,10 @@ class HttpRemoteActors(
         // `Accept` の宛先を決めるときにも使える
         val cacheKey = rawUrl.substringBefore('#')
         documents.get(cacheKey)?.let { return DocumentFetch.Found(it) }
+
+        // 取りに行ったことは、取れたかどうかに関わらず覚えておく。
+        // 落ちている相手に取り直しのたびに繋ぎに行っても同じ結果にしかならない
+        recentlyFetched.put(key = cacheKey, value = Unit, ttlMillis = REFRESH_INTERVAL_MILLIS)
 
         val response =
             runCatching {
@@ -198,6 +222,15 @@ class HttpRemoteActors(
          * 1 時間なら、鍵のローテーションは頻度の高い運用ではないので実害は小さい
          */
         const val CACHE_TTL_MILLIS = 60 * 60 * 1000L
+
+        /**
+         * 同じアクターを取り直すまでに空ける間隔。
+         *
+         * 相手が鍵を替えてから、こちらが受け取れるようになるまでの遅れの上限になる。
+         * 相手のサーバーは送り直してくるので、短くする意味はこの遅れを縮めることだけ。
+         * 長くすると、その間ずっとそのアクターからのアクティビティを落とし続ける
+         */
+        const val REFRESH_INTERVAL_MILLIS = 60 * 1000L
 
         fun defaultClient(openTelemetry: OpenTelemetry? = null): HttpClient =
             HttpClient(CIO) {
