@@ -43,6 +43,9 @@ import net.matsudamper.mastodon.rss.json.AppJson
  * フォローや投稿のたびに毎回相手のサーバーへ取りに行くのは、相手に対しても
  * 自分の inbox 処理に対しても無駄が大きいため。取得に失敗した場合はキャッシュしない。
  * 相手のサーバーが一時的に落ちているだけなら、次の呼び出しで取り直せるようにする。
+ *
+ * 覚えている鍵が古くなったかどうかは期限では分からないので、期限は鍵と関係なく決める。
+ * 古い鍵に気付けるのは署名の検証が失敗したときだけで、そこからの取り直しは [refresh]。
  */
 class HttpRemoteActors(
     openTelemetry: OpenTelemetry? = null,
@@ -217,20 +220,23 @@ class HttpRemoteActors(
         const val MAX_BODY_CHARS = 64 * 1024
 
         /**
-         * キャッシュの有効期間。長すぎると相手が鍵をローテーションしたときに
-         * 検証が通らない期間が延びる。短すぎるとキャッシュの意味が薄くなる。
-         * 1 時間なら、鍵のローテーションは頻度の高い運用ではないので実害は小さい
+         * キャッシュの有効期間。
+         *
+         * 期限を短くしても鍵の入れ替わりには追い付けない。替わったことは通らない
+         * 署名が届いて初めて分かるもので、それは [refresh] が受け持つ。ここで決まるのは
+         * 相手のサーバーを引きに行く頻度だけなので、長く持つ。
+         * Mastodon が相手のアカウントを古いと見なす間隔（`STALE_THRESHOLD`）に合わせて 1 日
          */
-        const val CACHE_TTL_MILLIS = 60 * 60 * 1000L
+        const val CACHE_TTL_MILLIS = 24 * 60 * 60 * 1000L
 
         /**
          * 同じアクターを取り直すまでに空ける間隔。
          *
          * 相手が鍵を替えてから、こちらが受け取れるようになるまでの遅れの上限になる。
          * 相手のサーバーは送り直してくるので、短くする意味はこの遅れを縮めることだけ。
-         * 長くすると、その間ずっとそのアクターからのアクティビティを落とし続ける
+         * Mastodon が取得の失敗後に空ける間隔（`STOPLIGHT_COOL_OFF_TIME`）に合わせて 5 分
          */
-        const val REFRESH_INTERVAL_MILLIS = 60 * 1000L
+        const val REFRESH_INTERVAL_MILLIS = 5 * 60 * 1000L
 
         fun defaultClient(openTelemetry: OpenTelemetry? = null): HttpClient =
             HttpClient(CIO) {
