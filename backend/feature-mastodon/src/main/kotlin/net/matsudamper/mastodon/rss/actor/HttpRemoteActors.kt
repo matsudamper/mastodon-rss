@@ -56,12 +56,12 @@ class HttpRemoteActors(
      * アクター文書のキャッシュ。鍵と inbox を別々に持たないのは、
      * どちらも同じ 1 つの文書から読むものだから。
      */
-    private val documents: ExpiringCache<String, RemoteActorDocument> = createExpiringCache()
+    private val documents: ExpiringCache<String, RemoteActorDocument> = createExpiringCache(MAX_CACHED_ACTORS)
 
     /**
      * 直前に相手のサーバーへ取りに行ったアクター。[refresh] の間隔を空けるのに使う
      */
-    private val recentlyFetched: ExpiringCache<String, Unit> = createExpiringCache()
+    private val recentlyFetched: ExpiringCache<String, Unit> = createExpiringCache(MAX_CACHED_ACTORS)
 
     override suspend fun find(keyId: String): PublicKeyLookup {
         val url = parseHttpsUrl(keyId) ?: return PublicKeyLookup.Unavailable
@@ -206,7 +206,12 @@ class HttpRemoteActors(
         // 消えたと見なすのは 410 だけ。Mastodon は削除済みのアカウントにこれを返す。
         // 404 は消したのか置き場所が変わったのかを区別できず、
         // 一時的なルーティングの不調でも返るので、分からないものとして扱う
-        if (response.status == HttpStatusCode.Gone) return DocumentFetch.Gone
+        if (response.status == HttpStatusCode.Gone) {
+            // 消えた相手の文書を覚えたままにしない。取り直しの間隔の中に来た次の
+            // 呼び出しが覚えているものを使い、消えたアクターを生きているものとして扱う
+            documents.invalidate(cacheKey)
+            return DocumentFetch.Gone
+        }
         if (!response.status.isSuccess()) return DocumentFetch.Unavailable
 
         val body = runCatching { response.bodyAsText() }.getOrNull() ?: return DocumentFetch.Unavailable
@@ -216,8 +221,29 @@ class HttpRemoteActors(
             runCatching { AppJson.decodeFromString(RemoteActorDocument.serializer(), body) }
                 .getOrNull() ?: return DocumentFetch.Unavailable
 
+        // 使えると分かった文書だけを覚える。中身を見ずに入れ替えると、相手が 200 で
+        // 空の JSON や他所のアクターの鍵を返した瞬間に、それまでの正しい文書を失う。
+        // 取り直しは通らない署名を投げ込むだけで起こせるので、外から狙える
+        if (!document.hasUsableKey(requestUrl)) {
+            return documents.get(cacheKey)?.let { DocumentFetch.Found(it) } ?: DocumentFetch.Found(document)
+        }
+
         documents.put(key = cacheKey, value = document, ttlMillis = CACHE_TTL_MILLIS)
         return DocumentFetch.Found(document)
+    }
+
+    /**
+     * 覚える値打ちがあるか。検証に使える鍵が、取得先と同じホストの持ち主で入っていること。
+     *
+     * ここを通らない文書でも、呼び出し側は結果として受け取る。そこで落ちるのは
+     * 同じ判断（[publicKeyOf]）で、覚えるかどうかだけをここで決める
+     */
+    private fun RemoteActorDocument.hasUsableKey(requestUrl: Url): Boolean {
+        val publicKey = publicKey ?: return false
+        if (publicKey.publicKeyPem.isBlank()) return false
+
+        val keyOwnerActorId = publicKey.owner ?: id ?: return false
+        return isSameHost(keyOwnerActorId, requestUrl)
     }
 
     /**
@@ -271,6 +297,15 @@ class HttpRemoteActors(
          * Mastodon が取得の失敗後に空ける間隔（`STOPLIGHT_COOL_OFF_TIME`）に合わせて 5 分
          */
         const val REFRESH_INTERVAL_MILLIS = 5 * 60 * 1000L
+
+        /**
+         * 覚えておくアクターの数の上限。
+         *
+         * キーは相手が名乗る `keyId` で、使い捨てのものをいくらでも送り込める。
+         * 期限だけに任せると、送られた分がその期限のあいだ残る。溢れた分を捨てても
+         * 次に要るときに取り直すだけで、判断は変わらない
+         */
+        const val MAX_CACHED_ACTORS = 10_000
 
         fun defaultClient(openTelemetry: OpenTelemetry? = null): HttpClient =
             HttpClient(CIO) {

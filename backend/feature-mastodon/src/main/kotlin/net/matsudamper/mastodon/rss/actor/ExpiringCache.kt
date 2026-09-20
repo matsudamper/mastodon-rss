@@ -39,16 +39,24 @@ internal interface ExpiringCache<K : Any, V : Any> {
         value: V,
         ttlMillis: Long,
     ): Boolean
+
+    /** 期限を待たずに捨てる。覚えている値が古いと分かったときに使う */
+    fun invalidate(key: K)
 }
 
 /**
  * [ExpiringCache] を作る。
  *
  * 実装はプロセスのメモリ上に持つだけで、再起動やプロセス間では共有しない。
+ *
+ * @param maxEntries 覚えておく行数の上限。溢れたら期限が近いものから捨てる
  */
-internal fun <K : Any, V : Any> createExpiringCache(): ExpiringCache<K, V> = InMemoryExpiringCache()
+internal fun <K : Any, V : Any> createExpiringCache(maxEntries: Int): ExpiringCache<K, V> =
+    InMemoryExpiringCache(maxEntries)
 
-private class InMemoryExpiringCache<K : Any, V : Any> : ExpiringCache<K, V> {
+private class InMemoryExpiringCache<K : Any, V : Any>(
+    private val maxEntries: Int,
+) : ExpiringCache<K, V> {
     private val entries = ConcurrentHashMap<K, Entry<V>>()
 
     /**
@@ -76,6 +84,10 @@ private class InMemoryExpiringCache<K : Any, V : Any> : ExpiringCache<K, V> {
         pruneIfNeeded()
     }
 
+    override fun invalidate(key: K) {
+        entries.remove(key)
+    }
+
     override fun tryPut(
         key: K,
         value: V,
@@ -93,16 +105,28 @@ private class InMemoryExpiringCache<K : Any, V : Any> : ExpiringCache<K, V> {
     }
 
     /**
-     * 期限切れの行を片付ける。
+     * 期限切れの行を片付け、それでも上限を超えていれば期限が近いものから捨てる。
      *
      * [get] だけに任せると、二度と読まれないキーの行が残り続ける。キーは外から
      * いくらでも作れるので、放っておくとリクエストを重ねるだけでメモリが増える。
-     * 毎回全部を見ると保存のたびに行数ぶんの仕事になるので、間隔を空けて行う
+     * 片付けは保存のたびではなく間隔を空けて行うが、それだと送り込むのをやめた後に
+     * 期限切れになった行が残るので、行数の上限でも縛る。
+     *
+     * 期限内の行を捨てても、次に要るときに取り直すだけで判断は変わらない
      */
     private fun pruneIfNeeded() {
-        if (puts.incrementAndGet() % PRUNE_INTERVAL != 0) return
+        val counted = puts.incrementAndGet() % PRUNE_INTERVAL == 0
+        if (!counted && entries.size <= maxEntries) return
 
         entries.entries.removeIf { it.value.isExpired() }
+
+        val excess = entries.size - maxEntries
+        if (excess <= 0) return
+
+        entries.entries
+            .sortedBy { it.value.expiresAtMillis }
+            .take(excess)
+            .forEach { entries.remove(it.key, it.value) }
     }
 
     private class Entry<V>(
