@@ -16,11 +16,16 @@ import io.ktor.server.routing.get
  */
 internal fun Route.remoteActorIconRoutes(icons: RemoteActorIconService) {
     get(RemoteActorIconUrls.PATH) {
-        val actorUri = call.request.queryParameters[RemoteActorIconUrls.ACTOR_PARAMETER]
-        val version = call.request.queryParameters[RemoteActorIconUrls.VERSION_PARAMETER]
-        if (actorUri.isNullOrEmpty() || version.isNullOrEmpty()) {
+        val parameters = call.request.queryParameters
+        val actorUri = parameters[RemoteActorIconUrls.ACTOR_PARAMETER]
+        val version = parameters[RemoteActorIconUrls.VERSION_PARAMETER]
+
+        // 知らないクエリが付いた URL は受けない。画面が組み立てる URL は 1 つに決まる。
+        // 余分なクエリを付けるだけで前段のキャッシュを外せると、そのたびに
+        // 配信元へ取りに行くことになる
+        if (actorUri.isNullOrEmpty() || version.isNullOrEmpty() || parameters.names() != ALLOWED_PARAMETERS) {
             call.response.header(HttpHeaders.CacheControl, NO_STORE)
-            call.respondText("アクターと版の指定が無い", status = HttpStatusCode.BadRequest)
+            call.respondText("アクターと版だけを指定する", status = HttpStatusCode.BadRequest)
             return@get
         }
 
@@ -52,6 +57,7 @@ private fun RemoteActorIcon.cacheControl(): String {
     return "public, max-age=$seconds"
 }
 
+private val ALLOWED_PARAMETERS = setOf(RemoteActorIconUrls.ACTOR_PARAMETER, RemoteActorIconUrls.VERSION_PARAMETER)
 private const val NO_STORE = "no-store"
 private const val DEFAULT_MAX_AGE_SECONDS = 60L * 60
 private const val MAX_MAX_AGE_SECONDS = 24L * 60 * 60

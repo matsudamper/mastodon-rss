@@ -31,13 +31,18 @@ internal data class RemoteActorDocument(
     val publicKey: RemoteActorPublicKey? = null,
     @SerialName("endpoints")
     val endpoints: RemoteActorEndpoints? = null,
+    /**
+     * 表示に使う項目は形を決めずに受ける。ActivityStreams では文字列の場所に
+     * 配列を置く実装もあり、型を決めて読むと文書ごと読めなくなる。この文書は
+     * 署名の検証と配信先にも使うので、表示のための項目で全体を落とさない
+     */
     @SerialName("preferredUsername")
-    val preferredUsername: String? = null,
+    val preferredUsername: JsonElement? = null,
     /**
      * プロフィールの表示名。ActivityStreams の `name`
      */
     @SerialName("name")
-    val displayName: String? = null,
+    val displayName: JsonElement? = null,
     /**
      * 人が開くプロフィールの URL。アクター文書の URL とは別で、
      * 文字列のことも Link オブジェクトのこともある
@@ -59,8 +64,8 @@ internal data class RemoteActorDocument(
      */
     fun profile(): RemoteActorProfile =
         RemoteActorProfile(
-            preferredUsername = preferredUsername?.takeIf { it.isNotBlank() },
-            displayName = displayName?.takeIf { it.isNotBlank() },
+            preferredUsername = preferredUsername.firstText(),
+            displayName = displayName.firstText(),
             profileUrl = url.firstHttpsUrl(),
             // inbox と違って取得先と同じホストであることは求めない。
             // 画像を別ドメインの CDN に置く実装があり、同じホストに限ると
@@ -91,6 +96,18 @@ internal data class RemoteActorPublicKey(
     @SerialName("publicKeyPem")
     val publicKeyPem: String,
 )
+
+/**
+ * 文字列が入りうる場所から、空でない文字列を 1 つ読む。読めなければ null。
+ *
+ * 配列で来たら先頭の使えるものを取る。オブジェクトは読まない
+ */
+private fun JsonElement?.firstText(): String? =
+    when (this) {
+        null, JsonNull, is JsonObject -> null
+        is JsonPrimitive -> content.takeIf { isString && it.isNotBlank() }
+        is JsonArray -> firstNotNullOfOrNull { it.firstText() }
+    }
 
 /**
  * URL が入りうる場所から、https の URL を 1 つ読む。読めなければ null。
