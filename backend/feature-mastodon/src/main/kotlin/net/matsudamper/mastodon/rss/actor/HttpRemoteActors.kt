@@ -66,8 +66,35 @@ class HttpRemoteActors(
     override suspend fun find(keyId: String): PublicKeyLookup {
         val url = parseHttpsUrl(keyId) ?: return PublicKeyLookup.Unavailable
 
+        return publicKeyOf(keyId, url, fetch(rawUrl = keyId, requestUrl = url, useCache = true))
+    }
+
+    /**
+     * 覚えているものを使わずに引き直す。
+     *
+     * 覚えている文書を先に捨てないのは、取り直しに失敗したときに元の文書まで
+     * 失うため。通らない署名を 1 通投げ込むだけで、相手のサーバーが落ちている間
+     * その相手の正当なアクティビティを全部落とせる状態になる。取り直せなければ
+     * 覚えている文書がそのまま返り、[find] と同じ結果になる。
+     */
+    override suspend fun refresh(keyId: String): PublicKeyLookup {
+        val url = parseHttpsUrl(keyId) ?: return PublicKeyLookup.Unavailable
+
+        return publicKeyOf(keyId, url, fetch(rawUrl = keyId, requestUrl = url, useCache = false))
+    }
+
+    /**
+     * 取れた文書から検証に使う鍵を読む。
+     *
+     * @param requestUrl 取得先。文書が名乗る鍵の持ち主が、取得先と同じホストか確かめる
+     */
+    private fun publicKeyOf(
+        keyId: String,
+        requestUrl: Url,
+        fetched: DocumentFetch,
+    ): PublicKeyLookup {
         val document =
-            when (val fetched = fetch(keyId, url)) {
+            when (fetched) {
                 is DocumentFetch.Found -> fetched.document
 
                 // 相手が「もう無い」と答えた場合だけ、消えたものとして返す。
@@ -80,7 +107,7 @@ class HttpRemoteActors(
         val publicKey = document.publicKey ?: return PublicKeyLookup.Unavailable
 
         val keyOwnerActorId = publicKey.owner ?: document.id ?: return PublicKeyLookup.Unavailable
-        if (!isSameHost(keyOwnerActorId, url)) return PublicKeyLookup.Unavailable
+        if (!isSameHost(keyOwnerActorId, requestUrl)) return PublicKeyLookup.Unavailable
 
         val decodedPublicKey =
             runCatching { RsaKeys.decodePublicKeyPem(publicKey.publicKeyPem) }
@@ -92,23 +119,20 @@ class HttpRemoteActors(
     }
 
     /**
-     * 覚えている文書を捨ててから引き直す。
+     * 覚えているものを使わない。
      *
-     * 間隔を空けるのは、通らない署名を投げ込むだけで相手のサーバーへの GET を
-     * 出させられるため。直前に取りに行ったばかりなら、そのとき読んだ鍵が最新なので
-     * 取り直しても同じものにしかならない。
+     * ここで読む inbox は `Accept` の宛先と以後の配信先として記録に残る。
+     * 相手が引っ越した後の古い値を書くと、こちらから届かなくなったことに
+     * 気付く手がかりが無い。鍵と違って、間違いが後から直る経路が無い。
+     *
+     * 実際には署名の検証が直前に同じ文書を取っているので、取りに行く回数は増えない。
+     * その場合に使うのはそのとき読んだ文書で、古くても取り直しの間隔のぶんだけ
      */
-    override suspend fun refresh(keyId: String): PublicKeyLookup {
-        val cacheKey = keyId.substringBefore('#')
-        if (recentlyFetched.get(cacheKey) != null) return PublicKeyLookup.Unavailable
-
-        documents.invalidate(cacheKey)
-        return find(keyId)
-    }
-
     override suspend fun findActor(actorId: String): RemoteActor? {
         val url = parseHttpsUrl(actorId) ?: return null
-        val document = (fetch(actorId, url) as? DocumentFetch.Found)?.document ?: return null
+        val document = (fetch(rawUrl = actorId, requestUrl = url, useCache = false) as? DocumentFetch.Found)
+            ?.document
+            ?: return null
 
         // 宛先はこちらが POST しに行く先になる。アクターと同じホストに限ることで、
         // 相手が自分の文書に書いた URL でこちらから他所へ POST させる形を塞ぐ
@@ -145,16 +169,26 @@ class HttpRemoteActors(
     private suspend fun fetch(
         rawUrl: String,
         requestUrl: Url,
+        useCache: Boolean,
     ): DocumentFetch {
         // `keyId` はアクター id にフラグメントを付けたもので、フラグメントはサーバーに
         // 送られない。落としてから引くと、署名の検証で取った文書を
         // `Accept` の宛先を決めるときにも使える
         val cacheKey = rawUrl.substringBefore('#')
-        documents.get(cacheKey)?.let { return DocumentFetch.Found(it) }
 
-        // 取りに行ったことは、取れたかどうかに関わらず覚えておく。
-        // 落ちている相手に取り直しのたびに繋ぎに行っても同じ結果にしかならない
-        recentlyFetched.put(key = cacheKey, value = Unit, ttlMillis = REFRESH_INTERVAL_MILLIS)
+        if (useCache) {
+            documents.get(cacheKey)?.let { return DocumentFetch.Found(it) }
+            // 取りに行くことにしたので、次に取り直すまでの間隔をここから数える
+            recentlyFetched.put(key = cacheKey, value = Unit, ttlMillis = REFRESH_INTERVAL_MILLIS)
+        } else if (!recentlyFetched.tryPut(key = cacheKey, value = Unit, ttlMillis = REFRESH_INTERVAL_MILLIS)) {
+            // 取りに行く枠を取れなかった。覚えているものを使わない呼び出しは、
+            // 通らない署名を投げ込むだけで誰でも起こせるので間隔を空ける。
+            // 枠は取れたかどうかに関わらず塞ぐ。落ちている相手に繋ぎ直しても同じ結果になる。
+            //
+            // 直前に取りに行ったばかりなら、覚えているものはそのとき読んだ文書で、
+            // 取り直しても同じものにしかならない
+            return documents.get(cacheKey)?.let { DocumentFetch.Found(it) } ?: DocumentFetch.Unavailable
+        }
 
         val response =
             runCatching {
