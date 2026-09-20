@@ -33,7 +33,9 @@ internal data class RemoteActorDocument(
     val endpoints: RemoteActorEndpoints? = null,
     @SerialName("preferredUsername")
     val preferredUsername: String? = null,
-    /** プロフィールの表示名。ActivityStreams の `name` */
+    /**
+     * プロフィールの表示名。ActivityStreams の `name`
+     */
     @SerialName("name")
     val displayName: String? = null,
     /**
@@ -59,12 +61,12 @@ internal data class RemoteActorDocument(
         RemoteActorProfile(
             preferredUsername = preferredUsername?.takeIf { it.isNotBlank() },
             displayName = displayName?.takeIf { it.isNotBlank() },
-            profileUrl = url.firstUrl()?.takeIf { it.isHttpsUrl() },
+            profileUrl = url.firstHttpsUrl(),
             // inbox と違って取得先と同じホストであることは求めない。
             // 画像を別ドメインの CDN に置く実装があり、同じホストに限ると
             // そこのアイコンが軒並み出なくなる。ここから POST することはないので、
             // 他所のホストでも送信先として使われる危険は無い
-            iconUrl = icon.firstUrl()?.takeIf { it.isHttpsUrl() },
+            iconUrl = icon.firstHttpsUrl(),
         )
 }
 
@@ -91,24 +93,24 @@ internal data class RemoteActorPublicKey(
 )
 
 /**
- * URL が入りうる場所から 1 つ読む。読めなければ null。
+ * URL が入りうる場所から、https の URL を 1 つ読む。読めなければ null。
  *
  * ActivityStreams ではどの形も正しい。文字列で入れる実装、`{ type: Link, href }`
  * で入れる実装、複数を配列で並べる実装があり、どれを使うかは相手次第。
  * 表示にしか使わないので、読めない形は名乗っていないものとして扱う。
+ *
+ * https でないものは読みながら飛ばす。先頭だけ見て後で落とすと、配列の先頭に
+ * 使えない値が入っているだけで、後ろにある使える URL まで捨てることになる。
+ *
+ * https に限るのは、画面のリンクと画像の取得元になるため。相手が書いた文字列を
+ * そのまま通すと、`javascript:` のような scheme がこちらの画面の上で開かれる
  */
-private fun JsonElement?.firstUrl(): String? =
+private fun JsonElement?.firstHttpsUrl(): String? =
     when (this) {
         null, JsonNull -> null
-        is JsonPrimitive -> content.takeIf { isString }
-        is JsonArray -> firstNotNullOfOrNull { it.firstUrl() }
-        is JsonObject -> this["href"].firstUrl() ?: this["url"].firstUrl()
+        is JsonPrimitive -> content.takeIf { isString && it.isHttpsUrl() }
+        is JsonArray -> firstNotNullOfOrNull { it.firstHttpsUrl() }
+        is JsonObject -> this["href"].firstHttpsUrl() ?: this["url"].firstHttpsUrl()
     }
 
-/**
- * https の URL として読めるか。
- *
- * 画面のリンクと画像の取得元になるので、相手が書いた文字列をそのまま通さない。
- * `javascript:` のような scheme が混じると、こちらの画面の上で開かれる
- */
 private fun String.isHttpsUrl(): Boolean = runCatching { Url(this) }.getOrNull()?.protocol == URLProtocol.HTTPS

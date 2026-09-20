@@ -54,10 +54,12 @@ inbox は署名が通れば 202、通らなければ 401 を返す。検証の�
 [HttpSignatureVerifier.kt](../backend/feature-mastodon/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
 の KDoc にある。
 
-届いたアクティビティのうち処理するのは `Follow` と `Undo` と `Delete` の 3 つ。
+届いたアクティビティのうち処理するのは `Follow` と `Undo` と `Update` と `Delete` の 4 つ。
 `Follow` はフォロワーとして記録してから相手の inbox に `Accept` を返し、
-`Undo` はその記録を消す。`Delete` は送り主自身の削除のときだけ、その相手の
-フォローを全部消す。それ以外の種類は種類と送り主をログに出すだけ。
+`Undo` はその記録を消す。`Update` は送り主自身のアクターが `object` に埋め込まれて
+いるときだけ、記録している表示名・`preferredUsername`・プロフィールの URL・アイコンの
+URL を置き換える。inbox と公開鍵は触らない。`Delete` は送り主自身の削除のときだけ、
+その相手のフォローを全部消す。それ以外の種類は種類と送り主をログに出すだけ。
 
 記録は DB に残るので、再起動してもフォロワーは残る。`Accept` を返せなかった
 フォローは記録には残るがフォロワーには数えない。相手から見て成立していないため。

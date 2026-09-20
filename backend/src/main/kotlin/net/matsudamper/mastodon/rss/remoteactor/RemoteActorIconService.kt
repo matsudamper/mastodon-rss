@@ -22,22 +22,31 @@ class RemoteActorIconService(
     private val fetcher: IconFetchService,
 ) {
     /**
-     * アクター文書の URL で引く。フォロワーとして記録が無いか、アイコンを
-     * 名乗っていないか、取ってこられなければ null。
+     * アクター文書の URL と、画面が URL に付けている版で引く。
+     * フォロワーとして記録が無いか、アイコンを名乗っていないか、版が合わないか、
+     * 取ってこられなければ null。
+     *
+     * @param version [ActorUrls.iconVersion] の値。相手がいま名乗っている
+     *   取得元から決まる値と一致するものだけを受ける
      */
-    suspend fun find(actorUri: String): RemoteActorIcon? {
+    suspend fun find(
+        actorUri: String,
+        version: String,
+    ): RemoteActorIcon? {
         // 記録にある相手のものしか返さない。こうしておかないと、任意の URL の中身を
         // こちらのドメインから配る口になる
         val sourceUrl = followers.findIconUrl(actorUri) ?: return null
+
+        // 版が合わなければ取りに行かない。この口は無認証なので、版を変えながら
+        // 呼ぶだけで前段のキャッシュを外し、そのたびに配信元へ取りに行かせられる。
+        // 合う版は 1 つしか無いので、前段に載る URL も 1 つに絞れる
+        if (version != ActorUrls.iconVersion(sourceUrl)) return null
 
         val fetched = fetcher.fetch(sourceUrl) as? IconFetchService.FetchResult.Success ?: return null
 
         return RemoteActorIcon(
             bytes = fetched.bytes,
             contentType = fetched.imageType.contentType,
-            // 画面が URL に付けているのと同じ値。一致していれば、その URL は
-            // 相手がいま名乗っているアイコンを指している
-            version = ActorUrls.iconVersion(sourceUrl),
             freshFor = fetched.freshFor,
         )
     }
@@ -46,13 +55,10 @@ class RemoteActorIconService(
 /**
  * 中継するアイコン 1 つ。
  *
- * @param version 取得元の URL から決まる値。要求された値と一致すれば、
- *   同じ URL で中身が入れ替わらないと分かる
  * @param freshFor 配信元が言う、取り直さなくてよい時間。言っていなければ null
  */
 class RemoteActorIcon(
     val bytes: ByteArray,
     val contentType: ContentType,
-    val version: String,
     val freshFor: Duration?,
 )

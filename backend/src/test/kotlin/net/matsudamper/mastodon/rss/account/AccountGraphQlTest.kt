@@ -682,7 +682,9 @@ class AccountGraphQlTest {
         }
 
     private companion object {
-        /** 何も名乗っていない相手。プロフィールの表示を見ないテストで使う */
+        /**
+         * 何も名乗っていない相手。プロフィールの表示を見ないテストで使う
+         */
         val NO_PROFILE: RemoteActorProfile =
             RemoteActorProfile(
                 preferredUsername = null,
