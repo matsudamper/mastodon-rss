@@ -49,7 +49,7 @@ internal interface ExpiringCache<K : Any, V : Any> {
  *
  * 実装はプロセスのメモリ上に持つだけで、再起動やプロセス間では共有しない。
  *
- * @param maxEntries 覚えておく行数の上限。溢れたら期限が近いものから捨てる
+ * @param maxEntries 覚えておく行数の上限。溢れた分は捨てる。どれが残るかは決まらない
  */
 internal fun <K : Any, V : Any> createExpiringCache(maxEntries: Int): ExpiringCache<K, V> =
     InMemoryExpiringCache(maxEntries)
