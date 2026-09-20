@@ -28,8 +28,15 @@ class FollowerFallbackPublicKeys(
 ) : PublicKeys {
     private val logger = LoggerFactory.getLogger(FollowerFallbackPublicKeys::class.java)
 
-    override suspend fun find(keyId: String): PublicKeyLookup =
-        when (val lookup = remote.find(keyId)) {
+    override suspend fun find(keyId: String): PublicKeyLookup = handle(keyId, remote.find(keyId))
+
+    override suspend fun refresh(keyId: String): PublicKeyLookup = handle(keyId, remote.refresh(keyId))
+
+    private fun handle(
+        keyId: String,
+        lookup: PublicKeyLookup,
+    ): PublicKeyLookup =
+        when (lookup) {
             is PublicKeyLookup.Found -> {
                 // 記録できなくても、引けた鍵での検証はできる。ここで例外を上げると
                 // 書き込めない間、検証を通るはずのアクティビティまで落ちる
