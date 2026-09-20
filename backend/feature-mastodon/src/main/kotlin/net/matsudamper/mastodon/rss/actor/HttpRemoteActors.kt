@@ -235,15 +235,19 @@ class HttpRemoteActors(
     /**
      * 覚える値打ちがあるか。検証に使える鍵が、取得先と同じホストの持ち主で入っていること。
      *
+     * [publicKeyOf] と同じ条件で見る。読めない鍵の文書を覚えると、そこから先の
+     * 検証は鍵が無いものとして落ち、[refresh] にも進まないまま期限まで拒み続ける。
+     *
      * ここを通らない文書でも、呼び出し側は結果として受け取る。そこで落ちるのは
-     * 同じ判断（[publicKeyOf]）で、覚えるかどうかだけをここで決める
+     * 同じ判断で、覚えるかどうかだけをここで決める
      */
     private fun RemoteActorDocument.hasUsableKey(requestUrl: Url): Boolean {
         val publicKey = publicKey ?: return false
-        if (publicKey.publicKeyPem.isBlank()) return false
 
         val keyOwnerActorId = publicKey.owner ?: id ?: return false
-        return isSameHost(keyOwnerActorId, requestUrl)
+        if (!isSameHost(keyOwnerActorId, requestUrl)) return false
+
+        return runCatching { RsaKeys.decodePublicKeyPem(publicKey.publicKeyPem) }.isSuccess
     }
 
     /**

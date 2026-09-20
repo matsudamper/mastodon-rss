@@ -105,28 +105,33 @@ private class InMemoryExpiringCache<K : Any, V : Any>(
     }
 
     /**
-     * 期限切れの行を片付け、それでも上限を超えていれば期限が近いものから捨てる。
+     * 期限切れの行を片付け、それでも上限を超えていれば溢れた分を捨てる。
      *
      * [get] だけに任せると、二度と読まれないキーの行が残り続ける。キーは外から
      * いくらでも作れるので、放っておくとリクエストを重ねるだけでメモリが増える。
      * 片付けは保存のたびではなく間隔を空けて行うが、それだと送り込むのをやめた後に
      * 期限切れになった行が残るので、行数の上限でも縛る。
      *
-     * 期限内の行を捨てても、次に要るときに取り直すだけで判断は変わらない
+     * 捨てる行を期限の近さで選ばないのは、上限に張り付いた状態で 1 行入るたびに
+     * 全部を並べ替えることになるため。上限まで埋めてから 1 行ずつ送り込むだけで、
+     * その並べ替えにこちらの CPU を使わせられる。どの行を捨てても、次に要るときに
+     * 取り直すだけで判断は変わらない
      */
     private fun pruneIfNeeded() {
-        val counted = puts.incrementAndGet() % PRUNE_INTERVAL == 0
-        if (!counted && entries.size <= maxEntries) return
+        if (puts.incrementAndGet() % PRUNE_INTERVAL == 0) {
+            entries.entries.removeIf { it.value.isExpired() }
+        }
 
-        entries.entries.removeIf { it.value.isExpired() }
-
-        val excess = entries.size - maxEntries
+        var excess = entries.size - maxEntries
         if (excess <= 0) return
 
-        entries.entries
-            .sortedBy { it.value.expiresAtMillis }
-            .take(excess)
-            .forEach { entries.remove(it.key, it.value) }
+        val iterator = entries.entries.iterator()
+        while (excess > 0 && iterator.hasNext()) {
+            val entry = iterator.next()
+            // remove(key, value) にしておくと、他スレッドが先に新しい値を
+            // 入れていた場合にそれを消してしまわない
+            if (entries.remove(entry.key, entry.value)) excess--
+        }
     }
 
     private class Entry<V>(
