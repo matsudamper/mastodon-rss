@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * 相手なので、消えても次の 1 通でまた入る。
  *
  * @param coolOff 1 回拒否してから通さないでおく時間
- * @param maxClients 覚えておく送信元の数。IP は詐称できるので上限で縛る
+ * @param maxClients 覚えておく送信元の数。送信元はいくらでも増やせるので上限で縛る
  * @param maxHistory 残しておく履歴の件数
  */
 class InboxCoolOff(

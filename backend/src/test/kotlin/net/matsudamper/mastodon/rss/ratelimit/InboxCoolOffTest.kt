@@ -116,7 +116,7 @@ class InboxCoolOffTest {
 
     @Test
     fun `覚える送信元は上限を超えない`() {
-        // IP は詐称できるので、送り込まれてもメモリが増え続けないこと
+        // 送信元はいくらでも増やせる。送り込まれてもメモリが増え続けないこと
         val coolOff = coolOff(maxClients = 2)
 
         repeat(10) { index -> coolOff.rejected("203.0.113.$index") }

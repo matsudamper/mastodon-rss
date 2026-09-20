@@ -66,9 +66,7 @@ private fun ApplicationCall.isInbox(): Boolean =
 /**
  * 送信元。
  *
- * Cloudflare の後ろにいるので、ソケットの接続元は Cloudflare になる。本当の
- * 送信元は `CF-Connecting-IP` に入る。これはヘッダなので、オリジンに直接
- * 繋がれた場合は詐称できる。Cloudflare を通らないと繋がらない前提で信じる
+ * ソケットの接続元は Cloudflare になるので、本当の送信元は `CF-Connecting-IP` から取る
  */
 private fun ApplicationCall.clientIp(): String =
     request.headers[CLOUDFLARE_CLIENT_IP_HEADER]?.takeIf { it.isNotBlank() }
