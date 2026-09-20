@@ -429,10 +429,10 @@ class FollowerRepositoryTest {
                 profile = ALICE_PROFILE.copy(displayName = "アリス（改名）", iconUrl = null),
             )
 
+            // 渡したプロフィールで丸ごと置き換わる。部分更新ではない
             val stored = followers.list("admin", after = null, limit = 10).single()
             assertEquals("アリス（改名）", stored.displayName)
             assertNull(stored.iconUrl)
-            // 名乗り直していない部分はそのまま
             assertEquals("alice", stored.preferredUsername)
         }
     }
