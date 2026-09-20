@@ -75,6 +75,20 @@ class ExpiringCacheTest {
         assertTrue(remaining <= MAX_ENTRIES, "上限を超えて残っている: $remaining")
     }
 
+    @Test
+    fun `上限を超えても今入れた行は残る`() {
+        // 間隔を空けるために使う側は、書いた行が残ることを当てにしている。
+        // その場で捨てられると、上限まで埋めた状態で間隔が効かなくなる
+        val cache = createExpiringCache<String, String>(maxEntries = MAX_ENTRIES)
+        repeat(MAX_ENTRIES) { index ->
+            cache.put(key = "key$index", value = "値$index", ttlMillis = 60_000)
+        }
+
+        cache.put(key = "最後に入れたキー", value = "最後の値", ttlMillis = 60_000)
+
+        assertEquals("最後の値", cache.get("最後に入れたキー"))
+    }
+
     private companion object {
         const val MAX_ENTRIES = 8
     }

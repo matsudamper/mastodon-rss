@@ -81,7 +81,7 @@ private class InMemoryExpiringCache<K : Any, V : Any>(
         ttlMillis: Long,
     ) {
         entries[key] = Entry(value = value, expiresAtMillis = System.currentTimeMillis() + ttlMillis)
-        pruneIfNeeded()
+        pruneIfNeeded(inserted = key)
     }
 
     override fun invalidate(key: K) {
@@ -100,7 +100,7 @@ private class InMemoryExpiringCache<K : Any, V : Any>(
             if (existing != null && !existing.isExpired()) existing else entry
         }
 
-        pruneIfNeeded()
+        pruneIfNeeded(inserted = key)
         return stored === entry
     }
 
@@ -115,9 +115,16 @@ private class InMemoryExpiringCache<K : Any, V : Any>(
      * 捨てる行を期限の近さで選ばないのは、上限に張り付いた状態で 1 行入るたびに
      * 全部を並べ替えることになるため。上限まで埋めてから 1 行ずつ送り込むだけで、
      * その並べ替えにこちらの CPU を使わせられる。どの行を捨てても、次に要るときに
-     * 取り直すだけで判断は変わらない
+     * 取り直すだけで判断は変わらない。
+     *
+     * ただし今入れた行だけは捨てない。この呼び出しが書いたものをその場で捨てると、
+     * 上限まで埋めた状態では書いても残らなくなり、間隔を空けるために使っている側
+     * （[net.matsudamper.mastodon.rss.actor.HttpRemoteActors] の取り直し）で
+     * 間隔が効かなくなる
+     *
+     * @param inserted この呼び出しで書いた行のキー
      */
-    private fun pruneIfNeeded() {
+    private fun pruneIfNeeded(inserted: K) {
         if (puts.incrementAndGet() % PRUNE_INTERVAL == 0) {
             entries.entries.removeIf { it.value.isExpired() }
         }
@@ -128,6 +135,8 @@ private class InMemoryExpiringCache<K : Any, V : Any>(
         val iterator = entries.entries.iterator()
         while (excess > 0 && iterator.hasNext()) {
             val entry = iterator.next()
+            if (entry.key == inserted) continue
+
             // remove(key, value) にしておくと、他スレッドが先に新しい値を
             // 入れていた場合にそれを消してしまわない
             if (entries.remove(entry.key, entry.value)) excess--
