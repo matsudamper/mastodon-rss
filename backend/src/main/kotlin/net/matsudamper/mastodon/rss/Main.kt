@@ -33,6 +33,7 @@ import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
 import net.matsudamper.mastodon.rss.note.featuredRoutes
 import net.matsudamper.mastodon.rss.note.noteRoutes
 import net.matsudamper.mastodon.rss.note.outboxRoutes
+import net.matsudamper.mastodon.rss.ratelimit.installInboxCoolOff
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
 import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
@@ -129,6 +130,7 @@ fun Application.module(deps: AppDependencies) {
 
     val diContainer = DiContainer(
         passwordHash = env.adminPasswordHash,
+        inboxCoolOff = deps.inboxCoolOff,
         accountRepository = deps.repositories.accounts,
         followerRepository = deps.repositories.followers,
         domain = env.domain,
@@ -172,6 +174,9 @@ fun Application.module(deps: AppDependencies) {
             setOpenTelemetry(openTelemetry)
         }
     }
+
+    // 署名を拒否した送信元を inbox の手前で止める。ルーティングより先に入れる
+    installInboxCoolOff(deps.inboxCoolOff)
 
     routing {
         get("/healthz") {

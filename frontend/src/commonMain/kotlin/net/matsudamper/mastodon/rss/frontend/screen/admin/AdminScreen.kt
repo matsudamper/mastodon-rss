@@ -151,6 +151,7 @@ private fun MenuCard(listener: AdminScreenUiState.Listener) {
         TextLink("アカウントの一覧", listener::onClickAccounts)
         TextLink("アカウントの追加", listener::onClickNewAccount)
         TextLink("送り直しを待っている配信", listener::onClickDeliveries)
+        TextLink("inbox のブロック", listener::onClickInbox)
         Text("投稿とフォロワー数は、一覧からアカウントを選んだ先にある。")
         Text(
             "フィードの登録・削除、手動での再取得はこれから作る。",

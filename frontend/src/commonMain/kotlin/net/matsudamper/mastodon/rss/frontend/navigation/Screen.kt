@@ -74,6 +74,17 @@ sealed interface Screen : NavKey {
     }
 
     /**
+     * inbox のブロックの状況。
+     *
+     * 署名を拒否した送信元をしばらく通さないようにしているので、いま何を
+     * 止めているかと、止めた記録を出す
+     */
+    data object AdminInbox : Screen {
+        override val path: String = "/$ADMIN_SEGMENT/$INBOX_SEGMENT"
+        override val title: String = "inbox のブロック | $SITE_NAME"
+    }
+
+    /**
      * アカウントの追加
      */
     data object AdminAccountNew : Screen {
@@ -186,6 +197,8 @@ sealed interface Screen : NavKey {
 
         private const val DELIVERIES_SEGMENT: String = "deliveries"
 
+        private const val INBOX_SEGMENT: String = "inbox"
+
         private const val NEW_SEGMENT: String = "new"
 
         private const val FEEDS_SEGMENT: String = "feeds"
@@ -247,6 +260,8 @@ sealed interface Screen : NavKey {
                     rest == listOf(ACCOUNTS_SEGMENT) -> AdminAccounts
 
                     rest == listOf(DELIVERIES_SEGMENT) -> AdminDeliveries
+
+                    rest == listOf(INBOX_SEGMENT) -> AdminInbox
 
                     rest == listOf(ACCOUNTS_SEGMENT, NEW_SEGMENT) -> AdminAccountNew
 

@@ -1,0 +1,33 @@
+"""
+署名を拒否されて、いま inbox に通していない送信元 1 つ。
+
+inbox は誰でも POST できるので、通らない署名を送り続ける相手はここで止まる。
+正当な配信は署名が通るので出てこない。
+"""
+type AdminInboxCoolOff {
+    "送信元。Cloudflare の後ろにいるので CF-Connecting-IP の値"
+    clientIp: String!
+
+    "通すようになる時刻"
+    until: UnixTime!
+
+    "署名を拒否した回数"
+    rejectedCount: Int!
+
+    "検証まで進めずに返したリクエストの数"
+    blockedRequestCount: Int!
+}
+
+"止め始めた記録 1 件"
+type AdminInboxCoolOffRecord {
+    clientIp: String!
+
+    "止め始めた時刻"
+    blockedAt: UnixTime!
+
+    "そのときに決まった、通すようになる時刻"
+    until: UnixTime!
+
+    "その時点までに署名を拒否した回数"
+    rejectedCount: Int!
+}

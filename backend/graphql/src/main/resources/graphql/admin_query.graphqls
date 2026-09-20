@@ -18,6 +18,12 @@ type AdminQuery {
 
     "一度は送れず、送り直しを待っている配信。アカウントを問わない。次に送る時刻の順"
     retryingDeliveries(cursor: String, limit: Int!): AdminAccountRetryingDeliveriesConnection! @lazy
+
+    "いま inbox に通していない送信元。通すようになる時刻が早い順"
+    inboxCoolOffs: [AdminInboxCoolOff!]! @lazy
+
+    "止め始めた記録。新しい順。プロセスを再起動すると消える"
+    inboxCoolOffHistory(limit: Int!): [AdminInboxCoolOffRecord!]! @lazy
 }
 
 type AdminAccountsConnection {

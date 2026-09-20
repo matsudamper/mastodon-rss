@@ -49,5 +49,7 @@ data class AdminScreenUiState(
         fun onClickNewAccount()
 
         fun onClickDeliveries()
+
+        fun onClickInbox()
     }
 }

@@ -18,6 +18,8 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountRetryingDeliveri
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountRetryingDelivery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountsConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminInboxCoolOff
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminInboxCoolOffRecord
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
@@ -86,6 +88,47 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         }
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(connection).build())
+    }
+
+    override fun inboxCoolOffs(
+        adminQuery: QlAdminQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<List<QlAdminInboxCoolOff>>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val coolOffs = GraphQlEngine.diContainer(env).inboxCoolOff.active().map { state ->
+            QlAdminInboxCoolOff(
+                clientIp = state.clientIp,
+                until = state.until.epochSecond,
+                rejectedCount = state.rejectedCount,
+                blockedRequestCount = state.blockedRequestCount,
+            )
+        }
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(coolOffs).build())
+    }
+
+    override fun inboxCoolOffHistory(
+        adminQuery: QlAdminQuery,
+        limit: Int,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<List<QlAdminInboxCoolOffRecord>>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val records = GraphQlEngine
+            .diContainer(env)
+            .inboxCoolOff
+            .history(limit.coerceIn(0, MAX_INBOX_COOL_OFF_HISTORY_LIMIT))
+            .map { record ->
+                QlAdminInboxCoolOffRecord(
+                    clientIp = record.clientIp,
+                    blockedAt = record.blockedAt.epochSecond,
+                    until = record.until.epochSecond,
+                    rejectedCount = record.rejectedCount,
+                )
+            }
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(records).build())
     }
 
     override fun adminAccount(
@@ -213,5 +256,10 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         const val DEFAULT_ACCOUNTS_LIMIT = 10
 
         const val MAX_ACCOUNTS_LIMIT = 50
+
+        /**
+         * 履歴として残している件数より多くは返せない
+         */
+        const val MAX_INBOX_COOL_OFF_HISTORY_LIMIT = 100
     }
 }

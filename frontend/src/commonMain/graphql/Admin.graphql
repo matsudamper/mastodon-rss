@@ -322,3 +322,20 @@ query AdminAccountRetryingDeliveries($cursor: String, $limit: Int!) {
         }
     }
 }
+
+query AdminInboxCoolOffs($historyLimit: Int!) {
+    admin {
+        inboxCoolOffs {
+            clientIp
+            until
+            rejectedCount
+            blockedRequestCount
+        }
+        inboxCoolOffHistory(limit: $historyLimit) {
+            clientIp
+            blockedAt
+            until
+            rejectedCount
+        }
+    }
+}

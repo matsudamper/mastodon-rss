@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss
 
+import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration.Companion.days
@@ -52,6 +54,7 @@ import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
 import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
+import net.matsudamper.mastodon.rss.ratelimit.InboxCoolOff
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
@@ -195,6 +198,18 @@ class AppDependencies(
     )
 
     val actorProfiles: StoredActorProfiles = RepositoryActorProfiles(repositories.accounts)
+
+    /**
+     * 署名を拒否した送信元を inbox の手前で止める。
+     *
+     * 時間は Mastodon が取得の失敗後に空ける間隔（`STOPLIGHT_COOL_OFF_TIME`）に合わせる
+     */
+    val inboxCoolOff: InboxCoolOff = InboxCoolOff(
+        coolOff = Duration.ofMinutes(5),
+        maxClients = 10_000,
+        maxHistory = 100,
+        clock = Clock.systemUTC(),
+    )
 
     /**
      * inbox が受け取ったアクティビティの検証と振り分け。

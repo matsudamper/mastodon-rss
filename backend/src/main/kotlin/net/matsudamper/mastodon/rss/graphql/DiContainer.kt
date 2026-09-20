@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.NoteReader
 import net.matsudamper.mastodon.rss.note.NoteStore
+import net.matsudamper.mastodon.rss.ratelimit.InboxCoolOff
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
@@ -19,6 +20,7 @@ import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
 class DiContainer(
     passwordHash: PasswordHash?,
+    val inboxCoolOff: InboxCoolOff,
     accountRepository: AccountRepository,
     followerRepository: FollowerRepository,
     deliveryQueueRepository: DeliveryQueueRepository,

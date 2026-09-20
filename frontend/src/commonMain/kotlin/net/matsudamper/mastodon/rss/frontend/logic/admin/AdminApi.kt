@@ -18,6 +18,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemsMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteNoteMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminInboxCoolOffsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
@@ -143,6 +144,44 @@ class AdminApi(
                 )
             },
             toResult = { response -> response.toRetryingDeliveriesResult() },
+        )
+    }
+
+    /**
+     * inbox に通していない送信元と、その履歴。件数が少ないのでページングしない
+     */
+    fun inboxCoolOffs(historyLimit: Int): Flow<AdminInboxCoolOffsResult> {
+        return client
+            .query(AdminInboxCoolOffsQuery(historyLimit = historyLimit))
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .watch()
+            .map { response -> response.toInboxCoolOffsResult() }
+    }
+
+    private fun ApolloResponse<AdminInboxCoolOffsQuery.Data>.toInboxCoolOffsResult(): AdminInboxCoolOffsResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AdminInboxCoolOffsResult.Failure(failureMessage())
+        }
+
+        val data = data ?: return AdminInboxCoolOffsResult.Failure(failureMessage())
+
+        return AdminInboxCoolOffsResult.Success(
+            coolOffs = data.admin.inboxCoolOffs.map { node ->
+                AdminInboxCoolOff(
+                    clientIp = node.clientIp,
+                    until = node.until,
+                    rejectedCount = node.rejectedCount,
+                    blockedRequestCount = node.blockedRequestCount,
+                )
+            },
+            history = data.admin.inboxCoolOffHistory.map { node ->
+                AdminInboxCoolOffRecord(
+                    clientIp = node.clientIp,
+                    blockedAt = node.blockedAt,
+                    until = node.until,
+                    rejectedCount = node.rejectedCount,
+                )
+            },
         )
     }
 

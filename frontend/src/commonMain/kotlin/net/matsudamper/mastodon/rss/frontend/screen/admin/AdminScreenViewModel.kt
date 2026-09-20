@@ -44,6 +44,10 @@ internal class AdminScreenViewModel(
                         navigate(Screen.AdminAccountNew)
                     }
 
+                    override fun onClickInbox() {
+                        navigate(Screen.AdminInbox)
+                    }
+
                     override fun onClickDeliveries() {
                         navigate(Screen.AdminDeliveries)
                     }
