@@ -665,6 +665,7 @@ class DeliveryQueueRepositoryTest {
             inbox = FOLLOWER_INBOX,
             sharedInbox = INBOX_A,
             publicKeyPem = "pem",
+            profile = RemoteActorProfile(preferredUsername = null, displayName = null, profileUrl = null, iconUrl = null),
         ),
         followActivityUri = followActivityUri,
         receivedAt = now,

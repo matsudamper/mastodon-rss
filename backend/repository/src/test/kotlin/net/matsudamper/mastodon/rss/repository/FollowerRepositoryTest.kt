@@ -55,6 +55,7 @@ class FollowerRepositoryTest {
         actorUri: String = "https://remote.example/users/alice",
         followActivityUri: String = "https://remote.example/activities/1",
         sharedInbox: String? = null,
+        profile: RemoteActorProfile = NO_PROFILE,
     ): IncomingFollow = IncomingFollow(
         username = username,
         follower = NewRemoteActor(
@@ -62,6 +63,7 @@ class FollowerRepositoryTest {
             inbox = "$actorUri/inbox",
             sharedInbox = sharedInbox,
             publicKeyPem = "pem",
+            profile = profile,
         ),
         followActivityUri = followActivityUri,
         receivedAt = now,
@@ -75,7 +77,7 @@ class FollowerRepositoryTest {
             followers.record(incomingFollow())
 
             assertEquals(0, followers.count("admin"), "Accept 前なのに数えている")
-            assertEquals(emptyList(), followers.list("admin", after = null, limit = 10))
+            assertEquals(emptyList(), followers.actorUris("admin", after = null, limit = 10))
             assertEquals(emptyList(), followers.deliveryTargets("admin"))
 
             repositories.acceptDelivered()
@@ -83,7 +85,7 @@ class FollowerRepositoryTest {
             assertEquals(1, followers.count("admin"))
             assertEquals(
                 listOf("https://remote.example/users/alice"),
-                followers.list("admin", after = null, limit = 10),
+                followers.actorUris("admin", after = null, limit = 10),
             )
         }
     }
@@ -282,13 +284,13 @@ class FollowerRepositoryTest {
                 repositories.acceptDelivered()
             }
 
-            val first = followers.list("admin", after = null, limit = 2)
+            val first = followers.actorUris("admin", after = null, limit = 2)
             assertEquals(
                 listOf("https://remote.example/users/u0", "https://remote.example/users/u1"),
                 first,
             )
 
-            val second = followers.list("admin", after = first.last(), limit = 2)
+            val second = followers.actorUris("admin", after = first.last(), limit = 2)
             assertEquals(
                 listOf("https://remote.example/users/u2", "https://remote.example/users/u3"),
                 second,
@@ -296,11 +298,11 @@ class FollowerRepositoryTest {
 
             assertEquals(
                 listOf("https://remote.example/users/u4"),
-                followers.list("admin", after = second.last(), limit = 2),
+                followers.actorUris("admin", after = second.last(), limit = 2),
             )
             assertEquals(
                 emptyList(),
-                followers.list("admin", after = "https://remote.example/users/u4", limit = 2),
+                followers.actorUris("admin", after = "https://remote.example/users/u4", limit = 2),
             )
         }
     }
@@ -391,5 +393,94 @@ class FollowerRepositoryTest {
             assertFalse(followers.remove("admin", "https://remote.example/users/nobody", null))
             assertEquals(0, followers.removeRemoteActor("https://remote.example/users/nobody"))
         }
+    }
+
+    @Test
+    fun `相手が名乗ったプロフィールは一覧に出る`() {
+        withRepositories { repositories ->
+            val followers = repositories.followers
+            followers.record(incomingFollow(profile = ALICE_PROFILE))
+            repositories.acceptDelivered()
+
+            assertEquals(
+                listOf(
+                    StoredFollower(
+                        actorUri = "https://remote.example/users/alice",
+                        preferredUsername = "alice",
+                        displayName = "アリス",
+                        profileUrl = "https://remote.example/@alice",
+                        iconUrl = "https://files.remote.example/alice.png",
+                    ),
+                ),
+                followers.list("admin", after = null, limit = 10),
+            )
+        }
+    }
+
+    @Test
+    fun `プロフィールを受け取り直すと入れ替わる`() {
+        withRepositories { repositories ->
+            val followers = repositories.followers
+            followers.record(incomingFollow(profile = ALICE_PROFILE))
+            repositories.acceptDelivered()
+
+            followers.rememberProfile(
+                actorUri = "https://remote.example/users/alice",
+                profile = ALICE_PROFILE.copy(displayName = "アリス（改名）", iconUrl = null),
+            )
+
+            // 渡したプロフィールで丸ごと置き換わる。部分更新ではない
+            val stored = followers.list("admin", after = null, limit = 10).single()
+            assertEquals("アリス（改名）", stored.displayName)
+            assertNull(stored.iconUrl)
+            assertEquals("alice", stored.preferredUsername)
+        }
+    }
+
+    @Test
+    fun `フォローが残っていない相手のアイコンは引けない`() {
+        withRepositories { repositories ->
+            val followers = repositories.followers
+            followers.record(incomingFollow(profile = ALICE_PROFILE))
+            repositories.acceptDelivered()
+
+            assertEquals(
+                "https://files.remote.example/alice.png",
+                followers.findIconUrl("https://remote.example/users/alice"),
+            )
+
+            followers.remove("admin", "https://remote.example/users/alice", null)
+
+            // remote_actors の行は残るが、フォローしていない相手のアイコンを
+            // こちらのドメインから配り続けることはしない
+            assertNull(followers.findIconUrl("https://remote.example/users/alice"))
+        }
+    }
+
+    private companion object {
+        val NO_PROFILE: RemoteActorProfile =
+            RemoteActorProfile(
+                preferredUsername = null,
+                displayName = null,
+                profileUrl = null,
+                iconUrl = null,
+            )
+
+        val ALICE_PROFILE: RemoteActorProfile =
+            RemoteActorProfile(
+                preferredUsername = "alice",
+                displayName = "アリス",
+                profileUrl = "https://remote.example/@alice",
+                iconUrl = "https://files.remote.example/alice.png",
+            )
+
+        /**
+         * URL だけを見るテスト向け。プロフィールまで書くと、確かめたい並び順が埋もれる
+         */
+        fun FollowerRepository.actorUris(
+            username: String,
+            after: String?,
+            limit: Int,
+        ): List<String> = list(username = username, after = after, limit = limit).map { it.actorUri }
     }
 }

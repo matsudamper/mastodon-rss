@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.follower
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.RemoteActor
+import net.matsudamper.mastodon.rss.actor.RemoteActorProfile
 
 /**
  * フォロワーの記録の置き先。
@@ -88,6 +89,17 @@ interface FollowerStore {
     fun rememberPublicKeyPem(
         actorUri: String,
         publicKeyPem: String,
+    )
+
+    /**
+     * 一覧に出すプロフィールを、受け取り直したもので置き換える。記録が無ければ何もしない。
+     *
+     * 表示名もアイコンも相手の都合で変わる。`Follow` を受けたときのままにすると、
+     * 一覧に出るのは最初に見た名前で固定される。
+     */
+    fun rememberProfile(
+        actorUri: String,
+        profile: RemoteActorProfile,
     )
 
     /**

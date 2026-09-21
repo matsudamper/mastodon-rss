@@ -24,8 +24,21 @@ class TestRemoteActors(
     var findCallCount: Int = 0
         private set
 
+    var refreshCallCount: Int = 0
+        private set
+
     override suspend fun find(keyId: String): PublicKeyLookup {
         findCallCount++
+        return keys[keyId]?.let { PublicKeyLookup.Found(it) } ?: missing
+    }
+
+    /**
+     * 取り直しても同じ鍵を返す。鍵が入れ替わる状況は、差し替えたい側が
+     * [PublicKeys][net.matsudamper.mastodon.rss.httpsignature.PublicKeys] を
+     * 自前で用意して作る
+     */
+    override suspend fun refresh(keyId: String): PublicKeyLookup {
+        refreshCallCount++
         return keys[keyId]?.let { PublicKeyLookup.Found(it) } ?: missing
     }
 
@@ -52,6 +65,7 @@ class TestRemoteActors(
                             inbox = inbox,
                             sharedInbox = null,
                             publicKeyPem = RsaKeys.encodeToPem(publicKey),
+                            profile = TestRemoteActor.noProfile,
                         ),
                     )
                 },

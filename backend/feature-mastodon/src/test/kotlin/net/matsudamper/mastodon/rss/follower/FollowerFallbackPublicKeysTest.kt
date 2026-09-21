@@ -25,6 +25,7 @@ class FollowerFallbackPublicKeysTest {
                     inbox = TestRemoteActor.INBOX,
                     sharedInbox = null,
                     publicKeyPem = publicKeyPem,
+                    profile = TestRemoteActor.noProfile,
                 ),
                 followActivityUri = "https://remote.example/activities/1",
                 receivedAt = now,
@@ -59,6 +60,22 @@ class FollowerFallbackPublicKeysTest {
 
             FollowerFallbackPublicKeys(remote = TestRemoteActor.remoteActors(), followers = followers)
                 .find(TestRemoteActor.KEY_ID)
+
+            assertEquals(
+                RsaKeys.encodeToPem(TestRemoteActor.keyPair.public),
+                followers.findPublicKeyPem(TestRemoteActor.ACTOR_ID),
+            )
+        }
+
+    @Test
+    fun `引き直したときも記録の鍵を新しくする`() =
+        runBlocking {
+            // 引き直しは相手が鍵を替えたときに通る経路。記録も一緒に新しくしないと、
+            // その相手が消えた後の Delete を検証できない
+            val followers = followers(publicKeyPem = "替える前の鍵")
+
+            FollowerFallbackPublicKeys(remote = TestRemoteActor.remoteActors(), followers = followers)
+                .refresh(TestRemoteActor.KEY_ID)
 
             assertEquals(
                 RsaKeys.encodeToPem(TestRemoteActor.keyPair.public),

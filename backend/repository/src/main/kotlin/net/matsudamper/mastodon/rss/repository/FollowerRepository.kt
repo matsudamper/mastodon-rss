@@ -102,7 +102,26 @@ interface FollowerRepository {
     )
 
     /**
-     * フォロワーのアクター URL を返す。`followers` コレクションに使う。
+     * 一覧に出すプロフィールを置き換える。記録が無ければ何もしない。
+     *
+     * inbox と公開鍵は触らない。配信と署名の検証に効くものを、表示のための
+     * 入れ替えと同じ経路で動かさない。
+     */
+    fun rememberProfile(
+        actorUri: String,
+        profile: RemoteActorProfile,
+    )
+
+    /**
+     * 相手のアイコンの取得元 URL を返す。記録が無いか、名乗っていなければ null。
+     *
+     * [findPublicKeyPem] と同じく、フォローが 1 件も残っていない相手は返さない。
+     * 返すと、解除した相手のアイコンをこちらのドメインから配り続けることになる。
+     */
+    fun findIconUrl(actorUri: String): String?
+
+    /**
+     * フォロワーを返す。`followers` コレクションと一覧の表示に使う。
      *
      * 並びは URL 順。位置を件数で数えず、直前のページの最後の 1 件で指す。
      * 件数で数えると、読んでいる間にフォローや解除が入るたびに位置がずれて、
@@ -117,7 +136,7 @@ interface FollowerRepository {
         username: String,
         after: String?,
         limit: Int,
-    ): List<String>
+    ): List<StoredFollower>
 
     fun count(username: String): Long
 
@@ -168,6 +187,39 @@ data class IncomingFollow(
 )
 
 /**
+ * 相手のアクターのうち、人に見せるためだけの部分。
+ *
+ * 名乗らない実装があるので、どれも null を取りうる。
+ *
+ * @param preferredUsername 相手の acct のうちドメインより前
+ * @param profileUrl 人が開くプロフィールの URL。アクター文書の URL とは別物
+ * @param iconUrl アイコンの取得元。中身は持たない
+ */
+data class RemoteActorProfile(
+    val preferredUsername: String?,
+    val displayName: String?,
+    val profileUrl: String?,
+    val iconUrl: String?,
+)
+
+/**
+ * 記録済みのフォロワー 1 人。
+ *
+ * プロフィールは相手が名乗ったものをそのまま持つ。名乗らない実装があるので
+ * どれも null を取りうる。ドメインを持たないのは [actorUri] から決まるため。
+ *
+ * @param profileUrl 人が開くプロフィールの URL。[actorUri] とは別物
+ * @param iconUrl アイコンの取得元。中身は持たず、見に来たときに取りに行く
+ */
+data class StoredFollower(
+    val actorUri: String,
+    val preferredUsername: String?,
+    val displayName: String?,
+    val profileUrl: String?,
+    val iconUrl: String?,
+)
+
+/**
  * 相手のアクターのうち保存する部分。
  *
  * アクター文書を読んだ結果（`:backend:feature-mastodon` 側の型）とは別に定義する。
@@ -175,10 +227,12 @@ data class IncomingFollow(
  *
  * @param actorUri 相手のアクター文書の URL。相手を指す識別子
  * @param sharedInbox 同じインスタンス宛をまとめて送れる inbox。持たない実装もある
+ * @param profile 一覧に出すためだけの部分。配信にも署名の検証にも使わない
  */
 data class NewRemoteActor(
     val actorUri: String,
     val inbox: String,
     val sharedInbox: String?,
     val publicKeyPem: String,
+    val profile: RemoteActorProfile,
 )
