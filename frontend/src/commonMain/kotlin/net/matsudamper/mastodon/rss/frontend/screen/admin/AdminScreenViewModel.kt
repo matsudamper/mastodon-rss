@@ -22,6 +22,52 @@ internal class AdminScreenViewModel(
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
     private var sessionJob: Job? = null
 
+    private val loggedInListener =
+        object : AdminScreenUiState.Content.LoggedIn.Listener {
+            override fun onClickLogout() {
+                logout()
+            }
+        }
+
+    private val menuSections: List<AdminScreenUiState.MenuSection> =
+        listOf(
+            AdminScreenUiState.MenuSection(
+                title = "アカウント",
+                items = listOf(
+                    navigationMenuItem(
+                        title = "アカウントの一覧",
+                        description = "登録したアカウントを見る。投稿とフォロワーは一覧から選んだ先にある。",
+                        screen = Screen.AdminAccounts,
+                    ),
+                    navigationMenuItem(
+                        title = "アカウントの追加",
+                        description = "フィードを流すアカウントを新しく作る。",
+                        screen = Screen.AdminAccountNew,
+                    ),
+                ),
+            ),
+            AdminScreenUiState.MenuSection(
+                title = "配信",
+                items = listOf(
+                    navigationMenuItem(
+                        title = "送り直しを待っている配信",
+                        description = "フォロワーの inbox に届かず、送り直しを待っている投稿を見る。",
+                        screen = Screen.AdminDeliveries,
+                    ),
+                ),
+            ),
+            AdminScreenUiState.MenuSection(
+                title = "フィード",
+                items = listOf(
+                    AdminScreenUiState.MenuItem(
+                        title = "フィードの登録と再取得",
+                        description = "フィードの登録・削除と、手動での再取得。",
+                        availability = AdminScreenUiState.MenuItem.Availability.Planned(note = "これから作る。"),
+                    ),
+                ),
+            ),
+        )
+
     val uiStateFlow: StateFlow<AdminScreenUiState> =
         MutableStateFlow(
             AdminScreenUiState(
@@ -36,28 +82,12 @@ internal class AdminScreenViewModel(
                         navigate(Screen.Admin)
                     }
 
-                    override fun onClickAccounts() {
-                        navigate(Screen.AdminAccounts)
-                    }
-
-                    override fun onClickNewAccount() {
-                        navigate(Screen.AdminAccountNew)
-                    }
-
-                    override fun onClickDeliveries() {
-                        navigate(Screen.AdminDeliveries)
-                    }
-
                     override fun onPasswordChanged(text: String) {
                         viewModelStateFlow.update { it.copy(password = text, error = null) }
                     }
 
                     override fun onClickLogin() {
                         login()
-                    }
-
-                    override fun onClickLogout() {
-                        logout()
                     }
 
                     override fun onClickRetry() {
@@ -139,6 +169,24 @@ internal class AdminScreenViewModel(
         }
     }
 
+    private fun navigationMenuItem(
+        title: String,
+        description: String,
+        screen: Screen,
+    ): AdminScreenUiState.MenuItem {
+        return AdminScreenUiState.MenuItem(
+            title = title,
+            description = description,
+            availability = AdminScreenUiState.MenuItem.Availability.Available(
+                listener = object : AdminScreenUiState.MenuItem.Listener {
+                    override fun onClick() {
+                        navigate(screen)
+                    }
+                },
+            ),
+        )
+    }
+
     private fun createContent(state: ViewModelState): AdminScreenUiState.Content {
         return when (val session = state.session) {
             null -> {
@@ -152,7 +200,10 @@ internal class AdminScreenViewModel(
             is AdminSessionResult.Success -> {
                 when {
                     session.loggedIn -> {
-                        AdminScreenUiState.Content.LoggedIn
+                        AdminScreenUiState.Content.LoggedIn(
+                            sections = menuSections,
+                            listener = loggedInListener,
+                        )
                     }
 
                     else -> {
