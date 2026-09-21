@@ -24,7 +24,10 @@ class FakeReactionStore : ReactionStore {
         }
         if (duplicated) return false
 
-        // 本物は 1 人が 1 つの投稿に積める数を制限している
+        // 本物は投稿ごとと相手ごとの両方で数を制限している
+        val storedInNote = rows.count { it.notePublicId == reaction.notePublicId }
+        if (storedInNote >= MAX_REACTIONS_PER_NOTE) return false
+
         val storedByActor = rows.count {
             it.notePublicId == reaction.notePublicId && it.actorUri == reaction.actorUri
         }
@@ -58,5 +61,10 @@ class FakeReactionStore : ReactionStore {
          * 1 つの投稿に、1 人の相手が持てる反応の数。本物と同じ数にしてある
          */
         const val MAX_REACTIONS_PER_ACTOR = 8
+
+        /**
+         * 1 つの投稿が持てる反応の数。本物と同じ数にしてある
+         */
+        const val MAX_REACTIONS_PER_NOTE = 500
     }
 }

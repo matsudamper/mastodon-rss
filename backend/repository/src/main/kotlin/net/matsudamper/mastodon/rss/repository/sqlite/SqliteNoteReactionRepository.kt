@@ -22,8 +22,15 @@ internal class SqliteNoteReactionRepository(
         )
         if (noteExists.not()) return@transaction false
 
-        // 数えるのと入れるのを同じトランザクションに入れる。分けると、同じ相手からの
-        // 反応が並んだときに上限を越えた分まで入る
+        // 数えるのと入れるのを同じトランザクションに入れる。分けると、反応が並んだときに
+        // 上限を越えた分まで入る
+        val storedInNote = dsl
+            .selectCount()
+            .from(NOTE_REACTIONS)
+            .where(NOTE_REACTIONS.NOTE_PUBLIC_ID.eq(reaction.notePublicId.value))
+            .fetchOne(0, Int::class.java) ?: 0
+        if (storedInNote >= MAX_REACTIONS_PER_NOTE) return@transaction false
+
         val storedByActor = dsl
             .selectCount()
             .from(NOTE_REACTIONS)
@@ -118,5 +125,14 @@ internal class SqliteNoteReactionRepository(
          * お気に入りと合わせてもこの数に届かない
          */
         const val MAX_REACTIONS_PER_ACTOR = 8
+
+        /**
+         * 1 つの投稿が持てる反応の数。
+         *
+         * 相手はアクターをいくつでも作れるので、相手ごとの上限だけでは
+         * 人数ぶんだけ行が増える。フィードを流すだけのアカウントの投稿に
+         * この数の反応が付くことは無く、届いた分はここまで数える
+         */
+        const val MAX_REACTIONS_PER_NOTE = 500
     }
 }

@@ -137,6 +137,26 @@ class NoteReactionRepositoryTest {
     }
 
     @Test
+    fun `1 つの投稿が持てる反応にも上限がある`() {
+        withRepositories { repositories ->
+            val reactions = repositories.noteReactions
+
+            // 相手はアクターをいくつでも作れるので、相手ごとの上限だけでは人数ぶんだけ増える
+            val added = (1..600).count { index ->
+                reactions.add(
+                    reaction(
+                        activityUri = "https://remote.example/likes/$index",
+                        emoji = "👍",
+                        actorUri = "https://remote.example/users/$index",
+                    ),
+                )
+            }
+
+            assertEquals(500, added)
+        }
+    }
+
+    @Test
     fun `別の相手が同じアクティビティの id を使っても弾かれない`() {
         withRepositories { repositories ->
             val reactions = repositories.noteReactions
