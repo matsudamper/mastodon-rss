@@ -47,6 +47,7 @@ import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.NotePost
+import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
@@ -556,6 +557,7 @@ class AdminGraphQlTest {
                 inbox = "https://remote.example/users/follower/inbox",
                 sharedInbox = null,
                 publicKeyPem = "pem",
+                profile = RemoteActorProfile(preferredUsername = null, displayName = null, profileUrl = null, iconUrl = null),
             )
             repositories.followers.record(
                 IncomingFollow(

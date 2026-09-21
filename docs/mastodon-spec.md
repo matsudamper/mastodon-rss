@@ -55,11 +55,13 @@ inbox は署名が通れば 202、通らなければ 401 を返す。検証の�
 の KDoc にある。
 
 届いたアクティビティのうち処理するのは `Follow` と `Like` と `EmojiReact` と
-`Undo` と `Delete` の 5 つ。`Follow` はフォロワーとして記録してから相手の inbox に
-`Accept` を返す。`Like` と `EmojiReact` はこちらが配信した投稿への反応として記録する。
-`Undo` は `object` が何だったのかで、フォローの記録か反応のどちらかを消す。
-`Delete` は送り主自身の削除のときだけ、その相手のフォローと反応を全部消す。
-それ以外の種類は種類と送り主をログに出すだけ。
+`Undo` と `Update` と `Delete` の 6 つ。`Follow` はフォロワーとして記録してから
+相手の inbox に `Accept` を返す。`Like` と `EmojiReact` はこちらが配信した投稿への
+反応として記録する。`Undo` は `object` が何だったのかで、フォローの記録か反応の
+どちらかを消す。`Update` は送り主自身のアクターが `object` に埋め込まれて
+いるときだけ、記録している表示名・`preferredUsername`・プロフィールの URL・アイコンの
+URL を置き換える。inbox と公開鍵は触らない。`Delete` は送り主自身の削除のときだけ、
+その相手のフォローと反応を全部消す。それ以外の種類は種類と送り主をログに出すだけ。
 
 反応は `Like` と `EmojiReact` の 2 つの種類で届く。Mastodon のお気に入りは
 `content` を持たない `Like` で、Misskey は同じ `Like` の `content` に押した絵文字を

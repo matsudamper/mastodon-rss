@@ -192,6 +192,7 @@ class InboxService(
                         reactions = UndoReactionHandler(domain = domain, reactions = reactions),
                         follows = UndoFollowHandler(followers),
                     ),
+                    UpdateActorHandler(followers),
                     DeleteActorHandler(followers = followers, reactions = reactions),
                 ),
             )

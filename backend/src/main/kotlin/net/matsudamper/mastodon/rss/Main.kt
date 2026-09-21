@@ -33,6 +33,7 @@ import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
 import net.matsudamper.mastodon.rss.note.featuredRoutes
 import net.matsudamper.mastodon.rss.note.noteRoutes
 import net.matsudamper.mastodon.rss.note.outboxRoutes
+import net.matsudamper.mastodon.rss.remoteactor.remoteActorIconRoutes
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
 import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
@@ -184,6 +185,10 @@ fun Application.module(deps: AppDependencies) {
         actorRoutes(deps.directory, actorKey, deps.feedLinks, deps.actorProfiles, deps.webPageUrls)
         actorIconRoutes(deps.directory, deps.actorIcons)
         actorHeaderRoutes(deps.directory, deps.actorHeaders)
+
+        // フォロワーのアイコン。画面から配信元を直に引くと、CORS を許していない
+        // サーバーのぶんが出ない
+        remoteActorIconRoutes(deps.remoteActorIcons)
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)

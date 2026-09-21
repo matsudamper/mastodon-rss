@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.NoteReader
 import net.matsudamper.mastodon.rss.note.NoteStore
+import net.matsudamper.mastodon.rss.remoteactor.RemoteActorIconUrls
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
@@ -44,6 +45,11 @@ class DiContainer(
         iconFiles = accountIconFiles,
         domain = domain,
     )
+
+    /**
+     * フォロワーのアイコンは配信元ではなくこちらを指す URL で返す
+     */
+    val remoteActorIconUrls: RemoteActorIconUrls = RemoteActorIconUrls(domain)
 
     val noteReader: NoteReader = NoteReader(
         directory = actorDirectory,

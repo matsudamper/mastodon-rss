@@ -195,7 +195,19 @@ CREATE TABLE remote_actors (
     public_key_pem TEXT NOT NULL,
     -- 最後にアクター文書を取り直した時刻。相手が鍵を替えると古い鍵では
     -- 検証が通らなくなるので、取り直す判断に使う
-    fetched_at TEXT NOT NULL
+    fetched_at TEXT NOT NULL,
+    -- ここから下はフォロワーの一覧を出すためだけに持つ。配信にも署名の検証にも要らない。
+    -- 相手が名乗っていないことがあるので、どれも NULL を許す
+    --
+    -- 相手の acct のうちドメインより前。acct 全体を持たないのは、ドメインが
+    -- actor_uri から決まるため。2 つ持つと片方だけ古い状態を作れてしまう
+    preferred_username TEXT,
+    display_name TEXT,
+    -- 人が開くプロフィールの URL。actor_uri と別なのは、Mastodon が
+    -- アクター文書の URL とプロフィールの URL を分けているため
+    profile_url TEXT,
+    -- アイコンの取得元。中身はここには置かず、見に来たときに取りに行って中継する
+    icon_url TEXT
 );
 
 CREATE INDEX delivery_queue_note_public_id ON delivery_queue (note_public_id);
