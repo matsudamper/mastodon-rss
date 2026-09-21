@@ -24,6 +24,7 @@ import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
@@ -254,6 +255,7 @@ class AccountServiceTest {
                     inbox = FOLLOWER_INBOX,
                     sharedInbox = null,
                     publicKeyPem = "pem",
+                    profile = RemoteActorProfile(preferredUsername = null, displayName = null, profileUrl = null, iconUrl = null),
                 ),
                 followActivityUri = "$FOLLOWER_ACTOR_URI/follows/1",
                 receivedAt = CREATED_AT,

@@ -33,6 +33,7 @@ import net.matsudamper.mastodon.rss.repository.FeedFetchValidators
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 import net.matsudamper.mastodon.rss.shared.AccountId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
@@ -1048,6 +1049,7 @@ class FeedServiceTest {
                     inbox = FOLLOWER_INBOX,
                     sharedInbox = null,
                     publicKeyPem = "pem",
+                    profile = RemoteActorProfile(preferredUsername = null, displayName = null, profileUrl = null, iconUrl = null),
                 ),
                 followActivityUri = "https://remote.example/activities/follow",
                 receivedAt = CREATED_AT,

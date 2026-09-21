@@ -25,6 +25,7 @@ import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeFollowerRepository
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
+import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.repository.FeedHeader
@@ -32,6 +33,7 @@ import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import net.matsudamper.mastodon.rss.testDependencies
@@ -163,6 +165,7 @@ class AccountGraphQlTest {
                         inbox = "https://mastodon.example/users/alice/inbox",
                         sharedInbox = null,
                         publicKeyPem = "pem",
+                        profile = NO_PROFILE,
                     ),
                     followActivityUri = "https://mastodon.example/activities/1",
                     receivedAt = Instant.now(),
@@ -463,6 +466,7 @@ class AccountGraphQlTest {
                         inbox = "https://mastodon.example/users/bob/inbox",
                         sharedInbox = null,
                         publicKeyPem = "pem",
+                        profile = NO_PROFILE,
                     ),
                     followActivityUri = "https://mastodon.example/activities/bob",
                     receivedAt = Instant.now(),
@@ -473,14 +477,46 @@ class AccountGraphQlTest {
 
             val followers = queryFollowers("feed1", limit = 10).followers()
 
-            // プロフィールを保存していないので、いまはアクター文書の URL が返る
+            // プロフィールを名乗っていない相手なので、アクター文書の URL が返る
             assertEquals(
                 listOf("https://mastodon.example/users/alice"),
                 followers.nodes().map { it.string("url") },
             )
-            // 相手の名前はまだ保存していない
-            assertEquals("未取得", followers.nodes()[0].string("acct"))
+            assertEquals(JsonNull, followers.nodes()[0].getValue("acct"))
             assertEquals(false, followers.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `フォロワーの一覧には相手が名乗った名前とアイコンが出る`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+            repositories.followers.acceptFollow(
+                username = "feed1",
+                actorUri = "https://mastodon.example/users/alice",
+                profile = RemoteActorProfile(
+                    preferredUsername = "alice",
+                    displayName = "アリス",
+                    profileUrl = "https://mastodon.example/@alice",
+                    iconUrl = "https://files.mastodon.example/alice.png",
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val follower = queryFollowers("feed1", limit = 10).followers().nodes()[0]
+
+            assertEquals("https://mastodon.example/@alice", follower.string("url"))
+            // ドメインはアクター文書の URL から作る。相手が名乗るのはその前だけ
+            assertEquals("@alice@mastodon.example", follower.string("acct"))
+            assertEquals("アリス", follower.string("displayName"))
+            // アイコンは配信元ではなくこちらを指す。画面から配信元を直に引くと、
+            // CORS を許していないサーバーのぶんが出ない
+            assertEquals(
+                "https://${TestServerEnv.DOMAIN}/remote-actors/icon.bin" +
+                    "?actor=https%3A%2F%2Fmastodon.example%2Fusers%2Falice" +
+                    "&v=${ActorUrls.iconVersion("https://files.mastodon.example/alice.png")}",
+                follower.string("iconUrl"),
+            )
         }
 
     @Test
@@ -523,7 +559,11 @@ class AccountGraphQlTest {
             assertFalse(response.containsKey("errors"))
         }
 
-    private fun FakeFollowerRepository.acceptFollow(username: String, actorUri: String) {
+    private fun FakeFollowerRepository.acceptFollow(
+        username: String,
+        actorUri: String,
+        profile: RemoteActorProfile = NO_PROFILE,
+    ) {
         record(
             IncomingFollow(
                 username = username,
@@ -532,6 +572,7 @@ class AccountGraphQlTest {
                     inbox = "$actorUri/inbox",
                     sharedInbox = null,
                     publicKeyPem = "pem",
+                    profile = profile,
                 ),
                 followActivityUri = "$actorUri/activities/1",
                 receivedAt = Instant.now(),
@@ -552,7 +593,7 @@ class AccountGraphQlTest {
             val query =
                 "query AccountFollowers(${'$'}username: String!, ${'$'}cursor: String, ${'$'}limit: Int!) { " +
                     "followers(query: { username: ${'$'}username, cursor: ${'$'}cursor, limit: ${'$'}limit }) { " +
-                    "nodes { url acct } pageInfo { hasMore nextCursor } } }"
+                    "nodes { url acct displayName iconUrl } pageInfo { hasMore nextCursor } } }"
 
             val variables = buildString {
                 append("{")
@@ -641,6 +682,17 @@ class AccountGraphQlTest {
         }
 
     private companion object {
+        /**
+         * 何も名乗っていない相手。プロフィールの表示を見ないテストで使う
+         */
+        val NO_PROFILE: RemoteActorProfile =
+            RemoteActorProfile(
+                preferredUsername = null,
+                displayName = null,
+                profileUrl = null,
+                iconUrl = null,
+            )
+
         suspend fun HttpResponse.body(): JsonObject = AppJson.parseToJsonElement(bodyAsText()).jsonObject
 
         /**

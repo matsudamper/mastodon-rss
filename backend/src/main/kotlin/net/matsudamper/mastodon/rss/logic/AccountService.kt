@@ -9,6 +9,7 @@ import net.matsudamper.mastodon.rss.repository.AccountDeletion
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.StoredFollower
 import net.matsudamper.mastodon.rss.shared.AccountId
 import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
 import org.slf4j.LoggerFactory
@@ -45,11 +46,11 @@ class AccountService(
     fun followerCounts(usernames: Set<String>): Map<String, Long> = followers.counts(usernames)
 
     /**
-     * フォロワーのアクター URL を、URL 順で `afterActorUrl` の次から `limit` 件返す
+     * フォロワーを、アクター URL 順で `afterActorUrl` の次から `limit` 件返す
      */
     fun followers(username: String, afterActorUrl: String?, limit: Int): FollowersPage {
         if (limit <= 0) {
-            return FollowersPage(actorUrls = listOf(), hasMore = false, nextActorUrl = null)
+            return FollowersPage(followers = listOf(), hasMore = false, nextActorUrl = null)
         }
 
         // 続きがあるかは 1 件多く引いて見る。数え直すと、読んでいる間に増減した分だけ食い違う
@@ -58,9 +59,9 @@ class AccountService(
         val page = fetched.take(limit)
 
         return FollowersPage(
-            actorUrls = page,
+            followers = page,
             hasMore = hasMore,
-            nextActorUrl = if (hasMore) page.last() else null,
+            nextActorUrl = if (hasMore) page.last().actorUri else null,
         )
     }
 
@@ -215,7 +216,7 @@ class AccountService(
      * @param nextActorUrl 続きがある場合の、次に渡す `afterActorUrl`
      */
     data class FollowersPage(
-        val actorUrls: List<String>,
+        val followers: List<StoredFollower>,
         val hasMore: Boolean,
         val nextActorUrl: String?,
     )

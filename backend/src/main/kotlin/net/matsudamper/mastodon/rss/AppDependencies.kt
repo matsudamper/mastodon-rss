@@ -52,6 +52,7 @@ import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
 import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
+import net.matsudamper.mastodon.rss.remoteactor.RemoteActorIconService
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
@@ -195,6 +196,15 @@ class AppDependencies(
     )
 
     val actorProfiles: StoredActorProfiles = RepositoryActorProfiles(repositories.accounts)
+
+    /**
+     * フォロワーのアイコンの中継。フィードのアイコンと同じ取得口を使う。
+     * 相手が書いた URL を無認証のエンドポイントから引く点も同じ
+     */
+    val remoteActorIcons: RemoteActorIconService = RemoteActorIconService(
+        followers = repositories.followers,
+        fetcher = iconFetcher,
+    )
 
     /**
      * inbox が受け取ったアクティビティの検証と振り分け。

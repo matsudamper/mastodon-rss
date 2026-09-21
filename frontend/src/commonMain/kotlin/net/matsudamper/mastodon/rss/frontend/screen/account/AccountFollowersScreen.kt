@@ -1,7 +1,9 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,10 +20,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
-import net.matsudamper.mastodon.rss.frontend.ui.TextLink
+import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 
 @Composable
 internal fun AccountFollowersScreen(
@@ -103,6 +106,42 @@ internal fun AccountFollowersContent(
 }
 
 @Composable
+private fun FollowerRow(
+    follower: AccountFollowersScreenUiState.Follower,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = follower.listener::onClick),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AccountAvatar(
+            username = follower.name,
+            iconUrl = follower.iconUrl,
+            size = 40.dp,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = follower.name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (follower.acct != null) {
+                Text(
+                    text = follower.acct,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun FollowerList(
     content: AccountFollowersScreenUiState.Content.Loaded,
 ) {
@@ -111,11 +150,7 @@ private fun FollowerList(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         items(items = content.followers) { follower ->
-            TextLink(
-                text = follower.acct,
-                modifier = Modifier.fillMaxWidth(),
-                onClick = follower.listener::onClick,
-            )
+            FollowerRow(follower = follower)
         }
 
         item(key = "footer") {

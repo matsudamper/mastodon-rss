@@ -2,10 +2,12 @@ package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.actor.RemoteActor
+import net.matsudamper.mastodon.rss.actor.RemoteActorProfile
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.repository.RemoteActorProfile as StoredRemoteActorProfile
 
 /**
  * ActivityPub 側の [FollowerStore] を DB に繋ぐ。
@@ -30,6 +32,7 @@ class RepositoryFollowerStore(
                     inbox = follower.inbox,
                     sharedInbox = follower.sharedInbox,
                     publicKeyPem = follower.publicKeyPem,
+                    profile = follower.profile.toStored(),
                 ),
                 followActivityUri = followActivityUri,
                 receivedAt = receivedAt,
@@ -64,13 +67,34 @@ class RepositoryFollowerStore(
         )
     }
 
+    override fun rememberProfile(
+        actorUri: String,
+        profile: RemoteActorProfile,
+    ) {
+        followers.rememberProfile(actorUri = actorUri, profile = profile.toStored())
+    }
+
+    /**
+     * ActivityPub の `followers` コレクションはアクター URL しか出さないので、
+     * 一緒に引けるプロフィールは落とす
+     */
     override fun list(
         username: String,
         after: String?,
         limit: Int,
-    ): List<String> = followers.list(username = username, after = after, limit = limit)
+    ): List<String> = followers
+        .list(username = username, after = after, limit = limit)
+        .map { it.actorUri }
 
     override fun count(username: String): Long = followers.count(username)
 
     override fun deliveryTargets(username: String): List<String> = followers.deliveryTargets(username)
 }
+
+private fun RemoteActorProfile.toStored(): StoredRemoteActorProfile =
+    StoredRemoteActorProfile(
+        preferredUsername = preferredUsername,
+        displayName = displayName,
+        profileUrl = profileUrl,
+        iconUrl = iconUrl,
+    )

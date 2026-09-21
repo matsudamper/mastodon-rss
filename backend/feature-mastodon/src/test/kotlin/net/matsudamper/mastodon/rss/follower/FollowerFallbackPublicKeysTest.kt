@@ -25,6 +25,7 @@ class FollowerFallbackPublicKeysTest {
                     inbox = TestRemoteActor.INBOX,
                     sharedInbox = null,
                     publicKeyPem = publicKeyPem,
+                    profile = TestRemoteActor.noProfile,
                 ),
                 followActivityUri = "https://remote.example/activities/1",
                 receivedAt = now,
