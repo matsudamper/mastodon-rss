@@ -16,10 +16,22 @@ interface PublicKeys {
      * 「今だけ引けない相手」が同じ扱いになる
      */
     suspend fun find(keyId: String): PublicKeyLookup
+
+    /**
+     * 覚えているものを捨てて引き直す。呼んでよいのは署名の検証に失敗したときだけ。
+     *
+     * 相手が鍵を替えると、覚えている鍵では検証が通らなくなる。替わったことは
+     * 通らない署名が届いて初めて分かるので、失敗そのものが取り直す合図になる。
+     *
+     * 通らない署名を投げ込めば誰でも呼ばせられる。相手のサーバーへの GET を
+     * 増やす踏み台にされないよう、実装側で間隔を空けること。間隔の中で呼ばれた
+     * 場合は取りに行かずに [PublicKeyLookup.Unavailable] を返してよい
+     */
+    suspend fun refresh(keyId: String): PublicKeyLookup
 }
 
 /**
- * [PublicKeys.find] の結果
+ * [PublicKeys.find] と [PublicKeys.refresh] の結果
  */
 sealed interface PublicKeyLookup {
     data class Found(
