@@ -4,7 +4,8 @@
 ビルドスクリプトのコメントに書いてあるので、こちらには重複させない。
 
 使い方は [README.md](../README.md)、外に対して何をどう応答するかは
-[mastodon-spec.md](mastodon-spec.md)、これからやることは [TODO.md](../TODO.md) を参照。
+[mastodon-spec.md](mastodon-spec.md)、これからやることは
+[GitHub の Issue](https://github.com/matsudamper/mastodon-rss/issues) を参照。
 
 ## モジュールの分け方
 

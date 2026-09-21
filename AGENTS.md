@@ -1,8 +1,8 @@
 # mastodon-rss
 
 ## 開発
-- `TODO.md` を確認する
-- 完了したら `TODO.md` のチェックを都度更新（部分実装はチェックせず補足を追記）
+- これからやることは [GitHub の Issue](https://github.com/matsudamper/mastodon-rss/issues) にある
+- 部分的にしか実装しなかったら、残りが分かるように issue へ補足を書く
 
 ## 境界
 - frontendはfrontendとsharedのみ知ってよい（スキーマは例外）
@@ -21,7 +21,7 @@
 ## ドキュメント
 - KDocは `/** */` 一行にせず改行する
 - 更新前に読み手と作業を決める。不要なら更新しない
-- `README.md` / `docs/architecture.md` / `TODO.md` の役割分担に従う
+- `README.md` / `docs/architecture.md` の役割分担に従う
 
 ## backend
 - pagingはoffset禁止。cursorと最後のid等を使う

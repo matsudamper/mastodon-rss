@@ -1,9 +1,9 @@
 # mastodon-rss
 RSS/Atom フィードを ActivityPub アクターとして配信し、Mastodon からフォローできるようにする自作サーバー。
 
-開発の進め方とロードマップは [TODO.md](TODO.md)、横断的な設計は
-[docs/architecture.md](docs/architecture.md)、Mastodon から見える仕様
+横断的な設計は [docs/architecture.md](docs/architecture.md)、Mastodon から見える仕様
 （エンドポイント・鍵の扱いなど）は [docs/mastodon-spec.md](docs/mastodon-spec.md) を参照。
+これからやることは [GitHub の Issue](https://github.com/matsudamper/mastodon-rss/issues) に置く。
 
 ## 必要なもの
 
