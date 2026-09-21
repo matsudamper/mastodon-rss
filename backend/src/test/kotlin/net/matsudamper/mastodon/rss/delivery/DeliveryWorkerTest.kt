@@ -34,6 +34,7 @@ import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.NotePost
+import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
@@ -467,6 +468,7 @@ class DeliveryWorkerTest {
             inbox = FOLLOWER_INBOX,
             sharedInbox = null,
             publicKeyPem = "pem",
+            profile = RemoteActorProfile(preferredUsername = null, displayName = null, profileUrl = null, iconUrl = null),
         ),
         followActivityUri = "$FOLLOWER_ACTOR_URI/follows/1",
         receivedAt = now,

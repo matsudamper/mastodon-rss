@@ -5,6 +5,8 @@ import java.util.TreeMap
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
+import net.matsudamper.mastodon.rss.repository.StoredFollower
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FOLLOWERS
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.REMOTE_ACTORS
@@ -154,6 +156,39 @@ internal class SqliteFollowerRepository(
     }
 
     /**
+     * 記録が無ければ何も書かない。フォローしていない相手の名前を溜めても使い道が無い
+     */
+    override fun rememberProfile(
+        actorUri: String,
+        profile: RemoteActorProfile,
+    ) {
+        jooq.transaction { dsl ->
+            dsl
+                .update(REMOTE_ACTORS)
+                .set(REMOTE_ACTORS.PREFERRED_USERNAME, profile.preferredUsername)
+                .set(REMOTE_ACTORS.DISPLAY_NAME, profile.displayName)
+                .set(REMOTE_ACTORS.PROFILE_URL, profile.profileUrl)
+                .set(REMOTE_ACTORS.ICON_URL, profile.iconUrl)
+                .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))
+                .execute()
+        }
+    }
+
+    /**
+     * 鍵と同じく、フォローが 1 件も残っていない相手のものは返さない
+     */
+    override fun findIconUrl(actorUri: String): String? = jooq.withConnection { dsl ->
+        dsl
+            .select(REMOTE_ACTORS.ICON_URL)
+            .from(REMOTE_ACTORS)
+            .join(FOLLOWERS)
+            .on(FOLLOWERS.REMOTE_ACTOR_ID.eq(REMOTE_ACTORS.ID))
+            .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))
+            .limit(1)
+            .fetchOne(REMOTE_ACTORS.ICON_URL)
+    }
+
+    /**
      * 同じ鍵なら書かない。読むたびに書くと、変わっていない行の fetched_at だけが動く
      */
     override fun rememberPublicKeyPem(
@@ -176,10 +211,15 @@ internal class SqliteFollowerRepository(
         username: String,
         after: String?,
         limit: Int,
-    ): List<String> = jooq.withConnection { dsl ->
+    ): List<StoredFollower> = jooq.withConnection { dsl ->
         dsl
-            .select(REMOTE_ACTORS.ACTOR_URI)
-            .from(FOLLOWERS)
+            .select(
+                REMOTE_ACTORS.ACTOR_URI,
+                REMOTE_ACTORS.PREFERRED_USERNAME,
+                REMOTE_ACTORS.DISPLAY_NAME,
+                REMOTE_ACTORS.PROFILE_URL,
+                REMOTE_ACTORS.ICON_URL,
+            ).from(FOLLOWERS)
             .join(REMOTE_ACTORS)
             .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
             .where(FOLLOWERS.USERNAME.eq(username))
@@ -188,7 +228,15 @@ internal class SqliteFollowerRepository(
             // URL 順。位置を指す鍵が返す値そのもので済む
             .orderBy(REMOTE_ACTORS.ACTOR_URI)
             .limit(limit)
-            .fetch(REMOTE_ACTORS.ACTOR_URI)
+            .fetch { record ->
+                StoredFollower(
+                    actorUri = record[REMOTE_ACTORS.ACTOR_URI],
+                    preferredUsername = record[REMOTE_ACTORS.PREFERRED_USERNAME],
+                    displayName = record[REMOTE_ACTORS.DISPLAY_NAME],
+                    profileUrl = record[REMOTE_ACTORS.PROFILE_URL],
+                    iconUrl = record[REMOTE_ACTORS.ICON_URL],
+                )
+            }
     }
 
     override fun count(username: String): Long = jooq.withConnection { dsl ->
@@ -256,12 +304,20 @@ internal class SqliteFollowerRepository(
             .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
             .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
             .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
+            .set(REMOTE_ACTORS.PREFERRED_USERNAME, actor.profile.preferredUsername)
+            .set(REMOTE_ACTORS.DISPLAY_NAME, actor.profile.displayName)
+            .set(REMOTE_ACTORS.PROFILE_URL, actor.profile.profileUrl)
+            .set(REMOTE_ACTORS.ICON_URL, actor.profile.iconUrl)
             .onConflict(REMOTE_ACTORS.ACTOR_URI)
             .doUpdate()
             .set(REMOTE_ACTORS.INBOX, actor.inbox)
             .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
             .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
             .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
+            .set(REMOTE_ACTORS.PREFERRED_USERNAME, actor.profile.preferredUsername)
+            .set(REMOTE_ACTORS.DISPLAY_NAME, actor.profile.displayName)
+            .set(REMOTE_ACTORS.PROFILE_URL, actor.profile.profileUrl)
+            .set(REMOTE_ACTORS.ICON_URL, actor.profile.iconUrl)
             .execute()
 
         return checkNotNull(

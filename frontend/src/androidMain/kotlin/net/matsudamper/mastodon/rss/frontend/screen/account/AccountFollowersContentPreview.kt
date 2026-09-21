@@ -13,11 +13,15 @@ private fun AccountFollowersContentPreview() {
                 content = AccountFollowersScreenUiState.Content.Loaded(
                     followers = listOf(
                         AccountFollowersScreenUiState.Follower(
+                            name = "アリス",
                             acct = "@alice@mastodon.example",
+                            iconUrl = null,
                             listener = AndroidPreviewFollowerListener,
                         ),
                         AccountFollowersScreenUiState.Follower(
-                            acct = "未取得",
+                            name = "@bob@mastodon.example",
+                            acct = null,
+                            iconUrl = null,
                             listener = AndroidPreviewFollowerListener,
                         ),
                     ),

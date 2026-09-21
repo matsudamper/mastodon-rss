@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss
 
 import java.security.KeyPair
+import net.matsudamper.mastodon.rss.actor.RemoteActorProfile
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 
 /**
@@ -14,6 +15,18 @@ object TestRemoteActor {
     const val INBOX: String = "$ACTOR_ID/inbox"
 
     val keyPair: KeyPair by lazy { RsaKeys.generateKeyPair() }
+
+    /**
+     * 何も名乗っていない相手のプロフィール。
+     * 一覧の表示を見ないテストは、相手が名乗ったかどうかで変わらない
+     */
+    val noProfile: RemoteActorProfile =
+        RemoteActorProfile(
+            preferredUsername = null,
+            displayName = null,
+            profileUrl = null,
+            iconUrl = null,
+        )
 
     /** この相手だけを引ける [RemoteActors][net.matsudamper.mastodon.rss.actor.RemoteActors] */
     fun remoteActors(inbox: String? = INBOX): TestRemoteActors =

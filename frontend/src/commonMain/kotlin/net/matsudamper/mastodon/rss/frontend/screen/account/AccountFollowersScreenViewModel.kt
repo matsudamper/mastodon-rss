@@ -123,7 +123,11 @@ class AccountFollowersScreenViewModel(
                     AccountFollowersScreenUiState.Content.Loaded(
                         followers = followersState.followers.map { follower ->
                             AccountFollowersScreenUiState.Follower(
-                                acct = follower.acct,
+                                // 表示名を名乗っていない相手がいる。どれも無ければ
+                                // プロフィールの URL を出す。空の行が並ぶと誰なのか分からない
+                                name = follower.displayName ?: follower.acct ?: follower.url,
+                                acct = follower.acct?.takeIf { follower.displayName != null },
+                                iconUrl = follower.iconUrl,
                                 listener = object : AccountFollowersScreenUiState.Follower.Listener {
                                     override fun onClick() {
                                         viewModelScope.launch {

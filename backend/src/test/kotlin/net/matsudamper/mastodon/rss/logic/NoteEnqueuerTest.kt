@@ -14,6 +14,7 @@ import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.Note
+import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 
 // 記録と宛先ごとのキュー行が 1 回で確定するところ。送るのはここではない
 class NoteEnqueuerTest {
@@ -45,6 +46,7 @@ class NoteEnqueuerTest {
             inbox = "https://remote.example/users/follower/inbox",
             sharedInbox = "https://remote.example/inbox",
             publicKeyPem = "pem",
+            profile = RemoteActorProfile(preferredUsername = null, displayName = null, profileUrl = null, iconUrl = null),
         )
         repositories.followers.record(
             IncomingFollow(

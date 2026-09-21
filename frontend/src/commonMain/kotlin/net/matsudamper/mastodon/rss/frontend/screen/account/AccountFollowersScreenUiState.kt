@@ -58,8 +58,14 @@ data class AccountFollowersScreenUiState(
         fun onClickClose()
     }
 
+    /**
+     * @param name 一覧に出す名前。表示名が無ければ acct、それも無ければプロフィールの URL
+     * @param acct 名前の下に出す。表示名を名乗っていなければ [name] と同じになるので出さない
+     */
     data class Follower(
-        val acct: String,
+        val name: String,
+        val acct: String?,
+        val iconUrl: String?,
         val listener: Follower.Listener,
     ) {
         @Immutable
