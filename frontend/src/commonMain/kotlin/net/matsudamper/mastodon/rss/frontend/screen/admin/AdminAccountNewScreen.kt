@@ -100,4 +100,3 @@ private fun InputCard(content: AdminAccountNewScreenUiState.Content.Input, liste
         }
     }
 }
-
