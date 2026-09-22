@@ -53,7 +53,7 @@ class HomeScreenViewModel(
                         reloadTimeline()
                     }
 
-                    override fun onClickLoadMore() {
+                    override fun onLoadMore() {
                         loadMore()
                     }
 
@@ -171,7 +171,7 @@ class HomeScreenViewModel(
                 HomeScreenUiState.Timeline.Loaded(
                     notes = timeline.notes.map { it.toUiState() },
                     loadMoreVisible = timeline.cursor != null,
-                    loadingMore = state.loadingMore,
+                    loadMoreOnVisible = timeline.cursor != null && !state.loadingMore && state.loadMoreErrorMessage == null,
                     loadMoreErrorMessage = state.loadMoreErrorMessage,
                 )
             }

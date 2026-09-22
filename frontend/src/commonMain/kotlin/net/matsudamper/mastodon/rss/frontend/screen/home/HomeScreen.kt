@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -313,31 +312,41 @@ private fun TimelineNoteCard(
     }
 }
 
+/**
+ * 一覧の末尾。LazyColumn の item なので、画面に入って初めて組まれる。
+ * 組まれたら続きを取りに行くことで、下までスクロールしたときに自動で足される
+ */
 @Composable
 private fun TimelinePagingFooter(
     timeline: HomeScreenUiState.Timeline.Loaded,
     listener: HomeScreenUiState.Listener,
 ) {
     if (timeline.loadMoreVisible) {
+        val errorMessage = timeline.loadMoreErrorMessage
+
+        // 1 ページ足された後も枠が見えたままなら、件数が変わったのを合図にもう 1 ページ取る
+        LaunchedEffect(timeline.notes.size, timeline.loadMoreOnVisible) {
+            if (timeline.loadMoreOnVisible) {
+                listener.onLoadMore()
+            }
+        }
+
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            val errorMessage = timeline.loadMoreErrorMessage
             if (errorMessage != null) {
                 Text(
                     text = errorMessage,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                 )
-            }
-            if (timeline.loadingMore) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-            } else {
-                Button(onClick = listener::onClickLoadMore) {
-                    Text(if (errorMessage != null) "もう一度試す" else "もっと見る")
+                OutlinedButton(onClick = listener::onLoadMore) {
+                    Text("もう一度試す")
                 }
+            } else {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
             }
         }
     }

@@ -43,7 +43,7 @@ private fun HomeContentPreview() {
                         ),
                     ),
                     loadMoreVisible = true,
-                    loadingMore = false,
+                    loadMoreOnVisible = false,
                     loadMoreErrorMessage = null,
                 ),
                 accounts = HomeScreenUiState.Accounts.Loaded(
@@ -63,7 +63,7 @@ private object AndroidPreviewHomeListener : HomeScreenUiState.Listener {
 
     override fun onClickReloadTimeline() = Unit
 
-    override fun onClickLoadMore() = Unit
+    override fun onLoadMore() = Unit
 
     override fun onClickReloadAccounts() = Unit
 
