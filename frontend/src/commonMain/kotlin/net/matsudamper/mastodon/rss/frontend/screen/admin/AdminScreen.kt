@@ -4,9 +4,12 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -174,9 +177,12 @@ private fun MenuSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         section.items.chunked(columns).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
                 row.forEach { item ->
-                    MenuTile(item = item, modifier = Modifier.weight(1f))
+                    MenuTile(item = item, modifier = Modifier.weight(1f).fillMaxHeight())
                 }
                 repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
             }
