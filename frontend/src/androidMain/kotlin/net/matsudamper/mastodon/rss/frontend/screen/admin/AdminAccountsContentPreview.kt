@@ -32,9 +32,8 @@ private fun AdminAccountsContentPreview() {
                         ),
                     ),
                     loadMoreVisible = true,
-                    loadingMore = false,
+                    loadMoreOnVisible = false,
                     loadMoreErrorMessage = null,
-                    loadMoreButtonText = "もっと見る",
                 ),
                 listener = AndroidPreviewAdminAccountsListener,
             ),
@@ -55,5 +54,5 @@ private object AndroidPreviewAdminAccountsListener : AdminAccountsScreenUiState.
 
     override fun onClickReload() = Unit
 
-    override fun onClickLoadMore() = Unit
+    override fun onLoadMore() = Unit
 }

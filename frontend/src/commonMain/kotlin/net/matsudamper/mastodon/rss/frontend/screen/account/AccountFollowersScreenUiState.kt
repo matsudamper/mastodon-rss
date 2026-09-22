@@ -19,12 +19,11 @@ data class AccountFollowersScreenUiState(
         data class Loaded(
             val followers: List<Follower>,
             val loadMore: LoadMore,
-            val loadMoreErrorMessage: String?,
             val listener: Loaded.Listener,
         ) : Content {
             @Immutable
             interface Listener {
-                fun onClickLoadMore()
+                fun onLoadMore()
             }
         }
 
@@ -45,9 +44,17 @@ data class AccountFollowersScreenUiState(
          */
         data object Hidden : LoadMore
 
-        data object Button : LoadMore
+        /**
+         * 枠が見えたら続きを取りに行く
+         */
+        data object LoadOnVisible : LoadMore
 
         data object Loading : LoadMore
+
+        /**
+         * 続きが取れなかった。自動では取りに行かず、押して再試行するボタンと一緒に出す
+         */
+        data class Error(val message: String) : LoadMore
     }
 
     /**

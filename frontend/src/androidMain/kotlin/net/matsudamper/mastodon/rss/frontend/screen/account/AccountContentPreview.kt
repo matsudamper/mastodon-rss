@@ -40,7 +40,7 @@ private fun AccountContentPreview() {
                     notesError = null,
                     notesLoading = false,
                     loadMoreVisible = true,
-                    loadingMore = false,
+                    loadMoreOnVisible = false,
                 ),
                 listener = AndroidPreviewAccountListener,
             ),
@@ -65,7 +65,7 @@ private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
 
     override fun onClickReloadNotes() = Unit
 
-    override fun onClickLoadMore() = Unit
+    override fun onLoadMore() = Unit
 
     override fun onClickCopyAcct() = Unit
 }

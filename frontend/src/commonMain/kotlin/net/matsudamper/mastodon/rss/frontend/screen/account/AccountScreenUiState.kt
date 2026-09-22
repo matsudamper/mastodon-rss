@@ -15,13 +15,17 @@ data class AccountScreenUiState(
          */
         data object NotFound : Content
 
+        /**
+         * @param loadMoreVisible 末尾に続きの枠を出す
+         * @param loadMoreOnVisible 枠が見えたら続きを取りに行く。取っている間と失敗した後は false
+         */
         data class Loaded(
             val account: AccountUiState,
             val notes: List<NoteUiState>,
             val notesError: String?,
             val notesLoading: Boolean,
             val loadMoreVisible: Boolean,
-            val loadingMore: Boolean,
+            val loadMoreOnVisible: Boolean,
         ) : Content
 
         data class Error(
@@ -35,7 +39,7 @@ data class AccountScreenUiState(
 
         fun onClickReloadNotes()
 
-        fun onClickLoadMore()
+        fun onLoadMore()
 
         fun onClickCopyAcct()
 

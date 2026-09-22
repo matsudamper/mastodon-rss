@@ -85,7 +85,7 @@ private fun AdminAccountContentPreview() {
                     notesError = null,
                     notesLoading = false,
                     loadMoreVisible = true,
-                    loadingMore = false,
+                    loadMoreOnVisible = false,
                 ),
                 listener = AndroidPreviewAdminAccountListener,
             ),
@@ -134,7 +134,7 @@ private fun AdminAccountContentNoFeedPreview() {
                     notesError = null,
                     notesLoading = false,
                     loadMoreVisible = false,
-                    loadingMore = false,
+                    loadMoreOnVisible = false,
                 ),
                 listener = AndroidPreviewAdminAccountListener,
             ),
@@ -185,7 +185,7 @@ private object AndroidPreviewAdminAccountListener : AdminAccountScreenUiState.Li
 
     override fun onClickBackToAdmin() = Unit
 
-    override fun onClickLoadMore() = Unit
+    override fun onLoadMore() = Unit
 
     override fun onClickReloadNotes() = Unit
 
