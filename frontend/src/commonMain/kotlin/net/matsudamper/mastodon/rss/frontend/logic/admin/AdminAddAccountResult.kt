@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.logic.admin
 sealed interface AdminAddAccountResult {
     data class Success(
-        val acct: String,
+        val username: String,
     ) : AdminAddAccountResult
 
     /**
