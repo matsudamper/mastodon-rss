@@ -1,0 +1,4 @@
+input TimelineQuery {
+    cursor: String
+    limit: Int!
+}

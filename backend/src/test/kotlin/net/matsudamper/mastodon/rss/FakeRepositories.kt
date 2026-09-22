@@ -412,11 +412,7 @@ class FakeNoteRepository(
     ): List<Note> = stored
         .filter { it.username == username }
         .sortedWith(compareByDescending<Note> { it.publishedAt }.thenByDescending { it.publicId.value })
-        .filter { note ->
-            after == null ||
-                note.publishedAt < after.publishedAt ||
-                (note.publishedAt == after.publishedAt && note.publicId.value < after.publicId.value)
-        }
+        .filter { note -> after == null || note.isOlderThan(after) }
         .take(limit)
 
     override fun listPositions(
@@ -424,6 +420,15 @@ class FakeNoteRepository(
         after: NotePosition?,
         limit: Int,
     ): List<NotePosition> = list(username = username, after = after, limit = limit)
+        .map { NotePosition(publishedAt = it.publishedAt, publicId = it.publicId) }
+
+    override fun listAllPositions(
+        after: NotePosition?,
+        limit: Int,
+    ): List<NotePosition> = stored
+        .sortedWith(compareByDescending<Note> { it.publishedAt }.thenByDescending { it.publicId.value })
+        .filter { note -> after == null || note.isOlderThan(after) }
+        .take(limit)
         .map { NotePosition(publishedAt = it.publishedAt, publicId = it.publicId) }
 
     override fun count(username: String): Long = stored.count { it.username == username }.toLong()
@@ -436,6 +441,10 @@ class FakeNoteRepository(
      * 投稿した順を確かめるテストはこちらを見る
      */
     fun all(): List<Note> = stored.toList()
+
+    private fun Note.isOlderThan(position: NotePosition): Boolean =
+        publishedAt < position.publishedAt ||
+            (publishedAt == position.publishedAt && publicId.value < position.publicId.value)
 }
 
 class FakeFeedRepository(

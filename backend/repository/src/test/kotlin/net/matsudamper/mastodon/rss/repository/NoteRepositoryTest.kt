@@ -125,6 +125,21 @@ class NoteRepositoryTest {
     }
 
     @Test
+    fun `アカウントを問わない一覧は新しい順で cursor から続きが取れる`() {
+        withRepository { notes ->
+            notes.add(newNote("a-0", username = "admin", publishedAt = now))
+            notes.add(newNote("b-1", username = "feed1", publishedAt = now.plusSeconds(1)))
+            notes.add(newNote("a-2", username = "admin", publishedAt = now.plusSeconds(2)))
+
+            val first = notes.listAllPositions(after = null, limit = 2)
+            assertEquals(listOf("a-2", "b-1"), first.map { it.publicId.value })
+
+            val second = notes.listAllPositions(after = first.last(), limit = 2)
+            assertEquals(listOf("a-0"), second.map { it.publicId.value })
+        }
+    }
+
+    @Test
     fun `アカウントの投稿をまとめて消せる`() {
         withRepository { notes ->
             notes.add(newNote("a", username = "Feed1"))

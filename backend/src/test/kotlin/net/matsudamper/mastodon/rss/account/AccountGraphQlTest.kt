@@ -452,6 +452,62 @@ class AccountGraphQlTest {
         }
 
     @Test
+    fun `タイムラインは全アカウントの投稿が新しい順に並び、投稿したアカウントが付く`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+            repositories.accounts.add(username = "feed2", createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+            repositories.notes.add(
+                NewNote(
+                    username = "feed1",
+                    publicId = PublicNoteId("older"),
+                    contentHtml = "<p>1</p>",
+                    publishedAt = Instant.parse("2026-08-09T10:00:00Z"),
+                ),
+            )
+            repositories.notes.add(
+                NewNote(
+                    username = "feed2",
+                    publicId = PublicNoteId("newer"),
+                    contentHtml = "<p>2</p>",
+                    publishedAt = Instant.parse("2026-08-09T11:00:00Z"),
+                ),
+            )
+            application { module(testDependencies(repositories = repositories)) }
+
+            val nodes = queryTimeline(limit = 10).timeline().nodes()
+
+            assertEquals(listOf("newer", "older"), nodes.map { it.string("id") })
+            assertEquals(listOf("feed2", "feed1"), nodes.map { it.obj("account").string("username") })
+        }
+
+    @Test
+    fun `タイムラインの続きはカーソルで引ける`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+            repeat(3) { index ->
+                repositories.notes.add(
+                    NewNote(
+                        username = "feed1",
+                        publicId = PublicNoteId("note$index"),
+                        contentHtml = "<p>$index</p>",
+                        publishedAt = Instant.parse("2026-08-09T1$index:00:00Z"),
+                    ),
+                )
+            }
+            application { module(testDependencies(repositories = repositories)) }
+
+            val page1 = queryTimeline(limit = 2).timeline()
+            assertEquals(2, page1.nodes().size)
+            assertEquals(true, page1.pageInfo().boolean("hasMore"))
+
+            val page2 = queryTimeline(cursor = page1.pageInfo().string("nextCursor"), limit = 2).timeline()
+            assertEquals(listOf("note0"), page2.nodes().map { it.string("id") })
+            assertEquals(false, page2.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
     fun `フォロワーの一覧はログインなしで引ける`() =
         testApplication {
             val repositories = FakeRepositories()
@@ -634,6 +690,31 @@ class AccountGraphQlTest {
             setBody("""{"query":${JsonPrimitive(query)},"variables":$variables}""")
         }
 
+    private suspend fun ApplicationTestBuilder.queryTimeline(
+        cursor: String? = null,
+        limit: Int = 20,
+    ): HttpResponse =
+        client.post(GRAPHQL_PATH) {
+            contentType(ContentType.Application.Json)
+
+            val query =
+                "query Timeline(${'$'}cursor: String, ${'$'}limit: Int!) { " +
+                    "timeline(query: { cursor: ${'$'}cursor, limit: ${'$'}limit }) { " +
+                    "nodes { id url contentHtml publishedAt account { username acct } } " +
+                    "pageInfo { hasMore nextCursor } } }"
+
+            val variables = buildString {
+                append("{")
+                if (cursor != null) {
+                    append(""""cursor":${JsonPrimitive(cursor)},""")
+                }
+                append(""""limit":${JsonPrimitive(limit)}""")
+                append("}")
+            }
+
+            setBody("""{"query":${JsonPrimitive(query)},"variables":$variables}""")
+        }
+
     private suspend fun ApplicationTestBuilder.queryNote(username: String, id: String): HttpResponse =
         client.post(GRAPHQL_PATH) {
             contentType(ContentType.Application.Json)
@@ -701,6 +782,8 @@ class AccountGraphQlTest {
         suspend fun HttpResponse.account(): JsonObject = body().obj("data").obj("account")
 
         suspend fun HttpResponse.accountNotes(): JsonObject = body().obj("data").obj("notes")
+
+        suspend fun HttpResponse.timeline(): JsonObject = body().obj("data").obj("timeline")
 
         suspend fun HttpResponse.followers(): JsonObject = body().obj("data").obj("followers")
 

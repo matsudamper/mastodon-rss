@@ -1,0 +1,15 @@
+query AccountsScreen($cursor: String, $limit: Int!) {
+    accounts(cursor: $cursor, limit: $limit) {
+        nodes {
+            id
+            username
+            acct
+            displayName
+            iconUrl
+        }
+        pageInfo {
+            hasMore
+            nextCursor
+        }
+    }
+}

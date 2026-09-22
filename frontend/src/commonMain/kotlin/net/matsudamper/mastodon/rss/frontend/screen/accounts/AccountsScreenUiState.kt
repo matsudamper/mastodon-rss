@@ -1,0 +1,36 @@
+package net.matsudamper.mastodon.rss.frontend.screen.accounts
+
+import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffoldListener
+
+data class AccountsScreenUiState(
+    val content: Content,
+    val listener: Listener,
+) {
+    sealed interface Content {
+        data object Loading : Content
+
+        data class Error(val message: String) : Content
+
+        data class Loaded(
+            val accounts: List<Account>,
+            val loadMoreVisible: Boolean,
+            val loadingMore: Boolean,
+            val loadMoreErrorMessage: String?,
+        ) : Content
+    }
+
+    data class Account(
+        val username: String,
+        val acct: String,
+        val displayName: String,
+        val iconUrl: String?,
+    )
+
+    interface Listener : PublicScaffoldListener {
+        fun onClickReload()
+
+        fun onClickLoadMore()
+
+        fun onClickAccount(username: String)
+    }
+}

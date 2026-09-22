@@ -19,6 +19,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAccountNotesQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountsConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
+import net.matsudamper.mastodon.rss.graphql.model.QlTimelineQuery
 import net.matsudamper.mastodon.rss.graphql.model.QueryResolver
 import net.matsudamper.mastodon.rss.remoteactor.RemoteActorIconUrls
 import net.matsudamper.mastodon.rss.repository.StoredFollower
@@ -106,6 +107,37 @@ class QueryResolverImpl : QueryResolver {
         } else {
             val page = GraphQlEngine.diContainer(env).noteReader.noteIds(
                 username = query.username,
+                after = cursor?.toPosition(),
+                limit = query.limit,
+            )
+
+            QlAccountNotesConnection(
+                nodes = page.ids.map { QlAccountNote(id = it) },
+                pageInfo = QlPageInfo(
+                    hasMore = page.hasMore,
+                    nextCursor = page.nextPosition?.let { NotesCursor.of(it).encode() },
+                ),
+            )
+        }
+
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(connection).build(),
+        )
+    }
+
+    override fun timeline(
+        query: QlTimelineQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAccountNotesConnection>> {
+        val cursor = query.cursor?.let { NotesCursor.decode(it) }
+
+        val connection = if (query.cursor != null && cursor == null) {
+            QlAccountNotesConnection(
+                nodes = emptyList(),
+                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+            )
+        } else {
+            val page = GraphQlEngine.diContainer(env).noteReader.timelineNoteIds(
                 after = cursor?.toPosition(),
                 limit = query.limit,
             )

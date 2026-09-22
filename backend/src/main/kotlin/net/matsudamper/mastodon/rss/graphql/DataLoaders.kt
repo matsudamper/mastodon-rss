@@ -5,6 +5,7 @@ import kotlin.reflect.KProperty
 import graphql.schema.DataFetchingEnvironment
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.context.Context
+import net.matsudamper.mastodon.rss.dataloader.AccountByNoteDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.AccountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.AccountNoteDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.DataLoaderDefine
@@ -46,6 +47,13 @@ class DataLoaders(
     }
 
     val accountNoteDataLoader by register { AccountNoteDataLoaderDefine(diContainer.noteStore) }
+
+    val accountByNoteDataLoader by register {
+        AccountByNoteDataLoaderDefine(
+            notes = diContainer.noteStore,
+            accounts = diContainer.accountService,
+        )
+    }
 
     val feedItemByNoteDataLoader by register { FeedItemByNoteDataLoaderDefine(diContainer.feedService) }
 

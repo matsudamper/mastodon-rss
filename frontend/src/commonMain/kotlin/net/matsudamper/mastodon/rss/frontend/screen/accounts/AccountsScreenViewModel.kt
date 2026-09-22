@@ -1,0 +1,165 @@
+package net.matsudamper.mastodon.rss.frontend.screen.accounts
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.logic.PagingLoadMoreResult
+import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
+import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+
+class AccountsScreenViewModel(
+    private val viewModelScope: CoroutineScope,
+    private val api: AccountApi = AccountApi(),
+) {
+    private val events = EventSender<Event>()
+    internal val eventHandler = events.asHandler()
+    private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
+
+    private val accountsPaging = api.accounts(limit = PAGE_SIZE)
+
+    private var accountsJob: Job? = null
+    private var loadMoreJob: Job? = null
+
+    val uiStateFlow: StateFlow<AccountsScreenUiState> =
+        MutableStateFlow(
+            AccountsScreenUiState(
+                content = AccountsScreenUiState.Content.Loading,
+                listener =
+                object : AccountsScreenUiState.Listener {
+                    override fun onClickHome() {
+                        navigate(Screen.Home)
+                    }
+
+                    override fun onClickAdmin() {
+                        navigate(Screen.Admin)
+                    }
+
+                    override fun onClickReload() {
+                        reload()
+                    }
+
+                    override fun onClickAccount(username: String) {
+                        navigate(Screen.Account(username))
+                    }
+
+                    override fun onClickLoadMore() {
+                        loadMore()
+                    }
+                },
+            ),
+        ).also { uiStateFlow ->
+            viewModelScope.launch {
+                viewModelStateFlow.collect { viewModelState ->
+                    uiStateFlow.update { uiState ->
+                        uiState.copy(content = createContent(viewModelState))
+                    }
+                }
+            }
+        }.asStateFlow()
+
+    fun onStart() {
+        val state = viewModelStateFlow.value
+        if (state.accounts == null && !state.isLoading) {
+            reload()
+        }
+    }
+
+    private fun navigate(screen: Screen) {
+        viewModelScope.launch {
+            events.send { it.navigate(screen) }
+        }
+    }
+
+    /**
+     * 一覧は先頭のページを watch して受け取る。続きを足したときもここに流れてくる
+     */
+    private fun reload() {
+        loadMoreJob?.cancel()
+        viewModelStateFlow.update { ViewModelState(isLoading = true) }
+
+        accountsJob?.cancel()
+        accountsJob = viewModelScope.launch {
+            accountsPaging.watch().collect { result ->
+                viewModelStateFlow.update {
+                    it.copy(
+                        isLoading = false,
+                        accounts = result,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun loadMore() {
+        val currentState = viewModelStateFlow.value
+        val currentAccounts = currentState.accounts as? AccountsResult.Success ?: return
+        if (!currentAccounts.hasMore || currentState.loadingMore) return
+
+        val cursor = currentAccounts.nextCursor ?: return
+        viewModelStateFlow.update { it.copy(loadingMore = true, loadMoreErrorMessage = null) }
+
+        loadMoreJob?.cancel()
+        loadMoreJob = viewModelScope.launch {
+            when (val result = accountsPaging.loadMore(cursor)) {
+                PagingLoadMoreResult.Success -> {
+                    viewModelStateFlow.update { it.copy(loadingMore = false, loadMoreErrorMessage = null) }
+                }
+
+                // 続きが取れなくても既に出ている一覧は消さない
+                is PagingLoadMoreResult.Failure -> {
+                    viewModelStateFlow.update { it.copy(loadingMore = false, loadMoreErrorMessage = result.message) }
+                }
+            }
+        }
+    }
+
+    private fun createContent(state: ViewModelState): AccountsScreenUiState.Content {
+        if (state.isLoading && state.accounts == null) {
+            return AccountsScreenUiState.Content.Loading
+        }
+
+        return when (val accounts = state.accounts) {
+            null -> AccountsScreenUiState.Content.Loading
+
+            is AccountsResult.Failure -> AccountsScreenUiState.Content.Error(accounts.message)
+
+            is AccountsResult.Success -> {
+                AccountsScreenUiState.Content.Loaded(
+                    accounts =
+                    accounts.accounts.map { account ->
+                        AccountsScreenUiState.Account(
+                            username = account.username,
+                            acct = account.acct,
+                            displayName = account.displayName,
+                            iconUrl = account.iconUrl,
+                        )
+                    },
+                    loadMoreVisible = accounts.hasMore,
+                    loadingMore = state.loadingMore,
+                    loadMoreErrorMessage = state.loadMoreErrorMessage,
+                )
+            }
+        }
+    }
+
+    private data class ViewModelState(
+        val isLoading: Boolean = false,
+        val loadingMore: Boolean = false,
+        val accounts: AccountsResult? = null,
+        val loadMoreErrorMessage: String? = null,
+    )
+
+    interface Event {
+        suspend fun navigate(screen: Screen)
+    }
+
+    private companion object {
+        const val PAGE_SIZE = 20
+    }
+}

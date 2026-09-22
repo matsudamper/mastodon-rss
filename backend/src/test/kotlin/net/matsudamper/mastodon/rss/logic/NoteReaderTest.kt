@@ -61,6 +61,20 @@ class NoteReaderTest {
     }
 
     @Test
+    fun `タイムラインも取れた件数で続きを決める`() = runBlocking {
+        enqueue(3)
+
+        val first = reader.timelineNoteIds(after = null, limit = 2)
+        assertEquals(2, first.ids.size)
+        assertEquals(true, first.hasMore)
+
+        val next = reader.timelineNoteIds(after = assertNotNull(first.nextPosition), limit = 2)
+        assertEquals(1, next.ids.size)
+        assertEquals(false, next.hasMore)
+        assertNull(next.nextPosition)
+    }
+
+    @Test
     fun `知らないアカウントの一覧は空`() = runBlocking {
         enqueue(1)
 

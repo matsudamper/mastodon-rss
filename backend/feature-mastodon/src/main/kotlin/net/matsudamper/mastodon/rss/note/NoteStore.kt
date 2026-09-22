@@ -57,6 +57,14 @@ interface NoteStore {
         limit: Int,
     ): List<NotePosition>
 
+    /**
+     * アカウントを問わず、新しい順に位置だけ返す
+     */
+    fun listAllPositions(
+        after: NotePosition?,
+        limit: Int,
+    ): List<NotePosition>
+
     fun count(username: String): Long
 
     fun counts(usernames: Set<String>): Map<String, Long>

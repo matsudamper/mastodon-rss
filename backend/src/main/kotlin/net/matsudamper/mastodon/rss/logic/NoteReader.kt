@@ -68,6 +68,29 @@ class NoteReader(
         )
     }
 
+    /**
+     * アカウントを問わず、公開 id だけを新しい順に返す。トップのタイムラインに使う。
+     *
+     * 名前を引き当てる相手がいないので [ActorDirectory] は通さない。消したアカウントの
+     * 投稿は一緒に消えているので、持ち主を確かめることもしない
+     */
+    fun timelineNoteIds(
+        after: NotePosition?,
+        limit: Int,
+    ): PublicNoteIdPage {
+        val size = limit.coerceIn(0, MAX_LIST_LIMIT)
+        if (size == 0) return PublicNoteIdPage(ids = emptyList(), hasMore = false, nextPosition = null)
+
+        val fetched = notes.listAllPositions(after = after, limit = size + 1)
+        val page = fetched.take(size)
+
+        return PublicNoteIdPage(
+            ids = page.map { PublicNoteId(it.publicId.value) },
+            hasMore = fetched.size > size,
+            nextPosition = page.lastOrNull().takeIf { fetched.size > size },
+        )
+    }
+
     fun note(
         username: String,
         publicId: PublicNoteId,
