@@ -18,7 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
+import net.matsudamper.mastodon.rss.frontend.ui.ExternalImage
 
 /**
  * お気に入りには絵文字が付かないので、代わりに出す印
@@ -69,12 +69,12 @@ private fun ReactionEmoji(reaction: NoteReactionsUiState.Stamp) {
             style = MaterialTheme.typography.bodyMedium,
         )
     } else {
-        AsyncImage(
-            model = reaction.imageUrl,
+        ExternalImage(
+            url = reaction.imageUrl,
             // 名前は画像の隣に出ないので、読み上げるものとして渡す
             contentDescription = reaction.name,
-            modifier = Modifier.size(20.dp),
             onError = { imageFailed = true },
+            modifier = Modifier.size(20.dp),
         )
     }
 }
