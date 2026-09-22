@@ -36,7 +36,8 @@
         "com.android.kotlin.multiplatform.library",
         "/^io\\.coil-kt\\.coil3:/",
         "/^io\\.ktor:/",
-        "/^org\\.graalvm\\.buildtools(?:\\.native|:)/"
+        "/^org\\.graalvm\\.buildtools(?:\\.native|:)/",
+        "org.graalvm.sdk:nativeimage"
       ],
       "automerge": true
     }
