@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -268,32 +269,38 @@ private fun TimelineNoteCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                AccountAvatar(
-                    username = note.account.username,
-                    iconUrl = note.account.iconUrl,
-                    modifier = Modifier.clickable(onClick = note.account.listener::onClick),
-                    size = 40.dp,
-                )
-                Column(
+                // アイコンと名前の間の隙間もアカウントへ移る範囲に含める。
+                // 別々に押せるようにすると、隙間だけがカード（投稿）の側に落ちる
+                Row(
                     modifier = Modifier
                         .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
                         .clickable(onClick = note.account.listener::onClick),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        text = note.account.displayName,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                    AccountAvatar(
+                        username = note.account.username,
+                        iconUrl = note.account.iconUrl,
+                        size = 40.dp,
                     )
-                    Text(
-                        text = note.account.acct,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontFamily = FontFamily.Monospace,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = note.account.displayName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = note.account.acct,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 Text(
                     text = note.publishedAt,
