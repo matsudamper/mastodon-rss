@@ -165,8 +165,9 @@ CREATE TABLE note_reactions (
     -- （Misskey の Like / EmojiReact）を同じ形で持つ
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
-    -- 押した相手のアクター文書の URL。フォロワーとは限らないので remote_actors は引かない
-    actor_uri TEXT NOT NULL,
+    -- 押した相手。フォロワーとは限らないが、相手が消えた後の Delete を検証できるよう
+    -- 鍵ごと remote_actors に残す
+    remote_actor_id INTEGER NOT NULL REFERENCES remote_actors (id) ON DELETE CASCADE,
     -- 受け取った Like / EmojiReact の id。取り消しは id で指されるので覚えておく
     activity_uri TEXT NOT NULL,
     -- 絵文字そのもの、またはカスタム絵文字の :name: 。お気に入りは空文字。
@@ -177,10 +178,10 @@ CREATE TABLE note_reactions (
     emoji_image_url TEXT,
     created_at TEXT NOT NULL,
     -- 同じ相手が同じ反応を重ねない。取り消しが届かないまま押し直されても増えない
-    UNIQUE (note_public_id, actor_uri, emoji),
+    UNIQUE (note_public_id, remote_actor_id, emoji),
     -- 同じアクティビティの送り直しで増えない。id を相手ごとに見るのは、
     -- 全体で一意にすると、他人が使う id を先に書き込んでその相手の反応を弾けるため
-    UNIQUE (actor_uri, activity_uri)
+    UNIQUE (remote_actor_id, activity_uri)
 );
 
 CREATE TABLE remote_actors (
@@ -227,3 +228,5 @@ CREATE INDEX notes_published_at_public_id ON notes (published_at, public_id);
 CREATE INDEX notes_username_published_at ON notes (username, published_at);
 
 CREATE INDEX note_reactions_note_public_id ON note_reactions (note_public_id);
+
+CREATE INDEX note_reactions_remote_actor_id ON note_reactions (remote_actor_id);

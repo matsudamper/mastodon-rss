@@ -5,6 +5,7 @@ import net.matsudamper.mastodon.rss.repository.NoteReactionCount
 import net.matsudamper.mastodon.rss.repository.NoteReactionRepository
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.NOTES
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.NOTE_REACTIONS
+import net.matsudamper.mastodon.rss.repository.jooq.Tables.REMOTE_ACTORS
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import org.jooq.impl.DSL
 
@@ -31,18 +32,22 @@ internal class SqliteNoteReactionRepository(
             .fetchOne(0, Int::class.java) ?: 0
         if (storedInNote >= MAX_REACTIONS_PER_NOTE) return@transaction false
 
+        // 相手の行は反応より先に作る。押した相手を鍵ごと残すのが目的なので、
+        // 反応だけが入って相手の行が無い状態を作らない
+        val remoteActorId = RemoteActorRows.upsert(dsl = dsl, actor = reaction.actor, now = reaction.receivedAt)
+
         val storedByActor = dsl
             .selectCount()
             .from(NOTE_REACTIONS)
             .where(NOTE_REACTIONS.NOTE_PUBLIC_ID.eq(reaction.notePublicId.value))
-            .and(NOTE_REACTIONS.ACTOR_URI.eq(reaction.actorUri))
+            .and(NOTE_REACTIONS.REMOTE_ACTOR_ID.eq(remoteActorId))
             .fetchOne(0, Int::class.java) ?: 0
         if (storedByActor >= MAX_REACTIONS_PER_ACTOR) return@transaction false
 
         val inserted = dsl
             .insertInto(NOTE_REACTIONS)
             .set(NOTE_REACTIONS.NOTE_PUBLIC_ID, reaction.notePublicId.value)
-            .set(NOTE_REACTIONS.ACTOR_URI, reaction.actorUri)
+            .set(NOTE_REACTIONS.REMOTE_ACTOR_ID, remoteActorId)
             .set(NOTE_REACTIONS.ACTIVITY_URI, reaction.activityUri)
             .set(NOTE_REACTIONS.EMOJI, reaction.emoji)
             .set(NOTE_REACTIONS.EMOJI_IMAGE_URL, reaction.emojiImageUrl)
@@ -60,7 +65,7 @@ internal class SqliteNoteReactionRepository(
         dsl
             .deleteFrom(NOTE_REACTIONS)
             .where(NOTE_REACTIONS.ACTIVITY_URI.eq(activityUri))
-            .and(NOTE_REACTIONS.ACTOR_URI.eq(actorUri))
+            .and(NOTE_REACTIONS.REMOTE_ACTOR_ID.`in`(RemoteActorRows.id(actorUri)))
             .execute() > 0
     }
 
@@ -72,7 +77,7 @@ internal class SqliteNoteReactionRepository(
         dsl
             .deleteFrom(NOTE_REACTIONS)
             .where(NOTE_REACTIONS.NOTE_PUBLIC_ID.eq(notePublicId.value))
-            .and(NOTE_REACTIONS.ACTOR_URI.eq(actorUri))
+            .and(NOTE_REACTIONS.REMOTE_ACTOR_ID.`in`(RemoteActorRows.id(actorUri)))
             .and(NOTE_REACTIONS.EMOJI.eq(emoji))
             .execute() > 0
     }
@@ -80,8 +85,25 @@ internal class SqliteNoteReactionRepository(
     override fun removeByActor(actorUri: String): Int = jooq.transaction { dsl ->
         dsl
             .deleteFrom(NOTE_REACTIONS)
-            .where(NOTE_REACTIONS.ACTOR_URI.eq(actorUri))
+            .where(NOTE_REACTIONS.REMOTE_ACTOR_ID.`in`(RemoteActorRows.id(actorUri)))
             .execute()
+    }
+
+    /**
+     * 反応が 1 件も残っていない相手の鍵は返さない。
+     *
+     * `remote_actors` の行は反応を消しても残る。フォロワーの鍵と同じく、
+     * 返してしまうと関わりの切れた相手の鍵で署名を通せる
+     */
+    override fun findPublicKeyPem(actorUri: String): String? = jooq.withConnection { dsl ->
+        dsl
+            .select(REMOTE_ACTORS.PUBLIC_KEY_PEM)
+            .from(REMOTE_ACTORS)
+            .join(NOTE_REACTIONS)
+            .on(NOTE_REACTIONS.REMOTE_ACTOR_ID.eq(REMOTE_ACTORS.ID))
+            .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))
+            .limit(1)
+            .fetchOne(REMOTE_ACTORS.PUBLIC_KEY_PEM)
     }
 
     override fun countsByNotes(notePublicIds: Set<PublicNoteId>): Map<PublicNoteId, List<NoteReactionCount>> {

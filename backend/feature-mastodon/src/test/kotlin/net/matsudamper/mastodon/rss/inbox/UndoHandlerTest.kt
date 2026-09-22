@@ -49,7 +49,7 @@ class UndoHandlerTest {
         add(
             ReceivedReaction(
                 notePublicId = notePublicId,
-                actorUri = TestRemoteActor.ACTOR_ID,
+                actor = TestRemoteActor.actor,
                 activityUri = likeUri,
                 emoji = emoji,
                 emojiImageUrl = null,

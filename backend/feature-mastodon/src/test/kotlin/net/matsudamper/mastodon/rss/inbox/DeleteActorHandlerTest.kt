@@ -50,7 +50,7 @@ class DeleteActorHandlerTest {
         add(
             ReceivedReaction(
                 notePublicId = PublicNoteId("note1"),
-                actorUri = TestRemoteActor.ACTOR_ID,
+                actor = TestRemoteActor.actor,
                 activityUri = "https://remote.example/likes/1",
                 emoji = "",
                 emojiImageUrl = null,

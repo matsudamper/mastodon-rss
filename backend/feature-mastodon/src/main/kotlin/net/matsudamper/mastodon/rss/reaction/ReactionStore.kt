@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.reaction
 
 import java.time.Instant
+import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 
 /**
@@ -9,8 +10,8 @@ import net.matsudamper.mastodon.rss.entity.PublicNoteId
  * [net.matsudamper.mastodon.rss.follower.FollowerStore] と同じく口だけを決めて、
  * 実装は `:backend` が repository に繋ぐ。
  *
- * 押した相手はアクター文書の URL で持つ。フォロワーとは限らず、こちらに記録の無い
- * 相手からも届く。
+ * 押した相手はフォロワーとは限らない。それでも相手のアクターを鍵ごと記録するので、
+ * 相手が消えた後の `Delete` を検証して [removeActor] まで辿り着ける。
  */
 interface ReactionStore {
     /**
@@ -50,11 +51,19 @@ interface ReactionStore {
      * @return 消えた件数
      */
     fun removeActor(actorUri: String): Int
+
+    /**
+     * 反応を押した相手の公開鍵の PEM を返す。記録が無ければ null。
+     *
+     * 相手が消えてアクター文書を引けなくなったときの、鍵の引き先になる
+     */
+    fun findPublicKeyPem(actorUri: String): String?
 }
 
 /**
  * 受け取った反応 1 件。
  *
+ * @param actor 押した相手。押された時点のアクター文書から読んだもの
  * @param activityUri 受け取った `Like` / `EmojiReact` の id
  * @param emoji 絵文字そのもの、またはカスタム絵文字の `:name:`。
  *   絵文字を伴わないお気に入りは空文字
@@ -62,7 +71,7 @@ interface ReactionStore {
  */
 data class ReceivedReaction(
     val notePublicId: PublicNoteId,
-    val actorUri: String,
+    val actor: RemoteActor,
     val activityUri: String,
     val emoji: String,
     val emojiImageUrl: String?,

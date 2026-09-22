@@ -8,6 +8,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
@@ -23,6 +24,23 @@ class NoteReactionRepositoryTest {
     private val notePublicId = PublicNoteId("note1")
 
     private val actorUri = "https://remote.example/users/alice"
+
+    /**
+     * 押した相手。鍵は消えた後の `Delete` を検証するために残るので、
+     * 相手ごとに違うものを入れて取り違えが分かるようにする
+     */
+    private fun actor(actorUri: String): NewRemoteActor = NewRemoteActor(
+        actorUri = actorUri,
+        inbox = "$actorUri/inbox",
+        sharedInbox = null,
+        publicKeyPem = "pem of $actorUri",
+        profile = RemoteActorProfile(
+            preferredUsername = null,
+            displayName = null,
+            profileUrl = null,
+            iconUrl = null,
+        ),
+    )
 
     init {
         TestSchema.applyTo(dbPath)
@@ -57,7 +75,7 @@ class NoteReactionRepositoryTest {
         emojiImageUrl: String? = null,
     ): NewNoteReaction = NewNoteReaction(
         notePublicId = notePublicId,
-        actorUri = actorUri,
+        actor = actor(actorUri),
         activityUri = activityUri,
         emoji = emoji,
         emojiImageUrl = emojiImageUrl,
@@ -183,7 +201,7 @@ class NoteReactionRepositoryTest {
             val added = repositories.noteReactions.add(
                 NewNoteReaction(
                     notePublicId = PublicNoteId("none"),
-                    actorUri = actorUri,
+                    actor = actor(actorUri),
                     activityUri = "https://remote.example/likes/1",
                     emoji = "",
                     emojiImageUrl = null,
@@ -249,6 +267,42 @@ class NoteReactionRepositoryTest {
             repositories.noteReactions.add(reaction(activityUri = "https://remote.example/likes/1", emoji = ""))
 
             repositories.notes.delete(notePublicId)
+
+            assertEquals(mapOf(), repositories.noteReactions.countsByNotes(setOf(notePublicId)))
+        }
+    }
+
+    @Test
+    fun `フォロワーでない相手でも反応を押したときの鍵を引ける`() {
+        withRepositories { repositories ->
+            val reactions = repositories.noteReactions
+            reactions.add(reaction(activityUri = "https://remote.example/likes/1", emoji = ""))
+
+            // 相手が消えた後の Delete は、この鍵でしか検証できない
+            assertEquals("pem of $actorUri", reactions.findPublicKeyPem(actorUri))
+            assertNull(reactions.findPublicKeyPem("https://remote.example/users/bob"))
+        }
+    }
+
+    @Test
+    fun `反応が残っていない相手の鍵は引けない`() {
+        withRepositories { repositories ->
+            val reactions = repositories.noteReactions
+            reactions.add(reaction(activityUri = "https://remote.example/likes/1", emoji = ""))
+
+            reactions.removeByActor(actorUri)
+
+            // 関わりの切れた相手の鍵を返すと、その鍵で署名を通せる
+            assertNull(reactions.findPublicKeyPem(actorUri))
+        }
+    }
+
+    @Test
+    fun `相手のアクターを消すと反応も消える`() {
+        withRepositories { repositories ->
+            repositories.noteReactions.add(reaction(activityUri = "https://remote.example/likes/1", emoji = ""))
+
+            repositories.followers.removeRemoteActor(actorUri)
 
             assertEquals(mapOf(), repositories.noteReactions.countsByNotes(setOf(notePublicId)))
         }

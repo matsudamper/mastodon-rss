@@ -5,7 +5,6 @@ import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
-import net.matsudamper.mastodon.rss.follower.FollowerFallbackPublicKeys
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
@@ -153,11 +152,12 @@ class InboxService(
          * 送るのは受け取り側の都合と切り離す。
          *
          * @param remoteActors 相手のアクターの引き先。署名検証に使う公開鍵と、
-         *   `Accept` の宛先になる inbox をここから取る
+         *   `Accept` の宛先になる inbox、反応を押した相手として残す鍵をここから取る
          * @param followers フォローの記録。配信先だけでなく、相手が消えて
          *   アクター文書を引けなくなったときの公開鍵の引き先にもなる
          * @param notes 反応の対象の投稿の引き先。こちらが配信した投稿への反応だけを記録する
-         * @param reactions お気に入りとスタンプの記録
+         * @param reactions お気に入りとスタンプの記録。[followers] と同じく、
+         *   消えた相手の公開鍵の引き先にもなる
          * @param domain こちらのドメイン。反応の対象がこちらの投稿かどうかの判断に使う
          */
         fun default(
@@ -169,7 +169,7 @@ class InboxService(
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(
-                    FollowerFallbackPublicKeys(remote = remoteActors, followers = followers),
+                    RecordedFallbackPublicKeys(remote = remoteActors, followers = followers, reactions = reactions),
                 ),
                 handlers = listOf(
                     FollowHandler(
@@ -179,12 +179,14 @@ class InboxService(
                     ReactionHandler(
                         type = ReactionHandler.LIKE_TYPE,
                         domain = domain,
+                        remoteActors = remoteActors,
                         notes = notes,
                         reactions = reactions,
                     ),
                     ReactionHandler(
                         type = ReactionHandler.EMOJI_REACT_TYPE,
                         domain = domain,
+                        remoteActors = remoteActors,
                         notes = notes,
                         reactions = reactions,
                     ),

@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.NoteUrls
 import net.matsudamper.mastodon.rss.reaction.ReactionEmoji
@@ -25,10 +26,12 @@ import org.slf4j.LoggerFactory
  *
  * @param type 受け持つアクティビティの綴り。`Like` か `EmojiReact`
  * @param domain こちらのドメイン。対象がこちらの投稿かどうかの判断に使う
+ * @param remoteActors 押した相手のアクター文書の引き先
  */
 class ReactionHandler(
     override val type: String,
     private val domain: String,
+    private val remoteActors: RemoteActors,
     private val notes: NoteStore,
     private val reactions: ReactionStore,
 ) : InboxActivityHandler {
@@ -74,10 +77,18 @@ class ReactionHandler(
             return
         }
 
+        // 鍵ごと残さないと、相手が消えた後の `Delete` を検証できず、
+        // 居ない相手の反応が公開画面に出たままになる
+        val actor = remoteActors.findActor(verifiedSignerActorId)
+        if (actor == null) {
+            logger.warn("$type の押し手のアクター文書を引けないので受け付けない: ${recipient.acct} ← $verifiedSignerActorId")
+            return
+        }
+
         val recorded = reactions.add(
             ReceivedReaction(
                 notePublicId = notePublicId,
-                actorUri = verifiedSignerActorId,
+                actor = actor,
                 activityUri = activityUri,
                 emoji = emoji,
                 emojiImageUrl = ReactionEmojiTags.imageUrl(rawActivityJson = rawActivityJson, emoji = emoji),

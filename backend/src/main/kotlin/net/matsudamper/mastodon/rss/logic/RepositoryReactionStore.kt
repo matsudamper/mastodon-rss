@@ -17,7 +17,7 @@ class RepositoryReactionStore(
     override fun add(reaction: ReceivedReaction): Boolean = reactions.add(
         NewNoteReaction(
             notePublicId = PublicNoteId(reaction.notePublicId.value),
-            actorUri = reaction.actorUri,
+            actor = StoredRemoteActors.of(reaction.actor),
             activityUri = reaction.activityUri,
             emoji = reaction.emoji,
             emojiImageUrl = reaction.emojiImageUrl,
@@ -41,4 +41,6 @@ class RepositoryReactionStore(
     )
 
     override fun removeActor(actorUri: String): Int = reactions.removeByActor(actorUri)
+
+    override fun findPublicKeyPem(actorUri: String): String? = reactions.findPublicKeyPem(actorUri)
 }

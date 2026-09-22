@@ -16,7 +16,7 @@ class FakeReactionStore : ReactionStore {
     override fun add(reaction: ReceivedReaction): Boolean {
         // 一意制約と同じ判定。アクティビティの id は相手ごとに見る
         val duplicated = rows.any {
-            it.actorUri == reaction.actorUri &&
+            it.actor.actorId == reaction.actor.actorId &&
                 (
                     it.activityUri == reaction.activityUri ||
                         (it.notePublicId == reaction.notePublicId && it.emoji == reaction.emoji)
@@ -29,7 +29,7 @@ class FakeReactionStore : ReactionStore {
         if (storedInNote >= MAX_REACTIONS_PER_NOTE) return false
 
         val storedByActor = rows.count {
-            it.notePublicId == reaction.notePublicId && it.actorUri == reaction.actorUri
+            it.notePublicId == reaction.notePublicId && it.actor.actorId == reaction.actor.actorId
         }
         if (storedByActor >= MAX_REACTIONS_PER_ACTOR) return false
 
@@ -40,21 +40,24 @@ class FakeReactionStore : ReactionStore {
     override fun removeByActivityUri(
         actorUri: String,
         activityUri: String,
-    ): Boolean = rows.removeAll { it.actorUri == actorUri && it.activityUri == activityUri }
+    ): Boolean = rows.removeAll { it.actor.actorId == actorUri && it.activityUri == activityUri }
 
     override fun removeByEmoji(
         notePublicId: PublicNoteId,
         actorUri: String,
         emoji: String,
     ): Boolean = rows.removeAll {
-        it.notePublicId == notePublicId && it.actorUri == actorUri && it.emoji == emoji
+        it.notePublicId == notePublicId && it.actor.actorId == actorUri && it.emoji == emoji
     }
 
     override fun removeActor(actorUri: String): Int {
         val before = rows.size
-        rows.removeAll { it.actorUri == actorUri }
+        rows.removeAll { it.actor.actorId == actorUri }
         return before - rows.size
     }
+
+    override fun findPublicKeyPem(actorUri: String): String? =
+        rows.firstOrNull { it.actor.actorId == actorUri }?.actor?.publicKeyPem
 
     private companion object {
         /**

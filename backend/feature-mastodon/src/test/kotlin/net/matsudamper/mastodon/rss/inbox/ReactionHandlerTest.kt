@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeReactionStore
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
+import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.AppJson
@@ -42,11 +43,13 @@ class ReactionHandlerTest {
         type: String = ReactionHandler.LIKE_TYPE,
         notes: FakeNoteStore = notes(),
         reactions: FakeReactionStore = FakeReactionStore(),
+        remoteActors: TestRemoteActors = TestRemoteActors(actors = mapOf(TestRemoteActor.ACTOR_ID to TestRemoteActor.actor)),
     ): FakeReactionStore {
         val rawActivityJson = AppJson.parseToJsonElement(json) as JsonObject
         ReactionHandler(
             type = type,
             domain = TestLocalActor.DOMAIN,
+            remoteActors = remoteActors,
             notes = notes,
             reactions = reactions,
         ).handle(
@@ -69,7 +72,7 @@ class ReactionHandlerTest {
 
         val recorded = reactions.rows.single()
         assertEquals(notePublicId, recorded.notePublicId)
-        assertEquals(TestRemoteActor.ACTOR_ID, recorded.actorUri)
+        assertEquals(TestRemoteActor.ACTOR_ID, recorded.actor.actorId)
         assertEquals("", recorded.emoji)
         assertNull(recorded.emojiImageUrl)
     }

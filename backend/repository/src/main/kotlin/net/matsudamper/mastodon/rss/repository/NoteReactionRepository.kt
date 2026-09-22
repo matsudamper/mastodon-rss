@@ -50,6 +50,14 @@ interface NoteReactionRepository {
     fun removeByActor(actorUri: String): Int
 
     /**
+     * 反応を押した相手の公開鍵の PEM を返す。記録が無ければ null。
+     *
+     * 相手のサーバーから引けなくなった鍵の代わりに使う。フォロワーでない相手も
+     * 反応を記録した時点の鍵を残してあるので、消えた後の `Delete` を検証できる
+     */
+    fun findPublicKeyPem(actorUri: String): String?
+
+    /**
      * 投稿ごとに、絵文字とその数を多い順に返す。
      *
      * 押した相手は返さない。公開画面に出すのは数だけで、誰が押したかは
@@ -61,13 +69,15 @@ interface NoteReactionRepository {
 /**
  * 記録する反応 1 件。
  *
+ * @param actor 押した相手。フォロワーとは限らないが、消えた後の `Delete` を
+ *   検証できるよう鍵ごと残す
  * @param activityUri 受け取った `Like` / `EmojiReact` の id
  * @param emoji 絵文字そのもの、またはカスタム絵文字の `:name:`。お気に入りは空文字
  * @param emojiImageUrl カスタム絵文字の画像 URL。Unicode の絵文字とお気に入りでは null
  */
 data class NewNoteReaction(
     val notePublicId: PublicNoteId,
-    val actorUri: String,
+    val actor: NewRemoteActor,
     val activityUri: String,
     val emoji: String,
     val emojiImageUrl: String?,

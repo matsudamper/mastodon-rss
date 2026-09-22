@@ -1128,7 +1128,7 @@ class FakeNoteReactionRepository(
         if (!hasNote(reaction.notePublicId)) return false
 
         val duplicated = stored.any {
-            it.actorUri == reaction.actorUri &&
+            it.actor.actorUri == reaction.actor.actorUri &&
                 (
                     it.activityUri == reaction.activityUri ||
                         (it.notePublicId == reaction.notePublicId && it.emoji == reaction.emoji)
@@ -1140,7 +1140,7 @@ class FakeNoteReactionRepository(
         if (storedInNote >= MAX_REACTIONS_PER_NOTE) return false
 
         val storedByActor = stored.count {
-            it.notePublicId == reaction.notePublicId && it.actorUri == reaction.actorUri
+            it.notePublicId == reaction.notePublicId && it.actor.actorUri == reaction.actor.actorUri
         }
         if (storedByActor >= MAX_REACTIONS_PER_ACTOR) return false
 
@@ -1151,21 +1151,24 @@ class FakeNoteReactionRepository(
     override fun removeByActivityUri(
         actorUri: String,
         activityUri: String,
-    ): Boolean = stored.removeAll { it.actorUri == actorUri && it.activityUri == activityUri }
+    ): Boolean = stored.removeAll { it.actor.actorUri == actorUri && it.activityUri == activityUri }
 
     override fun removeByEmoji(
         notePublicId: PublicNoteId,
         actorUri: String,
         emoji: String,
     ): Boolean = stored.removeAll {
-        it.notePublicId == notePublicId && it.actorUri == actorUri && it.emoji == emoji
+        it.notePublicId == notePublicId && it.actor.actorUri == actorUri && it.emoji == emoji
     }
 
     override fun removeByActor(actorUri: String): Int {
         val before = stored.size
-        stored.removeAll { it.actorUri == actorUri }
+        stored.removeAll { it.actor.actorUri == actorUri }
         return before - stored.size
     }
+
+    override fun findPublicKeyPem(actorUri: String): String? =
+        stored.firstOrNull { it.actor.actorUri == actorUri }?.actor?.publicKeyPem
 
     override fun countsByNotes(notePublicIds: Set<PublicNoteId>): Map<PublicNoteId, List<NoteReactionCount>> = stored
         .filter { it.notePublicId in notePublicIds }
