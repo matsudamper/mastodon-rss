@@ -24,8 +24,12 @@ sealed interface AccountNotesResult {
 }
 
 sealed interface AccountNoteResult {
+    /**
+     * @param linkUrls 本文にあるリンク。OGP は [NoteLinkPreview] として別に取る
+     */
     data class Success(
         val note: AccountNote,
+        val linkUrls: List<String>,
     ) : AccountNoteResult
 
     data object NotFound : AccountNoteResult

@@ -162,7 +162,10 @@ class AccountApi(
 
         val data = response.data ?: return AccountNoteResult.Failure(response.failureMessage())
         val note = data.note ?: return AccountNoteResult.NotFound
-        return AccountNoteResult.Success(note.accountNoteFields.toAccountNote())
+        return AccountNoteResult.Success(
+            note = note.accountNoteFields.toAccountNote(),
+            linkUrls = note.linkUrls,
+        )
     }
 
     suspend fun linkPreviews(username: String, id: String): NoteLinkPreviewsResult {
