@@ -56,16 +56,6 @@ internal class AdminScreenViewModel(
                     ),
                 ),
             ),
-            AdminScreenUiState.MenuSection(
-                title = "フィード",
-                items = listOf(
-                    AdminScreenUiState.MenuItem(
-                        title = "フィードの登録と再取得",
-                        description = "フィードの登録・削除と、手動での再取得。",
-                        availability = AdminScreenUiState.MenuItem.Availability.Planned(note = "これから作る。"),
-                    ),
-                ),
-            ),
         )
 
     val uiStateFlow: StateFlow<AdminScreenUiState> =
@@ -177,13 +167,11 @@ internal class AdminScreenViewModel(
         return AdminScreenUiState.MenuItem(
             title = title,
             description = description,
-            availability = AdminScreenUiState.MenuItem.Availability.Available(
-                listener = object : AdminScreenUiState.MenuItem.Listener {
-                    override fun onClick() {
-                        navigate(screen)
-                    }
-                },
-            ),
+            listener = object : AdminScreenUiState.MenuItem.Listener {
+                override fun onClick() {
+                    navigate(screen)
+                }
+            },
         )
     }
 

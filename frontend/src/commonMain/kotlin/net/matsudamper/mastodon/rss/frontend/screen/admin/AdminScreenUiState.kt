@@ -53,21 +53,8 @@ data class AdminScreenUiState(
     data class MenuItem(
         val title: String,
         val description: String,
-        val availability: Availability,
+        val listener: Listener,
     ) {
-        sealed interface Availability {
-            data class Available(
-                val listener: Listener,
-            ) : Availability
-
-            /**
-             * まだ作っていない入口。押せないタイルとして出し、[note] を添える
-             */
-            data class Planned(
-                val note: String,
-            ) : Availability
-        }
-
         @Immutable
         interface Listener {
             fun onClick()

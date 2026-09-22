@@ -21,13 +21,9 @@ private fun AdminContentPreview() {
                             ),
                         ),
                         AdminScreenUiState.MenuSection(
-                            title = "フィード",
+                            title = "配信",
                             items = listOf(
-                                AdminScreenUiState.MenuItem(
-                                    title = "フィードの登録と再取得",
-                                    description = "フィードの登録・削除と、手動での再取得。",
-                                    availability = AdminScreenUiState.MenuItem.Availability.Planned(note = "これから作る。"),
-                                ),
+                                previewMenuItem("送り直しを待っている配信", "フォロワーの inbox に届かず、送り直しを待っている投稿を見る。"),
                             ),
                         ),
                     ),
@@ -44,11 +40,9 @@ private fun previewMenuItem(title: String, description: String): AdminScreenUiSt
     return AdminScreenUiState.MenuItem(
         title = title,
         description = description,
-        availability = AdminScreenUiState.MenuItem.Availability.Available(
-            listener = object : AdminScreenUiState.MenuItem.Listener {
-                override fun onClick() = Unit
-            },
-        ),
+        listener = object : AdminScreenUiState.MenuItem.Listener {
+            override fun onClick() = Unit
+        },
     )
 }
 

@@ -34,7 +34,6 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
-import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.PasswordField
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
@@ -195,55 +194,24 @@ private fun MenuTile(
     item: AdminScreenUiState.MenuItem,
     modifier: Modifier = Modifier,
 ) {
-    val availability = item.availability
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(
-                when (availability) {
-                    is AdminScreenUiState.MenuItem.Availability.Available -> Modifier.clickable(onClick = availability.listener::onClick)
-                    is AdminScreenUiState.MenuItem.Availability.Planned -> Modifier
-                },
-            ),
+        modifier = modifier.fillMaxWidth().clickable(onClick = item.listener::onClick),
         shape = RoundedCornerShape(16.dp),
-        color = when (availability) {
-            is AdminScreenUiState.MenuItem.Availability.Available -> MaterialTheme.colorScheme.surface
-            is AdminScreenUiState.MenuItem.Availability.Planned -> MaterialTheme.colorScheme.surfaceVariant
-        },
+        color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = item.title,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = when (availability) {
-                        is AdminScreenUiState.MenuItem.Availability.Available -> MaterialTheme.colorScheme.primary
-                        is AdminScreenUiState.MenuItem.Availability.Planned -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-                if (availability is AdminScreenUiState.MenuItem.Availability.Planned) {
-                    AppBadge(
-                        text = "準備中",
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                }
-            }
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
             Text(
                 text = item.description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (availability is AdminScreenUiState.MenuItem.Availability.Planned) {
-                Text(
-                    text = availability.note,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }
