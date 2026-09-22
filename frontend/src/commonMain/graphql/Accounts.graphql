@@ -1,4 +1,4 @@
-query HomeScreen($cursor: String, $limit: Int!) {
+query AccountsScreen($cursor: String, $limit: Int!) {
     accounts(cursor: $cursor, limit: $limit) {
         nodes {
             id

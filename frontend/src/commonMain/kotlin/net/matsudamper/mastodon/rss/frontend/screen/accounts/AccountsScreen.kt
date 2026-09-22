@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.screen.home
+package net.matsudamper.mastodon.rss.frontend.screen.accounts
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -40,18 +40,18 @@ import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
-internal fun HomeScreen(
+internal fun AccountsScreen(
     navController: Navigator,
 ) {
     val viewModelScope = rememberCoroutineScope()
     val viewModel = remember(viewModelScope) {
-        HomeScreenViewModel(viewModelScope)
+        AccountsScreenViewModel(viewModelScope)
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
 
     LaunchedEffect(viewModel.eventHandler, navController) {
         viewModel.eventHandler.collect(
-            object : HomeScreenViewModel.Event {
+            object : AccountsScreenViewModel.Event {
                 override suspend fun navigate(screen: Screen) {
                     navController.navigate(screen)
                 }
@@ -63,12 +63,12 @@ internal fun HomeScreen(
         viewModel.onStart()
     }
 
-    HomeContent(uiState = uiState)
+    AccountsContent(uiState = uiState)
 }
 
 @Composable
-internal fun HomeContent(
-    uiState: HomeScreenUiState,
+internal fun AccountsContent(
+    uiState: AccountsScreenUiState,
 ) {
     PublicScaffold(listener = uiState.listener) { wide ->
         Column(
@@ -79,20 +79,20 @@ internal fun HomeContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                text = "RSS/AtomをActivityPubで配信中",
+                text = "アカウント",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
 
             when (val content = uiState.content) {
-                HomeScreenUiState.Content.Loading -> Box(
+                AccountsScreenUiState.Content.Loading -> Box(
                     modifier = Modifier.fillMaxWidth().padding(32.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator()
                 }
 
-                is HomeScreenUiState.Content.Error -> SectionCard(title = "一覧を出せない") {
+                is AccountsScreenUiState.Content.Error -> SectionCard(title = "一覧を出せない") {
                     Text(
                         text = content.message,
                         style = MaterialTheme.typography.bodyMedium,
@@ -103,7 +103,7 @@ internal fun HomeContent(
                     }
                 }
 
-                is HomeScreenUiState.Content.Loaded -> LoadedContent(
+                is AccountsScreenUiState.Content.Loaded -> LoadedContent(
                     content = content,
                     listener = uiState.listener,
                     wide = wide,
@@ -115,8 +115,8 @@ internal fun HomeContent(
 
 @Composable
 private fun LoadedContent(
-    content: HomeScreenUiState.Content.Loaded,
-    listener: HomeScreenUiState.Listener,
+    content: AccountsScreenUiState.Content.Loaded,
+    listener: AccountsScreenUiState.Listener,
     wide: Boolean,
 ) {
     if (content.accounts.isEmpty()) {
@@ -176,7 +176,7 @@ private fun LoadedContent(
 
 @Composable
 private fun AccountCard(
-    account: HomeScreenUiState.Account,
+    account: AccountsScreenUiState.Account,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {

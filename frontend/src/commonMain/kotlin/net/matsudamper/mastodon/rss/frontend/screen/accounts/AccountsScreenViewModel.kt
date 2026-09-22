@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.screen.home
+package net.matsudamper.mastodon.rss.frontend.screen.accounts
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -13,7 +13,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
-class HomeScreenViewModel(
+class AccountsScreenViewModel(
     private val viewModelScope: CoroutineScope,
     private val api: AccountApi = AccountApi(),
 ) {
@@ -26,12 +26,12 @@ class HomeScreenViewModel(
     private var accountsJob: Job? = null
     private var loadMoreJob: Job? = null
 
-    val uiStateFlow: StateFlow<HomeScreenUiState> =
+    val uiStateFlow: StateFlow<AccountsScreenUiState> =
         MutableStateFlow(
-            HomeScreenUiState(
-                content = HomeScreenUiState.Content.Loading,
+            AccountsScreenUiState(
+                content = AccountsScreenUiState.Content.Loading,
                 listener =
-                object : HomeScreenUiState.Listener {
+                object : AccountsScreenUiState.Listener {
                     override fun onClickHome() {
                         navigate(Screen.Home)
                     }
@@ -119,21 +119,21 @@ class HomeScreenViewModel(
         }
     }
 
-    private fun createContent(state: ViewModelState): HomeScreenUiState.Content {
+    private fun createContent(state: ViewModelState): AccountsScreenUiState.Content {
         if (state.isLoading && state.accounts == null) {
-            return HomeScreenUiState.Content.Loading
+            return AccountsScreenUiState.Content.Loading
         }
 
         return when (val accounts = state.accounts) {
-            null -> HomeScreenUiState.Content.Loading
+            null -> AccountsScreenUiState.Content.Loading
 
-            is AccountsResult.Failure -> HomeScreenUiState.Content.Error(accounts.message)
+            is AccountsResult.Failure -> AccountsScreenUiState.Content.Error(accounts.message)
 
             is AccountsResult.Success -> {
-                HomeScreenUiState.Content.Loaded(
+                AccountsScreenUiState.Content.Loaded(
                     accounts =
                     accounts.accounts.map { account ->
-                        HomeScreenUiState.Account(
+                        AccountsScreenUiState.Account(
                             username = account.username,
                             acct = account.acct,
                             displayName = account.displayName,

@@ -109,7 +109,8 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 
 | パス | 画面 |
 | --- | --- |
-| `/` | トップ |
+| `/` | トップ。全アカウントの投稿を新しい順に並べたタイムライン |
+| `/accounts` | アカウントの一覧 |
 | `/@{name}` | アカウント画面。フィードの取得状況と配信した記事 |
 | `/admin` | 管理画面のトップ。ログインと、下の各画面への入口 |
 | `/admin/accounts` | アカウントの一覧 |

@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.screen.home
+package net.matsudamper.mastodon.rss.frontend.screen.accounts
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -6,19 +6,19 @@ import net.matsudamper.mastodon.rss.frontend.screen.PreviewsMultiSize
 
 @PreviewsMultiSize
 @Composable
-private fun HomeContentPreview() {
+private fun AccountsContentPreview() {
     MaterialTheme {
-        HomeContent(
-            uiState = HomeScreenUiState(
-                content = HomeScreenUiState.Content.Loaded(
+        AccountsContent(
+            uiState = AccountsScreenUiState(
+                content = AccountsScreenUiState.Content.Loaded(
                     accounts = listOf(
-                        HomeScreenUiState.Account(
+                        AccountsScreenUiState.Account(
                             username = "kotlin",
                             acct = "@kotlin@example.com",
                             displayName = "Kotlin",
                             iconUrl = null,
                         ),
-                        HomeScreenUiState.Account(
+                        AccountsScreenUiState.Account(
                             username = "android",
                             acct = "@android@example.com",
                             displayName = "Android",
@@ -29,13 +29,13 @@ private fun HomeContentPreview() {
                     loadingMore = false,
                     loadMoreErrorMessage = null,
                 ),
-                listener = AndroidPreviewHomeListener,
+                listener = AndroidPreviewAccountsListener,
             ),
         )
     }
 }
 
-private object AndroidPreviewHomeListener : HomeScreenUiState.Listener {
+private object AndroidPreviewAccountsListener : AccountsScreenUiState.Listener {
     override fun onClickHome() = Unit
 
     override fun onClickAdmin() = Unit

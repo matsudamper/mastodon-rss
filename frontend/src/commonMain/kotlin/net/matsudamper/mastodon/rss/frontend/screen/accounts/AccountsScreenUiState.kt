@@ -1,8 +1,8 @@
-package net.matsudamper.mastodon.rss.frontend.screen.home
+package net.matsudamper.mastodon.rss.frontend.screen.accounts
 
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffoldListener
 
-data class HomeScreenUiState(
+data class AccountsScreenUiState(
     val content: Content,
     val listener: Listener,
 ) {
