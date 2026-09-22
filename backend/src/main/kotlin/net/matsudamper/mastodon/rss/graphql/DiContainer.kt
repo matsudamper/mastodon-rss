@@ -11,14 +11,12 @@ import net.matsudamper.mastodon.rss.logic.DeliveryQueueService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.NoteReader
-import net.matsudamper.mastodon.rss.logic.TimelineReader
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.remoteactor.RemoteActorIconUrls
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
-import net.matsudamper.mastodon.rss.repository.NoteRepository
 
 class DiContainer(
     passwordHash: PasswordHash?,
@@ -33,7 +31,6 @@ class DiContainer(
     actorEnqueuer: ActorEnqueuer,
     accountIconFiles: AccountIconFiles,
     val noteStore: NoteStore,
-    noteRepository: NoteRepository,
     val feedService: FeedService,
 ) {
     val adminLoginService: AdminLoginService = AdminLoginService(passwordHash)
@@ -56,8 +53,6 @@ class DiContainer(
         directory = actorDirectory,
         notes = noteStore,
     )
-
-    val timelineReader: TimelineReader = TimelineReader(notes = noteRepository)
 
     val deliveryQueueService: DeliveryQueueService = DeliveryQueueService(deliveryQueueRepository)
 }

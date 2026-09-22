@@ -78,15 +78,16 @@ internal fun HomeScreen(
 
     HomeContent(
         uiState = uiState,
-        onOpenExternal = platform::openExternalLink,
+        platform = platform,
     )
 }
 
 @Composable
 internal fun HomeContent(
     uiState: HomeScreenUiState,
-    onOpenExternal: (String) -> Unit,
+    platform: ScreenPlatform,
 ) {
+    val onOpenExternal = platform::openExternalLink
     PublicScaffold(listener = uiState.listener) { wide ->
         val edgePadding = if (wide) 24.dp else 12.dp
         Box(

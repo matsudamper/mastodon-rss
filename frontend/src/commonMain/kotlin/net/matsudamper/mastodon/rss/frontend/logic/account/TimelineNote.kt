@@ -10,11 +10,11 @@ data class TimelineNote(
 
 sealed interface TimelineResult {
     /**
-     * @param nextCursor 次のページを取るときに渡す。null なら最後のページ
+     * @param cursor 次のページを取るときに渡す。null なら最後のページ
      */
     data class Success(
         val notes: List<TimelineNote>,
-        val nextCursor: String?,
+        val cursor: String?,
     ) : TimelineResult
 
     data class Failure(

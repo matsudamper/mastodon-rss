@@ -41,11 +41,7 @@ class FakeNoteStore : NoteStore {
     ): List<StoredNote> = added
         .filter { it.username == username }
         .sortedWith(compareByDescending<StoredNote> { it.publishedAt }.thenByDescending { it.publicId.value })
-        .filter { note ->
-            after == null ||
-                note.publishedAt < after.publishedAt ||
-                (note.publishedAt == after.publishedAt && note.publicId.value < after.publicId.value)
-        }
+        .filter { note -> after == null || note.isOlderThan(after) }
         .take(limit)
 
     override fun listPositions(
@@ -55,8 +51,21 @@ class FakeNoteStore : NoteStore {
     ): List<NotePosition> = list(username = username, after = after, limit = limit)
         .map { it.position }
 
+    override fun listAllPositions(
+        after: NotePosition?,
+        limit: Int,
+    ): List<NotePosition> = added
+        .sortedWith(compareByDescending<StoredNote> { it.publishedAt }.thenByDescending { it.publicId.value })
+        .filter { note -> after == null || note.isOlderThan(after) }
+        .take(limit)
+        .map { it.position }
+
     override fun count(username: String): Long = added.count { it.username == username }.toLong()
 
     override fun counts(usernames: Set<String>): Map<String, Long> =
         usernames.associateWith { count(it) }
+
+    private fun StoredNote.isOlderThan(position: NotePosition): Boolean =
+        publishedAt < position.publishedAt ||
+            (publishedAt == position.publishedAt && publicId.value < position.publicId.value)
 }

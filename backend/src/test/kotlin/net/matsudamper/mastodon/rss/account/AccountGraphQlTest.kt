@@ -699,7 +699,7 @@ class AccountGraphQlTest {
 
             val query =
                 "query Timeline(${'$'}cursor: String, ${'$'}limit: Int!) { " +
-                    "timeline(cursor: ${'$'}cursor, limit: ${'$'}limit) { " +
+                    "timeline(query: { cursor: ${'$'}cursor, limit: ${'$'}limit }) { " +
                     "nodes { id url contentHtml publishedAt account { username acct } } " +
                     "pageInfo { hasMore nextCursor } } }"
 

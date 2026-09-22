@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.home
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.PreviewsMultiSize
 
 @PreviewsMultiSize
@@ -50,7 +51,7 @@ private fun HomeContentPreview() {
                 ),
                 listener = AndroidPreviewHomeListener,
             ),
-            onOpenExternal = {},
+            platform = AndroidPreviewScreenPlatform,
         )
     }
 }
@@ -69,10 +70,10 @@ private object AndroidPreviewHomeListener : HomeScreenUiState.Listener {
     override fun onClickAllAccounts() = Unit
 }
 
-private object AndroidPreviewNoteListener : HomeScreenUiState.NoteListener {
+private object AndroidPreviewNoteListener : HomeScreenUiState.Note.Listener {
     override fun onClick() = Unit
 }
 
-private object AndroidPreviewAccountListener : HomeScreenUiState.AccountListener {
+private object AndroidPreviewAccountListener : HomeScreenUiState.Account.Listener {
     override fun onClick() = Unit
 }

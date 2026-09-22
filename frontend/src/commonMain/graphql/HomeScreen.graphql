@@ -1,5 +1,5 @@
-query HomeTimeline($cursor: String, $limit: Int!) {
-    timeline(cursor: $cursor, limit: $limit) {
+query HomeScreen($query: TimelineQuery!) {
+    timeline(query: $query) {
         nodes {
             ...AccountNoteFields
             account {

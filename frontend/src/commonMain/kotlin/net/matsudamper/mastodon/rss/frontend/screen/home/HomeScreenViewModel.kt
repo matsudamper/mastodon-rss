@@ -127,7 +127,7 @@ class HomeScreenViewModel(
         val timeline = currentState.timeline as? TimelineResult.Success ?: return
         if (currentState.loadingMore) return
 
-        val cursor = timeline.nextCursor ?: return
+        val cursor = timeline.cursor ?: return
         viewModelStateFlow.update { it.copy(loadingMore = true, loadMoreErrorMessage = null) }
 
         loadMoreJob?.cancel()
@@ -170,7 +170,7 @@ class HomeScreenViewModel(
             is TimelineResult.Success -> {
                 HomeScreenUiState.Timeline.Loaded(
                     notes = timeline.notes.map { it.toUiState() },
-                    loadMoreVisible = timeline.nextCursor != null,
+                    loadMoreVisible = timeline.cursor != null,
                     loadingMore = state.loadingMore,
                     loadMoreErrorMessage = state.loadMoreErrorMessage,
                 )
@@ -198,7 +198,7 @@ class HomeScreenViewModel(
             contentHtml = note.contentHtml,
             publishedAt = UnixTimeUtil.format(note.publishedAt.epochSeconds),
             account = account.toUiState(),
-            listener = object : HomeScreenUiState.NoteListener {
+            listener = object : HomeScreenUiState.Note.Listener {
                 override fun onClick() {
                     navigate(Screen.AccountNote(username = account.username, noteId = note.id))
                 }
@@ -212,7 +212,7 @@ class HomeScreenViewModel(
             acct = acct,
             displayName = displayName.ifEmpty { username },
             iconUrl = iconUrl,
-            listener = object : HomeScreenUiState.AccountListener {
+            listener = object : HomeScreenUiState.Account.Listener {
                 override fun onClick() {
                     navigate(Screen.Account(username))
                 }

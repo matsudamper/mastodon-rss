@@ -14,10 +14,11 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AccountNoteQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountsScreenQuery
-import net.matsudamper.mastodon.rss.frontend.graphql.HomeTimelineQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.HomeScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AccountNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountFollowersQuery as AccountFollowersQueryInput
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountNotesQuery as AccountNotesQueryInput
+import net.matsudamper.mastodon.rss.frontend.graphql.type.TimelineQuery as TimelineQueryInput
 import net.matsudamper.mastodon.rss.frontend.logic.CachedPaging
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
 import net.matsudamper.mastodon.rss.frontend.logic.Paging
@@ -45,8 +46,20 @@ class AccountApi(
     fun timeline(limit: Int): Paging<TimelineResult> {
         return CachedPaging(
             client = client,
-            firstPage = HomeTimelineQuery(cursor = Optional.absent(), limit = limit),
-            nextPage = { cursor -> HomeTimelineQuery(cursor = Optional.present(cursor), limit = limit) },
+            firstPage = HomeScreenQuery(
+                query = TimelineQueryInput(
+                    cursor = Optional.absent(),
+                    limit = limit,
+                ),
+            ),
+            nextPage = { cursor ->
+                HomeScreenQuery(
+                    query = TimelineQueryInput(
+                        cursor = Optional.present(cursor),
+                        limit = limit,
+                    ),
+                )
+            },
             appendPage = { cached, fetched ->
                 cached.copy(
                     timeline = cached.timeline.copy(
@@ -173,7 +186,7 @@ class AccountApi(
         )
     }
 
-    private fun ApolloResponse<HomeTimelineQuery.Data>.toTimelineResult(): TimelineResult {
+    private fun ApolloResponse<HomeScreenQuery.Data>.toTimelineResult(): TimelineResult {
         if (exception != null || errors.orEmpty().isNotEmpty()) {
             return TimelineResult.Failure(failureMessage())
         }
@@ -193,7 +206,7 @@ class AccountApi(
                     ),
                 )
             },
-            nextCursor = data.timeline.pageInfo.nextCursor,
+            cursor = data.timeline.pageInfo.nextCursor,
         )
     }
 

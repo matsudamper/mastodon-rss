@@ -42,25 +42,25 @@ data class HomeScreenUiState(
         val contentHtml: String,
         val publishedAt: String,
         val account: Account,
-        val listener: NoteListener,
-    )
+        val listener: Listener,
+    ) {
+        @Immutable
+        interface Listener {
+            fun onClick()
+        }
+    }
 
     data class Account(
         val username: String,
         val acct: String,
         val displayName: String,
         val iconUrl: String?,
-        val listener: AccountListener,
-    )
-
-    @Immutable
-    interface NoteListener {
-        fun onClick()
-    }
-
-    @Immutable
-    interface AccountListener {
-        fun onClick()
+        val listener: Listener,
+    ) {
+        @Immutable
+        interface Listener {
+            fun onClick()
+        }
     }
 
     @Immutable

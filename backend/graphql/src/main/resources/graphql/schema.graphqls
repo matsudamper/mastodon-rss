@@ -14,7 +14,7 @@ type Query {
     notes(query: AccountNotesQuery!): AccountNotesConnection! @lazy
 
     "全アカウントが配信した投稿。新しい順"
-    timeline(cursor: String, limit: Int!): AccountNotesConnection! @lazy
+    timeline(query: TimelineQuery!): AccountNotesConnection! @lazy
 
     "アカウントのフォロワー。アクター URL 順。応答しない名前なら null"
     followers(query: AccountFollowersQuery!): AccountFollowersConnection @lazy
