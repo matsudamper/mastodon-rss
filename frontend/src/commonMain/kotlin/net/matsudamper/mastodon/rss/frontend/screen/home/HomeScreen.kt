@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,6 +49,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
+import net.matsudamper.mastodon.rss.frontend.ui.HtmlImage
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
@@ -315,6 +318,67 @@ private fun TimelineNoteCard(
                 text = note.url,
                 onClick = { onOpenExternal(note.url) },
             )
+
+            if (note.linkPreviews.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(items = note.linkPreviews) { preview ->
+                        LinkPreviewCard(
+                            preview = preview,
+                            onClick = { onOpenExternal(preview.url) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(note.url) {
+        note.listener.onVisible()
+    }
+}
+
+@Composable
+private fun LinkPreviewCard(
+    preview: HomeScreenUiState.LinkPreview,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.width(LinkPreviewCardWidth),
+        onClick = onClick,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column {
+            if (preview.imageUrl != null) {
+                HtmlImage(
+                    url = preview.imageUrl,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(OgpImageAspectRatio),
+                )
+            }
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = preview.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = preview.siteName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -494,3 +558,10 @@ private fun CardPlaceholder(content: @Composable () -> Unit) {
  * 右に置くアカウントの列の幅。タイムラインの本文を読める幅を残す
  */
 private val WideAccountsColumnWidth: Dp = 300.dp
+
+private val LinkPreviewCardWidth: Dp = 240.dp
+
+/**
+ * og:image の推奨サイズ 1200x630 の比率
+ */
+private const val OgpImageAspectRatio: Float = 1200f / 630f

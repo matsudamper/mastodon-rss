@@ -42,18 +42,37 @@ data class HomeScreenUiState(
         ) : Accounts
     }
 
+    /**
+     * @param linkPreviews 本文のリンクごとの OGP。取れるまでは空
+     */
     data class Note(
         val url: String,
         val contentHtml: String,
         val publishedAt: String,
         val account: Account,
+        val linkPreviews: List<LinkPreview>,
         val listener: Listener,
     ) {
         @Immutable
         interface Listener {
             fun onClick()
+
+            /**
+             * カードが画面に入ったとき。OGP はここで初めて取りに行く
+             */
+            fun onVisible()
         }
     }
+
+    /**
+     * @param imageUrl null なら画像の枠を出さない
+     */
+    data class LinkPreview(
+        val url: String,
+        val title: String,
+        val siteName: String,
+        val imageUrl: String?,
+    )
 
     data class Account(
         val username: String,

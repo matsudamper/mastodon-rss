@@ -13,6 +13,8 @@ import net.matsudamper.mastodon.rss.frontend.logic.PagingLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.HomeAccount
+import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreview
+import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreviewsResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.TimelineNote
 import net.matsudamper.mastodon.rss.frontend.logic.account.TimelineResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
@@ -161,6 +163,28 @@ class HomeScreenViewModel(
         }
     }
 
+    /**
+     * 1 つの投稿につき 1 回だけ取る。失敗しても取り直さず、OGP が無いものとして出す
+     */
+    private fun loadLinkPreviews(username: String, noteId: String) {
+        if (noteId in viewModelStateFlow.value.linkPreviewRequestedNoteIds) return
+        viewModelStateFlow.update {
+            it.copy(linkPreviewRequestedNoteIds = it.linkPreviewRequestedNoteIds + noteId)
+        }
+
+        viewModelScope.launch {
+            when (val result = api.linkPreviews(username = username, id = noteId)) {
+                is NoteLinkPreviewsResult.Success -> {
+                    viewModelStateFlow.update {
+                        it.copy(linkPreviews = it.linkPreviews + (noteId to result.previews))
+                    }
+                }
+
+                is NoteLinkPreviewsResult.Failure -> Unit
+            }
+        }
+    }
+
     private fun createTimeline(state: ViewModelState): HomeScreenUiState.Timeline {
         return when (val timeline = state.timeline) {
             null -> HomeScreenUiState.Timeline.Loading
@@ -169,7 +193,7 @@ class HomeScreenViewModel(
 
             is TimelineResult.Success -> {
                 HomeScreenUiState.Timeline.Loaded(
-                    notes = timeline.notes.map { it.toUiState() },
+                    notes = timeline.notes.map { it.toUiState(state.linkPreviews[it.note.id].orEmpty()) },
                     loadMoreVisible = timeline.cursor != null,
                     loadMoreOnVisible = timeline.cursor != null && !state.loadingMore && state.loadMoreErrorMessage == null,
                     loadMoreErrorMessage = state.loadMoreErrorMessage,
@@ -192,17 +216,31 @@ class HomeScreenViewModel(
         }
     }
 
-    private fun TimelineNote.toUiState(): HomeScreenUiState.Note {
+    private fun TimelineNote.toUiState(linkPreviews: List<NoteLinkPreview>): HomeScreenUiState.Note {
         return HomeScreenUiState.Note(
             url = note.url,
             contentHtml = note.contentHtml,
             publishedAt = UnixTimeUtil.format(note.publishedAt.epochSeconds),
             account = account.toUiState(),
+            linkPreviews = linkPreviews.map { it.toUiState() },
             listener = object : HomeScreenUiState.Note.Listener {
                 override fun onClick() {
                     navigate(Screen.AccountNote(username = account.username, noteId = note.id))
                 }
+
+                override fun onVisible() {
+                    loadLinkPreviews(username = account.username, noteId = note.id)
+                }
             },
+        )
+    }
+
+    private fun NoteLinkPreview.toUiState(): HomeScreenUiState.LinkPreview {
+        return HomeScreenUiState.LinkPreview(
+            url = url,
+            title = title ?: url,
+            siteName = siteName ?: url.substringAfter("://").substringBefore('/'),
+            imageUrl = imageUrl,
         )
     }
 
@@ -227,6 +265,8 @@ class HomeScreenViewModel(
         val loadMoreErrorMessage: String? = null,
         val accountsLoading: Boolean = false,
         val accounts: AccountsResult? = null,
+        val linkPreviewRequestedNoteIds: Set<String> = setOf(),
+        val linkPreviews: Map<String, List<NoteLinkPreview>> = mapOf(),
     )
 
     interface Event {
