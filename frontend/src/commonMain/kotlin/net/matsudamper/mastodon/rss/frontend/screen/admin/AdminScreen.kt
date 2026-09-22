@@ -1,14 +1,24 @@
 package net.matsudamper.mastodon.rss.frontend.screen.admin
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -16,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -73,21 +84,27 @@ internal fun AdminContent(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(if (wide) 24.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("管理画面", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            when (val content = uiState.content) {
+            val content = uiState.content
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("管理画面", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                if (content is AdminScreenUiState.Content.LoggedIn) {
+                    OutlinedButton(onClick = content.listener::onClickLogout) { Text("ログアウト") }
+                }
+            }
+            when (content) {
                 AdminScreenUiState.Content.Loading -> SectionCard(title = "確認中") {
                     Text("状態を確かめている。")
                 }
 
                 is AdminScreenUiState.Content.Login -> LoginCard(content, uiState.listener)
 
-                AdminScreenUiState.Content.LoggedIn -> {
-                    MenuCard(listener = uiState.listener)
-                    SectionCard(title = "ログイン済み") {
-                        OutlinedButton(onClick = uiState.listener::onClickLogout) { Text("ログアウト") }
+                is AdminScreenUiState.Content.LoggedIn -> {
+                    content.sections.forEach { section ->
+                        MenuSection(section = section, wide = wide)
                     }
                     SectionCard(title = "このソフトウェア") {
                         Text("ソースコードは GitHub で公開している。")
@@ -146,15 +163,55 @@ private fun LoginCard(
 }
 
 @Composable
-private fun MenuCard(listener: AdminScreenUiState.Listener) {
-    SectionCard(title = "できること") {
-        TextLink("アカウントの一覧", listener::onClickAccounts)
-        TextLink("アカウントの追加", listener::onClickNewAccount)
-        TextLink("送り直しを待っている配信", listener::onClickDeliveries)
-        Text("投稿とフォロワー数は、一覧からアカウントを選んだ先にある。")
+private fun MenuSection(
+    section: AdminScreenUiState.MenuSection,
+    wide: Boolean,
+) {
+    val columns = if (wide) 2 else 1
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "フィードの登録・削除、手動での再取得はこれから作る。",
+            text = section.title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        section.items.chunked(columns).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                row.forEach { item ->
+                    MenuTile(item = item, modifier = Modifier.weight(1f).fillMaxHeight())
+                }
+                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuTile(
+    item: AdminScreenUiState.MenuItem,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth().clickable(onClick = item.listener::onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = item.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
