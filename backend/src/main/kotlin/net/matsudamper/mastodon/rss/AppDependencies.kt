@@ -34,6 +34,7 @@ import net.matsudamper.mastodon.rss.feed.FeedPoller
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
+import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewService
 import net.matsudamper.mastodon.rss.logic.AccountIconFiles
 import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
 import net.matsudamper.mastodon.rss.logic.ActorHeaderService
@@ -92,6 +93,7 @@ class AppDependencies(
     val delivery: ActivityDelivery,
     val feedFetcher: FeedFetchService = FeedFetchService(),
     val iconFetcher: IconFetchService = IconFetchService(),
+    val linkPreviewService: LinkPreviewService = LinkPreviewService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
     val openTelemetry: OpenTelemetry? = null,
     webPageUrlsOverride: WebPageUrls? = null,
@@ -349,6 +351,7 @@ class AppDependencies(
         val failures = listOf<() -> Unit>(
             { feedFetcher.close() },
             { iconFetcher.close() },
+            { linkPreviewService.close() },
             { delivery.close() },
             { remoteActors.close() },
             { repositories.close() },

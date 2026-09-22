@@ -142,6 +142,7 @@ fun Application.module(deps: AppDependencies) {
         accountIconFiles = deps.accountIconFiles,
         noteStore = deps.noteStore,
         feedService = deps.feedService,
+        linkPreviewService = deps.linkPreviewService,
     )
 
     val graphQl = GraphQlEngine.create(

@@ -1,14 +1,19 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
 import java.util.concurrent.CompletionStage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.future.future
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AccountNoteResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNote
+import net.matsudamper.mastodon.rss.graphql.model.QlLinkPreview
 import net.matsudamper.mastodon.rss.note.NoteUrls
 import net.matsudamper.mastodon.rss.note.StoredNote
+import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AccountNoteResolverImpl : AccountNoteResolver {
     override fun url(
@@ -58,6 +63,26 @@ class AccountNoteResolverImpl : AccountNoteResolver {
                     ),
                 ).build()
             }
+    }
+
+    override fun linkPreviews(
+        accountNote: QlAccountNote,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<List<QlLinkPreview>>> {
+        val linkPreviewService = GraphQlEngine.diContainer(env).linkPreviewService
+        return loadNote(accountNote, env).thenCompose { note ->
+            CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+                val previews = linkPreviewService.previews(note.contentHtml).map { preview ->
+                    QlLinkPreview(
+                        url = preview.url,
+                        title = preview.title,
+                        siteName = preview.siteName,
+                        imageUrl = preview.imageUrl,
+                    )
+                }
+                DataFetcherResult.Builder(previews).build()
+            }
+        }
     }
 
     private fun loadNote(

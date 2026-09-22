@@ -23,4 +23,7 @@ type AccountNote {
 
     "配信したアカウント"
     account: Account! @lazy
+
+    "本文にあるリンクごとの OGP。本文に出てくる順"
+    linkPreviews: [LinkPreview!]! @lazy
 }
