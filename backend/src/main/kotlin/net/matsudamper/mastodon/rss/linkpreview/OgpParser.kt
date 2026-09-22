@@ -92,10 +92,15 @@ object OgpParser {
         characterReference.replace(value) { match ->
             when (val name = match.groupValues[1]) {
                 "amp" -> "&"
+
                 "lt" -> "<"
+
                 "gt" -> ">"
+
                 "quot" -> "\""
+
                 "apos" -> "'"
+
                 else -> {
                     val codePoint = if (name[1] == 'x' || name[1] == 'X') {
                         name.substring(2).toIntOrNull(16)
