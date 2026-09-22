@@ -247,7 +247,7 @@ class AccountScreenViewModel(
             url = url,
             contentHtml = contentHtml,
             publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
-            reactions = noteReactionsUiState(favouriteCount = favouriteCount, reactions = reactions),
+            reactions = NoteReactionsUiStateFactory.create(favouriteCount = favouriteCount, reactions = reactions),
             listener = object : NoteUiState.Listener {
                 override fun onClick() {
                     navigate(Screen.AccountNote(username = username, noteId = id))

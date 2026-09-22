@@ -21,6 +21,11 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 
 /**
+ * お気に入りには絵文字が付かないので、代わりに出す印
+ */
+private const val FAVOURITE_MARK = "★"
+
+/**
  * 投稿に届いたお気に入りとスタンプ。
  *
  * 押した相手は出さない。こちらが記録しているのは数だけで、誰が押したかは
@@ -102,8 +107,3 @@ private fun ReactionChip(
         }
     }
 }
-
-/**
- * お気に入りには絵文字が付かないので、代わりに出す印
- */
-private const val FAVOURITE_MARK = "★"
