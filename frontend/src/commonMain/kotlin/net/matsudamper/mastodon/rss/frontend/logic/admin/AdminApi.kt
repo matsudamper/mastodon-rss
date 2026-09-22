@@ -211,7 +211,7 @@ class AdminApi(
 
         val failure = added.failure
             ?: return AdminAddAccountResult.Success(
-                added.adminAccount?.account?.acct ?: return AdminAddAccountResult.Failure("追加できたが内容が返ってこない"),
+                added.adminAccount?.account?.username ?: return AdminAddAccountResult.Failure("追加できたが内容が返ってこない"),
             )
 
         return AdminAddAccountResult.Rejected(

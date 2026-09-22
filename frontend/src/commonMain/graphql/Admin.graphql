@@ -207,7 +207,7 @@ mutation AdminAddAccount($username: String!) {
         addAccount(username: $username) {
             adminAccount {
                 account {
-                    acct
+                    username
                 }
             }
             failure {

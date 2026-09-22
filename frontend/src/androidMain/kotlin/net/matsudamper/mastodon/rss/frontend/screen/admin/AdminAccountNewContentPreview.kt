@@ -31,8 +31,4 @@ private object AndroidPreviewAdminAccountNewListener : AdminAccountNewScreenUiSt
     override fun onUsernameChanged(text: String) = Unit
 
     override fun onClickAdd() = Unit
-
-    override fun onClickAddAnother() = Unit
-
-    override fun onClickAccounts() = Unit
 }
