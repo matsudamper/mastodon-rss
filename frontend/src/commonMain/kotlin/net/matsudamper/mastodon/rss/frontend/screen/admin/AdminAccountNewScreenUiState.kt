@@ -29,15 +29,6 @@ data class AdminAccountNewScreenUiState(
             val addButtonEnabled: Boolean,
         ) : Content
 
-        /**
-         * 追加できた。入力欄の代わりに出す。
-         *
-         * @param acct 追加した名前として文中に出す
-         */
-        data class Added(
-            val acct: String,
-        ) : Content
-
         data class Error(
             val message: String,
         ) : Content
@@ -48,9 +39,5 @@ data class AdminAccountNewScreenUiState(
         fun onUsernameChanged(text: String)
 
         fun onClickAdd()
-
-        fun onClickAddAnother()
-
-        fun onClickAccounts()
     }
 }
