@@ -27,11 +27,38 @@ data class AdminScreenUiState(
             }
         }
 
-        data object LoggedIn : Content
+        data class LoggedIn(
+            val sections: List<MenuSection>,
+            val listener: LoggedIn.Listener,
+        ) : Content {
+            @Immutable
+            interface Listener {
+                fun onClickLogout()
+            }
+        }
 
         data class Error(
             val message: String,
         ) : Content
+    }
+
+    /**
+     * ホームに並べる入口のまとまり。見出しの下にタイルを並べる
+     */
+    data class MenuSection(
+        val title: String,
+        val items: List<MenuItem>,
+    )
+
+    data class MenuItem(
+        val title: String,
+        val description: String,
+        val listener: Listener,
+    ) {
+        @Immutable
+        interface Listener {
+            fun onClick()
+        }
     }
 
     @Immutable
@@ -40,14 +67,6 @@ data class AdminScreenUiState(
 
         fun onClickLogin()
 
-        fun onClickLogout()
-
         fun onClickRetry()
-
-        fun onClickAccounts()
-
-        fun onClickNewAccount()
-
-        fun onClickDeliveries()
     }
 }
