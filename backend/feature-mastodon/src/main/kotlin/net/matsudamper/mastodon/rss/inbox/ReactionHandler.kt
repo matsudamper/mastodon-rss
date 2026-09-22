@@ -60,8 +60,8 @@ class ReactionHandler(
             return
         }
 
-        // 反応は面識の無いサーバーからも届く。宛先のアカウントの投稿でなければ、
-        // 別のアカウントの投稿への反応がこのアカウントの画面に出ることになる
+        // 面識の無いサーバーからも届く。宛先のアカウントの投稿に絞らないと、
+        // 別のアカウントの投稿への反応がこのアカウントの画面に出る
         val note = notes.find(notePublicId)
         if (note == null || note.username != recipient.username) {
             logger.info("$type の対象が宛先のアカウントの投稿ではないので何もしない: object=$targetUrl 宛先=${recipient.acct}")

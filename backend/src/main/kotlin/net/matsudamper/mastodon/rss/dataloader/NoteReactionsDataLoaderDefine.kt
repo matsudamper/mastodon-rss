@@ -8,10 +8,7 @@ import org.dataloader.DataLoader
 import org.dataloader.DataLoaderFactory
 
 /**
- * 投稿に届いた反応を引く。
- *
- * 一覧に並んだ投稿の分を 1 回の問い合わせでまとめる。お気に入りもスタンプも
- * 同じ 1 件として届くので、分けずに取ってから画面に出す形にする
+ * 一覧に並んだ投稿の分を 1 回の問い合わせでまとめる
  */
 class NoteReactionsDataLoaderDefine(
     private val reactions: NoteReactionRepository,

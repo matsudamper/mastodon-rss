@@ -12,8 +12,6 @@ data class AccountNote(
 )
 
 /**
- * 投稿に届いたスタンプ 1 種類。
- *
  * @param name 絵文字そのもの、またはカスタム絵文字の名前
  * @param imageUrl カスタム絵文字の画像。絵文字そのものなら null
  */

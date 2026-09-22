@@ -87,7 +87,6 @@ class DeleteActorHandlerTest {
             reactions = reactions,
         )
 
-        // 消えた相手が押した反応も残さない
         assertTrue(reactions.rows.isEmpty())
 
         // 宛先のアカウントだけでなく、この相手のフォローが全部消える。

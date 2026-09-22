@@ -69,10 +69,7 @@ class AccountNoteResolverImpl : AccountNoteResolver {
     }
 
     /**
-     * 画面に出す名前。
-     *
-     * カスタム絵文字は `:name:` の形で届く。コロンは相手のサーバーが本文に
-     * 埋め込むための記法で、名前の一部ではない
+     * カスタム絵文字に付く `:` は、相手のサーバーが本文に埋め込むための記法で名前の一部ではない
      */
     private fun displayName(emoji: String): String = emoji.removeSurrounding(":")
 

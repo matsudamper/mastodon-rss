@@ -26,10 +26,7 @@ import coil3.compose.AsyncImage
 private const val FAVOURITE_MARK = "★"
 
 /**
- * 投稿に届いたお気に入りとスタンプ。
- *
- * 押した相手は出さない。こちらが記録しているのは数だけで、誰が押したかは
- * 相手のサーバー側に残る情報として扱っている。
+ * 投稿に届いたお気に入りとスタンプ。押した相手は出さず、数だけを出す
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -60,12 +57,10 @@ internal fun NoteReactions(
 }
 
 /**
- * スタンプの絵文字。カスタム絵文字は画像で、読めなければ名前を出す。
- *
- * 画像が出せないときに空の枠だけが残ると、何が押されたのか分からなくなる
+ * 画像が出せないときに空の枠だけが残ると、何が押されたのか分からなくなるので名前を出す
  */
 @Composable
-private fun ReactionEmoji(reaction: NoteReactionUiState) {
+private fun ReactionEmoji(reaction: NoteReactionsUiState.Stamp) {
     var imageFailed by remember(reaction.imageUrl) { mutableStateOf(false) }
 
     if (reaction.imageUrl == null || imageFailed) {
@@ -76,7 +71,7 @@ private fun ReactionEmoji(reaction: NoteReactionUiState) {
     } else {
         AsyncImage(
             model = reaction.imageUrl,
-            // 絵文字の名前は隣に出ないので、読み上げるものとして名前を渡す
+            // 名前は画像の隣に出ないので、読み上げるものとして渡す
             contentDescription = reaction.name,
             modifier = Modifier.size(20.dp),
             onError = { imageFailed = true },
