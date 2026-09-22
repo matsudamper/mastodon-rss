@@ -1,0 +1,11 @@
+query NoteLinkPreviews($username: String!, $id: PublicNoteId!) {
+    note(username: $username, id: $id) {
+        id
+        linkPreviews {
+            url
+            title
+            siteName
+            imageUrl
+        }
+    }
+}

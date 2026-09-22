@@ -32,6 +32,20 @@ private fun HomeContentPreview() {
                             contentHtml = "<p>Kotlin 2.4 がリリースされました</p>",
                             publishedAt = "2026-08-09 11:02",
                             account = kotlin,
+                            linkPreviews = listOf(
+                                HomeScreenUiState.LinkPreview(
+                                    url = "https://example.com/kotlin-2-4",
+                                    title = "Kotlin 2.4 リリース",
+                                    siteName = "Kotlin Blog",
+                                    imageUrl = null,
+                                ),
+                                HomeScreenUiState.LinkPreview(
+                                    url = "https://example.com/whats-new",
+                                    title = "What's new in Kotlin 2.4",
+                                    siteName = "example.com",
+                                    imageUrl = null,
+                                ),
+                            ),
                             listener = AndroidPreviewNoteListener,
                         ),
                         HomeScreenUiState.Note(
@@ -39,6 +53,7 @@ private fun HomeContentPreview() {
                             contentHtml = "<p>Android 17 のベータが出ました</p>",
                             publishedAt = "2026-08-09 10:00",
                             account = android,
+                            linkPreviews = listOf(),
                             listener = AndroidPreviewNoteListener,
                         ),
                     ),
@@ -72,6 +87,8 @@ private object AndroidPreviewHomeListener : HomeScreenUiState.Listener {
 
 private object AndroidPreviewNoteListener : HomeScreenUiState.Note.Listener {
     override fun onClick() = Unit
+
+    override fun onVisible() = Unit
 }
 
 private object AndroidPreviewAccountListener : HomeScreenUiState.Account.Listener {
