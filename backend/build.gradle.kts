@@ -25,6 +25,8 @@ dependencies {
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
+    // リンク先の OGP の取得に使う。接続先のアドレスを確かめる口（Dns）が CIO には無い
+    implementation(libs.ktor.client.okhttp)
 
     implementation(libs.opentelemetry.api.incubator)
     implementation(libs.opentelemetry.sdk)

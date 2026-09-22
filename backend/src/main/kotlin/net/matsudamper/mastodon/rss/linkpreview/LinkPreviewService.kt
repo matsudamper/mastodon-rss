@@ -3,7 +3,9 @@ package net.matsudamper.mastodon.rss.linkpreview
 import java.io.Closeable
 import java.net.Inet6Address
 import java.net.InetAddress
+import java.net.Proxy
 import java.net.URI
+import java.net.UnknownHostException
 import java.nio.charset.Charset
 import java.time.Clock
 import java.time.Duration
@@ -19,7 +21,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -30,6 +32,7 @@ import io.ktor.http.charset
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readRemaining
+import okhttp3.Dns
 
 /**
  * 投稿の本文にあるリンク先の OGP を取ってくる。
@@ -40,7 +43,6 @@ import io.ktor.utils.io.readRemaining
 class LinkPreviewService(
     private val client: HttpClient = defaultClient(),
     private val clock: Clock = Clock.systemUTC(),
-    private val resolveHost: (String) -> List<InetAddress> = { host -> InetAddress.getAllByName(host).toList() },
 ) : Closeable {
     private val cache = ConcurrentHashMap<String, CacheEntry>()
     private val fetchPermits = Semaphore(MAX_CONCURRENT_FETCHES)
@@ -143,22 +145,13 @@ class LinkPreviewService(
         if (scheme != "http" && scheme != "https") return false
         val host = uri.host?.takeIf { it.isNotBlank() } ?: return false
         val addresses = runCatching {
-            withContext(Dispatchers.IO) { resolveHost(host.removeSurrounding("[", "]")) }
+            withContext(Dispatchers.IO) { InetAddress.getAllByName(host.removeSurrounding("[", "]")).toList() }
         }.getOrElse { error ->
             if (error is CancellationException) throw error
             return false
         }
         return addresses.isNotEmpty() && addresses.none { it.isInternal() }
     }
-
-    private fun InetAddress.isInternal(): Boolean =
-        isAnyLocalAddress ||
-            isLoopbackAddress ||
-            isLinkLocalAddress ||
-            isSiteLocalAddress ||
-            isMulticastAddress ||
-            // IPv6 のユニークローカル（fc00::/7）は isSiteLocalAddress に含まれない
-            (this is Inet6Address && (address[0].toInt() and 0xFE) == 0xFC)
 
     /**
      * 先頭の [MAX_BODY_BYTES] だけ読む。OGP は `<head>` にあるので、残りは要らない
@@ -215,7 +208,16 @@ class LinkPreviewService(
         private val FAILURE_TTL: Duration = Duration.ofHours(1)
 
         fun defaultClient(): HttpClient =
-            HttpClient(CIO) {
+            HttpClient(OkHttp) {
+                engine {
+                    config {
+                        dns(PublicAddressDns)
+                        // プロキシを通すと、名前を引くのがプロキシの側になって PublicAddressDns を通らない
+                        proxy(Proxy.NO_PROXY)
+                        followRedirects(false)
+                        followSslRedirects(false)
+                    }
+                }
                 install(HttpTimeout) {
                     requestTimeoutMillis = 10_000
                     connectTimeoutMillis = 5_000
@@ -224,5 +226,29 @@ class LinkPreviewService(
                 followRedirects = false
                 expectSuccess = false
             }
+
+        private fun InetAddress.isInternal(): Boolean =
+            isAnyLocalAddress ||
+                isLoopbackAddress ||
+                isLinkLocalAddress ||
+                isSiteLocalAddress ||
+                isMulticastAddress ||
+                // IPv6 のユニークローカル（fc00::/7）は isSiteLocalAddress に含まれない
+                (this is Inet6Address && (address[0].toInt() and 0xFE) == 0xFC)
+    }
+
+    /**
+     * 接続に使うアドレスをここで確かめる。
+     *
+     * 取得の前に名前を引いて確かめるだけだと、接続のときに引き直した結果が内側のアドレスに
+     * 変わっていても素通りする（DNS rebinding）。OkHttp はここで返したアドレスにだけ接続する。
+     * IP アドレスがそのまま書かれた URL はここを通らないので、[isPublicHttpUrl] で確かめる
+     */
+    private object PublicAddressDns : Dns {
+        override fun lookup(hostname: String): List<InetAddress> {
+            val addresses = Dns.SYSTEM.lookup(hostname)
+            if (addresses.any { it.isInternal() }) throw UnknownHostException("内側のアドレスには接続しない")
+            return addresses
+        }
     }
 }
