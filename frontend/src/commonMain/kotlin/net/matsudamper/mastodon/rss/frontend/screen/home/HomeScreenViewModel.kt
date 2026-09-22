@@ -8,9 +8,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
+import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.PagingLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
+import net.matsudamper.mastodon.rss.frontend.logic.account.HomeAccount
+import net.matsudamper.mastodon.rss.frontend.logic.account.TimelineNote
+import net.matsudamper.mastodon.rss.frontend.logic.account.TimelineResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 class HomeScreenViewModel(
@@ -21,15 +25,20 @@ class HomeScreenViewModel(
     internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
-    private val accountsPaging = api.accounts(limit = PAGE_SIZE)
+    private val timelinePaging = api.timeline(limit = TIMELINE_PAGE_SIZE)
 
-    private var accountsJob: Job? = null
+    // 続きは取らない。全部は一覧の画面で見る
+    private val accountsPaging = api.accounts(limit = ACCOUNTS_PREVIEW_SIZE)
+
+    private var timelineJob: Job? = null
     private var loadMoreJob: Job? = null
+    private var accountsJob: Job? = null
 
     val uiStateFlow: StateFlow<HomeScreenUiState> =
         MutableStateFlow(
             HomeScreenUiState(
-                content = HomeScreenUiState.Content.Loading,
+                timeline = HomeScreenUiState.Timeline.Loading,
+                accounts = HomeScreenUiState.Accounts.Loading,
                 listener =
                 object : HomeScreenUiState.Listener {
                     override fun onClickHome() {
@@ -40,16 +49,20 @@ class HomeScreenViewModel(
                         navigate(Screen.Admin)
                     }
 
-                    override fun onClickReload() {
-                        reload()
+                    override fun onClickReloadTimeline() {
+                        reloadTimeline()
                     }
 
-                    override fun onClickAccount(username: String) {
-                        navigate(Screen.Account(username))
-                    }
-
-                    override fun onClickLoadMore() {
+                    override fun onLoadMore() {
                         loadMore()
+                    }
+
+                    override fun onClickReloadAccounts() {
+                        reloadAccounts()
+                    }
+
+                    override fun onClickAllAccounts() {
+                        navigate(Screen.Accounts)
                     }
                 },
             ),
@@ -57,7 +70,10 @@ class HomeScreenViewModel(
             viewModelScope.launch {
                 viewModelStateFlow.collect { viewModelState ->
                     uiStateFlow.update { uiState ->
-                        uiState.copy(content = createContent(viewModelState))
+                        uiState.copy(
+                            timeline = createTimeline(viewModelState),
+                            accounts = createAccounts(viewModelState),
+                        )
                     }
                 }
             }
@@ -65,8 +81,11 @@ class HomeScreenViewModel(
 
     fun onStart() {
         val state = viewModelStateFlow.value
-        if (state.accounts == null && !state.isLoading) {
-            reload()
+        if (state.timeline == null && !state.timelineLoading) {
+            reloadTimeline()
+        }
+        if (state.accounts == null && !state.accountsLoading) {
+            reloadAccounts()
         }
     }
 
@@ -79,17 +98,24 @@ class HomeScreenViewModel(
     /**
      * 一覧は先頭のページを watch して受け取る。続きを足したときもここに流れてくる
      */
-    private fun reload() {
+    private fun reloadTimeline() {
         loadMoreJob?.cancel()
-        viewModelStateFlow.update { ViewModelState(isLoading = true) }
+        viewModelStateFlow.update {
+            it.copy(
+                timeline = null,
+                timelineLoading = true,
+                loadingMore = false,
+                loadMoreErrorMessage = null,
+            )
+        }
 
-        accountsJob?.cancel()
-        accountsJob = viewModelScope.launch {
-            accountsPaging.watch().collect { result ->
+        timelineJob?.cancel()
+        timelineJob = viewModelScope.launch {
+            timelinePaging.watch().collect { result ->
                 viewModelStateFlow.update {
                     it.copy(
-                        isLoading = false,
-                        accounts = result,
+                        timelineLoading = false,
+                        timeline = result,
                     )
                 }
             }
@@ -98,15 +124,15 @@ class HomeScreenViewModel(
 
     private fun loadMore() {
         val currentState = viewModelStateFlow.value
-        val currentAccounts = currentState.accounts as? AccountsResult.Success ?: return
-        if (!currentAccounts.hasMore || currentState.loadingMore) return
+        val timeline = currentState.timeline as? TimelineResult.Success ?: return
+        if (currentState.loadingMore) return
 
-        val cursor = currentAccounts.nextCursor ?: return
+        val cursor = timeline.cursor ?: return
         viewModelStateFlow.update { it.copy(loadingMore = true, loadMoreErrorMessage = null) }
 
         loadMoreJob?.cancel()
         loadMoreJob = viewModelScope.launch {
-            when (val result = accountsPaging.loadMore(cursor)) {
+            when (val result = timelinePaging.loadMore(cursor)) {
                 PagingLoadMoreResult.Success -> {
                     viewModelStateFlow.update { it.copy(loadingMore = false, loadMoreErrorMessage = null) }
                 }
@@ -119,40 +145,88 @@ class HomeScreenViewModel(
         }
     }
 
-    private fun createContent(state: ViewModelState): HomeScreenUiState.Content {
-        if (state.isLoading && state.accounts == null) {
-            return HomeScreenUiState.Content.Loading
+    private fun reloadAccounts() {
+        viewModelStateFlow.update { it.copy(accounts = null, accountsLoading = true) }
+
+        accountsJob?.cancel()
+        accountsJob = viewModelScope.launch {
+            accountsPaging.watch().collect { result ->
+                viewModelStateFlow.update {
+                    it.copy(
+                        accountsLoading = false,
+                        accounts = result,
+                    )
+                }
+            }
         }
+    }
 
-        return when (val accounts = state.accounts) {
-            null -> HomeScreenUiState.Content.Loading
+    private fun createTimeline(state: ViewModelState): HomeScreenUiState.Timeline {
+        return when (val timeline = state.timeline) {
+            null -> HomeScreenUiState.Timeline.Loading
 
-            is AccountsResult.Failure -> HomeScreenUiState.Content.Error(accounts.message)
+            is TimelineResult.Failure -> HomeScreenUiState.Timeline.Error(timeline.message)
 
-            is AccountsResult.Success -> {
-                HomeScreenUiState.Content.Loaded(
-                    accounts =
-                    accounts.accounts.map { account ->
-                        HomeScreenUiState.Account(
-                            username = account.username,
-                            acct = account.acct,
-                            displayName = account.displayName,
-                            iconUrl = account.iconUrl,
-                        )
-                    },
-                    loadMoreVisible = accounts.hasMore,
-                    loadingMore = state.loadingMore,
+            is TimelineResult.Success -> {
+                HomeScreenUiState.Timeline.Loaded(
+                    notes = timeline.notes.map { it.toUiState() },
+                    loadMoreVisible = timeline.cursor != null,
+                    loadMoreOnVisible = timeline.cursor != null && !state.loadingMore && state.loadMoreErrorMessage == null,
                     loadMoreErrorMessage = state.loadMoreErrorMessage,
                 )
             }
         }
     }
 
+    private fun createAccounts(state: ViewModelState): HomeScreenUiState.Accounts {
+        return when (val accounts = state.accounts) {
+            null -> HomeScreenUiState.Accounts.Loading
+
+            is AccountsResult.Failure -> HomeScreenUiState.Accounts.Error(accounts.message)
+
+            is AccountsResult.Success -> {
+                HomeScreenUiState.Accounts.Loaded(
+                    accounts = accounts.accounts.map { it.toUiState() },
+                )
+            }
+        }
+    }
+
+    private fun TimelineNote.toUiState(): HomeScreenUiState.Note {
+        return HomeScreenUiState.Note(
+            url = note.url,
+            contentHtml = note.contentHtml,
+            publishedAt = UnixTimeUtil.format(note.publishedAt.epochSeconds),
+            account = account.toUiState(),
+            listener = object : HomeScreenUiState.Note.Listener {
+                override fun onClick() {
+                    navigate(Screen.AccountNote(username = account.username, noteId = note.id))
+                }
+            },
+        )
+    }
+
+    private fun HomeAccount.toUiState(): HomeScreenUiState.Account {
+        return HomeScreenUiState.Account(
+            username = username,
+            acct = acct,
+            displayName = displayName.ifEmpty { username },
+            iconUrl = iconUrl,
+            listener = object : HomeScreenUiState.Account.Listener {
+                override fun onClick() {
+                    navigate(Screen.Account(username))
+                }
+            },
+        )
+    }
+
     private data class ViewModelState(
-        val isLoading: Boolean = false,
+        val timelineLoading: Boolean = false,
+        val timeline: TimelineResult? = null,
         val loadingMore: Boolean = false,
-        val accounts: AccountsResult? = null,
         val loadMoreErrorMessage: String? = null,
+        val accountsLoading: Boolean = false,
+        val accounts: AccountsResult? = null,
     )
 
     interface Event {
@@ -160,6 +234,11 @@ class HomeScreenViewModel(
     }
 
     private companion object {
-        const val PAGE_SIZE = 20
+        const val TIMELINE_PAGE_SIZE = 20
+
+        /**
+         * トップに出すアカウントの数。残りは一覧の画面で見る
+         */
+        const val ACCOUNTS_PREVIEW_SIZE = 8
     }
 }

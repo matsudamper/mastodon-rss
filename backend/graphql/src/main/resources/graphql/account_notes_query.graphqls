@@ -26,6 +26,9 @@ type AccountNote {
 
     "届いたスタンプ。押された数が多い順"
     reactions: [NoteReaction!]! @lazy
+
+    "配信したアカウント"
+    account: Account! @lazy
 }
 
 "投稿に届いたスタンプ 1 種類"

@@ -1,11 +1,14 @@
-query HomeScreen($cursor: String, $limit: Int!) {
-    accounts(cursor: $cursor, limit: $limit) {
+query HomeScreen($query: TimelineQuery!) {
+    timeline(query: $query) {
         nodes {
-            id
-            username
-            acct
-            displayName
-            iconUrl
+            ...AccountNoteFields
+            account {
+                id
+                username
+                acct
+                displayName
+                iconUrl
+            }
         }
         pageInfo {
             hasMore

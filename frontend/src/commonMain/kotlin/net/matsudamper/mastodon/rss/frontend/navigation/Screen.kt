@@ -33,10 +33,18 @@ sealed interface Screen : NavKey {
         val background: Screen
     }
 
-    /** トップ。何をするサーバーなのかと、各画面への入口だけを置く */
+    /** トップ。全アカウントの投稿を並べたタイムラインと、アカウントへの入口を置く */
     data object Home : Screen {
         override val path: String = "/"
         override val title: String = SITE_NAME
+    }
+
+    /**
+     * 公開アカウントの一覧。トップには一部しか出さないので、全部を見る画面を分ける
+     */
+    data object Accounts : Screen {
+        override val path: String = "/$ACCOUNTS_SEGMENT"
+        override val title: String = "アカウント | $SITE_NAME"
     }
 
     /**
@@ -235,6 +243,8 @@ sealed interface Screen : NavKey {
             val segments = path.split('/').filter { it.isNotEmpty() }
 
             val first = segments.firstOrNull() ?: return Home
+
+            if (segments == listOf(ACCOUNTS_SEGMENT)) return Accounts
 
             if (first == ADMIN_SEGMENT) {
                 // 知らない下の階層は管理画面ではなく見つからない扱いにする。

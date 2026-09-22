@@ -222,6 +222,8 @@ CREATE INDEX feed_items_feed_id_state_published_at_id ON feed_items (feed_id, st
 
 CREATE INDEX feed_items_note_id ON feed_items (note_id);
 
+CREATE INDEX notes_published_at_public_id ON notes (published_at, public_id);
+
 CREATE INDEX notes_username_published_at ON notes (username, published_at);
 
 CREATE INDEX note_reactions_note_public_id ON note_reactions (note_public_id);
