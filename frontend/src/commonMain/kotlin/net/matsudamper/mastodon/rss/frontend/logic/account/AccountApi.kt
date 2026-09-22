@@ -220,6 +220,7 @@ class AccountApi(
             notes = data.timeline.nodes.map { node ->
                 TimelineNote(
                     note = node.accountNoteFields.toAccountNote(),
+                    linkUrls = node.linkUrls,
                     account = HomeAccount(
                         id = node.account.id,
                         username = node.account.username,

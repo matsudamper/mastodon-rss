@@ -65,6 +65,16 @@ class AccountNoteResolverImpl : AccountNoteResolver {
             }
     }
 
+    override fun linkUrls(
+        accountNote: QlAccountNote,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<List<String>>> {
+        val linkPreviewService = GraphQlEngine.diContainer(env).linkPreviewService
+        return loadNote(accountNote, env).thenApply { note ->
+            DataFetcherResult.Builder(linkPreviewService.links(note.contentHtml)).build()
+        }
+    }
+
     override fun linkPreviews(
         accountNote: QlAccountNote,
         env: DataFetchingEnvironment,

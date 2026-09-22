@@ -43,7 +43,7 @@ data class HomeScreenUiState(
     }
 
     /**
-     * @param linkPreviews 本文のリンクごとの OGP。取れるまでは空
+     * @param linkPreviews 本文のリンクごとの OGP。取れるまでは URL だけで埋めておく
      */
     data class Note(
         val url: String,

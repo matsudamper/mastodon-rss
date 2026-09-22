@@ -48,10 +48,15 @@ class LinkPreviewService(
     private val fetchPermits = Semaphore(MAX_CONCURRENT_FETCHES)
 
     /**
+     * OGP を取りに行くリンク。[previews] はこの並びで返す
+     */
+    fun links(contentHtml: String): List<String> = OgpParser.links(contentHtml).take(MAX_LINKS_PER_NOTE)
+
+    /**
      * 本文のリンクごとに 1 件返す。取れなかったリンクも URL だけ入れて返す
      */
     suspend fun previews(contentHtml: String): List<LinkPreview> {
-        val links = OgpParser.links(contentHtml).take(MAX_LINKS_PER_NOTE)
+        val links = links(contentHtml)
         return coroutineScope {
             links.map { url -> async { preview(url) } }.awaitAll()
         }

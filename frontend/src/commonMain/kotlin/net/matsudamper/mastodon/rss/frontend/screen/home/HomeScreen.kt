@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.home
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -353,13 +354,19 @@ private fun LinkPreviewCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column {
-            if (preview.imageUrl != null) {
-                HtmlImage(
-                    url = preview.imageUrl,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(OgpImageAspectRatio),
-                )
+            // 画像が無い・まだ取れていないときも同じ高さを取り、取れたときにカードの大きさを変えない
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(OgpImageAspectRatio)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                if (preview.imageUrl != null) {
+                    HtmlImage(
+                        url = preview.imageUrl,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
             Column(
                 modifier = Modifier.padding(12.dp),
@@ -368,6 +375,7 @@ private fun LinkPreviewCard(
                 Text(
                     text = preview.title,
                     style = MaterialTheme.typography.titleSmall,
+                    minLines = 2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )

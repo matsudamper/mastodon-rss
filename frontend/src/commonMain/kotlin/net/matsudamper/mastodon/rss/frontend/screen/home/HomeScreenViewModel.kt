@@ -222,7 +222,9 @@ class HomeScreenViewModel(
             contentHtml = note.contentHtml,
             publishedAt = UnixTimeUtil.format(note.publishedAt.epochSeconds),
             account = account.toUiState(),
-            linkPreviews = linkPreviews.map { it.toUiState() },
+            linkPreviews = linkUrls.map { url ->
+                createLinkPreview(url = url, preview = linkPreviews.firstOrNull { it.url == url })
+            },
             listener = object : HomeScreenUiState.Note.Listener {
                 override fun onClick() {
                     navigate(Screen.AccountNote(username = account.username, noteId = note.id))
@@ -235,12 +237,18 @@ class HomeScreenViewModel(
         )
     }
 
-    private fun NoteLinkPreview.toUiState(): HomeScreenUiState.LinkPreview {
+    /**
+     * @param preview まだ取れていなければ null。枠は先に出しておき、取れたら中身だけ差し替える
+     */
+    private fun createLinkPreview(
+        url: String,
+        preview: NoteLinkPreview?,
+    ): HomeScreenUiState.LinkPreview {
         return HomeScreenUiState.LinkPreview(
             url = url,
-            title = title ?: url,
-            siteName = siteName ?: url.substringAfter("://").substringBefore('/'),
-            imageUrl = imageUrl,
+            title = preview?.title ?: url,
+            siteName = preview?.siteName ?: url.substringAfter("://").substringBefore('/'),
+            imageUrl = preview?.imageUrl,
         )
     }
 
