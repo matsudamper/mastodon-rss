@@ -5,6 +5,7 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AccountNoteResolver
+import net.matsudamper.mastodon.rss.graphql.model.QlAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNote
 import net.matsudamper.mastodon.rss.note.NoteUrls
 import net.matsudamper.mastodon.rss.note.StoredNote
@@ -36,6 +37,27 @@ class AccountNoteResolverImpl : AccountNoteResolver {
         return loadNote(accountNote, env).thenApply { note ->
             DataFetcherResult.Builder(note.publishedAt.epochSecond).build()
         }
+    }
+
+    override fun account(
+        accountNote: QlAccountNote,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAccount>> {
+        return GraphQlEngine
+            .dataLoaders(env)
+            .accountByNoteDataLoader
+            .get(env)
+            .load(accountNote.id)
+            .thenApply { account ->
+                checkNotNull(account) { "投稿したアカウントが見つからない: ${accountNote.id}" }
+                DataFetcherResult.Builder(
+                    account.urls.toGraphqlResponse(
+                        accountId = account.accountId,
+                        displayName = account.displayName,
+                        summary = account.summary,
+                    ),
+                ).build()
+            }
     }
 
     private fun loadNote(

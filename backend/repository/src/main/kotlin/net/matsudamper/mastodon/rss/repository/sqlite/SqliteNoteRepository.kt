@@ -96,12 +96,21 @@ internal class SqliteNoteRepository(
             .orderBy(NOTES.PUBLISHED_AT.desc(), NOTES.PUBLIC_ID.desc())
             .limit(limit)
             .fetch()
-            .map {
-                NotePosition(
-                    publishedAt = StoredInstant.parse(it.get(NOTES.PUBLISHED_AT)),
-                    publicId = PublicNoteId(it.get(NOTES.PUBLIC_ID)),
-                )
-            }
+            .map { it.toPosition() }
+    }
+
+    override fun listAllPositions(
+        after: NotePosition?,
+        limit: Int,
+    ): List<NotePosition> = jooq.withConnection { dsl ->
+        dsl
+            .select(NOTES.PUBLIC_ID, NOTES.PUBLISHED_AT)
+            .from(NOTES)
+            .where(after?.let { olderThan(it) } ?: DSL.noCondition())
+            .orderBy(NOTES.PUBLISHED_AT.desc(), NOTES.PUBLIC_ID.desc())
+            .limit(limit)
+            .fetch()
+            .map { it.toPosition() }
     }
 
     /**
@@ -142,6 +151,11 @@ internal class SqliteNoteRepository(
             usernames.associateWith { counted[it] ?: 0L }
         }
     }
+
+    private fun Record.toPosition(): NotePosition = NotePosition(
+        publishedAt = StoredInstant.parse(get(NOTES.PUBLISHED_AT)),
+        publicId = PublicNoteId(get(NOTES.PUBLIC_ID)),
+    )
 
     private fun Record.toNote(): Note = Note(
         publicId = PublicNoteId(get(NOTES.PUBLIC_ID)),

@@ -68,6 +68,14 @@ interface NoteRepository {
         limit: Int,
     ): List<NotePosition>
 
+    /**
+     * アカウントを問わず、新しい順に位置だけ返す。トップのタイムラインに使う
+     */
+    fun listAllPositions(
+        after: NotePosition?,
+        limit: Int,
+    ): List<NotePosition>
+
     fun count(username: String): Long
 
     /**

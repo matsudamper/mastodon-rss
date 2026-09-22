@@ -7,6 +7,8 @@ import kotlinx.serialization.Serializable
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.note.NotePosition
+import net.matsudamper.mastodon.rss.repository.NotePosition as RepositoryNotePosition
+import net.matsudamper.mastodon.rss.shared.PublicNoteId as SharedPublicNoteId
 
 /**
  * 配信した投稿の一覧の続きを指す印。
@@ -31,6 +33,11 @@ data class NotesCursor(
         publicId = PublicNoteId(afterPublicId),
     )
 
+    fun toRepositoryPosition(): RepositoryNotePosition = RepositoryNotePosition(
+        publishedAt = Instant.ofEpochSecond(afterEpochSecond, afterNano),
+        publicId = SharedPublicNoteId(afterPublicId),
+    )
+
     fun encode(): String =
         ENCODER.encodeToString(
             AppJson.encodeToString(serializer(), this).encodeToByteArray(),
@@ -38,6 +45,12 @@ data class NotesCursor(
 
     companion object {
         fun of(position: NotePosition): NotesCursor = NotesCursor(
+            afterEpochSecond = position.publishedAt.epochSecond,
+            afterNano = position.publishedAt.nano.toLong(),
+            afterPublicId = position.publicId.value,
+        )
+
+        fun of(position: RepositoryNotePosition): NotesCursor = NotesCursor(
             afterEpochSecond = position.publishedAt.epochSecond,
             afterNano = position.publishedAt.nano.toLong(),
             afterPublicId = position.publicId.value,

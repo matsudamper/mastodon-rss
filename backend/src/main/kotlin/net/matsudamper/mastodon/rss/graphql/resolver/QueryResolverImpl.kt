@@ -124,6 +124,38 @@ class QueryResolverImpl : QueryResolver {
         )
     }
 
+    override fun timeline(
+        cursor: String?,
+        limit: Int,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAccountNotesConnection>> {
+        val after = cursor?.let { NotesCursor.decode(it) }
+
+        val connection = if (cursor != null && after == null) {
+            QlAccountNotesConnection(
+                nodes = emptyList(),
+                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+            )
+        } else {
+            val page = GraphQlEngine.diContainer(env).timelineReader.noteIds(
+                after = after?.toRepositoryPosition(),
+                limit = limit,
+            )
+
+            QlAccountNotesConnection(
+                nodes = page.ids.map { QlAccountNote(id = it) },
+                pageInfo = QlPageInfo(
+                    hasMore = page.hasMore,
+                    nextCursor = page.nextPosition?.let { NotesCursor.of(it).encode() },
+                ),
+            )
+        }
+
+        return CompletableFuture.completedFuture(
+            DataFetcherResult.Builder(connection).build(),
+        )
+    }
+
     /**
      * 名前を引き当ててから返す。引けない名前で空の一覧を返すと、無いアカウントが
      * フォロワー 0 人のアカウントとして見える
