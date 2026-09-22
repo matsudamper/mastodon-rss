@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
-import net.matsudamper.mastodon.rss.frontend.ui.TextLink
+import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
 
 @Composable
 internal fun AccountNoteScreen(
@@ -93,15 +94,18 @@ internal fun AccountNoteContent(
 
                     is AccountNoteScreenUiState.Content.Loaded -> {
                         NoteContent(content.contentHtml, Modifier.fillMaxWidth())
-                        Text(
-                            text = content.publishedAt,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        TextLink(
-                            text = "ActivityPub の投稿を開く",
-                            onClick = uiState.listener::onClickActivityPub,
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                modifier = Modifier.weight(1f),
+                                text = content.publishedAt,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            NoteMenu(onClickActivityPubJson = uiState.listener::onClickActivityPub)
+                        }
                     }
                 }
             }
