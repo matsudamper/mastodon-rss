@@ -1,19 +1,16 @@
 package net.matsudamper.mastodon.rss.frontend.screen.home
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -55,7 +52,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
-import net.matsudamper.mastodon.rss.frontend.ui.HtmlImage
+import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
@@ -345,7 +342,9 @@ private fun TimelineNoteCard(
                 ) {
                     items(items = note.linkPreviews) { preview ->
                         LinkPreviewCard(
-                            preview = preview,
+                            title = preview.title,
+                            siteName = preview.siteName,
+                            imageUrl = preview.imageUrl,
                             onClick = { onOpenExternal(preview.url) },
                         )
                     }
@@ -356,61 +355,6 @@ private fun TimelineNoteCard(
 
     LaunchedEffect(note.url) {
         note.listener.onVisible()
-    }
-}
-
-@Composable
-private fun LinkPreviewCard(
-    preview: HomeScreenUiState.LinkPreview,
-    onClick: () -> Unit,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val hovered by interactionSource.collectIsHoveredAsState()
-    val pressed by interactionSource.collectIsPressedAsState()
-    Surface(
-        modifier = Modifier.width(LinkPreviewCardWidth),
-        onClick = onClick,
-        interactionSource = interactionSource,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Column {
-            // 画像が無い・まだ取れていないときも同じ高さを取り、取れたときにカードの大きさを変えない
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(OgpImageAspectRatio)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                if (preview.imageUrl != null) {
-                    HtmlImage(
-                        url = preview.imageUrl,
-                        highlighted = hovered || pressed,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = preview.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    minLines = 2,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = preview.siteName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
     }
 }
 
@@ -589,10 +533,3 @@ private fun CardPlaceholder(content: @Composable () -> Unit) {
  * 右に置くアカウントの列の幅。タイムラインの本文を読める幅を残す
  */
 private val WideAccountsColumnWidth: Dp = 300.dp
-
-private val LinkPreviewCardWidth: Dp = 240.dp
-
-/**
- * og:image の推奨サイズ 1200x630 の比率
- */
-private const val OgpImageAspectRatio: Float = 1200f / 630f
