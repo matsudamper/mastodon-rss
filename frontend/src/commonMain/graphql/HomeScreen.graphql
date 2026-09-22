@@ -1,0 +1,18 @@
+query HomeTimeline($cursor: String, $limit: Int!) {
+    timeline(cursor: $cursor, limit: $limit) {
+        nodes {
+            ...AccountNoteFields
+            account {
+                id
+                username
+                acct
+                displayName
+                iconUrl
+            }
+        }
+        pageInfo {
+            hasMore
+            nextCursor
+        }
+    }
+}

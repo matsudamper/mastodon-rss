@@ -25,6 +25,7 @@ import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountFollowersScreen
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountNoteScreen
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountScreen
+import net.matsudamper.mastodon.rss.frontend.screen.accounts.AccountsScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountFeedNewScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountNewScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountProfileEditScreen
@@ -128,7 +129,13 @@ fun App() {
             entryProvider =
             entryProvider {
                 entry<Screen.Home> {
-                    HomeScreen(navController = navController)
+                    HomeScreen(
+                        platform = WasmScreenPlatform,
+                        navController = navController,
+                    )
+                }
+                entry<Screen.Accounts> {
+                    AccountsScreen(navController = navController)
                 }
                 entry<Screen.Admin> {
                     AdminScreen(
