@@ -26,8 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
-import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageCoveringLayer
-import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageLayer
 
 @Composable
 internal fun AdminAccountFeedNewScreen(
@@ -60,60 +58,58 @@ internal fun AdminAccountFeedNewScreen(
 internal fun AdminAccountFeedNewContent(
     uiState: AdminAccountFeedNewScreenUiState,
 ) {
-    HtmlImageCoveringLayer(HtmlImageLayer.Base) {
-        AlertDialog(
-            onDismissRequest = { if (uiState.closeEnabled) uiState.listener.onClickClose() },
-            title = { Text("RSS フィードを追加") },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        text = "${uiState.acct} が流す記事の配信元を決める。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+    AlertDialog(
+        onDismissRequest = { if (uiState.closeEnabled) uiState.listener.onClickClose() },
+        title = { Text("RSS フィードを追加") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "${uiState.acct} が流す記事の配信元を決める。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
-                    OutlinedTextField(
-                        value = uiState.url,
-                        onValueChange = uiState.listener::onUrlChanged,
-                        enabled = uiState.urlInputEnabled,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("フィード URL") },
-                        singleLine = true,
-                        isError = uiState.errorMessage != null,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { uiState.listener.onClickFetch() }),
-                    )
+                OutlinedTextField(
+                    value = uiState.url,
+                    onValueChange = uiState.listener::onUrlChanged,
+                    enabled = uiState.urlInputEnabled,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("フィード URL") },
+                    singleLine = true,
+                    isError = uiState.errorMessage != null,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { uiState.listener.onClickFetch() }),
+                )
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = uiState.listener::onClickFetch, enabled = uiState.fetchButtonEnabled) {
-                            Text(if (uiState.fetching) "取得中" else "取得")
-                        }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = uiState.listener::onClickFetch, enabled = uiState.fetchButtonEnabled) {
+                        Text(if (uiState.fetching) "取得中" else "取得")
                     }
-
-                    uiState.errorMessage?.let {
-                        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                    }
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                    FeedPreview(uiState = uiState)
                 }
-            },
-            confirmButton = {
-                Button(onClick = uiState.listener::onClickSave, enabled = uiState.saveButtonEnabled) {
-                    Text(if (uiState.saving) "登録中" else "登録する")
+
+                uiState.errorMessage?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = uiState.listener::onClickClose, enabled = uiState.closeEnabled) {
-                    Text("やめる")
-                }
-            },
-        )
-    }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                FeedPreview(uiState = uiState)
+            }
+        },
+        confirmButton = {
+            Button(onClick = uiState.listener::onClickSave, enabled = uiState.saveButtonEnabled) {
+                Text(if (uiState.saving) "登録中" else "登録する")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = uiState.listener::onClickClose, enabled = uiState.closeEnabled) {
+                Text("やめる")
+            }
+        },
+    )
 }
 
 @Composable

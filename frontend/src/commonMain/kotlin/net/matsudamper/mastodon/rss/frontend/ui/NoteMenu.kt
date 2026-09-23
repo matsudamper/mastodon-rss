@@ -15,10 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
 @Composable
-internal fun NoteMenu(
-    htmlImageLayer: HtmlImageLayer,
-    onClickActivityPubJson: () -> Unit,
-) {
+internal fun NoteMenu(onClickActivityPubJson: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
@@ -28,15 +25,13 @@ internal fun NoteMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            HtmlImageCoveringLayer(htmlImageLayer) {
-                DropdownMenuItem(
-                    text = { Text("ActivityPub の JSON を開く") },
-                    onClick = {
-                        expanded = false
-                        onClickActivityPubJson()
-                    },
-                )
-            }
+            DropdownMenuItem(
+                text = { Text("ActivityPub の JSON を開く") },
+                onClick = {
+                    expanded = false
+                    onClickActivityPubJson()
+                },
+            )
         }
     }
 }

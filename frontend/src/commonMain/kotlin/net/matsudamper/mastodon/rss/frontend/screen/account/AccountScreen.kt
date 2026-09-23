@@ -66,7 +66,6 @@ import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.CoordinatedTwoPaneLayout
-import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageLayer
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
@@ -669,7 +668,7 @@ private fun NoteCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                NoteMenu(htmlImageLayer = HtmlImageLayer.Base, onClickActivityPubJson = { onOpenExternal(note.url) })
+                NoteMenu(onClickActivityPubJson = { onOpenExternal(note.url) })
             }
             if (note.linkPreviews.isNotEmpty()) {
                 LazyRow(
@@ -678,7 +677,6 @@ private fun NoteCard(
                 ) {
                     items(items = note.linkPreviews) { preview ->
                         LinkPreviewCard(
-                            htmlImageLayer = HtmlImageLayer.Base,
                             title = preview.title,
                             siteName = preview.siteName,
                             imageUrl = preview.imageUrl,

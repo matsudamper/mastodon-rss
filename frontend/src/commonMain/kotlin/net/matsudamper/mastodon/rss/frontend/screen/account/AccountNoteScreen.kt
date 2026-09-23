@@ -24,8 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
-import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageCoveringLayer
-import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageLayer
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
@@ -72,74 +70,68 @@ internal fun AccountNoteScreen(
 internal fun AccountNoteContent(
     uiState: AccountNoteScreenUiState,
 ) {
-    HtmlImageCoveringLayer(HtmlImageLayer.Base) { dialogLayer ->
-        AlertDialog(
-            onDismissRequest = uiState.listener::onClickClose,
-            title = { Text("投稿") },
-            text = {
-                // 本文の長さで縦に伸びるので、画面に収まらないことがある
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    when (val content = uiState.content) {
-                        AccountNoteScreenUiState.Content.Loading -> {
-                            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-                        }
+    AlertDialog(
+        onDismissRequest = uiState.listener::onClickClose,
+        title = { Text("投稿") },
+        text = {
+            // 本文の長さで縦に伸びるので、画面に収まらないことがある
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                when (val content = uiState.content) {
+                    AccountNoteScreenUiState.Content.Loading -> {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                    }
 
-                        AccountNoteScreenUiState.Content.NotFound -> {
-                            Text("投稿が見つかりません", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    AccountNoteScreenUiState.Content.NotFound -> {
+                        Text("投稿が見つかりません", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
 
-                        is AccountNoteScreenUiState.Content.Error -> {
-                            Text(content.message, color = MaterialTheme.colorScheme.error)
-                            TextButton(onClick = uiState.listener::onClickReload) {
-                                Text("もう一度試す")
-                            }
+                    is AccountNoteScreenUiState.Content.Error -> {
+                        Text(content.message, color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = uiState.listener::onClickReload) {
+                            Text("もう一度試す")
                         }
+                    }
 
-                        is AccountNoteScreenUiState.Content.Loaded -> {
-                            NoteContent(content.contentHtml, Modifier.fillMaxWidth())
-                            Row(
+                    is AccountNoteScreenUiState.Content.Loaded -> {
+                        NoteContent(content.contentHtml, Modifier.fillMaxWidth())
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                modifier = Modifier.weight(1f),
+                                text = content.publishedAt,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            NoteMenu(onClickActivityPubJson = uiState.listener::onClickActivityPub)
+                        }
+                        if (content.linkPreviews.isNotEmpty()) {
+                            LazyRow(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                Text(
-                                    modifier = Modifier.weight(1f),
-                                    text = content.publishedAt,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                NoteMenu(
-                                    htmlImageLayer = dialogLayer,
-                                    onClickActivityPubJson = uiState.listener::onClickActivityPub,
-                                )
-                            }
-                            if (content.linkPreviews.isNotEmpty()) {
-                                LazyRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                ) {
-                                    items(items = content.linkPreviews) { preview ->
-                                        LinkPreviewCard(
-                                            htmlImageLayer = dialogLayer,
-                                            title = preview.title,
-                                            siteName = preview.siteName,
-                                            imageUrl = preview.imageUrl,
-                                            onClick = { uiState.listener.onClickLinkPreview(preview.url) },
-                                        )
-                                    }
+                                items(items = content.linkPreviews) { preview ->
+                                    LinkPreviewCard(
+                                        title = preview.title,
+                                        siteName = preview.siteName,
+                                        imageUrl = preview.imageUrl,
+                                        onClick = { uiState.listener.onClickLinkPreview(preview.url) },
+                                    )
                                 }
                             }
                         }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = uiState.listener::onClickClose) {
-                    Text("閉じる")
-                }
-            },
-        )
-    }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = uiState.listener::onClickClose) {
+                Text("閉じる")
+            }
+        },
+    )
 }
