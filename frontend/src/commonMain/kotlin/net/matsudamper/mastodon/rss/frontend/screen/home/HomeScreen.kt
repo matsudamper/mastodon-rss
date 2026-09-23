@@ -2,6 +2,9 @@ package net.matsudamper.mastodon.rss.frontend.screen.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +32,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,9 +52,10 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
+import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
+import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
-import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
 @Composable
 internal fun HomeScreen(
@@ -253,11 +259,22 @@ private fun TimelineNoteCard(
     note: HomeScreenUiState.Note,
     onOpenExternal: (String) -> Unit,
 ) {
+    val linkPreviewsInteractionSource = remember { MutableInteractionSource() }
+    val linkPreviewsHovered by linkPreviewsInteractionSource.collectIsHoveredAsState()
+    val cardShape = RoundedCornerShape(16.dp)
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = note.listener::onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(cardShape)
+            .clickable(
+                interactionSource = null,
+                // ホバーは内側の部品に載っていても外側に届く。OGP に載せたときにカード全体まで
+                // 光らないよう、その間だけ外側のリップルを外す
+                indication = if (linkPreviewsHovered) null else ripple(),
+                onClick = note.listener::onClick,
+            ),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        shape = cardShape,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(
@@ -307,15 +324,33 @@ private fun TimelineNoteCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                NoteMenu(onClickActivityPubJson = { onOpenExternal(note.url) })
             }
 
             NoteContent(contentHtml = note.contentHtml, modifier = Modifier.fillMaxWidth())
 
-            TextLink(
-                text = note.url,
-                onClick = { onOpenExternal(note.url) },
-            )
+            if (note.linkPreviews.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .hoverable(linkPreviewsInteractionSource),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(items = note.linkPreviews) { preview ->
+                        LinkPreviewCard(
+                            title = preview.title,
+                            siteName = preview.siteName,
+                            imageUrl = preview.imageUrl,
+                            onClick = { onOpenExternal(preview.url) },
+                        )
+                    }
+                }
+            }
         }
+    }
+
+    LaunchedEffect(note.url) {
+        note.listener.onVisible()
     }
 }
 

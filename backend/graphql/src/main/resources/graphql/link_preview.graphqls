@@ -1,0 +1,7 @@
+"投稿の本文にあるリンク先の OGP。取れなかった項目は null"
+type LinkPreview {
+    url: String!
+    title: String
+    siteName: String
+    imageUrl: String
+}

@@ -15,6 +15,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AccountNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AccountsScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.HomeScreenQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.NoteLinkPreviewsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AccountNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountFollowersQuery as AccountFollowersQueryInput
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountNotesQuery as AccountNotesQueryInput
@@ -161,7 +162,32 @@ class AccountApi(
 
         val data = response.data ?: return AccountNoteResult.Failure(response.failureMessage())
         val note = data.note ?: return AccountNoteResult.NotFound
-        return AccountNoteResult.Success(note.accountNoteFields.toAccountNote())
+        return AccountNoteResult.Success(
+            note = note.accountNoteFields.toAccountNote(),
+            linkUrls = note.linkUrls,
+        )
+    }
+
+    suspend fun linkPreviews(username: String, id: String): NoteLinkPreviewsResult {
+        val response = client
+            .query(NoteLinkPreviewsQuery(username = username, id = id))
+            .execute()
+
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return NoteLinkPreviewsResult.Failure(response.failureMessage())
+        }
+
+        val data = response.data ?: return NoteLinkPreviewsResult.Failure(response.failureMessage())
+        return NoteLinkPreviewsResult.Success(
+            previews = data.note?.linkPreviews.orEmpty().map { preview ->
+                NoteLinkPreview(
+                    url = preview.url,
+                    title = preview.title,
+                    siteName = preview.siteName,
+                    imageUrl = preview.imageUrl,
+                )
+            },
+        )
     }
 
     private fun ApolloResponse<AccountsScreenQuery.Data>.toAccountsResult(): AccountsResult {
@@ -197,6 +223,7 @@ class AccountApi(
             notes = data.timeline.nodes.map { node ->
                 TimelineNote(
                     note = node.accountNoteFields.toAccountNote(),
+                    linkUrls = node.linkUrls,
                     account = HomeAccount(
                         id = node.account.id,
                         username = node.account.username,
@@ -218,7 +245,12 @@ class AccountApi(
         val data = data ?: return AccountNotesResult.Failure(failureMessage())
 
         return AccountNotesResult.Success(
-            notes = data.notes.nodes.map { it.accountNoteFields.toAccountNote() },
+            notes = data.notes.nodes.map { node ->
+                AccountListedNote(
+                    note = node.accountNoteFields.toAccountNote(),
+                    linkUrls = node.linkUrls,
+                )
+            },
             cursor = data.notes.pageInfo.nextCursor,
         )
     }

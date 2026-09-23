@@ -2,6 +2,7 @@ query AccountNotesQuery($query: AccountNotesQuery!) {
     notes(query: $query) {
         nodes {
             ...AccountNoteFields
+            linkUrls
         }
         pageInfo {
             hasMore

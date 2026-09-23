@@ -12,9 +12,11 @@ import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.PagingLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
-import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNote
+import net.matsudamper.mastodon.rss.frontend.logic.account.AccountListedNote
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNotesResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
+import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreview
+import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreviewsResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 /**
@@ -178,6 +180,28 @@ class AccountScreenViewModel(
             }
     }
 
+    /**
+     * 1 つの投稿につき 1 回だけ取る。失敗しても取り直さず、OGP が無いものとして出す
+     */
+    private fun loadLinkPreviews(noteId: String) {
+        if (noteId in viewModelStateFlow.value.linkPreviewRequestedNoteIds) return
+        viewModelStateFlow.update {
+            it.copy(linkPreviewRequestedNoteIds = it.linkPreviewRequestedNoteIds + noteId)
+        }
+
+        viewModelScope.launch {
+            when (val result = api.linkPreviews(username = username, id = noteId)) {
+                is NoteLinkPreviewsResult.Success -> {
+                    viewModelStateFlow.update {
+                        it.copy(linkPreviews = it.linkPreviews + (noteId to result.previews))
+                    }
+                }
+
+                is NoteLinkPreviewsResult.Failure -> Unit
+            }
+        }
+    }
+
     private fun copyAcct() {
         val acct =
             when (val account = viewModelStateFlow.value.account) {
@@ -221,7 +245,7 @@ class AccountScreenViewModel(
                         },
                         initial = account.account.username.first().uppercase(),
                     ),
-                    notes = state.notes.map { it.toUiState() },
+                    notes = state.notes.map { it.toUiState(state.linkPreviews[it.note.id].orEmpty()) },
                     notesError = state.notesError,
                     notesLoading = state.notesLoading,
                     loadMoreVisible = state.notesCursor != null,
@@ -242,27 +266,54 @@ class AccountScreenViewModel(
         return DEFAULT_FEED_SUMMARY
     }
 
-    private fun AccountNote.toUiState(): NoteUiState {
+    private fun AccountListedNote.toUiState(linkPreviews: List<NoteLinkPreview>): NoteUiState {
         return NoteUiState(
-            url = url,
-            contentHtml = contentHtml,
-            publishedAt = UnixTimeUtil.format(publishedAt.epochSeconds),
-            reactions = NoteReactionsUiStateFactory.create(favouriteCount = favouriteCount, reactions = reactions),
+            url = note.url,
+            contentHtml = note.contentHtml,
+            publishedAt = UnixTimeUtil.format(note.publishedAt.epochSeconds),
+            reactions = NoteReactionsUiStateFactory.create(
+                favouriteCount = note.favouriteCount,
+                reactions = note.reactions,
+            ),
+            linkPreviews = linkUrls.map { url ->
+                createLinkPreview(url = url, preview = linkPreviews.firstOrNull { it.url == url })
+            },
             listener = object : NoteUiState.Listener {
                 override fun onClick() {
-                    navigate(Screen.AccountNote(username = username, noteId = id))
+                    navigate(Screen.AccountNote(username = username, noteId = note.id))
+                }
+
+                override fun onVisible() {
+                    loadLinkPreviews(noteId = note.id)
                 }
             },
         )
     }
 
+    /**
+     * @param preview まだ取れていなければ null。枠は先に出しておき、取れたら中身だけ差し替える
+     */
+    private fun createLinkPreview(
+        url: String,
+        preview: NoteLinkPreview?,
+    ): NoteUiState.LinkPreview {
+        return NoteUiState.LinkPreview(
+            url = url,
+            title = preview?.title ?: url,
+            siteName = preview?.siteName ?: url.substringAfter("://").substringBefore('/'),
+            imageUrl = preview?.imageUrl,
+        )
+    }
+
     private data class ViewModelState(
         val account: AccountResult? = null,
-        val notes: List<AccountNote> = emptyList(),
+        val notes: List<AccountListedNote> = emptyList(),
         val notesError: String? = null,
         val notesLoading: Boolean = false,
         val notesCursor: String? = null,
         val loadingMore: Boolean = false,
+        val linkPreviewRequestedNoteIds: Set<String> = setOf(),
+        val linkPreviews: Map<String, List<NoteLinkPreview>> = mapOf(),
     )
 
     interface Event {

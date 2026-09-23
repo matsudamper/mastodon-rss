@@ -143,6 +143,7 @@ fun Application.module(deps: AppDependencies) {
         noteStore = deps.noteStore,
         noteReactionRepository = deps.repositories.noteReactions,
         feedService = deps.feedService,
+        linkPreviewService = deps.linkPreviewService,
     )
 
     val graphQl = GraphQlEngine.create(

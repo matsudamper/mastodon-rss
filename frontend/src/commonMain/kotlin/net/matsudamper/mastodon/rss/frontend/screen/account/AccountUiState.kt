@@ -42,16 +42,31 @@ data class FeedUiState(
 
 /**
  * 配信した投稿 1 件
+ *
+ * @param linkPreviews 本文のリンクごとの OGP。取れるまでは URL だけで埋めておく
  */
 data class NoteUiState(
     val url: String,
     val contentHtml: String,
     val publishedAt: String,
     val reactions: NoteReactionsUiState?,
+    val linkPreviews: List<LinkPreview>,
     val listener: Listener,
 ) {
+    data class LinkPreview(
+        val url: String,
+        val title: String,
+        val siteName: String,
+        val imageUrl: String?,
+    )
+
     interface Listener {
         fun onClick()
+
+        /**
+         * カードが画面に入ったとき。OGP はここで初めて取りに行く
+         */
+        fun onVisible()
     }
 }
 
