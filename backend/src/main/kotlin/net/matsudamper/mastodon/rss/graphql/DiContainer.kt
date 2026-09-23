@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.graphql
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
+import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewService
 import net.matsudamper.mastodon.rss.logic.AccountIconFiles
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
@@ -32,6 +33,7 @@ class DiContainer(
     accountIconFiles: AccountIconFiles,
     val noteStore: NoteStore,
     val feedService: FeedService,
+    val linkPreviewService: LinkPreviewService,
 ) {
     val adminLoginService: AdminLoginService = AdminLoginService(passwordHash)
 

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -66,11 +67,12 @@ import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.CoordinatedTwoPaneLayout
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
+import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
+import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
-import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.TwoPaneScrollState
 import net.matsudamper.mastodon.rss.frontend.ui.avatarColors
 import net.matsudamper.mastodon.rss.frontend.ui.rememberCoordinatedTwoPaneScrollableModifier
@@ -656,17 +658,38 @@ private fun NoteCard(
         ) {
             noteContent(note.contentHtml, Modifier.fillMaxWidth())
 
-            Text(
-                text = note.publishedAt,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            TextLink(
-                text = note.url,
-                onClick = { onOpenExternal(note.url) },
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = note.publishedAt,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                NoteMenu(onClickActivityPubJson = { onOpenExternal(note.url) })
+            }
+            if (note.linkPreviews.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(items = note.linkPreviews) { preview ->
+                        LinkPreviewCard(
+                            title = preview.title,
+                            siteName = preview.siteName,
+                            imageUrl = preview.imageUrl,
+                            onClick = { onOpenExternal(preview.url) },
+                        )
+                    }
+                }
+            }
         }
+    }
+
+    LaunchedEffect(note.url) {
+        note.listener.onVisible()
     }
 }
 

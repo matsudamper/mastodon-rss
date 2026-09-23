@@ -1,5 +1,4 @@
-// pushState の第 1 引数（履歴に紐付ける状態）は JsAny? で、null を渡すのに opt-in が要る。
-// 状態はバックスタックごと URL から作り直すので、ここには何も持たせない
+// pushState の第 1 引数（履歴に紐付ける状態）は JsAny? で、読み書きに opt-in が要る
 @file:OptIn(ExperimentalWasmJsInterop::class)
 
 package net.matsudamper.mastodon.rss.frontend.navigation
@@ -30,13 +29,18 @@ import org.w3c.dom.events.Event
  *
  * バックスタックは URL から決まる形にしている（トップ以外は「トップ + その画面」）。
  * 積んだ順を別に覚えると、ブラウザの履歴と二重管理になってずれる。
+ *
+ * ただし重ねて出す画面だけは、アプリの中から開いたときに開いた画面の上へ重ねる。
+ * URL だけでは下に何があったか分からないので、下の画面のパスを履歴の状態に持たせる。
  */
 @Stable
-class NavController internal constructor(
-    initial: Screen,
-) {
-    /** [androidx.navigation3.ui.NavDisplay] に渡すバックスタック */
-    val backStack: SnapshotStateList<Screen> = mutableStateListOf<Screen>().apply { addAll(stackOf(initial)) }
+class NavController internal constructor() {
+    /**
+     * [androidx.navigation3.ui.NavDisplay] に渡すバックスタック。
+     *
+     * 再読み込みしても履歴の状態は残るので、アプリの中で開いたときと同じ画面を下に敷ける
+     */
+    val backStack: SnapshotStateList<Screen> = mutableStateListOf<Screen>().apply { addAll(stackOfCurrentEntry()) }
 
     /** いま出している画面 */
     val current: Screen get() = backStack.last()
@@ -49,8 +53,10 @@ class NavController internal constructor(
     fun navigateTo(screen: Screen) {
         if (screen == current) return
 
-        window.history.pushState(PUSHED_BY_APP.toJsString(), screen.title, screen.path)
-        applyStack(stackOf(screen))
+        val next = if (screen is Screen.Overlay) backStack.toList() + screen else stackOf(screen)
+        val screenBelow = next.getOrNull(next.lastIndex - 1) ?: Screen.Home
+        window.history.pushState(screenBelow.path.toJsString(), screen.title, screen.path)
+        applyStack(next)
     }
 
     /**
@@ -89,7 +95,7 @@ class NavController internal constructor(
 
     /** 戻る / 進むで URL が変わったときに呼ぶ */
     internal fun syncWithLocation() {
-        applyStack(stackOf(Screen.of(window.location.pathname)))
+        applyStack(stackOfCurrentEntry())
     }
 
     private fun applyStack(next: List<Screen>) {
@@ -101,9 +107,17 @@ class NavController internal constructor(
 
     private companion object {
         /**
-         * 中身は見ない。目印が付いているかどうかだけを見る
+         * いま見えている履歴から組むバックスタック
          */
-        const val PUSHED_BY_APP: String = "pushed-by-app"
+        fun stackOfCurrentEntry(): List<Screen> {
+            val screen = Screen.of(window.location.pathname)
+            val screenBelowPath = window.history.state?.unsafeCast<JsString>()?.toString()
+            return if (screen is Screen.Overlay && screenBelowPath != null) {
+                stackOf(Screen.of(screenBelowPath)) + screen
+            } else {
+                stackOf(screen)
+            }
+        }
 
         /**
          * URL から決まるバックスタック。
@@ -128,7 +142,7 @@ class NavController internal constructor(
  */
 @Composable
 fun rememberNavController(): NavController {
-    val navController = remember { NavController(Screen.of(window.location.pathname)) }
+    val navController = remember { NavController() }
 
     DisposableEffect(navController) {
         // 追加したものと同じ参照でないと外せないので、変数に持ってから渡す

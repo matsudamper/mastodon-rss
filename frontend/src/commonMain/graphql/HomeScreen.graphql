@@ -2,6 +2,7 @@ query HomeScreen($query: TimelineQuery!) {
     timeline(query: $query) {
         nodes {
             ...AccountNoteFields
+            linkUrls
             account {
                 id
                 username
