@@ -1,5 +1,6 @@
 query AccountNote($username: String!, $id: PublicNoteId!) {
     note(username: $username, id: $id) {
         ...AccountNoteFields
+        linkUrls
     }
 }

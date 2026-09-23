@@ -162,7 +162,10 @@ class AccountApi(
 
         val data = response.data ?: return AccountNoteResult.Failure(response.failureMessage())
         val note = data.note ?: return AccountNoteResult.NotFound
-        return AccountNoteResult.Success(note.accountNoteFields.toAccountNote())
+        return AccountNoteResult.Success(
+            note = note.accountNoteFields.toAccountNote(),
+            linkUrls = note.linkUrls,
+        )
     }
 
     suspend fun linkPreviews(username: String, id: String): NoteLinkPreviewsResult {
@@ -242,7 +245,12 @@ class AccountApi(
         val data = data ?: return AccountNotesResult.Failure(failureMessage())
 
         return AccountNotesResult.Success(
-            notes = data.notes.nodes.map { it.accountNoteFields.toAccountNote() },
+            notes = data.notes.nodes.map { node ->
+                AccountListedNote(
+                    note = node.accountNoteFields.toAccountNote(),
+                    linkUrls = node.linkUrls,
+                )
+            },
             cursor = data.notes.pageInfo.nextCursor,
         )
     }
