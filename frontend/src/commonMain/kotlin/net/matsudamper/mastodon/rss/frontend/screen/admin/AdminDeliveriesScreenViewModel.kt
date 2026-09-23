@@ -45,7 +45,7 @@ class AdminDeliveriesScreenViewModel(
                         reload()
                     }
 
-                    override fun onClickLoadMore() {
+                    override fun onLoadMore() {
                         loadMore()
                     }
                 },
@@ -163,9 +163,8 @@ class AdminDeliveriesScreenViewModel(
                     },
                     emptyText = "送り直しを待っている配信は無い。".takeIf { deliveries.deliveries.isEmpty() },
                     loadMoreVisible = deliveries.hasMore,
-                    loadingMore = state.loadingMore,
+                    loadMoreOnVisible = deliveries.hasMore && !state.loadingMore && state.loadMoreErrorMessage == null,
                     loadMoreErrorMessage = state.loadMoreErrorMessage,
-                    loadMoreButtonText = if (state.loadMoreErrorMessage != null) "もう一度試す" else "もっと見る",
                 )
             }
         }

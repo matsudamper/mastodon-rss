@@ -14,15 +14,26 @@ data class AccountNoteScreenUiState(
          */
         data object NotFound : Content
 
+        /**
+         * @param linkPreviews 本文のリンクごとの OGP。取れるまでは URL だけで埋めておく
+         */
         data class Loaded(
             val contentHtml: String,
             val publishedAt: String,
+            val linkPreviews: List<LinkPreview>,
         ) : Content
 
         data class Error(
             val message: String,
         ) : Content
     }
+
+    data class LinkPreview(
+        val url: String,
+        val title: String,
+        val siteName: String,
+        val imageUrl: String?,
+    )
 
     @Immutable
     interface Listener {
@@ -31,5 +42,7 @@ data class AccountNoteScreenUiState(
         fun onClickReload()
 
         fun onClickActivityPub()
+
+        fun onClickLinkPreview(url: String)
     }
 }

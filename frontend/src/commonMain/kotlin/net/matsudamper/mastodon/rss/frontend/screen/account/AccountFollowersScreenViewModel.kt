@@ -42,7 +42,7 @@ class AccountFollowersScreenViewModel(
     }
 
     private val loadedListener = object : AccountFollowersScreenUiState.Content.Loaded.Listener {
-        override fun onClickLoadMore() {
+        override fun onLoadMore() {
             loadMore()
         }
     }
@@ -140,9 +140,9 @@ class AccountFollowersScreenViewModel(
                         loadMore = when {
                             followersState.nextCursor == null -> AccountFollowersScreenUiState.LoadMore.Hidden
                             state.loadingMore -> AccountFollowersScreenUiState.LoadMore.Loading
-                            else -> AccountFollowersScreenUiState.LoadMore.Button
+                            state.loadMoreError != null -> AccountFollowersScreenUiState.LoadMore.Error(state.loadMoreError)
+                            else -> AccountFollowersScreenUiState.LoadMore.LoadOnVisible
                         },
-                        loadMoreErrorMessage = state.loadMoreError,
                         listener = loadedListener,
                     )
                 }

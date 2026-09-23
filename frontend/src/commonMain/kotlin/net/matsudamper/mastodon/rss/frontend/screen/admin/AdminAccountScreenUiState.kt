@@ -31,7 +31,8 @@ data class AdminAccountScreenUiState(
          * @param deleteAccountDialog アカウントを消す前の確認。出していなければ null
          * @param notesError 一覧を取れなかった理由。投稿の失敗と混ぜない
          * @param notesLoading 一覧を取っている最中
-         * @param loadMoreVisible 「もっと見る」を出すか
+         * @param loadMoreVisible 末尾に続きの枠を出す
+         * @param loadMoreOnVisible 枠が見えたら続きを取りに行く。取っている間と失敗した後は false
          */
         data class Loaded(
             val account: Account,
@@ -44,7 +45,7 @@ data class AdminAccountScreenUiState(
             val notesError: String?,
             val notesLoading: Boolean,
             val loadMoreVisible: Boolean,
-            val loadingMore: Boolean,
+            val loadMoreOnVisible: Boolean,
         ) : Content
 
         data class Error(
@@ -291,7 +292,7 @@ data class AdminAccountScreenUiState(
     interface Listener : AdminScaffoldListener {
         fun onClickBackToAdmin()
 
-        fun onClickLoadMore()
+        fun onLoadMore()
 
         /**
          * 一覧だけ取り直す

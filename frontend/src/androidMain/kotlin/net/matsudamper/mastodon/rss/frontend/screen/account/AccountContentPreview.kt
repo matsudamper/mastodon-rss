@@ -34,13 +34,21 @@ private fun AccountContentPreview() {
                             url = "https://example.com/notes/1",
                             contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
                             publishedAt = "2026-09-02 12:00",
+                            linkPreviews = listOf(
+                                NoteUiState.LinkPreview(
+                                    url = "https://example.com/compose-multiplatform",
+                                    title = "Compose Multiplatform の新しい記事",
+                                    siteName = "example.com",
+                                    imageUrl = null,
+                                ),
+                            ),
                             listener = AndroidPreviewNoteListener,
                         ),
                     ),
                     notesError = null,
                     notesLoading = false,
                     loadMoreVisible = true,
-                    loadingMore = false,
+                    loadMoreOnVisible = false,
                 ),
                 listener = AndroidPreviewAccountListener,
             ),
@@ -52,6 +60,8 @@ private fun AccountContentPreview() {
 
 private object AndroidPreviewNoteListener : NoteUiState.Listener {
     override fun onClick() = Unit
+
+    override fun onVisible() = Unit
 }
 
 private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
@@ -65,7 +75,7 @@ private object AndroidPreviewAccountListener : AccountScreenUiState.Listener {
 
     override fun onClickReloadNotes() = Unit
 
-    override fun onClickLoadMore() = Unit
+    override fun onLoadMore() = Unit
 
     override fun onClickCopyAcct() = Unit
 }

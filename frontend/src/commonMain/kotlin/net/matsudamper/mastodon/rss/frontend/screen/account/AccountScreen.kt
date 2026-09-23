@@ -22,12 +22,12 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,11 +67,12 @@ import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.CoordinatedTwoPaneLayout
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
+import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
+import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
-import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.TwoPaneScrollState
 import net.matsudamper.mastodon.rss.frontend.ui.avatarColors
 import net.matsudamper.mastodon.rss.frontend.ui.rememberCoordinatedTwoPaneScrollableModifier
@@ -657,20 +658,45 @@ private fun NoteCard(
         ) {
             noteContent(note.contentHtml, Modifier.fillMaxWidth())
 
-            Text(
-                text = note.publishedAt,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            TextLink(
-                text = note.url,
-                onClick = { onOpenExternal(note.url) },
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = note.publishedAt,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                NoteMenu(onClickActivityPubJson = { onOpenExternal(note.url) })
+            }
+            if (note.linkPreviews.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(items = note.linkPreviews) { preview ->
+                        LinkPreviewCard(
+                            title = preview.title,
+                            siteName = preview.siteName,
+                            imageUrl = preview.imageUrl,
+                            onClick = { onOpenExternal(preview.url) },
+                        )
+                    }
+                }
+            }
         }
+    }
+
+    LaunchedEffect(note.url) {
+        note.listener.onVisible()
     }
 }
 
+/**
+ * 一覧の末尾。LazyColumn の item なので、画面に入って初めて組まれる。
+ * 組まれたら続きを取りに行くことで、下までスクロールしたときに自動で足される
+ */
 @Composable
 private fun NotesPagingFooter(
     content: AccountScreenUiState.Content.Loaded,
@@ -693,16 +719,14 @@ private fun NotesPagingFooter(
             OutlinedButton(onClick = { listener.onClickReloadNotes() }) {
                 Text("もう一度試す")
             }
-        }
-
-        if (content.loadMoreVisible) {
-            if (content.loadingMore) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-            } else {
-                Button(onClick = { listener.onClickLoadMore() }) {
-                    Text("もっと見る")
+        } else {
+            // 1 ページ足された後も枠が見えたままなら、件数が変わったのを合図にもう 1 ページ取る
+            LaunchedEffect(content.notes.size, content.loadMoreOnVisible) {
+                if (content.loadMoreOnVisible) {
+                    listener.onLoadMore()
                 }
             }
+            CircularProgressIndicator(modifier = Modifier.size(24.dp))
         }
     }
 }
