@@ -13,6 +13,14 @@ private fun AccountNoteContentPreview() {
                 content = AccountNoteScreenUiState.Content.Loaded(
                     contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
                     publishedAt = "2026-09-02 12:00",
+                    linkPreviews = listOf(
+                        AccountNoteScreenUiState.LinkPreview(
+                            url = "https://example.com/compose-multiplatform",
+                            title = "Compose Multiplatform の新しい記事",
+                            siteName = "example.com",
+                            imageUrl = null,
+                        ),
+                    ),
                 ),
                 listener = AndroidPreviewAccountNoteListener,
             ),
@@ -39,4 +47,6 @@ private object AndroidPreviewAccountNoteListener : AccountNoteScreenUiState.List
     override fun onClickReload() = Unit
 
     override fun onClickActivityPub() = Unit
+
+    override fun onClickLinkPreview(url: String) = Unit
 }

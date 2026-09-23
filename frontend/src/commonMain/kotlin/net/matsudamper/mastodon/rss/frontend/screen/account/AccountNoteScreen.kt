@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -22,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
+import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
 
@@ -105,6 +108,21 @@ internal fun AccountNoteContent(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             NoteMenu(onClickActivityPubJson = uiState.listener::onClickActivityPub)
+                        }
+                        if (content.linkPreviews.isNotEmpty()) {
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                items(items = content.linkPreviews) { preview ->
+                                    LinkPreviewCard(
+                                        title = preview.title,
+                                        siteName = preview.siteName,
+                                        imageUrl = preview.imageUrl,
+                                        onClick = { uiState.listener.onClickLinkPreview(preview.url) },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
