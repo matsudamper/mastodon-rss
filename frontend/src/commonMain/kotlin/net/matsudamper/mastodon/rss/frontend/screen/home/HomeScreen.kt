@@ -346,6 +346,7 @@ private fun TimelineNoteCard(
                             siteName = preview.siteName,
                             imageUrl = preview.imageUrl,
                             onClick = { onOpenExternal(preview.url) },
+                            modifier = Modifier,
                         )
                     }
                 }

@@ -36,7 +36,7 @@ internal fun LinkPreviewCard(
     siteName: String,
     imageUrl: String?,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
