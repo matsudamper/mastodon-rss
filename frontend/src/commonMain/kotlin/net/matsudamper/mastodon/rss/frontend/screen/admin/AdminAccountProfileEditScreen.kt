@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageCoveringLayer
 
 @Composable
 internal fun AdminAccountProfileEditScreen(username: String, navController: Navigator) {
@@ -31,27 +32,29 @@ internal fun AdminAccountProfileEditScreen(username: String, navController: Navi
             override suspend fun close() = navController.back()
         })
     }
-    AlertDialog(
-        onDismissRequest = { if (uiState.closeEnabled) uiState.listener.onClickClose() },
-        title = { Text("プロフィールを編集") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Mastodon のプロフィールに出る。空にすると未設定に戻る。", style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(value = uiState.displayName, onValueChange = uiState.listener::onDisplayNameChanged, enabled = uiState.inputEnabled, modifier = Modifier.fillMaxWidth(), label = {
-                    Text("表示名")
-                }, singleLine = true)
-                OutlinedTextField(value = uiState.summary, onValueChange = uiState.listener::onSummaryChanged, enabled = uiState.inputEnabled, modifier = Modifier.fillMaxWidth(), label = {
-                    Text("説明文")
-                }, minLines = 4, maxLines = 10)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = uiState.listener::onClickApplyFeed, enabled = uiState.applyFeedButtonEnabled) {
-                        Text(if (uiState.applyingFeed) "取得中" else "フィードから反映")
+    HtmlImageCoveringLayer {
+        AlertDialog(
+            onDismissRequest = { if (uiState.closeEnabled) uiState.listener.onClickClose() },
+            title = { Text("プロフィールを編集") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Mastodon のプロフィールに出る。空にすると未設定に戻る。", style = MaterialTheme.typography.bodyMedium)
+                    OutlinedTextField(value = uiState.displayName, onValueChange = uiState.listener::onDisplayNameChanged, enabled = uiState.inputEnabled, modifier = Modifier.fillMaxWidth(), label = {
+                        Text("表示名")
+                    }, singleLine = true)
+                    OutlinedTextField(value = uiState.summary, onValueChange = uiState.listener::onSummaryChanged, enabled = uiState.inputEnabled, modifier = Modifier.fillMaxWidth(), label = {
+                        Text("説明文")
+                    }, minLines = 4, maxLines = 10)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = uiState.listener::onClickApplyFeed, enabled = uiState.applyFeedButtonEnabled) {
+                            Text(if (uiState.applyingFeed) "取得中" else "フィードから反映")
+                        }
                     }
+                    uiState.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
-                uiState.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
-        },
-        confirmButton = { Button(uiState.listener::onClickSave, enabled = uiState.saveButtonEnabled) { Text(if (uiState.saving) "保存中" else "保存") } },
-        dismissButton = { TextButton(uiState.listener::onClickClose, enabled = uiState.closeEnabled) { Text("閉じる") } },
-    )
+            },
+            confirmButton = { Button(uiState.listener::onClickSave, enabled = uiState.saveButtonEnabled) { Text(if (uiState.saving) "保存中" else "保存") } },
+            dismissButton = { TextButton(uiState.listener::onClickClose, enabled = uiState.closeEnabled) { Text("閉じる") } },
+        )
+    }
 }

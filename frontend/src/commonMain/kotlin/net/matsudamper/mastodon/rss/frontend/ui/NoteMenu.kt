@@ -25,13 +25,15 @@ internal fun NoteMenu(onClickActivityPubJson: () -> Unit) {
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            DropdownMenuItem(
-                text = { Text("ActivityPub の JSON を開く") },
-                onClick = {
-                    expanded = false
-                    onClickActivityPubJson()
-                },
-            )
+            HtmlImageCoveringLayer {
+                DropdownMenuItem(
+                    text = { Text("ActivityPub の JSON を開く") },
+                    onClick = {
+                        expanded = false
+                        onClickActivityPubJson()
+                    },
+                )
+            }
         }
     }
 }

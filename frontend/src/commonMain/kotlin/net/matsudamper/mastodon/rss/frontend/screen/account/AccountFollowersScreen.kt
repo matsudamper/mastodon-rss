@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
+import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageCoveringLayer
 
 @Composable
 internal fun AccountFollowersScreen(
@@ -66,43 +67,45 @@ internal fun AccountFollowersScreen(
 internal fun AccountFollowersContent(
     uiState: AccountFollowersScreenUiState,
 ) {
-    AlertDialog(
-        onDismissRequest = uiState.listener::onClickClose,
-        title = { Text("フォロワー") },
-        text = {
-            when (val content = uiState.content) {
-                AccountFollowersScreenUiState.Content.Loading -> {
-                    CircularProgressIndicator()
-                }
+    HtmlImageCoveringLayer {
+        AlertDialog(
+            onDismissRequest = uiState.listener::onClickClose,
+            title = { Text("フォロワー") },
+            text = {
+                when (val content = uiState.content) {
+                    AccountFollowersScreenUiState.Content.Loading -> {
+                        CircularProgressIndicator()
+                    }
 
-                AccountFollowersScreenUiState.Content.Empty -> {
-                    Text("まだフォロワーがいません", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                    AccountFollowersScreenUiState.Content.Empty -> {
+                        Text("まだフォロワーがいません", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
 
-                AccountFollowersScreenUiState.Content.NotFound -> {
-                    Text("アカウントが見つかりません", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                    AccountFollowersScreenUiState.Content.NotFound -> {
+                        Text("アカウントが見つかりません", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
 
-                is AccountFollowersScreenUiState.Content.Error -> {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Text(content.message, color = MaterialTheme.colorScheme.error)
-                        TextButton(onClick = content.listener::onClickReload) {
-                            Text("もう一度試す")
+                    is AccountFollowersScreenUiState.Content.Error -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text(content.message, color = MaterialTheme.colorScheme.error)
+                            TextButton(onClick = content.listener::onClickReload) {
+                                Text("もう一度試す")
+                            }
                         }
                     }
-                }
 
-                is AccountFollowersScreenUiState.Content.Loaded -> {
-                    FollowerList(content = content)
+                    is AccountFollowersScreenUiState.Content.Loaded -> {
+                        FollowerList(content = content)
+                    }
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = uiState.listener::onClickClose) {
-                Text("閉じる")
-            }
-        },
-    )
+            },
+            confirmButton = {
+                TextButton(onClick = uiState.listener::onClickClose) {
+                    Text("閉じる")
+                }
+            },
+        )
+    }
 }
 
 @Composable

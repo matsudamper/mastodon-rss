@@ -53,6 +53,7 @@ import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.CoordinatedTwoPaneLayout
+import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageCoveringLayer
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.TwoPaneScrollState
@@ -635,90 +636,96 @@ private fun FeedItemSummary(countText: String, items: List<AdminAccountScreenUiS
 
 @Composable
 private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog) {
-    AlertDialog(
-        onDismissRequest = { if (dialog.closeEnabled) dialog.listener.onDismiss() },
-        title = { Text("投稿を削除する") },
-        text = {
-            Text(
-                if (dialog.hasSourceArticle) "フォロワーのサーバーにも削除を配る。届かなかった相手には残る。\n元の記事も消すと、最新情報を投稿したときに取り込み直してもう一度流れる。投稿だけ消すと、その記事はもう流れない。" else "フォロワーのサーバーにも削除を配る。届かなかった相手には残る。",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { dialog.listener.onClickConfirm(dialog.hasSourceArticle) }, enabled = dialog.confirmButtonEnabled) {
+    HtmlImageCoveringLayer {
+        AlertDialog(
+            onDismissRequest = { if (dialog.closeEnabled) dialog.listener.onDismiss() },
+            title = { Text("投稿を削除する") },
+            text = {
                 Text(
-                    if (dialog.deleting) {
-                        "削除中"
-                    } else if (dialog.hasSourceArticle) {
-                        "投稿と記事を削除"
-                    } else {
-                        "削除"
-                    },
+                    if (dialog.hasSourceArticle) "フォロワーのサーバーにも削除を配る。届かなかった相手には残る。\n元の記事も消すと、最新情報を投稿したときに取り込み直してもう一度流れる。投稿だけ消すと、その記事はもう流れない。" else "フォロワーのサーバーにも削除を配る。届かなかった相手には残る。",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
-            }
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (dialog.hasSourceArticle) TextButton(onClick = { dialog.listener.onClickConfirm(false) }, enabled = dialog.deleteNoteOnlyButtonEnabled) { Text("投稿だけ削除") }
-                TextButton(onClick = dialog.listener::onDismiss, enabled = dialog.closeEnabled) { Text("やめる") }
-            }
-        },
-    )
+            },
+            confirmButton = {
+                TextButton(onClick = { dialog.listener.onClickConfirm(dialog.hasSourceArticle) }, enabled = dialog.confirmButtonEnabled) {
+                    Text(
+                        if (dialog.deleting) {
+                            "削除中"
+                        } else if (dialog.hasSourceArticle) {
+                            "投稿と記事を削除"
+                        } else {
+                            "削除"
+                        },
+                    )
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (dialog.hasSourceArticle) TextButton(onClick = { dialog.listener.onClickConfirm(false) }, enabled = dialog.deleteNoteOnlyButtonEnabled) { Text("投稿だけ削除") }
+                    TextButton(onClick = dialog.listener::onDismiss, enabled = dialog.closeEnabled) { Text("やめる") }
+                }
+            },
+        )
+    }
 }
 
 @Composable
 private fun DeleteAccountDialog(dialog: AdminAccountScreenUiState.DeleteAccountDialog) {
-    AlertDialog(
-        onDismissRequest = dialog.listener::onDismiss,
-        title = { Text("アカウントを削除する") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(dialog.message, style = MaterialTheme.typography.bodyMedium)
-                dialog.errorMessage?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+    HtmlImageCoveringLayer {
+        AlertDialog(
+            onDismissRequest = dialog.listener::onDismiss,
+            title = { Text("アカウントを削除する") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(dialog.message, style = MaterialTheme.typography.bodyMedium)
+                    dialog.errorMessage?.let {
+                        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                    }
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = dialog.listener::onClickConfirm, enabled = dialog.confirmButtonEnabled) {
-                Text(dialog.confirmLabel)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = dialog.listener::onDismiss, enabled = dialog.closeEnabled) { Text("やめる") }
-        },
-    )
+            },
+            confirmButton = {
+                TextButton(onClick = dialog.listener::onClickConfirm, enabled = dialog.confirmButtonEnabled) {
+                    Text(dialog.confirmLabel)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = dialog.listener::onDismiss, enabled = dialog.closeEnabled) { Text("やめる") }
+            },
+        )
+    }
 }
 
 @Composable
 private fun PostDialog(post: AdminAccountScreenUiState.Post) {
-    AlertDialog(
-        onDismissRequest = { if (post.closeEnabled) post.listener.onDismiss() },
-        title = { Text("新しい投稿") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("このアカウントのフォロワーに配る。段落と改行は投稿用の HTML に変換される。", style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(
-                    value = post.body,
-                    onValueChange = post.listener::onBodyChanged,
-                    enabled = post.bodyInputEnabled,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("本文") },
-                    minLines = 5,
-                    maxLines = 12,
-                )
-                post.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-            }
-        },
-        confirmButton = {
-            Button(onClick = post.listener::onClickPost, enabled = post.postButtonEnabled) {
-                Text(if (post.submitting) "投稿中" else "投稿する")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = post.listener::onDismiss, enabled = post.closeEnabled) { Text("閉じる") }
-        },
-    )
+    HtmlImageCoveringLayer {
+        AlertDialog(
+            onDismissRequest = { if (post.closeEnabled) post.listener.onDismiss() },
+            title = { Text("新しい投稿") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("このアカウントのフォロワーに配る。段落と改行は投稿用の HTML に変換される。", style = MaterialTheme.typography.bodyMedium)
+                    OutlinedTextField(
+                        value = post.body,
+                        onValueChange = post.listener::onBodyChanged,
+                        enabled = post.bodyInputEnabled,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("本文") },
+                        minLines = 5,
+                        maxLines = 12,
+                    )
+                    post.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = {
+                Button(onClick = post.listener::onClickPost, enabled = post.postButtonEnabled) {
+                    Text(if (post.submitting) "投稿中" else "投稿する")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = post.listener::onDismiss, enabled = post.closeEnabled) { Text("閉じる") }
+            },
+        )
+    }
 }
 
 @Composable

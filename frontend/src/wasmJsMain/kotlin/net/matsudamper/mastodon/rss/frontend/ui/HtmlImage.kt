@@ -15,6 +15,7 @@ internal actual fun HtmlImage(
     highlighted: Boolean,
     modifier: Modifier,
 ) {
+    val covered = isHtmlImageCovered()
     HtmlElementView(
         modifier = modifier,
         factory = {
@@ -41,6 +42,7 @@ internal actual fun HtmlImage(
                 image.src = url
             }
             image.style.setProperty("filter", if (highlighted) "brightness(0.85)" else "none")
+            image.style.visibility = if (covered) "hidden" else "visible"
         },
     )
 }
