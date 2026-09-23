@@ -62,6 +62,11 @@ class LinkPreviewService(
         }
     }
 
+    /**
+     * 投稿のリンクとして取った OGP の画像。期限が切れていても、取り直すまでは前の値を返す
+     */
+    fun cachedImageUrl(pageUrl: String): String? = cache[pageUrl]?.preview?.imageUrl
+
     private suspend fun preview(url: String): LinkPreview {
         val now = clock.instant()
         val cached = cache[url]
