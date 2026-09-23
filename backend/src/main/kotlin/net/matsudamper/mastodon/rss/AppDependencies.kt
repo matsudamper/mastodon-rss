@@ -34,6 +34,7 @@ import net.matsudamper.mastodon.rss.feed.FeedPoller
 import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.inbox.InboxService
+import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewImageService
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewService
 import net.matsudamper.mastodon.rss.logic.AccountIconFiles
 import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
@@ -205,6 +206,16 @@ class AppDependencies(
      */
     val remoteActorIcons: RemoteActorIconService = RemoteActorIconService(
         followers = repositories.followers,
+        fetcher = iconFetcher,
+    )
+
+    /**
+     * リンク先の OGP 画像の中継。フィードのアイコンと同じ取得口を使う。
+     * 相手が書いた URL を無認証のエンドポイントから引く点も同じ
+     */
+    val linkPreviewImages: LinkPreviewImageService = LinkPreviewImageService(
+        notes = noteStore,
+        previews = linkPreviewService,
         fetcher = iconFetcher,
     )
 

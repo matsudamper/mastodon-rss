@@ -3,5 +3,6 @@ type LinkPreview {
     url: String!
     title: String
     siteName: String
+    "このサーバーから配る画像の URL。取得元の CORS に関わらず画面から読める"
     imageUrl: String
 }

@@ -29,6 +29,7 @@ import net.matsudamper.mastodon.rss.graphql.resolver.MutationResolverImpl
 import net.matsudamper.mastodon.rss.graphql.resolver.QueryResolverImpl
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.linkpreview.linkPreviewImageRoutes
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
 import net.matsudamper.mastodon.rss.note.featuredRoutes
 import net.matsudamper.mastodon.rss.note.noteRoutes
@@ -189,6 +190,9 @@ fun Application.module(deps: AppDependencies) {
         // フォロワーのアイコン。画面から配信元を直に引くと、CORS を許していない
         // サーバーのぶんが出ない
         remoteActorIconRoutes(deps.remoteActorIcons)
+
+        // リンク先の OGP 画像。フォロワーのアイコンと同じく、CORS を許していない取得元のぶんが出ない
+        linkPreviewImageRoutes(deps.linkPreviewImages)
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)
