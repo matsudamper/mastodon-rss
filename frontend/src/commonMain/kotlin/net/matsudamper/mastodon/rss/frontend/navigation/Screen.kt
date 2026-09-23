@@ -30,6 +30,9 @@ sealed interface Screen : NavKey {
      * 下に何を敷くかだけ。
      */
     sealed interface Overlay : Screen {
+        /**
+         * URL を直接開いたときに下に敷く画面。アプリの中から開いたときは、開いた画面の上に重ねる
+         */
         val background: Screen
     }
 
@@ -156,7 +159,7 @@ sealed interface Screen : NavKey {
     }
 
     /**
-     * 投稿 1 件。[Account] の上にダイアログとして出す。
+     * 投稿 1 件。開いた画面の上にダイアログとして出す。
      *
      * 一覧の上に重ねるので、閉じたときに一覧を読み直さずに済む。
      * URL を持つので、投稿だけを直接開くこともできる。
