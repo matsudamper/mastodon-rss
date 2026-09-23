@@ -245,7 +245,12 @@ class AccountApi(
         val data = data ?: return AccountNotesResult.Failure(failureMessage())
 
         return AccountNotesResult.Success(
-            notes = data.notes.nodes.map { it.accountNoteFields.toAccountNote() },
+            notes = data.notes.nodes.map { node ->
+                AccountListedNote(
+                    note = node.accountNoteFields.toAccountNote(),
+                    linkUrls = node.linkUrls,
+                )
+            },
             cursor = data.notes.pageInfo.nextCursor,
         )
     }
