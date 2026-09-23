@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 internal fun LinkPreviewCard(
+    htmlImageLayer: HtmlImageLayer,
     title: String,
     siteName: String,
     imageUrl: String?,
@@ -58,6 +59,7 @@ internal fun LinkPreviewCard(
             ) {
                 if (imageUrl != null) {
                     HtmlImage(
+                        layer = htmlImageLayer,
                         url = imageUrl,
                         highlighted = hovered || pressed,
                         modifier = Modifier.fillMaxSize(),

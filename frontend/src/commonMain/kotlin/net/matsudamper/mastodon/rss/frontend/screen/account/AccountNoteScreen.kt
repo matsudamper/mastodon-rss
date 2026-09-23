@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageCoveringLayer
+import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageLayer
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
@@ -71,7 +72,7 @@ internal fun AccountNoteScreen(
 internal fun AccountNoteContent(
     uiState: AccountNoteScreenUiState,
 ) {
-    HtmlImageCoveringLayer {
+    HtmlImageCoveringLayer(HtmlImageLayer.Base) { dialogLayer ->
         AlertDialog(
             onDismissRequest = uiState.listener::onClickClose,
             title = { Text("投稿") },
@@ -109,7 +110,10 @@ internal fun AccountNoteContent(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                NoteMenu(onClickActivityPubJson = uiState.listener::onClickActivityPub)
+                                NoteMenu(
+                                    htmlImageLayer = dialogLayer,
+                                    onClickActivityPubJson = uiState.listener::onClickActivityPub,
+                                )
                             }
                             if (content.linkPreviews.isNotEmpty()) {
                                 LazyRow(
@@ -118,6 +122,7 @@ internal fun AccountNoteContent(
                                 ) {
                                     items(items = content.linkPreviews) { preview ->
                                         LinkPreviewCard(
+                                            htmlImageLayer = dialogLayer,
                                             title = preview.title,
                                             siteName = preview.siteName,
                                             imageUrl = preview.imageUrl,

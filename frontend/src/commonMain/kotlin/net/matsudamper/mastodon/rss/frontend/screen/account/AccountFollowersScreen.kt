@@ -26,6 +26,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageCoveringLayer
+import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageLayer
 
 @Composable
 internal fun AccountFollowersScreen(
@@ -67,7 +68,7 @@ internal fun AccountFollowersScreen(
 internal fun AccountFollowersContent(
     uiState: AccountFollowersScreenUiState,
 ) {
-    HtmlImageCoveringLayer {
+    HtmlImageCoveringLayer(HtmlImageLayer.Base) {
         AlertDialog(
             onDismissRequest = uiState.listener::onClickClose,
             title = { Text("フォロワー") },

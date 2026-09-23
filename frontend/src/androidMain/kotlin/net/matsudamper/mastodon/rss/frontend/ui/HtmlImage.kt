@@ -6,10 +6,11 @@ import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 
 /**
- * 同じ canvas に描くのでリップルは画像の上にも出る。[highlighted] は使わない
+ * 同じ canvas に描くのでリップルやダイアログは画像の上にも出る。[layer] と [highlighted] は使わない
  */
 @Composable
 internal actual fun HtmlImage(
+    layer: HtmlImageLayer,
     url: String,
     highlighted: Boolean,
     modifier: Modifier,

@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageCoveringLayer
+import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageLayer
 
 @Composable
 internal fun AdminAccountProfileEditScreen(username: String, navController: Navigator) {
@@ -32,7 +33,7 @@ internal fun AdminAccountProfileEditScreen(username: String, navController: Navi
             override suspend fun close() = navController.back()
         })
     }
-    HtmlImageCoveringLayer {
+    HtmlImageCoveringLayer(HtmlImageLayer.Base) {
         AlertDialog(
             onDismissRequest = { if (uiState.closeEnabled) uiState.listener.onClickClose() },
             title = { Text("プロフィールを編集") },

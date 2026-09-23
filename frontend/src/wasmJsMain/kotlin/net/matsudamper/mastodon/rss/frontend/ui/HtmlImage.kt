@@ -11,11 +11,12 @@ import org.w3c.dom.HTMLImageElement
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal actual fun HtmlImage(
+    layer: HtmlImageLayer,
     url: String,
     highlighted: Boolean,
     modifier: Modifier,
 ) {
-    val covered = isHtmlImageCovered()
+    val covered = layer.isCovered()
     HtmlElementView(
         modifier = modifier,
         factory = {

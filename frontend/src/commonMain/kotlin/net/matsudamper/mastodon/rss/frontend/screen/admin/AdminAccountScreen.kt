@@ -54,6 +54,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.CoordinatedTwoPaneLayout
 import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageCoveringLayer
+import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageLayer
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.TwoPaneScrollState
@@ -636,7 +637,7 @@ private fun FeedItemSummary(countText: String, items: List<AdminAccountScreenUiS
 
 @Composable
 private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog) {
-    HtmlImageCoveringLayer {
+    HtmlImageCoveringLayer(HtmlImageLayer.Base) {
         AlertDialog(
             onDismissRequest = { if (dialog.closeEnabled) dialog.listener.onDismiss() },
             title = { Text("投稿を削除する") },
@@ -671,7 +672,7 @@ private fun DeleteNoteDialog(dialog: AdminAccountScreenUiState.DeleteNoteDialog)
 
 @Composable
 private fun DeleteAccountDialog(dialog: AdminAccountScreenUiState.DeleteAccountDialog) {
-    HtmlImageCoveringLayer {
+    HtmlImageCoveringLayer(HtmlImageLayer.Base) {
         AlertDialog(
             onDismissRequest = dialog.listener::onDismiss,
             title = { Text("アカウントを削除する") },
@@ -697,7 +698,7 @@ private fun DeleteAccountDialog(dialog: AdminAccountScreenUiState.DeleteAccountD
 
 @Composable
 private fun PostDialog(post: AdminAccountScreenUiState.Post) {
-    HtmlImageCoveringLayer {
+    HtmlImageCoveringLayer(HtmlImageLayer.Base) {
         AlertDialog(
             onDismissRequest = { if (post.closeEnabled) post.listener.onDismiss() },
             title = { Text("新しい投稿") },

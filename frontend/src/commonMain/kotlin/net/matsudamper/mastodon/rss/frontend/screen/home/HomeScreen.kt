@@ -52,6 +52,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
+import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageLayer
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
@@ -324,7 +325,7 @@ private fun TimelineNoteCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                NoteMenu(onClickActivityPubJson = { onOpenExternal(note.url) })
+                NoteMenu(htmlImageLayer = HtmlImageLayer.Base, onClickActivityPubJson = { onOpenExternal(note.url) })
             }
 
             NoteContent(contentHtml = note.contentHtml, modifier = Modifier.fillMaxWidth())
@@ -338,6 +339,7 @@ private fun TimelineNoteCard(
                 ) {
                     items(items = note.linkPreviews) { preview ->
                         LinkPreviewCard(
+                            htmlImageLayer = HtmlImageLayer.Base,
                             title = preview.title,
                             siteName = preview.siteName,
                             imageUrl = preview.imageUrl,

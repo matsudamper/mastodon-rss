@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageCoveringLayer
+import net.matsudamper.mastodon.rss.frontend.ui.HtmlImageLayer
 
 @Composable
 internal fun AdminAccountFeedNewScreen(
@@ -59,7 +60,7 @@ internal fun AdminAccountFeedNewScreen(
 internal fun AdminAccountFeedNewContent(
     uiState: AdminAccountFeedNewScreenUiState,
 ) {
-    HtmlImageCoveringLayer {
+    HtmlImageCoveringLayer(HtmlImageLayer.Base) {
         AlertDialog(
             onDismissRequest = { if (uiState.closeEnabled) uiState.listener.onClickClose() },
             title = { Text("RSS フィードを追加") },
