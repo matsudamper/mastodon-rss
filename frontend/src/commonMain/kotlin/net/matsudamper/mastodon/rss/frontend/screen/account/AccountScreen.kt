@@ -70,10 +70,10 @@ import net.matsudamper.mastodon.rss.frontend.ui.CoordinatedTwoPaneLayout
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
+import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
-import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 import net.matsudamper.mastodon.rss.frontend.ui.TwoPaneScrollState
 import net.matsudamper.mastodon.rss.frontend.ui.avatarColors
 import net.matsudamper.mastodon.rss.frontend.ui.rememberCoordinatedTwoPaneScrollableModifier
@@ -659,17 +659,18 @@ private fun NoteCard(
         ) {
             noteContent(note.contentHtml, Modifier.fillMaxWidth())
 
-            Text(
-                text = note.publishedAt,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            TextLink(
-                text = note.url,
-                onClick = { onOpenExternal(note.url) },
-            )
-
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = note.publishedAt,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                NoteMenu(onClickActivityPubJson = { onOpenExternal(note.url) })
+            }
             if (note.linkPreviews.isNotEmpty()) {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),

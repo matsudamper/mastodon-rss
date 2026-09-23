@@ -54,8 +54,8 @@ import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
+import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
-import net.matsudamper.mastodon.rss.frontend.ui.TextLink
 
 @Composable
 internal fun HomeScreen(
@@ -324,14 +324,10 @@ private fun TimelineNoteCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                NoteMenu(onClickActivityPubJson = { onOpenExternal(note.url) })
             }
 
             NoteContent(contentHtml = note.contentHtml, modifier = Modifier.fillMaxWidth())
-
-            TextLink(
-                text = note.url,
-                onClick = { onOpenExternal(note.url) },
-            )
 
             if (note.linkPreviews.isNotEmpty()) {
                 LazyRow(
