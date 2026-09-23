@@ -116,7 +116,6 @@ internal fun AccountNoteContent(
                                         siteName = preview.siteName,
                                         imageUrl = preview.imageUrl,
                                         onClick = { uiState.listener.onClickLinkPreview(preview.url) },
-                                        modifier = Modifier,
                                     )
                                 }
                             }

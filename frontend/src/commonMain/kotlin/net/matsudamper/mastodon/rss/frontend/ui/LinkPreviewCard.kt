@@ -36,13 +36,12 @@ internal fun LinkPreviewCard(
     siteName: String,
     imageUrl: String?,
     onClick: () -> Unit,
-    modifier: Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
     val pressed by interactionSource.collectIsPressedAsState()
     Surface(
-        modifier = modifier.width(LinkPreviewCardWidth),
+        modifier = Modifier.width(LinkPreviewCardWidth),
         onClick = onClick,
         interactionSource = interactionSource,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
