@@ -34,11 +34,13 @@ import org.w3c.dom.events.Event
  * URL だけでは下に何があったか分からないので、下の画面のパスを履歴の状態に持たせる。
  */
 @Stable
-class NavController internal constructor(
-    initial: Screen,
-) {
-    /** [androidx.navigation3.ui.NavDisplay] に渡すバックスタック */
-    val backStack: SnapshotStateList<Screen> = mutableStateListOf<Screen>().apply { addAll(stackOf(initial)) }
+class NavController internal constructor() {
+    /**
+     * [androidx.navigation3.ui.NavDisplay] に渡すバックスタック。
+     *
+     * 再読み込みしても履歴の状態は残るので、アプリの中で開いたときと同じ画面を下に敷ける
+     */
+    val backStack: SnapshotStateList<Screen> = mutableStateListOf<Screen>().apply { addAll(stackOfCurrentEntry()) }
 
     /** いま出している画面 */
     val current: Screen get() = backStack.last()
@@ -93,15 +95,7 @@ class NavController internal constructor(
 
     /** 戻る / 進むで URL が変わったときに呼ぶ */
     internal fun syncWithLocation() {
-        val screen = Screen.of(window.location.pathname)
-        val screenBelowPath = window.history.state?.unsafeCast<JsString>()?.toString()
-        applyStack(
-            if (screen is Screen.Overlay && screenBelowPath != null) {
-                stackOf(Screen.of(screenBelowPath)) + screen
-            } else {
-                stackOf(screen)
-            },
-        )
+        applyStack(stackOfCurrentEntry())
     }
 
     private fun applyStack(next: List<Screen>) {
@@ -112,6 +106,19 @@ class NavController internal constructor(
     }
 
     private companion object {
+        /**
+         * いま見えている履歴から組むバックスタック
+         */
+        fun stackOfCurrentEntry(): List<Screen> {
+            val screen = Screen.of(window.location.pathname)
+            val screenBelowPath = window.history.state?.unsafeCast<JsString>()?.toString()
+            return if (screen is Screen.Overlay && screenBelowPath != null) {
+                stackOf(Screen.of(screenBelowPath)) + screen
+            } else {
+                stackOf(screen)
+            }
+        }
+
         /**
          * URL から決まるバックスタック。
          *
@@ -135,7 +142,7 @@ class NavController internal constructor(
  */
 @Composable
 fun rememberNavController(): NavController {
-    val navController = remember { NavController(Screen.of(window.location.pathname)) }
+    val navController = remember { NavController() }
 
     DisposableEffect(navController) {
         // 追加したものと同じ参照でないと外せないので、変数に持ってから渡す
