@@ -4,7 +4,9 @@ import java.io.Closeable
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
+import java.net.Proxy
 import java.net.URI
+import java.net.UnknownHostException
 import java.time.Duration
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -16,7 +18,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -27,6 +29,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readRemaining
+import okhttp3.Dns
 import org.slf4j.LoggerFactory
 
 /**
@@ -176,23 +179,15 @@ class IconFetchService(
      * （SSRF）を塞ぐ。名前が複数のアドレスを持つ場合は 1 つでも内側なら弾く。
      * 引けない名前も弾く。
      *
-     * 名前を引いてから繋ぐまでの間に引き直されると別のアドレスになりうるが、
-     * そこまでは見ない。
+     * 名前を引いてから繋ぐまでの間に引き直されると別のアドレスになりうるので、
+     * [defaultClient] は繋ぐときにも [PublicAddressDns] で確かめる。
      */
     private suspend fun isInternalTarget(url: String): Boolean {
         val host = runCatching { URI(url).host }.getOrNull() ?: return true
         val addresses = resolve(host) ?: return true
         if (addresses.isEmpty()) return true
 
-        return addresses.any { address ->
-            address.isAnyLocalAddress ||
-                address.isLoopbackAddress ||
-                address.isLinkLocalAddress ||
-                address.isSiteLocalAddress ||
-                address.isMulticastAddress ||
-                address.isUniqueLocalAddress() ||
-                address.isSharedAddressSpace()
-        }
+        return addresses.any { it.isInternal() }
     }
 
     /**
@@ -212,28 +207,6 @@ class IconFetchService(
         if (resolved == null) resolving.cancel()
 
         return resolved
-    }
-
-    /**
-     * 事業者やクラスタの内側で使う `100.64.0.0/10`。
-     *
-     * RFC 1918 の範囲ではないので [InetAddress.isSiteLocalAddress] では拾えないが、
-     * Kubernetes などがここを内部のアドレスに使う
-     */
-    private fun InetAddress.isSharedAddressSpace(): Boolean {
-        if (this !is Inet4Address) return false
-        val bytes = address
-        return bytes[0].toInt() and 0xFF == 100 && (bytes[1].toInt() and 0xC0) == 0x40
-    }
-
-    /**
-     * IPv6 のユニークローカルアドレス（`fc00::/7`）。
-     *
-     * 組織内で使う範囲で、[InetAddress.isSiteLocalAddress] では拾えない
-     */
-    private fun InetAddress.isUniqueLocalAddress(): Boolean {
-        if (this !is Inet6Address) return false
-        return address.first().toInt() and 0xFE == 0xFC
     }
 
     override fun close() {
@@ -271,7 +244,16 @@ class IconFetchService(
          * 外から何度でも呼べる
          */
         fun defaultClient(): HttpClient =
-            HttpClient(CIO) {
+            HttpClient(OkHttp) {
+                engine {
+                    config {
+                        dns(PublicAddressDns)
+                        // プロキシを通すと、名前を引くのがプロキシの側になって PublicAddressDns を通らない
+                        proxy(Proxy.NO_PROXY)
+                        followRedirects(false)
+                        followSslRedirects(false)
+                    }
+                }
                 install(HttpTimeout) {
                     requestTimeoutMillis = 10_000
                     connectTimeoutMillis = 5_000
@@ -281,5 +263,51 @@ class IconFetchService(
                 expectSuccess = false
                 followRedirects = false
             }
+
+        private fun InetAddress.isInternal(): Boolean =
+            isAnyLocalAddress ||
+                isLoopbackAddress ||
+                isLinkLocalAddress ||
+                isSiteLocalAddress ||
+                isMulticastAddress ||
+                isUniqueLocalAddress() ||
+                isSharedAddressSpace()
+
+        /**
+         * 事業者やクラスタの内側で使う `100.64.0.0/10`。
+         *
+         * RFC 1918 の範囲ではないので [InetAddress.isSiteLocalAddress] では拾えないが、
+         * Kubernetes などがここを内部のアドレスに使う
+         */
+        private fun InetAddress.isSharedAddressSpace(): Boolean {
+            if (this !is Inet4Address) return false
+            val bytes = address
+            return bytes[0].toInt() and 0xFF == 100 && (bytes[1].toInt() and 0xC0) == 0x40
+        }
+
+        /**
+         * IPv6 のユニークローカルアドレス（`fc00::/7`）。
+         *
+         * 組織内で使う範囲で、[InetAddress.isSiteLocalAddress] では拾えない
+         */
+        private fun InetAddress.isUniqueLocalAddress(): Boolean {
+            if (this !is Inet6Address) return false
+            return address.first().toInt() and 0xFE == 0xFC
+        }
+    }
+
+    /**
+     * 接続に使うアドレスをここで確かめる。
+     *
+     * [isInternalTarget] で確かめた後に引き直した結果が内側のアドレスに変わっていても
+     * （DNS rebinding）、OkHttp はここで返したアドレスにだけ接続するので内側には繋がらない。
+     * IP アドレスがそのまま書かれた URL はここを通らないので、[isInternalTarget] で確かめる
+     */
+    private object PublicAddressDns : Dns {
+        override fun lookup(hostname: String): List<InetAddress> {
+            val addresses = Dns.SYSTEM.lookup(hostname)
+            if (addresses.any { it.isInternal() }) throw UnknownHostException("内側のアドレスには接続しない")
+            return addresses
+        }
     }
 }
