@@ -17,15 +17,16 @@ data class AdminDeliveriesScreenUiState(
 
         /**
          * @param emptyText 1 件も無いことを伝える一行。1 件でもあれば null
-         * @param loadMoreButtonText 続きを取るボタンの文字。取り損ねた後は誘い方が変わる
+         * @param loadMoreVisible 末尾に続きの枠を出す
+         * @param loadMoreOnVisible 枠が見えたら続きを取りに行く。取っている間と失敗した後は false
+         * @param loadMoreErrorMessage 続きが取れなかったときの文言。押して再試行するボタンと一緒に出す
          */
         data class Loaded(
             val deliveries: List<Delivery>,
             val emptyText: String?,
             val loadMoreVisible: Boolean,
-            val loadingMore: Boolean,
+            val loadMoreOnVisible: Boolean,
             val loadMoreErrorMessage: String?,
-            val loadMoreButtonText: String,
         ) : Content
 
         data class Error(
@@ -54,6 +55,6 @@ data class AdminDeliveriesScreenUiState(
     interface Listener : AdminScaffoldListener {
         fun onClickReload()
 
-        fun onClickLoadMore()
+        fun onLoadMore()
     }
 }

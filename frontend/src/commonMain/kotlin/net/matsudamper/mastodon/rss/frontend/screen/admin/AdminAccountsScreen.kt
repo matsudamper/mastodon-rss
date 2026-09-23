@@ -37,6 +37,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
+import net.matsudamper.mastodon.rss.frontend.ui.LoadMoreOnScrollEnd
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
 @Composable
@@ -110,7 +111,8 @@ private fun Accounts(
         return
     }
     val columns = if (wide) 2 else 1
-    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    val scrollState = rememberScrollState()
+    Column(Modifier.fillMaxWidth().verticalScroll(scrollState), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         content.accounts.chunked(columns).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 row.forEach { account ->
@@ -125,20 +127,25 @@ private fun Accounts(
         }
 
         if (content.loadMoreVisible) {
+            LoadMoreOnScrollEnd(
+                scrollState = scrollState,
+                loadMoreOnVisible = content.loadMoreOnVisible,
+                itemCount = content.accounts.size,
+                onLoadMore = listener::onLoadMore,
+            )
+            val errorMessage = content.loadMoreErrorMessage
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                content.loadMoreErrorMessage?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error)
-                }
-                if (content.loadingMore) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                } else {
-                    Button(onClick = listener::onClickLoadMore) {
-                        Text(content.loadMoreButtonText)
+                if (errorMessage != null) {
+                    Text(errorMessage, color = MaterialTheme.colorScheme.error)
+                    OutlinedButton(onClick = listener::onLoadMore) {
+                        Text("もう一度試す")
                     }
+                } else {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 }
             }
         }

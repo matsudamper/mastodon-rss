@@ -62,7 +62,7 @@ class AccountScreenViewModel(
                         reloadNotes()
                     }
 
-                    override fun onClickLoadMore() {
+                    override fun onLoadMore() {
                         loadMore()
                     }
 
@@ -249,7 +249,7 @@ class AccountScreenViewModel(
                     notesError = state.notesError,
                     notesLoading = state.notesLoading,
                     loadMoreVisible = state.notesCursor != null,
-                    loadingMore = state.loadingMore,
+                    loadMoreOnVisible = state.notesCursor != null && !state.loadingMore && state.notesError == null,
                 )
             }
         }

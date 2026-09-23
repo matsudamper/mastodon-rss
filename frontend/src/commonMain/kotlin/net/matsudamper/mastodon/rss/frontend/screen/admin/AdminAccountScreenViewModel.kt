@@ -155,7 +155,7 @@ class AdminAccountScreenViewModel(
                         navigate(Screen.Admin)
                     }
 
-                    override fun onClickLoadMore() {
+                    override fun onLoadMore() {
                         loadMore()
                     }
 
@@ -660,7 +660,7 @@ class AdminAccountScreenViewModel(
                     notesError = state.notesError,
                     notesLoading = state.notesLoading,
                     loadMoreVisible = state.cursor != null,
-                    loadingMore = state.loadingMore,
+                    loadMoreOnVisible = state.cursor != null && !state.loadingMore && state.notesError == null,
                 )
             }
         }

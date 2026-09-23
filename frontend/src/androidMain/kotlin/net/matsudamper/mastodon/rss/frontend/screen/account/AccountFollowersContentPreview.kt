@@ -25,8 +25,7 @@ private fun AccountFollowersContentPreview() {
                             listener = AndroidPreviewFollowerListener,
                         ),
                     ),
-                    loadMore = AccountFollowersScreenUiState.LoadMore.Button,
-                    loadMoreErrorMessage = null,
+                    loadMore = AccountFollowersScreenUiState.LoadMore.Loading,
                     listener = AndroidPreviewLoadedListener,
                 ),
                 listener = AndroidPreviewAccountFollowersListener,
@@ -53,7 +52,7 @@ private object AndroidPreviewAccountFollowersListener : AccountFollowersScreenUi
 }
 
 private object AndroidPreviewLoadedListener : AccountFollowersScreenUiState.Content.Loaded.Listener {
-    override fun onClickLoadMore() = Unit
+    override fun onLoadMore() = Unit
 }
 
 private object AndroidPreviewFollowerListener : AccountFollowersScreenUiState.Follower.Listener {

@@ -56,7 +56,7 @@ class AdminAccountsScreenViewModel(
                         reload()
                     }
 
-                    override fun onClickLoadMore() {
+                    override fun onLoadMore() {
                         loadMore()
                     }
                 },
@@ -167,9 +167,8 @@ class AdminAccountsScreenViewModel(
                         )
                     },
                     loadMoreVisible = accounts.hasMore,
-                    loadingMore = state.loadingMore,
+                    loadMoreOnVisible = accounts.hasMore && !state.loadingMore && state.loadMoreErrorMessage == null,
                     loadMoreErrorMessage = state.loadMoreErrorMessage,
-                    loadMoreButtonText = if (state.loadMoreErrorMessage != null) "もう一度試す" else "もっと見る",
                 )
             }
         }
