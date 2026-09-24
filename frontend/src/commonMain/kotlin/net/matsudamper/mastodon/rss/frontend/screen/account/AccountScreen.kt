@@ -39,8 +39,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberRetained
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundContent
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AppBadge
@@ -84,8 +83,7 @@ internal fun AccountScreen(
     platform: ScreenPlatform,
     navController: Navigator,
 ) {
-    val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope, username, platform) {
+    val viewModel = rememberRetained { viewModelScope ->
         AccountScreenViewModel(
             username = username,
             viewModelScope = viewModelScope,
@@ -263,7 +261,7 @@ private fun WideLoadedAccountContent(
 ) {
     val state = content.account
     val notesListState = rememberLazyListState()
-    val pageScrollState = remember { TwoPaneScrollState() }
+    val pageScrollState = rememberRetained { TwoPaneScrollState() }
     val coordinatedScrollModifier = rememberCoordinatedTwoPaneScrollableModifier(
         pageScrollState = pageScrollState,
         notesListState = notesListState,

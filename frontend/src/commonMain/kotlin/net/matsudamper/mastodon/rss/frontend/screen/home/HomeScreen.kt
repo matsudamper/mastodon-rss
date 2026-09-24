@@ -38,7 +38,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,6 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberRetained
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
@@ -62,8 +62,7 @@ internal fun HomeScreen(
     platform: ScreenPlatform,
     navController: Navigator,
 ) {
-    val viewModelScope = rememberCoroutineScope()
-    val viewModel = remember(viewModelScope) {
+    val viewModel = rememberRetained { viewModelScope ->
         HomeScreenViewModel(viewModelScope)
     }
     val uiState by viewModel.uiStateFlow.collectAsState()

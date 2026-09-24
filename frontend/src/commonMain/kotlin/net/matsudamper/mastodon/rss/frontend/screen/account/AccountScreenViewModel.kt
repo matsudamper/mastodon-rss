@@ -85,8 +85,13 @@ class AccountScreenViewModel(
             }
         }.asStateFlow()
 
+    /**
+     * 画面に戻ってくるたびに呼ばれる。取り直すと読み込み中から始まり、スクロール位置が先頭に戻る
+     */
     fun onStart() {
-        reload()
+        if (accountJob == null) {
+            reload()
+        }
     }
 
     private fun navigate(screen: Screen) {

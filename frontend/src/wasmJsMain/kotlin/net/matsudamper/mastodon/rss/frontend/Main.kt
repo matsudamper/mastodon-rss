@@ -20,6 +20,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.TransparentScreen
 import net.matsudamper.mastodon.rss.frontend.navigation.TransparentScreenSceneStrategy
 import net.matsudamper.mastodon.rss.frontend.navigation.WasmNavigator
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberNavController
+import net.matsudamper.mastodon.rss.frontend.navigation.rememberScreenStateStore
 import net.matsudamper.mastodon.rss.frontend.screen.NotFoundScreen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.account.AccountFollowersScreen
@@ -118,8 +119,9 @@ fun App() {
 
     AppTheme {
         val platformNavController = rememberNavController()
-        val navController: Navigator = remember(platformNavController) {
-            WasmNavigator(platformNavController)
+        val screenStateStore = rememberScreenStateStore()
+        val navController: Navigator = remember(platformNavController, screenStateStore) {
+            WasmNavigator(platformNavController, screenStateStore)
         }
 
         NavDisplay(
@@ -128,79 +130,105 @@ fun App() {
             sceneStrategies = listOf(TransparentScreenSceneStrategy()),
             entryProvider =
             entryProvider {
-                entry<Screen.Home> {
-                    HomeScreen(
-                        platform = WasmScreenPlatform,
-                        navController = navController,
-                    )
+                entry<Screen.Home> { screen ->
+                    screenStateStore.Provide(screen) {
+                        HomeScreen(
+                            platform = WasmScreenPlatform,
+                            navController = navController,
+                        )
+                    }
                 }
-                entry<Screen.Accounts> {
-                    AccountsScreen(navController = navController)
+                entry<Screen.Accounts> { screen ->
+                    screenStateStore.Provide(screen) {
+                        AccountsScreen(navController = navController)
+                    }
                 }
-                entry<Screen.Admin> {
-                    AdminScreen(
-                        platform = WasmScreenPlatform,
-                        navController = navController,
-                    )
+                entry<Screen.Admin> { screen ->
+                    screenStateStore.Provide(screen) {
+                        AdminScreen(
+                            platform = WasmScreenPlatform,
+                            navController = navController,
+                        )
+                    }
                 }
-                entry<Screen.AdminAccounts> {
-                    AdminAccountsScreen(navController = navController)
+                entry<Screen.AdminAccounts> { screen ->
+                    screenStateStore.Provide(screen) {
+                        AdminAccountsScreen(navController = navController)
+                    }
                 }
-                entry<Screen.AdminDeliveries> {
-                    AdminDeliveriesScreen(navController = navController)
+                entry<Screen.AdminDeliveries> { screen ->
+                    screenStateStore.Provide(screen) {
+                        AdminDeliveriesScreen(navController = navController)
+                    }
                 }
-                entry<Screen.AdminAccountNew> {
-                    AdminAccountNewScreen(navController = navController)
+                entry<Screen.AdminAccountNew> { screen ->
+                    screenStateStore.Provide(screen) {
+                        AdminAccountNewScreen(navController = navController)
+                    }
                 }
                 entry<Screen.AdminAccount> { screen ->
-                    AdminAccountScreen(
-                        username = screen.username,
-                        platform = WasmScreenPlatform,
-                        navController = navController,
-                    )
+                    screenStateStore.Provide(screen) {
+                        AdminAccountScreen(
+                            username = screen.username,
+                            platform = WasmScreenPlatform,
+                            navController = navController,
+                        )
+                    }
                 }
                 entry<Screen.AdminAccountFeedNew>(
                     metadata = TransparentScreen.asMetadata(),
                 ) { screen ->
-                    AdminAccountFeedNewScreen(
-                        username = screen.username,
-                        navController = navController,
-                    )
+                    screenStateStore.Provide(screen) {
+                        AdminAccountFeedNewScreen(
+                            username = screen.username,
+                            navController = navController,
+                        )
+                    }
                 }
                 entry<Screen.AdminAccountProfileEdit>(metadata = TransparentScreen.asMetadata()) { screen ->
-                    AdminAccountProfileEditScreen(username = screen.username, navController = navController)
+                    screenStateStore.Provide(screen) {
+                        AdminAccountProfileEditScreen(username = screen.username, navController = navController)
+                    }
                 }
                 entry<Screen.Account> { screen ->
-                    AccountScreen(
-                        username = screen.username,
-                        platform = WasmScreenPlatform,
-                        navController = navController,
-                    )
+                    screenStateStore.Provide(screen) {
+                        AccountScreen(
+                            username = screen.username,
+                            platform = WasmScreenPlatform,
+                            navController = navController,
+                        )
+                    }
                 }
                 entry<Screen.AccountNote>(
                     metadata = TransparentScreen.asMetadata(),
                 ) { screen ->
-                    AccountNoteScreen(
-                        username = screen.username,
-                        noteId = screen.noteId,
-                        platform = WasmScreenPlatform,
-                        navController = navController,
-                    )
+                    screenStateStore.Provide(screen) {
+                        AccountNoteScreen(
+                            username = screen.username,
+                            noteId = screen.noteId,
+                            platform = WasmScreenPlatform,
+                            navController = navController,
+                        )
+                    }
                 }
                 entry<Screen.AccountFollowers>(
                     metadata = TransparentScreen.asMetadata(),
                 ) { screen ->
-                    AccountFollowersScreen(
-                        username = screen.username,
-                        platform = WasmScreenPlatform,
-                        navController = navController,
-                    )
+                    screenStateStore.Provide(screen) {
+                        AccountFollowersScreen(
+                            username = screen.username,
+                            platform = WasmScreenPlatform,
+                            navController = navController,
+                        )
+                    }
                 }
                 entry<Screen.NotFound> { screen ->
-                    NotFoundScreen(
-                        requestedPath = screen.path,
-                        navController = navController,
-                    )
+                    screenStateStore.Provide(screen) {
+                        NotFoundScreen(
+                            requestedPath = screen.path,
+                            navController = navController,
+                        )
+                    }
                 }
             },
         )
