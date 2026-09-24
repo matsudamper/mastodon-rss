@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss
 
 import java.security.KeyPair
+import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.actor.RemoteActorProfile
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 
@@ -27,6 +28,19 @@ object TestRemoteActor {
             profileUrl = null,
             iconUrl = null,
         )
+
+    /**
+     * 相手のアクター文書。鍵の生成を遅らせたいので lazy にしてある
+     */
+    val actor: RemoteActor by lazy {
+        RemoteActor(
+            actorId = ACTOR_ID,
+            inbox = INBOX,
+            sharedInbox = null,
+            publicKeyPem = RsaKeys.encodeToPem(keyPair.public),
+            profile = noProfile,
+        )
+    }
 
     /** この相手だけを引ける [RemoteActors][net.matsudamper.mastodon.rss.actor.RemoteActors] */
     fun remoteActors(inbox: String? = INBOX): TestRemoteActors =

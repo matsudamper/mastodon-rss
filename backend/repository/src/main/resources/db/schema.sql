@@ -160,6 +160,23 @@ CREATE TABLE notes (
     published_at TEXT NOT NULL
 );
 
+CREATE TABLE note_favourites (
+    -- 相手から届いた、投稿 1 件へのお気に入り
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
+    -- 押した相手。フォロワーとは限らないが、相手が消えた後の Delete を検証できるよう
+    -- 鍵ごと remote_actors に残す
+    remote_actor_id INTEGER NOT NULL REFERENCES remote_actors (id) ON DELETE CASCADE,
+    -- 受け取った Like の id。取り消しは id で指されるので覚えておく
+    activity_uri TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    -- 同じ相手が同じ投稿に重ねない。取り消しが届かないまま押し直されても増えない
+    UNIQUE (note_public_id, remote_actor_id),
+    -- 同じアクティビティの送り直しで増えない。id を相手ごとに見るのは、
+    -- 全体で一意にすると、他人が使う id を先に書き込んでその相手のお気に入りを弾けるため
+    UNIQUE (remote_actor_id, activity_uri)
+);
+
 CREATE TABLE remote_actors (
     -- 相手のサーバーのアクター。フォロワーの inbox と公開鍵の置き場
     id INTEGER PRIMARY KEY AUTOINCREMENT,

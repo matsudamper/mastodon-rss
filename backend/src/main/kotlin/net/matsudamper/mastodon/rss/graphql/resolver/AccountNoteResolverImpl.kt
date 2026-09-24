@@ -44,6 +44,18 @@ class AccountNoteResolverImpl : AccountNoteResolver {
         }
     }
 
+    override fun favouriteCount(
+        accountNote: QlAccountNote,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<Int>> {
+        return GraphQlEngine
+            .dataLoaders(env)
+            .noteFavouriteCountDataLoader
+            .get(env)
+            .load(accountNote.id)
+            .thenApply { count -> DataFetcherResult.Builder(count ?: 0).build() }
+    }
+
     override fun account(
         accountNote: QlAccountNote,
         env: DataFetchingEnvironment,

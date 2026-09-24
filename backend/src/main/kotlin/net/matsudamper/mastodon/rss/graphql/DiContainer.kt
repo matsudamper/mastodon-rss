@@ -19,6 +19,7 @@ import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository
 
 class DiContainer(
     passwordHash: PasswordHash?,
@@ -33,6 +34,7 @@ class DiContainer(
     actorEnqueuer: ActorEnqueuer,
     accountIconFiles: AccountIconFiles,
     val noteStore: NoteStore,
+    val noteFavouriteRepository: NoteFavouriteRepository,
     val feedService: FeedService,
     val linkPreviewService: LinkPreviewService,
 ) {

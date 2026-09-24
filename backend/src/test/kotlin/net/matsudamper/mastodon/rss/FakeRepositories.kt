@@ -34,10 +34,12 @@ import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
+import net.matsudamper.mastodon.rss.repository.NewNoteFavourite
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NotePosition
+import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
@@ -109,7 +111,12 @@ class FakeRepositories : Repositories {
         onDeleted = { publicId ->
             feedItems.clearNoteId(publicId)
             deliveryQueue.deleteByNote(publicId)
+            noteFavourites.deleteByNote(publicId)
         },
+    )
+
+    override val noteFavourites: FakeNoteFavouriteRepository = FakeNoteFavouriteRepository(
+        hasNote = { publicId -> notes.find(publicId) != null },
     )
 
     // 投函は投稿の記録と記事の投稿済み化を一緒に書くので、両方のフェイクを繋ぐ。
@@ -1104,5 +1111,69 @@ class FakeFeedIconRepository : FeedIconRepository {
 
     override fun delete(feedId: FeedId) {
         stored.remove(feedId)
+    }
+}
+
+/**
+ * お気に入りの置き場。投稿が無ければ記録しないのと、同じ相手が同じ投稿に重ねないのは
+ * 本物の一意制約と外部キーに合わせてある
+ */
+class FakeNoteFavouriteRepository(
+    private val hasNote: (publicId: PublicNoteId) -> Boolean,
+) : NoteFavouriteRepository {
+    private val stored = mutableListOf<NewNoteFavourite>()
+
+    override fun add(favourite: NewNoteFavourite): Boolean {
+        if (!hasNote(favourite.notePublicId)) return false
+
+        val duplicated = stored.any {
+            it.actor.actorUri == favourite.actor.actorUri &&
+                (it.activityUri == favourite.activityUri || it.notePublicId == favourite.notePublicId)
+        }
+        if (duplicated) return false
+
+        val storedInNote = stored.count { it.notePublicId == favourite.notePublicId }
+        if (storedInNote >= MAX_FAVOURITES_PER_NOTE) return false
+
+        stored += favourite
+        return true
+    }
+
+    override fun removeByActivityUri(
+        actorUri: String,
+        activityUri: String,
+    ): Boolean = stored.removeAll { it.actor.actorUri == actorUri && it.activityUri == activityUri }
+
+    override fun removeByNote(
+        notePublicId: PublicNoteId,
+        actorUri: String,
+    ): Boolean = stored.removeAll { it.notePublicId == notePublicId && it.actor.actorUri == actorUri }
+
+    override fun removeByActor(actorUri: String): Int {
+        val before = stored.size
+        stored.removeAll { it.actor.actorUri == actorUri }
+        return before - stored.size
+    }
+
+    override fun findPublicKeyPem(actorUri: String): String? =
+        stored.firstOrNull { it.actor.actorUri == actorUri }?.actor?.publicKeyPem
+
+    override fun countsByNotes(notePublicIds: Set<PublicNoteId>): Map<PublicNoteId, Int> = stored
+        .filter { it.notePublicId in notePublicIds }
+        .groupingBy { it.notePublicId }
+        .eachCount()
+
+    /**
+     * 投稿を消すとお気に入りも消えるのは SQLite の ON DELETE CASCADE
+     */
+    fun deleteByNote(publicId: PublicNoteId) {
+        stored.removeAll { it.notePublicId == publicId }
+    }
+
+    private companion object {
+        /**
+         * 1 つの投稿が持てるお気に入りの数。本物と同じ数にしてある
+         */
+        const val MAX_FAVOURITES_PER_NOTE = 500
     }
 }

@@ -24,6 +24,8 @@ interface Repositories : AutoCloseable {
 
     val notes: NoteRepository
 
+    val noteFavourites: NoteFavouriteRepository
+
     val feeds: FeedRepository
 
     val feedItems: FeedItemRepository

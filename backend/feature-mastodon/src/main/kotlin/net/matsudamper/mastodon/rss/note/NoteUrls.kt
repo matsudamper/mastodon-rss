@@ -19,7 +19,7 @@ data class NoteUrls(
     /**
      * 投稿の URL。これがそのまま投稿の id になる
      */
-    val noteUrl: String = "https://$domain/notes/${publicId.value}"
+    val noteUrl: String = "https://$domain$NOTES_PATH${publicId.value}"
 
     val noteId: ActivityPubId = ActivityPubId(noteUrl)
 
@@ -32,4 +32,28 @@ data class NoteUrls(
      * `Delete` 自身の id。[createId] と同じ理由でフラグメントを付ける
      */
     val deleteId: ActivityPubId = ActivityPubId("$noteUrl#delete")
+
+    companion object {
+        private const val NOTES_PATH = "/notes/"
+
+        /**
+         * 相手が指してきた URL から、こちらの投稿の id を取り出す。
+         *
+         * 反応のように、相手が対象の投稿を URL で指してくるときに使う。
+         * こちらのドメインの投稿の URL でなければ null。よそのサーバーの投稿への
+         * 反応も同じ inbox に届くので、URL の形だけで信用せずここで弾く。
+         */
+        fun publicIdOf(
+            domain: String,
+            url: String,
+        ): PublicNoteId? {
+            val prefix = "https://$domain$NOTES_PATH"
+            if (!url.startsWith(prefix)) return null
+
+            val publicId = url.removePrefix(prefix)
+            if (publicId.isEmpty() || publicId.any { it == '/' || it == '?' || it == '#' }) return null
+
+            return PublicNoteId(publicId)
+        }
+    }
 }
