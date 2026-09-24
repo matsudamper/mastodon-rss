@@ -38,8 +38,8 @@ import net.matsudamper.mastodon.rss.repository.NewNoteFavourite
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
-import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository
+import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
