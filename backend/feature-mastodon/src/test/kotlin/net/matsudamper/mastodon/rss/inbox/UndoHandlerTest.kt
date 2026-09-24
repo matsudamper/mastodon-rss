@@ -16,7 +16,6 @@ import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.favourite.ReceivedFavourite
 import net.matsudamper.mastodon.rss.json.AppJson
 
-// Undo は取り消せるものが 1 つではないので、フォロー解除とお気に入りの取り消しに振り分ける。
 class UndoHandlerTest {
     private val now = Instant.parse("2026-08-10T00:00:00Z")
 

@@ -112,9 +112,6 @@ class RecordedFallbackPublicKeysTest {
             assertEquals(PublicKeyLookup.Unavailable, lookup)
         }
 
-    /**
-     * フォローはしていないがお気に入りだけ押した相手
-     */
     private fun favourites(): FakeFavouriteStore = FakeFavouriteStore().apply {
         add(
             ReceivedFavourite(
@@ -129,7 +126,6 @@ class RecordedFallbackPublicKeysTest {
     @Test
     fun `消えた相手はフォローしていなくてもお気に入りの記録から引く`() =
         runBlocking {
-            // ここで引けないと、消えた相手のお気に入りを消す Delete を検証できない
             val lookup =
                 RecordedFallbackPublicKeys(
                     remote = gone(),

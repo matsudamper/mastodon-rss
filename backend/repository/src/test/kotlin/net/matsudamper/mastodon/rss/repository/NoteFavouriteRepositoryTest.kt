@@ -13,8 +13,6 @@ import kotlin.test.assertTrue
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import org.sqlite.SQLiteDataSource
 
-// 本物の SQLite に対して確かめる。
-// 相手は同じお気に入りを送り直してくるので、増えないことと、取り消しで減ることが要件になる。
 class NoteFavouriteRepositoryTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-note-favourite-test")
 
@@ -38,9 +36,6 @@ class NoteFavouriteRepositoryTest {
         tempDir.deleteRecursively()
     }
 
-    /**
-     * お気に入りは投稿を指すので、先に投稿を入れておく
-     */
     private fun <T> withRepositories(block: (Repositories) -> T): T =
         createRepositories(DatabaseConfig(path = dbPath)).use { repositories ->
             repositories.notes.add(
@@ -55,8 +50,7 @@ class NoteFavouriteRepositoryTest {
         }
 
     /**
-     * 押した相手。鍵は消えた後の `Delete` を検証するために残るので、
-     * 相手ごとに違うものを入れて取り違えが分かるようにする
+     * 相手ごとに違う鍵にして、取り違えが分かるようにする
      */
     private fun actor(actorUri: String): NewRemoteActor = NewRemoteActor(
         actorUri = actorUri,
@@ -90,7 +84,6 @@ class NoteFavouriteRepositoryTest {
 
             val counted = favourites.countsByNotes(setOf(notePublicId, PublicNoteId("none")))
 
-            // 1 件も無い投稿は含めない
             assertEquals(mapOf(notePublicId to 2), counted)
         }
     }
@@ -116,7 +109,6 @@ class NoteFavouriteRepositoryTest {
         withRepositories { repositories ->
             val favourites = repositories.noteFavourites
 
-            // 相手はアクターをいくつでも作れるので、1 人 1 件だけでは人数ぶんだけ増える
             val added = (1..600).count { index ->
                 favourites.add(
                     favourite(
@@ -138,7 +130,6 @@ class NoteFavouriteRepositoryTest {
 
             assertTrue(favourites.add(favourite(activityUri = activityUri, actorUri = actorUri)))
 
-            // id を全体で一意にすると、先に書き込むだけで他人のお気に入りを弾ける
             assertTrue(favourites.add(favourite(activityUri = activityUri, actorUri = otherActorUri)))
         }
     }
@@ -223,7 +214,6 @@ class NoteFavouriteRepositoryTest {
             val favourites = repositories.noteFavourites
             favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
 
-            // 相手が消えた後の Delete は、この鍵でしか検証できない
             assertEquals("pem of $actorUri", favourites.findPublicKeyPem(actorUri))
             assertNull(favourites.findPublicKeyPem(otherActorUri))
         }
@@ -237,7 +227,6 @@ class NoteFavouriteRepositoryTest {
 
             favourites.removeByActor(actorUri)
 
-            // 関わりの切れた相手の鍵を返すと、その鍵で署名を通せる
             assertNull(favourites.findPublicKeyPem(actorUri))
         }
     }
@@ -264,7 +253,6 @@ class NoteFavouriteRepositoryTest {
             favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
             favourites.add(favourite(activityUri = "https://remote.example/likes/2", actorUri = otherActorUri))
 
-            // 押してすぐ取り消すのを繰り返されても、相手の行が溜まらない
             favourites.removeByActivityUri(actorUri = actorUri, activityUri = "https://remote.example/likes/1")
             favourites.removeByNote(notePublicId = notePublicId, actorUri = otherActorUri)
 
@@ -289,7 +277,6 @@ class NoteFavouriteRepositoryTest {
 
             favourites.removeByActivityUri(actorUri = actorUri, activityUri = "https://remote.example/likes/1")
 
-            // 消すとフォローまで外部キーで消える
             assertEquals("pem of $actorUri", repositories.followers.findPublicKeyPem(actorUri))
         }
     }

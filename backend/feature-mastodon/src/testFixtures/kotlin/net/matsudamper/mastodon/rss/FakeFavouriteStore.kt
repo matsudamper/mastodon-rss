@@ -5,8 +5,6 @@ import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.favourite.ReceivedFavourite
 
 /**
- * お気に入りの記録の差し替え。オンメモリで持つ。
- *
  * SQL の振る舞いは `:backend:repository` のテストが本物の SQLite で確かめる。
  * こちらが受け持つのは、inbox のハンドラが何を記録して何を消したかの確認。
  */

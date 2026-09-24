@@ -6,9 +6,6 @@ import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderFactory
 
-/**
- * 一覧に並んだ投稿の分を 1 回の問い合わせでまとめる
- */
 class NoteFavouriteCountDataLoaderDefine(
     private val favourites: NoteFavouriteRepository,
 ) : DataLoaderDefine<PublicNoteId, Int> {

@@ -16,8 +16,6 @@ import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.note.StoredNote
 
-// お気に入りを受け取る。
-// Mastodon は content の無い Like を、Misskey は content に絵文字を載せた Like を送ってくる。
 class FavouriteHandlerTest {
     private val recipient = TestLocalActor.urls
 
@@ -80,7 +78,6 @@ class FavouriteHandlerTest {
 
     @Test
     fun `絵文字付きの Like もお気に入りとして記録する`() = runBlocking {
-        // Misskey のスタンプ。Mastodon と同じく絵文字は見ずにお気に入りに数える
         val favourites = handle(
             """
             {"id":"https://remote.example/likes/1","type":"Like",
@@ -130,7 +127,6 @@ class FavouriteHandlerTest {
 
     @Test
     fun `押した相手のアクター文書を引けなければ記録しない`() = runBlocking {
-        // 鍵を残せないと、相手が消えた後の Delete でこのお気に入りを消せない
         val favourites = handle(
             json = """
             {"id":"https://remote.example/likes/1","type":"Like",

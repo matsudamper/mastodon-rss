@@ -13,14 +13,9 @@ import net.matsudamper.mastodon.rss.note.NoteUrls
 import org.slf4j.LoggerFactory
 
 /**
- * `Like` を受けたときの処理。お気に入りとして記録する。
- *
  * Mastodon のお気に入りは `content` を持たない `Like` で届く。Misskey は押した
  * 絵文字を `content` に載せた `Like` を送ってくるが、絵文字は見ずにこれも
  * お気に入りとして数える。Mastodon も同じ扱いをする。
- *
- * @param domain こちらのドメイン。対象がこちらの投稿かどうかの判断に使う
- * @param remoteActors 押した相手のアクター文書の引き先
  */
 class FavouriteHandler(
     private val domain: String,
@@ -86,7 +81,6 @@ class FavouriteHandler(
         if (recorded) {
             logger.info("お気に入りを記録した: ${recipient.acct} ← $verifiedSignerActorId")
         } else {
-            // 同じお気に入りの送り直しで届く。相手から見ると 1 回しか押していない
             logger.info("お気に入りは記録済みなので増やさない: ${recipient.acct} ← $verifiedSignerActorId")
         }
     }

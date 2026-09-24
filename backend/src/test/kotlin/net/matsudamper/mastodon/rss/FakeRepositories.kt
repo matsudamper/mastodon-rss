@@ -1115,7 +1115,7 @@ class FakeFeedIconRepository : FeedIconRepository {
 }
 
 /**
- * お気に入りの置き場。投稿が無ければ記録しないのと、同じ相手が同じ投稿に重ねないのは
+ * 投稿が無ければ記録しないのと、同じ相手が同じ投稿に重ねないのは
  * 本物の一意制約と外部キーに合わせてある
  */
 class FakeNoteFavouriteRepository(

@@ -31,8 +31,6 @@ internal class SqliteNoteFavouriteRepository(
             .fetchOne(0, Int::class.java) ?: 0
         if (storedInNote >= MAX_FAVOURITES_PER_NOTE) return@transaction false
 
-        // 相手の行はお気に入りより先に作る。押した相手を鍵ごと残すのが目的なので、
-        // お気に入りだけが入って相手の行が無い状態を作らない
         val remoteActorId = RemoteActorRows.upsert(dsl = dsl, actor = favourite.actor, now = favourite.receivedAt)
 
         val inserted = dsl
@@ -86,12 +84,6 @@ internal class SqliteNoteFavouriteRepository(
             .execute()
     }
 
-    /**
-     * お気に入りが 1 件も残っていない相手の鍵は返さない。
-     *
-     * `remote_actors` の行はお気に入りを消しても残る。フォロワーの鍵と同じく、
-     * 返してしまうと関わりの切れた相手の鍵で署名を通せる
-     */
     override fun findPublicKeyPem(actorUri: String): String? = jooq.withConnection { dsl ->
         dsl
             .select(REMOTE_ACTORS.PUBLIC_KEY_PEM)
@@ -119,11 +111,8 @@ internal class SqliteNoteFavouriteRepository(
 
     private companion object {
         /**
-         * 1 つの投稿が持てるお気に入りの数。
-         *
          * 相手はアクターをいくつでも作れるので、1 人 1 件に絞るだけでは
-         * 人数ぶんだけ行が増える。フィードを流すだけのアカウントの投稿に
-         * この数のお気に入りが付くことは無く、届いた分はここまで数える
+         * 人数ぶんだけ行が増える
          */
         const val MAX_FAVOURITES_PER_NOTE = 500
     }

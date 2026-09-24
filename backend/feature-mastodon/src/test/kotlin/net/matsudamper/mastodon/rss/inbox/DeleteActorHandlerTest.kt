@@ -43,9 +43,6 @@ class DeleteActorHandlerTest {
         }
     }
 
-    /**
-     * 消える相手が admin の投稿に押したお気に入り
-     */
     private fun favourites(): FakeFavouriteStore = FakeFavouriteStore().apply {
         add(
             ReceivedFavourite(

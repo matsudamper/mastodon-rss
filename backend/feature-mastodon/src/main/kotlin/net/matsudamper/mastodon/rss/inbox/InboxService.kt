@@ -155,10 +155,8 @@ class InboxService(
          *   `Accept` の宛先になる inbox、お気に入りを押した相手として残す鍵をここから取る
          * @param followers フォローの記録。配信先だけでなく、相手が消えて
          *   アクター文書を引けなくなったときの公開鍵の引き先にもなる
-         * @param notes お気に入りの対象の投稿の引き先。こちらが配信した投稿へのものだけを記録する
          * @param favourites お気に入りの記録。[followers] と同じく、
          *   消えた相手の公開鍵の引き先にもなる
-         * @param domain こちらのドメイン。お気に入りの対象がこちらの投稿かどうかの判断に使う
          */
         fun default(
             remoteActors: RemoteActors,

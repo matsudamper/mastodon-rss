@@ -37,11 +37,7 @@ data class NoteUrls(
         private const val NOTES_PATH = "/notes/"
 
         /**
-         * 相手が指してきた URL から、こちらの投稿の id を取り出す。
-         *
-         * 反応のように、相手が対象の投稿を URL で指してくるときに使う。
-         * こちらのドメインの投稿の URL でなければ null。よそのサーバーの投稿への
-         * 反応も同じ inbox に届くので、URL の形だけで信用せずここで弾く。
+         * こちらのドメインの投稿の URL でなければ null
          */
         fun publicIdOf(
             domain: String,

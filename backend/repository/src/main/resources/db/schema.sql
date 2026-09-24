@@ -161,7 +161,6 @@ CREATE TABLE notes (
 );
 
 CREATE TABLE note_favourites (
-    -- 相手から届いた、投稿 1 件へのお気に入り
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
     -- 押した相手。フォロワーとは限らないが、相手が消えた後の Delete を検証できるよう

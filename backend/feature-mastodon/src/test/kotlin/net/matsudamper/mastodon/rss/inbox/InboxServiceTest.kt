@@ -271,9 +271,6 @@ class InboxServiceTest {
             assertEquals(TestRemoteActor.ACTOR_ID, call.verifiedSignerActorId)
         }
 
-    /**
-     * フォローはしていないが、お気に入りの記録に相手の鍵が残っている状態
-     */
     private fun recordedFavourite(): FakeFavouriteStore =
         FakeFavouriteStore().apply {
             add(
@@ -289,7 +286,6 @@ class InboxServiceTest {
     @Test
     fun `フォロワーでなくてもお気に入りの記録があれば消えたアクターの Delete を検証できる`() =
         runBlocking {
-            // 検証できないと、消えた相手のお気に入りを掃除する DeleteActorHandler まで届かない
             val handler = RecordingHandler("Delete")
             val publicKeys =
                 RecordedFallbackPublicKeys(

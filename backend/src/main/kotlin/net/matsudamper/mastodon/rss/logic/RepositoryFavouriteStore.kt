@@ -7,10 +7,6 @@ import net.matsudamper.mastodon.rss.repository.NewNoteFavourite
 import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
-/**
- * ActivityPub 側の [FavouriteStore] を DB に繋ぐ。
- * [RepositoryNoteStore] と同じく型を持ち替えるだけの層になる。
- */
 class RepositoryFavouriteStore(
     private val favourites: NoteFavouriteRepository,
 ) : FavouriteStore {

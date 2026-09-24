@@ -10,10 +10,8 @@ import net.matsudamper.mastodon.rss.json.AppJson
 import org.slf4j.LoggerFactory
 
 /**
- * `Undo` のうち、フォロー解除の部分。振り分けは [UndoHandler] が行う。
- *
- * `object` が `Follow` だったときだけ消す。相手の実装によって、`object` に `Follow` が丸ごと埋まっていることも、
- * その id だけが入っていることもある。
+ * `object` が `Follow` だったときだけ消す。相手の実装によって、`object` に
+ * `Follow` が丸ごと埋まっていることも、その id だけが入っていることもある。
  *
  * 埋まっている場合は `type` を見れば `Follow` だと分かる。id だけの場合は
  * 何のアクティビティの id なのか分からないので、こちらが記録している
