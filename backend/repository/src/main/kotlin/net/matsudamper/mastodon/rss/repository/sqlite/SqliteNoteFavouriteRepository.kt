@@ -47,26 +47,36 @@ internal class SqliteNoteFavouriteRepository(
         inserted > 0
     }
 
+    /**
+     * 取り消しで誰も指さなくなった相手の行も消す。押してすぐ取り消すのを
+     * アクターを替えて繰り返されると、お気に入りの上限に当たらないまま行だけが増える
+     */
     override fun removeByActivityUri(
         actorUri: String,
         activityUri: String,
     ): Boolean = jooq.transaction { dsl ->
-        dsl
+        val removed = dsl
             .deleteFrom(NOTE_FAVOURITES)
             .where(NOTE_FAVOURITES.ACTIVITY_URI.eq(activityUri))
             .and(NOTE_FAVOURITES.REMOTE_ACTOR_ID.`in`(RemoteActorRows.id(actorUri)))
             .execute() > 0
+
+        RemoteActorRows.deleteIfUnreferenced(dsl = dsl, actorUri = actorUri)
+        removed
     }
 
     override fun removeByNote(
         notePublicId: PublicNoteId,
         actorUri: String,
     ): Boolean = jooq.transaction { dsl ->
-        dsl
+        val removed = dsl
             .deleteFrom(NOTE_FAVOURITES)
             .where(NOTE_FAVOURITES.NOTE_PUBLIC_ID.eq(notePublicId.value))
             .and(NOTE_FAVOURITES.REMOTE_ACTOR_ID.`in`(RemoteActorRows.id(actorUri)))
             .execute() > 0
+
+        RemoteActorRows.deleteIfUnreferenced(dsl = dsl, actorUri = actorUri)
+        removed
     }
 
     override fun removeByActor(actorUri: String): Int = jooq.transaction { dsl ->

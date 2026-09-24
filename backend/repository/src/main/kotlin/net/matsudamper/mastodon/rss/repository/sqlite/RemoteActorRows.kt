@@ -2,6 +2,8 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
+import net.matsudamper.mastodon.rss.repository.jooq.Tables.FOLLOWERS
+import net.matsudamper.mastodon.rss.repository.jooq.Tables.NOTE_FAVOURITES
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.REMOTE_ACTORS
 import org.jooq.DSLContext
 import org.jooq.Record1
@@ -56,6 +58,24 @@ internal object RemoteActorRows {
                 .where(REMOTE_ACTORS.ACTOR_URI.eq(actor.actorUri))
                 .fetchOne(REMOTE_ACTORS.ID),
         ) { "相手のアクターの行を作れなかった: ${actor.actorUri}" }
+    }
+
+    /**
+     * どこからも指されなくなった相手の行を消す。
+     *
+     * 行を指すテーブルを足したら、ここにも足す。漏らすと、まだ使っている行を消して
+     * 外部キーで記録ごと消える
+     */
+    fun deleteIfUnreferenced(
+        dsl: DSLContext,
+        actorUri: String,
+    ) {
+        dsl
+            .deleteFrom(REMOTE_ACTORS)
+            .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))
+            .andNotExists(DSL.selectOne().from(FOLLOWERS).where(FOLLOWERS.REMOTE_ACTOR_ID.eq(REMOTE_ACTORS.ID)))
+            .andNotExists(DSL.selectOne().from(NOTE_FAVOURITES).where(NOTE_FAVOURITES.REMOTE_ACTOR_ID.eq(REMOTE_ACTORS.ID)))
+            .execute()
     }
 
     /**

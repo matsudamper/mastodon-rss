@@ -11,6 +11,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
+import org.sqlite.SQLiteDataSource
 
 // 本物の SQLite に対して確かめる。
 // 相手は同じお気に入りを送り直してくるので、増えないことと、取り消しで減ることが要件になる。
@@ -238,6 +239,58 @@ class NoteFavouriteRepositoryTest {
 
             // 関わりの切れた相手の鍵を返すと、その鍵で署名を通せる
             assertNull(favourites.findPublicKeyPem(actorUri))
+        }
+    }
+
+    /**
+     * 相手の行が残っているかは公開する口が無いので、DB を直接見る
+     */
+    private fun remoteActorCount(): Int {
+        val dataSource = SQLiteDataSource().apply { url = "jdbc:sqlite:$dbPath" }
+        return dataSource.connection.use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery("SELECT COUNT(*) FROM remote_actors").use { result ->
+                    result.next()
+                    result.getInt(1)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `取り消して誰も指さなくなった相手の行は消える`() {
+        withRepositories { repositories ->
+            val favourites = repositories.noteFavourites
+            favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
+            favourites.add(favourite(activityUri = "https://remote.example/likes/2", actorUri = otherActorUri))
+
+            // 押してすぐ取り消すのを繰り返されても、相手の行が溜まらない
+            favourites.removeByActivityUri(actorUri = actorUri, activityUri = "https://remote.example/likes/1")
+            favourites.removeByNote(notePublicId = notePublicId, actorUri = otherActorUri)
+
+            assertEquals(0, remoteActorCount())
+        }
+    }
+
+    @Test
+    fun `取り消してもフォローしている相手の行は残る`() {
+        withRepositories { repositories ->
+            repositories.followers.record(
+                IncomingFollow(
+                    username = "admin",
+                    follower = actor(actorUri),
+                    followActivityUri = "https://remote.example/follows/1",
+                    receivedAt = now,
+                    acceptBody = "{}",
+                ),
+            )
+            val favourites = repositories.noteFavourites
+            favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
+
+            favourites.removeByActivityUri(actorUri = actorUri, activityUri = "https://remote.example/likes/1")
+
+            // 消すとフォローまで外部キーで消える
+            assertEquals("pem of $actorUri", repositories.followers.findPublicKeyPem(actorUri))
         }
     }
 
