@@ -45,7 +45,9 @@ class FavouriteHandler(
         }
 
         val activityUri = activity.id
-        if (activityUri != null && earlyUndoneLikes.contains(actorUri = verifiedSignerActorId, activityUri = activityUri)) {
+        val undoneFirst = activityUri != null &&
+            earlyUndoneLikes.isRemembered(actorUri = verifiedSignerActorId, activityUri = activityUri, now = Instant.now())
+        if (undoneFirst) {
             logger.info("先に取り消しが届いた Like なので記録しない: ${recipient.acct} ← $verifiedSignerActorId id=$activityUri")
             return
         }

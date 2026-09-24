@@ -1,10 +1,12 @@
 package net.matsudamper.mastodon.rss.inbox
 
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
+import net.matsudamper.mastodon.rss.FakeEarlyUndoneLikes
 import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
@@ -23,7 +25,7 @@ class FavouriteHandlerTest {
     private suspend fun handle(
         json: String,
         remoteActors: TestRemoteActors,
-        earlyUndoneLikes: EarlyUndoneLikes,
+        earlyUndoneLikes: FakeEarlyUndoneLikes,
     ): FakeFavouriteStore {
         val favourites = FakeFavouriteStore()
         val rawActivityJson = AppJson.parseToJsonElement(json) as JsonObject
@@ -42,7 +44,7 @@ class FavouriteHandlerTest {
     }
 
     private suspend fun handle(json: String): FakeFavouriteStore =
-        handle(json = json, remoteActors = knownActor, earlyUndoneLikes = EarlyUndoneLikes())
+        handle(json = json, remoteActors = knownActor, earlyUndoneLikes = FakeEarlyUndoneLikes())
 
     @Test
     fun `content の無い Like をお気に入りとして記録する`() = runBlocking {
@@ -101,7 +103,7 @@ class FavouriteHandlerTest {
              "actor":"${TestRemoteActor.ACTOR_ID}","object":"$noteUrl"}
             """.trimIndent(),
             remoteActors = TestRemoteActors(),
-            earlyUndoneLikes = EarlyUndoneLikes(),
+            earlyUndoneLikes = FakeEarlyUndoneLikes(),
         )
 
         assertTrue(favourites.rows.isEmpty())
@@ -109,8 +111,8 @@ class FavouriteHandlerTest {
 
     @Test
     fun `先に取り消しが届いた Like は記録しない`() = runBlocking {
-        val earlyUndoneLikes = EarlyUndoneLikes().apply {
-            remember(actorUri = TestRemoteActor.ACTOR_ID, activityUri = "https://remote.example/likes/1")
+        val earlyUndoneLikes = FakeEarlyUndoneLikes().apply {
+            remember(actorUri = TestRemoteActor.ACTOR_ID, activityUri = "https://remote.example/likes/1", expiresAt = Instant.MAX)
         }
 
         val favourites = handle(
@@ -126,9 +128,31 @@ class FavouriteHandlerTest {
     }
 
     @Test
+    fun `期限を過ぎた取り消しでは Like を止めない`() = runBlocking {
+        val earlyUndoneLikes = FakeEarlyUndoneLikes().apply {
+            remember(
+                actorUri = TestRemoteActor.ACTOR_ID,
+                activityUri = "https://remote.example/likes/1",
+                expiresAt = Instant.now().minusSeconds(1),
+            )
+        }
+
+        val favourites = handle(
+            json = """
+            {"id":"https://remote.example/likes/1","type":"Like",
+             "actor":"${TestRemoteActor.ACTOR_ID}","object":"$noteUrl"}
+            """.trimIndent(),
+            remoteActors = knownActor,
+            earlyUndoneLikes = earlyUndoneLikes,
+        )
+
+        assertEquals(1, favourites.rows.size)
+    }
+
+    @Test
     fun `別の相手が先に取り消しを送っていても記録する`() = runBlocking {
-        val earlyUndoneLikes = EarlyUndoneLikes().apply {
-            remember(actorUri = "https://remote.example/users/bob", activityUri = "https://remote.example/likes/1")
+        val earlyUndoneLikes = FakeEarlyUndoneLikes().apply {
+            remember(actorUri = "https://remote.example/users/bob", activityUri = "https://remote.example/likes/1", expiresAt = Instant.MAX)
         }
 
         val favourites = handle(

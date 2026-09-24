@@ -161,10 +161,10 @@ class InboxService(
             remoteActors: RemoteActors,
             followers: FollowerStore,
             favourites: FavouriteStore,
+            earlyUndoneLikes: EarlyUndoneLikes,
             domain: String,
-        ): InboxService {
-            val earlyUndoneLikes = EarlyUndoneLikes()
-            return InboxService(
+        ): InboxService =
+            InboxService(
                 verifier = HttpSignatureVerifier(
                     RecordedFallbackPublicKeys(remote = remoteActors, followers = followers, favourites = favourites),
                 ),
@@ -187,7 +187,6 @@ class InboxService(
                     DeleteActorHandler(followers = followers, favourites = favourites),
                 ),
             )
-        }
     }
 }
 

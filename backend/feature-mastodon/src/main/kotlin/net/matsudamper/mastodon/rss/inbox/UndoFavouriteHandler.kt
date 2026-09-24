@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.inbox
 
+import java.time.Instant
+import kotlin.time.toJavaDuration
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
 import net.matsudamper.mastodon.rss.activitypub.id
@@ -33,7 +35,7 @@ class UndoFavouriteHandler(
 
             is LinkOrObject.Link -> {
                 // 何の取り消しか分からないので、後から同じ id の Like が届いたときのために覚えておく
-                earlyUndoneLikes.remember(actorUri = verifiedSignerActorId, activityUri = undoObject.href)
+                rememberEarlyUndone(actorUri = verifiedSignerActorId, activityUri = undoObject.href)
                 false
             }
 
@@ -69,9 +71,20 @@ class UndoFavouriteHandler(
 
         val likeId = undoneActivity.id
         if (likeId != null) {
-            earlyUndoneLikes.remember(actorUri = verifiedSignerActorId, activityUri = likeId)
+            rememberEarlyUndone(actorUri = verifiedSignerActorId, activityUri = likeId)
         }
         logger.info("取り消すお気に入りが記録に無い: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
         return true
+    }
+
+    private fun rememberEarlyUndone(
+        actorUri: String,
+        activityUri: String,
+    ) {
+        earlyUndoneLikes.remember(
+            actorUri = actorUri,
+            activityUri = activityUri,
+            expiresAt = Instant.now() + EarlyUndoneLikes.TTL.toJavaDuration(),
+        )
     }
 }

@@ -49,6 +49,7 @@ import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
+import net.matsudamper.mastodon.rss.logic.RepositoryEarlyUndoneLikes
 import net.matsudamper.mastodon.rss.logic.RepositoryFavouriteStore
 import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
@@ -234,6 +235,7 @@ class AppDependencies(
         remoteActors = remoteActors,
         followers = followerStore,
         favourites = favouriteStore,
+        earlyUndoneLikes = RepositoryEarlyUndoneLikes(repositories.earlyUndoneLikes),
         domain = env.domain,
     )
 

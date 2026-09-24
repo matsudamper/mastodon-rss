@@ -16,6 +16,7 @@ import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
 import net.matsudamper.mastodon.rss.repository.DeliveryQueuePosition
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
+import net.matsudamper.mastodon.rss.repository.EarlyUndoneLikeRepository
 import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FailedDelivery
 import net.matsudamper.mastodon.rss.repository.Feed
@@ -118,6 +119,8 @@ class FakeRepositories : Repositories {
     override val noteFavourites: FakeNoteFavouriteRepository = FakeNoteFavouriteRepository(
         hasNote = { publicId -> notes.find(publicId) != null },
     )
+
+    override val earlyUndoneLikes: FakeEarlyUndoneLikeRepository = FakeEarlyUndoneLikeRepository()
 
     // 投函は投稿の記録と記事の投稿済み化を一緒に書くので、両方のフェイクを繋ぐ。
     // Accept が送れたときにフォローが成立するのも本物と同じく配信キューが書く
@@ -1160,4 +1163,22 @@ class FakeNoteFavouriteRepository(
     fun deleteByNote(publicId: PublicNoteId) {
         stored.removeAll { it.notePublicId == publicId }
     }
+}
+
+class FakeEarlyUndoneLikeRepository : EarlyUndoneLikeRepository {
+    private val expiresAt = mutableMapOf<Pair<String, String>, Instant>()
+
+    override fun remember(
+        actorUri: String,
+        activityUri: String,
+        expiresAt: Instant,
+    ) {
+        this.expiresAt[actorUri to activityUri] = expiresAt
+    }
+
+    override fun isRemembered(
+        actorUri: String,
+        activityUri: String,
+        now: Instant,
+    ): Boolean = expiresAt[actorUri to activityUri]?.isAfter(now) == true
 }

@@ -1,37 +1,36 @@
 package net.matsudamper.mastodon.rss.inbox
 
+import java.time.Instant
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
-import net.matsudamper.mastodon.rss.actor.ExpiringCache
-import net.matsudamper.mastodon.rss.actor.createExpiringCache
 
 /**
- * `Like` より先に届いた `Undo` が指していた id。
+ * `Like` より先に届いた `Undo` が指していた id の置き先。
  *
  * 配送の順番は保証されず、取り消しが先に届くことがある。覚えておかないと、後から
- * 届いた `Like` だけが残り、相手が取り消したお気に入りが数に入る。Mastodon も同じ理由で
- * 6 時間覚えている。
+ * 届いた `Like` だけが残り、相手が取り消したお気に入りが数に入る。再起動をまたいで
+ * 届くこともあるので、メモリではなく記録に残す。
  *
  * 相手ごとに分けて持つ。id だけで覚えると、他人の `Like` の id を先に送り込んで
  * その相手のお気に入りを弾ける。
  */
-class EarlyUndoneLikes {
-    private val ids: ExpiringCache<Pair<String, String>, Unit> = createExpiringCache(MAX_ENTRIES)
-
+interface EarlyUndoneLikes {
     fun remember(
         actorUri: String,
         activityUri: String,
-    ) {
-        ids.put(actorUri to activityUri, Unit, TTL.inWholeMilliseconds)
-    }
+        expiresAt: Instant,
+    )
 
-    fun contains(
+    fun isRemembered(
         actorUri: String,
         activityUri: String,
-    ): Boolean = ids.get(actorUri to activityUri) != null
+        now: Instant,
+    ): Boolean
 
-    private companion object {
-        val TTL = 6.hours
-
-        const val MAX_ENTRIES = 10_000
+    companion object {
+        /**
+         * Mastodon の `delete_later!` と同じ期間
+         */
+        val TTL: Duration = 6.hours
     }
 }

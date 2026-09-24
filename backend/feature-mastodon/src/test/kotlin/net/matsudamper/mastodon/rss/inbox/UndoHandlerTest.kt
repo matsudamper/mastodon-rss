@@ -6,6 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
+import net.matsudamper.mastodon.rss.FakeEarlyUndoneLikes
 import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.TestLocalActor
@@ -58,7 +59,7 @@ class UndoHandlerTest {
         json: String,
         followers: FakeFollowerStore,
         favourites: FakeFavouriteStore,
-        earlyUndoneLikes: EarlyUndoneLikes = EarlyUndoneLikes(),
+        earlyUndoneLikes: FakeEarlyUndoneLikes = FakeEarlyUndoneLikes(),
     ) {
         val rawActivityJson = AppJson.parseToJsonElement(json) as JsonObject
         UndoHandler(
@@ -116,7 +117,7 @@ class UndoHandlerTest {
     fun `id だけの Undo ではお気に入りを取り消さず、後から届く同じ id の Like に備える`() = runBlocking {
         val followers = followers()
         val favourites = favourites()
-        val earlyUndoneLikes = EarlyUndoneLikes()
+        val earlyUndoneLikes = FakeEarlyUndoneLikes()
 
         handle(
             """
@@ -131,12 +132,12 @@ class UndoHandlerTest {
         // Mastodon と同じく、Like の id は記録していないので引き当てられない
         assertEquals(1, favourites.rows.size)
         assertEquals(1, followers.rows.size)
-        assertTrue(earlyUndoneLikes.contains(actorUri = TestRemoteActor.ACTOR_ID, activityUri = likeUri))
+        assertTrue(earlyUndoneLikes.isRemembered(actorUri = TestRemoteActor.ACTOR_ID, activityUri = likeUri, now = Instant.now()))
     }
 
     @Test
     fun `記録に無い Like の取り消しは、後から届く同じ id の Like に備える`() = runBlocking {
-        val earlyUndoneLikes = EarlyUndoneLikes()
+        val earlyUndoneLikes = FakeEarlyUndoneLikes()
 
         handle(
             """
@@ -149,7 +150,7 @@ class UndoHandlerTest {
             earlyUndoneLikes = earlyUndoneLikes,
         )
 
-        assertTrue(earlyUndoneLikes.contains(actorUri = TestRemoteActor.ACTOR_ID, activityUri = likeUri))
+        assertTrue(earlyUndoneLikes.isRemembered(actorUri = TestRemoteActor.ACTOR_ID, activityUri = likeUri, now = Instant.now()))
     }
 
     @Test
