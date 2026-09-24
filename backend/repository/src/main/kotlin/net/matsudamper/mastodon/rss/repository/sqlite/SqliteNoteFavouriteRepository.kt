@@ -111,6 +111,8 @@ internal class SqliteNoteFavouriteRepository(
 
     private companion object {
         /**
+         * 1 つの投稿に記録するお気に入りの上限。越えた分は記録せず、数にも入れない。
+         *
          * 相手はアクターをいくつでも作れるので、1 人 1 件に絞るだけでは
          * 人数ぶんだけ行が増える
          */
