@@ -2,9 +2,6 @@ package net.matsudamper.mastodon.rss.frontend.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,12 +15,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 
 /**
  * リンク先の OGP 1 つ分。横に並べる前提で幅は固定
@@ -38,13 +35,9 @@ internal fun LinkPreviewCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val hovered by interactionSource.collectIsHoveredAsState()
-    val pressed by interactionSource.collectIsPressedAsState()
     Surface(
         modifier = modifier.width(LinkPreviewCardWidth),
         onClick = onClick,
-        interactionSource = interactionSource,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -57,10 +50,11 @@ internal fun LinkPreviewCard(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
                 if (imageUrl != null) {
-                    HtmlImage(
-                        url = imageUrl,
-                        highlighted = hovered || pressed,
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
                     )
                 }
             }

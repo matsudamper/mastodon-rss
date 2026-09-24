@@ -62,7 +62,10 @@ class LinkPreviewService(
         }
     }
 
-    private suspend fun preview(url: String): LinkPreview {
+    /**
+     * [links] の 1 件ぶん。取れなければ URL だけ入れて返す
+     */
+    suspend fun preview(url: String): LinkPreview {
         val now = clock.instant()
         val cached = cache[url]
         if (cached != null && cached.expiresAt.isAfter(now)) return cached.preview

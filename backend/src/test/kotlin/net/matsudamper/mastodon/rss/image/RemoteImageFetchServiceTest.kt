@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.feed
+package net.matsudamper.mastodon.rss.image
 
 import java.net.InetAddress
 import java.net.UnknownHostException
@@ -17,9 +17,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import net.matsudamper.mastodon.rss.TestImageBytes
 
-// アイコンの取得元はフィードに配信元が書いた URL で、こちらでは選べない。
+// 画像の取得元は配信元が書いた URL で、こちらでは選べない。
 // 取得は無認証のエンドポイントから呼ばれるので、何を取りに行って何を返すかを固定する。
-class IconFetchServiceTest {
+class RemoteImageFetchServiceTest {
     @Test
     fun `画像として復号できる種類は扱える種類として返す`() =
         runTest {
@@ -32,7 +32,7 @@ class IconFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertEquals(IconImageType.PNG, assertIs<IconFetchService.FetchResult.Success>(result).imageType)
+            assertEquals(RemoteImageType.PNG, assertIs<RemoteImageFetchService.FetchResult.Success>(result).imageType)
         }
 
     @Test
@@ -49,8 +49,8 @@ class IconFetchServiceTest {
                 val result = serviceOf(engine).fetch("https://example.com/favicon.ico")
 
                 assertEquals(
-                    IconImageType.ICO,
-                    assertIs<IconFetchService.FetchResult.Success>(result).imageType,
+                    RemoteImageType.ICO,
+                    assertIs<RemoteImageFetchService.FetchResult.Success>(result).imageType,
                     "取得元の種類: $contentType",
                 )
             }
@@ -68,7 +68,7 @@ class IconFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertEquals(IconFetchService.FetchResult.Failure, result)
+            assertEquals(RemoteImageFetchService.FetchResult.Failure, result)
         }
 
     @Test
@@ -86,7 +86,7 @@ class IconFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertIs<IconFetchService.FetchResult.Failure>(result)
+            assertIs<RemoteImageFetchService.FetchResult.Failure>(result)
         }
 
     @Test
@@ -101,7 +101,7 @@ class IconFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.svg")
 
-            assertEquals(IconFetchService.FetchResult.Failure, result)
+            assertEquals(RemoteImageFetchService.FetchResult.Failure, result)
         }
 
     @Test
@@ -111,7 +111,7 @@ class IconFetchServiceTest {
 
             val result = serviceOf(engine, address = "127.0.0.1").fetch("http://localhost:8080/icon.png")
 
-            assertEquals(IconFetchService.FetchResult.Failure, result)
+            assertEquals(RemoteImageFetchService.FetchResult.Failure, result)
             assertEquals(0, engine.requestHistory.size)
         }
 
@@ -120,7 +120,7 @@ class IconFetchServiceTest {
         runTest {
             val engine = pngEngine()
 
-            val service = IconFetchService(
+            val service = RemoteImageFetchService(
                 client = HttpClient(engine) { followRedirects = false },
                 resolveAddresses = {
                     Thread.sleep(2_000)
@@ -133,7 +133,7 @@ class IconFetchServiceTest {
             val result = service.fetch("https://example.com/icon.png")
             val elapsed = Duration.ofNanos(System.nanoTime() - startedAt)
 
-            assertIs<IconFetchService.FetchResult.Failure>(result)
+            assertIs<RemoteImageFetchService.FetchResult.Failure>(result)
             assertEquals(0, engine.requestHistory.size)
             // 引き終わるのを待たずに戻る。待っていると取り込み全体が止まる
             assertTrue(elapsed < Duration.ofSeconds(1), "実際に待った時間: $elapsed")
@@ -143,14 +143,14 @@ class IconFetchServiceTest {
     fun `名前を引けない URL には取りに行かない`() =
         runTest {
             val engine = pngEngine()
-            val service = IconFetchService(
+            val service = RemoteImageFetchService(
                 client = HttpClient(engine) { followRedirects = false },
                 resolveAddresses = { throw UnknownHostException(it) },
             )
 
             val result = service.fetch("https://example.com/icon.png")
 
-            assertEquals(IconFetchService.FetchResult.Failure, result)
+            assertEquals(RemoteImageFetchService.FetchResult.Failure, result)
             assertEquals(0, engine.requestHistory.size)
         }
 
@@ -158,7 +158,7 @@ class IconFetchServiceTest {
     fun `リダイレクトの飛び先が内側なら取りに行かない`() =
         runTest {
             val engine = redirectingEngine()
-            val service = IconFetchService(
+            val service = RemoteImageFetchService(
                 client = HttpClient(engine) { followRedirects = false },
                 resolveAddresses = { host ->
                     listOf(InetAddress.getByName(if (host == "example.com") PUBLIC_ADDRESS else "10.0.0.1"))
@@ -167,7 +167,7 @@ class IconFetchServiceTest {
 
             val result = service.fetch("https://example.com/icon.png")
 
-            assertEquals(IconFetchService.FetchResult.Failure, result)
+            assertEquals(RemoteImageFetchService.FetchResult.Failure, result)
             assertEquals(listOf("example.com"), engine.requestHistory.map { it.url.host })
         }
 
@@ -178,7 +178,7 @@ class IconFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertIs<IconFetchService.FetchResult.Success>(result)
+            assertIs<RemoteImageFetchService.FetchResult.Success>(result)
             assertEquals(
                 listOf("example.com", "cdn.example.net"),
                 engine.requestHistory.map { it.url.host },
@@ -200,7 +200,7 @@ class IconFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertEquals(Duration.ofSeconds(600), assertIs<IconFetchService.FetchResult.Success>(result).freshFor)
+            assertEquals(Duration.ofSeconds(600), assertIs<RemoteImageFetchService.FetchResult.Success>(result).freshFor)
         }
 
     @Test
@@ -219,7 +219,7 @@ class IconFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertEquals(Duration.ofDays(1), assertIs<IconFetchService.FetchResult.Success>(result).freshFor)
+            assertEquals(Duration.ofDays(1), assertIs<RemoteImageFetchService.FetchResult.Success>(result).freshFor)
         }
 
     @Test
@@ -237,7 +237,7 @@ class IconFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertNull(assertIs<IconFetchService.FetchResult.Success>(result).freshFor)
+            assertNull(assertIs<RemoteImageFetchService.FetchResult.Success>(result).freshFor)
         }
 
     @Test
@@ -255,7 +255,7 @@ class IconFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertEquals(Duration.ZERO, assertIs<IconFetchService.FetchResult.Success>(result).freshFor)
+            assertEquals(Duration.ZERO, assertIs<RemoteImageFetchService.FetchResult.Success>(result).freshFor)
         }
 
     private fun pngEngine(): MockEngine = MockEngine {
@@ -277,7 +277,7 @@ class IconFetchServiceTest {
     private fun serviceOf(
         engine: MockEngine,
         address: String = PUBLIC_ADDRESS,
-    ): IconFetchService = IconFetchService(
+    ): RemoteImageFetchService = RemoteImageFetchService(
         client = HttpClient(engine) { followRedirects = false },
         resolveAddresses = { listOf(InetAddress.getByName(address)) },
     )

@@ -79,15 +79,23 @@ class AccountNoteResolverImpl : AccountNoteResolver {
         accountNote: QlAccountNote,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<List<QlLinkPreview>>> {
-        val linkPreviewService = GraphQlEngine.diContainer(env).linkPreviewService
+        val diContainer = GraphQlEngine.diContainer(env)
+        val linkPreviewService = diContainer.linkPreviewService
+        val imageUrls = diContainer.linkPreviewImageUrls
         return loadNote(accountNote, env).thenCompose { note ->
             CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
-                val previews = linkPreviewService.previews(note.contentHtml).map { preview ->
+                val previews = linkPreviewService.previews(note.contentHtml).mapIndexed { linkIndex, preview ->
                     QlLinkPreview(
                         url = preview.url,
                         title = preview.title,
                         siteName = preview.siteName,
-                        imageUrl = preview.imageUrl,
+                        imageUrl = preview.imageUrl?.let { sourceUrl ->
+                            imageUrls.image(
+                                notePublicId = note.publicId.value,
+                                linkIndex = linkIndex,
+                                sourceUrl = sourceUrl,
+                            )
+                        },
                     )
                 }
                 DataFetcherResult.Builder(previews).build()
