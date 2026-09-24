@@ -42,14 +42,25 @@ internal class TwoPaneScrollState {
     private var viewportHeightPx: Int by mutableIntStateOf(0)
     private var notesAnchorKey: Any? = null
     private var notesAnchorOffsetPx: Int = 0
+    private val measuredNoteHeights: MutableMap<Any, Int> = mutableMapOf()
 
     fun notesShiftPx(): Int = notesOverflowPx.roundToInt()
 
-    fun sideShiftPx(): Int = contentOffsetPx.roundToInt().coerceAtMost(sideHeightPx)
+    fun sideShiftPx(): Int = contentOffsetPx.roundToInt().coerceIn(0, sideHeightPx)
 
+    /**
+     * 畳みきった後に高さが変わっても、畳んだままにする。
+     *
+     * 文字の高さはフォントの読み込みで後から変わる。畳んだ量のままだと、伸びた分だけ投稿の上に出てくる
+     */
     fun updateHeaderHeight(height: Int) {
+        val collapsedFully = headerHeightPx > 0 && headerCollapsePx >= headerHeightPx
         headerHeightPx = height
-        headerCollapsePx = headerCollapsePx.coerceIn(0f, height.toFloat())
+        headerCollapsePx = if (collapsedFully) {
+            height.toFloat()
+        } else {
+            headerCollapsePx.coerceIn(0f, height.toFloat())
+        }
     }
 
     fun updateSideHeight(height: Int) {
@@ -66,8 +77,20 @@ internal class TwoPaneScrollState {
      * 追加読み込みに限らず、要素の高さが後から変わったときも位置を合わせ直す
      */
     fun onNotesLayoutChanged(notesListState: LazyListState) {
-        absorbNotesDrift(notesListState)
+        syncNotesLayout(notesListState)
         resyncNotesOverflow(notesListState)
+    }
+
+    /**
+     * 前に見たレイアウトから、こちらが送っていない変化を取り込む。
+     *
+     * [onNotesLayoutChanged] はレイアウトの後に遅れて届くので、先にスクロールが来ると
+     * その変化を送った量と取り違える。スクロールの前にも呼ぶ
+     */
+    private fun syncNotesLayout(notesListState: LazyListState) {
+        absorbNotesDrift(notesListState)
+        trackNotesItems(notesListState)
+        collapseHeaderAwayFromPageTop(notesListState)
     }
 
     /**
@@ -79,14 +102,49 @@ internal class TwoPaneScrollState {
      * 打ち消しきれない分だけページごと動かす
      */
     private fun absorbNotesDrift(notesListState: LazyListState) {
-        val anchor = notesListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == notesAnchorKey }
-        if (anchor != null) {
-            val drift = (notesAnchorOffsetPx - anchor.offset).toFloat()
-            val absorbed = drift.coerceAtMost(notesOverflowPx)
-            notesOverflowPx -= absorbed
-            contentOffsetPx += drift - absorbed
+        val anchor = notesListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == notesAnchorKey } ?: return
+        val drift = (notesAnchorOffsetPx - anchor.offset).toFloat()
+        val absorbed = drift.coerceAtMost(notesOverflowPx)
+        notesOverflowPx -= absorbed
+        contentOffsetPx += drift - absorbed
+    }
+
+    /**
+     * 画面の上から入ってきた投稿の高さが前に測ったときと違えば、その差だけ位置を直す。
+     *
+     * 画面外の投稿は測り直されないので、フォントの読み込みなどで高さが変わっても、
+     * 戻ってきて測られるまで分からない。送った量だけで持つと差が積み上がり、
+     * 先頭に戻ったときに配信元のカラムだけずれて残る。
+     * 測ったことのない投稿（画面外で増えたもの）の分は直せないので、先頭の投稿が見えたら
+     * 実際の位置に合わせる
+     */
+    private fun trackNotesItems(notesListState: LazyListState) {
+        val visibleItems = notesListState.layoutInfo.visibleItemsInfo
+        val anchorIndex = visibleItems.firstOrNull { it.key == notesAnchorKey }?.index
+        if (anchorIndex != null) {
+            contentOffsetPx += visibleItems
+                .takeWhile { it.index < anchorIndex }
+                .sumOf { item -> item.size - (measuredNoteHeights[item.key] ?: item.size) }
         }
-        captureNotesAnchor(notesListState)
+        val firstVisible = visibleItems.firstOrNull()
+        if (firstVisible?.index == 0) {
+            contentOffsetPx = notesOverflowPx - firstVisible.offset
+        }
+        visibleItems.forEach { measuredNoteHeights[it.key] = it.size }
+        notesAnchorKey = firstVisible?.key
+        notesAnchorOffsetPx = firstVisible?.offset ?: 0
+    }
+
+    /**
+     * ヘッダーを出すのは、投稿が先頭にあってずらしてもいないときだけにする。
+     *
+     * 戻る操作などで投稿の位置だけが復元されると、ヘッダーが出たまま投稿が途中から始まる
+     */
+    private fun collapseHeaderAwayFromPageTop(notesListState: LazyListState) {
+        val notesAtTop = notesListState.firstVisibleItemIndex == 0 && notesListState.firstVisibleItemScrollOffset == 0
+        if (!notesAtTop || notesOverflowPx > 0f) {
+            headerCollapsePx = headerHeightPx.toFloat()
+        }
     }
 
     /**
@@ -106,16 +164,11 @@ internal class TwoPaneScrollState {
         if (target <= 0f) return
         val scrolled = notesListState.dispatchRawDelta(target)
         notesOverflowPx -= scrolled
-        captureNotesAnchor(notesListState)
-    }
-
-    private fun captureNotesAnchor(notesListState: LazyListState) {
-        val firstVisible = notesListState.layoutInfo.visibleItemsInfo.firstOrNull()
-        notesAnchorKey = firstVisible?.key
-        notesAnchorOffsetPx = firstVisible?.offset ?: 0
+        trackNotesItems(notesListState)
     }
 
     fun scrollBy(delta: Float, notesListState: LazyListState): Float {
+        syncNotesLayout(notesListState)
         return if (delta > 0f) {
             scrollForward(delta, notesListState)
         } else {
@@ -171,7 +224,7 @@ internal class TwoPaneScrollState {
         if (delta == 0f) return 0f
         val consumed = notesListState.dispatchRawDelta(delta)
         contentOffsetPx += consumed
-        captureNotesAnchor(notesListState)
+        trackNotesItems(notesListState)
         return consumed
     }
 
