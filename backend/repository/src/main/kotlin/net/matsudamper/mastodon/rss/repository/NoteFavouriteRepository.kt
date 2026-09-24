@@ -6,9 +6,8 @@ import net.matsudamper.mastodon.rss.shared.PublicNoteId
 interface NoteFavouriteRepository {
     /**
      * 同じ相手が同じ投稿に押し直したときと、同じアクティビティの送り直しでは行を増やさない。
-     * 1 つの投稿が持てる数にも上限がある。
      *
-     * @return 記録したら true。既にあるか、上限に達しているか、投稿が無ければ false
+     * @return 記録したら true。既にあるか、投稿が無ければ false
      */
     fun add(favourite: NewNoteFavourite): Boolean
 

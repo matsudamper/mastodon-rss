@@ -106,24 +106,6 @@ class NoteFavouriteRepositoryTest {
     }
 
     @Test
-    fun `1 つの投稿が持てるお気に入りには上限がある`() {
-        withRepositories { repositories ->
-            val favourites = repositories.noteFavourites
-
-            val added = (1..600).count { index ->
-                favourites.add(
-                    favourite(
-                        activityUri = "https://remote.example/likes/$index",
-                        actorUri = "https://remote.example/users/$index",
-                    ),
-                )
-            }
-
-            assertEquals(500, added)
-        }
-    }
-
-    @Test
     fun `別の相手が同じアクティビティの id を使っても弾かれない`() {
         withRepositories { repositories ->
             val favourites = repositories.noteFavourites

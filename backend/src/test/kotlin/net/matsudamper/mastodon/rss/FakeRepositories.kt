@@ -1132,9 +1132,6 @@ class FakeNoteFavouriteRepository(
         }
         if (duplicated) return false
 
-        val storedInNote = stored.count { it.notePublicId == favourite.notePublicId }
-        if (storedInNote >= MAX_FAVOURITES_PER_NOTE) return false
-
         stored += favourite
         return true
     }
@@ -1168,12 +1165,5 @@ class FakeNoteFavouriteRepository(
      */
     fun deleteByNote(publicId: PublicNoteId) {
         stored.removeAll { it.notePublicId == publicId }
-    }
-
-    private companion object {
-        /**
-         * 1 つの投稿が持てるお気に入りの数。本物と同じ数にしてある
-         */
-        const val MAX_FAVOURITES_PER_NOTE = 500
     }
 }

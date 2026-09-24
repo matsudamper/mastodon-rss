@@ -22,15 +22,6 @@ internal class SqliteNoteFavouriteRepository(
         )
         if (noteExists.not()) return@transaction false
 
-        // 数えるのと入れるのを同じトランザクションに入れる。分けると、お気に入りが
-        // 並んだときに上限を越えた分まで入る
-        val storedInNote = dsl
-            .selectCount()
-            .from(NOTE_FAVOURITES)
-            .where(NOTE_FAVOURITES.NOTE_PUBLIC_ID.eq(favourite.notePublicId.value))
-            .fetchOne(0, Int::class.java) ?: 0
-        if (storedInNote >= MAX_FAVOURITES_PER_NOTE) return@transaction false
-
         val remoteActorId = RemoteActorRows.upsert(dsl = dsl, actor = favourite.actor, now = favourite.receivedAt)
 
         val inserted = dsl
@@ -107,15 +98,5 @@ internal class SqliteNoteFavouriteRepository(
                 .fetch()
                 .associate { PublicNoteId(it.value1()) to it.value2() }
         }
-    }
-
-    private companion object {
-        /**
-         * 1 つの投稿に記録するお気に入りの上限。越えた分は記録せず、数にも入れない。
-         *
-         * 相手はアクターをいくつでも作れるので、1 人 1 件に絞るだけでは
-         * 人数ぶんだけ行が増える
-         */
-        const val MAX_FAVOURITES_PER_NOTE = 500
     }
 }
