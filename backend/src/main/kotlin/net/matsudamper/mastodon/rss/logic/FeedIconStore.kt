@@ -4,7 +4,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.UUID
-import net.matsudamper.mastodon.rss.feed.IconImageType
+import net.matsudamper.mastodon.rss.image.RemoteImageType
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 
 /**
@@ -26,7 +26,7 @@ class FeedIconStore(
     fun write(
         feedId: FeedId,
         bytes: ByteArray,
-        imageType: IconImageType,
+        imageType: RemoteImageType,
     ): String {
         Files.createDirectories(root)
 
@@ -96,6 +96,6 @@ class FeedIconStore(
 
     private fun fileName(
         feedId: FeedId,
-        imageType: IconImageType,
+        imageType: RemoteImageType,
     ): String = "${feedId.value}-${UUID.randomUUID()}.${imageType.fileExtension}"
 }

@@ -159,20 +159,26 @@ private fun FollowerList(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (content.loadMoreErrorMessage != null) {
-                    Text(content.loadMoreErrorMessage, color = MaterialTheme.colorScheme.error)
-                }
-
-                when (content.loadMore) {
+                when (val loadMore = content.loadMore) {
                     AccountFollowersScreenUiState.LoadMore.Hidden -> Unit
+
+                    AccountFollowersScreenUiState.LoadMore.LoadOnVisible -> {
+                        // LazyColumn の item なので、画面に入って初めて組まれる。
+                        // 1 ページ足された後も枠が見えたままなら、件数が変わったのを合図にもう 1 ページ取る
+                        LaunchedEffect(content.followers.size) {
+                            content.listener.onLoadMore()
+                        }
+                        CircularProgressIndicator()
+                    }
 
                     AccountFollowersScreenUiState.LoadMore.Loading -> {
                         CircularProgressIndicator()
                     }
 
-                    AccountFollowersScreenUiState.LoadMore.Button -> {
-                        TextButton(onClick = content.listener::onClickLoadMore) {
-                            Text("もっと見る")
+                    is AccountFollowersScreenUiState.LoadMore.Error -> {
+                        Text(loadMore.message, color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = content.listener::onLoadMore) {
+                            Text("もう一度試す")
                         }
                     }
                 }

@@ -19,7 +19,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import net.matsudamper.mastodon.rss.TestImageBytes
-import net.matsudamper.mastodon.rss.feed.IconFetchService
+import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
 import net.matsudamper.mastodon.rss.repository.FeedHeader
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
@@ -169,7 +169,7 @@ class FeedHeaderServiceTest {
     ): FeedHeaderService = FeedHeaderService(
         headers = repository,
         store = FeedIconStore(tempDir),
-        fetcher = IconFetchService(
+        fetcher = RemoteImageFetchService(
             client = HttpClient(engine) { followRedirects = false },
             resolveAddresses = { listOf(InetAddress.getByName("93.184.216.34")) },
         ),

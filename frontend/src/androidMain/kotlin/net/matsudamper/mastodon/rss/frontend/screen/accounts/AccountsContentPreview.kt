@@ -26,7 +26,7 @@ private fun AccountsContentPreview() {
                         ),
                     ),
                     loadMoreVisible = true,
-                    loadingMore = false,
+                    loadMoreOnVisible = false,
                     loadMoreErrorMessage = null,
                 ),
                 listener = AndroidPreviewAccountsListener,
@@ -42,7 +42,7 @@ private object AndroidPreviewAccountsListener : AccountsScreenUiState.Listener {
 
     override fun onClickReload() = Unit
 
-    override fun onClickLoadMore() = Unit
+    override fun onLoadMore() = Unit
 
     override fun onClickAccount(username: String) = Unit
 }

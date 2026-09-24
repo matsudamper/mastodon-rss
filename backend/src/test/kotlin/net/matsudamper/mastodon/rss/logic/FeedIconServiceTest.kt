@@ -23,7 +23,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestImageBytes
-import net.matsudamper.mastodon.rss.feed.IconFetchService
+import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
 
@@ -253,7 +253,7 @@ class FeedIconServiceTest {
     ): FeedIconService = FeedIconService(
         icons = repositories.feedIcons,
         store = store,
-        fetcher = IconFetchService(
+        fetcher = RemoteImageFetchService(
             client = HttpClient(engine) { followRedirects = false },
             resolveAddresses = { listOf(InetAddress.getByName("93.184.216.34")) },
         ),

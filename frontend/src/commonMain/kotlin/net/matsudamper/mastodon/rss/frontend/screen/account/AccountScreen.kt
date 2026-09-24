@@ -28,7 +28,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -701,6 +700,10 @@ private fun NoteCard(
     }
 }
 
+/**
+ * 一覧の末尾。LazyColumn の item なので、画面に入って初めて組まれる。
+ * 組まれたら続きを取りに行くことで、下までスクロールしたときに自動で足される
+ */
 @Composable
 private fun NotesPagingFooter(
     content: AccountScreenUiState.Content.Loaded,
@@ -723,16 +726,14 @@ private fun NotesPagingFooter(
             OutlinedButton(onClick = { listener.onClickReloadNotes() }) {
                 Text("もう一度試す")
             }
-        }
-
-        if (content.loadMoreVisible) {
-            if (content.loadingMore) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-            } else {
-                Button(onClick = { listener.onClickLoadMore() }) {
-                    Text("もっと見る")
+        } else {
+            // 1 ページ足された後も枠が見えたままなら、件数が変わったのを合図にもう 1 ページ取る
+            LaunchedEffect(content.notes.size, content.loadMoreOnVisible) {
+                if (content.loadMoreOnVisible) {
+                    listener.onLoadMore()
                 }
             }
+            CircularProgressIndicator(modifier = Modifier.size(24.dp))
         }
     }
 }

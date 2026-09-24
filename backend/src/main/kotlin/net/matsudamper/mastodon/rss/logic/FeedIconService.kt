@@ -7,8 +7,8 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.matsudamper.mastodon.rss.feed.IcoImagesUtil
-import net.matsudamper.mastodon.rss.feed.IconFetchService
-import net.matsudamper.mastodon.rss.feed.IconImageType
+import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
+import net.matsudamper.mastodon.rss.image.RemoteImageType
 import net.matsudamper.mastodon.rss.repository.FeedIcon
 import net.matsudamper.mastodon.rss.repository.FeedIconRepository
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory
 class FeedIconService(
     private val icons: FeedIconRepository,
     private val store: FeedIconStore,
-    private val fetcher: IconFetchService,
+    private val fetcher: RemoteImageFetchService,
     private val defaultFreshFor: Duration = DEFAULT_FRESH_FOR,
 ) : FeedIcons {
     /**
@@ -57,7 +57,7 @@ class FeedIconService(
         }
 
         val fetched = fetcher.fetch(iconUrl)
-        if (fetched !is IconFetchService.FetchResult.Success) {
+        if (fetched !is RemoteImageFetchService.FetchResult.Success) {
             // 取れなかったときは前のものを残す。配信元が落ちている間だけ
             // アイコンが消えるのは、見ている側からは壊れて見える
             return false
@@ -119,10 +119,10 @@ class FeedIconService(
      * 埋め込まれた画像を PNG に変換して差し替える。圧縮された DIB など、
      * 変換できない ICO は null を返す
      */
-    private fun IconFetchService.FetchResult.Success.asMastodonServable(): Pair<ByteArray, IconImageType>? {
-        if (imageType != IconImageType.ICO) return bytes to imageType
+    private fun RemoteImageFetchService.FetchResult.Success.asMastodonServable(): Pair<ByteArray, RemoteImageType>? {
+        if (imageType != RemoteImageType.ICO) return bytes to imageType
         val png = IcoImagesUtil.extractLargestImageAsPng(bytes) ?: return null
-        return png to IconImageType.PNG
+        return png to RemoteImageType.PNG
     }
 
     private fun hostOf(url: String): String? = runCatching { URI(url).host }.getOrNull()

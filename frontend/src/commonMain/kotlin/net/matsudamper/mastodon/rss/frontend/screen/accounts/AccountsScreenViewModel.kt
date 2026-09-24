@@ -48,7 +48,7 @@ class AccountsScreenViewModel(
                         navigate(Screen.Account(username))
                     }
 
-                    override fun onClickLoadMore() {
+                    override fun onLoadMore() {
                         loadMore()
                     }
                 },
@@ -141,7 +141,7 @@ class AccountsScreenViewModel(
                         )
                     },
                     loadMoreVisible = accounts.hasMore,
-                    loadingMore = state.loadingMore,
+                    loadMoreOnVisible = accounts.hasMore && !state.loadingMore && state.loadMoreErrorMessage == null,
                     loadMoreErrorMessage = state.loadMoreErrorMessage,
                 )
             }

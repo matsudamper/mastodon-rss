@@ -405,6 +405,10 @@ private fun LazyListScope.adminNotesItems(
     }
 }
 
+/**
+ * 一覧の末尾。LazyColumn の item なので、画面に入って初めて組まれる。
+ * 組まれたら続きを取りに行くことで、下までスクロールしたときに自動で足される
+ */
 @Composable
 private fun AdminNotesPagingFooter(
     content: AdminAccountScreenUiState.Content.Loaded,
@@ -427,16 +431,14 @@ private fun AdminNotesPagingFooter(
             OutlinedButton(onClick = listener::onClickReloadNotes) {
                 Text("もう一度試す")
             }
-        }
-
-        if (content.loadMoreVisible) {
-            if (content.loadingMore) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-            } else {
-                Button(onClick = listener::onClickLoadMore) {
-                    Text("もっと見る")
+        } else {
+            // 1 ページ足された後も枠が見えたままなら、件数が変わったのを合図にもう 1 ページ取る
+            LaunchedEffect(content.notes.size, content.loadMoreOnVisible) {
+                if (content.loadMoreOnVisible) {
+                    listener.onLoadMore()
                 }
             }
+            CircularProgressIndicator(modifier = Modifier.size(24.dp))
         }
     }
 }

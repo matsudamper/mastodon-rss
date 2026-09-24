@@ -15,7 +15,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -36,6 +35,7 @@ import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
+import net.matsudamper.mastodon.rss.frontend.ui.LoadMoreOnScrollEnd
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 
@@ -131,8 +131,9 @@ private fun LoadedContent(
     }
 
     val columnCount = if (wide) 2 else 1
+    val scrollState = rememberScrollState()
     Column(
-        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxWidth().verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         content.accounts.chunked(columnCount).forEach { rowAccounts ->
@@ -154,20 +155,25 @@ private fun LoadedContent(
         }
 
         if (content.loadMoreVisible) {
+            LoadMoreOnScrollEnd(
+                scrollState = scrollState,
+                loadMoreOnVisible = content.loadMoreOnVisible,
+                itemCount = content.accounts.size,
+                onLoadMore = listener::onLoadMore,
+            )
+            val errorMessage = content.loadMoreErrorMessage
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                content.loadMoreErrorMessage?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error)
-                }
-                if (content.loadingMore) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                } else {
-                    Button(onClick = listener::onClickLoadMore) {
-                        Text(if (content.loadMoreErrorMessage != null) "もう一度試す" else "もっと見る")
+                if (errorMessage != null) {
+                    Text(errorMessage, color = MaterialTheme.colorScheme.error)
+                    OutlinedButton(onClick = listener::onLoadMore) {
+                        Text("もう一度試す")
                     }
+                } else {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 }
             }
         }
