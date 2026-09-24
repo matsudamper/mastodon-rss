@@ -3,7 +3,7 @@ package net.matsudamper.mastodon.rss.remoteactor
 import java.time.Duration
 import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.actor.ActorUrls
-import net.matsudamper.mastodon.rss.feed.IconFetchService
+import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
 /**
@@ -14,12 +14,12 @@ import net.matsudamper.mastodon.rss.repository.FollowerRepository
  * 前段の CDN とブラウザが決める。
  *
  * 取りに行く先は相手のサーバーが名乗った URL で、こちらの管理者が決めた値ではない。
- * このエンドポイントは無認証なので、[IconFetchService] を通して内側を叩けない
+ * このエンドポイントは無認証なので、[RemoteImageFetchService] を通して内側を叩けない
  * ことと、画像でないものを配らないことを確かめる。
  */
 class RemoteActorIconService(
     private val followers: FollowerRepository,
-    private val fetcher: IconFetchService,
+    private val fetcher: RemoteImageFetchService,
 ) {
     /**
      * アクター文書の URL と、画面が URL に付けている版で引く。
@@ -42,7 +42,7 @@ class RemoteActorIconService(
         // 合う版は 1 つしか無いので、前段に載る URL も 1 つに絞れる
         if (version != ActorUrls.iconVersion(sourceUrl)) return null
 
-        val fetched = fetcher.fetch(sourceUrl) as? IconFetchService.FetchResult.Success ?: return null
+        val fetched = fetcher.fetch(sourceUrl) as? RemoteImageFetchService.FetchResult.Success ?: return null
 
         return RemoteActorIcon(
             bytes = fetched.bytes,

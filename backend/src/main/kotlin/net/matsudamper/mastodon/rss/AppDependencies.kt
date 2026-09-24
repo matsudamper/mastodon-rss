@@ -31,8 +31,8 @@ import net.matsudamper.mastodon.rss.delivery.DeliveryWorker
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
-import net.matsudamper.mastodon.rss.feed.IconFetchService
 import net.matsudamper.mastodon.rss.follower.FollowerStore
+import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewImageService
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewService
@@ -93,7 +93,7 @@ class AppDependencies(
     val remoteActors: RemoteActors,
     val delivery: ActivityDelivery,
     val feedFetcher: FeedFetchService = FeedFetchService(),
-    val iconFetcher: IconFetchService = IconFetchService(),
+    val imageFetcher: RemoteImageFetchService = RemoteImageFetchService(),
     val linkPreviewService: LinkPreviewService = LinkPreviewService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
     val openTelemetry: OpenTelemetry? = null,
@@ -183,13 +183,13 @@ class AppDependencies(
     private val feedHeaders: FeedHeaders = FeedHeaderService(
         headers = repositories.feedHeaders,
         store = feedIconStore,
-        fetcher = iconFetcher,
+        fetcher = imageFetcher,
     )
 
     private val feedIcons: FeedIcons = FeedIconService(
         icons = repositories.feedIcons,
         store = feedIconStore,
-        fetcher = iconFetcher,
+        fetcher = imageFetcher,
     )
 
     val accountIconFiles: AccountIconFiles = AccountIconFiles(
@@ -206,7 +206,7 @@ class AppDependencies(
      */
     val remoteActorIcons: RemoteActorIconService = RemoteActorIconService(
         followers = repositories.followers,
-        fetcher = iconFetcher,
+        fetcher = imageFetcher,
     )
 
     /**
@@ -216,7 +216,7 @@ class AppDependencies(
     val linkPreviewImages: LinkPreviewImageService = LinkPreviewImageService(
         notes = noteStore,
         previews = linkPreviewService,
-        fetcher = iconFetcher,
+        fetcher = imageFetcher,
     )
 
     /**
@@ -361,7 +361,7 @@ class AppDependencies(
 
         val failures = listOf<() -> Unit>(
             { feedFetcher.close() },
-            { iconFetcher.close() },
+            { imageFetcher.close() },
             { linkPreviewService.close() },
             { delivery.close() },
             { remoteActors.close() },

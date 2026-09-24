@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.feed
+package net.matsudamper.mastodon.rss.image
 
 import java.io.Closeable
 import java.net.Inet4Address
@@ -29,21 +29,23 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readRemaining
+import net.matsudamper.mastodon.rss.feed.HttpUrl
 import okhttp3.Dns
 import org.slf4j.LoggerFactory
 
 /**
- * フィードが名乗っているアイコンを取ってくる。
+ * 相手が名乗った画像を取ってくる。フィードのアイコンとヘッダー、フォロワーのアイコン、
+ * リンク先の OGP 画像に使う。
  *
  * 配信元の URL を画面にそのまま出すのではなく、こちらで取ってから返す。
  * ブラウザから直接引くと、配信元が CORS を許していない画像は canvas に描けず、
  * 見に来た人の閲覧先が配信元に漏れる。
  *
- * 取りに行く先はフィードの XML に配信元が書いた URL で、こちらの管理者が
- * 決めた値ではない。取得は無認証のエンドポイントから呼ばれるので、
- * 相手が書いた URL でこちらのネットワークの内側を叩けないようにする。
+ * 取りに行く先は配信元が書いた URL で、こちらの管理者が決めた値ではない。
+ * 取得は無認証のエンドポイントから呼ばれるので、相手が書いた URL で
+ * こちらのネットワークの内側を叩けないようにし、画像でないものは返さない。
  */
-class IconFetchService(
+class RemoteImageFetchService(
     private val client: HttpClient = defaultClient(),
     private val resolveAddresses: (String) -> List<InetAddress> = { InetAddress.getAllByName(it).toList() },
     private val resolveTimeout: Duration = DEFAULT_RESOLVE_TIMEOUT,
@@ -55,7 +57,7 @@ class IconFetchService(
      */
     private val resolveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val logger = LoggerFactory.getLogger(IconFetchService::class.java)
+    private val logger = LoggerFactory.getLogger(RemoteImageFetchService::class.java)
 
     /**
      * 取ってくる。取れなければ [FetchResult.Failure]。
@@ -108,7 +110,7 @@ class IconFetchService(
             return FetchResult.Failure
         }
 
-        val imageType = contentType()?.let { IconImageType.of(it) }
+        val imageType = contentType()?.let { RemoteImageType.of(it) }
         if (imageType == null) {
             channel.cancel(null)
             return FetchResult.Failure
@@ -116,9 +118,9 @@ class IconFetchService(
 
         val bytes = channel.readRemaining((MAX_BYTES + 1).toLong()).readByteArray()
         if (bytes.size > MAX_BYTES) {
-            // 出さないと、アイコンが出ない理由が外から分からない。
+            // 出さないと、画像が出ない理由が外から分からない。
             // URL の残りはクエリに購読者だけが知るトークンを含むことがあるのでホストだけ出す
-            logger.warn("アイコンが大きすぎる: host={}, 上限={} バイト", request.url.host, MAX_BYTES)
+            logger.warn("画像が大きすぎる: host={}, 上限={} バイト", request.url.host, MAX_BYTES)
             channel.cancel(null)
             return FetchResult.Failure
         }
@@ -220,7 +222,7 @@ class IconFetchService(
          */
         data class Success(
             val bytes: ByteArray,
-            val imageType: IconImageType,
+            val imageType: RemoteImageType,
             val freshFor: Duration?,
         ) : FetchResult
 

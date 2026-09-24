@@ -3,7 +3,7 @@ package net.matsudamper.mastodon.rss.linkpreview
 import java.time.Duration
 import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
-import net.matsudamper.mastodon.rss.feed.IconFetchService
+import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
 import net.matsudamper.mastodon.rss.note.NoteStore
 
 /**
@@ -13,13 +13,13 @@ import net.matsudamper.mastodon.rss.note.NoteStore
  * ブラウザが決める。
  *
  * 取りに行く先はリンク先のページが名乗った URL で、こちらの管理者が決めた値ではない。
- * このエンドポイントは無認証なので、[IconFetchService] を通して内側を叩けない
+ * このエンドポイントは無認証なので、[RemoteImageFetchService] を通して内側を叩けない
  * ことと、画像でないものを配らないことを確かめる。
  */
 class LinkPreviewImageService(
     private val notes: NoteStore,
     private val previews: LinkPreviewService,
-    private val fetcher: IconFetchService,
+    private val fetcher: RemoteImageFetchService,
 ) {
     /**
      * 投稿と、本文の何番目のリンクかと、画面が URL に付けている版で引く。
@@ -43,7 +43,7 @@ class LinkPreviewImageService(
         // 呼ぶだけで前段のキャッシュを外し、そのたびに取得元へ取りに行かせられる
         if (version != LinkPreviewImageUrls.version(sourceUrl)) return null
 
-        val fetched = fetcher.fetch(sourceUrl) as? IconFetchService.FetchResult.Success ?: return null
+        val fetched = fetcher.fetch(sourceUrl) as? RemoteImageFetchService.FetchResult.Success ?: return null
 
         return LinkPreviewImage(
             bytes = fetched.bytes,
