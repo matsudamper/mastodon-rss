@@ -42,13 +42,15 @@ class RemoteActorIconService(
         // 合う版は 1 つしか無いので、前段に載る URL も 1 つに絞れる
         if (version != ActorUrls.iconVersion(sourceUrl)) return null
 
-        val fetched = fetcher.fetch(sourceUrl) as? RemoteImageFetchService.FetchResult.Success ?: return null
+        return when (val fetched = fetcher.fetch(sourceUrl)) {
+            is RemoteImageFetchService.FetchResult.Success -> RemoteActorIcon(
+                bytes = fetched.bytes,
+                contentType = fetched.imageType.contentType,
+                freshFor = fetched.freshFor,
+            )
 
-        return RemoteActorIcon(
-            bytes = fetched.bytes,
-            contentType = fetched.imageType.contentType,
-            freshFor = fetched.freshFor,
-        )
+            RemoteImageFetchService.FetchResult.Failure -> null
+        }
     }
 }
 

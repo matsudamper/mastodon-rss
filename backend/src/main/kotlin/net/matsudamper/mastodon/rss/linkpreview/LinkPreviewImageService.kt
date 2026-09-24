@@ -43,13 +43,15 @@ class LinkPreviewImageService(
         // 呼ぶだけで前段のキャッシュを外し、そのたびに取得元へ取りに行かせられる
         if (version != LinkPreviewImageUrls.version(sourceUrl)) return null
 
-        val fetched = fetcher.fetch(sourceUrl) as? RemoteImageFetchService.FetchResult.Success ?: return null
+        return when (val fetched = fetcher.fetch(sourceUrl)) {
+            is RemoteImageFetchService.FetchResult.Success -> LinkPreviewImage(
+                bytes = fetched.bytes,
+                contentType = fetched.imageType.contentType,
+                freshFor = fetched.freshFor,
+            )
 
-        return LinkPreviewImage(
-            bytes = fetched.bytes,
-            contentType = fetched.imageType.contentType,
-            freshFor = fetched.freshFor,
-        )
+            RemoteImageFetchService.FetchResult.Failure -> null
+        }
     }
 }
 
