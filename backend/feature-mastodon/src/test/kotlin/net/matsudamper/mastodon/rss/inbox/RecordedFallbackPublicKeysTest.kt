@@ -117,7 +117,6 @@ class RecordedFallbackPublicKeysTest {
             ReceivedFavourite(
                 notePublicId = PublicNoteId("note1"),
                 actor = TestRemoteActor.actor,
-                activityUri = "https://remote.example/likes/1",
                 receivedAt = now,
             ),
         )

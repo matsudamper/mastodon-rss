@@ -14,15 +14,9 @@ class RepositoryFavouriteStore(
         NewNoteFavourite(
             notePublicId = PublicNoteId(favourite.notePublicId.value),
             actor = StoredRemoteActors.of(favourite.actor),
-            activityUri = favourite.activityUri,
             receivedAt = favourite.receivedAt,
         ),
     )
-
-    override fun removeByActivityUri(
-        actorUri: String,
-        activityUri: String,
-    ): Boolean = favourites.removeByActivityUri(actorUri = actorUri, activityUri = activityUri)
 
     override fun removeByNote(
         notePublicId: MastodonPublicNoteId,

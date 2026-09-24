@@ -8,7 +8,6 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
-import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.NoteUrls
 import org.slf4j.LoggerFactory
 
@@ -20,8 +19,8 @@ import org.slf4j.LoggerFactory
 class FavouriteHandler(
     private val domain: String,
     private val remoteActors: RemoteActors,
-    private val notes: NoteStore,
     private val favourites: FavouriteStore,
+    private val earlyUndoneLikes: EarlyUndoneLikes,
 ) : InboxActivityHandler {
     override val type: String = LIKE_TYPE
 
@@ -33,14 +32,6 @@ class FavouriteHandler(
         activity: InboxActivity,
         rawActivityJson: JsonObject,
     ) {
-        // 取り消しは元のアクティビティの id で指してくる。id が無いものを記録すると、
-        // 取り消しと結び付けられないまま残る
-        val activityUri = activity.id
-        if (activityUri == null) {
-            logger.warn("Like に id が無いので受け付けない: ${recipient.acct} ← $verifiedSignerActorId")
-            return
-        }
-
         val targetUrl = activity.target?.id
         if (targetUrl == null) {
             logger.warn("Like に object が無い: ${recipient.acct} ← $verifiedSignerActorId")
@@ -53,11 +44,9 @@ class FavouriteHandler(
             return
         }
 
-        // 面識の無いサーバーからも届く。宛先のアカウントの投稿に絞らないと、
-        // 別のアカウントの投稿へのお気に入りがこのアカウントの画面に出る
-        val note = notes.find(notePublicId)
-        if (note == null || note.username != recipient.username) {
-            logger.info("Like の対象が宛先のアカウントの投稿ではないので何もしない: object=$targetUrl 宛先=${recipient.acct}")
+        val activityUri = activity.id
+        if (activityUri != null && earlyUndoneLikes.contains(actorUri = verifiedSignerActorId, activityUri = activityUri)) {
+            logger.info("先に取り消しが届いた Like なので記録しない: ${recipient.acct} ← $verifiedSignerActorId id=$activityUri")
             return
         }
 
@@ -73,15 +62,14 @@ class FavouriteHandler(
             ReceivedFavourite(
                 notePublicId = notePublicId,
                 actor = actor,
-                activityUri = activityUri,
                 receivedAt = Instant.now(),
             ),
         )
 
         if (recorded) {
-            logger.info("お気に入りを記録した: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.info("お気に入りを記録した: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
         } else {
-            logger.info("お気に入りは記録済みなので増やさない: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.info("お気に入りを記録しなかった。記録済みか投稿が無い: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
         }
     }
 

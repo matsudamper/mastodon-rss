@@ -8,10 +8,6 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
  * `Undo` は取り消せるものが 1 つではないので、`object` が何だったのかで
  * 渡し先を決める。`type` でハンドラを引き当てる [InboxService] からは
  * `Undo` が 1 つに見えるようにする。
- *
- * お気に入りから先に見る。`object` に id だけが入っていると何の取り消しか分からず、
- * 記録に当たるかどうかでしか判断できない。フォローの解除は記録が無ければ
- * 何もしないので、お気に入りの取り消しを渡しても消えるものは無い。
  */
 class UndoHandler(
     private val favourites: UndoFavouriteHandler,

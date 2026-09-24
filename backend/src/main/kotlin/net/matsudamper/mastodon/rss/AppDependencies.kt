@@ -233,7 +233,6 @@ class AppDependencies(
     val inboxService: InboxService = InboxService.default(
         remoteActors = remoteActors,
         followers = followerStore,
-        notes = noteStore,
         favourites = favouriteStore,
         domain = env.domain,
     )

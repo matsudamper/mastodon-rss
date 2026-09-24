@@ -12,21 +12,15 @@ class FakeFavouriteStore : FavouriteStore {
     val rows: MutableList<ReceivedFavourite> = mutableListOf()
 
     override fun add(favourite: ReceivedFavourite): Boolean {
-        // 一意制約と同じ判定。アクティビティの id は相手ごとに見る
+        // 一意制約と同じ判定
         val duplicated = rows.any {
-            it.actor.actorId == favourite.actor.actorId &&
-                (it.activityUri == favourite.activityUri || it.notePublicId == favourite.notePublicId)
+            it.actor.actorId == favourite.actor.actorId && it.notePublicId == favourite.notePublicId
         }
         if (duplicated) return false
 
         rows += favourite
         return true
     }
-
-    override fun removeByActivityUri(
-        actorUri: String,
-        activityUri: String,
-    ): Boolean = rows.removeAll { it.actor.actorId == actorUri && it.activityUri == activityUri }
 
     override fun removeByNote(
         notePublicId: PublicNoteId,

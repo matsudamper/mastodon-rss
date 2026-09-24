@@ -5,7 +5,7 @@ import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 interface NoteFavouriteRepository {
     /**
-     * 同じ相手が同じ投稿に押し直したときと、同じアクティビティの送り直しでは行を増やさない。
+     * 同じ相手が同じ投稿に押し直しても行を増やさない。
      *
      * @return 記録したら true。既にあるか、投稿が無ければ false
      */
@@ -14,11 +14,6 @@ interface NoteFavouriteRepository {
     /**
      * @param actorUri 押した相手。他人のお気に入りを消せないよう、署名を検証した相手で絞る
      */
-    fun removeByActivityUri(
-        actorUri: String,
-        activityUri: String,
-    ): Boolean
-
     fun removeByNote(
         notePublicId: PublicNoteId,
         actorUri: String,
@@ -40,7 +35,6 @@ interface NoteFavouriteRepository {
     data class NewNoteFavourite(
         val notePublicId: PublicNoteId,
         val actor: NewRemoteActor,
-        val activityUri: String,
         val receivedAt: Instant,
     )
 }

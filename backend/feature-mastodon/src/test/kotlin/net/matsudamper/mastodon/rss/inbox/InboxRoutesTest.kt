@@ -17,7 +17,6 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
-import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
@@ -55,7 +54,6 @@ class InboxRoutesTest {
                     service = InboxService.default(
                         remoteActors = remoteActors,
                         followers = followers,
-                        notes = FakeNoteStore(),
                         favourites = FakeFavouriteStore(),
                         domain = TestLocalActor.DOMAIN,
                     ),

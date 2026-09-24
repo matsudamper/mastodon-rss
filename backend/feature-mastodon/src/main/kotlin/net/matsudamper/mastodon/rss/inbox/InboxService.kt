@@ -11,7 +11,6 @@ import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.note.NoteStore
 import org.slf4j.LoggerFactory
 
 /**
@@ -161,11 +160,11 @@ class InboxService(
         fun default(
             remoteActors: RemoteActors,
             followers: FollowerStore,
-            notes: NoteStore,
             favourites: FavouriteStore,
             domain: String,
-        ): InboxService =
-            InboxService(
+        ): InboxService {
+            val earlyUndoneLikes = EarlyUndoneLikes()
+            return InboxService(
                 verifier = HttpSignatureVerifier(
                     RecordedFallbackPublicKeys(remote = remoteActors, followers = followers, favourites = favourites),
                 ),
@@ -177,17 +176,18 @@ class InboxService(
                     FavouriteHandler(
                         domain = domain,
                         remoteActors = remoteActors,
-                        notes = notes,
                         favourites = favourites,
+                        earlyUndoneLikes = earlyUndoneLikes,
                     ),
                     UndoHandler(
-                        favourites = UndoFavouriteHandler(domain = domain, favourites = favourites),
+                        favourites = UndoFavouriteHandler(domain = domain, favourites = favourites, earlyUndoneLikes = earlyUndoneLikes),
                         follows = UndoFollowHandler(followers),
                     ),
                     UpdateActorHandler(followers),
                     DeleteActorHandler(followers = followers, favourites = favourites),
                 ),
             )
+        }
     }
 }
 

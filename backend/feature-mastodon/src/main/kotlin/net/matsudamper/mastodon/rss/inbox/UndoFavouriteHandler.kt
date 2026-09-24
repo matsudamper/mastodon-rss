@@ -9,9 +9,14 @@ import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.note.NoteUrls
 import org.slf4j.LoggerFactory
 
+/**
+ * `Like` の id は記録していないので、`object` が id だけの `Undo` ではお気に入りを
+ * 取り消せない。Mastodon も同じで、id だけの取り消しはお気に入りとしては扱わない。
+ */
 class UndoFavouriteHandler(
     private val domain: String,
     private val favourites: FavouriteStore,
+    private val earlyUndoneLikes: EarlyUndoneLikes,
 ) {
     private val logger = LoggerFactory.getLogger(UndoFavouriteHandler::class.java)
 
@@ -25,7 +30,13 @@ class UndoFavouriteHandler(
     ): Boolean {
         return when (val undoObject = activity.target) {
             null -> false
-            is LinkOrObject.Link -> removed(verifiedSignerActorId, undoObject.href, recipient)
+
+            is LinkOrObject.Link -> {
+                // 何の取り消しか分からないので、後から同じ id の Like が届いたときのために覚えておく
+                earlyUndoneLikes.remember(actorUri = verifiedSignerActorId, activityUri = undoObject.href)
+                false
+            }
+
             is LinkOrObject.Embedded -> removeEmbedded(recipient, verifiedSignerActorId, undoObject)
         }
     }
@@ -44,37 +55,23 @@ class UndoFavouriteHandler(
 
         if (undoneActivity.type != FavouriteHandler.LIKE_TYPE) return false
 
-        val activityUri = undoneActivity.id
-        if (activityUri != null && removed(verifiedSignerActorId, activityUri, recipient)) return true
-
-        // 元のアクティビティの id が無いか、こちらが別の id で記録している。
-        // 1 人が 1 つの投稿に持てるお気に入りは 1 つなので、投稿で引き当てる
         val notePublicId = undoneActivity.target?.id?.let { NoteUrls.publicIdOf(domain = domain, url = it) }
         if (notePublicId == null) {
             logger.info("取り消すお気に入りを引き当てられない: ${recipient.acct} ← $verifiedSignerActorId")
             return true
         }
 
-        val removedByNote = favourites.removeByNote(notePublicId = notePublicId, actorUri = verifiedSignerActorId)
-
-        if (removedByNote) {
-            logger.info("お気に入りを取り消した: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
-        } else {
-            logger.info("取り消すお気に入りが記録に無い: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
-        }
-
-        return true
-    }
-
-    private fun removed(
-        verifiedSignerActorId: String,
-        activityUri: String,
-        recipient: ActorUrls,
-    ): Boolean {
-        val removed = favourites.removeByActivityUri(actorUri = verifiedSignerActorId, activityUri = activityUri)
+        val removed = favourites.removeByNote(notePublicId = notePublicId, actorUri = verifiedSignerActorId)
         if (removed) {
-            logger.info("お気に入りを取り消した: ${recipient.acct} ← $verifiedSignerActorId id=$activityUri")
+            logger.info("お気に入りを取り消した: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
+            return true
         }
-        return removed
+
+        val likeId = undoneActivity.id
+        if (likeId != null) {
+            earlyUndoneLikes.remember(actorUri = verifiedSignerActorId, activityUri = likeId)
+        }
+        logger.info("取り消すお気に入りが記録に無い: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
+        return true
     }
 }

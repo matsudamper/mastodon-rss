@@ -1127,19 +1127,13 @@ class FakeNoteFavouriteRepository(
         if (!hasNote(favourite.notePublicId)) return false
 
         val duplicated = stored.any {
-            it.actor.actorUri == favourite.actor.actorUri &&
-                (it.activityUri == favourite.activityUri || it.notePublicId == favourite.notePublicId)
+            it.actor.actorUri == favourite.actor.actorUri && it.notePublicId == favourite.notePublicId
         }
         if (duplicated) return false
 
         stored += favourite
         return true
     }
-
-    override fun removeByActivityUri(
-        actorUri: String,
-        activityUri: String,
-    ): Boolean = stored.removeAll { it.actor.actorUri == actorUri && it.activityUri == activityUri }
 
     override fun removeByNote(
         notePublicId: PublicNoteId,

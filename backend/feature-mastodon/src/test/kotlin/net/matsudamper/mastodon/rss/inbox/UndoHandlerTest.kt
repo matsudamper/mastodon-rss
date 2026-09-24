@@ -49,7 +49,6 @@ class UndoHandlerTest {
             ReceivedFavourite(
                 notePublicId = notePublicId,
                 actor = TestRemoteActor.actor,
-                activityUri = likeUri,
                 receivedAt = now,
             ),
         )
@@ -59,10 +58,15 @@ class UndoHandlerTest {
         json: String,
         followers: FakeFollowerStore,
         favourites: FakeFavouriteStore,
+        earlyUndoneLikes: EarlyUndoneLikes = EarlyUndoneLikes(),
     ) {
         val rawActivityJson = AppJson.parseToJsonElement(json) as JsonObject
         UndoHandler(
-            favourites = UndoFavouriteHandler(domain = TestLocalActor.DOMAIN, favourites = favourites),
+            favourites = UndoFavouriteHandler(
+                domain = TestLocalActor.DOMAIN,
+                favourites = favourites,
+                earlyUndoneLikes = earlyUndoneLikes,
+            ),
             follows = UndoFollowHandler(followers),
         ).handle(
             recipient = TestLocalActor.urls,
@@ -109,9 +113,10 @@ class UndoHandlerTest {
     }
 
     @Test
-    fun `id だけの Undo は記録しているお気に入りに当たれば取り消す`() = runBlocking {
+    fun `id だけの Undo ではお気に入りを取り消さず、後から届く同じ id の Like に備える`() = runBlocking {
         val followers = followers()
         val favourites = favourites()
+        val earlyUndoneLikes = EarlyUndoneLikes()
 
         handle(
             """
@@ -120,14 +125,35 @@ class UndoHandlerTest {
             """.trimIndent(),
             followers = followers,
             favourites = favourites,
+            earlyUndoneLikes = earlyUndoneLikes,
         )
 
-        assertTrue(favourites.rows.isEmpty())
+        // Mastodon と同じく、Like の id は記録していないので引き当てられない
+        assertEquals(1, favourites.rows.size)
         assertEquals(1, followers.rows.size)
+        assertTrue(earlyUndoneLikes.contains(actorUri = TestRemoteActor.ACTOR_ID, activityUri = likeUri))
     }
 
     @Test
-    fun `id だけの Undo がお気に入りに当たらなければフォローを解除する`() = runBlocking {
+    fun `記録に無い Like の取り消しは、後から届く同じ id の Like に備える`() = runBlocking {
+        val earlyUndoneLikes = EarlyUndoneLikes()
+
+        handle(
+            """
+            {"id":"https://remote.example/undo/1","type":"Undo","actor":"${TestRemoteActor.ACTOR_ID}",
+             "object":{"id":"$likeUri","type":"Like","actor":"${TestRemoteActor.ACTOR_ID}",
+                       "object":"$noteUrl"}}
+            """.trimIndent(),
+            followers = followers(),
+            favourites = FakeFavouriteStore(),
+            earlyUndoneLikes = earlyUndoneLikes,
+        )
+
+        assertTrue(earlyUndoneLikes.contains(actorUri = TestRemoteActor.ACTOR_ID, activityUri = likeUri))
+    }
+
+    @Test
+    fun `id だけの Undo はフォローの解除として扱う`() = runBlocking {
         val followers = followers()
         val favourites = favourites()
 

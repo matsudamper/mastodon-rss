@@ -12,7 +12,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository.NewNoteFavourite
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
-import org.sqlite.SQLiteDataSource
 
 class NoteFavouriteRepositoryTest {
     private val tempDir: Path = createTempDirectory("mastodon-rss-note-favourite-test")
@@ -66,13 +65,9 @@ class NoteFavouriteRepositoryTest {
         ),
     )
 
-    private fun favourite(
-        activityUri: String,
-        actorUri: String,
-    ): NewNoteFavourite = NewNoteFavourite(
+    private fun favourite(actorUri: String): NewNoteFavourite = NewNoteFavourite(
         notePublicId = notePublicId,
         actor = actor(actorUri),
-        activityUri = activityUri,
         receivedAt = now,
     )
 
@@ -80,8 +75,8 @@ class NoteFavouriteRepositoryTest {
     fun `投稿ごとにお気に入りを数えられる`() {
         withRepositories { repositories ->
             val favourites = repositories.noteFavourites
-            favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
-            favourites.add(favourite(activityUri = "https://remote.example/likes/2", actorUri = otherActorUri))
+            favourites.add(favourite(actorUri = actorUri))
+            favourites.add(favourite(actorUri = otherActorUri))
 
             val counted = favourites.countsByNotes(setOf(notePublicId, PublicNoteId("none")))
 
@@ -93,27 +88,11 @@ class NoteFavouriteRepositoryTest {
     fun `同じ相手のお気に入りは増えない`() {
         withRepositories { repositories ->
             val favourites = repositories.noteFavourites
-            assertTrue(favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri)))
+            assertTrue(favourites.add(favourite(actorUri = actorUri)))
 
-            // 同じアクティビティの送り直し
-            assertFalse(favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri)))
-
-            // 別の id で押し直された同じお気に入り
-            assertFalse(favourites.add(favourite(activityUri = "https://remote.example/likes/2", actorUri = actorUri)))
+            assertFalse(favourites.add(favourite(actorUri = actorUri)))
 
             assertEquals(mapOf(notePublicId to 1), favourites.countsByNotes(setOf(notePublicId)))
-        }
-    }
-
-    @Test
-    fun `別の相手が同じアクティビティの id を使っても弾かれない`() {
-        withRepositories { repositories ->
-            val favourites = repositories.noteFavourites
-            val activityUri = "https://remote.example/likes/1"
-
-            assertTrue(favourites.add(favourite(activityUri = activityUri, actorUri = actorUri)))
-
-            assertTrue(favourites.add(favourite(activityUri = activityUri, actorUri = otherActorUri)))
         }
     }
 
@@ -124,7 +103,6 @@ class NoteFavouriteRepositoryTest {
                 NewNoteFavourite(
                     notePublicId = PublicNoteId("none"),
                     actor = actor(actorUri),
-                    activityUri = "https://remote.example/likes/1",
                     receivedAt = now,
                 ),
             )
@@ -134,31 +112,10 @@ class NoteFavouriteRepositoryTest {
     }
 
     @Test
-    fun `取り消しはアクティビティの id で消せる`() {
+    fun `取り消しは投稿と押した相手で消せる`() {
         withRepositories { repositories ->
             val favourites = repositories.noteFavourites
-            favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
-
-            // 他人の取り消しでは消えない
-            assertFalse(
-                favourites.removeByActivityUri(
-                    actorUri = otherActorUri,
-                    activityUri = "https://remote.example/likes/1",
-                ),
-            )
-
-            assertTrue(
-                favourites.removeByActivityUri(actorUri = actorUri, activityUri = "https://remote.example/likes/1"),
-            )
-            assertEquals(mapOf(), favourites.countsByNotes(setOf(notePublicId)))
-        }
-    }
-
-    @Test
-    fun `取り消しは投稿と押した相手でも消せる`() {
-        withRepositories { repositories ->
-            val favourites = repositories.noteFavourites
-            favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
+            favourites.add(favourite(actorUri = actorUri))
 
             assertFalse(favourites.removeByNote(notePublicId = notePublicId, actorUri = otherActorUri))
             assertTrue(favourites.removeByNote(notePublicId = notePublicId, actorUri = actorUri))
@@ -171,8 +128,8 @@ class NoteFavouriteRepositoryTest {
     fun `消えた相手のお気に入りをまとめて消せる`() {
         withRepositories { repositories ->
             val favourites = repositories.noteFavourites
-            favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
-            favourites.add(favourite(activityUri = "https://remote.example/likes/2", actorUri = otherActorUri))
+            favourites.add(favourite(actorUri = actorUri))
+            favourites.add(favourite(actorUri = otherActorUri))
 
             assertEquals(1, favourites.removeByActor(actorUri))
 
@@ -183,7 +140,7 @@ class NoteFavouriteRepositoryTest {
     @Test
     fun `投稿を消すとお気に入りも消える`() {
         withRepositories { repositories ->
-            repositories.noteFavourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
+            repositories.noteFavourites.add(favourite(actorUri = actorUri))
 
             repositories.notes.delete(notePublicId)
 
@@ -195,7 +152,7 @@ class NoteFavouriteRepositoryTest {
     fun `フォロワーでない相手でもお気に入りを押したときの鍵を引ける`() {
         withRepositories { repositories ->
             val favourites = repositories.noteFavourites
-            favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
+            favourites.add(favourite(actorUri = actorUri))
 
             assertEquals("pem of $actorUri", favourites.findPublicKeyPem(actorUri))
             assertNull(favourites.findPublicKeyPem(otherActorUri))
@@ -206,7 +163,7 @@ class NoteFavouriteRepositoryTest {
     fun `お気に入りが残っていない相手の鍵は引けない`() {
         withRepositories { repositories ->
             val favourites = repositories.noteFavourites
-            favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
+            favourites.add(favourite(actorUri = actorUri))
 
             favourites.removeByActor(actorUri)
 
@@ -214,60 +171,10 @@ class NoteFavouriteRepositoryTest {
         }
     }
 
-    /**
-     * 相手の行が残っているかは公開する口が無いので、DB を直接見る
-     */
-    private fun remoteActorCount(): Int {
-        val dataSource = SQLiteDataSource().apply { url = "jdbc:sqlite:$dbPath" }
-        return dataSource.connection.use { connection ->
-            connection.createStatement().use { statement ->
-                statement.executeQuery("SELECT COUNT(*) FROM remote_actors").use { result ->
-                    result.next()
-                    result.getInt(1)
-                }
-            }
-        }
-    }
-
-    @Test
-    fun `取り消して誰も指さなくなった相手の行は消える`() {
-        withRepositories { repositories ->
-            val favourites = repositories.noteFavourites
-            favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
-            favourites.add(favourite(activityUri = "https://remote.example/likes/2", actorUri = otherActorUri))
-
-            favourites.removeByActivityUri(actorUri = actorUri, activityUri = "https://remote.example/likes/1")
-            favourites.removeByNote(notePublicId = notePublicId, actorUri = otherActorUri)
-
-            assertEquals(0, remoteActorCount())
-        }
-    }
-
-    @Test
-    fun `取り消してもフォローしている相手の行は残る`() {
-        withRepositories { repositories ->
-            repositories.followers.record(
-                IncomingFollow(
-                    username = "admin",
-                    follower = actor(actorUri),
-                    followActivityUri = "https://remote.example/follows/1",
-                    receivedAt = now,
-                    acceptBody = "{}",
-                ),
-            )
-            val favourites = repositories.noteFavourites
-            favourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
-
-            favourites.removeByActivityUri(actorUri = actorUri, activityUri = "https://remote.example/likes/1")
-
-            assertEquals("pem of $actorUri", repositories.followers.findPublicKeyPem(actorUri))
-        }
-    }
-
     @Test
     fun `相手のアクターを消すとお気に入りも消える`() {
         withRepositories { repositories ->
-            repositories.noteFavourites.add(favourite(activityUri = "https://remote.example/likes/1", actorUri = actorUri))
+            repositories.noteFavourites.add(favourite(actorUri = actorUri))
 
             repositories.followers.removeRemoteActor(actorUri)
 
