@@ -11,6 +11,12 @@ private fun AccountNoteContentPreview() {
         AccountNoteContent(
             uiState = AccountNoteScreenUiState(
                 content = AccountNoteScreenUiState.Content.Loaded(
+                    account = AccountNoteScreenUiState.Account(
+                        username = "tech_blog",
+                        displayName = "Tech Blog",
+                        acct = "@tech_blog@example.com",
+                        iconUrl = null,
+                    ),
                     contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
                     publishedAt = "2026-09-02 12:00",
                     linkPreviews = listOf(

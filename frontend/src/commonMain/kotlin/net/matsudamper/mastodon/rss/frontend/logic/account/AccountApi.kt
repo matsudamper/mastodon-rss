@@ -164,6 +164,13 @@ class AccountApi(
         val note = data.note ?: return AccountNoteResult.NotFound
         return AccountNoteResult.Success(
             note = note.accountNoteFields.toAccountNote(),
+            account = HomeAccount(
+                id = note.account.id,
+                username = note.account.username,
+                acct = note.account.acct,
+                displayName = note.account.displayName,
+                iconUrl = note.account.iconUrl,
+            ),
             linkUrls = note.linkUrls,
         )
     }

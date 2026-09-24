@@ -39,6 +39,7 @@ sealed interface AccountNoteResult {
      */
     data class Success(
         val note: AccountNote,
+        val account: HomeAccount,
         val linkUrls: List<String>,
     ) : AccountNoteResult
 

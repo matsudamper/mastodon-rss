@@ -95,6 +95,12 @@ class AccountNoteScreenViewModel(
             is AccountNoteResult.Failure -> AccountNoteScreenUiState.Content.Error(result.message)
 
             is AccountNoteResult.Success -> AccountNoteScreenUiState.Content.Loaded(
+                account = AccountNoteScreenUiState.Account(
+                    username = result.account.username,
+                    displayName = result.account.displayName,
+                    acct = result.account.acct,
+                    iconUrl = result.account.iconUrl,
+                ),
                 contentHtml = result.note.contentHtml,
                 publishedAt = UnixTimeUtil.format(result.note.publishedAt.epochSeconds),
                 linkPreviews = result.linkUrls.map { url ->
