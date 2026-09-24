@@ -19,8 +19,6 @@ import org.slf4j.LoggerFactory
  * 絵文字を `content` に載せた `Like` を送ってくるが、絵文字は見ずにこれも
  * お気に入りとして数える。Mastodon も同じ扱いをする。
  *
- * 応答は返さない。`Like` に返す決まりは無く、Mastodon も返さない。
- *
  * @param domain こちらのドメイン。対象がこちらの投稿かどうかの判断に使う
  * @param remoteActors 押した相手のアクター文書の引き先
  */

@@ -57,10 +57,7 @@ interface NoteFavouriteRepository {
     fun findPublicKeyPem(actorUri: String): String?
 
     /**
-     * 投稿ごとのお気に入りの数。1 件も無い投稿は含めない。
-     *
-     * 押した相手は返さない。公開画面に出すのは数だけで、誰が押したかは
-     * 相手のサーバー側にしか出ない情報として扱う
+     * 投稿ごとのお気に入りの数。1 件も無い投稿は含めない
      */
     fun countsByNotes(notePublicIds: Set<PublicNoteId>): Map<PublicNoteId, Int>
 }

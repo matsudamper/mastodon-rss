@@ -12,9 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/**
- * 投稿に届いたお気に入りの数。押した相手は出さない
- */
 @Composable
 internal fun NoteFavouriteCount(
     count: String,
