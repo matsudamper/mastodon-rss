@@ -28,11 +28,11 @@ interface FavouriteStore {
     fun removeActor(actorUri: String): Int
 
     fun findPublicKeyPem(actorUri: String): String?
-}
 
-data class ReceivedFavourite(
-    val notePublicId: PublicNoteId,
-    val actor: RemoteActor,
-    val activityUri: String,
-    val receivedAt: Instant,
-)
+    data class ReceivedFavourite(
+        val notePublicId: PublicNoteId,
+        val actor: RemoteActor,
+        val activityUri: String,
+        val receivedAt: Instant,
+    )
+}

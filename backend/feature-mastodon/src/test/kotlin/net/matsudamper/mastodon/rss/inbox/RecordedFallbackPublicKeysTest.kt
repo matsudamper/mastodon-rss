@@ -11,7 +11,7 @@ import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
-import net.matsudamper.mastodon.rss.favourite.ReceivedFavourite
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 
 // 消えたアクターの鍵を、フォローとお気に入りのどちらの記録からも引けること。

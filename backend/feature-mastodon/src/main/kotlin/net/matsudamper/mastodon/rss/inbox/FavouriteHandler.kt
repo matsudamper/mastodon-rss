@@ -7,7 +7,7 @@ import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore
-import net.matsudamper.mastodon.rss.favourite.ReceivedFavourite
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
 import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.note.NoteUrls
 import org.slf4j.LoggerFactory

@@ -2,7 +2,7 @@ package net.matsudamper.mastodon.rss
 
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore
-import net.matsudamper.mastodon.rss.favourite.ReceivedFavourite
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
 
 /**
  * SQL の振る舞いは `:backend:repository` のテストが本物の SQLite で確かめる。

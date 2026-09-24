@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
-import net.matsudamper.mastodon.rss.repository.NewNoteFavourite
 import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository
+import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository.NewNoteFavourite
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.NOTES
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.NOTE_FAVOURITES
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.REMOTE_ACTORS

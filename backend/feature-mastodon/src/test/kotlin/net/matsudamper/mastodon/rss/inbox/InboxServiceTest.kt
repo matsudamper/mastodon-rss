@@ -21,7 +21,7 @@ import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
-import net.matsudamper.mastodon.rss.favourite.ReceivedFavourite
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeys

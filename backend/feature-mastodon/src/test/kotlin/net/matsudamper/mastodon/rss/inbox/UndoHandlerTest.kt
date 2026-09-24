@@ -13,7 +13,7 @@ import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
-import net.matsudamper.mastodon.rss.favourite.ReceivedFavourite
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
 import net.matsudamper.mastodon.rss.json.AppJson
 
 class UndoHandlerTest {

@@ -37,11 +37,11 @@ interface NoteFavouriteRepository {
      * 投稿ごとのお気に入りの数。1 件も無い投稿は含めない
      */
     fun countsByNotes(notePublicIds: Set<PublicNoteId>): Map<PublicNoteId, Int>
-}
 
-data class NewNoteFavourite(
-    val notePublicId: PublicNoteId,
-    val actor: NewRemoteActor,
-    val activityUri: String,
-    val receivedAt: Instant,
-)
+    data class NewNoteFavourite(
+        val notePublicId: PublicNoteId,
+        val actor: NewRemoteActor,
+        val activityUri: String,
+        val receivedAt: Instant,
+    )
+}
