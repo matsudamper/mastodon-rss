@@ -191,7 +191,6 @@ fun Application.module(deps: AppDependencies) {
         // サーバーのぶんが出ない
         remoteActorIconRoutes(deps.remoteActorIcons)
 
-        // リンク先の OGP 画像。フォロワーのアイコンと同じく、CORS を許していない取得元のぶんが出ない
         linkPreviewImageRoutes(deps.linkPreviewImages)
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
