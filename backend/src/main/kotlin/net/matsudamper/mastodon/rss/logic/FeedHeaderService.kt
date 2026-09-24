@@ -6,8 +6,8 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import net.matsudamper.mastodon.rss.feed.IconFetchService
-import net.matsudamper.mastodon.rss.feed.IconImageType
+import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
+import net.matsudamper.mastodon.rss.image.RemoteImageType
 import net.matsudamper.mastodon.rss.repository.FeedHeader
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
@@ -15,12 +15,12 @@ import net.matsudamper.mastodon.rss.repository.entity.FeedId
 /**
  * フィードや配信元ページが名乗るヘッダー画像の中身を入れ替える。
  *
- * 取得の安全性はアイコンと同じ [IconFetchService] に任せ、配る形式はヘッダー用に更に絞る。
+ * 取得の安全性はアイコンと同じ [RemoteImageFetchService] に任せ、配る形式はヘッダー用に更に絞る。
  */
 class FeedHeaderService(
     private val headers: FeedHeaderRepository,
     private val store: FeedIconStore,
-    private val fetcher: IconFetchService,
+    private val fetcher: RemoteImageFetchService,
     private val defaultFreshFor: Duration = DEFAULT_FRESH_FOR,
 ) : FeedHeaders {
     private val locks = ConcurrentHashMap<FeedId, Mutex>()
@@ -50,7 +50,7 @@ class FeedHeaderService(
         if (previous.isReusableFor(headerUrl)) return false
 
         val fetched = fetcher.fetch(headerUrl)
-        if (fetched !is IconFetchService.FetchResult.Success) return false
+        if (fetched !is RemoteImageFetchService.FetchResult.Success) return false
         if (fetched.imageType !in ALLOWED_IMAGE_TYPES) return false
 
         val revision = contentRevision(fetched.bytes)
@@ -111,10 +111,10 @@ class FeedHeaderService(
          * `/users/{name}/header` が返す形式は外部仕様で png / jpeg / gif / webp に限っている
          */
         val ALLOWED_IMAGE_TYPES = setOf(
-            IconImageType.PNG,
-            IconImageType.JPEG,
-            IconImageType.GIF,
-            IconImageType.WEBP,
+            RemoteImageType.PNG,
+            RemoteImageType.JPEG,
+            RemoteImageType.GIF,
+            RemoteImageType.WEBP,
         )
     }
 }

@@ -1,10 +1,12 @@
-package net.matsudamper.mastodon.rss.feed
+package net.matsudamper.mastodon.rss.image
 
 import java.io.Closeable
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
+import java.net.Proxy
 import java.net.URI
+import java.net.UnknownHostException
 import java.time.Duration
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -16,7 +18,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -27,20 +29,23 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readRemaining
+import net.matsudamper.mastodon.rss.feed.HttpUrl
+import okhttp3.Dns
 import org.slf4j.LoggerFactory
 
 /**
- * フィードが名乗っているアイコンを取ってくる。
+ * 相手が名乗った画像を取ってくる。フィードのアイコンとヘッダー、フォロワーのアイコン、
+ * リンク先の OGP 画像に使う。
  *
  * 配信元の URL を画面にそのまま出すのではなく、こちらで取ってから返す。
  * ブラウザから直接引くと、配信元が CORS を許していない画像は canvas に描けず、
  * 見に来た人の閲覧先が配信元に漏れる。
  *
- * 取りに行く先はフィードの XML に配信元が書いた URL で、こちらの管理者が
- * 決めた値ではない。取得は無認証のエンドポイントから呼ばれるので、
- * 相手が書いた URL でこちらのネットワークの内側を叩けないようにする。
+ * 取りに行く先は配信元が書いた URL で、こちらの管理者が決めた値ではない。
+ * 取得は無認証のエンドポイントから呼ばれるので、相手が書いた URL で
+ * こちらのネットワークの内側を叩けないようにし、画像でないものは返さない。
  */
-class IconFetchService(
+class RemoteImageFetchService(
     private val client: HttpClient = defaultClient(),
     private val resolveAddresses: (String) -> List<InetAddress> = { InetAddress.getAllByName(it).toList() },
     private val resolveTimeout: Duration = DEFAULT_RESOLVE_TIMEOUT,
@@ -52,7 +57,7 @@ class IconFetchService(
      */
     private val resolveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val logger = LoggerFactory.getLogger(IconFetchService::class.java)
+    private val logger = LoggerFactory.getLogger(RemoteImageFetchService::class.java)
 
     /**
      * 取ってくる。取れなければ [FetchResult.Failure]。
@@ -105,7 +110,7 @@ class IconFetchService(
             return FetchResult.Failure
         }
 
-        val imageType = contentType()?.let { IconImageType.of(it) }
+        val imageType = contentType()?.let { RemoteImageType.of(it) }
         if (imageType == null) {
             channel.cancel(null)
             return FetchResult.Failure
@@ -113,9 +118,9 @@ class IconFetchService(
 
         val bytes = channel.readRemaining((MAX_BYTES + 1).toLong()).readByteArray()
         if (bytes.size > MAX_BYTES) {
-            // 出さないと、アイコンが出ない理由が外から分からない。
+            // 出さないと、画像が出ない理由が外から分からない。
             // URL の残りはクエリに購読者だけが知るトークンを含むことがあるのでホストだけ出す
-            logger.warn("アイコンが大きすぎる: host={}, 上限={} バイト", request.url.host, MAX_BYTES)
+            logger.warn("画像が大きすぎる: host={}, 上限={} バイト", request.url.host, MAX_BYTES)
             channel.cancel(null)
             return FetchResult.Failure
         }
@@ -176,23 +181,15 @@ class IconFetchService(
      * （SSRF）を塞ぐ。名前が複数のアドレスを持つ場合は 1 つでも内側なら弾く。
      * 引けない名前も弾く。
      *
-     * 名前を引いてから繋ぐまでの間に引き直されると別のアドレスになりうるが、
-     * そこまでは見ない。
+     * 名前を引いてから繋ぐまでの間に引き直されると別のアドレスになりうるので、
+     * [defaultClient] は繋ぐときにも [PublicAddressDns] で確かめる。
      */
     private suspend fun isInternalTarget(url: String): Boolean {
         val host = runCatching { URI(url).host }.getOrNull() ?: return true
         val addresses = resolve(host) ?: return true
         if (addresses.isEmpty()) return true
 
-        return addresses.any { address ->
-            address.isAnyLocalAddress ||
-                address.isLoopbackAddress ||
-                address.isLinkLocalAddress ||
-                address.isSiteLocalAddress ||
-                address.isMulticastAddress ||
-                address.isUniqueLocalAddress() ||
-                address.isSharedAddressSpace()
-        }
+        return addresses.any { it.isInternal() }
     }
 
     /**
@@ -214,28 +211,6 @@ class IconFetchService(
         return resolved
     }
 
-    /**
-     * 事業者やクラスタの内側で使う `100.64.0.0/10`。
-     *
-     * RFC 1918 の範囲ではないので [InetAddress.isSiteLocalAddress] では拾えないが、
-     * Kubernetes などがここを内部のアドレスに使う
-     */
-    private fun InetAddress.isSharedAddressSpace(): Boolean {
-        if (this !is Inet4Address) return false
-        val bytes = address
-        return bytes[0].toInt() and 0xFF == 100 && (bytes[1].toInt() and 0xC0) == 0x40
-    }
-
-    /**
-     * IPv6 のユニークローカルアドレス（`fc00::/7`）。
-     *
-     * 組織内で使う範囲で、[InetAddress.isSiteLocalAddress] では拾えない
-     */
-    private fun InetAddress.isUniqueLocalAddress(): Boolean {
-        if (this !is Inet6Address) return false
-        return address.first().toInt() and 0xFE == 0xFC
-    }
-
     override fun close() {
         resolveScope.cancel()
         client.close()
@@ -247,7 +222,7 @@ class IconFetchService(
          */
         data class Success(
             val bytes: ByteArray,
-            val imageType: IconImageType,
+            val imageType: RemoteImageType,
             val freshFor: Duration?,
         ) : FetchResult
 
@@ -271,7 +246,16 @@ class IconFetchService(
          * 外から何度でも呼べる
          */
         fun defaultClient(): HttpClient =
-            HttpClient(CIO) {
+            HttpClient(OkHttp) {
+                engine {
+                    config {
+                        dns(PublicAddressDns)
+                        // プロキシを通すと、名前を引くのがプロキシの側になって PublicAddressDns を通らない
+                        proxy(Proxy.NO_PROXY)
+                        followRedirects(false)
+                        followSslRedirects(false)
+                    }
+                }
                 install(HttpTimeout) {
                     requestTimeoutMillis = 10_000
                     connectTimeoutMillis = 5_000
@@ -281,5 +265,51 @@ class IconFetchService(
                 expectSuccess = false
                 followRedirects = false
             }
+
+        private fun InetAddress.isInternal(): Boolean =
+            isAnyLocalAddress ||
+                isLoopbackAddress ||
+                isLinkLocalAddress ||
+                isSiteLocalAddress ||
+                isMulticastAddress ||
+                isUniqueLocalAddress() ||
+                isSharedAddressSpace()
+
+        /**
+         * 事業者やクラスタの内側で使う `100.64.0.0/10`。
+         *
+         * RFC 1918 の範囲ではないので [InetAddress.isSiteLocalAddress] では拾えないが、
+         * Kubernetes などがここを内部のアドレスに使う
+         */
+        private fun InetAddress.isSharedAddressSpace(): Boolean {
+            if (this !is Inet4Address) return false
+            val bytes = address
+            return bytes[0].toInt() and 0xFF == 100 && (bytes[1].toInt() and 0xC0) == 0x40
+        }
+
+        /**
+         * IPv6 のユニークローカルアドレス（`fc00::/7`）。
+         *
+         * 組織内で使う範囲で、[InetAddress.isSiteLocalAddress] では拾えない
+         */
+        private fun InetAddress.isUniqueLocalAddress(): Boolean {
+            if (this !is Inet6Address) return false
+            return address.first().toInt() and 0xFE == 0xFC
+        }
+    }
+
+    /**
+     * 接続に使うアドレスをここで確かめる。
+     *
+     * [isInternalTarget] で確かめた後に引き直した結果が内側のアドレスに変わっていても
+     * （DNS rebinding）、OkHttp はここで返したアドレスにだけ接続するので内側には繋がらない。
+     * IP アドレスがそのまま書かれた URL はここを通らないので、[isInternalTarget] で確かめる
+     */
+    private object PublicAddressDns : Dns {
+        override fun lookup(hostname: String): List<InetAddress> {
+            val addresses = Dns.SYSTEM.lookup(hostname)
+            if (addresses.any { it.isInternal() }) throw UnknownHostException("内側のアドレスには接続しない")
+            return addresses
+        }
     }
 }

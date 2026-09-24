@@ -1,9 +1,9 @@
-package net.matsudamper.mastodon.rss.feed
+package net.matsudamper.mastodon.rss.image
 
 import io.ktor.http.ContentType
 
 /**
- * アイコンとして扱える画像の種類。
+ * 相手から取ってきて、こちらから配れる画像の種類。
  *
  * 受け付ける Content-Type と、置くときの拡張子と、配るときの Content-Type を
  * 1 つにまとめる。受け付ける側と拡張子を別々に持つと、受け付ける側だけ増やしたときに
@@ -12,7 +12,7 @@ import io.ktor.http.ContentType
  * ここに無い種類は受け付けない。とくに image/svg+xml はスクリプトを実行できるので、
  * 配信元の書いたものをこちらのドメインから配ると同一オリジンで動いてしまう
  */
-enum class IconImageType(
+enum class RemoteImageType(
     val fileExtension: String,
     /**
      * 受け付ける Content-Type。先頭を配るときに使う。残りは同じ種類を指す別名
@@ -62,7 +62,7 @@ enum class IconImageType(
         /**
          * 配信元が名乗った Content-Type から種類を決める。扱えなければ null
          */
-        fun of(contentType: ContentType): IconImageType? {
+        fun of(contentType: ContentType): RemoteImageType? {
             val target = contentType.withoutParameters()
             return entries.find { type -> type.contentTypes.any { it == target } }
         }

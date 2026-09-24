@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.graphql
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
+import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewImageUrls
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewService
 import net.matsudamper.mastodon.rss.logic.AccountIconFiles
 import net.matsudamper.mastodon.rss.logic.AccountService
@@ -50,6 +51,11 @@ class DiContainer(
      * フォロワーのアイコンは配信元ではなくこちらを指す URL で返す
      */
     val remoteActorIconUrls: RemoteActorIconUrls = RemoteActorIconUrls(domain)
+
+    /**
+     * リンク先の OGP 画像も取得元ではなくこちらを指す URL で返す
+     */
+    val linkPreviewImageUrls: LinkPreviewImageUrls = LinkPreviewImageUrls(domain)
 
     val noteReader: NoteReader = NoteReader(
         directory = actorDirectory,
