@@ -18,6 +18,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreview
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreviewsResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.screen.NoteReactionsUiStateFactory
 
 /**
  * @param username URL に入っていた名前。綴りが違っていても引けるので、

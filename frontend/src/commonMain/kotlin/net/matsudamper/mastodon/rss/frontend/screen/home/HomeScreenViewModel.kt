@@ -18,6 +18,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreviewsResul
 import net.matsudamper.mastodon.rss.frontend.logic.account.TimelineNote
 import net.matsudamper.mastodon.rss.frontend.logic.account.TimelineResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.screen.NoteReactionsUiStateFactory
 
 class HomeScreenViewModel(
     private val viewModelScope: CoroutineScope,
@@ -222,7 +223,7 @@ class HomeScreenViewModel(
             contentHtml = note.contentHtml,
             publishedAt = UnixTimeUtil.format(note.publishedAt.epochSeconds),
             account = account.toUiState(),
-            favouriteCount = note.favouriteCount.takeIf { it > 0 }?.toString(),
+            reactions = NoteReactionsUiStateFactory.create(favouriteCount = note.favouriteCount, stamps = note.stamps),
             linkPreviews = linkUrls.map { url ->
                 createLinkPreview(url = url, preview = linkPreviews.firstOrNull { it.url == url })
             },

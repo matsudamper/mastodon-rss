@@ -35,6 +35,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
+import net.matsudamper.mastodon.rss.frontend.ui.NoteReactions
 
 @Composable
 internal fun AccountNoteScreen(

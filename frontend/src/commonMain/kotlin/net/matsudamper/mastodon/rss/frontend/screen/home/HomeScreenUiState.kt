@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.home
 
 import androidx.compose.runtime.Immutable
+import net.matsudamper.mastodon.rss.frontend.ui.NoteReactionsUiState
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffoldListener
 
 data class HomeScreenUiState(
@@ -43,7 +44,6 @@ data class HomeScreenUiState(
     }
 
     /**
-     * @param favouriteCount null ならお気に入りの数を出さない
      * @param linkPreviews 本文のリンクごとの OGP。取れるまでは URL だけで埋めておく
      */
     data class Note(
@@ -51,7 +51,7 @@ data class HomeScreenUiState(
         val contentHtml: String,
         val publishedAt: String,
         val account: Account,
-        val favouriteCount: String?,
+        val reactions: NoteReactionsUiState?,
         val linkPreviews: List<LinkPreview>,
         val listener: Listener,
     ) {

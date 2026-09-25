@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.runtime.Immutable
+import net.matsudamper.mastodon.rss.frontend.ui.NoteReactionsUiState
 
 data class AccountNoteScreenUiState(
     val content: Content,

@@ -14,6 +14,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreview
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreviewsResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.screen.NoteReactionsUiStateFactory
 
 class AccountNoteScreenViewModel(
     private val username: String,

@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.screen.account
+package net.matsudamper.mastodon.rss.frontend.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
-import net.matsudamper.mastodon.rss.frontend.ui.ExternalImage
 
 @Composable
 internal fun NoteStampCount(

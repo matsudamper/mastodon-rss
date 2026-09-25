@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.screen.account
+package net.matsudamper.mastodon.rss.frontend.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import net.matsudamper.mastodon.rss.frontend.ui.NoteFavouriteCount
 
 /**
  * 投稿に届いたお気に入りとスタンプ。押した相手は出さず、数だけを出す

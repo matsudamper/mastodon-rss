@@ -1,26 +1,10 @@
-package net.matsudamper.mastodon.rss.frontend.screen.account
+package net.matsudamper.mastodon.rss.frontend.screen
 
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteStamp
+import net.matsudamper.mastodon.rss.frontend.ui.NoteReactionsUiState
 
 /**
- * @param favouriteCount 1 件も無ければ null
- */
-data class NoteReactionsUiState(
-    val favouriteCount: String?,
-    val stamps: List<Stamp>,
-) {
-    /**
-     * @param imageUrl カスタム絵文字の画像 URL。絵文字そのものなら null
-     */
-    data class Stamp(
-        val name: String,
-        val imageUrl: String?,
-        val count: String,
-    )
-}
-
-/**
- * 投稿の一覧と投稿 1 件の画面が、お気に入りとスタンプを同じ形で出すために通す
+ * ホーム・アカウント・投稿 1 件の画面が、お気に入りとスタンプを同じ形で出すために通す
  */
 internal object NoteReactionsUiStateFactory {
     /**

@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
+import net.matsudamper.mastodon.rss.frontend.ui.NoteReactionsUiState
+
 data class AccountUiState(
     val username: String,
     /**
