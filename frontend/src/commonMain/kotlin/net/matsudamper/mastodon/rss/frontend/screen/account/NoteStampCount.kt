@@ -22,7 +22,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.ExternalImage
 
 @Composable
 internal fun NoteStampCount(
-    stamp: NoteStampUiState,
+    stamp: NoteReactionsUiState.Stamp,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -49,7 +49,7 @@ internal fun NoteStampCount(
  * 画像が出せないときに空の枠だけが残ると、何が押されたのか分からなくなるので名前を出す
  */
 @Composable
-private fun StampEmoji(stamp: NoteStampUiState) {
+private fun StampEmoji(stamp: NoteReactionsUiState.Stamp) {
     var imageFailed by remember(stamp.imageUrl) { mutableStateOf(false) }
 
     val imageUrl = stamp.imageUrl

@@ -13,21 +13,18 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NoteReactions(
-    favouriteCount: String?,
-    stamps: List<NoteStampUiState>,
+    uiState: NoteReactionsUiState,
     modifier: Modifier = Modifier,
 ) {
-    if (favouriteCount == null && stamps.isEmpty()) return
-
     FlowRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (favouriteCount != null) {
-            NoteFavouriteCount(count = favouriteCount)
+        if (uiState.favouriteCount != null) {
+            NoteFavouriteCount(count = uiState.favouriteCount)
         }
-        stamps.forEach { stamp ->
+        uiState.stamps.forEach { stamp ->
             NoteStampCount(stamp = stamp)
         }
     }

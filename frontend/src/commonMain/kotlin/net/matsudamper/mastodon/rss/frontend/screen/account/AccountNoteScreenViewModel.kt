@@ -103,8 +103,10 @@ class AccountNoteScreenViewModel(
                 ),
                 contentHtml = result.note.contentHtml,
                 publishedAt = UnixTimeUtil.format(result.note.publishedAt.epochSeconds),
-                favouriteCount = result.note.favouriteCount.takeIf { it > 0 }?.toString(),
-                stamps = NoteStampUiStateFactory.create(result.note.stamps),
+                reactions = NoteReactionsUiStateFactory.create(
+                    favouriteCount = result.note.favouriteCount,
+                    stamps = result.note.stamps,
+                ),
                 linkPreviews = result.linkUrls.map { url ->
                     createLinkPreview(url = url, preview = state.linkPreviews.firstOrNull { it.url == url })
                 },
