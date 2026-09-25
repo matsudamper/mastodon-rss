@@ -318,6 +318,7 @@ class AccountApi(
         url = url,
         contentHtml = contentHtml,
         publishedAt = Instant.fromEpochSeconds(publishedAt),
+        favouriteCount = favouriteCount,
     )
 
     private fun ApolloResponse<*>.failureMessage(): String {

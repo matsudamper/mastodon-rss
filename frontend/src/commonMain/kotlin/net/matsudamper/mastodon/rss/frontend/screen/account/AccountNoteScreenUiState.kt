@@ -21,6 +21,7 @@ data class AccountNoteScreenUiState(
             val account: Account,
             val contentHtml: String,
             val publishedAt: String,
+            val favouriteCount: String?,
             val linkPreviews: List<LinkPreview>,
         ) : Content
 

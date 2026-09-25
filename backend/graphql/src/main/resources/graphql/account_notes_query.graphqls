@@ -21,6 +21,9 @@ type AccountNote {
 
     publishedAt: UnixTime! @lazy
 
+    "お気に入りの数"
+    favouriteCount: Int! @lazy
+
     "配信したアカウント"
     account: Account! @lazy
 

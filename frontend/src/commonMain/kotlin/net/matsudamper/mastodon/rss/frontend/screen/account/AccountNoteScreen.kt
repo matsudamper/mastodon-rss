@@ -102,6 +102,9 @@ internal fun AccountNoteContent(
                     is AccountNoteScreenUiState.Content.Loaded -> {
                         NoteAccountHeader(account = content.account)
                         NoteContent(content.contentHtml, Modifier.fillMaxWidth())
+                        content.favouriteCount?.let { favouriteCount ->
+                            NoteFavouriteCount(count = favouriteCount)
+                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,

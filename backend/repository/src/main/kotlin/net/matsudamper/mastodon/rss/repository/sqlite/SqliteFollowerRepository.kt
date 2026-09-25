@@ -4,7 +4,6 @@ import java.time.Instant
 import java.util.TreeMap
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
-import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.StoredFollower
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
@@ -12,9 +11,6 @@ import net.matsudamper.mastodon.rss.repository.jooq.Tables.FOLLOWERS
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.REMOTE_ACTORS
 import net.matsudamper.mastodon.rss.repository.sqlite.db.DeliveryKindDbValue
 import org.jooq.Condition
-import org.jooq.DSLContext
-import org.jooq.Record1
-import org.jooq.Select
 import org.jooq.impl.DSL
 
 internal class SqliteFollowerRepository(
@@ -38,7 +34,7 @@ internal class SqliteFollowerRepository(
             )
             if (deleted) return@transaction false
 
-            val remoteActorId = upsertRemoteActor(dsl, follow.follower, follow.receivedAt)
+            val remoteActorId = RemoteActorRows.upsert(dsl, follow.follower, follow.receivedAt)
 
             dsl
                 .insertInto(FOLLOWERS)
@@ -130,7 +126,7 @@ internal class SqliteFollowerRepository(
 
         val removed = dsl
             .deleteFrom(FOLLOWERS)
-            .where(FOLLOWERS.REMOTE_ACTOR_ID.`in`(remoteActorId(actorUri)))
+            .where(FOLLOWERS.REMOTE_ACTOR_ID.`in`(RemoteActorRows.id(actorUri)))
             .execute()
 
         dsl.deleteFrom(REMOTE_ACTORS).where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri)).execute()
@@ -285,54 +281,6 @@ internal class SqliteFollowerRepository(
     }
 
     override fun hasAny(): Boolean = jooq.withConnection { dsl -> dsl.fetchExists(DSL.selectOne().from(FOLLOWERS)) }
-
-    /**
-     * 相手のアクターは毎回上書きする。inbox も鍵も相手の都合で変わるので、
-     * 取り直したものが最新になる。
-     */
-    private fun upsertRemoteActor(
-        dsl: DSLContext,
-        actor: NewRemoteActor,
-        now: Instant,
-    ): Long {
-        val fetchedAt = StoredInstant.format(now)
-
-        dsl
-            .insertInto(REMOTE_ACTORS)
-            .set(REMOTE_ACTORS.ACTOR_URI, actor.actorUri)
-            .set(REMOTE_ACTORS.INBOX, actor.inbox)
-            .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
-            .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
-            .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
-            .set(REMOTE_ACTORS.PREFERRED_USERNAME, actor.profile.preferredUsername)
-            .set(REMOTE_ACTORS.DISPLAY_NAME, actor.profile.displayName)
-            .set(REMOTE_ACTORS.PROFILE_URL, actor.profile.profileUrl)
-            .set(REMOTE_ACTORS.ICON_URL, actor.profile.iconUrl)
-            .onConflict(REMOTE_ACTORS.ACTOR_URI)
-            .doUpdate()
-            .set(REMOTE_ACTORS.INBOX, actor.inbox)
-            .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
-            .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
-            .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
-            .set(REMOTE_ACTORS.PREFERRED_USERNAME, actor.profile.preferredUsername)
-            .set(REMOTE_ACTORS.DISPLAY_NAME, actor.profile.displayName)
-            .set(REMOTE_ACTORS.PROFILE_URL, actor.profile.profileUrl)
-            .set(REMOTE_ACTORS.ICON_URL, actor.profile.iconUrl)
-            .execute()
-
-        return checkNotNull(
-            dsl
-                .select(REMOTE_ACTORS.ID)
-                .from(REMOTE_ACTORS)
-                .where(REMOTE_ACTORS.ACTOR_URI.eq(actor.actorUri))
-                .fetchOne(REMOTE_ACTORS.ID),
-        ) { "相手のアクターの行を作れなかった: ${actor.actorUri}" }
-    }
-
-    private fun remoteActorId(actorUri: String): Select<Record1<Long>> = DSL
-        .select(REMOTE_ACTORS.ID)
-        .from(REMOTE_ACTORS)
-        .where(REMOTE_ACTORS.ACTOR_URI.eq(actorUri))
 
     private companion object {
         const val STATE_PENDING = FollowerRows.STATE_PENDING
