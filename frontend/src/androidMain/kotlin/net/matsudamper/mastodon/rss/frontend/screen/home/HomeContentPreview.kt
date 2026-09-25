@@ -32,6 +32,7 @@ private fun HomeContentPreview() {
                             contentHtml = "<p>Kotlin 2.4 がリリースされました</p>",
                             publishedAt = "2026-08-09 11:02",
                             account = kotlin,
+                            favouriteCount = "3",
                             linkPreviews = listOf(
                                 HomeScreenUiState.LinkPreview(
                                     url = "https://example.com/kotlin-2-4",
@@ -53,6 +54,7 @@ private fun HomeContentPreview() {
                             contentHtml = "<p>Android 17 のベータが出ました</p>",
                             publishedAt = "2026-08-09 10:00",
                             account = android,
+                            favouriteCount = null,
                             linkPreviews = listOf(),
                             listener = AndroidPreviewNoteListener,
                         ),
