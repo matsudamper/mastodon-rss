@@ -276,6 +276,7 @@ class AccountScreenViewModel(
             url = note.url,
             contentHtml = note.contentHtml,
             publishedAt = UnixTimeUtil.format(note.publishedAt.epochSeconds),
+            favouriteCount = note.favouriteCount.takeIf { it > 0 }?.toString(),
             linkPreviews = linkUrls.map { url ->
                 createLinkPreview(url = url, preview = linkPreviews.firstOrNull { it.url == url })
             },

@@ -15,6 +15,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import net.matsudamper.mastodon.rss.FakeEarlyUndoneLikes
+import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
@@ -53,6 +55,9 @@ class InboxRoutesTest {
                     service = InboxService.default(
                         remoteActors = remoteActors,
                         followers = followers,
+                        favourites = FakeFavouriteStore(),
+                        earlyUndoneLikes = FakeEarlyUndoneLikes(),
+                        domain = TestLocalActor.DOMAIN,
                     ),
                 )
             }
