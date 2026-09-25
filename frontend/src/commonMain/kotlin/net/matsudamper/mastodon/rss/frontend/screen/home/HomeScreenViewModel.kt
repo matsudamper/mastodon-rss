@@ -222,6 +222,7 @@ class HomeScreenViewModel(
             contentHtml = note.contentHtml,
             publishedAt = UnixTimeUtil.format(note.publishedAt.epochSeconds),
             account = account.toUiState(),
+            favouriteCount = note.favouriteCount.takeIf { it > 0 }?.toString(),
             linkPreviews = linkUrls.map { url ->
                 createLinkPreview(url = url, preview = linkPreviews.firstOrNull { it.url == url })
             },

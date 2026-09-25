@@ -1,4 +1,4 @@
-package net.matsudamper.mastodon.rss.frontend.screen.account
+package net.matsudamper.mastodon.rss.frontend.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
