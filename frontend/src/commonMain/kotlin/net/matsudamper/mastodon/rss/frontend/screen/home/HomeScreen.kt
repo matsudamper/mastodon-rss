@@ -54,6 +54,7 @@ import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
+import net.matsudamper.mastodon.rss.frontend.ui.NoteFavouriteCount
 import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 
@@ -328,6 +329,10 @@ private fun TimelineNoteCard(
             }
 
             NoteContent(contentHtml = note.contentHtml, modifier = Modifier.fillMaxWidth())
+
+            note.favouriteCount?.let { favouriteCount ->
+                NoteFavouriteCount(count = favouriteCount)
+            }
 
             if (note.linkPreviews.isNotEmpty()) {
                 LazyRow(
