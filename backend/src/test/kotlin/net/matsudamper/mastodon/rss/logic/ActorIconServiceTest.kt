@@ -1,7 +1,6 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.nio.file.Path
-import java.time.Duration
 import java.time.Instant
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
@@ -12,6 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.runTest
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.actor.ActorUrls
@@ -41,7 +41,7 @@ class ActorIconServiceTest {
             val icon = assertNotNull(serviceOf(repositories).find(USERNAME))
 
             assertEquals(BYTES.toList(), icon.bytes.toList())
-            assertTrue(icon.cacheFor <= Duration.ofSeconds(60), "実際の持たせる時間: ${icon.cacheFor}")
+            assertTrue(icon.cacheFor <= 60.seconds, "実際の持たせる時間: ${icon.cacheFor}")
         }
 
     @Test

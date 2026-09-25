@@ -1,6 +1,6 @@
 package net.matsudamper.mastodon.rss.remoteactor
 
-import java.time.Duration
+import kotlin.time.Duration
 import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService

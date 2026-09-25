@@ -1,8 +1,9 @@
 package net.matsudamper.mastodon.rss.actor
 
-import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import io.ktor.client.request.get
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
@@ -32,7 +33,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = Duration.ofSeconds(60))
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = 60.seconds)
                 },
             )
 
@@ -51,7 +52,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = Duration.ofSeconds(60))
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = 60.seconds)
                 },
             )
 
@@ -66,7 +67,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = Duration.ofSeconds(60))
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = 60.seconds)
                 },
             )
 
@@ -111,7 +112,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = Duration.ofSeconds(60))
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = 60.seconds)
                 },
             )
 

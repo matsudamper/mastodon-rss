@@ -1,8 +1,9 @@
 package net.matsudamper.mastodon.rss.actor
 
-import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -25,7 +26,7 @@ class ActorHeaderRoutesTest {
                                 bytes = "header".encodeToByteArray(),
                                 contentType = ContentType.Image.JPEG,
                                 version = "abc",
-                                cacheFor = Duration.ofSeconds(60),
+                                cacheFor = 60.seconds,
                             )
                         },
                     )

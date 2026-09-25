@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
 
 class AdminSessionStoreTest {
     private val clock = TestClock(Instant.parse("2026-08-11T00:00:00Z"))
@@ -38,7 +39,7 @@ class AdminSessionStoreTest {
 
     @Test
     fun `期限を過ぎたトークンは無効`() {
-        val sessions = AdminSessionInMemoryStore(ttl = Duration.ofHours(1), clock = clock)
+        val sessions = AdminSessionInMemoryStore(ttl = 1.hours, clock = clock)
         val token = sessions.create()
 
         clock.now = clock.now.plus(Duration.ofMinutes(59))
@@ -50,7 +51,7 @@ class AdminSessionStoreTest {
 
     @Test
     fun `期限切れのトークンは時計を戻しても復活しない`() {
-        val sessions = AdminSessionInMemoryStore(ttl = Duration.ofHours(1), clock = clock)
+        val sessions = AdminSessionInMemoryStore(ttl = 1.hours, clock = clock)
         val token = sessions.create()
 
         clock.now = clock.now.plus(Duration.ofHours(2))
