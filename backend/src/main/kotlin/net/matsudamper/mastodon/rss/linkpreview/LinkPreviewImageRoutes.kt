@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.linkpreview
 
+import java.time.Duration
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -38,7 +39,7 @@ internal fun Route.linkPreviewImageRoutes(images: LinkPreviewImageService) {
         if (image == null) {
             // 取得元が落ちているだけのこともあるので、短い間だけ持たせる。
             // 持たせないと、出ない画像のぶんだけ開くたびに取りに行くことになる
-            call.response.header(HttpHeaders.CacheControl, "public, max-age=$NOT_FOUND_MAX_AGE_SECONDS")
+            call.response.header(HttpHeaders.CacheControl, "public, max-age=${NOT_FOUND_MAX_AGE.seconds}")
             call.respondText("画像が無い", status = HttpStatusCode.NotFound)
             return@get
         }
@@ -56,7 +57,7 @@ internal fun Route.linkPreviewImageRoutes(images: LinkPreviewImageService) {
  * 取得元が言ってきた時間に従い、言っていなければ 1 日。長い側は 30 日で切る。
  */
 private fun LinkPreviewImage.cacheControl(): String {
-    val seconds = (freshFor?.seconds ?: DEFAULT_MAX_AGE_SECONDS).coerceAtMost(MAX_MAX_AGE_SECONDS)
+    val seconds = (freshFor ?: DEFAULT_MAX_AGE).coerceAtMost(MAX_MAX_AGE).seconds
     if (seconds <= 0) return NO_STORE
     return "public, max-age=$seconds"
 }
@@ -67,8 +68,8 @@ private val ALLOWED_PARAMETERS = setOf(
     LinkPreviewImageUrls.VERSION_PARAMETER,
 )
 private const val NO_STORE = "no-store"
-private const val DEFAULT_MAX_AGE_SECONDS = 24L * 60 * 60
-private const val MAX_MAX_AGE_SECONDS = 30L * 24 * 60 * 60
-private const val NOT_FOUND_MAX_AGE_SECONDS = 60L * 10
+private val DEFAULT_MAX_AGE: Duration = Duration.ofDays(1)
+private val MAX_MAX_AGE: Duration = Duration.ofDays(30)
+private val NOT_FOUND_MAX_AGE: Duration = Duration.ofMinutes(10)
 private const val CONTENT_TYPE_OPTIONS_HEADER = "X-Content-Type-Options"
 private const val CONTENT_TYPE_OPTIONS = "nosniff"
