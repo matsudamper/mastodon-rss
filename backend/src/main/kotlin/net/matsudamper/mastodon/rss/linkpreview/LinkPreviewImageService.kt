@@ -1,6 +1,8 @@
 package net.matsudamper.mastodon.rss.linkpreview
 
 import java.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.toJavaDuration
 import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
@@ -43,7 +45,7 @@ class LinkPreviewImageService(
         // 呼ぶだけで前段のキャッシュを外し、そのたびに取得元へ取りに行かせられる
         if (version != LinkPreviewImageUrls.version(sourceUrl)) return null
 
-        return when (val fetched = fetcher.fetch(sourceUrl, maxFreshFor = MAX_FRESH_FOR)) {
+        return when (val fetched = fetcher.fetch(sourceUrl, maxFreshFor = MAX_FRESH_FOR.toJavaDuration())) {
             is RemoteImageFetchService.FetchResult.Success -> LinkPreviewImage(
                 bytes = fetched.bytes,
                 contentType = fetched.imageType.contentType,
@@ -59,7 +61,7 @@ class LinkPreviewImageService(
          * アクセスの少ない個人利用が前提で、リンク先がしばらく変わらなくても困らないので、
          * アイコン・ヘッダーより長く持たせる
          */
-        val MAX_FRESH_FOR: Duration = Duration.ofDays(30)
+        val MAX_FRESH_FOR = 30.days
     }
 }
 
