@@ -312,6 +312,13 @@ class AccountApi(
         contentHtml = contentHtml,
         publishedAt = Instant.fromEpochSeconds(publishedAt),
         favouriteCount = favouriteCount,
+        stamps = stamps.map { stamp ->
+            NoteStamp(
+                name = stamp.name,
+                imageUrl = stamp.imageUrl,
+                count = stamp.count,
+            )
+        },
     )
 
     private fun ApolloResponse<*>.failureMessage(): String {

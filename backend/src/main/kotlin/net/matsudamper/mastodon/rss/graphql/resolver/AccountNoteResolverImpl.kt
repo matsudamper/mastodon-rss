@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.graphql.model.AccountNoteResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNote
 import net.matsudamper.mastodon.rss.graphql.model.QlLinkPreview
+import net.matsudamper.mastodon.rss.graphql.model.QlNoteStamp
 import net.matsudamper.mastodon.rss.note.NoteUrls
 import net.matsudamper.mastodon.rss.note.StoredNote
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
@@ -54,6 +55,28 @@ class AccountNoteResolverImpl : AccountNoteResolver {
             .get(env)
             .load(accountNote.id)
             .thenApply { count -> DataFetcherResult.Builder(count ?: 0).build() }
+    }
+
+    override fun stamps(
+        accountNote: QlAccountNote,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<List<QlNoteStamp>>> {
+        return GraphQlEngine
+            .dataLoaders(env)
+            .noteStampsDataLoader
+            .get(env)
+            .load(accountNote.id)
+            .thenApply { stamps ->
+                val qlStamps = stamps.orEmpty().map {
+                    QlNoteStamp(
+                        // カスタム絵文字に付く `:` は、相手のサーバーが本文に埋め込むための記法で名前の一部ではない
+                        name = it.emoji.removeSurrounding(":"),
+                        imageUrl = it.emojiImageUrl,
+                        count = it.count,
+                    )
+                }
+                DataFetcherResult.Builder(qlStamps).build()
+            }
     }
 
     override fun account(

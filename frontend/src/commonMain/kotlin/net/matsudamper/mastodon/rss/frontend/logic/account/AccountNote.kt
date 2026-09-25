@@ -8,6 +8,16 @@ data class AccountNote(
     val contentHtml: String,
     val publishedAt: Instant,
     val favouriteCount: Int,
+    val stamps: List<NoteStamp>,
+)
+
+/**
+ * @param imageUrl カスタム絵文字の画像 URL。絵文字そのものなら null
+ */
+data class NoteStamp(
+    val name: String,
+    val imageUrl: String?,
+    val count: Int,
 )
 
 /**

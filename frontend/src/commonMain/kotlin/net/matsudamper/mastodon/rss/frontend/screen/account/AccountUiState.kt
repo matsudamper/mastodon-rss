@@ -50,6 +50,7 @@ data class NoteUiState(
     val contentHtml: String,
     val publishedAt: String,
     val favouriteCount: String?,
+    val stamps: List<NoteStampUiState>,
     val linkPreviews: List<LinkPreview>,
     val listener: Listener,
 ) {

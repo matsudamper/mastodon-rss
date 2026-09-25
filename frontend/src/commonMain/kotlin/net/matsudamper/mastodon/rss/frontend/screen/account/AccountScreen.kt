@@ -658,9 +658,7 @@ private fun NoteCard(
         ) {
             noteContent(note.contentHtml, Modifier.fillMaxWidth())
 
-            note.favouriteCount?.let { favouriteCount ->
-                NoteFavouriteCount(count = favouriteCount)
-            }
+            NoteReactions(favouriteCount = note.favouriteCount, stamps = note.stamps)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

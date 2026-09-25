@@ -15,6 +15,7 @@ import net.matsudamper.mastodon.rss.dataloader.FollowerCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.HeaderVersionByAccountIdDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.NoteCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.NoteFavouriteCountDataLoaderDefine
+import net.matsudamper.mastodon.rss.dataloader.NoteStampsDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.OtelBatchLoaderScheduler
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderRegistry
@@ -59,6 +60,8 @@ class DataLoaders(
     val feedItemByNoteDataLoader by register { FeedItemByNoteDataLoaderDefine(diContainer.feedService) }
 
     val noteFavouriteCountDataLoader by register { NoteFavouriteCountDataLoaderDefine(diContainer.noteFavouriteRepository) }
+
+    val noteStampsDataLoader by register { NoteStampsDataLoaderDefine(diContainer.noteStampRepository) }
 
     private fun <K : Any, V : Any> register(initializer: () -> DataLoaderDefine<K, V>): DataLoaderRegister<K, V> {
         val define = initializer()
