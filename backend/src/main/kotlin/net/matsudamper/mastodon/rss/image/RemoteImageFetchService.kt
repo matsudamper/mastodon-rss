@@ -7,7 +7,9 @@ import java.net.InetAddress
 import java.net.Proxy
 import java.net.URI
 import java.net.UnknownHostException
-import java.time.Duration
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -168,7 +170,7 @@ class RemoteImageFetchService(
             ?.toLongOrNull()
             ?: return null
 
-        return Duration.ofSeconds(seconds).coerceAtMost(maxFreshFor)
+        return seconds.seconds.coerceAtMost(maxFreshFor)
     }
 
     private fun HttpResponse.redirectLocation(): String? {
@@ -210,7 +212,7 @@ class RemoteImageFetchService(
         val resolving = resolveScope.async { runCatching { resolveAddresses(host) }.getOrNull() }
 
         val resolved = withContext(Dispatchers.IO) {
-            withTimeoutOrNull(resolveTimeout.toMillis()) { resolving.await() }
+            withTimeoutOrNull(resolveTimeout) { resolving.await() }
         }
         if (resolved == null) resolving.cancel()
 
@@ -248,8 +250,8 @@ class RemoteImageFetchService(
          *
          * アイコン・ヘッダーはこの既定値のまま使う
          */
-        private val DEFAULT_MAX_FRESH_FOR: Duration = Duration.ofDays(1)
-        private val DEFAULT_RESOLVE_TIMEOUT: Duration = Duration.ofSeconds(5)
+        private val DEFAULT_MAX_FRESH_FOR: Duration = 1.days
+        private val DEFAULT_RESOLVE_TIMEOUT: Duration = 5.seconds
 
         /**
          * リダイレクトを自分で辿るので、クライアントには追わせない。

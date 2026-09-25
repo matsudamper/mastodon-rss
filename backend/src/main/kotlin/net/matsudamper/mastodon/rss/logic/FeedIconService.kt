@@ -1,9 +1,11 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.net.URI
-import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.toJavaDuration
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.matsudamper.mastodon.rss.feed.IcoImagesUtil
@@ -91,7 +93,7 @@ class FeedIconService(
                     path = path,
                     fetchedAt = now,
                     // 見に来た側に持たせる時間。配信元が持つなと言っていれば持たせない
-                    expiresAt = now.plus(fetched.freshFor ?: defaultFreshFor),
+                    expiresAt = now.plus((fetched.freshFor ?: defaultFreshFor).toJavaDuration()),
                 ),
             )
         }.onFailure { error ->
@@ -133,6 +135,6 @@ class FeedIconService(
          *
          * 上限と同じにして、言ってきた場合と合わせて min(配信元, 1 日) にする
          */
-        val DEFAULT_FRESH_FOR: Duration = Duration.ofDays(1)
+        val DEFAULT_FRESH_FOR: Duration = 1.days
     }
 }

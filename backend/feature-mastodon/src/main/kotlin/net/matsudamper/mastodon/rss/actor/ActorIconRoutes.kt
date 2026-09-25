@@ -1,6 +1,6 @@
 package net.matsudamper.mastodon.rss.actor
 
-import java.time.Duration
+import kotlin.time.Duration
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -90,7 +90,7 @@ class ActorIcon(
 private fun ActorIcon.cacheControl(requestedVersion: String?): String {
     if (requestedVersion == version) return IMMUTABLE
 
-    val seconds = cacheFor.seconds
+    val seconds = cacheFor.inWholeSeconds
     if (seconds <= 0) return NO_STORE
     return "public, max-age=$seconds"
 }

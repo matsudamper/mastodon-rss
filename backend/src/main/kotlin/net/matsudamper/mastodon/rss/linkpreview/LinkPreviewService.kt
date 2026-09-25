@@ -8,9 +8,11 @@ import java.net.URI
 import java.net.UnknownHostException
 import java.nio.charset.Charset
 import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.toJavaDuration
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -81,7 +83,7 @@ class LinkPreviewService(
             url = url,
             entry = CacheEntry(
                 preview = preview,
-                expiresAt = now.plus(if (ogp == null) FAILURE_TTL else SUCCESS_TTL),
+                expiresAt = now.plus((if (ogp == null) FAILURE_TTL else SUCCESS_TTL).toJavaDuration()),
             ),
             now = now,
         )
@@ -208,12 +210,12 @@ class LinkPreviewService(
         private const val MAX_REDIRECTS = 5
         private const val MAX_BODY_BYTES = 1024 * 1024
         private const val MAX_CACHE_ENTRIES = 2000
-        private val SUCCESS_TTL: Duration = Duration.ofHours(24)
+        private val SUCCESS_TTL: Duration = 24.hours
 
         /**
          * 取れなかったものも覚えておく。覚えないと、タイムラインを開くたびに同じ相手へ取りに行く
          */
-        private val FAILURE_TTL: Duration = Duration.ofHours(1)
+        private val FAILURE_TTL: Duration = 1.hours
 
         fun defaultClient(): HttpClient =
             HttpClient(OkHttp) {

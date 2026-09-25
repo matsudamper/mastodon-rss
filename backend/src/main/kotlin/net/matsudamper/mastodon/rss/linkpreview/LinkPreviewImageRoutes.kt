@@ -3,7 +3,6 @@ package net.matsudamper.mastodon.rss.linkpreview
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.toKotlinDuration
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -60,7 +59,7 @@ internal fun Route.linkPreviewImageRoutes(images: LinkPreviewImageService) {
  * 取得元が言ってきた時間に従い、言っていなければ 1 日。長い側は 30 日で切る。
  */
 private fun LinkPreviewImage.cacheControl(): String {
-    val seconds = (freshFor?.toKotlinDuration() ?: DEFAULT_MAX_AGE).coerceAtMost(MAX_MAX_AGE).inWholeSeconds
+    val seconds = (freshFor ?: DEFAULT_MAX_AGE).coerceAtMost(MAX_MAX_AGE).inWholeSeconds
     if (seconds <= 0) return NO_STORE
     return "public, max-age=$seconds"
 }

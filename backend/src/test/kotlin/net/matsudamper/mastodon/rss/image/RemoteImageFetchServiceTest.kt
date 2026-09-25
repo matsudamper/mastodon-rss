@@ -2,12 +2,16 @@ package net.matsudamper.mastodon.rss.image
 
 import java.net.InetAddress
 import java.net.UnknownHostException
-import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.runTest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -126,17 +130,17 @@ class RemoteImageFetchServiceTest {
                     Thread.sleep(2_000)
                     listOf(InetAddress.getByName("93.184.216.34"))
                 },
-                resolveTimeout = Duration.ofMillis(50),
+                resolveTimeout = 50.milliseconds,
             )
 
             val startedAt = System.nanoTime()
             val result = service.fetch("https://example.com/icon.png")
-            val elapsed = Duration.ofNanos(System.nanoTime() - startedAt)
+            val elapsed = (System.nanoTime() - startedAt).nanoseconds
 
             assertIs<RemoteImageFetchService.FetchResult.Failure>(result)
             assertEquals(0, engine.requestHistory.size)
             // 引き終わるのを待たずに戻る。待っていると取り込み全体が止まる
-            assertTrue(elapsed < Duration.ofSeconds(1), "実際に待った時間: $elapsed")
+            assertTrue(elapsed < 1.seconds, "実際に待った時間: $elapsed")
         }
 
     @Test
@@ -200,7 +204,7 @@ class RemoteImageFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertEquals(Duration.ofSeconds(600), assertIs<RemoteImageFetchService.FetchResult.Success>(result).freshFor)
+            assertEquals(600.seconds, assertIs<RemoteImageFetchService.FetchResult.Success>(result).freshFor)
         }
 
     @Test
@@ -219,7 +223,7 @@ class RemoteImageFetchServiceTest {
 
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
-            assertEquals(Duration.ofDays(1), assertIs<RemoteImageFetchService.FetchResult.Success>(result).freshFor)
+            assertEquals(1.days, assertIs<RemoteImageFetchService.FetchResult.Success>(result).freshFor)
         }
 
     @Test
