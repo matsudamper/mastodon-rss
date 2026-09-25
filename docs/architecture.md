@@ -176,6 +176,11 @@ metadata が持つのは重なるという 1 点だけで、ダイアログに�
 重ねている間も下の画面は作り直されないので、結果を伝えるものは
 画面の外に置く（`AdminFeedUpdates`）。
 
+バックスタックは URL から組み直すので、別の画面へ進むと前の画面はスタックから消える。
+ブラウザの戻る / 進むで同じスクロール位置に戻すため、履歴 1 つごとに id を振って
+`history.state` に持たせ、ViewModel と rememberSaveable の状態は `ScreenStateStore` が
+その id ごとに持ち越す。ViewModel を `rememberRetained` で作った画面だけが対象。
+
 画面は canvas に描くので、ブラウザが持っているフォントも `@font-face` も効かない。
 日本語のフォントは静的ファイルと一緒に `/fonts/` で配信し、起動後に取ってきて
 `FontFamily` を組み立てる（`:frontend` の `ui/Font.kt`）。配信するファイルの置き場を

@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import kotlin.js.ExperimentalWasmJsInterop
+import kotlin.random.Random
 import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.events.Event
@@ -40,10 +41,11 @@ class NavController internal constructor() {
      *
      * 再読み込みしても履歴の状態は残るので、アプリの中で開いたときと同じ画面を下に敷ける
      */
-    val backStack: SnapshotStateList<Screen> = mutableStateListOf<Screen>().apply { addAll(stackOfCurrentEntry()) }
+    val backStack: SnapshotStateList<HistoryEntry> =
+        mutableStateListOf<HistoryEntry>().apply { addAll(stackOfCurrentEntry()) }
 
     /** いま出している画面 */
-    val current: Screen get() = backStack.last()
+    val current: Screen get() = backStack.last().screen
 
     /**
      * 画面を切り替え、アドレスバーも合わせる。
@@ -53,9 +55,19 @@ class NavController internal constructor() {
     fun navigateTo(screen: Screen) {
         if (screen == current) return
 
-        val next = if (screen is Screen.Overlay) backStack.toList() + screen else stackOf(screen)
-        val screenBelow = next.getOrNull(next.lastIndex - 1) ?: Screen.Home
-        window.history.pushState(screenBelow.path.toJsString(), screen.title, screen.path)
+        val entry = HistoryEntry(screen = screen, id = createEntryId())
+        val next = if (screen is Screen.Overlay) backStack.toList() + entry else stackOf(entry)
+        val entryBelow = next.getOrNull(next.lastIndex - 1)
+        window.history.pushState(
+            createHistoryState(
+                id = entry.id,
+                screenBelowPath = entryBelow?.screen?.path,
+                screenBelowId = entryBelow?.id,
+                pushedByApp = true,
+            ),
+            screen.title,
+            screen.path,
+        )
         applyStack(next)
     }
 
@@ -75,30 +87,40 @@ class NavController internal constructor() {
             return
         }
 
-        val screenBelow = backStack.getOrNull(backStack.lastIndex - 1) ?: return
-        replaceCurrentEntry(screenBelow)
+        val entryBelow = backStack.getOrNull(backStack.lastIndex - 1) ?: return
+        replaceCurrentEntry(entryBelow)
     }
 
     /**
-     * いま見えている履歴を [screen] のものに差し替える。目印は付けない。
+     * いま見えている履歴を [entry] のものに差し替える。アプリが積んだ目印は付けない。
      *
      * 直接開いた履歴のままにしておくと、ここから更に戻ろうとしたときも
      * [currentEntryPushedByApp] が同じ判断をする。
+     * id は下に敷いていたときのものを引き継ぐ。変えると下で出していた画面が作り直される。
      */
-    private fun replaceCurrentEntry(screen: Screen) {
-        window.history.replaceState(null, screen.title, screen.path)
-        applyStack(stackOf(screen))
+    private fun replaceCurrentEntry(entry: HistoryEntry) {
+        window.history.replaceState(
+            createHistoryState(
+                id = entry.id,
+                screenBelowPath = null,
+                screenBelowId = null,
+                pushedByApp = false,
+            ),
+            entry.screen.title,
+            entry.screen.path,
+        )
+        applyStack(stackOf(entry))
     }
 
     private val currentEntryPushedByApp: Boolean
-        get() = window.history.state != null
+        get() = isPushedByApp(window.history.state)
 
     /** 戻る / 進むで URL が変わったときに呼ぶ */
     internal fun syncWithLocation() {
         applyStack(stackOfCurrentEntry())
     }
 
-    private fun applyStack(next: List<Screen>) {
+    private fun applyStack(next: List<HistoryEntry>) {
         if (next == backStack.toList()) return
 
         backStack.clear()
@@ -107,17 +129,46 @@ class NavController internal constructor() {
 
     private companion object {
         /**
-         * いま見えている履歴から組むバックスタック
+         * いま見えている履歴から組むバックスタック。
+         *
+         * id の無い履歴（直接開いたもの）にはここで振る。戻る / 進むで同じ履歴に来たときに、
+         * 前に出した状態を引けるようにする
          */
-        fun stackOfCurrentEntry(): List<Screen> {
-            val screen = Screen.of(window.location.pathname)
-            val screenBelowPath = window.history.state?.unsafeCast<JsString>()?.toString()
-            return if (screen is Screen.Overlay && screenBelowPath != null) {
-                stackOf(Screen.of(screenBelowPath)) + screen
+        fun stackOfCurrentEntry(): List<HistoryEntry> {
+            val state = window.history.state
+            val id = historyEntryId(state) ?: assignEntryIdToCurrentEntry(state)
+            val entry = HistoryEntry(screen = Screen.of(window.location.pathname), id = id)
+            val screenBelowPath = historyScreenBelowPath(state)
+            return if (entry.screen is Screen.Overlay && screenBelowPath != null) {
+                val entryBelow = HistoryEntry(
+                    screen = Screen.of(screenBelowPath),
+                    id = historyScreenBelowId(state) ?: "$id/below",
+                )
+                stackOf(entryBelow) + entry
             } else {
-                stackOf(screen)
+                stackOf(entry)
             }
         }
+
+        fun assignEntryIdToCurrentEntry(state: JsAny?): String {
+            val id = createEntryId()
+            window.history.replaceState(
+                createHistoryState(
+                    id = id,
+                    screenBelowPath = historyScreenBelowPath(state),
+                    screenBelowId = null,
+                    pushedByApp = isPushedByApp(state),
+                ),
+                document.title,
+            )
+            return id
+        }
+
+        /**
+         * 再読み込みしても前の履歴は残り、画面の状態は残らない。
+         * 読み込みごとに数え直すと前の履歴の id と重なり、別の履歴の状態を出してしまうので乱数にする
+         */
+        fun createEntryId(): String = Random.nextLong().toULong().toString(36)
 
         /**
          * URL から決まるバックスタック。
@@ -127,15 +178,49 @@ class NavController internal constructor() {
          *
          * 重ねて出す画面は下に敷く画面も一緒に積む。ダイアログの URL を
          * 直接開いても、下の画面ごと組み上がる。
+         *
+         * 下に敷く画面は履歴を持たないので、上の画面の id から決まる id にする
          */
-        fun stackOf(screen: Screen): List<Screen> =
-            when {
-                screen == Screen.Home -> listOf(Screen.Home)
-                screen is Screen.Overlay -> stackOf(screen.background) + screen
-                else -> listOf(Screen.Home, screen)
+        fun stackOf(entry: HistoryEntry): List<HistoryEntry> {
+            val screen = entry.screen
+            return when {
+                screen == Screen.Home -> listOf(entry)
+                screen is Screen.Overlay -> stackOf(HistoryEntry(screen.background, "${entry.id}/below")) + entry
+                else -> listOf(HistoryEntry(Screen.Home, "${entry.id}/home"), entry)
             }
+        }
     }
 }
+
+/**
+ * バックスタックに積む 1 つ分。[id] はブラウザの履歴 1 つごとに振る。
+ *
+ * 同じ画面を履歴に 2 つ積んでも、それぞれの履歴で見ていた位置に戻れるよう画面とは別に持つ
+ */
+data class HistoryEntry(
+    val screen: Screen,
+    val id: String,
+)
+
+// 履歴に紐付ける状態。以前は下に敷く画面のパスだけを文字列で持っていたので、その形も読む
+private fun createHistoryState(
+    id: String,
+    screenBelowPath: String?,
+    screenBelowId: String?,
+    pushedByApp: Boolean,
+): JsAny = js("({ id: id, screenBelowPath: screenBelowPath, screenBelowId: screenBelowId, pushedByApp: pushedByApp })")
+
+private fun historyEntryId(state: JsAny?): String? =
+    js("typeof state?.id === 'string' ? state.id : null")
+
+private fun historyScreenBelowPath(state: JsAny?): String? =
+    js("typeof state === 'string' ? state : (typeof state?.screenBelowPath === 'string' ? state.screenBelowPath : null)")
+
+private fun historyScreenBelowId(state: JsAny?): String? =
+    js("typeof state?.screenBelowId === 'string' ? state.screenBelowId : null")
+
+private fun isPushedByApp(state: JsAny?): Boolean =
+    js("typeof state === 'string' || state?.pushedByApp === true")
 
 /**
  * 現在の URL から [NavController] を作り、履歴の操作とタブのタイトルを繋ぐ。
