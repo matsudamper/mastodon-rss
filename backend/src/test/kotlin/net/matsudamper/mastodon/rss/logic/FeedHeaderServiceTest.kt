@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss.logic
 
 import java.net.InetAddress
 import java.nio.file.Path
-import java.time.Duration
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
@@ -12,6 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.days
 import kotlinx.coroutines.test.runTest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -173,7 +173,7 @@ class FeedHeaderServiceTest {
             client = HttpClient(engine) { followRedirects = false },
             resolveAddresses = { listOf(InetAddress.getByName("93.184.216.34")) },
         ),
-        defaultFreshFor = Duration.ofDays(1),
+        defaultFreshFor = 1.days,
     )
 
     private class MemoryFeedHeaderRepository : FeedHeaderRepository {

@@ -2,10 +2,12 @@ package net.matsudamper.mastodon.rss.admin
 
 import java.security.SecureRandom
 import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.toJavaDuration
 
 class AdminSessionInMemoryStore(
     private val ttl: Duration = DEFAULT_TTL,
@@ -15,13 +17,13 @@ class AdminSessionInMemoryStore(
 
     private val random = SecureRandom()
 
-    val ttlSeconds: Long get() = ttl.toSeconds()
+    val ttlSeconds: Long get() = ttl.inWholeSeconds
 
     fun create(): String {
         purgeExpired()
 
         val token = BASE64_ENCODER.encodeToString(ByteArray(TOKEN_SIZE_BYTES).also(random::nextBytes))
-        expirations[token] = clock.instant().plus(ttl)
+        expirations[token] = clock.instant().plus(ttl.toJavaDuration())
         return token
     }
 
@@ -45,7 +47,7 @@ class AdminSessionInMemoryStore(
     }
 
     companion object {
-        val DEFAULT_TTL: Duration = Duration.ofHours(12)
+        val DEFAULT_TTL: Duration = 12.hours
 
         private const val TOKEN_SIZE_BYTES = 32
 

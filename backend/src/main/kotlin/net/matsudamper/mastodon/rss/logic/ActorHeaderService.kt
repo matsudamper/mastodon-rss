@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.logic
 
 import java.time.Duration
 import java.time.Instant
+import kotlin.time.toKotlinDuration
 import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.actor.ActorHeader
 import net.matsudamper.mastodon.rss.actor.ActorHeaders
@@ -36,7 +37,7 @@ class ActorHeaderService(
             version = stored.revision,
             // 期限までの残りだけ持たせる。取ったときの長さをそのまま渡すと、
             // 期限の間際に来た側は期限を過ぎた後まで前の画像を持つ
-            cacheFor = Duration.between(Instant.now(), stored.expiresAt).coerceAtLeast(Duration.ZERO),
+            cacheFor = Duration.between(Instant.now(), stored.expiresAt).coerceAtLeast(Duration.ZERO).toKotlinDuration(),
         )
     }
 }

@@ -1,9 +1,11 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.security.MessageDigest
-import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.toJavaDuration
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
@@ -71,7 +73,7 @@ class FeedHeaderService(
                     revision = revision,
                     path = path,
                     fetchedAt = now,
-                    expiresAt = now.plus(fetched.freshFor ?: defaultFreshFor),
+                    expiresAt = now.plus((fetched.freshFor ?: defaultFreshFor).toJavaDuration()),
                 ),
             )
         }.onFailure { error ->
@@ -103,7 +105,7 @@ class FeedHeaderService(
             .joinToString(separator = "") { byte -> "%02x".format(byte) }
 
     private companion object {
-        val DEFAULT_FRESH_FOR: Duration = Duration.ofDays(1)
+        val DEFAULT_FRESH_FOR: Duration = 1.days
 
         /**
          * ヘッダーとして配る種類。アイコンと違い ICO は入れない。

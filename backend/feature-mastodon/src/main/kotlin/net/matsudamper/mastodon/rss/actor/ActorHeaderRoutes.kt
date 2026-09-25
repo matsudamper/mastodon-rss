@@ -1,6 +1,6 @@
 package net.matsudamper.mastodon.rss.actor
 
-import java.time.Duration
+import kotlin.time.Duration
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -86,7 +86,7 @@ class ActorHeader(
  * 入れ替わるので、そこで長く持たせると入れ替わる直前の画像が 1 年出続ける
  */
 private fun ActorHeader.cacheControl(requestedVersion: String?): String {
-    val seconds = cacheFor.seconds
+    val seconds = cacheFor.inWholeSeconds
     if (seconds <= 0) return NO_STORE
     if (requestedVersion == version) return IMMUTABLE
     return "public, max-age=$seconds"

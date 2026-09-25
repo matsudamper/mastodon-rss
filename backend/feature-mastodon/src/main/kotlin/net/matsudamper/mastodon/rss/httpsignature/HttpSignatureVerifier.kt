@@ -1,7 +1,9 @@
 package net.matsudamper.mastodon.rss.httpsignature
 
 import java.time.Clock
-import java.time.Duration
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.toKotlinDuration
 import io.ktor.http.HttpHeaders
 import net.matsudamper.mastodon.rss.crypto.RsaSignature
 
@@ -57,7 +59,7 @@ class HttpSignatureVerifier(
                 ?: return HttpSignatureResult.Rejected("Date ヘッダを読めない: ${request.headers[HttpHeaders.Date]}")
 
         // 署名ごと記録して後から投げ直されるのを防ぐ。時計のずれもここで弾く
-        val skew = Duration.between(date, clock.instant()).abs()
+        val skew = java.time.Duration.between(date, clock.instant()).abs().toKotlinDuration()
         if (skew > MAX_CLOCK_SKEW) {
             return HttpSignatureResult.Rejected("Date が現在時刻から離れすぎている: ${request.headers[HttpHeaders.Date]}")
         }
@@ -132,7 +134,7 @@ class HttpSignatureVerifier(
          * フォローが成立しなくなる。長くすると投げ直しを受け入れる窓が広がる。
          * draft が例に挙げている範囲で、両サーバーの NTP のずれを吸収できる幅にする。
          */
-        val MAX_CLOCK_SKEW: Duration = Duration.ofMinutes(5)
+        val MAX_CLOCK_SKEW: Duration = 5.minutes
     }
 }
 

@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Duration
+import kotlin.time.toKotlinDuration
 import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.actor.ActorIcon
 import net.matsudamper.mastodon.rss.actor.ActorIcons
@@ -43,7 +44,7 @@ class ActorIconService(
             // 置いてあるものは期限を過ぎていても出す。取り直すかどうかは
             // 取り込みの側で決めるので、ここで期限を見ると出せるものを出さなくなる。
             // 見に来た側に持たせる時間は、配信元が取得時に言ってきた長さをそのまま渡す
-            cacheFor = Duration.between(stored.fetchedAt, stored.expiresAt).coerceAtLeast(Duration.ZERO),
+            cacheFor = Duration.between(stored.fetchedAt, stored.expiresAt).coerceAtLeast(Duration.ZERO).toKotlinDuration(),
         )
     }
 }
