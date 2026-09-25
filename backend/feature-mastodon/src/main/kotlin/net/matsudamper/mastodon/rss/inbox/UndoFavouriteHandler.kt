@@ -5,7 +5,6 @@ import kotlin.time.toJavaDuration
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
 import net.matsudamper.mastodon.rss.activitypub.id
-import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.note.NoteUrls
@@ -27,7 +26,7 @@ class UndoFavouriteHandler(
      * @return お気に入りの取り消しだったら true。フォロー解除など別の取り消しなら false
      */
     fun handle(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         verifiedSignerActorId: String,
         activity: InboxActivity,
     ): Boolean {
@@ -39,14 +38,14 @@ class UndoFavouriteHandler(
     }
 
     private fun removeEmbedded(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         verifiedSignerActorId: String,
         undoObject: LinkOrObject.Embedded,
     ): Boolean {
         val undoneActivity =
             runCatching { AppJson.decodeFromJsonElement(InboxActivity.serializer(), undoObject.json) }.getOrNull()
         if (undoneActivity == null) {
-            logger.warn("Undo の object を読めなかった: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.warn("Undo の object を読めなかった: ${recipient.logLabel} ← $verifiedSignerActorId")
             return false
         }
 
@@ -54,13 +53,13 @@ class UndoFavouriteHandler(
 
         val notePublicId = undoneActivity.target?.id?.let { NoteUrls.publicIdOf(domain = domain, url = it) }
         if (notePublicId == null) {
-            logger.info("取り消すお気に入りを引き当てられない: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.info("取り消すお気に入りを引き当てられない: ${recipient.logLabel} ← $verifiedSignerActorId")
             return true
         }
 
         val removed = favourites.removeByNote(notePublicId = notePublicId, actorUri = verifiedSignerActorId)
         if (removed) {
-            logger.info("お気に入りを取り消した: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
+            logger.info("お気に入りを取り消した: ${recipient.logLabel} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
             return true
         }
 
@@ -68,7 +67,7 @@ class UndoFavouriteHandler(
         if (likeId != null) {
             rememberEarlyUndone(actorUri = verifiedSignerActorId, activityUri = likeId)
         }
-        logger.info("取り消すお気に入りが記録に無い: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
+        logger.info("取り消すお気に入りが記録に無い: ${recipient.logLabel} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
         return true
     }
 

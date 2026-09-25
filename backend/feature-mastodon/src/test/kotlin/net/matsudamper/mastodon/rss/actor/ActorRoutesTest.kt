@@ -52,6 +52,7 @@ class ActorRoutesTest {
             assertEquals("Service", actor.type)
             assertEquals("admin", actor.preferredUsername)
             assertEquals("https://example.com/users/admin/inbox", actor.inbox)
+            assertEquals("https://example.com/inbox", actor.endpoints.sharedInbox)
             assertEquals("https://example.com/users/admin/outbox", actor.outbox)
             assertEquals("https://example.com/users/admin/collections/featured", actor.featured)
             assertEquals(false, actor.showFeatured)

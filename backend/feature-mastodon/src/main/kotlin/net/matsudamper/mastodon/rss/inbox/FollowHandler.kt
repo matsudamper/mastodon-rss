@@ -7,6 +7,7 @@ import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activity.OutgoingActivity
 import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
 import net.matsudamper.mastodon.rss.activitypub.id
+import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.follower.FollowerStore
@@ -29,6 +30,7 @@ import org.slf4j.LoggerFactory
  * ここでは扱わない。
  */
 class FollowHandler(
+    private val directory: ActorDirectory,
     private val remoteActors: RemoteActors,
     private val followers: FollowerStore,
 ) : InboxActivityHandler {
@@ -37,17 +39,23 @@ class FollowHandler(
     private val logger = LoggerFactory.getLogger(FollowHandler::class.java)
 
     override suspend fun handle(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         verifiedSignerActorId: String,
         activity: InboxActivity,
         rawActivityJson: JsonObject,
     ) {
+        val followTargetActorId = activity.target?.id
+        val followee = followTargetActorId?.let { directory.resolveActorId(it) }
+        if (followee == null) {
+            logger.warn("Follow の宛先がこちらのアカウントではないので Accept を返さない: object=$followTargetActorId ${recipient.logLabel}")
+            return
+        }
+
         // 宛先の異なる Follow をこちらの inbox に投げ込むことはできる。
         // 中身を見ずに Accept を返すと、フォローしていないアクターの
         // フォローが成立したように相手に見える
-        val followTargetActorId = activity.target?.id
-        if (followTargetActorId != recipient.actorId) {
-            logger.warn("Follow の宛先が違うので Accept を返さない: object=$followTargetActorId 宛先=${recipient.actorId}")
+        if (recipient is InboxRecipient.Account && followee.actorId != recipient.urls.actorId) {
+            logger.warn("Follow の宛先が違うので Accept を返さない: object=$followTargetActorId 宛先=${recipient.urls.actorId}")
             return
         }
 
@@ -56,27 +64,27 @@ class FollowHandler(
         // 送り直しのたびに行が増えるか、別のフォローを取り違えて消すことになる
         val followActivityUri = activity.id
         if (followActivityUri == null) {
-            logger.warn("Follow に id が無いので受け付けない: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.warn("Follow に id が無いので受け付けない: ${followee.acct} ← $verifiedSignerActorId")
             return
         }
 
         val follower = remoteActors.findActor(verifiedSignerActorId)
         if (follower == null) {
-            logger.warn("Follow に Accept を返せなかった: ${recipient.acct} ← $verifiedSignerActorId フォロワーのアクターを引けない")
+            logger.warn("Follow に Accept を返せなかった: ${followee.acct} ← $verifiedSignerActorId フォロワーのアクターを引けない")
             return
         }
 
         val accept =
             OutgoingActivity(
-                id = acceptId(recipient),
+                id = acceptId(followee),
                 type = OutgoingActivity.TYPE_ACCEPT,
-                actor = recipient.actorId,
+                actor = followee.actorId,
                 target = LinkOrObject.Embedded(rawActivityJson),
             )
 
         val recorded = runCatching {
             followers.record(
-                username = recipient.username,
+                username = followee.username,
                 follower = follower,
                 followActivityUri = followActivityUri,
                 receivedAt = Instant.now(),
@@ -87,7 +95,7 @@ class FollowHandler(
             // 記録できていないので Accept も投函されていない。相手には保留のまま見えるが、
             // Follow は送り直されるので次の機会がある
             logger.warn(
-                "Follow を記録できなかったので Accept を返さない: ${recipient.acct} ← $verifiedSignerActorId",
+                "Follow を記録できなかったので Accept を返さない: ${followee.acct} ← $verifiedSignerActorId",
                 recorded.exceptionOrNull(),
             )
             return
@@ -95,11 +103,11 @@ class FollowHandler(
 
         // 引き当てた後に消されたアカウント宛。返す先のアカウントがもう無い
         if (recorded.getOrDefault(false).not()) {
-            logger.info("消えたアカウント宛の Follow なので受け付けない: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.info("消えたアカウント宛の Follow なので受け付けない: ${followee.acct} ← $verifiedSignerActorId")
             return
         }
 
-        logger.info("Follow を記録して Accept を投函した: ${recipient.acct} ← $verifiedSignerActorId")
+        logger.info("Follow を記録して Accept を投函した: ${followee.acct} ← $verifiedSignerActorId")
     }
 
     private companion object {
@@ -110,6 +118,6 @@ class FollowHandler(
          * 独立したパスにすると「GET できる文書がある」と読める形になり、
          * 実際には返せないものを配ることになる。Mastodon も同じ作りで送ってくる。
          */
-        fun acceptId(recipient: ActorUrls): String = "${recipient.actorId}#accepts/follows/${UUID.randomUUID()}"
+        fun acceptId(followee: ActorUrls): String = "${followee.actorId}#accepts/follows/${UUID.randomUUID()}"
     }
 }

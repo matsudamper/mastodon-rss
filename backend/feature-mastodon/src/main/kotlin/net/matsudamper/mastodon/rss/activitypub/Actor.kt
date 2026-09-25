@@ -35,6 +35,8 @@ data class Actor(
     val summary: String? = null,
     @SerialName("inbox")
     val inbox: String,
+    @SerialName("endpoints")
+    val endpoints: Endpoints,
     @SerialName("outbox")
     val outbox: String,
     /**
@@ -87,6 +89,12 @@ data class Actor(
             const val TYPE_IMAGE: String = "Image"
         }
     }
+
+    @Serializable
+    data class Endpoints(
+        @SerialName("sharedInbox")
+        val sharedInbox: String,
+    )
 
     companion object {
         const val TYPE_SERVICE: String = "Service"

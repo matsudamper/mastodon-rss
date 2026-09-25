@@ -9,8 +9,10 @@ import io.ktor.server.request.receive
 import io.ktor.server.request.uri
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.RoutingContext
 import io.ktor.server.routing.post
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
+import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 
 /**
@@ -25,7 +27,7 @@ import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
  * - 202 Accepted: 署名が通った。中身の処理の成否は含めない
  * - 400 Bad Request: ボディが JSON として読めない
  * - 401 Unauthorized: 署名が無い、通らない、`actor` と署名者が違う
- * - 404 Not Found: そのアクターがいない
+ * - 404 Not Found: そのアクターがいない（アカウントごとの inbox だけ）
  * - 413 Content Too Large: ボディが大きすぎる
  *
  * 404 と 413 だけがここでの判断になる。どちらも署名を検証する前、
@@ -43,44 +45,55 @@ fun Route.inboxRoutes(
             return@post
         }
 
-        // 読む前に長さで弾く。読んでから確かめても、その時点で受け取り終えている
-        val declaredLength = call.request.header(HttpHeaders.ContentLength)?.toLongOrNull()
-        if (declaredLength != null && declaredLength > MAX_BODY_BYTES) {
-            call.respondText("ボディが大きすぎる", status = HttpStatusCode.PayloadTooLarge)
-            return@post
+        receive(recipient = InboxRecipient.Account(urls), service = service)
+    }
+
+    post(ActorUrls.SHARED_INBOX_PATH) {
+        receive(recipient = InboxRecipient.Shared, service = service)
+    }
+}
+
+private suspend fun RoutingContext.receive(
+    recipient: InboxRecipient,
+    service: InboxService,
+) {
+    // 読む前に長さで弾く。読んでから確かめても、その時点で受け取り終えている
+    val declaredLength = call.request.header(HttpHeaders.ContentLength)?.toLongOrNull()
+    if (declaredLength != null && declaredLength > MAX_BODY_BYTES) {
+        call.respondText("ボディが大きすぎる", status = HttpStatusCode.PayloadTooLarge)
+        return
+    }
+
+    // Digest はバイト列に対して計算されているので、文字列にせずそのまま受ける
+    val requestBodyBytes = call.receive<ByteArray>()
+    if (requestBodyBytes.size > MAX_BODY_BYTES) {
+        call.respondText("ボディが大きすぎる", status = HttpStatusCode.PayloadTooLarge)
+        return
+    }
+
+    val signedRequest =
+        SignedRequest(
+            method = call.request.httpMethod.value,
+            // 送信側が署名したのはリクエストラインの綴りそのもの。
+            // パスを組み直すと末尾やクエリの差で合わなくなる
+            requestTarget = call.request.uri,
+            headers = call.request.headers,
+            body = requestBodyBytes,
+        )
+
+    // 落ちた理由は相手に返さない。どこで落ちたかを教えると通る形を探す助けになるので、
+    // 理由はサービス側がログに出し、ここには status しか渡ってこない
+    when (service.receive(recipient = recipient, request = signedRequest)) {
+        is InboxResult.Unauthorized -> {
+            call.respondText("署名を検証できなかった", status = HttpStatusCode.Unauthorized)
         }
 
-        // Digest はバイト列に対して計算されているので、文字列にせずそのまま受ける
-        val requestBodyBytes = call.receive<ByteArray>()
-        if (requestBodyBytes.size > MAX_BODY_BYTES) {
-            call.respondText("ボディが大きすぎる", status = HttpStatusCode.PayloadTooLarge)
-            return@post
+        is InboxResult.BadRequest -> {
+            call.respondText("ボディを読めなかった", status = HttpStatusCode.BadRequest)
         }
 
-        val signedRequest =
-            SignedRequest(
-                method = call.request.httpMethod.value,
-                // 送信側が署名したのはリクエストラインの綴りそのもの。
-                // パスを組み直すと末尾やクエリの差で合わなくなる
-                requestTarget = call.request.uri,
-                headers = call.request.headers,
-                body = requestBodyBytes,
-            )
-
-        // 落ちた理由は相手に返さない。どこで落ちたかを教えると通る形を探す助けになるので、
-        // 理由はサービス側がログに出し、ここには status しか渡ってこない
-        when (service.receive(recipient = urls, request = signedRequest)) {
-            is InboxResult.Unauthorized -> {
-                call.respondText("署名を検証できなかった", status = HttpStatusCode.Unauthorized)
-            }
-
-            is InboxResult.BadRequest -> {
-                call.respondText("ボディを読めなかった", status = HttpStatusCode.BadRequest)
-            }
-
-            is InboxResult.Accepted -> {
-                call.respondText("", status = HttpStatusCode.Accepted)
-            }
+        is InboxResult.Accepted -> {
+            call.respondText("", status = HttpStatusCode.Accepted)
         }
     }
 }

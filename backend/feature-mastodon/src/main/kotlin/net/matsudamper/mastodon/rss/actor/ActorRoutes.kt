@@ -71,6 +71,7 @@ internal fun actorDocument(
         name = profile.displayName ?: urls.username,
         summary = summary,
         inbox = urls.inbox,
+        endpoints = Actor.Endpoints(sharedInbox = urls.sharedInbox),
         outbox = urls.outbox,
         featured = urls.featured,
         followers = urls.followers,

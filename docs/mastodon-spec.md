@@ -20,6 +20,7 @@ ActivityPub で決まっていないところや、実装ごとに違うとこ�
 | `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
 | `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
 | `POST /users/{name}/inbox` | アクティビティの受け口。HTTP Signatures を検証する |
+| `POST /inbox` | 共有 inbox。全アカウントで 1 つの受け口で、検証と処理は `/users/{name}/inbox` と同じ |
 | `GET /users/{name}/followers` | フォロワーの OrderedCollection。`?cursor=` で中身 |
 | `GET /users/{name}/outbox` | 配信した `Create` の OrderedCollection。`?cursor=` で中身 |
 | `GET /users/{name}/collections/featured` | プロフィールに載せる投稿の OrderedCollection |
@@ -55,6 +56,14 @@ JSON を返すパスが開く。
 
 `url` の組み立ては `:backend` から渡す（`WebPageUrls`）。画面のパスは
 `:shared` の `WebPagePath` にあり、画面側と同じものを見ている。
+
+Actor は `endpoints.sharedInbox` に `/inbox` を出す。相手は同じサーバー宛ての配信を
+ここへ 1 通にまとめる。出さないと、共有 inbox にしか配らない実装から届かない。
+
+共有 inbox には宛先のアカウントが無いので、`Follow` と `Undo{Follow}` は `object` の
+アクターから宛先を引く。`object` が id だけの `Undo` は、どのアカウントへのフォローか
+分からないのでフォローの解除としては扱わない。Mastodon は `Undo{Follow}` を、`Follow` を
+埋めてアカウントごとの inbox に送ってくる。
 
 inbox は署名が通れば 202、通らなければ 401 を返す。検証の内容は
 [HttpSignatureVerifier.kt](../backend/feature-mastodon/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)

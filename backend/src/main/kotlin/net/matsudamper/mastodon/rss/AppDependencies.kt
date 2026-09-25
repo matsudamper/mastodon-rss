@@ -232,6 +232,7 @@ class AppDependencies(
      * [remoteActors] を本番のものにするかフェイクにするかだけ。
      */
     val inboxService: InboxService = InboxService.default(
+        directory = directory,
         remoteActors = remoteActors,
         followers = followerStore,
         favourites = favouriteStore,
