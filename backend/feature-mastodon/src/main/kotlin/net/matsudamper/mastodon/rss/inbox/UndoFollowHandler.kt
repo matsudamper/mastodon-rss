@@ -116,7 +116,8 @@ class UndoFollowHandler(
         val followee = when (recipient) {
             is InboxRecipient.Account -> {
                 // 別のアクター宛の Follow を取り消す Undo は、こちらのフォローとは関係が無い
-                if (followTarget != null && followTarget != recipient.urls.actorId) {
+                val resolvedTarget = followTarget?.let { directory.resolveActorId(it) }
+                if (followTarget != null && resolvedTarget?.actorId != recipient.urls.actorId) {
                     logger.info("Undo の対象が別のアクターへの Follow: object=$followTarget 宛先=${recipient.urls.actorId}")
                     return null
                 }

@@ -139,6 +139,23 @@ class UndoFollowHandlerTest {
     }
 
     @Test
+    fun `Follow の object の綴りが大文字でも解除する`() = runBlocking {
+        val store = followers()
+
+        handle(
+            store,
+            """
+            {"id":"https://remote.example/activities/2","type":"Undo",
+             "actor":"${TestRemoteActor.ACTOR_ID}",
+             "object":{"id":"$followUri","type":"Follow",
+                       "actor":"${TestRemoteActor.ACTOR_ID}","object":"https://${TestLocalActor.DOMAIN}/users/ADMIN"}}
+            """.trimIndent(),
+        )
+
+        assertEquals(0, store.count(TestLocalActor.USERNAME))
+    }
+
+    @Test
     fun `共有 inbox では埋まっている Follow の object から宛先のアカウントを引いて解除する`() = runBlocking {
         val store = followers()
 
