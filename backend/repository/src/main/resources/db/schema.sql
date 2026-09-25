@@ -181,6 +181,21 @@ CREATE TABLE note_favourites (
     UNIQUE (note_public_id, remote_actor_id)
 );
 
+CREATE TABLE note_stamps (
+    -- 絵文字のスタンプ。Mastodon には無く、Misskey の Like と Pleroma の EmojiReact で届く
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
+    -- note_favourites と同じく、相手が消えた後の Delete を検証できるよう鍵ごと remote_actors に残す
+    remote_actor_id INTEGER NOT NULL REFERENCES remote_actors (id) ON DELETE CASCADE,
+    -- 絵文字そのもの、またはカスタム絵文字の :name:
+    emoji TEXT NOT NULL,
+    -- カスタム絵文字の画像 URL。Unicode の絵文字では NULL
+    emoji_image_url TEXT,
+    created_at TEXT NOT NULL,
+    -- Misskey と同じく 1 人が 1 つの投稿に押せるのは 1 つ。押し替えは行を置き換える
+    UNIQUE (note_public_id, remote_actor_id)
+);
+
 CREATE TABLE remote_actors (
     -- 相手のサーバーのアクター。フォロワーの inbox と公開鍵の置き場
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -225,5 +240,7 @@ CREATE INDEX notes_published_at_public_id ON notes (published_at, public_id);
 CREATE INDEX notes_username_published_at ON notes (username, published_at);
 
 CREATE INDEX note_favourites_remote_actor_id ON note_favourites (remote_actor_id);
+
+CREATE INDEX note_stamps_remote_actor_id ON note_stamps (remote_actor_id);
 
 CREATE INDEX early_undone_likes_expires_at ON early_undone_likes (expires_at);

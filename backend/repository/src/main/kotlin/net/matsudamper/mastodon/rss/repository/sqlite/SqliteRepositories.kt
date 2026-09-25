@@ -13,6 +13,7 @@ import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository
 import net.matsudamper.mastodon.rss.repository.NoteRepository
+import net.matsudamper.mastodon.rss.repository.NoteStampRepository
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.HEALTH_CHECK
 
@@ -33,6 +34,8 @@ internal class SqliteRepositories(
     override val notes: NoteRepository = SqliteNoteRepository(jooq)
 
     override val noteFavourites: NoteFavouriteRepository = SqliteNoteFavouriteRepository(jooq)
+
+    override val noteStamps: NoteStampRepository = SqliteNoteStampRepository(jooq)
 
     override val earlyUndoneLikes: EarlyUndoneLikeRepository = SqliteEarlyUndoneLikeRepository(jooq)
 
