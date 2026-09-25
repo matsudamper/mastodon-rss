@@ -13,6 +13,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreview
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreviewsResult
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
 class AccountNoteScreenViewModel(
     private val username: String,
@@ -35,6 +36,10 @@ class AccountNoteScreenViewModel(
 
         override fun onClickReload() {
             reload()
+        }
+
+        override fun onClickAccount() {
+            viewModelScope.launch { events.send { it.navigate(Screen.Account(username)) } }
         }
 
         override fun onClickActivityPub() {
@@ -143,5 +148,7 @@ class AccountNoteScreenViewModel(
         suspend fun close()
 
         suspend fun openExternalLink(url: String)
+
+        suspend fun navigate(screen: Screen)
     }
 }

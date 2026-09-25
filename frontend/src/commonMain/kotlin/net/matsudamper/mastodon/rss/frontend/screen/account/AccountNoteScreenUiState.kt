@@ -50,6 +50,8 @@ data class AccountNoteScreenUiState(
 
         fun onClickReload()
 
+        fun onClickAccount()
+
         fun onClickActivityPub()
 
         fun onClickLinkPreview(url: String)
