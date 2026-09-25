@@ -21,9 +21,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
+import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
 import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
@@ -72,7 +76,6 @@ internal fun AccountNoteContent(
 ) {
     AlertDialog(
         onDismissRequest = uiState.listener::onClickClose,
-        title = { Text("投稿") },
         text = {
             // 本文の長さで縦に伸びるので、画面に収まらないことがある
             Column(
@@ -96,6 +99,7 @@ internal fun AccountNoteContent(
                     }
 
                     is AccountNoteScreenUiState.Content.Loaded -> {
+                        NoteAccountHeader(account = content.account)
                         NoteContent(content.contentHtml, Modifier.fillMaxWidth())
                         NoteReactions(favouriteCount = content.favouriteCount, stamps = content.stamps)
                         Row(
@@ -135,4 +139,36 @@ internal fun AccountNoteContent(
             }
         },
     )
+}
+
+@Composable
+private fun NoteAccountHeader(account: AccountNoteScreenUiState.Account) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        AccountAvatar(
+            username = account.username,
+            iconUrl = account.iconUrl,
+            size = 40.dp,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = account.displayName,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = account.acct,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontFamily = FontFamily.Monospace,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }

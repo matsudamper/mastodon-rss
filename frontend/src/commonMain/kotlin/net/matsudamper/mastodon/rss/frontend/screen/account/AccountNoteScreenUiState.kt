@@ -18,6 +18,7 @@ data class AccountNoteScreenUiState(
          * @param linkPreviews 本文のリンクごとの OGP。取れるまでは URL だけで埋めておく
          */
         data class Loaded(
+            val account: Account,
             val contentHtml: String,
             val publishedAt: String,
             val favouriteCount: String?,
@@ -29,6 +30,13 @@ data class AccountNoteScreenUiState(
             val message: String,
         ) : Content
     }
+
+    data class Account(
+        val username: String,
+        val displayName: String,
+        val acct: String,
+        val iconUrl: String?,
+    )
 
     data class LinkPreview(
         val url: String,
