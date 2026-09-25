@@ -34,7 +34,6 @@ import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
-import net.matsudamper.mastodon.rss.frontend.ui.NoteFavouriteCount
 import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
 
 @Composable
