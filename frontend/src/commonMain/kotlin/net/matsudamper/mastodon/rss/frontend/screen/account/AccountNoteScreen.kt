@@ -97,11 +97,8 @@ internal fun AccountNoteContent(
 
                     is AccountNoteScreenUiState.Content.Loaded -> {
                         NoteContent(content.contentHtml, Modifier.fillMaxWidth())
-                        content.reactions?.let { reactions ->
-                            NoteReactions(
-                                uiState = reactions,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+                        content.favouriteCount?.let { favouriteCount ->
+                            NoteFavouriteCount(count = favouriteCount)
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),

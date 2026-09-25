@@ -11,8 +11,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.http.Headers
+import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
-import net.matsudamper.mastodon.rss.FakeReactionStore
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.activity.InboxActivity
@@ -21,12 +21,12 @@ import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.httpsignature.TestSigning
-import net.matsudamper.mastodon.rss.reaction.ReceivedReaction
 
 // 受け取ったものを信用してよいかの判断と、種類ごとの振り分け。
 // HTTP の status への変換は inboxRoutes 側なので、ここはサーバーを立てずに確かめる。
@@ -259,7 +259,7 @@ class InboxServiceTest {
                     // アカウントが消えたと答えるサーバー
                     remote = TestRemoteActors(missing = PublicKeyLookup.Gone),
                     followers = recordedFollower(),
-                    reactions = FakeReactionStore(),
+                    favourites = FakeFavouriteStore(),
                 )
 
             val result =
@@ -271,33 +271,26 @@ class InboxServiceTest {
             assertEquals(TestRemoteActor.ACTOR_ID, call.verifiedSignerActorId)
         }
 
-    /**
-     * フォローはしていないが、反応の記録に相手の鍵が残っている状態
-     */
-    private fun recordedReaction(): FakeReactionStore =
-        FakeReactionStore().apply {
+    private fun recordedFavourite(): FakeFavouriteStore =
+        FakeFavouriteStore().apply {
             add(
-                ReceivedReaction(
+                ReceivedFavourite(
                     notePublicId = PublicNoteId("note1"),
                     actor = TestRemoteActor.actor,
-                    activityUri = "https://remote.example/likes/1",
-                    emoji = "",
-                    emojiImageUrl = null,
                     receivedAt = Instant.now(),
                 ),
             )
         }
 
     @Test
-    fun `フォロワーでなくても反応の記録があれば消えたアクターの Delete を検証できる`() =
+    fun `フォロワーでなくてもお気に入りの記録があれば消えたアクターの Delete を検証できる`() =
         runBlocking {
-            // 検証できないと、消えた相手の反応を掃除する DeleteActorHandler まで届かない
             val handler = RecordingHandler("Delete")
             val publicKeys =
                 RecordedFallbackPublicKeys(
                     remote = TestRemoteActors(missing = PublicKeyLookup.Gone),
                     followers = FakeFollowerStore(),
-                    reactions = recordedReaction(),
+                    favourites = recordedFavourite(),
                 )
 
             val result =

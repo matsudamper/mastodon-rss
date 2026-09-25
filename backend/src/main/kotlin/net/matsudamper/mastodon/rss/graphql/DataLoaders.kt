@@ -14,7 +14,7 @@ import net.matsudamper.mastodon.rss.dataloader.FeedItemByNoteDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.FollowerCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.HeaderVersionByAccountIdDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.NoteCountDataLoaderDefine
-import net.matsudamper.mastodon.rss.dataloader.NoteReactionsDataLoaderDefine
+import net.matsudamper.mastodon.rss.dataloader.NoteFavouriteCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.OtelBatchLoaderScheduler
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderRegistry
@@ -58,7 +58,7 @@ class DataLoaders(
 
     val feedItemByNoteDataLoader by register { FeedItemByNoteDataLoaderDefine(diContainer.feedService) }
 
-    val noteReactionsDataLoader by register { NoteReactionsDataLoaderDefine(diContainer.noteReactionRepository) }
+    val noteFavouriteCountDataLoader by register { NoteFavouriteCountDataLoaderDefine(diContainer.noteFavouriteRepository) }
 
     private fun <K : Any, V : Any> register(initializer: () -> DataLoaderDefine<K, V>): DataLoaderRegister<K, V> {
         val define = initializer()

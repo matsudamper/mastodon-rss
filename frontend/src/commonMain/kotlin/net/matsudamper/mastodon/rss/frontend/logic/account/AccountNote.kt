@@ -8,17 +8,6 @@ data class AccountNote(
     val contentHtml: String,
     val publishedAt: Instant,
     val favouriteCount: Int,
-    val reactions: List<NoteReaction>,
-)
-
-/**
- * @param name 絵文字そのもの、またはカスタム絵文字の名前
- * @param imageUrl カスタム絵文字の画像。絵文字そのものなら null
- */
-data class NoteReaction(
-    val name: String,
-    val imageUrl: String?,
-    val count: Int,
 )
 
 /**

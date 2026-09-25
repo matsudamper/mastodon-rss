@@ -5,13 +5,12 @@ import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.note.NoteStore
-import net.matsudamper.mastodon.rss.reaction.ReactionStore
 import org.slf4j.LoggerFactory
 
 /**
@@ -152,50 +151,40 @@ class InboxService(
          * 送るのは受け取り側の都合と切り離す。
          *
          * @param remoteActors 相手のアクターの引き先。署名検証に使う公開鍵と、
-         *   `Accept` の宛先になる inbox、反応を押した相手として残す鍵をここから取る
+         *   `Accept` の宛先になる inbox、お気に入りを押した相手として残す鍵をここから取る
          * @param followers フォローの記録。配信先だけでなく、相手が消えて
          *   アクター文書を引けなくなったときの公開鍵の引き先にもなる
-         * @param notes 反応の対象の投稿の引き先。こちらが配信した投稿への反応だけを記録する
-         * @param reactions お気に入りとスタンプの記録。[followers] と同じく、
+         * @param favourites お気に入りの記録。[followers] と同じく、
          *   消えた相手の公開鍵の引き先にもなる
-         * @param domain こちらのドメイン。反応の対象がこちらの投稿かどうかの判断に使う
          */
         fun default(
             remoteActors: RemoteActors,
             followers: FollowerStore,
-            notes: NoteStore,
-            reactions: ReactionStore,
+            favourites: FavouriteStore,
+            earlyUndoneLikes: EarlyUndoneLikes,
             domain: String,
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(
-                    RecordedFallbackPublicKeys(remote = remoteActors, followers = followers, reactions = reactions),
+                    RecordedFallbackPublicKeys(remote = remoteActors, followers = followers, favourites = favourites),
                 ),
                 handlers = listOf(
                     FollowHandler(
                         remoteActors = remoteActors,
                         followers = followers,
                     ),
-                    ReactionHandler(
-                        type = ReactionHandler.LIKE_TYPE,
+                    FavouriteHandler(
                         domain = domain,
                         remoteActors = remoteActors,
-                        notes = notes,
-                        reactions = reactions,
-                    ),
-                    ReactionHandler(
-                        type = ReactionHandler.EMOJI_REACT_TYPE,
-                        domain = domain,
-                        remoteActors = remoteActors,
-                        notes = notes,
-                        reactions = reactions,
+                        favourites = favourites,
+                        earlyUndoneLikes = earlyUndoneLikes,
                     ),
                     UndoHandler(
-                        reactions = UndoReactionHandler(domain = domain, reactions = reactions),
+                        favourites = UndoFavouriteHandler(domain = domain, favourites = favourites, earlyUndoneLikes = earlyUndoneLikes),
                         follows = UndoFollowHandler(followers),
                     ),
                     UpdateActorHandler(followers),
-                    DeleteActorHandler(followers = followers, reactions = reactions),
+                    DeleteActorHandler(followers = followers, favourites = favourites),
                 ),
             )
     }

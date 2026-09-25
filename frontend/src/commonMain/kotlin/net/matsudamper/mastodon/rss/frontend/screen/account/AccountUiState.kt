@@ -49,7 +49,7 @@ data class NoteUiState(
     val url: String,
     val contentHtml: String,
     val publishedAt: String,
-    val reactions: NoteReactionsUiState?,
+    val favouriteCount: String?,
     val linkPreviews: List<LinkPreview>,
     val listener: Listener,
 ) {
@@ -68,25 +68,4 @@ data class NoteUiState(
          */
         fun onVisible()
     }
-}
-
-/**
- * 投稿に届いた反応。1 つも届いていない投稿では null になる
- *
- * @param favouriteCount 誰も押していなければ null
- * @param stamps 押された数が多い順
- */
-data class NoteReactionsUiState(
-    val favouriteCount: String?,
-    val stamps: List<Stamp>,
-) {
-    /**
-     * @param name 絵文字そのもの、またはカスタム絵文字の名前
-     * @param imageUrl カスタム絵文字の画像。読めないときと絵文字そのものは [name] を出す
-     */
-    data class Stamp(
-        val name: String,
-        val imageUrl: String?,
-        val count: String,
-    )
 }

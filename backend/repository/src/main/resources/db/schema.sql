@@ -55,6 +55,16 @@ CREATE TABLE delivery_queue (
     target_actor_uri TEXT
 );
 
+CREATE TABLE early_undone_likes (
+    -- Like より先に届いた Undo が object で指していた Like アクティビティの id。
+    -- 後から届いた Like を記録しないために、期限まで覚えておく。
+    -- 押した相手は記録に無いこともあるので remote_actors は指さない
+    actor_uri TEXT NOT NULL,
+    activity_uri TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    PRIMARY KEY (actor_uri, activity_uri)
+);
+
 CREATE TABLE feed_icons (
     -- フィードに 1 つ。フィードを消すと一緒に消える
     feed_id INTEGER PRIMARY KEY REFERENCES feeds (id) ON DELETE CASCADE,
@@ -160,28 +170,15 @@ CREATE TABLE notes (
     published_at TEXT NOT NULL
 );
 
-CREATE TABLE note_reactions (
-    -- 相手から届いた、投稿 1 件への反応。お気に入り（Like）と絵文字のスタンプ
-    -- （Misskey の Like / EmojiReact）を同じ形で持つ
+CREATE TABLE note_favourites (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
     -- 押した相手。フォロワーとは限らないが、相手が消えた後の Delete を検証できるよう
     -- 鍵ごと remote_actors に残す
     remote_actor_id INTEGER NOT NULL REFERENCES remote_actors (id) ON DELETE CASCADE,
-    -- 受け取った Like / EmojiReact の id。取り消しは id で指されるので覚えておく
-    activity_uri TEXT NOT NULL,
-    -- 絵文字そのもの、またはカスタム絵文字の :name: 。お気に入りは空文字。
-    -- NULL にしないのは、SQLite の UNIQUE が NULL 同士を別物として扱い、
-    -- 同じ相手のお気に入りが何行でも入るため
-    emoji TEXT NOT NULL,
-    -- カスタム絵文字の画像 URL。Unicode の絵文字とお気に入りでは NULL
-    emoji_image_url TEXT,
     created_at TEXT NOT NULL,
-    -- 同じ相手が同じ反応を重ねない。取り消しが届かないまま押し直されても増えない
-    UNIQUE (note_public_id, remote_actor_id, emoji),
-    -- 同じアクティビティの送り直しで増えない。id を相手ごとに見るのは、
-    -- 全体で一意にすると、他人が使う id を先に書き込んでその相手の反応を弾けるため
-    UNIQUE (remote_actor_id, activity_uri)
+    -- 同じ相手が同じ投稿に重ねない。送り直しや、取り消しが届かないままの押し直しでも増えない
+    UNIQUE (note_public_id, remote_actor_id)
 );
 
 CREATE TABLE remote_actors (
@@ -227,6 +224,6 @@ CREATE INDEX notes_published_at_public_id ON notes (published_at, public_id);
 
 CREATE INDEX notes_username_published_at ON notes (username, published_at);
 
-CREATE INDEX note_reactions_note_public_id ON note_reactions (note_public_id);
+CREATE INDEX note_favourites_remote_actor_id ON note_favourites (remote_actor_id);
 
-CREATE INDEX note_reactions_remote_actor_id ON note_reactions (remote_actor_id);
+CREATE INDEX early_undone_likes_expires_at ON early_undone_likes (expires_at);

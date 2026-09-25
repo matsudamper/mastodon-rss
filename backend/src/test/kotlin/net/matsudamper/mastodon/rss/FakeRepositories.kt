@@ -16,6 +16,7 @@ import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
 import net.matsudamper.mastodon.rss.repository.DeliveryQueuePosition
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
+import net.matsudamper.mastodon.rss.repository.EarlyUndoneLikeRepository
 import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FailedDelivery
 import net.matsudamper.mastodon.rss.repository.Feed
@@ -34,14 +35,13 @@ import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
-import net.matsudamper.mastodon.rss.repository.NewNoteReaction
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
+import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository
+import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository.NewNoteFavourite
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NotePost
-import net.matsudamper.mastodon.rss.repository.NoteReactionCount
-import net.matsudamper.mastodon.rss.repository.NoteReactionRepository
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
@@ -92,7 +92,11 @@ class FakeRepositories : Repositories {
         onRecorded = { follow -> deliveryQueue.enqueueAccept(follow) },
         onRemoved = { username, followerActorUri -> deliveryQueue.deletePendingAccept(username, followerActorUri) },
         onAccountRemoved = { username -> deliveryQueue.deletePendingAcceptsOfAccount(username) },
-        onRemoteActorRemoved = { followerActorUri -> deliveryQueue.deletePendingAcceptsToActor(followerActorUri) },
+        onRemoteActorRemoved = { followerActorUri ->
+            deliveryQueue.deletePendingAcceptsToActor(followerActorUri)
+            // remote_actors を消すとお気に入りも消えるのは SQLite の ON DELETE CASCADE
+            noteFavourites.removeByActor(followerActorUri)
+        },
     )
 
     // フィードを消すと記事も消えるのは SQLite の ON DELETE CASCADE。
@@ -112,13 +116,15 @@ class FakeRepositories : Repositories {
         onDeleted = { publicId ->
             feedItems.clearNoteId(publicId)
             deliveryQueue.deleteByNote(publicId)
-            noteReactions.deleteByNote(publicId)
+            noteFavourites.deleteByNote(publicId)
         },
     )
 
-    override val noteReactions: FakeNoteReactionRepository = FakeNoteReactionRepository(
+    override val noteFavourites: FakeNoteFavouriteRepository = FakeNoteFavouriteRepository(
         hasNote = { publicId -> notes.find(publicId) != null },
     )
+
+    override val earlyUndoneLikes: FakeEarlyUndoneLikeRepository = FakeEarlyUndoneLikeRepository()
 
     // 投函は投稿の記録と記事の投稿済み化を一緒に書くので、両方のフェイクを繋ぐ。
     // Accept が送れたときにフォローが成立するのも本物と同じく配信キューが書く
@@ -1116,50 +1122,30 @@ class FakeFeedIconRepository : FeedIconRepository {
 }
 
 /**
- * 反応の置き場。投稿が無ければ記録しないのと、同じ相手の同じ反応を重ねないのは
+ * 投稿が無ければ記録しないのと、同じ相手が同じ投稿に重ねないのは
  * 本物の一意制約と外部キーに合わせてある
  */
-class FakeNoteReactionRepository(
+class FakeNoteFavouriteRepository(
     private val hasNote: (publicId: PublicNoteId) -> Boolean,
-) : NoteReactionRepository {
-    private val stored = mutableListOf<NewNoteReaction>()
+) : NoteFavouriteRepository {
+    private val stored = mutableListOf<NewNoteFavourite>()
 
-    override fun add(reaction: NewNoteReaction): Boolean {
-        if (!hasNote(reaction.notePublicId)) return false
+    override fun add(favourite: NewNoteFavourite): Boolean {
+        if (!hasNote(favourite.notePublicId)) return false
 
         val duplicated = stored.any {
-            it.actor.actorUri == reaction.actor.actorUri &&
-                (
-                    it.activityUri == reaction.activityUri ||
-                        (it.notePublicId == reaction.notePublicId && it.emoji == reaction.emoji)
-                    )
+            it.actor.actorUri == favourite.actor.actorUri && it.notePublicId == favourite.notePublicId
         }
         if (duplicated) return false
 
-        val storedInNote = stored.count { it.notePublicId == reaction.notePublicId }
-        if (storedInNote >= MAX_REACTIONS_PER_NOTE) return false
-
-        val storedByActor = stored.count {
-            it.notePublicId == reaction.notePublicId && it.actor.actorUri == reaction.actor.actorUri
-        }
-        if (storedByActor >= MAX_REACTIONS_PER_ACTOR) return false
-
-        stored += reaction
+        stored += favourite
         return true
     }
 
-    override fun removeByActivityUri(
-        actorUri: String,
-        activityUri: String,
-    ): Boolean = stored.removeAll { it.actor.actorUri == actorUri && it.activityUri == activityUri }
-
-    override fun removeByEmoji(
+    override fun removeByNote(
         notePublicId: PublicNoteId,
         actorUri: String,
-        emoji: String,
-    ): Boolean = stored.removeAll {
-        it.notePublicId == notePublicId && it.actor.actorUri == actorUri && it.emoji == emoji
-    }
+    ): Boolean = stored.removeAll { it.notePublicId == notePublicId && it.actor.actorUri == actorUri }
 
     override fun removeByActor(actorUri: String): Int {
         val before = stored.size
@@ -1170,38 +1156,33 @@ class FakeNoteReactionRepository(
     override fun findPublicKeyPem(actorUri: String): String? =
         stored.firstOrNull { it.actor.actorUri == actorUri }?.actor?.publicKeyPem
 
-    override fun countsByNotes(notePublicIds: Set<PublicNoteId>): Map<PublicNoteId, List<NoteReactionCount>> = stored
+    override fun countsByNotes(notePublicIds: Set<PublicNoteId>): Map<PublicNoteId, Int> = stored
         .filter { it.notePublicId in notePublicIds }
-        .groupBy { it.notePublicId }
-        .mapValues { (_, reactions) ->
-            reactions
-                .groupBy { it.emoji }
-                .map { (emoji, sameEmoji) ->
-                    NoteReactionCount(
-                        emoji = emoji,
-                        emojiImageUrl = sameEmoji.firstNotNullOfOrNull { it.emojiImageUrl },
-                        count = sameEmoji.size,
-                    )
-                }
-                .sortedWith(compareByDescending<NoteReactionCount> { it.count }.thenBy { it.emoji })
-        }
+        .groupingBy { it.notePublicId }
+        .eachCount()
 
     /**
-     * 投稿を消すと反応も消えるのは SQLite の ON DELETE CASCADE
+     * 投稿を消すとお気に入りも消えるのは SQLite の ON DELETE CASCADE
      */
     fun deleteByNote(publicId: PublicNoteId) {
         stored.removeAll { it.notePublicId == publicId }
     }
+}
 
-    private companion object {
-        /**
-         * 1 つの投稿に、1 人の相手が持てる反応の数。本物と同じ数にしてある
-         */
-        const val MAX_REACTIONS_PER_ACTOR = 8
+class FakeEarlyUndoneLikeRepository : EarlyUndoneLikeRepository {
+    private val expiresAt = mutableMapOf<Pair<String, String>, Instant>()
 
-        /**
-         * 1 つの投稿が持てる反応の数。本物と同じ数にしてある
-         */
-        const val MAX_REACTIONS_PER_NOTE = 500
+    override fun remember(
+        actorUri: String,
+        activityUri: String,
+        expiresAt: Instant,
+    ) {
+        this.expiresAt[actorUri to activityUri] = expiresAt
     }
+
+    override fun isRemembered(
+        actorUri: String,
+        activityUri: String,
+        now: Instant,
+    ): Boolean = expiresAt[actorUri to activityUri]?.isAfter(now) == true
 }

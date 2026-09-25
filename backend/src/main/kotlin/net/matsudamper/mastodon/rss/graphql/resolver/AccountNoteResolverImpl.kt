@@ -11,10 +11,8 @@ import net.matsudamper.mastodon.rss.graphql.model.AccountNoteResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNote
 import net.matsudamper.mastodon.rss.graphql.model.QlLinkPreview
-import net.matsudamper.mastodon.rss.graphql.model.QlNoteReaction
 import net.matsudamper.mastodon.rss.note.NoteUrls
 import net.matsudamper.mastodon.rss.note.StoredNote
-import net.matsudamper.mastodon.rss.repository.NoteReactionCount
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AccountNoteResolverImpl : AccountNoteResolver {
@@ -50,45 +48,12 @@ class AccountNoteResolverImpl : AccountNoteResolver {
         accountNote: QlAccountNote,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<Int>> {
-        return loadReactions(accountNote, env).thenApply { reactions ->
-            val favourites = reactions.filter { it.emoji == FAVOURITE_EMOJI }.sumOf { it.count }
-            DataFetcherResult.Builder(favourites).build()
-        }
-    }
-
-    override fun reactions(
-        accountNote: QlAccountNote,
-        env: DataFetchingEnvironment,
-    ): CompletionStage<DataFetcherResult<List<QlNoteReaction>>> {
-        return loadReactions(accountNote, env).thenApply { reactions ->
-            val stamps = reactions
-                .filter { it.emoji != FAVOURITE_EMOJI }
-                .map {
-                    QlNoteReaction(
-                        name = displayName(it.emoji),
-                        imageUrl = it.emojiImageUrl,
-                        count = it.count,
-                    )
-                }
-            DataFetcherResult.Builder(stamps).build()
-        }
-    }
-
-    /**
-     * カスタム絵文字に付く `:` は、相手のサーバーが本文に埋め込むための記法で名前の一部ではない
-     */
-    private fun displayName(emoji: String): String = emoji.removeSurrounding(":")
-
-    private fun loadReactions(
-        accountNote: QlAccountNote,
-        env: DataFetchingEnvironment,
-    ): CompletionStage<List<NoteReactionCount>> {
         return GraphQlEngine
             .dataLoaders(env)
-            .noteReactionsDataLoader
+            .noteFavouriteCountDataLoader
             .get(env)
             .load(accountNote.id)
-            .thenApply { reactions -> reactions.orEmpty() }
+            .thenApply { count -> DataFetcherResult.Builder(count ?: 0).build() }
     }
 
     override fun account(
@@ -162,12 +127,5 @@ class AccountNoteResolverImpl : AccountNoteResolver {
             .thenApply { note ->
                 checkNotNull(note) { "投稿が見つからない: ${accountNote.id}" }
             }
-    }
-
-    private companion object {
-        /**
-         * 絵文字を伴わないお気に入り。記録側と同じ綴り
-         */
-        const val FAVOURITE_EMOJI = ""
     }
 }

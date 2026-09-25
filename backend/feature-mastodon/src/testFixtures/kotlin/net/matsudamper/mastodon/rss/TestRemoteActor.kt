@@ -29,9 +29,6 @@ object TestRemoteActor {
             iconUrl = null,
         )
 
-    /**
-     * 相手のアクター文書。鍵の生成を遅らせたいので lazy にしてある
-     */
     val actor: RemoteActor by lazy {
         RemoteActor(
             actorId = ACTOR_ID,

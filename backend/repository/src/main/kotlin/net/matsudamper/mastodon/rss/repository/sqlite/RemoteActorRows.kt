@@ -8,12 +8,6 @@ import org.jooq.Record1
 import org.jooq.Select
 import org.jooq.impl.DSL
 
-/**
- * `remote_actors` の書き込みと引き当て。
- *
- * フォローと反応のどちらを受けても同じ行を作る。片方だけが別の書き方をすると、
- * 相手が消えた後に鍵を引けるかどうかが受け取った経路で変わる。
- */
 internal object RemoteActorRows {
     /**
      * 相手のアクターは毎回上書きする。inbox も鍵も相手の都合で変わるので、
@@ -58,9 +52,6 @@ internal object RemoteActorRows {
         ) { "相手のアクターの行を作れなかった: ${actor.actorUri}" }
     }
 
-    /**
-     * アクター URL から行を引く副問い合わせ。
-     */
     fun id(actorUri: String): Select<Record1<Long>> = DSL
         .select(REMOTE_ACTORS.ID)
         .from(REMOTE_ACTORS)

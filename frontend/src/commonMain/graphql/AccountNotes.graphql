@@ -17,9 +17,4 @@ fragment AccountNoteFields on AccountNote {
     contentHtml
     publishedAt
     favouriteCount
-    reactions {
-        name
-        imageUrl
-        count
-    }
 }

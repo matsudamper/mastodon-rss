@@ -4,17 +4,17 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
+import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
-import net.matsudamper.mastodon.rss.FakeReactionStore
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
-import net.matsudamper.mastodon.rss.reaction.ReceivedReaction
 
-// 消えたアクターの鍵を、フォローと反応のどちらの記録からも引けること。
+// 消えたアクターの鍵を、フォローとお気に入りのどちらの記録からも引けること。
 // 相手のサーバーに GET しに行く方は TestRemoteActors で差し替える。
 class RecordedFallbackPublicKeysTest {
     private val now: Instant = Instant.parse("2026-08-10T00:00:00Z")
@@ -47,7 +47,7 @@ class RecordedFallbackPublicKeysTest {
             val remote = TestRemoteActor.remoteActors()
 
             val lookup =
-                RecordedFallbackPublicKeys(remote = remote, followers = followers(), reactions = FakeReactionStore())
+                RecordedFallbackPublicKeys(remote = remote, followers = followers(), favourites = FakeFavouriteStore())
                     .find(TestRemoteActor.KEY_ID)
 
             assertEquals(1, remote.findCallCount)
@@ -61,7 +61,7 @@ class RecordedFallbackPublicKeysTest {
             // 相手が鍵を替えてから消えると、Follow のときの鍵では Delete を検証できない
             val followers = followers(publicKeyPem = "替える前の鍵")
 
-            RecordedFallbackPublicKeys(remote = TestRemoteActor.remoteActors(), followers = followers, reactions = FakeReactionStore())
+            RecordedFallbackPublicKeys(remote = TestRemoteActor.remoteActors(), followers = followers, favourites = FakeFavouriteStore())
                 .find(TestRemoteActor.KEY_ID)
 
             assertEquals(
@@ -77,7 +77,7 @@ class RecordedFallbackPublicKeysTest {
             // その相手が消えた後の Delete を検証できない
             val followers = followers(publicKeyPem = "替える前の鍵")
 
-            RecordedFallbackPublicKeys(remote = TestRemoteActor.remoteActors(), followers = followers, reactions = FakeReactionStore())
+            RecordedFallbackPublicKeys(remote = TestRemoteActor.remoteActors(), followers = followers, favourites = FakeFavouriteStore())
                 .refresh(TestRemoteActor.KEY_ID)
 
             assertEquals(
@@ -90,7 +90,7 @@ class RecordedFallbackPublicKeysTest {
     fun `消えた相手はフォローの記録から引く`() =
         runBlocking {
             val lookup =
-                RecordedFallbackPublicKeys(remote = gone(), followers = followers(), reactions = FakeReactionStore())
+                RecordedFallbackPublicKeys(remote = gone(), followers = followers(), favourites = FakeFavouriteStore())
                     .find(TestRemoteActor.KEY_ID)
 
             // 削除された相手の Delete を検証できるのはこの経路だけ
@@ -106,37 +106,30 @@ class RecordedFallbackPublicKeysTest {
         runBlocking {
             // 相手が鍵を替えた後にこの経路を通すと、失効した鍵で署名が通ってしまう
             val lookup =
-                RecordedFallbackPublicKeys(remote = TestRemoteActors(), followers = followers(), reactions = FakeReactionStore())
+                RecordedFallbackPublicKeys(remote = TestRemoteActors(), followers = followers(), favourites = FakeFavouriteStore())
                     .find(TestRemoteActor.KEY_ID)
 
             assertEquals(PublicKeyLookup.Unavailable, lookup)
         }
 
-    /**
-     * フォローはしていないが反応だけ押した相手
-     */
-    private fun reactions(): FakeReactionStore = FakeReactionStore().apply {
+    private fun favourites(): FakeFavouriteStore = FakeFavouriteStore().apply {
         add(
-            ReceivedReaction(
+            ReceivedFavourite(
                 notePublicId = PublicNoteId("note1"),
                 actor = TestRemoteActor.actor,
-                activityUri = "https://remote.example/likes/1",
-                emoji = "",
-                emojiImageUrl = null,
                 receivedAt = now,
             ),
         )
     }
 
     @Test
-    fun `消えた相手はフォローしていなくても反応の記録から引く`() =
+    fun `消えた相手はフォローしていなくてもお気に入りの記録から引く`() =
         runBlocking {
-            // ここで引けないと、消えた相手の反応を消す Delete を検証できない
             val lookup =
                 RecordedFallbackPublicKeys(
                     remote = gone(),
                     followers = FakeFollowerStore(),
-                    reactions = reactions(),
+                    favourites = favourites(),
                 ).find(TestRemoteActor.KEY_ID)
 
             val found = lookup as PublicKeyLookup.Found
@@ -145,10 +138,10 @@ class RecordedFallbackPublicKeysTest {
         }
 
     @Test
-    fun `フォローも反応も記録が無ければ引けない`() =
+    fun `フォローもお気に入りも記録が無ければ引けない`() =
         runBlocking {
             val lookup =
-                RecordedFallbackPublicKeys(remote = gone(), followers = FakeFollowerStore(), reactions = FakeReactionStore())
+                RecordedFallbackPublicKeys(remote = gone(), followers = FakeFollowerStore(), favourites = FakeFavouriteStore())
                     .find(TestRemoteActor.KEY_ID)
 
             assertEquals(PublicKeyLookup.Gone, lookup)
@@ -161,7 +154,7 @@ class RecordedFallbackPublicKeysTest {
                 RecordedFallbackPublicKeys(
                     remote = gone(),
                     followers = followers(publicKeyPem = "鍵ではない"),
-                    reactions = FakeReactionStore(),
+                    favourites = FakeFavouriteStore(),
                 ).find(TestRemoteActor.KEY_ID)
 
             assertEquals(PublicKeyLookup.Gone, lookup)

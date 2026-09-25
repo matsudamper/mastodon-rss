@@ -29,6 +29,7 @@ import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryRetryPolicy
 import net.matsudamper.mastodon.rss.delivery.DeliveryWorker
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
 import net.matsudamper.mastodon.rss.follower.FollowerStore
@@ -48,14 +49,14 @@ import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
+import net.matsudamper.mastodon.rss.logic.RepositoryEarlyUndoneLikes
+import net.matsudamper.mastodon.rss.logic.RepositoryFavouriteStore
 import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
-import net.matsudamper.mastodon.rss.logic.RepositoryReactionStore
 import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
-import net.matsudamper.mastodon.rss.reaction.ReactionStore
 import net.matsudamper.mastodon.rss.remoteactor.RemoteActorIconService
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
@@ -125,7 +126,7 @@ class AppDependencies(
 
     val noteStore: NoteStore = RepositoryNoteStore(repositories.notes)
 
-    val reactionStore: ReactionStore = RepositoryReactionStore(repositories.noteReactions)
+    val favouriteStore: FavouriteStore = RepositoryFavouriteStore(repositories.noteFavourites)
 
     // 毎回引き直す。持ち回すと、追加したアカウントが引けるようになるまで間が空く
     val directory: ActorDirectory = ActorDirectory(
@@ -233,8 +234,8 @@ class AppDependencies(
     val inboxService: InboxService = InboxService.default(
         remoteActors = remoteActors,
         followers = followerStore,
-        notes = noteStore,
-        reactions = reactionStore,
+        favourites = favouriteStore,
+        earlyUndoneLikes = RepositoryEarlyUndoneLikes(repositories.earlyUndoneLikes),
         domain = env.domain,
     )
 

@@ -312,13 +312,6 @@ class AccountApi(
         contentHtml = contentHtml,
         publishedAt = Instant.fromEpochSeconds(publishedAt),
         favouriteCount = favouriteCount,
-        reactions = reactions.map {
-            NoteReaction(
-                name = it.name,
-                imageUrl = it.imageUrl,
-                count = it.count,
-            )
-        },
     )
 
     private fun ApolloResponse<*>.failureMessage(): String {

@@ -97,10 +97,7 @@ class AccountNoteScreenViewModel(
             is AccountNoteResult.Success -> AccountNoteScreenUiState.Content.Loaded(
                 contentHtml = result.note.contentHtml,
                 publishedAt = UnixTimeUtil.format(result.note.publishedAt.epochSeconds),
-                reactions = NoteReactionsUiStateFactory.create(
-                    favouriteCount = result.note.favouriteCount,
-                    reactions = result.note.reactions,
-                ),
+                favouriteCount = result.note.favouriteCount.takeIf { it > 0 }?.toString(),
                 linkPreviews = result.linkUrls.map { url ->
                     createLinkPreview(url = url, preview = state.linkPreviews.firstOrNull { it.url == url })
                 },
