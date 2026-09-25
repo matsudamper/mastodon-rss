@@ -1,18 +1,22 @@
-package net.matsudamper.mastodon.rss.follower
+package net.matsudamper.mastodon.rss.inbox
 
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore
+import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 import org.slf4j.LoggerFactory
 
 /**
- * 相手が消えて引けなくなった公開鍵を、フォロワーの記録から引く。
+ * 相手が消えて引けなくなった公開鍵を、こちらの記録から引く。
  *
  * ActivityPub で鍵を配る手段はアクター文書しかないので、相手が消えると鍵は
  * どこからも取れなくなる。アカウント削除の `Delete` は本人が消えた後に届くため、
- * 取りに行くだけでは署名を検証できない。フォローを受けたときに読んだ鍵は
- * 残してあるので、相手がこちらのフォロワーだった場合はそれで検証できる。
+ * 取りに行くだけでは署名を検証できない。フォローとお気に入りのどちらを受けたときも
+ * そのとき読んだ鍵を残してあるので、記録のある相手ならそれで検証できる。
+ * フォロワーだけを見ると、お気に入りしか押していない相手の `Delete` を検証できず、
+ * 消えた相手のお気に入りを消せないまま残すことになる。
  *
  * 記録した鍵を使うのは、相手のサーバーが「もう無い」と答えたときだけにする。
  * 取りに行けなかっただけの場合にも使うと、相手が鍵を替えた後に一時的な障害が
@@ -22,11 +26,12 @@ import org.slf4j.LoggerFactory
  * 引けたときは記録を新しくする。`Follow` を受けたときの鍵のままにしておくと、
  * 相手が鍵を替えてから消えた場合に、記録の鍵では検証できない。
  */
-class FollowerFallbackPublicKeys(
+class RecordedFallbackPublicKeys(
     private val remote: PublicKeys,
     private val followers: FollowerStore,
+    private val favourites: FavouriteStore,
 ) : PublicKeys {
-    private val logger = LoggerFactory.getLogger(FollowerFallbackPublicKeys::class.java)
+    private val logger = LoggerFactory.getLogger(RecordedFallbackPublicKeys::class.java)
 
     override suspend fun find(keyId: String): PublicKeyLookup = handle(keyId, remote.find(keyId))
 
@@ -62,8 +67,7 @@ class FollowerFallbackPublicKeys(
         val actorUri = keyId.substringBefore('#')
 
         val publicKey =
-            followers
-                .findPublicKeyPem(actorUri)
+            (followers.findPublicKeyPem(actorUri) ?: favourites.findPublicKeyPem(actorUri))
                 ?.let { runCatching { RsaKeys.decodePublicKeyPem(it) }.getOrNull() }
                 ?: return null
 

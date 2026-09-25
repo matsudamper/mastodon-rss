@@ -10,11 +10,8 @@ import net.matsudamper.mastodon.rss.json.AppJson
 import org.slf4j.LoggerFactory
 
 /**
- * `Undo` を受けたときの処理。フォロー解除に使う。
- *
- * `Undo` は `Follow` 以外も取り消せるので、`object` が何だったのかを見てから消す。
- * 相手の実装によって、`object` に `Follow` が丸ごと埋まっていることも、
- * その id だけが入っていることもある。
+ * `object` が `Follow` だったときだけ消す。相手の実装によって、`object` に
+ * `Follow` が丸ごと埋まっていることも、その id だけが入っていることもある。
  *
  * 埋まっている場合は `type` を見れば `Follow` だと分かる。id だけの場合は
  * 何のアクティビティの id なのか分からないので、こちらが記録している
@@ -24,26 +21,26 @@ import org.slf4j.LoggerFactory
  */
 class UndoFollowHandler(
     private val followers: FollowerStore,
-) : InboxActivityHandler {
-    override val type: String = "Undo"
-
+) {
     private val logger = LoggerFactory.getLogger(UndoFollowHandler::class.java)
 
-    override suspend fun handle(
+    /**
+     * @return フォローを解除したら true
+     */
+    suspend fun handle(
         recipient: ActorUrls,
         verifiedSignerActorId: String,
         activity: InboxActivity,
-        rawActivityJson: JsonObject,
-    ) {
+    ): Boolean {
         val followActivityUri = when (val undoObject = activity.target) {
             null -> {
                 logger.warn("Undo に object が無い: ${recipient.acct} ← $verifiedSignerActorId")
-                return
+                return false
             }
 
             is LinkOrObject.Link -> undoObject.href
 
-            is LinkOrObject.Embedded -> embeddedFollowId(recipient, verifiedSignerActorId, undoObject.json) ?: return
+            is LinkOrObject.Embedded -> embeddedFollowId(recipient, verifiedSignerActorId, undoObject.json) ?: return false
         }
 
         // 消せるのは署名した本人のフォローだけ。他人のフォローを消す Undo は
@@ -61,6 +58,7 @@ class UndoFollowHandler(
             // 既に Delete で消えた相手からも Undo は届く
             logger.info("解除するフォローが記録に無い: ${recipient.acct} ← $verifiedSignerActorId")
         }
+        return removed
     }
 
     /**

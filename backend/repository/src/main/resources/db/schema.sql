@@ -55,6 +55,16 @@ CREATE TABLE delivery_queue (
     target_actor_uri TEXT
 );
 
+CREATE TABLE early_undone_likes (
+    -- Like より先に届いた Undo が object で指していた Like アクティビティの id。
+    -- 後から届いた Like を記録しないために、期限まで覚えておく。
+    -- 押した相手は記録に無いこともあるので remote_actors は指さない
+    actor_uri TEXT NOT NULL,
+    activity_uri TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    PRIMARY KEY (actor_uri, activity_uri)
+);
+
 CREATE TABLE feed_icons (
     -- フィードに 1 つ。フィードを消すと一緒に消える
     feed_id INTEGER PRIMARY KEY REFERENCES feeds (id) ON DELETE CASCADE,
@@ -160,6 +170,17 @@ CREATE TABLE notes (
     published_at TEXT NOT NULL
 );
 
+CREATE TABLE note_favourites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
+    -- 押した相手。フォロワーとは限らないが、相手が消えた後の Delete を検証できるよう
+    -- 鍵ごと remote_actors に残す
+    remote_actor_id INTEGER NOT NULL REFERENCES remote_actors (id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    -- 同じ相手が同じ投稿に重ねない。送り直しや、取り消しが届かないままの押し直しでも増えない
+    UNIQUE (note_public_id, remote_actor_id)
+);
+
 CREATE TABLE remote_actors (
     -- 相手のサーバーのアクター。フォロワーの inbox と公開鍵の置き場
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -202,3 +223,7 @@ CREATE INDEX feed_items_note_id ON feed_items (note_id);
 CREATE INDEX notes_published_at_public_id ON notes (published_at, public_id);
 
 CREATE INDEX notes_username_published_at ON notes (username, published_at);
+
+CREATE INDEX note_favourites_remote_actor_id ON note_favourites (remote_actor_id);
+
+CREATE INDEX early_undone_likes_expires_at ON early_undone_likes (expires_at);

@@ -5,11 +5,13 @@ import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
+import net.matsudamper.mastodon.rss.repository.EarlyUndoneLikeRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FeedIconRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.HEALTH_CHECK
@@ -29,6 +31,10 @@ internal class SqliteRepositories(
     override val followers: FollowerRepository = SqliteFollowerRepository(jooq)
 
     override val notes: NoteRepository = SqliteNoteRepository(jooq)
+
+    override val noteFavourites: NoteFavouriteRepository = SqliteNoteFavouriteRepository(jooq)
+
+    override val earlyUndoneLikes: EarlyUndoneLikeRepository = SqliteEarlyUndoneLikeRepository(jooq)
 
     override val feeds: FeedRepository = SqliteFeedRepository(jooq)
 

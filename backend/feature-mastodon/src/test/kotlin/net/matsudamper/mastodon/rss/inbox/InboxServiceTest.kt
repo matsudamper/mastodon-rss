@@ -11,6 +11,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.http.Headers
+import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
@@ -19,7 +20,8 @@ import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
-import net.matsudamper.mastodon.rss.follower.FollowerFallbackPublicKeys
+import net.matsudamper.mastodon.rss.entity.PublicNoteId
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
@@ -253,10 +255,42 @@ class InboxServiceTest {
         runBlocking {
             val handler = RecordingHandler("Delete")
             val publicKeys =
-                FollowerFallbackPublicKeys(
+                RecordedFallbackPublicKeys(
                     // アカウントが消えたと答えるサーバー
                     remote = TestRemoteActors(missing = PublicKeyLookup.Gone),
                     followers = recordedFollower(),
+                    favourites = FakeFavouriteStore(),
+                )
+
+            val result =
+                service(listOf(handler), publicKeys = publicKeys)
+                    .receive(recipient, signedRequest(delete()))
+
+            assertEquals(InboxResult.Accepted, result)
+            val call = handler.calls.singleOrNull() ?: fail("ハンドラが呼ばれていない")
+            assertEquals(TestRemoteActor.ACTOR_ID, call.verifiedSignerActorId)
+        }
+
+    private fun recordedFavourite(): FakeFavouriteStore =
+        FakeFavouriteStore().apply {
+            add(
+                ReceivedFavourite(
+                    notePublicId = PublicNoteId("note1"),
+                    actor = TestRemoteActor.actor,
+                    receivedAt = Instant.now(),
+                ),
+            )
+        }
+
+    @Test
+    fun `フォロワーでなくてもお気に入りの記録があれば消えたアクターの Delete を検証できる`() =
+        runBlocking {
+            val handler = RecordingHandler("Delete")
+            val publicKeys =
+                RecordedFallbackPublicKeys(
+                    remote = TestRemoteActors(missing = PublicKeyLookup.Gone),
+                    followers = FakeFollowerStore(),
+                    favourites = recordedFavourite(),
                 )
 
             val result =
