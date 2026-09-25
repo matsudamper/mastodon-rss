@@ -173,8 +173,8 @@ CREATE TABLE notes (
 CREATE TABLE note_favourites (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
-    -- 押した相手。フォロワーとは限らないが、相手が消えた後の Delete を検証できるよう
-    -- 鍵ごと remote_actors に残す
+    -- 押した相手。フォロワーとは限らない。公開鍵は remote_actors の行に 1 つだけ持ち、
+    -- 相手が消えた後に届く Delete の検証に使う
     remote_actor_id INTEGER NOT NULL REFERENCES remote_actors (id) ON DELETE CASCADE,
     created_at TEXT NOT NULL,
     -- 同じ相手が同じ投稿に重ねない。送り直しや、取り消しが届かないままの押し直しでも増えない
@@ -185,7 +185,7 @@ CREATE TABLE note_stamps (
     -- 絵文字のスタンプ。Mastodon には無く、Misskey の Like と Pleroma の EmojiReact で届く
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
-    -- note_favourites と同じく、相手が消えた後の Delete を検証できるよう鍵ごと remote_actors に残す
+    -- 押した相手。公開鍵は note_favourites と同じく remote_actors の行が持つ
     remote_actor_id INTEGER NOT NULL REFERENCES remote_actors (id) ON DELETE CASCADE,
     -- 絵文字そのもの、またはカスタム絵文字の :name:
     emoji TEXT NOT NULL,
