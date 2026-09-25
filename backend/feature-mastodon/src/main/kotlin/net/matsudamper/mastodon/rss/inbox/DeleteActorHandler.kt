@@ -6,6 +6,7 @@ import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.follower.FollowerStore
+import net.matsudamper.mastodon.rss.stamp.StampStore
 import org.slf4j.LoggerFactory
 
 /**
@@ -18,13 +19,14 @@ import org.slf4j.LoggerFactory
  * 掃除しないと、消えたアカウントの inbox に投稿を送り続けることになる。
  *
  * ここに届くのは署名を検証できたものだけ。相手が既に消えていてアクター文書を
- * 引けなくても、フォローとお気に入りのどちらを受けたときも鍵を残してあるので検証は通る。
+ * 引けなくても、フォローとお気に入りとスタンプのどれを受けたときも鍵を残してあるので検証は通る。
  * 記録の無い相手からの `Delete` は [InboxService] が検証の手前で落とすが、
  * 記録が無い以上、掃除するものも無い。
  */
 class DeleteActorHandler(
     private val followers: FollowerStore,
     private val favourites: FavouriteStore,
+    private val stamps: StampStore,
 ) : InboxActivityHandler {
     override val type: String = "Delete"
 
@@ -47,9 +49,10 @@ class DeleteActorHandler(
             return
         }
 
-        // お気に入りを先に消す。フォローの解除は相手のアクターの記録ごと消すので、
-        // 順番を入れ替えるとお気に入りは道連れで消えて、件数だけが 0 になる
+        // お気に入りとスタンプを先に消す。フォローの解除は相手のアクターの記録ごと消すので、
+        // 順番を入れ替えると道連れで消えて、件数だけが 0 になる
         val removedFavourites = favourites.removeActor(deleteObjectId)
+        val removedStamps = stamps.removeActor(deleteObjectId)
 
         // こちらのどのアカウントをフォローしていたかに関わらず全部消える。
         // 宛先のアカウントだけを消すと、同じ相手が他のアカウントをフォローしていた分が
@@ -58,7 +61,7 @@ class DeleteActorHandler(
 
         logger.info(
             "アクターが削除されたので記録から外した: $deleteObjectId " +
-                "解除したフォロー=$removed 件 取り消したお気に入り=$removedFavourites 件",
+                "解除したフォロー=$removed 件 取り消したお気に入り=$removedFavourites 件 取り消したスタンプ=$removedStamps 件",
         )
     }
 }

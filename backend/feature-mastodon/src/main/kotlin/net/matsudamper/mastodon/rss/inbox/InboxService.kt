@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.stamp.StampStore
 import org.slf4j.LoggerFactory
 
 /**
@@ -151,40 +152,62 @@ class InboxService(
          * 送るのは受け取り側の都合と切り離す。
          *
          * @param remoteActors 相手のアクターの引き先。署名検証に使う公開鍵と、
-         *   `Accept` の宛先になる inbox、お気に入りを押した相手として残す鍵をここから取る
+         *   `Accept` の宛先になる inbox、お気に入りやスタンプを押した相手として残す鍵をここから取る
          * @param followers フォローの記録。配信先だけでなく、相手が消えて
          *   アクター文書を引けなくなったときの公開鍵の引き先にもなる
          * @param favourites お気に入りの記録。[followers] と同じく、
          *   消えた相手の公開鍵の引き先にもなる
+         * @param stamps スタンプの記録。[favourites] と同じく、消えた相手の公開鍵の引き先にもなる
          */
         fun default(
             remoteActors: RemoteActors,
             followers: FollowerStore,
             favourites: FavouriteStore,
+            stamps: StampStore,
             earlyUndoneLikes: EarlyUndoneLikes,
             domain: String,
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(
-                    RecordedFallbackPublicKeys(remote = remoteActors, followers = followers, favourites = favourites),
+                    RecordedFallbackPublicKeys(
+                        remote = remoteActors,
+                        followers = followers,
+                        favourites = favourites,
+                        stamps = stamps,
+                    ),
                 ),
                 handlers = listOf(
                     FollowHandler(
                         remoteActors = remoteActors,
                         followers = followers,
                     ),
-                    FavouriteHandler(
+                    ReactionHandler(
+                        type = ReactionHandler.LIKE_TYPE,
                         domain = domain,
                         remoteActors = remoteActors,
                         favourites = favourites,
+                        stamps = stamps,
+                        earlyUndoneLikes = earlyUndoneLikes,
+                    ),
+                    ReactionHandler(
+                        type = ReactionHandler.EMOJI_REACT_TYPE,
+                        domain = domain,
+                        remoteActors = remoteActors,
+                        favourites = favourites,
+                        stamps = stamps,
                         earlyUndoneLikes = earlyUndoneLikes,
                     ),
                     UndoHandler(
-                        favourites = UndoFavouriteHandler(domain = domain, favourites = favourites, earlyUndoneLikes = earlyUndoneLikes),
+                        reactions = UndoReactionHandler(
+                            domain = domain,
+                            favourites = favourites,
+                            stamps = stamps,
+                            earlyUndoneLikes = earlyUndoneLikes,
+                        ),
                         follows = UndoFollowHandler(followers),
                     ),
                     UpdateActorHandler(followers),
-                    DeleteActorHandler(followers = followers, favourites = favourites),
+                    DeleteActorHandler(followers = followers, favourites = favourites, stamps = stamps),
                 ),
             )
     }

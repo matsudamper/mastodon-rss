@@ -18,6 +18,7 @@ import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeEarlyUndoneLikes
 import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
+import net.matsudamper.mastodon.rss.FakeStampStore
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
@@ -56,6 +57,7 @@ class InboxRoutesTest {
                         remoteActors = remoteActors,
                         followers = followers,
                         favourites = FakeFavouriteStore(),
+                        stamps = FakeStampStore(),
                         earlyUndoneLikes = FakeEarlyUndoneLikes(),
                         domain = TestLocalActor.DOMAIN,
                     ),

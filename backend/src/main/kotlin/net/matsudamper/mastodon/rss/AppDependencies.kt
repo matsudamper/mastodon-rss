@@ -54,6 +54,7 @@ import net.matsudamper.mastodon.rss.logic.RepositoryFavouriteStore
 import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
+import net.matsudamper.mastodon.rss.logic.RepositoryStampStore
 import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.note.NotePublisher
 import net.matsudamper.mastodon.rss.note.NoteStore
@@ -235,6 +236,7 @@ class AppDependencies(
         remoteActors = remoteActors,
         followers = followerStore,
         favourites = favouriteStore,
+        stamps = RepositoryStampStore(repositories.noteStamps),
         earlyUndoneLikes = RepositoryEarlyUndoneLikes(repositories.earlyUndoneLikes),
         domain = env.domain,
     )

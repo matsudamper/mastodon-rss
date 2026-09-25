@@ -27,6 +27,9 @@ data class InboxActivity(
     /** `object` は Kotlin の予約語なので名前を変えて受ける */
     @SerialName("object")
     val target: LinkOrObject? = null,
+    /** Misskey の `Like` と Pleroma の `EmojiReact` では、押した絵文字が入る */
+    @SerialName("content")
+    val content: String? = null,
 ) {
     /** 実行した相手のアクター id。取れなければ null */
     val actorId: String?

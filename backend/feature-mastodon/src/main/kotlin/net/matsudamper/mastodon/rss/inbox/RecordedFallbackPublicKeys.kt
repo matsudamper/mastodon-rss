@@ -6,6 +6,7 @@ import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
+import net.matsudamper.mastodon.rss.stamp.StampStore
 import org.slf4j.LoggerFactory
 
 /**
@@ -13,10 +14,10 @@ import org.slf4j.LoggerFactory
  *
  * ActivityPub で鍵を配る手段はアクター文書しかないので、相手が消えると鍵は
  * どこからも取れなくなる。アカウント削除の `Delete` は本人が消えた後に届くため、
- * 取りに行くだけでは署名を検証できない。フォローとお気に入りのどちらを受けたときも
+ * 取りに行くだけでは署名を検証できない。フォローとお気に入りとスタンプのどれを受けたときも
  * そのとき読んだ鍵を残してあるので、記録のある相手ならそれで検証できる。
- * フォロワーだけを見ると、お気に入りしか押していない相手の `Delete` を検証できず、
- * 消えた相手のお気に入りを消せないまま残すことになる。
+ * フォロワーだけを見ると、お気に入りやスタンプしか押していない相手の `Delete` を検証できず、
+ * 消えた相手のお気に入りやスタンプを消せないまま残すことになる。
  *
  * 記録した鍵を使うのは、相手のサーバーが「もう無い」と答えたときだけにする。
  * 取りに行けなかっただけの場合にも使うと、相手が鍵を替えた後に一時的な障害が
@@ -30,6 +31,7 @@ class RecordedFallbackPublicKeys(
     private val remote: PublicKeys,
     private val followers: FollowerStore,
     private val favourites: FavouriteStore,
+    private val stamps: StampStore,
 ) : PublicKeys {
     private val logger = LoggerFactory.getLogger(RecordedFallbackPublicKeys::class.java)
 
@@ -67,7 +69,11 @@ class RecordedFallbackPublicKeys(
         val actorUri = keyId.substringBefore('#')
 
         val publicKey =
-            (followers.findPublicKeyPem(actorUri) ?: favourites.findPublicKeyPem(actorUri))
+            (
+                followers.findPublicKeyPem(actorUri)
+                    ?: favourites.findPublicKeyPem(actorUri)
+                    ?: stamps.findPublicKeyPem(actorUri)
+                )
                 ?.let { runCatching { RsaKeys.decodePublicKeyPem(it) }.getOrNull() }
                 ?: return null
 

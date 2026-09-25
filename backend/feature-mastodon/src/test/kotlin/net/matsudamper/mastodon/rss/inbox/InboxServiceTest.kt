@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.http.Headers
 import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
+import net.matsudamper.mastodon.rss.FakeStampStore
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.activity.InboxActivity
@@ -260,6 +261,7 @@ class InboxServiceTest {
                     remote = TestRemoteActors(missing = PublicKeyLookup.Gone),
                     followers = recordedFollower(),
                     favourites = FakeFavouriteStore(),
+                    stamps = FakeStampStore(),
                 )
 
             val result =
@@ -291,6 +293,7 @@ class InboxServiceTest {
                     remote = TestRemoteActors(missing = PublicKeyLookup.Gone),
                     followers = FakeFollowerStore(),
                     favourites = recordedFavourite(),
+                    stamps = FakeStampStore(),
                 )
 
             val result =
