@@ -76,7 +76,6 @@ internal fun AccountNoteContent(
 ) {
     AlertDialog(
         onDismissRequest = uiState.listener::onClickClose,
-        title = { Text("投稿") },
         text = {
             // 本文の長さで縦に伸びるので、画面に収まらないことがある
             Column(
