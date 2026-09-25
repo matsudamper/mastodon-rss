@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -21,11 +23,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
@@ -59,6 +63,10 @@ internal fun AccountNoteScreen(
 
                 override suspend fun openExternalLink(url: String) {
                     platform.openExternalLink(url)
+                }
+
+                override suspend fun navigate(screen: Screen) {
+                    navController.navigate(screen)
                 }
             },
         )
@@ -100,7 +108,10 @@ internal fun AccountNoteContent(
                     }
 
                     is AccountNoteScreenUiState.Content.Loaded -> {
-                        NoteAccountHeader(account = content.account)
+                        NoteAccountHeader(
+                            account = content.account,
+                            onClick = uiState.listener::onClickAccount,
+                        )
                         NoteContent(content.contentHtml, Modifier.fillMaxWidth())
                         content.favouriteCount?.let { favouriteCount ->
                             NoteFavouriteCount(count = favouriteCount)
@@ -145,9 +156,15 @@ internal fun AccountNoteContent(
 }
 
 @Composable
-private fun NoteAccountHeader(account: AccountNoteScreenUiState.Account) {
+private fun NoteAccountHeader(
+    account: AccountNoteScreenUiState.Account,
+    onClick: () -> Unit,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

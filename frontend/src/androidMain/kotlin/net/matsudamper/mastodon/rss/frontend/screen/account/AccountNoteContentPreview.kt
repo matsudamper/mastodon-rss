@@ -53,6 +53,8 @@ private object AndroidPreviewAccountNoteListener : AccountNoteScreenUiState.List
 
     override fun onClickReload() = Unit
 
+    override fun onClickAccount() = Unit
+
     override fun onClickActivityPub() = Unit
 
     override fun onClickLinkPreview(url: String) = Unit
