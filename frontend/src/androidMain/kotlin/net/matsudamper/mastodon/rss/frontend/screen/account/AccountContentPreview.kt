@@ -34,6 +34,7 @@ private fun AccountContentPreview() {
                             url = "https://example.com/notes/1",
                             contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
                             publishedAt = "2026-09-02 12:00",
+                            favouriteCount = "3",
                             linkPreviews = listOf(
                                 NoteUiState.LinkPreview(
                                     url = "https://example.com/compose-multiplatform",

@@ -7,6 +7,7 @@ data class AccountNote(
     val url: String,
     val contentHtml: String,
     val publishedAt: Instant,
+    val favouriteCount: Int,
 )
 
 /**

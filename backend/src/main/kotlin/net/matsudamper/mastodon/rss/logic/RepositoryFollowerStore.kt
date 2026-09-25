@@ -6,8 +6,6 @@ import net.matsudamper.mastodon.rss.actor.RemoteActorProfile
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
-import net.matsudamper.mastodon.rss.repository.NewRemoteActor
-import net.matsudamper.mastodon.rss.repository.RemoteActorProfile as StoredRemoteActorProfile
 
 /**
  * ActivityPub 側の [FollowerStore] を DB に繋ぐ。
@@ -27,13 +25,7 @@ class RepositoryFollowerStore(
         followers.record(
             IncomingFollow(
                 username = username,
-                follower = NewRemoteActor(
-                    actorUri = follower.actorId,
-                    inbox = follower.inbox,
-                    sharedInbox = follower.sharedInbox,
-                    publicKeyPem = follower.publicKeyPem,
-                    profile = follower.profile.toStored(),
-                ),
+                follower = StoredRemoteActors.of(follower),
                 followActivityUri = followActivityUri,
                 receivedAt = receivedAt,
                 acceptBody = acceptBody,
@@ -71,7 +63,7 @@ class RepositoryFollowerStore(
         actorUri: String,
         profile: RemoteActorProfile,
     ) {
-        followers.rememberProfile(actorUri = actorUri, profile = profile.toStored())
+        followers.rememberProfile(actorUri = actorUri, profile = StoredRemoteActors.of(profile))
     }
 
     /**
@@ -90,11 +82,3 @@ class RepositoryFollowerStore(
 
     override fun deliveryTargets(username: String): List<String> = followers.deliveryTargets(username)
 }
-
-private fun RemoteActorProfile.toStored(): StoredRemoteActorProfile =
-    StoredRemoteActorProfile(
-        preferredUsername = preferredUsername,
-        displayName = displayName,
-        profileUrl = profileUrl,
-        iconUrl = iconUrl,
-    )

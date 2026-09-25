@@ -20,6 +20,7 @@ data class AccountNoteScreenUiState(
         data class Loaded(
             val contentHtml: String,
             val publishedAt: String,
+            val favouriteCount: String?,
             val linkPreviews: List<LinkPreview>,
         ) : Content
 

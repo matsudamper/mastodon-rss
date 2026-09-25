@@ -5,7 +5,7 @@ import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
-import net.matsudamper.mastodon.rss.follower.FollowerFallbackPublicKeys
+import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
@@ -151,26 +151,40 @@ class InboxService(
          * 送るのは受け取り側の都合と切り離す。
          *
          * @param remoteActors 相手のアクターの引き先。署名検証に使う公開鍵と、
-         *   `Accept` の宛先になる inbox をここから取る
+         *   `Accept` の宛先になる inbox、お気に入りを押した相手として残す鍵をここから取る
          * @param followers フォローの記録。配信先だけでなく、相手が消えて
          *   アクター文書を引けなくなったときの公開鍵の引き先にもなる
+         * @param favourites お気に入りの記録。[followers] と同じく、
+         *   消えた相手の公開鍵の引き先にもなる
          */
         fun default(
             remoteActors: RemoteActors,
             followers: FollowerStore,
+            favourites: FavouriteStore,
+            earlyUndoneLikes: EarlyUndoneLikes,
+            domain: String,
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(
-                    FollowerFallbackPublicKeys(remote = remoteActors, followers = followers),
+                    RecordedFallbackPublicKeys(remote = remoteActors, followers = followers, favourites = favourites),
                 ),
                 handlers = listOf(
                     FollowHandler(
                         remoteActors = remoteActors,
                         followers = followers,
                     ),
-                    UndoFollowHandler(followers),
+                    FavouriteHandler(
+                        domain = domain,
+                        remoteActors = remoteActors,
+                        favourites = favourites,
+                        earlyUndoneLikes = earlyUndoneLikes,
+                    ),
+                    UndoHandler(
+                        favourites = UndoFavouriteHandler(domain = domain, favourites = favourites, earlyUndoneLikes = earlyUndoneLikes),
+                        follows = UndoFollowHandler(followers),
+                    ),
                     UpdateActorHandler(followers),
-                    DeleteActorHandler(followers),
+                    DeleteActorHandler(followers = followers, favourites = favourites),
                 ),
             )
     }
