@@ -64,23 +64,21 @@ class UndoFollowHandler(
         return removed
     }
 
-    /**
-     * 共有 inbox では、`object` が id だけだとどのアカウントへのフォローか分からないので扱わない。
-     * Mastodon は `Undo{Follow}` を、`Follow` を埋めてアカウントごとの inbox に送ってくる
-     */
     private fun linkedFollow(
         recipient: InboxRecipient,
         verifiedSignerActorId: String,
         followActivityUri: String,
     ): UndoneFollow? {
-        return when (recipient) {
-            is InboxRecipient.Account -> UndoneFollow(followee = recipient.urls, followActivityUri = followActivityUri)
+        val followee = when (recipient) {
+            is InboxRecipient.Account -> recipient.urls
 
-            InboxRecipient.Shared -> {
-                logger.info("共有 inbox に届いた id だけの Undo は、フォローの解除としては扱わない: ← $verifiedSignerActorId")
-                null
-            }
-        }
+            InboxRecipient.Shared ->
+                followers
+                    .findFolloweeUsername(followerActorUri = verifiedSignerActorId, followActivityUri = followActivityUri)
+                    ?.let { directory.resolve(it) }
+        } ?: return null
+
+        return UndoneFollow(followee = followee, followActivityUri = followActivityUri)
     }
 
     /**

@@ -61,9 +61,8 @@ Actor は `endpoints.sharedInbox` に `/inbox` を出す。相手は同じサー
 ここへ 1 通にまとめる。出さないと、共有 inbox にしか配らない実装から届かない。
 
 共有 inbox には宛先のアカウントが無いので、`Follow` と `Undo{Follow}` は `object` の
-アクターから宛先を引く。`object` が id だけの `Undo` は、どのアカウントへのフォローか
-分からないのでフォローの解除としては扱わない。Mastodon は `Undo{Follow}` を、`Follow` を
-埋めてアカウントごとの inbox に送ってくる。
+アクターから宛先を引く。`object` が id だけの `Undo` は、記録している `Follow` の id から
+どのアカウントへのフォローかを引く。
 
 inbox は署名が通れば 202、通らなければ 401 を返す。検証の内容は
 [HttpSignatureVerifier.kt](../backend/feature-mastodon/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)

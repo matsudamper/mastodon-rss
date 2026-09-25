@@ -42,6 +42,11 @@ class RepositoryFollowerStore(
         followActivityUri = followActivityUri,
     )
 
+    override fun findFolloweeUsername(
+        followerActorUri: String,
+        followActivityUri: String,
+    ): String? = followers.findFolloweeUsername(followerActorUri = followerActorUri, followActivityUri = followActivityUri)
+
     override fun removeAccount(username: String): Int = followers.removeAccount(username)
 
     override fun removeRemoteActor(actorUri: String): Int = followers.removeRemoteActor(actorUri)

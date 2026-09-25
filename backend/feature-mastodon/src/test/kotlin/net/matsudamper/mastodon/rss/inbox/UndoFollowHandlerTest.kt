@@ -157,7 +157,7 @@ class UndoFollowHandlerTest {
     }
 
     @Test
-    fun `共有 inbox に届いた id だけの Undo ではどのアカウントのフォローか分からないので解除しない`() = runBlocking {
+    fun `共有 inbox に届いた id だけの Undo は、記録している Follow の id から宛先を引いて解除する`() = runBlocking {
         val store = followers()
 
         handle(
@@ -165,6 +165,22 @@ class UndoFollowHandlerTest {
             """
             {"id":"https://remote.example/activities/2","type":"Undo",
              "actor":"${TestRemoteActor.ACTOR_ID}","object":"$followUri"}
+            """.trimIndent(),
+            inbox = InboxRecipient.Shared,
+        )
+
+        assertEquals(0, store.count(TestLocalActor.USERNAME))
+    }
+
+    @Test
+    fun `共有 inbox に届いた id だけの Undo が記録に無い Follow を指していれば何もしない`() = runBlocking {
+        val store = followers()
+
+        handle(
+            store,
+            """
+            {"id":"https://remote.example/activities/2","type":"Undo",
+             "actor":"${TestRemoteActor.ACTOR_ID}","object":"https://remote.example/activities/unknown"}
             """.trimIndent(),
             inbox = InboxRecipient.Shared,
         )

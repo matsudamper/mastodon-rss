@@ -181,6 +181,29 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `Follow の id からフォローされたアカウントを引ける`() {
+        withRepositories { repositories ->
+            val followers = repositories.followers
+            followers.record(incomingFollow(username = "feed1"))
+
+            assertEquals(
+                "feed1",
+                followers.findFolloweeUsername(
+                    followerActorUri = "https://remote.example/users/alice",
+                    followActivityUri = "https://remote.example/activities/1",
+                ),
+            )
+            // 他人の Follow の id を名乗っても引けない
+            assertNull(
+                followers.findFolloweeUsername(
+                    followerActorUri = "https://remote.example/users/mallory",
+                    followActivityUri = "https://remote.example/activities/1",
+                ),
+            )
+        }
+    }
+
+    @Test
     fun `Follow の id を指定して解除できる`() {
         withRepositories { repositories ->
             val followers = repositories.followers

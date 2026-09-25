@@ -102,6 +102,20 @@ internal class SqliteFollowerRepository(
         removed
     }
 
+    override fun findFolloweeUsername(
+        followerActorUri: String,
+        followActivityUri: String,
+    ): String? = jooq.withConnection { dsl ->
+        dsl
+            .select(FOLLOWERS.USERNAME)
+            .from(FOLLOWERS)
+            .join(REMOTE_ACTORS)
+            .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
+            .where(FOLLOWERS.FOLLOW_ACTIVITY_URI.eq(followActivityUri))
+            .and(REMOTE_ACTORS.ACTOR_URI.eq(followerActorUri))
+            .fetchOne(FOLLOWERS.USERNAME)
+    }
+
     override fun removeAccount(username: String): Int = jooq.transaction { dsl ->
         // 消したフォローへの `Accept` は返す先が無い
         DeliveryQueueRows.deletePendingAcceptsOfAccount(dsl = dsl, username = username)
