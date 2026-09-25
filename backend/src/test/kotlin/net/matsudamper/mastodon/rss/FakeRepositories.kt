@@ -92,7 +92,11 @@ class FakeRepositories : Repositories {
         onRecorded = { follow -> deliveryQueue.enqueueAccept(follow) },
         onRemoved = { username, followerActorUri -> deliveryQueue.deletePendingAccept(username, followerActorUri) },
         onAccountRemoved = { username -> deliveryQueue.deletePendingAcceptsOfAccount(username) },
-        onRemoteActorRemoved = { followerActorUri -> deliveryQueue.deletePendingAcceptsToActor(followerActorUri) },
+        onRemoteActorRemoved = { followerActorUri ->
+            deliveryQueue.deletePendingAcceptsToActor(followerActorUri)
+            // remote_actors を消すとお気に入りも消えるのは SQLite の ON DELETE CASCADE
+            noteFavourites.removeByActor(followerActorUri)
+        },
     )
 
     // フィードを消すと記事も消えるのは SQLite の ON DELETE CASCADE。
