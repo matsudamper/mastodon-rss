@@ -1,7 +1,6 @@
 package net.matsudamper.mastodon.rss.frontend.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
@@ -11,14 +10,11 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import kotlinx.coroutines.CoroutineScope
 
 /**
- * 画面ごとに [RetainedScreenState] と rememberSaveable の保存先を持ち、
+ * 履歴ごとに [RetainedScreenState] と rememberSaveable の保存先を持ち、
  * ブラウザの戻る / 進むで来たときに離れる前の表示（スクロール位置など）で出す。
  *
  * バックスタックは URL から組み直すので、別の画面へ進むと前の画面はスタックから消え、
  * Navigation 3 はその画面の状態を捨てる。戻ったときに作り直さないよう、ここで別に持つ。
- *
- * アプリの中から開き直したときは [discard] で捨てて作り直す。
- * 履歴ごとではなく画面ごとに持つので、同じ画面が履歴に 2 つあれば状態は共有になる。
  */
 @Stable
 internal class ScreenStateStore(
@@ -26,63 +22,57 @@ internal class ScreenStateStore(
     private val saveableStateHolder: SaveableStateHolder,
 ) {
     /** 最後に出した順。古いものから捨てる */
-    private val statesByScreen: MutableMap<Screen, RetainedScreenState> = mutableMapOf()
-    private val shownCountByScreen: MutableMap<Screen, Int> = mutableMapOf()
+    private val statesByEntryId: MutableMap<String, RetainedScreenState> = mutableMapOf()
+    private val shownCountByEntryId: MutableMap<String, Int> = mutableMapOf()
 
     @Composable
     fun Provide(
-        screen: Screen,
-        content: @Composable () -> Unit,
+        entryId: String,
+        content: @Composable (RetainedScreenState) -> Unit,
     ) {
-        val retainedScreenState = remember(screen) { stateOf(screen) }
-        DisposableEffect(screen) {
-            shownCountByScreen[screen] = shownCountByScreen.getOrElse(screen) { 0 } + 1
+        val retainedScreenState = remember(entryId) { stateOf(entryId) }
+        DisposableEffect(entryId) {
+            shownCountByEntryId[entryId] = shownCountByEntryId.getOrElse(entryId) { 0 } + 1
             onDispose {
-                val shownCount = shownCountByScreen.getOrElse(screen) { 0 } - 1
+                val shownCount = shownCountByEntryId.getOrElse(entryId) { 0 } - 1
                 if (shownCount > 0) {
-                    shownCountByScreen[screen] = shownCount
+                    shownCountByEntryId[entryId] = shownCount
                 } else {
-                    shownCountByScreen.remove(screen)
+                    shownCountByEntryId.remove(entryId)
                 }
                 trim()
             }
         }
-        CompositionLocalProvider(LocalRetainedScreenState provides retainedScreenState) {
-            saveableStateHolder.SaveableStateProvider(key = screen.path, content = content)
+        saveableStateHolder.SaveableStateProvider(key = entryId) {
+            content(retainedScreenState)
         }
     }
 
-    /**
-     * 出している最中の画面は捨てない。組み立て中の画面が持っている ViewModel が止まる
-     */
-    fun discard(screen: Screen) {
-        if (screen in shownCountByScreen) return
-
-        statesByScreen.remove(screen)?.dispose()
-        saveableStateHolder.removeState(screen.path)
-    }
-
-    private fun stateOf(screen: Screen): RetainedScreenState {
-        val state = statesByScreen.remove(screen) ?: RetainedScreenState(parentScope)
-        statesByScreen[screen] = state
+    private fun stateOf(entryId: String): RetainedScreenState {
+        val state = statesByEntryId.remove(entryId) ?: RetainedScreenState(parentScope)
+        statesByEntryId[entryId] = state
         return state
     }
 
     /**
-     * 離れた画面の ViewModel も動いたままなので、持っておく数を絞る
+     * 離れた画面の ViewModel も動いたままなので、持っておく数を絞る。
+     * 出している最中の画面は捨てない。組み立て中の画面が持っている ViewModel が止まる
      */
     private fun trim() {
-        val overflowCount = statesByScreen.size - MAX_RETAINED_SCREENS
+        val overflowCount = statesByEntryId.size - MAX_RETAINED_ENTRIES
         if (overflowCount <= 0) return
 
-        statesByScreen.keys
-            .filter { it !in shownCountByScreen }
+        statesByEntryId.keys
+            .filter { it !in shownCountByEntryId }
             .take(overflowCount)
-            .forEach { discard(it) }
+            .forEach { entryId ->
+                statesByEntryId.remove(entryId)?.dispose()
+                saveableStateHolder.removeState(entryId)
+            }
     }
 
     private companion object {
-        const val MAX_RETAINED_SCREENS = 16
+        const val MAX_RETAINED_ENTRIES = 16
     }
 }
 

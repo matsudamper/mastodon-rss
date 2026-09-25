@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.navigation.RetainedScreenState
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberRetained
 import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
@@ -30,8 +31,9 @@ internal fun AccountFollowersScreen(
     username: String,
     platform: ScreenPlatform,
     navController: Navigator,
+    retainedScreenState: RetainedScreenState,
 ) {
-    val viewModel = rememberRetained { viewModelScope ->
+    val viewModel = rememberRetained(retainedScreenState) { viewModelScope ->
         AccountFollowersScreenViewModel(
             username = username,
             viewModelScope = viewModelScope,

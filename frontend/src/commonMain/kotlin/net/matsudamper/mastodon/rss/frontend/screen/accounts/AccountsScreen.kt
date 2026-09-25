@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
+import net.matsudamper.mastodon.rss.frontend.navigation.RetainedScreenState
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 import net.matsudamper.mastodon.rss.frontend.navigation.rememberRetained
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
@@ -41,8 +42,9 @@ import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 @Composable
 internal fun AccountsScreen(
     navController: Navigator,
+    retainedScreenState: RetainedScreenState,
 ) {
-    val viewModel = rememberRetained { viewModelScope ->
+    val viewModel = rememberRetained(retainedScreenState) { viewModelScope ->
         AccountsScreenViewModel(viewModelScope)
     }
     val uiState by viewModel.uiStateFlow.collectAsState()

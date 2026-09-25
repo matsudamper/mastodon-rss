@@ -177,9 +177,9 @@ metadata が持つのは重なるという 1 点だけで、ダイアログに�
 画面の外に置く（`AdminFeedUpdates`）。
 
 バックスタックは URL から組み直すので、別の画面へ進むと前の画面はスタックから消える。
-ブラウザの戻る / 進むで同じスクロール位置に戻すため、ViewModel と rememberSaveable の
-状態は `ScreenStateStore` が画面ごとに持ち越す。ViewModel を `rememberRetained` で作った
-画面だけが対象で、アプリの中から開き直したときは捨てて作り直す。
+ブラウザの戻る / 進むで同じスクロール位置に戻すため、履歴 1 つごとに id を振って
+`history.state` に持たせ、ViewModel と rememberSaveable の状態は `ScreenStateStore` が
+その id ごとに持ち越す。ViewModel を `rememberRetained` で作った画面だけが対象。
 
 画面は canvas に描くので、ブラウザが持っているフォントも `@font-face` も効かない。
 日本語のフォントは静的ファイルと一緒に `/fonts/` で配信し、起動後に取ってきて
