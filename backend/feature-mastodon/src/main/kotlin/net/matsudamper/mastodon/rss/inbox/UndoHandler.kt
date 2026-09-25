@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.inbox
 
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
+import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 
 /**
@@ -28,10 +29,18 @@ class UndoHandler(
         )
         if (undoneFavourite) return
 
-        follows.handle(
+        val unfollowed = follows.handle(
             recipient = recipient,
             verifiedSignerActorId = verifiedSignerActorId,
             activity = activity,
         )
+        if (unfollowed) return
+
+        // Mastodon の handle_reference と同じく、object が id だけの Undo が何にも
+        // 当たらなければ、まだ届いていない Like の取り消しとみなしてその id を覚える
+        val undoObject = activity.target
+        if (undoObject is LinkOrObject.Link) {
+            favourites.rememberEarlyUndone(actorUri = verifiedSignerActorId, activityUri = undoObject.href)
+        }
     }
 }

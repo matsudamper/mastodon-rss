@@ -56,8 +56,9 @@ CREATE TABLE delivery_queue (
 );
 
 CREATE TABLE early_undone_likes (
-    -- Like より先に届いた Undo が指していた id。後から届いた Like を記録しないために、
-    -- 期限まで覚えておく。押した相手は記録に無いこともあるので remote_actors は指さない
+    -- Like より先に届いた Undo が object で指していた Like アクティビティの id。
+    -- 後から届いた Like を記録しないために、期限まで覚えておく。
+    -- 押した相手は記録に無いこともあるので remote_actors は指さない
     actor_uri TEXT NOT NULL,
     activity_uri TEXT NOT NULL,
     expires_at TEXT NOT NULL,

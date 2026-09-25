@@ -12,8 +12,9 @@ import net.matsudamper.mastodon.rss.note.NoteUrls
 import org.slf4j.LoggerFactory
 
 /**
- * `Like` の id は記録していないので、`object` が id だけの `Undo` ではお気に入りを
- * 取り消せない。Mastodon も同じで、id だけの取り消しはお気に入りとしては扱わない。
+ * 受け取った `Like` アクティビティ自身の `id` は記録していないので、`object` にその
+ * `id` だけが入った `Undo` ではお気に入りを取り消せない。Mastodon も同じで、この形の
+ * 取り消しはお気に入りとしては扱わない。
  */
 class UndoFavouriteHandler(
     private val domain: String,
@@ -32,13 +33,7 @@ class UndoFavouriteHandler(
     ): Boolean {
         return when (val undoObject = activity.target) {
             null -> false
-
-            is LinkOrObject.Link -> {
-                // 何の取り消しか分からないので、後から同じ id の Like が届いたときのために覚えておく
-                rememberEarlyUndone(actorUri = verifiedSignerActorId, activityUri = undoObject.href)
-                false
-            }
-
+            is LinkOrObject.Link -> false
             is LinkOrObject.Embedded -> removeEmbedded(recipient, verifiedSignerActorId, undoObject)
         }
     }
@@ -77,7 +72,11 @@ class UndoFavouriteHandler(
         return true
     }
 
-    private fun rememberEarlyUndone(
+    /**
+     * @param activityUri `Undo` の `object` が指していた `Like` アクティビティの `id`。
+     *   後から同じ `id` の `Like` が届いても記録しない
+     */
+    fun rememberEarlyUndone(
         actorUri: String,
         activityUri: String,
     ) {

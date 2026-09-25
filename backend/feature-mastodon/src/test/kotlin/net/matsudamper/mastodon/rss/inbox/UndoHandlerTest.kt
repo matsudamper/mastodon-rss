@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.inbox
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
@@ -151,6 +152,23 @@ class UndoHandlerTest {
         )
 
         assertTrue(earlyUndoneLikes.isRemembered(actorUri = TestRemoteActor.ACTOR_ID, activityUri = likeUri, now = Instant.now()))
+    }
+
+    @Test
+    fun `フォローを解除した id だけの Undo は Like の取り消しとして覚えない`() = runBlocking {
+        val earlyUndoneLikes = FakeEarlyUndoneLikes()
+
+        handle(
+            """
+            {"id":"https://remote.example/undo/1","type":"Undo",
+             "actor":"${TestRemoteActor.ACTOR_ID}","object":"$followUri"}
+            """.trimIndent(),
+            followers = followers(),
+            favourites = favourites(),
+            earlyUndoneLikes = earlyUndoneLikes,
+        )
+
+        assertFalse(earlyUndoneLikes.isRemembered(actorUri = TestRemoteActor.ACTOR_ID, activityUri = followUri, now = Instant.now()))
     }
 
     @Test
