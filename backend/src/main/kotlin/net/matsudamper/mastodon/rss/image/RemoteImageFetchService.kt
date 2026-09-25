@@ -64,8 +64,14 @@ class RemoteImageFetchService(
      *
      * リダイレクトは自分で辿る。クライアントに任せると、飛んだ先が内側を
      * 指していても検査を通さずに繋いでしまう。
+     *
+     * @param maxFreshFor 配信元が言う「取り直さなくてよい時間」の上限。呼び出し側ごとに
+     *   持たせてよい長さが違うので既定値を上書きできるようにする
      */
-    suspend fun fetch(url: String): FetchResult {
+    suspend fun fetch(
+        url: String,
+        maxFreshFor: Duration = DEFAULT_MAX_FRESH_FOR,
+    ): FetchResult {
         var target = HttpUrl.sanitize(url) ?: return FetchResult.Failure
 
         return runCatching {
@@ -86,7 +92,7 @@ class RemoteImageFetchService(
                     return@repeat
                 }
 
-                return response.toResult()
+                return response.toResult(maxFreshFor)
             }
             FetchResult.Failure
         }.getOrElse { error ->
@@ -95,7 +101,7 @@ class RemoteImageFetchService(
         }
     }
 
-    private suspend fun HttpResponse.toResult(): FetchResult {
+    private suspend fun HttpResponse.toResult(maxFreshFor: Duration): FetchResult {
         val channel = bodyAsChannel()
         if (!status.isSuccess()) {
             channel.cancel(null)
@@ -135,7 +141,7 @@ class RemoteImageFetchService(
         return FetchResult.Success(
             bytes = bytes,
             imageType = imageType,
-            freshFor = cacheControlMaxAge(),
+            freshFor = cacheControlMaxAge(maxFreshFor),
         )
     }
 
@@ -143,10 +149,10 @@ class RemoteImageFetchService(
      * 配信元が言う「取り直さなくてよい時間」。言っていなければ null。
      *
      * `no-store` と `no-cache` は毎回取り直せという意味なので 0 にする。
-     * 長い側は [MAX_FRESH_FOR] で切る。桁の大きい値をそのまま足すと期限の計算が
+     * 長い側は [maxFreshFor] で切る。桁の大きい値をそのまま足すと期限の計算が
      * 溢れるうえ、事実上取り直さなくなる
      */
-    private fun HttpResponse.cacheControlMaxAge(): Duration? {
+    private fun HttpResponse.cacheControlMaxAge(maxFreshFor: Duration): Duration? {
         // カンマで区切って 1 つずつ丸ごと見る。ヘッダの文字列全体から探すと、
         // 共有キャッシュ向けの s-maxage や、名前の一部が同じ別の指示を拾いうる
         val directives = headers[HttpHeaders.CacheControl]
@@ -162,7 +168,7 @@ class RemoteImageFetchService(
             ?.toLongOrNull()
             ?: return null
 
-        return Duration.ofSeconds(seconds).coerceAtMost(MAX_FRESH_FOR)
+        return Duration.ofSeconds(seconds).coerceAtMost(maxFreshFor)
     }
 
     private fun HttpResponse.redirectLocation(): String? {
@@ -236,7 +242,13 @@ class RemoteImageFetchService(
         private const val MAX_HOPS = 4
         private val REDIRECT_STATUS_RANGE = 300..399
         private val MAX_AGE = Regex("max-age\\s*=\\s*(\\d+)")
-        private val MAX_FRESH_FOR: Duration = Duration.ofDays(1)
+
+        /**
+         * 呼び出し側が [fetch] で上書きしなかったときに使う上限。
+         *
+         * アイコン・ヘッダーはこの既定値のまま使う
+         */
+        private val DEFAULT_MAX_FRESH_FOR: Duration = Duration.ofDays(1)
         private val DEFAULT_RESOLVE_TIMEOUT: Duration = Duration.ofSeconds(5)
 
         /**

@@ -53,7 +53,7 @@ internal fun Route.linkPreviewImageRoutes(images: LinkPreviewImageService) {
  * 見に来た側と前段の CDN に持たせる時間。
  *
  * 同じ URL のまま中身だけ差し替える実装もあるので `immutable` にはしない。
- * 取得元が言ってきた時間に従い、言っていなければ 1 時間。長い側は 1 日で切る。
+ * 取得元が言ってきた時間に従い、言っていなければ 1 日。長い側は 30 日で切る。
  */
 private fun LinkPreviewImage.cacheControl(): String {
     val seconds = (freshFor?.seconds ?: DEFAULT_MAX_AGE_SECONDS).coerceAtMost(MAX_MAX_AGE_SECONDS)
@@ -67,8 +67,8 @@ private val ALLOWED_PARAMETERS = setOf(
     LinkPreviewImageUrls.VERSION_PARAMETER,
 )
 private const val NO_STORE = "no-store"
-private const val DEFAULT_MAX_AGE_SECONDS = 60L * 60
-private const val MAX_MAX_AGE_SECONDS = 24L * 60 * 60
+private const val DEFAULT_MAX_AGE_SECONDS = 24L * 60 * 60
+private const val MAX_MAX_AGE_SECONDS = 30L * 24 * 60 * 60
 private const val NOT_FOUND_MAX_AGE_SECONDS = 60L * 10
 private const val CONTENT_TYPE_OPTIONS_HEADER = "X-Content-Type-Options"
 private const val CONTENT_TYPE_OPTIONS = "nosniff"
