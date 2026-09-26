@@ -11,12 +11,12 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 
 // 送れなかった配信を次にいつ送るか。
-// 間隔が 2 倍ずつ伸びて 24 時間で頭打ちになること、30 日で諦めることが要件。
+// 間隔が 2 倍ずつ伸びて 24 時間で頭打ちになること、7 日で諦めることが要件。
 class DeliveryRetryPolicyTest {
     private val policy = DeliveryRetryPolicy(
         initialInterval = 30.seconds,
         maxInterval = 24.hours,
-        giveUpAfter = 30.days,
+        giveUpAfter = 7.days,
     )
 
     private val enqueuedAt: Instant = Instant.parse("2026-08-10T00:00:00Z")
@@ -43,11 +43,11 @@ class DeliveryRetryPolicyTest {
     }
 
     @Test
-    fun `次に送る時刻が投函から 30 日を過ぎるなら諦める`() {
-        val lastChance = enqueuedAt.plus(Duration.ofDays(29))
+    fun `次に送る時刻が投函から 7 日を過ぎるなら諦める`() {
+        val lastChance = enqueuedAt.plus(Duration.ofDays(6))
         assertNotNull(policy.nextAttemptAt(attempts = 20, enqueuedAt = enqueuedAt, now = lastChance))
 
-        val tooLate = enqueuedAt.plus(Duration.ofDays(29)).plus(Duration.ofHours(1))
+        val tooLate = enqueuedAt.plus(Duration.ofDays(6)).plus(Duration.ofHours(1))
         assertNull(policy.nextAttemptAt(attempts = 20, enqueuedAt = enqueuedAt, now = tooLate))
     }
 
@@ -59,8 +59,8 @@ class DeliveryRetryPolicyTest {
     }
 
     @Test
-    fun `投函から 30 日を過ぎていれば期限切れ`() {
-        assertEquals(false, policy.isExpired(enqueuedAt = enqueuedAt, now = enqueuedAt.plus(Duration.ofDays(30))))
-        assertEquals(true, policy.isExpired(enqueuedAt = enqueuedAt, now = enqueuedAt.plus(Duration.ofDays(30)).plusSeconds(1)))
+    fun `投函から 7 日を過ぎていれば期限切れ`() {
+        assertEquals(false, policy.isExpired(enqueuedAt = enqueuedAt, now = enqueuedAt.plus(Duration.ofDays(7))))
+        assertEquals(true, policy.isExpired(enqueuedAt = enqueuedAt, now = enqueuedAt.plus(Duration.ofDays(7)).plusSeconds(1)))
     }
 }

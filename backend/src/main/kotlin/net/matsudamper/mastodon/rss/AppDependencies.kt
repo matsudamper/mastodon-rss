@@ -317,7 +317,7 @@ class AppDependencies(
             retryPolicy = DeliveryRetryPolicy(
                 initialInterval = 30.seconds,
                 maxInterval = 24.hours,
-                giveUpAfter = 30.days,
+                giveUpAfter = 7.days,
             ),
             backfill = followBackfillPublisher,
             claimLimit = 100,

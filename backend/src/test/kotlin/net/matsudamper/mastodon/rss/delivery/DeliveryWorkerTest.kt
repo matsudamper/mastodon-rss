@@ -191,7 +191,7 @@ class DeliveryWorkerTest {
 
         runWorker(repositories.deliveryQueue, delivery)
 
-        // 消えた inbox に 30 日送り続けない
+        // 消えた inbox に 7 日送り続けない
         assertEquals(1, delivery.attempts)
         val row = repositories.deliveryQueue.rows().single()
         assertEquals(FakeDeliveryQueueRepository.State.FAILED, row.state)
@@ -200,12 +200,12 @@ class DeliveryWorkerTest {
     }
 
     @Test
-    fun `投函から 30 日を過ぎた行は送らずに諦める`() = runTest {
+    fun `投函から 7 日を過ぎた行は送らずに諦める`() = runTest {
         val repositories = FakeRepositories()
         val delivery = RecordingDelivery()
         repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
 
-        runWorker(repositories.deliveryQueue, delivery, clock = { now.plusSeconds(31L * 24 * 60 * 60) })
+        runWorker(repositories.deliveryQueue, delivery, clock = { now.plusSeconds(8L * 24 * 60 * 60) })
 
         assertEquals(FakeDeliveryQueueRepository.State.FAILED, repositories.deliveryQueue.rows().single().state)
         // 止まっていた間に期限を過ぎた投稿を、再起動後に突然届けない
@@ -620,7 +620,7 @@ class DeliveryWorkerTest {
         val TEST_RETRY_POLICY = DeliveryRetryPolicy(
             initialInterval = 30.seconds,
             maxInterval = 24.hours,
-            giveUpAfter = 30.days,
+            giveUpAfter = 7.days,
         )
     }
 }

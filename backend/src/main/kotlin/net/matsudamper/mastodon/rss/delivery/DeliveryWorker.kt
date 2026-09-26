@@ -179,7 +179,7 @@ class DeliveryWorker(
                 return
             }
 
-            // 止まっていた間に期限を過ぎた行を送らない。送ると 1 か月以上前の投稿が突然届く
+            // 止まっていた間に期限を過ぎた行を送らない。送ると 1 週間以上前の投稿が突然届く
             if (retryPolicy.isExpired(enqueuedAt = row.enqueuedAt, now = clock())) {
                 DeliverySpan.outcome("gave_up.expired")
                 queue.giveUp(row.id, "投函から時間が経ちすぎた")
@@ -211,7 +211,7 @@ class DeliveryWorker(
                 is DeliveryResult.Failed -> {
                     DeliverySpan.failed(result.reason)
                     // 相手が受け取らないと決めた応答は、間を空けても同じ答えが返る。
-                    // 消えた inbox に 30 日送り続けても届かない
+                    // 消えた inbox に 7 日送り続けても届かない
                     if (result.retryable) {
                         recordFailure(row, result.reason)
                     } else {
