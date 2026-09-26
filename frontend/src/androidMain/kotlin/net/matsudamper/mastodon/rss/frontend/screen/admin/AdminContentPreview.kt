@@ -24,9 +24,11 @@ private fun AdminContentPreview() {
                             title = "配信",
                             items = listOf(
                                 previewMenuItem("送り直しを待っている配信", "フォロワーの inbox に届かず、送り直しを待っている投稿を見る。"),
+                                previewMenuItem("アカウント情報の配り直し", "全アカウントの表示名・説明文・画像を、フォロワーのサーバーにもう一度配る。"),
                             ),
                         ),
                     ),
+                    actorUpdateBroadcastDialog = null,
                     listener = AndroidPreviewLoggedInListener,
                 ),
                 listener = AndroidPreviewAdminListener,

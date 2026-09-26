@@ -228,6 +228,37 @@ class AccountServiceTest {
         assertEquals(1, repositories.deliveryQueue.rows().size)
     }
 
+    @Test
+    fun `全アカウントの更新を配るとフォロワーのいるアカウントの分だけ Update Actor が入る`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.withFullAccount()
+        assertNotNull(repositories.accounts.add(username = "feed2", createdAt = CREATED_AT.plusSeconds(1)))
+
+        val result = serviceOf(repositories).broadcastActorUpdates()
+
+        assertEquals(
+            AccountService.BroadcastActorUpdatesResult(enqueuedAccounts = 2, deliveries = 1, failedAccounts = 0),
+            result,
+        )
+        val row = repositories.deliveryQueue.rows().single()
+        assertEquals(DeliveryKind.UPDATE_ACTOR, row.kind)
+        assertEquals(USERNAME, row.username)
+        assertEquals(FOLLOWER_INBOX, row.inbox)
+    }
+
+    @Test
+    fun `全アカウントの更新は1ページに収まらない数のアカウントでも全て配る`() = runTest {
+        val repositories = FakeRepositories()
+        val accountCount = 250
+        repeat(accountCount) { index ->
+            assertNotNull(repositories.accounts.add(username = "feed$index", createdAt = CREATED_AT.plusSeconds(index.toLong())))
+        }
+
+        val result = serviceOf(repositories).broadcastActorUpdates()
+
+        assertEquals(accountCount, result.enqueuedAccounts)
+    }
+
     private fun serviceOf(repositories: FakeRepositories): AccountService = AccountService(
         accounts = repositories.accounts,
         followers = repositories.followers,

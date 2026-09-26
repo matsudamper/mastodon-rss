@@ -322,3 +322,13 @@ query AdminAccountRetryingDeliveries($cursor: String, $limit: Int!) {
         }
     }
 }
+
+mutation AdminBroadcastActorUpdates {
+    admin {
+        broadcastActorUpdates {
+            accountCount
+            deliveryCount
+            failedAccountCount
+        }
+    }
+}

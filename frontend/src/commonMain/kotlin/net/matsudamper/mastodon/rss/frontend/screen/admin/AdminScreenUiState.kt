@@ -29,6 +29,10 @@ data class AdminScreenUiState(
 
         data class LoggedIn(
             val sections: List<MenuSection>,
+            /**
+             * 出していなければ null
+             */
+            val actorUpdateBroadcastDialog: ActorUpdateBroadcastDialog?,
             val listener: LoggedIn.Listener,
         ) : Content {
             @Immutable
@@ -40,6 +44,20 @@ data class AdminScreenUiState(
         data class Error(
             val message: String,
         ) : Content
+    }
+
+    /**
+     * 全アカウントのアカウント情報をフォロワーに配り直す前の確認
+     */
+    data class ActorUpdateBroadcastDialog(
+        val listener: Listener,
+    ) {
+        @Immutable
+        interface Listener {
+            fun onClickConfirm()
+
+            fun onDismiss()
+        }
     }
 
     /**

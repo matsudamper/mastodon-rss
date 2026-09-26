@@ -27,8 +27,10 @@ class ActorEnqueuer(
      *
      * 保存が済んでから呼ぶこと。組み立てるのは保存されている中身なので、
      * 先に呼ぶと 1 つ前の内容が配られる。
+     *
+     * @return 投函した配信の数
      */
-    fun enqueueUpdate(sender: ActorUrls) {
+    fun enqueueUpdate(sender: ActorUrls): Int {
         val inboxes = followers.deliveryTargets(sender.username)
 
         val deliveries = deliveryQueue.enqueueActorUpdate(
@@ -41,5 +43,6 @@ class ActorEnqueuer(
         )
 
         logger.info("アクターの更新を投函した: ${sender.acct} 宛先=$deliveries")
+        return deliveries
     }
 }

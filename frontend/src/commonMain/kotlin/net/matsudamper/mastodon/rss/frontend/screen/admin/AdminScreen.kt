@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -37,7 +39,9 @@ import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.PasswordField
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
+import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
+import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
 private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 private const val LOGIN_FORM_ID = "admin-login-form"
@@ -53,12 +57,17 @@ internal fun AdminScreen(
         AdminScreenViewModel(viewModelScope)
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
+    val snackbarHostState = rememberSnackbarHostState()
 
-    LaunchedEffect(viewModel.eventHandler, navController) {
+    LaunchedEffect(viewModel.eventHandler, navController, snackbarHostState) {
         viewModel.eventHandler.collect(
             object : AdminScreenViewModel.Event {
                 override suspend fun navigate(screen: Screen) {
                     navController.navigate(screen)
+                }
+
+                override fun showSnackbar(message: String) {
+                    snackbarHostState.show(message)
                 }
             },
         )
@@ -71,6 +80,7 @@ internal fun AdminScreen(
     AdminContent(
         uiState = uiState,
         platform = platform,
+        snackbarHostState = snackbarHostState,
     )
 }
 
@@ -78,8 +88,9 @@ internal fun AdminScreen(
 internal fun AdminContent(
     uiState: AdminScreenUiState,
     platform: ScreenPlatform,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
 ) {
-    AdminScaffold(title = null, listener = uiState.listener) { wide ->
+    AdminScaffold(title = null, listener = uiState.listener, snackbarHostState = snackbarHostState) { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
@@ -106,6 +117,7 @@ internal fun AdminContent(
                     content.sections.forEach { section ->
                         MenuSection(section = section, wide = wide)
                     }
+                    content.actorUpdateBroadcastDialog?.let { ActorUpdateBroadcastDialog(it) }
                     SectionCard(title = "このソフトウェア") {
                         Text("ソースコードは GitHub で公開している。")
                         TextLink(
@@ -160,6 +172,26 @@ private fun LoginCard(
             Text(if (content.submitting) "確認中..." else "ログイン")
         }
     }
+}
+
+@Composable
+private fun ActorUpdateBroadcastDialog(dialog: AdminScreenUiState.ActorUpdateBroadcastDialog) {
+    AlertDialog(
+        onDismissRequest = dialog.listener::onDismiss,
+        title = { Text("全アカウントの情報を配り直す") },
+        text = {
+            Text(
+                "全アカウントの表示名・説明文・画像を、それぞれのフォロワーのサーバーにもう一度配る。フォロワーが多いと送り終わるまで時間がかかる。",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = dialog.listener::onClickConfirm) { Text("配り直す") }
+        },
+        dismissButton = {
+            TextButton(onClick = dialog.listener::onDismiss) { Text("やめる") }
+        },
+    )
 }
 
 @Composable

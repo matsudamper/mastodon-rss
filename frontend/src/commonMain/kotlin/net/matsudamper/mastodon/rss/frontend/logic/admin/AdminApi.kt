@@ -15,6 +15,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountRetryingDeliver
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminBroadcastActorUpdatesMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemsMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteNoteMutation
@@ -462,6 +463,18 @@ class AdminApi(
 
         val failure = result.failure ?: return AdminDeleteAccountResult.Success
         return AdminDeleteAccountResult.Rejected(reason = failure.reason.toDeleteAccountFailure())
+    }
+
+    suspend fun broadcastActorUpdates(): AdminBroadcastActorUpdatesResult {
+        val response = client.mutation(AdminBroadcastActorUpdatesMutation()).execute()
+        val result = response.data?.admin?.broadcastActorUpdates
+            ?: return AdminBroadcastActorUpdatesResult.Failure(response.failureMessage())
+
+        return AdminBroadcastActorUpdatesResult.Success(
+            accountCount = result.accountCount,
+            deliveryCount = result.deliveryCount,
+            failedAccountCount = result.failedAccountCount,
+        )
     }
 
     suspend fun postNote(
