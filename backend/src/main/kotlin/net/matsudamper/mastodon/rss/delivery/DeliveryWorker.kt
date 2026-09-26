@@ -5,7 +5,7 @@ import kotlin.time.Duration
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -28,7 +28,8 @@ import org.slf4j.LoggerFactory
  * 同じ DB に対してプロセスを 2 つ動かす構成は取らない。起動時の復旧が、
  * 動いている他のプロセスの送信中の行まで巻き戻して二重に送る。
  *
- * 1 回の claim を 1 まとまりとして並列に送る。まとまりの大きさが同時実行数の上限になり、
+ * claim した行は [sendConcurrency] 本のコルーチンで分け合って送る。1 本が空くたびに次の行を渡すので、
+ * 遅い宛先が 1 件あっても他の行は止まらない。同時に送る数はこの本数で頭打ちになり、
  * フォロワーが増えても接続は青天井にならない
  *
  * キャンセルされたら送信中の行は `delivering` のまま残し、次の起動の復旧に任せる。
@@ -39,7 +40,8 @@ import org.slf4j.LoggerFactory
  *   これで引いて署名する
  * @param backfill フォローが成立した相手に過去の投稿を配る。成立するのは `Accept` が
  *   届いたときなので、始められるのはここになる
- * @param claimLimit 1 回の claim で取り出す数。同時実行数の上限でもある
+ * @param claimLimit 1 回の claim で取り出す数。取った行を渡し終えるまで次の claim はしない
+ * @param sendConcurrency 同時に送る数の上限
  * @param idleInterval claim が 0 件だったときに次を見に行くまでの待ち。
  *   新しい投稿が入ってから送り始めるまでの遅れの上限になる
  * @param openTelemetry 1 行ごとの span を出す先
@@ -52,6 +54,7 @@ class DeliveryWorker(
     private val retryPolicy: DeliveryRetryPolicy,
     private val backfill: FollowBackfillPublisher,
     private val claimLimit: Int,
+    private val sendConcurrency: Int,
     private val idleInterval: Duration,
     private val clock: () -> Instant,
     openTelemetry: OpenTelemetry = OpenTelemetry.noop(),
@@ -63,61 +66,66 @@ class DeliveryWorker(
      */
     fun start(scope: CoroutineScope): Job =
         scope.launch {
-            // 成立したフォローへの配り直しをここに乗せる。1 回の claim の中で待つと、
-            // 過去の投稿を配り終えるまで次の claim が始まらない
+            // 成立したフォローへの配り直しをここに乗せる。送り手のコルーチンの中で待つと、
+            // 過去の投稿を配り終えるまでその 1 本が次の行を受け取れない
             val backfillScope = this
-            // 復旧も繰り返しの中で試す。外で投げると繰り返しが始まらず、次に再起動するまで配信が止まる
-            var recovered = false
-            while (true) {
-                if (!recovered) {
-                    recovered = try {
-                        val count = queue.recoverDelivering()
-                        if (count > 0) {
-                            logger.info("送信中のまま残っていた配信 $count 件を送り直す")
-                        }
-                        true
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        logger.warn("送信中のまま残っていた配信を戻せなかった", e)
-                        delay(idleInterval)
-                        continue
+            recoverDelivering()
+
+            // バッファを持たせず、送り手が空いたときにだけ 1 行渡す
+            val claimedRows = Channel<ClaimedDelivery>()
+            repeat(sendConcurrency) {
+                launch {
+                    for (row in claimedRows) {
+                        deliverOneInSpan(row = row, backfillScope = backfillScope)
                     }
                 }
+            }
 
-                val claimed = try {
-                    queue.claim(now = clock(), limit = claimLimit)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // ここで投げると繰り返しが終わり、次に再起動するまで配信が止まる
-                    logger.warn("配信キューを引けなかった", e)
-                    delay(idleInterval)
-                    continue
-                }
-
+            while (true) {
+                val claimed = claimOrEmpty()
                 if (claimed.isEmpty()) {
                     delay(idleInterval)
                     continue
                 }
 
-                deliverAll(claimed = claimed, backfillScope = backfillScope)
+                claimed.forEach { claimedRows.send(it) }
             }
         }
 
     /**
-     * claim した行を全部送り終わるまで返らない。1 行に 1 本のコルーチンを当てる
+     * 送信中のまま残っている行を戻す。戻せるまで繰り返す。
+     *
+     * 投げると繰り返しが始まらず、次に再起動するまで配信が止まる
      */
-    private suspend fun deliverAll(
-        claimed: List<ClaimedDelivery>,
-        backfillScope: CoroutineScope,
-    ) {
-        coroutineScope {
-            claimed.forEach { row ->
-                launch { deliverOneInSpan(row = row, backfillScope = backfillScope) }
+    private suspend fun recoverDelivering() {
+        while (true) {
+            try {
+                val count = queue.recoverDelivering()
+                if (count > 0) {
+                    logger.info("送信中のまま残っていた配信 $count 件を送り直す")
+                }
+                return
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn("送信中のまま残っていた配信を戻せなかった", e)
+                delay(idleInterval)
             }
         }
     }
+
+    /**
+     * 引けなかったときは空として扱う。投げると繰り返しが終わり、次に再起動するまで配信が止まる
+     */
+    private fun claimOrEmpty(): List<ClaimedDelivery> =
+        try {
+            queue.claim(now = clock(), limit = claimLimit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn("配信キューを引けなかった", e)
+            listOf()
+        }
 
     /**
      * 送信の HTTP の span をこの行の span の下にまとめる。無いと POST だけがばらばらに出て、

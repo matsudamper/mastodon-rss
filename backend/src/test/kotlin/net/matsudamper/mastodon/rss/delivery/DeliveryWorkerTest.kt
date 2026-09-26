@@ -143,6 +143,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             claimLimit = 8,
+            sendConcurrency = 8,
         )
 
         val job = worker.start(this)
@@ -230,6 +231,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             claimLimit = 8,
+            sendConcurrency = 8,
         )
         val job = worker.start(this)
         advanceTimeBy(IDLE * 10)
@@ -256,6 +258,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             claimLimit = 8,
+            sendConcurrency = 8,
         )
 
         val job = worker.start(this)
@@ -288,6 +291,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             claimLimit = 8,
+            sendConcurrency = 8,
         )
 
         val job = worker.start(this)
@@ -313,15 +317,45 @@ class DeliveryWorkerTest {
     }
 
     @Test
-    fun `全体の同時実行数は claim の上限を超えない`() = runTest {
+    fun `同時に送るのは送り手の数まで`() = runTest {
         val repositories = FakeRepositories()
         val delivery = RecordingDelivery(latency = 100.milliseconds)
         repositories.enqueue(inboxes = (1..20).map { "https://host$it.example/inbox" })
 
-        runWorker(repositories.deliveryQueue, delivery, claimLimit = 8)
+        runWorker(repositories.deliveryQueue, delivery, claimLimit = 100, sendConcurrency = 8)
 
         assertEquals(8, delivery.maxConcurrent)
         assertEquals(20, delivery.delivered.size)
+    }
+
+    @Test
+    fun `遅い宛先があっても 空いた送り手が次の行を送る`() = runTest {
+        val repositories = FakeRepositories()
+        val slowInbox = "https://slow.example/inbox"
+        val delivery = RecordingDelivery(
+            latency = 100.milliseconds,
+            latencyByInbox = mapOf(slowInbox to 10.seconds),
+        )
+        repositories.enqueue(inboxes = listOf(slowInbox) + (1..3).map { "https://host$it.example/inbox" })
+        val worker = DeliveryWorker(
+            queue = repositories.deliveryQueue,
+            delivery = delivery,
+            directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
+            idleInterval = IDLE,
+            clock = { now },
+            retryPolicy = TEST_RETRY_POLICY,
+            backfill = backfillPublisher(delivery),
+            claimLimit = 100,
+            sendConcurrency = 2,
+        )
+
+        val job = worker.start(this)
+        advanceTimeBy(1.seconds)
+        job.cancelAndJoin()
+
+        // 遅い 1 件が送り終わるのを待たずに、もう 1 本が残りを順に送る
+        assertEquals((1..3).map { "https://host$it.example/inbox" }, delivery.delivered)
     }
 
     @Test
@@ -366,6 +400,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             claimLimit = 8,
+            sendConcurrency = 8,
         )
 
         val job = worker.start(this)
@@ -388,6 +423,7 @@ class DeliveryWorkerTest {
         queue: FakeDeliveryQueueRepository,
         delivery: RecordingDelivery,
         claimLimit: Int = 8,
+        sendConcurrency: Int = 8,
         clock: () -> Instant = { now },
         retryPolicy: DeliveryRetryPolicy = TEST_RETRY_POLICY,
         notes: FakeNoteStore = FakeNoteStore(),
@@ -402,6 +438,7 @@ class DeliveryWorkerTest {
             backfill = backfillPublisher(delivery = delivery, notes = notes),
             idleInterval = IDLE,
             claimLimit = claimLimit,
+            sendConcurrency = sendConcurrency,
             clock = clock,
         )
         val job: Job = worker.start(this)
@@ -524,6 +561,7 @@ class DeliveryWorkerTest {
      * @param failTimes 失敗を返す回数。0 なら毎回
      * @param throwing 例外を投げる宛先
      * @param latency 1 件に掛かる時間。並列の確認に使う
+     * @param latencyByInbox 宛先ごとに [latency] の代わりに掛ける時間
      * @param retryable 失敗を送り直せるものとして返すか
      */
     private class RecordingDelivery(
@@ -531,6 +569,7 @@ class DeliveryWorkerTest {
         private val failTimes: Int = 0,
         private val throwing: Set<String> = emptySet(),
         private val latency: kotlin.time.Duration = kotlin.time.Duration.ZERO,
+        private val latencyByInbox: Map<String, kotlin.time.Duration> = mapOf(),
         private val retryable: Boolean = true,
     ) : ActivityDelivery {
         val delivered = mutableListOf<String>()
@@ -552,7 +591,7 @@ class DeliveryWorkerTest {
             concurrent++
             maxConcurrent = maxOf(maxConcurrent, concurrent)
             try {
-                delay(latency)
+                delay(latencyByInbox[inbox] ?: latency)
                 if (inbox in throwing) throw IllegalStateException("壊れた宛先")
                 if (inbox in failing && (failTimes == 0 || failed < failTimes)) {
                     failed++
