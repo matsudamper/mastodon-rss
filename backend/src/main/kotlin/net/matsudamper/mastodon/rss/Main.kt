@@ -146,6 +146,7 @@ fun Application.module(deps: AppDependencies) {
         noteStampRepository = deps.repositories.noteStamps,
         feedService = deps.feedService,
         linkPreviewService = deps.linkPreviewService,
+        domainBlockService = deps.domainBlockService,
     )
 
     val graphQl = GraphQlEngine.create(

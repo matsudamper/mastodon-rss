@@ -53,7 +53,7 @@ interface DeliveryQueueRepository {
      * この後で配らない。投函する行は投稿に紐付けない。紐付けると、いま消した投稿と
      * 一緒に消える。
      *
-     * @return 投函した配信の数。宛先の数と同じ
+     * @return 投函した配信の数。配信を止めているドメイン宛ては入れないので、宛先の数より少ないことがある
      */
     fun enqueueNoteDeletion(post: NoteDeletionPost): Int
 
@@ -63,7 +63,7 @@ interface DeliveryQueueRepository {
      * まだ送っていない同じアカウントの更新は、いま渡されたもので置き換える。
      * 続けて 2 回変えたときに古い方が後から届くと、相手の表示が 1 つ前に戻る。
      *
-     * @return 投函した配信の数。宛先の数と同じ
+     * @return 投函した配信の数。配信を止めているドメイン宛ては入れないので、宛先の数より少ないことがある
      */
     fun enqueueActorUpdate(post: ActorUpdatePost): Int
 
@@ -272,7 +272,7 @@ data class ActorUpdatePost(
 
 sealed interface EnqueueNoteResult {
     /**
-     * @param deliveries 投函した配信の数。宛先の数と同じ
+     * @param deliveries 投函した配信の数。配信を止めているドメイン宛ては入れないので、宛先の数より少ないことがある
      */
     data class Queued(
         val deliveries: Int,

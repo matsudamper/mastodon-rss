@@ -55,6 +55,23 @@ CREATE TABLE delivery_queue (
     target_actor_uri TEXT
 );
 
+CREATE TABLE domain_blocks (
+    -- 配信・受信を止める相手のドメイン。1 ドメイン 1 行
+    --
+    -- 相手の inbox の URL やアクターの URI のホスト名。小文字に揃えて入れる
+    domain TEXT NOT NULL PRIMARY KEY,
+    -- unavailable: 配信を諦めたので自動で止めた / manual: 管理画面から止めた。
+    -- 自動で解除するのは unavailable だけ。manual を解除できるのは管理画面だけ
+    reason TEXT NOT NULL CHECK (reason IN ('unavailable', 'manual')),
+    -- 止めた理由の説明。自動なら諦めたときの失敗の理由、手動なら管理画面で書いたもの
+    reason_description TEXT,
+    -- こちらから送らない
+    block_delivery INTEGER NOT NULL CHECK (block_delivery IN (0, 1)),
+    -- 相手から受け取らない
+    block_inbox INTEGER NOT NULL CHECK (block_inbox IN (0, 1)),
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE early_undone_likes (
     -- Like より先に届いた Undo が object で指していた Like アクティビティの id。
     -- 後から届いた Like を記録しないために、期限まで覚えておく。

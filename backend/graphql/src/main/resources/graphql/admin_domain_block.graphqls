@@ -1,0 +1,67 @@
+"配信・受信を止めている相手のドメイン"
+type AdminDomainBlock {
+    "小文字に揃えたホスト名"
+    domain: String!
+
+    reason: AdminDomainBlockReason!
+
+    "止めた理由の説明"
+    reasonDescription: String
+
+    "こちらから送らない"
+    blockDelivery: Boolean!
+
+    "相手から受け取らない"
+    blockInbox: Boolean!
+
+    "止め始めた時刻"
+    createdAt: UnixTime!
+}
+
+"ドメインを止めた理由"
+enum AdminDomainBlockReason {
+    "配信を諦めたので自動で止めた。配信の成功か、そのドメインからの署名付きのリクエストで自動で外れる"
+    UNAVAILABLE
+
+    "管理画面から止めた。自動では外れない"
+    MANUAL
+}
+
+type AdminDomainBlocksConnection {
+    nodes: [AdminDomainBlock!]!
+    pageInfo: PageInfo!
+}
+
+input SaveDomainBlockQuery {
+    "止めるドメイン。URL を渡したときはホスト名を取り出す"
+    domain: String!
+
+    "こちらから送らない"
+    blockDelivery: Boolean!
+
+    "相手から受け取らない"
+    blockInbox: Boolean!
+
+    "止めた理由の説明。空なら無し"
+    reasonDescription: String!
+}
+
+type AdminSaveDomainBlockResult {
+    domainBlock: AdminDomainBlock
+
+    "保存できなかった場合だけ入る"
+    failure: AdminSaveDomainBlockFailure
+}
+
+type AdminSaveDomainBlockFailure {
+    "ドメインとして読めない"
+    invalidDomain: Boolean!
+
+    "理由の説明の文字数の上限を超えている場合の上限"
+    reasonDescriptionMaxLength: Int
+}
+
+type AdminDeleteDomainBlockResult {
+    "外したドメイン。止めていなかったら null"
+    deletedDomain: String
+}

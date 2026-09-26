@@ -17,8 +17,12 @@ internal object DeliveryQueueRows {
     /**
      * 送る時刻を待つ行を 1 つ入れる。最初の 1 回は [enqueuedAt] にすぐ送る。
      *
+     * 配信を止めているドメイン宛ては入れない。入れても送る直前に諦めるだけで、
+     * 行が積まれていく。
+     *
      * @param notePublicId この行が配る投稿。投稿を伴わない種別では null
      * @param targetActorUri この行が相手にする向こうのアクター。関係しない種別では null
+     * @return 入れたら true
      */
     fun insertPending(
         dsl: DSLContext,
@@ -29,7 +33,10 @@ internal object DeliveryQueueRows {
         enqueuedAt: Instant,
         notePublicId: String?,
         targetActorUri: String?,
-    ) {
+    ): Boolean {
+        val inboxHost = InboxHost.of(inbox)
+        if (DomainBlockRows.blocksDelivery(dsl = dsl, domain = inboxHost)) return false
+
         val enqueuedAtText = StoredInstant.format(enqueuedAt)
 
         dsl
@@ -37,7 +44,7 @@ internal object DeliveryQueueRows {
             .set(DELIVERY_QUEUE.KIND, kind.dbValue)
             .set(DELIVERY_QUEUE.USERNAME, username)
             .set(DELIVERY_QUEUE.INBOX, inbox)
-            .set(DELIVERY_QUEUE.INBOX_HOST, InboxHost.of(inbox))
+            .set(DELIVERY_QUEUE.INBOX_HOST, inboxHost)
             .set(DELIVERY_QUEUE.BODY, body)
             .set(DELIVERY_QUEUE.STATE, DeliveryStateDbValue.PENDING.dbValue)
             .set(DELIVERY_QUEUE.ATTEMPTS, 0L)
@@ -47,6 +54,8 @@ internal object DeliveryQueueRows {
             .set(DELIVERY_QUEUE.NOTE_PUBLIC_ID, notePublicId)
             .set(DELIVERY_QUEUE.TARGET_ACTOR_URI, targetActorUri)
             .execute()
+
+        return true
     }
 
     /**

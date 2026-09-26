@@ -24,7 +24,7 @@ import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
  *
  * 返す status は次のとおり。
  *
- * - 202 Accepted: 署名が通った。中身の処理の成否は含めない
+ * - 202 Accepted: 署名が通った。中身の処理の成否は含めない。受信を止めているドメインから届いたときも返す
  * - 400 Bad Request: ボディが JSON として読めない
  * - 401 Unauthorized: 署名が無い、通らない、`actor` と署名者が違う
  * - 404 Not Found: そのアクターがいない（アカウントごとの inbox だけ）

@@ -21,6 +21,7 @@ import io.opentelemetry.context.Context
 import io.opentelemetry.extension.kotlin.asContextElement
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.logic.DomainBlockService
 import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
@@ -48,6 +49,8 @@ import org.slf4j.LoggerFactory
  * @param backfill フォローが成立した相手に過去の投稿を配る。成立するのは `Accept` が
  *   届いたときなので、始められるのはここになる
  * @param circuitBreaker 失敗が続いている inbox に送らずに済ませる
+ * @param domainBlocks 配信を止めているドメイン。諦めた宛先のドメインをここで止め、
+ *   送れたら再開する
  * @param claimLimit 1 回の claim で取り出す数。取った行を渡し終えるまで次の claim はしない
  * @param sendConcurrency 同時に送る数の上限
  * @param idleInterval claim が 0 件だったときに次を見に行くまでの待ち。
@@ -62,6 +65,7 @@ class DeliveryWorker(
     private val retryPolicy: DeliveryRetryPolicy,
     private val backfill: FollowBackfillPublisher,
     private val circuitBreaker: DeliveryCircuitBreaker,
+    private val domainBlocks: DomainBlockService,
     private val claimLimit: Int,
     private val sendConcurrency: Int,
     private val idleInterval: Duration,
@@ -207,11 +211,21 @@ class DeliveryWorker(
                 return
             }
 
+            // 投函より後に止めたドメイン宛ての行が残っている
+            if (domainBlocks.blocksDeliveryTo(row.inbox)) {
+                DeliverySpan.outcome("gave_up.domain_blocked")
+                queue.giveUp(row.id, "配信を止めているドメイン")
+                logger.info("配信を諦めた: 配信を止めているドメイン ${row.username} → ${row.inbox}")
+                return
+            }
+
             // 止まっていた間に期限を過ぎた行を送らない。送ると 1 週間以上前の投稿が突然届く
             if (retryPolicy.isExpired(enqueuedAt = row.enqueuedAt, now = clock())) {
+                val reason = "投函から時間が経ちすぎた"
                 DeliverySpan.outcome("gave_up.expired")
-                queue.giveUp(row.id, "投函から時間が経ちすぎた")
-                logger.warn("配信を諦めた: 投函から時間が経ちすぎた ${row.username} → ${row.inbox}")
+                queue.giveUp(row.id, reason)
+                logger.warn("配信を諦めた: $reason ${row.username} → ${row.inbox}")
+                markUnavailable(inbox = row.inbox, reason = reason)
                 return
             }
 
@@ -234,7 +248,9 @@ class DeliveryWorker(
                 is DeliveryResult.Delivered -> {
                     DeliverySpan.outcome("delivered")
                     circuitBreaker.recordSuccess(row.inbox)
-                    when (val outcome = queue.markDelivered(id = row.id, deliveredAt = clock())) {
+                    val outcome = queue.markDelivered(id = row.id, deliveredAt = clock())
+                    markAvailable(row.inbox)
+                    when (outcome) {
                         DeliveredOutcome.None -> Unit
 
                         is DeliveredOutcome.FollowAccepted -> {
@@ -341,12 +357,47 @@ class DeliveryWorker(
             DeliverySpan.outcome("gave_up.retry_exhausted")
             queue.giveUp(row.id, reason)
             logger.warn("配信を諦めた: ${row.username} → ${row.inbox} ${row.attempts} 回目 $reason")
+            markUnavailable(inbox = row.inbox, reason = reason)
             return
         }
 
         DeliverySpan.outcome("retry_scheduled")
         queue.scheduleRetry(row.id, nextAttemptAt = nextAttemptAt, error = reason)
         logger.warn("配れなかったので $nextAttemptAt に送り直す: ${row.username} → ${row.inbox} ${row.attempts} 回目 $reason")
+    }
+
+    /**
+     * 期限まで送れなかったので、そのドメインへの配信を止める。
+     *
+     * 行の結果は記録済みなので、ここで落ちても行を送り直し待ちには戻さない。
+     * 止められなくても、次に諦めたときにまた試す
+     */
+    private fun markUnavailable(
+        inbox: String,
+        reason: String,
+    ) {
+        try {
+            domainBlocks.markUnavailable(inbox = inbox, reason = reason)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn("配信を止めるドメインを記録できなかった: $inbox", e)
+        }
+    }
+
+    /**
+     * 送れたので、自動で止めていたドメインへの配信を再開する。
+     *
+     * 行の結果は記録済みなので、ここで落ちても行を送り直し待ちには戻さない
+     */
+    private fun markAvailable(inbox: String) {
+        try {
+            domainBlocks.markAvailable(inbox)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn("配信を再開するドメインを記録できなかった: $inbox", e)
+        }
     }
 
     private companion object {

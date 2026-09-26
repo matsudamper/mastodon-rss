@@ -19,6 +19,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminBroadcastActorUpdatesRe
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountFailureReason
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteDomainBlockResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteNoteFailureReason
@@ -30,6 +31,8 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminNote
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostFeedItemsResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveDomainBlockFailure
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveDomainBlockResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUpdateAccountProfileFailure
@@ -38,10 +41,12 @@ import net.matsudamper.mastodon.rss.graphql.model.QlDeleteAccountQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlDeleteFeedItemsQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlDeleteNoteQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPostFeedItemsQuery
+import net.matsudamper.mastodon.rss.graphql.model.QlSaveDomainBlockQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlSaveFeedQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlUpdateAccountProfileQuery
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
+import net.matsudamper.mastodon.rss.logic.DomainBlockService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteComposer
 import net.matsudamper.mastodon.rss.repository.entity.FeedItemId
@@ -210,6 +215,60 @@ class AdminMutationResolverImpl : AdminMutationResolver {
                 )
             }
             DataFetcherResult.Builder(result).build()
+        }
+    }
+
+    override fun saveDomainBlock(
+        adminMutation: QlAdminMutation,
+        query: QlSaveDomainBlockQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminSaveDomainBlockResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val saved = diContainer.domainBlockService.save(
+                domain = query.domain,
+                blockDelivery = query.blockDelivery,
+                blockInbox = query.blockInbox,
+                description = query.reasonDescription,
+            )
+            val result = when (saved) {
+                is DomainBlockService.SaveResult.Success -> QlAdminSaveDomainBlockResult(
+                    domainBlock = saved.block.toGraphqlResponse(),
+                    failure = null,
+                )
+
+                DomainBlockService.SaveResult.InvalidDomain -> QlAdminSaveDomainBlockResult(
+                    domainBlock = null,
+                    failure = QlAdminSaveDomainBlockFailure(invalidDomain = true, reasonDescriptionMaxLength = null),
+                )
+
+                is DomainBlockService.SaveResult.DescriptionTooLong -> QlAdminSaveDomainBlockResult(
+                    domainBlock = null,
+                    failure = QlAdminSaveDomainBlockFailure(
+                        invalidDomain = false,
+                        reasonDescriptionMaxLength = saved.maxLength,
+                    ),
+                )
+            }
+            DataFetcherResult.Builder(result).build()
+        }
+    }
+
+    override fun deleteDomainBlock(
+        adminMutation: QlAdminMutation,
+        domain: String,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminDeleteDomainBlockResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val deletedDomain = diContainer.domainBlockService.delete(domain)
+            DataFetcherResult.Builder(QlAdminDeleteDomainBlockResult(deletedDomain = deletedDomain)).build()
         }
     }
 

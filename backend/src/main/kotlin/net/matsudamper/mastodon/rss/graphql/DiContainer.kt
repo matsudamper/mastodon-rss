@@ -10,6 +10,7 @@ import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.DeliveryQueueService
+import net.matsudamper.mastodon.rss.logic.DomainBlockService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.NoteReader
@@ -39,6 +40,7 @@ class DiContainer(
     val noteStampRepository: NoteStampRepository,
     val feedService: FeedService,
     val linkPreviewService: LinkPreviewService,
+    val domainBlockService: DomainBlockService,
 ) {
     val adminLoginService: AdminLoginService = AdminLoginService(passwordHash)
 

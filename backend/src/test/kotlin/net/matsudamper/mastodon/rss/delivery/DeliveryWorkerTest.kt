@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.delivery
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
@@ -23,6 +24,7 @@ import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import net.matsudamper.mastodon.rss.FakeDeliveryQueueRepository
+import net.matsudamper.mastodon.rss.FakeDomainBlockRepository
 import net.matsudamper.mastodon.rss.FakeNoteRepository
 import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
@@ -32,11 +34,14 @@ import net.matsudamper.mastodon.rss.TestWebPageUrls
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.mastodon.rss.logic.DomainBlockService
 import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.note.StoredNote
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
+import net.matsudamper.mastodon.rss.repository.DomainBlockReason
+import net.matsudamper.mastodon.rss.repository.DomainBlockRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
@@ -150,6 +155,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
+            domainBlocks = DomainBlockService(domainBlocks = FakeDomainBlockRepository(), clock = { now }),
             claimLimit = 8,
             sendConcurrency = 8,
         )
@@ -222,6 +228,97 @@ class DeliveryWorkerTest {
     }
 
     @Test
+    fun `期限までに送れず諦めたらそのドメインへの配信を止める`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery(failing = setOf("https://a.example/inbox"))
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
+
+        runWorker(
+            repositories.deliveryQueue,
+            delivery,
+            retryPolicy = DeliveryRetryPolicy(initialInterval = 2.hours, maxInterval = 24.hours, giveUpAfter = 1.hours),
+            domainBlocks = repositories.domainBlocks,
+        )
+
+        val block = assertNotNull(repositories.domainBlocks.find("a.example"))
+        assertEquals(DomainBlockReason.UNAVAILABLE, block.reason)
+        assertTrue(block.blockDelivery)
+        assertFalse(block.blockInbox)
+    }
+
+    @Test
+    fun `投函から時間が経ちすぎて諦めたらそのドメインへの配信を止める`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
+
+        runWorker(
+            repositories.deliveryQueue,
+            RecordingDelivery(),
+            clock = { now.plusSeconds(8L * 24 * 60 * 60) },
+            domainBlocks = repositories.domainBlocks,
+        )
+
+        assertTrue(repositories.domainBlocks.blocksDelivery("a.example"))
+    }
+
+    @Test
+    fun `相手が受け取らないと決めた失敗ではドメインを止めない`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery(failing = setOf("https://a.example/inbox"), retryable = false)
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
+
+        runWorker(repositories.deliveryQueue, delivery, domainBlocks = repositories.domainBlocks)
+
+        assertFalse(repositories.domainBlocks.blocksDelivery("a.example"))
+    }
+
+    @Test
+    fun `配信を止めたドメイン宛てに積まれていた行は送らずに諦める`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery()
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox", "https://b.example/inbox"))
+        repositories.domainBlocks.saveManual(
+            domain = "a.example",
+            blockDelivery = true,
+            blockInbox = true,
+            description = null,
+            at = now,
+        )
+
+        runWorker(repositories.deliveryQueue, delivery, domainBlocks = repositories.domainBlocks)
+
+        assertEquals(listOf("https://b.example/inbox"), delivery.delivered)
+        val row = repositories.deliveryQueue.rows().single()
+        assertEquals("https://a.example/inbox", row.inbox)
+        assertEquals(FakeDeliveryQueueRepository.State.FAILED, row.state)
+    }
+
+    @Test
+    fun `送れたら自動で止めていたドメインは外し 手で止めたものは残す`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery()
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox", "https://b.example/inbox"))
+        repositories.domainBlocks.markUnavailable(domain = "a.example", description = "諦めた", at = now)
+        repositories.domainBlocks.saveManual(
+            domain = "b.example",
+            blockDelivery = true,
+            blockInbox = true,
+            description = null,
+            at = now,
+        )
+
+        runWorker(
+            repositories.deliveryQueue,
+            delivery,
+            domainBlocks = BlockedAfterSendCheck(repositories.domainBlocks),
+        )
+
+        assertEquals(2, delivery.delivered.size)
+        assertEquals(null, repositories.domainBlocks.find("a.example"))
+        assertEquals(DomainBlockReason.MANUAL, assertNotNull(repositories.domainBlocks.find("b.example")).reason)
+    }
+
+    @Test
     fun `起動時の復旧が失敗してもワーカーは止まらない`() = runTest {
         val repositories = FakeRepositories()
         val delivery = RecordingDelivery()
@@ -239,6 +336,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
+            domainBlocks = DomainBlockService(domainBlocks = FakeDomainBlockRepository(), clock = { now }),
             claimLimit = 8,
             sendConcurrency = 8,
         )
@@ -267,6 +365,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
+            domainBlocks = DomainBlockService(domainBlocks = FakeDomainBlockRepository(), clock = { now }),
             claimLimit = 8,
             sendConcurrency = 8,
         )
@@ -301,6 +400,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
+            domainBlocks = DomainBlockService(domainBlocks = FakeDomainBlockRepository(), clock = { now }),
             claimLimit = 8,
             sendConcurrency = 8,
         )
@@ -358,6 +458,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
+            domainBlocks = DomainBlockService(domainBlocks = FakeDomainBlockRepository(), clock = { now }),
             claimLimit = 100,
             sendConcurrency = 2,
         )
@@ -424,6 +525,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
+            domainBlocks = DomainBlockService(domainBlocks = FakeDomainBlockRepository(), clock = { now }),
             claimLimit = 8,
             sendConcurrency = 8,
             openTelemetry = openTelemetry,
@@ -466,6 +568,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
+            domainBlocks = DomainBlockService(domainBlocks = FakeDomainBlockRepository(), clock = { now }),
             claimLimit = 8,
             sendConcurrency = 8,
         )
@@ -495,6 +598,7 @@ class DeliveryWorkerTest {
         retryPolicy: DeliveryRetryPolicy = TEST_RETRY_POLICY,
         notes: FakeNoteStore = FakeNoteStore(),
         deletedActorDirectory: ActorDirectory = deletedActorDirectory(),
+        domainBlocks: DomainBlockRepository = FakeDomainBlockRepository(),
     ) {
         val worker = DeliveryWorker(
             queue = queue,
@@ -504,6 +608,7 @@ class DeliveryWorkerTest {
             retryPolicy = retryPolicy,
             backfill = backfillPublisher(delivery = delivery, notes = notes),
             circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
+            domainBlocks = DomainBlockService(domainBlocks = domainBlocks, clock = clock),
             idleInterval = IDLE,
             claimLimit = claimLimit,
             sendConcurrency = sendConcurrency,
@@ -567,6 +672,15 @@ class DeliveryWorkerTest {
     }
 
     private fun Int.minutes() = (this * 60).seconds
+
+    /**
+     * 送る直前に確かめた後で止めた状態を作る。送る直前の確認を通り抜けて送られる
+     */
+    private class BlockedAfterSendCheck(
+        private val delegate: FakeDomainBlockRepository,
+    ) : DomainBlockRepository by delegate {
+        override fun blocksDelivery(domain: String): Boolean = false
+    }
 
     /**
      * 起動時の復旧だけ 1 回失敗させる

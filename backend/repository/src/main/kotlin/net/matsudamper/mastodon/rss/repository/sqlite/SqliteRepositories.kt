@@ -5,6 +5,7 @@ import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
+import net.matsudamper.mastodon.rss.repository.DomainBlockRepository
 import net.matsudamper.mastodon.rss.repository.EarlyUndoneLikeRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FeedIconRepository
@@ -48,6 +49,8 @@ internal class SqliteRepositories(
     override val feedIcons: FeedIconRepository = SqliteFeedIconRepository(jooq)
 
     override val feedHeaders: FeedHeaderRepository = SqliteFeedHeaderRepository(jooq)
+
+    override val domainBlocks: DomainBlockRepository = SqliteDomainBlockRepository(jooq)
 
     override fun verifyWritable() {
         val writtenAt = Instant.now().toString()

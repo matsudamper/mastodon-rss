@@ -54,7 +54,7 @@ internal class SqliteDeliveryQueueRepository(
                     )
                 }
 
-                insertDeliveries(
+                val queued = insertDeliveries(
                     dsl = dsl,
                     username = post.note.username,
                     notePublicId = post.note.publicId,
@@ -63,7 +63,7 @@ internal class SqliteDeliveryQueueRepository(
                     enqueuedAt = post.enqueuedAt,
                 )
 
-                EnqueueNoteResult.Queued(deliveries = post.inboxes.size)
+                EnqueueNoteResult.Queued(deliveries = queued)
             }
         } catch (_: FeedItemNotPending) {
             EnqueueNoteResult.FeedItemNotPending
@@ -79,7 +79,7 @@ internal class SqliteDeliveryQueueRepository(
                     postedAt = post.enqueuedAt,
                 )
 
-                insertDeliveries(
+                val queued = insertDeliveries(
                     dsl = dsl,
                     username = post.username,
                     notePublicId = post.publicId,
@@ -88,7 +88,7 @@ internal class SqliteDeliveryQueueRepository(
                     enqueuedAt = post.enqueuedAt,
                 )
 
-                EnqueueNoteResult.Queued(deliveries = post.inboxes.size)
+                EnqueueNoteResult.Queued(deliveries = queued)
             }
         } catch (_: FeedItemNotPending) {
             EnqueueNoteResult.FeedItemNotPending
@@ -101,7 +101,7 @@ internal class SqliteDeliveryQueueRepository(
             .where(NOTES.PUBLIC_ID.eq(post.publicId.value))
             .execute()
 
-        post.inboxes.forEach { inbox ->
+        post.inboxes.count { inbox ->
             DeliveryQueueRows.insertPending(
                 dsl = dsl,
                 kind = DeliveryKindDbValue.DELETE_NOTE,
@@ -114,8 +114,6 @@ internal class SqliteDeliveryQueueRepository(
                 targetActorUri = null,
             )
         }
-
-        post.inboxes.size
     }
 
     override fun enqueueActorUpdate(post: ActorUpdatePost): Int = jooq.transaction { dsl ->
@@ -134,7 +132,7 @@ internal class SqliteDeliveryQueueRepository(
             .and(DELIVERY_QUEUE.USERNAME.eq(post.username))
             .execute()
 
-        post.inboxes.forEach { inbox ->
+        post.inboxes.count { inbox ->
             DeliveryQueueRows.insertPending(
                 dsl = dsl,
                 kind = DeliveryKindDbValue.UPDATE_ACTOR,
@@ -146,8 +144,6 @@ internal class SqliteDeliveryQueueRepository(
                 targetActorUri = null,
             )
         }
-
-        post.inboxes.size
     }
 
     /**
@@ -178,19 +174,17 @@ internal class SqliteDeliveryQueueRepository(
         body: String,
         inboxes: List<String>,
         enqueuedAt: Instant,
-    ) {
-        inboxes.forEach { inbox ->
-            DeliveryQueueRows.insertPending(
-                dsl = dsl,
-                kind = DeliveryKindDbValue.CREATE_NOTE,
-                username = username,
-                inbox = inbox,
-                body = body,
-                enqueuedAt = enqueuedAt,
-                notePublicId = notePublicId.value,
-                targetActorUri = null,
-            )
-        }
+    ): Int = inboxes.count { inbox ->
+        DeliveryQueueRows.insertPending(
+            dsl = dsl,
+            kind = DeliveryKindDbValue.CREATE_NOTE,
+            username = username,
+            inbox = inbox,
+            body = body,
+            enqueuedAt = enqueuedAt,
+            notePublicId = notePublicId.value,
+            targetActorUri = null,
+        )
     }
 
     private class FeedItemNotPending : RuntimeException()
