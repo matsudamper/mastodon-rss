@@ -182,7 +182,6 @@ CREATE TABLE note_favourites (
 );
 
 CREATE TABLE note_stamps (
-    -- 絵文字のスタンプ。Mastodon には無く、Misskey の Like と Pleroma の EmojiReact で届く
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
     -- 押した相手。公開鍵は note_favourites と同じく remote_actors の行が持つ
@@ -192,7 +191,6 @@ CREATE TABLE note_stamps (
     -- カスタム絵文字の画像 URL。Unicode の絵文字では NULL
     emoji_image_url TEXT,
     created_at TEXT NOT NULL,
-    -- Misskey と同じく 1 人が 1 つの投稿に押せるのは 1 つ。押し替えは行を置き換える
     UNIQUE (note_public_id, remote_actor_id)
 );
 

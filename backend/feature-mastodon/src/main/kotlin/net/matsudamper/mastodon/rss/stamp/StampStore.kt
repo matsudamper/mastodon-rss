@@ -5,16 +5,8 @@ import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 
 interface StampStore {
-    /**
-     * 同じ相手が同じ投稿に押し直したら、前のスタンプを置き換える。
-     *
-     * @return 記録したら true。投稿が無ければ false
-     */
     fun put(stamp: ReceivedStamp): Boolean
 
-    /**
-     * @param actorUri 押した相手。他人のスタンプを消されないよう、署名の持ち主で固定する
-     */
     fun remove(
         notePublicId: PublicNoteId,
         actorUri: String,

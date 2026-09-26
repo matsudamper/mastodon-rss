@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory
  * 受け取った `Like` / `EmojiReact` アクティビティ自身の `id` は記録していないので、
  * `object` にその `id` だけが入った `Undo` ではお気に入りもスタンプも取り消せない。
  * Mastodon も同じで、この形の取り消しはお気に入りとしては扱わない。
- * Misskey と Pleroma は元のアクティビティを丸ごと埋めてくるので、スタンプは取り消せる。
  */
 class UndoReactionHandler(
     private val domain: String,
@@ -90,7 +89,6 @@ class UndoReactionHandler(
     ): Boolean {
         return when {
             emoji != null -> {
-                // 押し替えた後に古いスタンプの取り消しが届いたときに、今のスタンプを消さないよう絵文字でも絞る
                 stamps.remove(notePublicId = notePublicId, actorUri = actorUri, emoji = emoji)
             }
 

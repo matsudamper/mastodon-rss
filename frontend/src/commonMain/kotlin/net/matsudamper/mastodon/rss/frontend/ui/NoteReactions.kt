@@ -7,9 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/**
- * 投稿に届いたお気に入りとスタンプ。押した相手は出さず、数だけを出す
- */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NoteReactions(

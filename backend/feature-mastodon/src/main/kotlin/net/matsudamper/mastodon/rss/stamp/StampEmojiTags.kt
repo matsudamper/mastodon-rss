@@ -11,10 +11,6 @@ import kotlinx.serialization.json.JsonPrimitive
  * カスタム絵文字は `content` に `:name:` としか入らないので、画像は同じ
  * アクティビティの `tag` に並ぶ `Emoji` から取る。
  *
- * ```json
- * "tag": [{ "type": "Emoji", "name": ":kawaii:", "icon": { "type": "Image", "url": "https://..." } }]
- * ```
- *
  * `tag` も `icon` も、配列 1 つのこともオブジェクト 1 つのこともある。
  * Activity Streams では単数と配列のどちらでも書けるため。
  */
