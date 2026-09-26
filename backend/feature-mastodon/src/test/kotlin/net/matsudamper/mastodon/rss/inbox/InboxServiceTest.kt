@@ -190,6 +190,26 @@ class InboxServiceTest {
         }
 
     @Test
+    fun `受信を止めているかを引けなければハンドラに渡さずに受け取って捨てる`() =
+        runBlocking {
+            val handler = RecordingHandler("Follow")
+            val domainBlocks = object : InboxDomainBlocks {
+                override fun blocksInboxFrom(url: String): Boolean = throw IllegalStateException("DB がロックされている")
+
+                override fun signedRequestReceived(verifiedSignerActorId: String) = Unit
+            }
+
+            val result = InboxService(
+                verifier = HttpSignatureVerifier(TestRemoteActor.remoteActors()),
+                domainBlocks = domainBlocks,
+                handlers = listOf(handler),
+            ).receive(recipient, signedRequest(follow()))
+
+            assertEquals(InboxResult.Accepted, result)
+            assertTrue(handler.calls.isEmpty(), "${handler.calls.size}")
+        }
+
+    @Test
     fun `署名を検証できたら届いたことを記録する`() =
         runBlocking {
             val domainBlocks = FakeInboxDomainBlocks(blockedUrls = setOf())

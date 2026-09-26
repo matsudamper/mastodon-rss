@@ -158,12 +158,13 @@ class InboxService(
     }
 
     /**
-     * 引けなければ止めていないものとして受ける。落として 5xx を返すと、相手は同じものを送り直し続ける
+     * 引けなければ止めているものとして捨てる。止めていないものとして通すと、止めている相手の
+     * アクティビティが処理される。5xx を返すと相手は同じものを送り直し続けるので、落としもしない
      */
     private fun blocksInboxFrom(keyId: String): Boolean =
         runCatching { domainBlocks.blocksInboxFrom(keyId) }
-            .onFailure { failure -> logger.warn("受信を止めているドメインかを引けなかった: $keyId", failure) }
-            .getOrDefault(false)
+            .onFailure { failure -> logger.warn("受信を止めているドメインかを引けなかったので捨てる: $keyId", failure) }
+            .getOrDefault(true)
 
     /**
      * 受け取ったものの処理とは関係が無いので、落ちても受信は続ける
