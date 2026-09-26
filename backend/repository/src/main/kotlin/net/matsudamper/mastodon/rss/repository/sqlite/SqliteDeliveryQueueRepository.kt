@@ -203,48 +203,28 @@ internal class SqliteDeliveryQueueRepository(
 
         val dueBy = StoredInstant.format(now)
 
-        return jooq.transaction { dsl ->
-            // 送る時刻が最も古い行を持つホストから順に、ホストごとに 1 件だけ選ぶ。
-            // 行を古い順に取ると、溜まった 1 ホストで 1 回分が埋まって他のホスト宛が待つ
-            val hosts = dsl
-                .select(DELIVERY_QUEUE.INBOX_HOST, DSL.min(DELIVERY_QUEUE.NEXT_ATTEMPT_AT))
-                .from(DELIVERY_QUEUE)
-                .where(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
-                .and(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.le(dueBy))
-                .groupBy(DELIVERY_QUEUE.INBOX_HOST)
-                .orderBy(DSL.min(DELIVERY_QUEUE.NEXT_ATTEMPT_AT).asc(), DELIVERY_QUEUE.INBOX_HOST.asc())
-                .limit(limit)
-                .fetch(DELIVERY_QUEUE.INBOX_HOST)
-
-            val candidates = hosts.mapNotNull { host ->
-                dsl
-                    .select(DELIVERY_QUEUE.ID)
-                    .from(DELIVERY_QUEUE)
-                    .where(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
-                    .and(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.le(dueBy))
-                    .and(DELIVERY_QUEUE.INBOX_HOST.eq(host))
-                    .orderBy(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.asc(), DELIVERY_QUEUE.ID.asc())
-                    .limit(1)
-                    .fetchOne(DELIVERY_QUEUE.ID)
-            }
-
-            // 条件に state を入れて、実際に更新できた行だけを返す
-            val claimedIds = candidates.filter { id ->
-                dsl
-                    .update(DELIVERY_QUEUE)
-                    .set(DELIVERY_QUEUE.STATE, DeliveryStateDbValue.DELIVERING.dbValue)
-                    .set(DELIVERY_QUEUE.ATTEMPTS, DELIVERY_QUEUE.ATTEMPTS.plus(1))
-                    .where(DELIVERY_QUEUE.ID.eq(id))
-                    .and(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
-                    .execute() == 1
-            }
-            if (claimedIds.isEmpty()) return@transaction emptyList()
-
+        return jooq.withConnection { dsl ->
             dsl
-                .selectFrom(DELIVERY_QUEUE)
-                .where(DELIVERY_QUEUE.ID.`in`(claimedIds))
-                .orderBy(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.asc(), DELIVERY_QUEUE.ID.asc())
+                .update(DELIVERY_QUEUE)
+                .set(DELIVERY_QUEUE.STATE, DeliveryStateDbValue.DELIVERING.dbValue)
+                .set(DELIVERY_QUEUE.ATTEMPTS, DELIVERY_QUEUE.ATTEMPTS.plus(1))
+                .where(
+                    DELIVERY_QUEUE.ID.`in`(
+                        DSL
+                            .select(DELIVERY_QUEUE.ID)
+                            .from(DELIVERY_QUEUE)
+                            .where(DELIVERY_QUEUE.STATE.eq(DeliveryStateDbValue.PENDING.dbValue))
+                            .and(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.le(dueBy))
+                            .orderBy(DELIVERY_QUEUE.NEXT_ATTEMPT_AT.asc(), DELIVERY_QUEUE.ID.asc())
+                            .limit(limit),
+                    ),
+                )
+                .returning()
                 .fetch()
+                // RETURNING の並びは決まっていないので、取り出した順に並べ直す
+                .sortedWith(
+                    compareBy<Record>({ it.get(DELIVERY_QUEUE.NEXT_ATTEMPT_AT) }, { it.get(DELIVERY_QUEUE.ID) }),
+                )
                 .map { it.toClaimed() }
         }
     }

@@ -39,7 +39,7 @@ import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 // キューの行を拾って送るところ。
-// 同じホストは同時に送らない、違うホストは並列、1 件の失敗で止まらない、キャンセルは失敗として残さない。
+// 並列に送る、1 件の失敗で止まらない、キャンセルは失敗として残さない。
 class DeliveryWorkerTest {
     private val now: Instant = Instant.parse("2026-08-10T00:00:00Z")
 
@@ -299,35 +299,6 @@ class DeliveryWorkerTest {
     }
 
     @Test
-    fun `送れないホスト宛が溜まっていても 他のホスト宛を待たせない`() = runTest {
-        val repositories = FakeRepositories()
-        val delivery = RecordingDelivery(latency = 100.milliseconds)
-        repositories.enqueue(inboxes = (1..8).map { "https://a.example/users/$it/inbox" })
-        repositories.enqueue(inboxes = listOf("https://b.example/inbox"))
-        val worker = DeliveryWorker(
-            queue = repositories.deliveryQueue,
-            delivery = delivery,
-            directory = TestLocalActor.directory,
-            deletedActorDirectory = deletedActorDirectory(),
-            idleInterval = IDLE,
-            backfill = backfillPublisher(delivery),
-            claimLimit = 8,
-            clock = { now },
-            retryPolicy = TEST_RETRY_POLICY,
-        )
-
-        val job = worker.start(this)
-        // 溜まっているホストの 1 件目と一緒に送り始める
-        advanceTimeBy(100.milliseconds + IDLE)
-        job.cancelAndJoin()
-
-        assertEquals(
-            listOf("https://a.example/users/1/inbox", "https://b.example/inbox"),
-            delivery.delivered.sorted(),
-        )
-    }
-
-    @Test
     fun `起動時に delivering を pending に戻して送る`() = runTest {
         val repositories = FakeRepositories()
         val delivery = RecordingDelivery()
@@ -339,28 +310,6 @@ class DeliveryWorkerTest {
 
         assertEquals(listOf("https://a.example/inbox"), delivery.delivered)
         assertEquals(emptyList(), repositories.deliveryQueue.rows())
-    }
-
-    @Test
-    fun `同じホスト宛は同時に送らず 異なるホスト宛は並列に送る`() = runTest {
-        val repositories = FakeRepositories()
-        val delivery = RecordingDelivery(latency = 100.milliseconds)
-        repositories.enqueue(
-            inboxes = listOf(
-                "https://a.example/users/1/inbox",
-                "https://a.example/users/2/inbox",
-                "https://a.example/users/3/inbox",
-                "https://b.example/inbox",
-                "https://c.example/inbox",
-            ),
-        )
-
-        runWorker(repositories.deliveryQueue, delivery)
-
-        assertEquals(1, delivery.maxConcurrentByHost.getValue("a.example"))
-        // 3 ホストが同時に送っている瞬間がある
-        assertEquals(3, delivery.maxConcurrent)
-        assertEquals(5, delivery.delivered.size)
     }
 
     @Test
@@ -569,7 +518,7 @@ class DeliveryWorkerTest {
     }
 
     /**
-     * 送信の差し替え。同時に何件送っているかをホストごとに数える
+     * 送信の差し替え。同時に何件送っているかを数える
      *
      * @param failing 失敗を返す宛先
      * @param failTimes 失敗を返す回数。0 なら毎回
@@ -590,10 +539,8 @@ class DeliveryWorkerTest {
             private set
         var maxConcurrent = 0
             private set
-        val maxConcurrentByHost = mutableMapOf<String, Int>()
 
         private var concurrent = 0
-        private val concurrentByHost = mutableMapOf<String, Int>()
         private var failed = 0
 
         override suspend fun deliver(
@@ -602,11 +549,8 @@ class DeliveryWorkerTest {
             body: ByteArray,
         ): DeliveryResult {
             attempts++
-            val host = java.net.URI(inbox).host
             concurrent++
-            concurrentByHost[host] = (concurrentByHost[host] ?: 0) + 1
             maxConcurrent = maxOf(maxConcurrent, concurrent)
-            maxConcurrentByHost[host] = maxOf(maxConcurrentByHost[host] ?: 0, concurrentByHost.getValue(host))
             try {
                 delay(latency)
                 if (inbox in throwing) throw IllegalStateException("壊れた宛先")
@@ -619,7 +563,6 @@ class DeliveryWorkerTest {
                 return DeliveryResult.Delivered
             } finally {
                 concurrent--
-                concurrentByHost[host] = concurrentByHost.getValue(host) - 1
             }
         }
 

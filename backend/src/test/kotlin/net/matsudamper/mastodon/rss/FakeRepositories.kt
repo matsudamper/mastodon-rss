@@ -1,8 +1,6 @@
 package net.matsudamper.mastodon.rss
 
-import java.net.URI
 import java.time.Instant
-import java.util.Locale
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountDeletion
 import net.matsudamper.mastodon.rss.repository.AccountDeletionResult
@@ -920,7 +918,6 @@ class FakeDeliveryQueueRepository(
         val claimed = stored
             .filter { it.state == State.PENDING && it.nextAttemptAt != null && !it.nextAttemptAt.isAfter(now) }
             .sortedWith(compareBy<Row> { it.nextAttemptAt }.thenBy { it.id.value })
-            .distinctBy { hostOf(it.inbox) }
             .take(limit.coerceAtLeast(0))
         claimed.forEach { row -> update(row.id) { it.copy(state = State.DELIVERING, attempts = it.attempts + 1) } }
         return claimed.map { row ->
@@ -936,9 +933,6 @@ class FakeDeliveryQueueRepository(
             )
         }
     }
-
-    // 本物と同じく、大文字小文字だけが違うホストは 1 つとして扱う
-    private fun hostOf(inbox: String): String = runCatching { URI(inbox).host?.lowercase(Locale.ROOT) }.getOrNull() ?: inbox
 
     override fun exists(id: DeliveryId): Boolean = find(id) != null
 
