@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss.inbox
 
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
-import net.matsudamper.mastodon.rss.actor.ActorUrls
 
 /**
  * inbox が受け取ったアクティビティ 1 種類ぶんの処理。
@@ -26,7 +25,7 @@ interface InboxActivityHandler {
      * 失敗しても相手に伝える口が無いので、何が起きたかを残すのは実装側の責任になる。
      */
     suspend fun handle(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         verifiedSignerActorId: String,
         activity: InboxActivity,
         rawActivityJson: JsonObject,

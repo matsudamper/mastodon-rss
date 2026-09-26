@@ -32,7 +32,9 @@ import net.matsudamper.mastodon.rss.httpsignature.TestSigning
 // 受け取ったものを信用してよいかの判断と、種類ごとの振り分け。
 // HTTP の status への変換は inboxRoutes 側なので、ここはサーバーを立てずに確かめる。
 class InboxServiceTest {
-    private val recipient = ActorUrls(domain = "example.com", username = "admin")
+    private val recipientUrls = ActorUrls(domain = "example.com", username = "admin")
+
+    private val recipient = InboxRecipient.Account(recipientUrls)
 
     private val host = "example.com"
 
@@ -45,7 +47,7 @@ class InboxServiceTest {
         val calls: MutableList<Call> = mutableListOf()
 
         override suspend fun handle(
-            recipient: ActorUrls,
+            recipient: InboxRecipient,
             verifiedSignerActorId: String,
             activity: InboxActivity,
             rawActivityJson: JsonObject,
@@ -59,7 +61,7 @@ class InboxServiceTest {
         }
 
         class Call(
-            val recipient: ActorUrls,
+            val recipient: InboxRecipient,
             val verifiedSignerActorId: String,
             val activity: InboxActivity,
             val rawActivityJson: JsonObject,
@@ -68,7 +70,7 @@ class InboxServiceTest {
 
     private fun follow(
         actor: String = TestRemoteActor.ACTOR_ID,
-        target: String = recipient.actorId,
+        target: String = recipientUrls.actorId,
     ): ByteArray =
         """
         {"id":"https://remote.example/activities/1","type":"Follow",
@@ -125,7 +127,7 @@ class InboxServiceTest {
     private fun recordedFollower(): FakeFollowerStore =
         FakeFollowerStore().apply {
             record(
-                username = recipient.username,
+                username = recipientUrls.username,
                 follower = RemoteActor(
                     actorId = TestRemoteActor.ACTOR_ID,
                     inbox = TestRemoteActor.INBOX,
@@ -225,7 +227,7 @@ class InboxServiceTest {
             val handler = RecordingHandler("Follow")
             val body =
                 """
-                {"id":"https://remote.example/activities/3","type":"Follow","object":"${recipient.actorId}"}
+                {"id":"https://remote.example/activities/3","type":"Follow","object":"${recipientUrls.actorId}"}
                 """.trimIndent().toByteArray()
 
             val result = service(listOf(handler)).receive(recipient, signedRequest(body))

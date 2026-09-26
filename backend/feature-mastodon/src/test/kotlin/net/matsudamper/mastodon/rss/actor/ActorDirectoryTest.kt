@@ -37,6 +37,14 @@ class ActorDirectoryTest {
     }
 
     @Test
+    fun `Actor の id から引ける`() {
+        assertEquals("https://example.com/users/feed1", directory.resolveActorId("https://example.com/users/feed1")?.actorId)
+        assertNull(directory.resolveActorId("https://other.example/users/feed1"))
+        assertNull(directory.resolveActorId("https://example.com/users/feed1/inbox"))
+        assertNull(directory.resolveActorId("https://example.com/users/"))
+    }
+
+    @Test
     fun `保存されている綴りで返る`() {
         // 要求された綴りをそのまま返すと、同じアカウントが 2 つの ID で相手側にキャッシュされる
         assertEquals("https://example.com/users/Gihyo", directory.resolve("gihyo")?.actorId)

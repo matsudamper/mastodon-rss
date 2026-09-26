@@ -3,7 +3,6 @@ package net.matsudamper.mastodon.rss.inbox
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
-import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.stamp.StampStore
@@ -34,14 +33,14 @@ class DeleteActorHandler(
     private val logger = LoggerFactory.getLogger(DeleteActorHandler::class.java)
 
     override suspend fun handle(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         verifiedSignerActorId: String,
         activity: InboxActivity,
         rawActivityJson: JsonObject,
     ) {
         val deleteObjectId = activity.target?.id
         if (deleteObjectId == null) {
-            logger.warn("Delete に object が無い: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.warn("Delete に object が無い: ${recipient.logLabel} ← $verifiedSignerActorId")
             return
         }
 

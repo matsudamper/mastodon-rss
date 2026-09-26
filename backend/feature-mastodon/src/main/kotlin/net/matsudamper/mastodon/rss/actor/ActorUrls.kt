@@ -27,6 +27,8 @@ data class ActorUrls(
     val actorId: String = "https://$domain/users/$username"
 
     val inbox: String = "$actorId/inbox"
+
+    val sharedInbox: String = "https://$domain$SHARED_INBOX_PATH"
     val outbox: String = "$actorId/outbox"
     val featured: String = "$actorId/collections/featured"
     val followers: String = "$actorId/followers"
@@ -62,6 +64,8 @@ data class ActorUrls(
     val publicKeyId: String = "$actorId#main-key"
 
     companion object {
+        const val SHARED_INBOX_PATH: String = "/inbox"
+
         /**
          * アクターの id から見たプロフィール画像のパス。GraphQL も同じ綴りを使う
          */

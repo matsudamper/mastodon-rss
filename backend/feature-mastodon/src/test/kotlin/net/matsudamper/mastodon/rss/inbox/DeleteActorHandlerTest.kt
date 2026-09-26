@@ -75,7 +75,7 @@ class DeleteActorHandlerTest {
     ) {
         val rawActivityJson = AppJson.parseToJsonElement(json) as JsonObject
         DeleteActorHandler(followers = store, favourites = favourites, stamps = stamps).handle(
-            recipient = TestLocalActor.urls,
+            recipient = InboxRecipient.Account(TestLocalActor.urls),
             verifiedSignerActorId = TestRemoteActor.ACTOR_ID,
             activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), rawActivityJson),
             rawActivityJson = rawActivityJson,

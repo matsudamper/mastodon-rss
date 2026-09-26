@@ -4,7 +4,6 @@ import java.time.Instant
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
-import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
@@ -38,14 +37,14 @@ class ReactionHandler(
     private val logger = LoggerFactory.getLogger(ReactionHandler::class.java)
 
     override suspend fun handle(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         verifiedSignerActorId: String,
         activity: InboxActivity,
         rawActivityJson: JsonObject,
     ) {
         val targetUrl = activity.target?.id
         if (targetUrl == null) {
-            logger.warn("$type に object が無い: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.warn("$type に object が無い: ${recipient.logLabel} ← $verifiedSignerActorId")
             return
         }
 
@@ -57,11 +56,11 @@ class ReactionHandler(
 
         val emoji = StampEmoji.of(activity.content)
         if (emoji == null && type != LIKE_TYPE) {
-            logger.info("$type に絵文字が無いので何もしない: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.info("$type に絵文字が無いので何もしない: ${recipient.logLabel} ← $verifiedSignerActorId")
             return
         }
         if (emoji != null && emoji.length > StampEmoji.MAX_LENGTH) {
-            logger.info("$type の絵文字が長すぎるので受け付けない: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.info("$type の絵文字が長すぎるので受け付けない: ${recipient.logLabel} ← $verifiedSignerActorId")
             return
         }
 
@@ -69,7 +68,7 @@ class ReactionHandler(
         val undoneFirst = activityUri != null &&
             earlyUndoneLikes.isRemembered(actorUri = verifiedSignerActorId, activityUri = activityUri, now = Instant.now())
         if (undoneFirst) {
-            logger.info("先に取り消しが届いた $type なので記録しない: ${recipient.acct} ← $verifiedSignerActorId id=$activityUri")
+            logger.info("先に取り消しが届いた $type なので記録しない: ${recipient.logLabel} ← $verifiedSignerActorId id=$activityUri")
             return
         }
 
@@ -77,7 +76,7 @@ class ReactionHandler(
         // 居ない相手のお気に入りやスタンプが公開画面に出たままになる
         val actor = remoteActors.findActor(verifiedSignerActorId)
         if (actor == null) {
-            logger.warn("$type の押し手のアクター文書を引けないので受け付けない: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.warn("$type の押し手のアクター文書を引けないので受け付けない: ${recipient.logLabel} ← $verifiedSignerActorId")
             return
         }
 
@@ -95,7 +94,7 @@ class ReactionHandler(
     }
 
     private fun addFavourite(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         notePublicId: PublicNoteId,
         actor: RemoteActor,
     ) {
@@ -108,14 +107,14 @@ class ReactionHandler(
         )
 
         if (recorded) {
-            logger.info("お気に入りを記録した: ${recipient.acct} ← ${actor.actorId} 投稿=${notePublicId.value}")
+            logger.info("お気に入りを記録した: ${recipient.logLabel} ← ${actor.actorId} 投稿=${notePublicId.value}")
         } else {
-            logger.info("お気に入りを記録しなかった。記録済みか投稿が無い: ${recipient.acct} ← ${actor.actorId} 投稿=${notePublicId.value}")
+            logger.info("お気に入りを記録しなかった。記録済みか投稿が無い: ${recipient.logLabel} ← ${actor.actorId} 投稿=${notePublicId.value}")
         }
     }
 
     private fun putStamp(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         notePublicId: PublicNoteId,
         actor: RemoteActor,
         emoji: String,
@@ -132,9 +131,9 @@ class ReactionHandler(
         )
 
         if (recorded) {
-            logger.info("スタンプを記録した: ${recipient.acct} ← ${actor.actorId} 投稿=${notePublicId.value} 絵文字=$emoji")
+            logger.info("スタンプを記録した: ${recipient.logLabel} ← ${actor.actorId} 投稿=${notePublicId.value} 絵文字=$emoji")
         } else {
-            logger.info("スタンプを記録しなかった。投稿が無い: ${recipient.acct} ← ${actor.actorId} 投稿=${notePublicId.value}")
+            logger.info("スタンプを記録しなかった。投稿が無い: ${recipient.logLabel} ← ${actor.actorId} 投稿=${notePublicId.value}")
         }
     }
 

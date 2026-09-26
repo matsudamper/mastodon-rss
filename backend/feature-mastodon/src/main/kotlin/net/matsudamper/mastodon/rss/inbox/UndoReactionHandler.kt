@@ -5,7 +5,6 @@ import kotlin.time.toJavaDuration
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
 import net.matsudamper.mastodon.rss.activitypub.id
-import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.json.AppJson
@@ -32,7 +31,7 @@ class UndoReactionHandler(
      * @return お気に入りかスタンプの取り消しだったら true。フォロー解除など別の取り消しなら false
      */
     fun handle(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         verifiedSignerActorId: String,
         activity: InboxActivity,
     ): Boolean {
@@ -44,14 +43,14 @@ class UndoReactionHandler(
     }
 
     private fun removeEmbedded(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         verifiedSignerActorId: String,
         undoObject: LinkOrObject.Embedded,
     ): Boolean {
         val undoneActivity =
             runCatching { AppJson.decodeFromJsonElement(InboxActivity.serializer(), undoObject.json) }.getOrNull()
         if (undoneActivity == null) {
-            logger.warn("Undo の object を読めなかった: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.warn("Undo の object を読めなかった: ${recipient.logLabel} ← $verifiedSignerActorId")
             return false
         }
 
@@ -60,7 +59,7 @@ class UndoReactionHandler(
 
         val notePublicId = undoneActivity.target?.id?.let { NoteUrls.publicIdOf(domain = domain, url = it) }
         if (notePublicId == null) {
-            logger.info("取り消す $undoneType を引き当てられない: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.info("取り消す $undoneType を引き当てられない: ${recipient.logLabel} ← $verifiedSignerActorId")
             return true
         }
 
@@ -71,7 +70,7 @@ class UndoReactionHandler(
             emoji = StampEmoji.of(undoneActivity.content),
         )
         if (removed) {
-            logger.info("$undoneType を取り消した: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
+            logger.info("$undoneType を取り消した: ${recipient.logLabel} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
             return true
         }
 
@@ -79,7 +78,7 @@ class UndoReactionHandler(
         if (undoneActivityUri != null) {
             rememberEarlyUndone(actorUri = verifiedSignerActorId, activityUri = undoneActivityUri)
         }
-        logger.info("取り消す $undoneType が記録に無い: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
+        logger.info("取り消す $undoneType が記録に無い: ${recipient.logLabel} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
         return true
     }
 

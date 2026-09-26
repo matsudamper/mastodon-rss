@@ -54,6 +54,7 @@ class InboxRoutesTest {
                 inboxRoutes(
                     directory = TestLocalActor.directory,
                     service = InboxService.default(
+                        directory = TestLocalActor.directory,
                         remoteActors = remoteActors,
                         followers = followers,
                         favourites = FakeFavouriteStore(),
@@ -103,6 +104,39 @@ class InboxRoutesTest {
             val response = postInbox(path = path, body = follow(target = target))
 
             assertEquals(HttpStatusCode.Accepted, response.status)
+        }
+
+    @Test
+    fun `共有 inbox でも署名が正しければ202で受ける`() =
+        testApplication {
+            installModule()
+
+            val response = postInbox(path = "/inbox", body = follow())
+
+            assertEquals(HttpStatusCode.Accepted, response.status)
+        }
+
+    @Test
+    fun `共有 inbox でも署名が無ければ401`() =
+        testApplication {
+            installModule()
+
+            val body = follow()
+            val response =
+                postInbox(
+                    path = "/inbox",
+                    body = body,
+                    headers =
+                    TestSigning
+                        .headers(
+                            requestTarget = "/inbox",
+                            host = host,
+                            date = Instant.now(),
+                            body = body,
+                        ).filterKeys { it != "Signature" },
+                )
+
+            assertEquals(HttpStatusCode.Unauthorized, response.status)
         }
 
     @Test

@@ -57,6 +57,11 @@ interface FollowerStore {
         followActivityUri: String?,
     ): Boolean
 
+    fun findFolloweeUsername(
+        followerActorUri: String,
+        followActivityUri: String,
+    ): String?
+
     /**
      * こちらのアカウントのフォローを全部消す。アカウントを消すときに使う。
      * `Accept` を返せていないものも消える

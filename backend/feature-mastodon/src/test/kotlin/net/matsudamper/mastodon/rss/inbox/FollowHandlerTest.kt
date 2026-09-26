@@ -32,6 +32,7 @@ class FollowHandlerTest {
         followers: FakeFollowerStore,
         remoteActors: RemoteActors = TestRemoteActor.remoteActors(),
     ): FollowHandler = FollowHandler(
+        directory = TestLocalActor.directory,
         remoteActors = remoteActors,
         followers = followers,
     )
@@ -39,10 +40,11 @@ class FollowHandlerTest {
     private suspend fun handle(
         handler: FollowHandler,
         json: String,
+        inbox: InboxRecipient = InboxRecipient.Account(recipient),
     ) {
         val rawActivityJson = AppJson.parseToJsonElement(json) as JsonObject
         handler.handle(
-            recipient = recipient,
+            recipient = inbox,
             verifiedSignerActorId = TestRemoteActor.ACTOR_ID,
             activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), rawActivityJson),
             rawActivityJson = rawActivityJson,
@@ -145,5 +147,29 @@ class FollowHandlerTest {
         handle(handler, followJson())
 
         assertEquals(1, followers.rows.size)
+    }
+
+    @Test
+    fun `共有 inbox では object のアクターを宛先として記録する`() = runBlocking {
+        val followers = FakeFollowerStore()
+        val followee = TestLocalActor.directory.resolve(TestLocalActor.STORED_USERNAME) ?: error("テスト用のアカウントが無い")
+
+        handle(followHandler(followers), followJson(target = followee.actorId), inbox = InboxRecipient.Shared)
+
+        assertEquals(TestLocalActor.STORED_USERNAME, followers.rows.single().username)
+        assertEquals(followee.actorId, acceptOf(followers).actor)
+    }
+
+    @Test
+    fun `共有 inbox でも object がこちらのアカウントでなければ記録しない`() = runBlocking {
+        val followers = FakeFollowerStore()
+
+        handle(
+            followHandler(followers),
+            followJson(target = "https://${TestLocalActor.DOMAIN}/users/nobody"),
+            inbox = InboxRecipient.Shared,
+        )
+
+        assertTrue(followers.rows.isEmpty())
     }
 }

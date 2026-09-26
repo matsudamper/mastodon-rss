@@ -42,10 +42,11 @@ class UndoFollowHandlerTest {
         store: FakeFollowerStore,
         json: String,
         verifiedSignerActorId: String = TestRemoteActor.ACTOR_ID,
+        inbox: InboxRecipient = InboxRecipient.Account(recipient),
     ) {
         val rawActivityJson = AppJson.parseToJsonElement(json) as JsonObject
-        UndoFollowHandler(store).handle(
-            recipient = recipient,
+        UndoFollowHandler(directory = TestLocalActor.directory, followers = store).handle(
+            recipient = inbox,
             verifiedSignerActorId = verifiedSignerActorId,
             activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), rawActivityJson),
         )
@@ -132,6 +133,73 @@ class UndoFollowHandlerTest {
                        "actor":"${TestRemoteActor.ACTOR_ID}","object":"${recipient.actorId}"}}
             """.trimIndent(),
             verifiedSignerActorId = "https://remote.example/users/mallory",
+        )
+
+        assertEquals(1, store.count(TestLocalActor.USERNAME))
+    }
+
+    @Test
+    fun `Follow の object の綴りが大文字でも解除する`() = runBlocking {
+        val store = followers()
+
+        handle(
+            store,
+            """
+            {"id":"https://remote.example/activities/2","type":"Undo",
+             "actor":"${TestRemoteActor.ACTOR_ID}",
+             "object":{"id":"$followUri","type":"Follow",
+                       "actor":"${TestRemoteActor.ACTOR_ID}","object":"https://${TestLocalActor.DOMAIN}/users/ADMIN"}}
+            """.trimIndent(),
+        )
+
+        assertEquals(0, store.count(TestLocalActor.USERNAME))
+    }
+
+    @Test
+    fun `共有 inbox では埋まっている Follow の object から宛先のアカウントを引いて解除する`() = runBlocking {
+        val store = followers()
+
+        handle(
+            store,
+            """
+            {"id":"https://remote.example/activities/2","type":"Undo",
+             "actor":"${TestRemoteActor.ACTOR_ID}",
+             "object":{"id":"$followUri","type":"Follow",
+                       "actor":"${TestRemoteActor.ACTOR_ID}","object":"${recipient.actorId}"}}
+            """.trimIndent(),
+            inbox = InboxRecipient.Shared,
+        )
+
+        assertEquals(0, store.count(TestLocalActor.USERNAME))
+    }
+
+    @Test
+    fun `共有 inbox に届いた id だけの Undo は、記録している Follow の id から宛先を引いて解除する`() = runBlocking {
+        val store = followers()
+
+        handle(
+            store,
+            """
+            {"id":"https://remote.example/activities/2","type":"Undo",
+             "actor":"${TestRemoteActor.ACTOR_ID}","object":"$followUri"}
+            """.trimIndent(),
+            inbox = InboxRecipient.Shared,
+        )
+
+        assertEquals(0, store.count(TestLocalActor.USERNAME))
+    }
+
+    @Test
+    fun `共有 inbox に届いた id だけの Undo が記録に無い Follow を指していれば何もしない`() = runBlocking {
+        val store = followers()
+
+        handle(
+            store,
+            """
+            {"id":"https://remote.example/activities/2","type":"Undo",
+             "actor":"${TestRemoteActor.ACTOR_ID}","object":"https://remote.example/activities/unknown"}
+            """.trimIndent(),
+            inbox = InboxRecipient.Shared,
         )
 
         assertEquals(1, store.count(TestLocalActor.USERNAME))
