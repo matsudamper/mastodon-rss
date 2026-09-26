@@ -4,6 +4,7 @@ import java.net.IDN
 import java.net.URI
 import java.time.Instant
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import net.matsudamper.mastodon.rss.repository.DomainBlock
 import net.matsudamper.mastodon.rss.repository.DomainBlockRepository
 import org.slf4j.LoggerFactory
@@ -23,6 +24,21 @@ class DomainBlockService(
     private val clock: () -> Instant,
 ) {
     /**
+     * ドメインごとの、最後に動いていると分かった時刻。
+     *
+     * 同じドメインへの配信は並べて送るので、動いていると分かった後で、期限間近の古い行の失敗が
+     * 返ってくることがある。その失敗でドメインを止めると、動いている相手への配信が止まる。
+     * 状態はメモリに持つ。再起動で消えても、次に動いていると分かったときにまた記録される
+     */
+    private val lastAvailableAt = ConcurrentHashMap<String, Instant>()
+
+    /**
+     * 動いていると分かった記録と止めるかの判断を、ドメインの記録と合わせて 1 つずつ行う。
+     * 分けると、判断した後に動いていると分かった記録が割り込み、その後から止まる
+     */
+    private val availabilityLock = Any()
+
+    /**
      * その inbox への配信を止めているか。読めない URL は止めない
      */
     fun blocksDeliveryTo(inbox: String): Boolean {
@@ -41,29 +57,43 @@ class DomainBlockService(
     }
 
     /**
-     * 配信を諦めたので、その inbox のドメインへの配信を止める。既に止めていれば何もしない
+     * 配信を諦めたので、その inbox のドメインへの配信を止める。既に止めていれば何もしない。
+     *
+     * 諦めた配信を投函した後に、そのドメインが動いていると分かっていれば止めない
      *
      * @param reason 諦めたときの失敗の理由
+     * @param enqueuedAt 諦めた配信を投函した時刻
      */
     fun markUnavailable(
         inbox: String,
         reason: String,
+        enqueuedAt: Instant,
     ) {
         val domain = domainOf(inbox) ?: return
-        if (domainBlocks.markUnavailable(domain = domain, description = reason, at = clock())) {
-            logger.warn("配信を諦めたので $domain への配信を止める: $reason")
+        synchronized(availabilityLock) {
+            val availableAt = lastAvailableAt[domain]
+            if (availableAt != null && !availableAt.isBefore(enqueuedAt)) {
+                logger.info("諦めた配信の後に動いていると分かっているので $domain は止めない: $reason")
+                return
+            }
+            if (domainBlocks.markUnavailable(domain = domain, description = reason, at = clock())) {
+                logger.warn("配信を諦めたので $domain への配信を止める: $reason")
+            }
         }
     }
 
     /**
-     * その URL のドメインが戻ってきたので、自動で止めていた配信を再開する
+     * その URL のドメインが動いていると分かったので、自動で止めていた配信を再開する
      *
      * @param url 送れた inbox や、署名付きのリクエストを送ってきたアクターの URL
      */
     fun markAvailable(url: String) {
         val domain = domainOf(url) ?: return
-        if (domainBlocks.clearUnavailable(domain)) {
-            logger.info("$domain が戻ってきたので配信を再開する")
+        synchronized(availabilityLock) {
+            lastAvailableAt[domain] = clock()
+            if (domainBlocks.clearUnavailable(domain)) {
+                logger.info("$domain が戻ってきたので配信を再開する")
+            }
         }
     }
 

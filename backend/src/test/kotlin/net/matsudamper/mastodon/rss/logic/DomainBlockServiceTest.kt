@@ -40,6 +40,25 @@ class DomainBlockServiceTest {
     }
 
     @Test
+    fun `同じドメインが動いていると分かった後に返ってきた古い配信の失敗では止めない`() {
+        // 別の inbox でも、ドメインが同じなら動いている
+        service.markAvailable("https://remote.example/inbox")
+
+        service.markUnavailable(inbox = "https://remote.example/users/alice/inbox", reason = "届かない", enqueuedAt = now)
+
+        assertNull(repository.find("remote.example"))
+    }
+
+    @Test
+    fun `動いていると分かったより後に投函した配信を諦めたら止める`() {
+        service.markAvailable("https://remote.example/users/alice")
+
+        service.markUnavailable(inbox = "https://remote.example/inbox", reason = "届かない", enqueuedAt = now.plusSeconds(1))
+
+        assertEquals(DomainBlockReason.UNAVAILABLE, repository.find("remote.example")?.reason)
+    }
+
+    @Test
     fun `管理画面の入力は URL ならホスト名を取り出して小文字に揃える`() {
         val saved = assertIs<DomainBlockService.SaveResult.Success>(
             service.save(domain = " https://Remote.Example/users/alice ", blockDelivery = true, blockInbox = false, description = "  "),
