@@ -24,17 +24,11 @@ private fun AdminContentPreview() {
                             title = "配信",
                             items = listOf(
                                 previewMenuItem("送り直しを待っている配信", "フォロワーの inbox に届かず、送り直しを待っている投稿を見る。"),
+                                previewMenuItem("アカウント情報の配り直し", "全アカウントの表示名・説明文・画像を、フォロワーのサーバーにもう一度配る。"),
                             ),
                         ),
                     ),
-                    actorUpdateBroadcast = AdminScreenUiState.ActorUpdateBroadcast(
-                        buttonLabel = "全アカウントの情報を配り直す",
-                        buttonEnabled = true,
-                        resultMessage = "3 アカウント分、12 件の配信を積んだ。",
-                        resultIsError = false,
-                        confirmDialogVisible = false,
-                        listener = AndroidPreviewActorUpdateBroadcastListener,
-                    ),
+                    actorUpdateBroadcastDialog = null,
                     listener = AndroidPreviewLoggedInListener,
                 ),
                 listener = AndroidPreviewAdminListener,
@@ -56,14 +50,6 @@ private fun previewMenuItem(title: String, description: String): AdminScreenUiSt
 
 private object AndroidPreviewLoggedInListener : AdminScreenUiState.Content.LoggedIn.Listener {
     override fun onClickLogout() = Unit
-}
-
-private object AndroidPreviewActorUpdateBroadcastListener : AdminScreenUiState.ActorUpdateBroadcast.Listener {
-    override fun onClickBroadcast() = Unit
-
-    override fun onClickConfirm() = Unit
-
-    override fun onDismissConfirm() = Unit
 }
 
 private object AndroidPreviewAdminListener : AdminScreenUiState.Listener {

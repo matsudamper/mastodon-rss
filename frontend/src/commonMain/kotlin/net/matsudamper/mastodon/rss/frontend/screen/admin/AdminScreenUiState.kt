@@ -29,7 +29,10 @@ data class AdminScreenUiState(
 
         data class LoggedIn(
             val sections: List<MenuSection>,
-            val actorUpdateBroadcast: ActorUpdateBroadcast,
+            /**
+             * 出していなければ null
+             */
+            val actorUpdateBroadcastDialog: ActorUpdateBroadcastDialog?,
             val listener: LoggedIn.Listener,
         ) : Content {
             @Immutable
@@ -44,26 +47,16 @@ data class AdminScreenUiState(
     }
 
     /**
-     * 全アカウントのアカウント情報をフォロワーに配り直す操作。
-     *
-     * @param resultMessage 前回配り直した結果。まだ配り直していなければ null
-     * @param confirmDialogVisible 配り直す前の確認を出している
+     * 全アカウントのアカウント情報をフォロワーに配り直す前の確認
      */
-    data class ActorUpdateBroadcast(
-        val buttonLabel: String,
-        val buttonEnabled: Boolean,
-        val resultMessage: String?,
-        val resultIsError: Boolean,
-        val confirmDialogVisible: Boolean,
+    data class ActorUpdateBroadcastDialog(
         val listener: Listener,
     ) {
         @Immutable
         interface Listener {
-            fun onClickBroadcast()
-
             fun onClickConfirm()
 
-            fun onDismissConfirm()
+            fun onDismiss()
         }
     }
 

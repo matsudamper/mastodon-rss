@@ -39,7 +39,9 @@ import net.matsudamper.mastodon.rss.frontend.ui.AdminScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.ContentMaxWidth
 import net.matsudamper.mastodon.rss.frontend.ui.PasswordField
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
+import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
 import net.matsudamper.mastodon.rss.frontend.ui.TextLink
+import net.matsudamper.mastodon.rss.frontend.ui.rememberSnackbarHostState
 
 private const val REPOSITORY_URL = "https://github.com/matsudamper/mastodon-rss"
 private const val LOGIN_FORM_ID = "admin-login-form"
@@ -55,12 +57,17 @@ internal fun AdminScreen(
         AdminScreenViewModel(viewModelScope)
     }
     val uiState by viewModel.uiStateFlow.collectAsState()
+    val snackbarHostState = rememberSnackbarHostState()
 
-    LaunchedEffect(viewModel.eventHandler, navController) {
+    LaunchedEffect(viewModel.eventHandler, navController, snackbarHostState) {
         viewModel.eventHandler.collect(
             object : AdminScreenViewModel.Event {
                 override suspend fun navigate(screen: Screen) {
                     navController.navigate(screen)
+                }
+
+                override fun showSnackbar(message: String) {
+                    snackbarHostState.show(message)
                 }
             },
         )
@@ -73,6 +80,7 @@ internal fun AdminScreen(
     AdminContent(
         uiState = uiState,
         platform = platform,
+        snackbarHostState = snackbarHostState,
     )
 }
 
@@ -80,8 +88,9 @@ internal fun AdminScreen(
 internal fun AdminContent(
     uiState: AdminScreenUiState,
     platform: ScreenPlatform,
+    snackbarHostState: SnackbarHostState = rememberSnackbarHostState(),
 ) {
-    AdminScaffold(title = null, listener = uiState.listener) { wide ->
+    AdminScaffold(title = null, listener = uiState.listener, snackbarHostState = snackbarHostState) { wide ->
         Column(
             modifier = Modifier
                 .widthIn(max = ContentMaxWidth)
@@ -108,7 +117,7 @@ internal fun AdminContent(
                     content.sections.forEach { section ->
                         MenuSection(section = section, wide = wide)
                     }
-                    ActorUpdateBroadcastCard(content.actorUpdateBroadcast)
+                    content.actorUpdateBroadcastDialog?.let { ActorUpdateBroadcastDialog(it) }
                     SectionCard(title = "このソフトウェア") {
                         Text("ソースコードは GitHub で公開している。")
                         TextLink(
@@ -166,37 +175,23 @@ private fun LoginCard(
 }
 
 @Composable
-private fun ActorUpdateBroadcastCard(broadcast: AdminScreenUiState.ActorUpdateBroadcast) {
-    SectionCard(title = "アカウント情報の配り直し") {
-        Text("全アカウントの表示名・説明文・画像を、それぞれのフォロワーのサーバーにもう一度配る。")
-        Button(onClick = broadcast.listener::onClickBroadcast, enabled = broadcast.buttonEnabled) {
-            Text(broadcast.buttonLabel)
-        }
-        broadcast.resultMessage?.let {
+private fun ActorUpdateBroadcastDialog(dialog: AdminScreenUiState.ActorUpdateBroadcastDialog) {
+    AlertDialog(
+        onDismissRequest = dialog.listener::onDismiss,
+        title = { Text("全アカウントの情報を配り直す") },
+        text = {
             Text(
-                it,
-                color = if (broadcast.resultIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                "全アカウントの表示名・説明文・画像を、それぞれのフォロワーのサーバーにもう一度配る。フォロワーが多いと送り終わるまで時間がかかる。",
+                style = MaterialTheme.typography.bodyMedium,
             )
-        }
-    }
-    if (broadcast.confirmDialogVisible) {
-        AlertDialog(
-            onDismissRequest = broadcast.listener::onDismissConfirm,
-            title = { Text("全アカウントの情報を配り直す") },
-            text = {
-                Text(
-                    "全アカウントのフォロワーのサーバーに、アカウント情報の更新を送る。フォロワーが多いと送り終わるまで時間がかかる。",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = broadcast.listener::onClickConfirm) { Text("配り直す") }
-            },
-            dismissButton = {
-                TextButton(onClick = broadcast.listener::onDismissConfirm) { Text("やめる") }
-            },
-        )
-    }
+        },
+        confirmButton = {
+            TextButton(onClick = dialog.listener::onClickConfirm) { Text("配り直す") }
+        },
+        dismissButton = {
+            TextButton(onClick = dialog.listener::onDismiss) { Text("やめる") }
+        },
+    )
 }
 
 @Composable

@@ -30,20 +30,18 @@ internal class AdminScreenViewModel(
             }
         }
 
-    private val actorUpdateBroadcastListener =
-        object : AdminScreenUiState.ActorUpdateBroadcast.Listener {
-            override fun onClickBroadcast() {
-                viewModelStateFlow.update { it.copy(broadcastConfirmVisible = true) }
-            }
+    private val actorUpdateBroadcastDialog =
+        AdminScreenUiState.ActorUpdateBroadcastDialog(
+            listener = object : AdminScreenUiState.ActorUpdateBroadcastDialog.Listener {
+                override fun onClickConfirm() {
+                    broadcastActorUpdates()
+                }
 
-            override fun onClickConfirm() {
-                broadcastActorUpdates()
-            }
-
-            override fun onDismissConfirm() {
-                viewModelStateFlow.update { it.copy(broadcastConfirmVisible = false) }
-            }
-        }
+                override fun onDismiss() {
+                    viewModelStateFlow.update { it.copy(broadcastConfirmVisible = false) }
+                }
+            },
+        )
 
     private val menuSections: List<AdminScreenUiState.MenuSection> =
         listOf(
@@ -69,6 +67,16 @@ internal class AdminScreenViewModel(
                         title = "送り直しを待っている配信",
                         description = "フォロワーの inbox に届かず、送り直しを待っている投稿を見る。",
                         screen = Screen.AdminDeliveries,
+                    ),
+                    AdminScreenUiState.MenuItem(
+                        title = "アカウント情報の配り直し",
+                        description = "全アカウントの表示名・説明文・画像を、フォロワーのサーバーにもう一度配る。",
+                        listener = object : AdminScreenUiState.MenuItem.Listener {
+                            override fun onClick() {
+                                if (viewModelStateFlow.value.broadcasting) return
+                                viewModelStateFlow.update { it.copy(broadcastConfirmVisible = true) }
+                            }
+                        },
                     ),
                 ),
             ),
@@ -178,35 +186,21 @@ internal class AdminScreenViewModel(
     private fun broadcastActorUpdates() {
         if (viewModelStateFlow.value.broadcasting) return
 
-        viewModelStateFlow.update { it.copy(broadcastConfirmVisible = false, broadcasting = true, broadcastResult = null) }
+        viewModelStateFlow.update { it.copy(broadcastConfirmVisible = false, broadcasting = true) }
         viewModelScope.launch {
-            val result = api.broadcastActorUpdates()
-            viewModelStateFlow.update { it.copy(broadcasting = false, broadcastResult = result) }
-        }
-    }
-
-    private fun createActorUpdateBroadcast(state: ViewModelState): AdminScreenUiState.ActorUpdateBroadcast {
-        val result = state.broadcastResult
-        return AdminScreenUiState.ActorUpdateBroadcast(
-            buttonLabel = if (state.broadcasting) "配り直し中..." else "全アカウントの情報を配り直す",
-            buttonEnabled = !state.broadcasting,
-            resultMessage = when (result) {
-                null -> null
-
+            val message = when (val result = api.broadcastActorUpdates()) {
                 is AdminBroadcastActorUpdatesResult.Success -> buildString {
-                    append("${result.accountCount} アカウント分、${result.deliveryCount} 件の配信を積んだ。")
+                    append("${result.accountCount} アカウント分、${result.deliveryCount} 件の配信を積んだ")
                     if (result.failedAccountCount > 0) {
-                        append("${result.failedAccountCount} アカウントは積めなかった。")
+                        append("。${result.failedAccountCount} アカウントは積めなかった")
                     }
                 }
 
                 is AdminBroadcastActorUpdatesResult.Failure -> result.message
-            },
-            resultIsError = result is AdminBroadcastActorUpdatesResult.Failure ||
-                (result is AdminBroadcastActorUpdatesResult.Success && result.failedAccountCount > 0),
-            confirmDialogVisible = state.broadcastConfirmVisible,
-            listener = actorUpdateBroadcastListener,
-        )
+            }
+            viewModelStateFlow.update { it.copy(broadcasting = false) }
+            events.send { it.showSnackbar(message) }
+        }
     }
 
     private fun navigationMenuItem(
@@ -240,7 +234,7 @@ internal class AdminScreenViewModel(
                     session.loggedIn -> {
                         AdminScreenUiState.Content.LoggedIn(
                             sections = menuSections,
-                            actorUpdateBroadcast = createActorUpdateBroadcast(state),
+                            actorUpdateBroadcastDialog = actorUpdateBroadcastDialog.takeIf { state.broadcastConfirmVisible },
                             listener = loggedInListener,
                         )
                     }
@@ -274,11 +268,12 @@ internal class AdminScreenViewModel(
         val error: String? = null,
         val broadcastConfirmVisible: Boolean = false,
         val broadcasting: Boolean = false,
-        val broadcastResult: AdminBroadcastActorUpdatesResult? = null,
     )
 
     interface Event {
         suspend fun navigate(screen: Screen)
+
+        fun showSnackbar(message: String)
     }
 
     private companion object {
