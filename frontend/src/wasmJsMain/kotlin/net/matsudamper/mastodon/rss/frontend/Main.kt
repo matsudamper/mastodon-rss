@@ -34,6 +34,7 @@ import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountProfileEdi
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminAccountsScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminDeliveriesScreen
+import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminDomainBlocksScreen
 import net.matsudamper.mastodon.rss.frontend.screen.admin.AdminScreen
 import net.matsudamper.mastodon.rss.frontend.screen.home.HomeScreen
 import net.matsudamper.mastodon.rss.frontend.ui.AppTheme
@@ -174,6 +175,8 @@ private fun ScreenContent(
         Screen.AdminAccounts -> AdminAccountsScreen(navController = navController)
 
         Screen.AdminDeliveries -> AdminDeliveriesScreen(navController = navController)
+
+        Screen.AdminDomainBlocks -> AdminDomainBlocksScreen(navController = navController)
 
         Screen.AdminAccountNew -> AdminAccountNewScreen(navController = navController)
 

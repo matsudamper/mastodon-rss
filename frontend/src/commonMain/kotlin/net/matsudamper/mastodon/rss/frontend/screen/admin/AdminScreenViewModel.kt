@@ -68,6 +68,11 @@ internal class AdminScreenViewModel(
                         description = "フォロワーの inbox に届かず、送り直しを待っている投稿を見る。",
                         screen = Screen.AdminDeliveries,
                     ),
+                    navigationMenuItem(
+                        title = "配信・受信を止めるドメイン",
+                        description = "相手のサーバーへの配信と、相手からの受信をドメインごとに止める。届かなくなったドメインも自動でここに入る。",
+                        screen = Screen.AdminDomainBlocks,
+                    ),
                     AdminScreenUiState.MenuItem(
                         title = "アカウント情報の配り直し",
                         description = "全アカウントの表示名・説明文・画像を、フォロワーのサーバーにもう一度配る。",

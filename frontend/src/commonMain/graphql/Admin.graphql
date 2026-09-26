@@ -332,3 +332,48 @@ mutation AdminBroadcastActorUpdates {
         }
     }
 }
+
+fragment AdminDomainBlockFields on AdminDomainBlock {
+    domain
+    reason
+    reasonDescription
+    blockDelivery
+    blockInbox
+    createdAt
+}
+
+query AdminDomainBlocks($cursor: String, $limit: Int!) {
+    admin {
+        domainBlocks(cursor: $cursor, limit: $limit) {
+            nodes {
+                ...AdminDomainBlockFields
+            }
+            pageInfo {
+                hasMore
+                nextCursor
+            }
+        }
+    }
+}
+
+mutation AdminSaveDomainBlock($query: SaveDomainBlockQuery!) {
+    admin {
+        saveDomainBlock(query: $query) {
+            domainBlock {
+                ...AdminDomainBlockFields
+            }
+            failure {
+                invalidDomain
+                reasonDescriptionMaxLength
+            }
+        }
+    }
+}
+
+mutation AdminDeleteDomainBlock($domain: String!) {
+    admin {
+        deleteDomainBlock(domain: $domain) {
+            deletedDomain
+        }
+    }
+}

@@ -17,20 +17,24 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminAccountsScreenQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminAddAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminBroadcastActorUpdatesMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteAccountMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteDomainBlockMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemsMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteNoteMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminDomainBlocksQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminNotesQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostFeedItemsMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveDomainBlockMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnpublishedFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUpdateAccountProfileMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountListFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminAccountScreenFields
+import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminDomainBlockFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminFeedItemFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AdminSessionFields
@@ -46,6 +50,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteAccountQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.DeleteNoteQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.PostFeedItemsQuery
+import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveDomainBlockQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.SaveFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UnpublishedFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.type.UpdateAccountProfileQuery
@@ -170,6 +175,111 @@ class AdminApi(
             nextCursor = data.admin.retryingDeliveries.pageInfo.nextCursor,
         )
     }
+
+    /**
+     * @param limit 1 ページで要求する件数。上限はサーバー側で決まる
+     */
+    fun domainBlocks(limit: Int): Paging<AdminDomainBlocksResult> {
+        return CachedPaging(
+            client = client,
+            firstPage = AdminDomainBlocksQuery(
+                cursor = Optional.absent(),
+                limit = limit,
+            ),
+            nextPage = { cursor ->
+                AdminDomainBlocksQuery(
+                    cursor = Optional.present(cursor),
+                    limit = limit,
+                )
+            },
+            appendPage = { cached, fetched ->
+                cached.copy(
+                    admin = cached.admin.copy(
+                        domainBlocks = cached.admin.domainBlocks.copy(
+                            nodes = cached.admin.domainBlocks.nodes + fetched.admin.domainBlocks.nodes,
+                            pageInfo = fetched.admin.domainBlocks.pageInfo,
+                        ),
+                    ),
+                )
+            },
+            toResult = { response -> response.toDomainBlocksResult() },
+        )
+    }
+
+    private fun ApolloResponse<AdminDomainBlocksQuery.Data>.toDomainBlocksResult(): AdminDomainBlocksResult {
+        if (exception != null || errors.orEmpty().isNotEmpty()) {
+            return AdminDomainBlocksResult.Failure(failureMessage())
+        }
+
+        val data = data ?: return AdminDomainBlocksResult.Failure(failureMessage())
+
+        return AdminDomainBlocksResult.Success(
+            blocks = data.admin.domainBlocks.nodes.map { it.adminDomainBlockFields.toAdminDomainBlock() },
+            hasMore = data.admin.domainBlocks.pageInfo.hasMore,
+            nextCursor = data.admin.domainBlocks.pageInfo.nextCursor,
+        )
+    }
+
+    suspend fun saveDomainBlock(
+        domain: String,
+        blockDelivery: Boolean,
+        blockInbox: Boolean,
+        reasonDescription: String,
+    ): AdminSaveDomainBlockResult {
+        val response = client.mutation(
+            AdminSaveDomainBlockMutation(
+                query = SaveDomainBlockQuery(
+                    domain = domain,
+                    blockDelivery = blockDelivery,
+                    blockInbox = blockInbox,
+                    reasonDescription = reasonDescription,
+                ),
+            ),
+        ).execute()
+
+        // 部分応答では data と errors が同時に返る。data だけを見ると、
+        // 保存できていないのに成功として閉じてしまう
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminSaveDomainBlockResult.Failure(response.failureMessage())
+        }
+
+        val result = response.data?.admin?.saveDomainBlock
+            ?: return AdminSaveDomainBlockResult.Failure(response.failureMessage())
+        val failure = result.failure
+        if (failure != null) {
+            return AdminSaveDomainBlockResult.Rejected(
+                invalidDomain = failure.invalidDomain,
+                reasonDescriptionMaxLength = failure.reasonDescriptionMaxLength,
+            )
+        }
+        val block = result.domainBlock
+            ?: return AdminSaveDomainBlockResult.Failure("保存できたが内容が返ってこない")
+        return AdminSaveDomainBlockResult.Success(block.adminDomainBlockFields.toAdminDomainBlock())
+    }
+
+    suspend fun deleteDomainBlock(domain: String): AdminDeleteDomainBlockResult {
+        val response = client.mutation(AdminDeleteDomainBlockMutation(domain = domain)).execute()
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminDeleteDomainBlockResult.Failure(response.failureMessage())
+        }
+
+        val result = response.data?.admin?.deleteDomainBlock
+            ?: return AdminDeleteDomainBlockResult.Failure(response.failureMessage())
+        return if (result.deletedDomain == null) {
+            AdminDeleteDomainBlockResult.NotFound
+        } else {
+            AdminDeleteDomainBlockResult.Success
+        }
+    }
+
+    private fun AdminDomainBlockFields.toAdminDomainBlock(): AdminDomainBlock = AdminDomainBlock(
+        domain = domain,
+        reason = reason.toAdminDomainBlockReason(),
+        reasonDescription = reasonDescription,
+        blockDelivery = blockDelivery,
+        blockInbox = blockInbox,
+        createdAt = createdAt,
+    )
 
     private fun ApolloResponse<AdminAccountsScreenQuery.Data>.toAdminAccountsResult(): AdminAccountsResult {
         if (exception != null || errors.orEmpty().isNotEmpty()) {
