@@ -1,5 +1,7 @@
 package net.matsudamper.mastodon.rss.frontend.screen.account
 
+import net.matsudamper.mastodon.rss.frontend.ui.NoteReactionsUiState
+
 data class AccountUiState(
     val username: String,
     /**
@@ -49,7 +51,7 @@ data class NoteUiState(
     val url: String,
     val contentHtml: String,
     val publishedAt: String,
-    val favouriteCount: String?,
+    val reactions: NoteReactionsUiState?,
     val linkPreviews: List<LinkPreview>,
     val listener: Listener,
 ) {

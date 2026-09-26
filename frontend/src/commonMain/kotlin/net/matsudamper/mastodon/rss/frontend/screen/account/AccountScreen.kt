@@ -70,8 +70,8 @@ import net.matsudamper.mastodon.rss.frontend.ui.CoordinatedTwoPaneLayout
 import net.matsudamper.mastodon.rss.frontend.ui.LabeledValue
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
-import net.matsudamper.mastodon.rss.frontend.ui.NoteFavouriteCount
 import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
+import net.matsudamper.mastodon.rss.frontend.ui.NoteReactions
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffold
 import net.matsudamper.mastodon.rss.frontend.ui.SectionCard
 import net.matsudamper.mastodon.rss.frontend.ui.SnackbarHostState
@@ -660,8 +660,8 @@ private fun NoteCard(
         ) {
             noteContent(note.contentHtml, Modifier.fillMaxWidth())
 
-            note.favouriteCount?.let { favouriteCount ->
-                NoteFavouriteCount(count = favouriteCount)
+            note.reactions?.let { reactions ->
+                NoteReactions(uiState = reactions)
             }
 
             Row(

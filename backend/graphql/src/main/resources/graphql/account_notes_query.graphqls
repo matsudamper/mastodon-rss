@@ -24,6 +24,9 @@ type AccountNote {
     "お気に入りの数"
     favouriteCount: Int! @lazy
 
+    "スタンプの種類ごとの数。多い順"
+    stamps: [NoteStamp!]! @lazy
+
     "配信したアカウント"
     account: Account! @lazy
 
@@ -32,4 +35,16 @@ type AccountNote {
 
     "本文にあるリンクごとの OGP。本文に出てくる順"
     linkPreviews: [LinkPreview!]! @lazy
+}
+
+"投稿に押されたスタンプ 1 種類"
+type NoteStamp {
+    "絵文字そのもの、またはカスタム絵文字の名前"
+    name: String!
+
+    "カスタム絵文字の画像 URL。絵文字そのものなら null"
+    imageUrl: String
+
+    "押された数"
+    count: Int!
 }

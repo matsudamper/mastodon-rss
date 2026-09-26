@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.stamp.StampStore
 import org.slf4j.LoggerFactory
 
 /**
@@ -47,9 +48,27 @@ class InboxService(
         recipient: InboxRecipient,
         request: SignedRequest,
     ): InboxResult {
+        InboxSpan.set(InboxSpan.RECIPIENT, recipient.logLabel)
+        val result = receiveVerified(recipient = recipient, request = request)
+        InboxSpan.set(
+            InboxSpan.RESULT,
+            when (result) {
+                InboxResult.Accepted -> "accepted"
+                InboxResult.BadRequest -> "bad_request"
+                InboxResult.Unauthorized -> "unauthorized"
+            },
+        )
+        return result
+    }
+
+    private suspend fun receiveVerified(
+        recipient: InboxRecipient,
+        request: SignedRequest,
+    ): InboxResult {
         val verifiedSignerActorId =
             when (val verification = verifier.verify(request)) {
                 is HttpSignatureResult.Rejected -> {
+                    InboxSpan.set(InboxSpan.SIGNATURE_REJECT_REASON, verification.reason)
                     // 消えたアクターからの Delete だけは、検証できないことを理由に
                     // 落とすと相手が送り直し続ける。削除の通知は本人が消えた後に届き、
                     // 鍵はもう取りに行けない。フォロワーだった相手なら記録した鍵で
@@ -68,6 +87,7 @@ class InboxService(
                     verification.owner
                 }
             }
+        InboxSpan.set(InboxSpan.SIGNER, verifiedSignerActorId)
 
         val rawActivityJson =
             runCatching { AppJson.parseToJsonElement(request.body.decodeToString()) as? JsonObject }
@@ -90,6 +110,10 @@ class InboxService(
             return InboxResult.Unauthorized
         }
 
+        InboxSpan.set(InboxSpan.ACTIVITY_TYPE, activity.type)
+        InboxSpan.set(InboxSpan.ACTIVITY_ID, activity.id)
+        InboxSpan.set(InboxSpan.ACTIVITY_OBJECT, activity.target?.id)
+
         logger.info(
             "inbox で受信: 宛先=${recipient.logLabel} type=${activity.type} " +
                 "id=${activity.id} actor=$verifiedSignerActorId",
@@ -97,8 +121,10 @@ class InboxService(
 
         // 引き当てられない type は何もしない。未対応のアクティビティに 5xx を返すと
         // 相手は同じものを送り直し続けることになる
+        val handler = handlersByType[activity.type]
+        if (handler == null) InboxSpan.outcome("no_handler")
         val handled = runCatching {
-            handlersByType[activity.type]?.handle(
+            handler?.handle(
                 recipient = recipient,
                 verifiedSignerActorId = verifiedSignerActorId,
                 activity = activity,
@@ -110,6 +136,7 @@ class InboxService(
         // こちらが書き込めない間ずっと同じ失敗を繰り返すことになる。
         // 何が起きたかはここに残っているものが唯一の手がかりになる
         handled.onFailure { failure ->
+            InboxSpan.failed(failure)
             logger.warn(
                 "inbox の処理に失敗した: ${recipient.logLabel} type=${activity.type} actor=$verifiedSignerActorId",
                 failure,
@@ -151,23 +178,30 @@ class InboxService(
          * 送るのは受け取り側の都合と切り離す。
          *
          * @param remoteActors 相手のアクターの引き先。署名検証に使う公開鍵と、
-         *   `Accept` の宛先になる inbox、お気に入りを押した相手として残す鍵をここから取る
+         *   `Accept` の宛先になる inbox、お気に入りやスタンプを押した相手として残す鍵をここから取る
          * @param followers フォローの記録。配信先だけでなく、相手が消えて
          *   アクター文書を引けなくなったときの公開鍵の引き先にもなる
          * @param favourites お気に入りの記録。[followers] と同じく、
          *   消えた相手の公開鍵の引き先にもなる
+         * @param stamps スタンプの記録。[favourites] と同じく、消えた相手の公開鍵の引き先にもなる
          */
         fun default(
             directory: ActorDirectory,
             remoteActors: RemoteActors,
             followers: FollowerStore,
             favourites: FavouriteStore,
+            stamps: StampStore,
             earlyUndoneLikes: EarlyUndoneLikes,
             domain: String,
         ): InboxService =
             InboxService(
                 verifier = HttpSignatureVerifier(
-                    RecordedFallbackPublicKeys(remote = remoteActors, followers = followers, favourites = favourites),
+                    RecordedFallbackPublicKeys(
+                        remote = remoteActors,
+                        followers = followers,
+                        favourites = favourites,
+                        stamps = stamps,
+                    ),
                 ),
                 handlers = listOf(
                     FollowHandler(
@@ -175,18 +209,33 @@ class InboxService(
                         remoteActors = remoteActors,
                         followers = followers,
                     ),
-                    FavouriteHandler(
+                    ReactionHandler(
+                        type = ReactionHandler.LIKE_TYPE,
                         domain = domain,
                         remoteActors = remoteActors,
                         favourites = favourites,
+                        stamps = stamps,
+                        earlyUndoneLikes = earlyUndoneLikes,
+                    ),
+                    ReactionHandler(
+                        type = ReactionHandler.EMOJI_REACT_TYPE,
+                        domain = domain,
+                        remoteActors = remoteActors,
+                        favourites = favourites,
+                        stamps = stamps,
                         earlyUndoneLikes = earlyUndoneLikes,
                     ),
                     UndoHandler(
-                        favourites = UndoFavouriteHandler(domain = domain, favourites = favourites, earlyUndoneLikes = earlyUndoneLikes),
+                        reactions = UndoReactionHandler(
+                            domain = domain,
+                            favourites = favourites,
+                            stamps = stamps,
+                            earlyUndoneLikes = earlyUndoneLikes,
+                        ),
                         follows = UndoFollowHandler(directory = directory, followers = followers),
                     ),
                     UpdateActorHandler(followers),
-                    DeleteActorHandler(followers = followers, favourites = favourites),
+                    DeleteActorHandler(followers = followers, favourites = favourites, stamps = stamps),
                 ),
             )
     }

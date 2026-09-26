@@ -43,6 +43,9 @@ import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository.NewNoteFa
 import net.matsudamper.mastodon.rss.repository.NotePosition
 import net.matsudamper.mastodon.rss.repository.NotePost
 import net.matsudamper.mastodon.rss.repository.NoteRepository
+import net.matsudamper.mastodon.rss.repository.NoteStampRepository
+import net.matsudamper.mastodon.rss.repository.NoteStampRepository.NewNoteStamp
+import net.matsudamper.mastodon.rss.repository.NoteStampRepository.StampCount
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.Repositories
@@ -94,8 +97,9 @@ class FakeRepositories : Repositories {
         onAccountRemoved = { username -> deliveryQueue.deletePendingAcceptsOfAccount(username) },
         onRemoteActorRemoved = { followerActorUri ->
             deliveryQueue.deletePendingAcceptsToActor(followerActorUri)
-            // remote_actors を消すとお気に入りも消えるのは SQLite の ON DELETE CASCADE
+            // remote_actors を消すとお気に入りとスタンプも消えるのは SQLite の ON DELETE CASCADE
             noteFavourites.removeByActor(followerActorUri)
+            noteStamps.removeByActor(followerActorUri)
         },
     )
 
@@ -117,10 +121,15 @@ class FakeRepositories : Repositories {
             feedItems.clearNoteId(publicId)
             deliveryQueue.deleteByNote(publicId)
             noteFavourites.deleteByNote(publicId)
+            noteStamps.deleteByNote(publicId)
         },
     )
 
     override val noteFavourites: FakeNoteFavouriteRepository = FakeNoteFavouriteRepository(
+        hasNote = { publicId -> notes.find(publicId) != null },
+    )
+
+    override val noteStamps: FakeNoteStampRepository = FakeNoteStampRepository(
         hasNote = { publicId -> notes.find(publicId) != null },
     )
 
@@ -1168,6 +1177,62 @@ class FakeNoteFavouriteRepository(
 
     /**
      * 投稿を消すとお気に入りも消えるのは SQLite の ON DELETE CASCADE
+     */
+    fun deleteByNote(publicId: PublicNoteId) {
+        stored.removeAll { it.notePublicId == publicId }
+    }
+}
+
+/**
+ * 投稿が無ければ記録しないのと、同じ相手が同じ投稿に 1 つしか持たないのは
+ * 本物の一意制約と外部キーに合わせてある
+ */
+class FakeNoteStampRepository(
+    private val hasNote: (publicId: PublicNoteId) -> Boolean,
+) : NoteStampRepository {
+    private val stored = mutableListOf<NewNoteStamp>()
+
+    override fun put(stamp: NewNoteStamp): Boolean {
+        if (!hasNote(stamp.notePublicId)) return false
+
+        stored.removeAll { it.actor.actorUri == stamp.actor.actorUri && it.notePublicId == stamp.notePublicId }
+        stored += stamp
+        return true
+    }
+
+    override fun remove(
+        notePublicId: PublicNoteId,
+        actorUri: String,
+        emoji: String,
+    ): Boolean = stored.removeAll { it.notePublicId == notePublicId && it.actor.actorUri == actorUri && it.emoji == emoji }
+
+    override fun removeByActor(actorUri: String): Int {
+        val before = stored.size
+        stored.removeAll { it.actor.actorUri == actorUri }
+        return before - stored.size
+    }
+
+    override fun findPublicKeyPem(actorUri: String): String? =
+        stored.firstOrNull { it.actor.actorUri == actorUri }?.actor?.publicKeyPem
+
+    override fun countsByNotes(notePublicIds: Set<PublicNoteId>): Map<PublicNoteId, List<StampCount>> = stored
+        .filter { it.notePublicId in notePublicIds }
+        .groupBy { it.notePublicId }
+        .mapValues { (_, stamps) ->
+            stamps
+                .groupBy { it.emoji }
+                .map { (emoji, sameEmoji) ->
+                    StampCount(
+                        emoji = emoji,
+                        emojiImageUrl = sameEmoji.firstNotNullOfOrNull { it.emojiImageUrl },
+                        count = sameEmoji.size,
+                    )
+                }
+                .sortedWith(compareByDescending<StampCount> { it.count }.thenBy { it.emoji })
+        }
+
+    /**
+     * 投稿を消すとスタンプも消えるのは SQLite の ON DELETE CASCADE
      */
     fun deleteByNote(publicId: PublicNoteId) {
         stored.removeAll { it.notePublicId == publicId }

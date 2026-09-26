@@ -8,6 +8,13 @@ data class AccountNote(
     val contentHtml: String,
     val publishedAt: Instant,
     val favouriteCount: Int,
+    val stamps: List<NoteStamp>,
+)
+
+data class NoteStamp(
+    val name: String,
+    val imageUrl: String?,
+    val count: Int,
 )
 
 /**

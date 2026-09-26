@@ -10,7 +10,7 @@ import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
  * `Undo` が 1 つに見えるようにする。
  */
 class UndoHandler(
-    private val favourites: UndoFavouriteHandler,
+    private val reactions: UndoReactionHandler,
     private val follows: UndoFollowHandler,
 ) : InboxActivityHandler {
     override val type: String = "Undo"
@@ -21,12 +21,12 @@ class UndoHandler(
         activity: InboxActivity,
         rawActivityJson: JsonObject,
     ) {
-        val undoneFavourite = favourites.handle(
+        val undoneReaction = reactions.handle(
             recipient = recipient,
             verifiedSignerActorId = verifiedSignerActorId,
             activity = activity,
         )
-        if (undoneFavourite) return
+        if (undoneReaction) return
 
         val unfollowed = follows.handle(
             recipient = recipient,
@@ -36,10 +36,10 @@ class UndoHandler(
         if (unfollowed) return
 
         // Mastodon の handle_reference と同じく、object が id だけの Undo が何にも
-        // 当たらなければ、まだ届いていない Like の取り消しとみなしてその id を覚える
+        // 当たらなければ、まだ届いていない Like / EmojiReact の取り消しとみなしてその id を覚える
         val undoObject = activity.target
         if (undoObject is LinkOrObject.Link) {
-            favourites.rememberEarlyUndone(actorUri = verifiedSignerActorId, activityUri = undoObject.href)
+            reactions.rememberEarlyUndone(actorUri = verifiedSignerActorId, activityUri = undoObject.href)
         }
     }
 }

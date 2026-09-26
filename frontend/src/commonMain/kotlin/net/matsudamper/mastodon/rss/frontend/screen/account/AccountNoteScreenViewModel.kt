@@ -14,6 +14,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.AccountNoteResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreview
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreviewsResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.screen.NoteReactionsUiStateFactory
 
 class AccountNoteScreenViewModel(
     private val username: String,
@@ -108,7 +109,10 @@ class AccountNoteScreenViewModel(
                 ),
                 contentHtml = result.note.contentHtml,
                 publishedAt = UnixTimeUtil.format(result.note.publishedAt.epochSeconds),
-                favouriteCount = result.note.favouriteCount.takeIf { it > 0 }?.toString(),
+                reactions = NoteReactionsUiStateFactory.create(
+                    favouriteCount = result.note.favouriteCount,
+                    stamps = result.note.stamps,
+                ),
                 linkPreviews = result.linkUrls.map { url ->
                     createLinkPreview(url = url, preview = state.linkPreviews.firstOrNull { it.url == url })
                 },

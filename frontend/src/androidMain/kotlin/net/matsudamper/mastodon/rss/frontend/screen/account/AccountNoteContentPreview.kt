@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.screen.PreviewsMultiSize
+import net.matsudamper.mastodon.rss.frontend.ui.NoteReactionsUiState
 
 @PreviewsMultiSize
 @Composable
@@ -19,7 +20,12 @@ private fun AccountNoteContentPreview() {
                     ),
                     contentHtml = "Compose Multiplatform の新しい記事を公開しました。",
                     publishedAt = "2026-09-02 12:00",
-                    favouriteCount = "3",
+                    reactions = NoteReactionsUiState(
+                        favouriteCount = "3",
+                        stamps = listOf(
+                            NoteReactionsUiState.Stamp(name = "👍", imageUrl = null, count = "2"),
+                        ),
+                    ),
                     linkPreviews = listOf(
                         AccountNoteScreenUiState.LinkPreview(
                             url = "https://example.com/compose-multiplatform",

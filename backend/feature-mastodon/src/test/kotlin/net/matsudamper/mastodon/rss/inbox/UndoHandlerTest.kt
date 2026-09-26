@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.FakeEarlyUndoneLikes
 import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
+import net.matsudamper.mastodon.rss.FakeStampStore
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.activity.InboxActivity
@@ -17,6 +18,7 @@ import net.matsudamper.mastodon.rss.actor.RemoteActor
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
 import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.mastodon.rss.stamp.StampStore.ReceivedStamp
 
 class UndoHandlerTest {
     private val now = Instant.parse("2026-08-10T00:00:00Z")
@@ -56,17 +58,31 @@ class UndoHandlerTest {
         )
     }
 
+    private fun stamps(emoji: String): FakeStampStore = FakeStampStore().apply {
+        put(
+            ReceivedStamp(
+                notePublicId = notePublicId,
+                actor = TestRemoteActor.actor,
+                emoji = emoji,
+                emojiImageUrl = null,
+                receivedAt = now,
+            ),
+        )
+    }
+
     private suspend fun handle(
         json: String,
         followers: FakeFollowerStore,
         favourites: FakeFavouriteStore,
+        stamps: FakeStampStore = FakeStampStore(),
         earlyUndoneLikes: FakeEarlyUndoneLikes = FakeEarlyUndoneLikes(),
     ) {
         val rawActivityJson = AppJson.parseToJsonElement(json) as JsonObject
         UndoHandler(
-            favourites = UndoFavouriteHandler(
+            reactions = UndoReactionHandler(
                 domain = TestLocalActor.DOMAIN,
                 favourites = favourites,
+                stamps = stamps,
                 earlyUndoneLikes = earlyUndoneLikes,
             ),
             follows = UndoFollowHandler(directory = TestLocalActor.directory, followers = followers),
@@ -96,6 +112,65 @@ class UndoHandlerTest {
         assertTrue(favourites.rows.isEmpty())
         // フォローは巻き込まれない
         assertEquals(1, followers.rows.size)
+    }
+
+    @Test
+    fun `object に絵文字付きの Like が埋まっていればスタンプを取り消す`() = runBlocking {
+        val favourites = favourites()
+        val stamps = stamps(emoji = "👍")
+
+        handle(
+            """
+            {"id":"https://remote.example/undo/1","type":"Undo","actor":"${TestRemoteActor.ACTOR_ID}",
+             "object":{"id":"$likeUri","type":"Like","actor":"${TestRemoteActor.ACTOR_ID}",
+                       "object":"$noteUrl","content":"👍"}}
+            """.trimIndent(),
+            followers = followers(),
+            favourites = favourites,
+            stamps = stamps,
+        )
+
+        assertTrue(stamps.rows.isEmpty())
+        assertEquals(1, favourites.rows.size)
+    }
+
+    @Test
+    fun `object に EmojiReact が埋まっていればスタンプを取り消す`() = runBlocking {
+        val stamps = stamps(emoji = "🎉")
+
+        handle(
+            """
+            {"id":"https://remote.example/undo/1","type":"Undo","actor":"${TestRemoteActor.ACTOR_ID}",
+             "object":{"id":"https://remote.example/reacts/1","type":"EmojiReact",
+                       "actor":"${TestRemoteActor.ACTOR_ID}","object":"$noteUrl","content":"🎉"}}
+            """.trimIndent(),
+            followers = followers(),
+            favourites = FakeFavouriteStore(),
+            stamps = stamps,
+        )
+
+        assertTrue(stamps.rows.isEmpty())
+    }
+
+    @Test
+    fun `押し替えた後に古いスタンプの取り消しが届いても今のスタンプは残す`() = runBlocking {
+        val stamps = stamps(emoji = "🎉")
+        val earlyUndoneLikes = FakeEarlyUndoneLikes()
+
+        handle(
+            """
+            {"id":"https://remote.example/undo/1","type":"Undo","actor":"${TestRemoteActor.ACTOR_ID}",
+             "object":{"id":"$likeUri","type":"Like","actor":"${TestRemoteActor.ACTOR_ID}",
+                       "object":"$noteUrl","content":"👍"}}
+            """.trimIndent(),
+            followers = followers(),
+            favourites = FakeFavouriteStore(),
+            stamps = stamps,
+            earlyUndoneLikes = earlyUndoneLikes,
+        )
+
+        assertEquals("🎉", stamps.rows.single().emoji)
+        assertTrue(earlyUndoneLikes.isRemembered(actorUri = TestRemoteActor.ACTOR_ID, activityUri = likeUri, now = Instant.now()))
     }
 
     @Test

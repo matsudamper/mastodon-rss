@@ -173,11 +173,24 @@ CREATE TABLE notes (
 CREATE TABLE note_favourites (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
-    -- 押した相手。フォロワーとは限らないが、相手が消えた後の Delete を検証できるよう
-    -- 鍵ごと remote_actors に残す
+    -- 押した相手。フォロワーとは限らない。公開鍵は remote_actors の行に 1 つだけ持ち、
+    -- 相手が消えた後に届く Delete の検証に使う
     remote_actor_id INTEGER NOT NULL REFERENCES remote_actors (id) ON DELETE CASCADE,
     created_at TEXT NOT NULL,
     -- 同じ相手が同じ投稿に重ねない。送り直しや、取り消しが届かないままの押し直しでも増えない
+    UNIQUE (note_public_id, remote_actor_id)
+);
+
+CREATE TABLE note_stamps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
+    -- 押した相手。公開鍵は note_favourites と同じく remote_actors の行が持つ
+    remote_actor_id INTEGER NOT NULL REFERENCES remote_actors (id) ON DELETE CASCADE,
+    -- 絵文字そのもの、またはカスタム絵文字の :name:
+    emoji TEXT NOT NULL,
+    -- カスタム絵文字の画像 URL。Unicode の絵文字では NULL
+    emoji_image_url TEXT,
+    created_at TEXT NOT NULL,
     UNIQUE (note_public_id, remote_actor_id)
 );
 
@@ -225,5 +238,7 @@ CREATE INDEX notes_published_at_public_id ON notes (published_at, public_id);
 CREATE INDEX notes_username_published_at ON notes (username, published_at);
 
 CREATE INDEX note_favourites_remote_actor_id ON note_favourites (remote_actor_id);
+
+CREATE INDEX note_stamps_remote_actor_id ON note_stamps (remote_actor_id);
 
 CREATE INDEX early_undone_likes_expires_at ON early_undone_likes (expires_at);

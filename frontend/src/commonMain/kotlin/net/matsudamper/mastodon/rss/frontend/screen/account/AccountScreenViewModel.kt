@@ -18,6 +18,7 @@ import net.matsudamper.mastodon.rss.frontend.logic.account.AccountResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreview
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreviewsResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
+import net.matsudamper.mastodon.rss.frontend.screen.NoteReactionsUiStateFactory
 
 /**
  * @param username URL に入っていた名前。綴りが違っていても引けるので、
@@ -276,7 +277,7 @@ class AccountScreenViewModel(
             url = note.url,
             contentHtml = note.contentHtml,
             publishedAt = UnixTimeUtil.format(note.publishedAt.epochSeconds),
-            favouriteCount = note.favouriteCount.takeIf { it > 0 }?.toString(),
+            reactions = NoteReactionsUiStateFactory.create(favouriteCount = note.favouriteCount, stamps = note.stamps),
             linkPreviews = linkUrls.map { url ->
                 createLinkPreview(url = url, preview = linkPreviews.firstOrNull { it.url == url })
             },

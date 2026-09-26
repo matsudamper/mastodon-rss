@@ -34,8 +34,8 @@ import net.matsudamper.mastodon.rss.frontend.screen.ScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.ui.AccountAvatar
 import net.matsudamper.mastodon.rss.frontend.ui.LinkPreviewCard
 import net.matsudamper.mastodon.rss.frontend.ui.NoteContent
-import net.matsudamper.mastodon.rss.frontend.ui.NoteFavouriteCount
 import net.matsudamper.mastodon.rss.frontend.ui.NoteMenu
+import net.matsudamper.mastodon.rss.frontend.ui.NoteReactions
 
 @Composable
 internal fun AccountNoteScreen(
@@ -113,8 +113,8 @@ internal fun AccountNoteContent(
                             onClick = uiState.listener::onClickAccount,
                         )
                         NoteContent(content.contentHtml, Modifier.fillMaxWidth())
-                        content.favouriteCount?.let { favouriteCount ->
-                            NoteFavouriteCount(count = favouriteCount)
+                        content.reactions?.let { reactions ->
+                            NoteReactions(uiState = reactions)
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),

@@ -143,6 +143,7 @@ fun Application.module(deps: AppDependencies) {
         accountIconFiles = deps.accountIconFiles,
         noteStore = deps.noteStore,
         noteFavouriteRepository = deps.repositories.noteFavourites,
+        noteStampRepository = deps.repositories.noteStamps,
         feedService = deps.feedService,
         linkPreviewService = deps.linkPreviewService,
     )

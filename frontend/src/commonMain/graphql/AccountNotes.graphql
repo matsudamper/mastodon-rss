@@ -17,4 +17,9 @@ fragment AccountNoteFields on AccountNote {
     contentHtml
     publishedAt
     favouriteCount
+    stamps {
+        name
+        imageUrl
+        count
+    }
 }

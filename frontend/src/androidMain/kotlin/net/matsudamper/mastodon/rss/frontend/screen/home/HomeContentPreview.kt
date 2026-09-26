@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.PreviewsMultiSize
+import net.matsudamper.mastodon.rss.frontend.ui.NoteReactionsUiState
 
 @PreviewsMultiSize
 @Composable
@@ -32,7 +33,12 @@ private fun HomeContentPreview() {
                             contentHtml = "<p>Kotlin 2.4 がリリースされました</p>",
                             publishedAt = "2026-08-09 11:02",
                             account = kotlin,
-                            favouriteCount = "3",
+                            reactions = NoteReactionsUiState(
+                                favouriteCount = "3",
+                                stamps = listOf(
+                                    NoteReactionsUiState.Stamp(name = "👍", imageUrl = null, count = "2"),
+                                ),
+                            ),
                             linkPreviews = listOf(
                                 HomeScreenUiState.LinkPreview(
                                     url = "https://example.com/kotlin-2-4",
@@ -54,7 +60,7 @@ private fun HomeContentPreview() {
                             contentHtml = "<p>Android 17 のベータが出ました</p>",
                             publishedAt = "2026-08-09 10:00",
                             account = android,
-                            favouriteCount = null,
+                            reactions = null,
                             linkPreviews = listOf(),
                             listener = AndroidPreviewNoteListener,
                         ),
