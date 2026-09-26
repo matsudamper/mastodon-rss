@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -106,6 +108,7 @@ internal fun AdminContent(
                     content.sections.forEach { section ->
                         MenuSection(section = section, wide = wide)
                     }
+                    ActorUpdateBroadcastCard(content.actorUpdateBroadcast)
                     SectionCard(title = "このソフトウェア") {
                         Text("ソースコードは GitHub で公開している。")
                         TextLink(
@@ -159,6 +162,40 @@ private fun LoginCard(
         ) {
             Text(if (content.submitting) "確認中..." else "ログイン")
         }
+    }
+}
+
+@Composable
+private fun ActorUpdateBroadcastCard(broadcast: AdminScreenUiState.ActorUpdateBroadcast) {
+    SectionCard(title = "アカウント情報の配り直し") {
+        Text("全アカウントの表示名・説明文・画像を、それぞれのフォロワーのサーバーにもう一度配る。")
+        Button(onClick = broadcast.listener::onClickBroadcast, enabled = broadcast.buttonEnabled) {
+            Text(broadcast.buttonLabel)
+        }
+        broadcast.resultMessage?.let {
+            Text(
+                it,
+                color = if (broadcast.resultIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    if (broadcast.confirmDialogVisible) {
+        AlertDialog(
+            onDismissRequest = broadcast.listener::onDismissConfirm,
+            title = { Text("全アカウントの情報を配り直す") },
+            text = {
+                Text(
+                    "全アカウントのフォロワーのサーバーに、アカウント情報の更新を送る。フォロワーが多いと送り終わるまで時間がかかる。",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = broadcast.listener::onClickConfirm) { Text("配り直す") }
+            },
+            dismissButton = {
+                TextButton(onClick = broadcast.listener::onDismissConfirm) { Text("やめる") }
+            },
+        )
     }
 }
 

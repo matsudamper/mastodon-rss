@@ -27,6 +27,14 @@ private fun AdminContentPreview() {
                             ),
                         ),
                     ),
+                    actorUpdateBroadcast = AdminScreenUiState.ActorUpdateBroadcast(
+                        buttonLabel = "全アカウントの情報を配り直す",
+                        buttonEnabled = true,
+                        resultMessage = "3 アカウント分、12 件の配信を積んだ。",
+                        resultIsError = false,
+                        confirmDialogVisible = false,
+                        listener = AndroidPreviewActorUpdateBroadcastListener,
+                    ),
                     listener = AndroidPreviewLoggedInListener,
                 ),
                 listener = AndroidPreviewAdminListener,
@@ -48,6 +56,14 @@ private fun previewMenuItem(title: String, description: String): AdminScreenUiSt
 
 private object AndroidPreviewLoggedInListener : AdminScreenUiState.Content.LoggedIn.Listener {
     override fun onClickLogout() = Unit
+}
+
+private object AndroidPreviewActorUpdateBroadcastListener : AdminScreenUiState.ActorUpdateBroadcast.Listener {
+    override fun onClickBroadcast() = Unit
+
+    override fun onClickConfirm() = Unit
+
+    override fun onDismissConfirm() = Unit
 }
 
 private object AndroidPreviewAdminListener : AdminScreenUiState.Listener {

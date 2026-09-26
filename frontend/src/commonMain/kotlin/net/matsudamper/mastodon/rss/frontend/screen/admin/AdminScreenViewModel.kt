@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
+import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminBroadcastActorUpdatesResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminLoginResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
@@ -26,6 +27,21 @@ internal class AdminScreenViewModel(
         object : AdminScreenUiState.Content.LoggedIn.Listener {
             override fun onClickLogout() {
                 logout()
+            }
+        }
+
+    private val actorUpdateBroadcastListener =
+        object : AdminScreenUiState.ActorUpdateBroadcast.Listener {
+            override fun onClickBroadcast() {
+                viewModelStateFlow.update { it.copy(broadcastConfirmVisible = true) }
+            }
+
+            override fun onClickConfirm() {
+                broadcastActorUpdates()
+            }
+
+            override fun onDismissConfirm() {
+                viewModelStateFlow.update { it.copy(broadcastConfirmVisible = false) }
             }
         }
 
@@ -159,6 +175,40 @@ internal class AdminScreenViewModel(
         }
     }
 
+    private fun broadcastActorUpdates() {
+        if (viewModelStateFlow.value.broadcasting) return
+
+        viewModelStateFlow.update { it.copy(broadcastConfirmVisible = false, broadcasting = true, broadcastResult = null) }
+        viewModelScope.launch {
+            val result = api.broadcastActorUpdates()
+            viewModelStateFlow.update { it.copy(broadcasting = false, broadcastResult = result) }
+        }
+    }
+
+    private fun createActorUpdateBroadcast(state: ViewModelState): AdminScreenUiState.ActorUpdateBroadcast {
+        val result = state.broadcastResult
+        return AdminScreenUiState.ActorUpdateBroadcast(
+            buttonLabel = if (state.broadcasting) "配り直し中..." else "全アカウントの情報を配り直す",
+            buttonEnabled = !state.broadcasting,
+            resultMessage = when (result) {
+                null -> null
+
+                is AdminBroadcastActorUpdatesResult.Success -> buildString {
+                    append("${result.accountCount} アカウント分、${result.deliveryCount} 件の配信を積んだ。")
+                    if (result.failedAccountCount > 0) {
+                        append("${result.failedAccountCount} アカウントは積めなかった。")
+                    }
+                }
+
+                is AdminBroadcastActorUpdatesResult.Failure -> result.message
+            },
+            resultIsError = result is AdminBroadcastActorUpdatesResult.Failure ||
+                (result is AdminBroadcastActorUpdatesResult.Success && result.failedAccountCount > 0),
+            confirmDialogVisible = state.broadcastConfirmVisible,
+            listener = actorUpdateBroadcastListener,
+        )
+    }
+
     private fun navigationMenuItem(
         title: String,
         description: String,
@@ -190,6 +240,7 @@ internal class AdminScreenViewModel(
                     session.loggedIn -> {
                         AdminScreenUiState.Content.LoggedIn(
                             sections = menuSections,
+                            actorUpdateBroadcast = createActorUpdateBroadcast(state),
                             listener = loggedInListener,
                         )
                     }
@@ -221,6 +272,9 @@ internal class AdminScreenViewModel(
         val password: String = "",
         val submitting: Boolean = false,
         val error: String? = null,
+        val broadcastConfirmVisible: Boolean = false,
+        val broadcasting: Boolean = false,
+        val broadcastResult: AdminBroadcastActorUpdatesResult? = null,
     )
 
     interface Event {
