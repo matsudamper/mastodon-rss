@@ -31,8 +31,8 @@ CREATE TABLE delivery_queue (
     username TEXT COLLATE NOCASE NOT NULL,
     -- 宛先。sharedInbox があればそちら
     inbox TEXT NOT NULL,
-    -- inbox のホスト。同じホスト宛は 1 件ずつ送るので、取り出しはホストごとに 1 件だけ選ぶ。
-    -- URL から毎回取り出すと絞り込みに使えないので列にする。読めない URL は inbox 全体を入れる
+    -- inbox のホスト。大文字小文字を揃え、読めない URL は inbox 全体を入れる。
+    -- 投函時に入れているだけで、読んでいるところは無い
     inbox_host TEXT NOT NULL,
     -- 署名対象になる JSON。諦めた行は二度と送らないので NULL にして残さない
     body TEXT,
@@ -225,7 +225,7 @@ CREATE INDEX delivery_queue_note_public_id ON delivery_queue (note_public_id);
 
 CREATE INDEX delivery_queue_target_actor_uri ON delivery_queue (target_actor_uri);
 
-CREATE INDEX delivery_queue_state_inbox_host_next_attempt_at_id ON delivery_queue (state, inbox_host, next_attempt_at, id);
+CREATE INDEX delivery_queue_state_next_attempt_at_id ON delivery_queue (state, next_attempt_at, id);
 
 CREATE INDEX delivery_queue_username_state_next_attempt_at_id ON delivery_queue (username, state, next_attempt_at, id);
 

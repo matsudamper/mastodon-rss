@@ -26,6 +26,7 @@ import net.matsudamper.mastodon.rss.actor.StoredActorProfiles
 import net.matsudamper.mastodon.rss.actor.StoredFeedLinks
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
+import net.matsudamper.mastodon.rss.delivery.DeliveryCircuitBreaker
 import net.matsudamper.mastodon.rss.delivery.DeliveryRetryPolicy
 import net.matsudamper.mastodon.rss.delivery.DeliveryWorker
 import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
@@ -317,10 +318,12 @@ class AppDependencies(
             retryPolicy = DeliveryRetryPolicy(
                 initialInterval = 30.seconds,
                 maxInterval = 24.hours,
-                giveUpAfter = 30.days,
+                giveUpAfter = 7.days,
             ),
             backfill = followBackfillPublisher,
-            claimLimit = 8,
+            circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
+            claimLimit = 100,
+            sendConcurrency = 8,
             idleInterval = 1.seconds,
             clock = Instant::now,
             openTelemetry = openTelemetry ?: OpenTelemetry.noop(),

@@ -9,7 +9,6 @@ import java.util.Locale
 internal object InboxHost {
     /**
      * ホスト名は大文字小文字を区別しないので、揃えてから鍵にする。
-     * 揃えないと同じ相手に同時に送りに行く。
      *
      * 読めない URL は URL 全体を鍵にする。同じ壊れた宛先同士だけが同じ鍵になる
      */

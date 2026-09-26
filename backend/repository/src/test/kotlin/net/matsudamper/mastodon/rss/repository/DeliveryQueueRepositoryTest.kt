@@ -210,32 +210,18 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
-    fun `claim は同じホスト宛で埋めず ホストごとに 1 件返す`() {
+    fun `claim は同じホスト宛でも送る時刻の古い順に取る`() {
         withRepositories { repositories ->
-            // 届かない相手に溜まった行が先に来ても、後から入った別のホスト宛が同じ回で取れる
             repositories.deliveryQueue.enqueueNote(
-                notePost(publicId = "n1", inboxes = (1..5).map { "https://a.example/users/$it/inbox" }),
+                notePost(publicId = "n1", inboxes = (1..3).map { "https://a.example/users/$it/inbox" }),
             )
             repositories.deliveryQueue.enqueueNote(
                 notePost(publicId = "n2", inboxes = listOf(INBOX_B), enqueuedAt = now.plusSeconds(1)),
             )
 
-            val claimed = repositories.deliveryQueue.claim(now = now.plusSeconds(1), limit = 5)
+            val claimed = repositories.deliveryQueue.claim(now = now.plusSeconds(1), limit = 3)
 
-            assertEquals(listOf("https://a.example/users/1/inbox", INBOX_B), claimed.map { it.inbox })
-        }
-    }
-
-    @Test
-    fun `大文字小文字だけが違うホストは同じ 1 つとして扱う`() {
-        withRepositories { repositories ->
-            repositories.deliveryQueue.enqueueNote(
-                notePost(publicId = "n1", inboxes = listOf("https://a.example/inbox", "https://A.EXAMPLE/users/1/inbox")),
-            )
-
-            val claimed = repositories.deliveryQueue.claim(now = now, limit = 5)
-
-            assertEquals(listOf("https://a.example/inbox"), claimed.map { it.inbox })
+            assertEquals((1..3).map { "https://a.example/users/$it/inbox" }, claimed.map { it.inbox })
         }
     }
 
