@@ -15,6 +15,7 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AdminMutationResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAddAccountResult
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminBroadcastActorUpdatesResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountFailureReason
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeleteAccountResult
@@ -155,6 +156,26 @@ class AdminMutationResolverImpl : AdminMutationResolver {
             }
 
             DataFetcherResult.Builder(result).build()
+        }
+    }
+
+    override fun broadcastActorUpdates(
+        adminMutation: QlAdminMutation,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminBroadcastActorUpdatesResult>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val diContainer = GraphQlEngine.diContainer(env)
+
+        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
+            val broadcast = diContainer.accountService.broadcastActorUpdates()
+            DataFetcherResult.Builder(
+                QlAdminBroadcastActorUpdatesResult(
+                    accountCount = broadcast.enqueuedAccounts,
+                    deliveryCount = broadcast.deliveries,
+                    failedAccountCount = broadcast.failedAccounts,
+                ),
+            ).build()
         }
     }
 

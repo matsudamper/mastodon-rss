@@ -14,6 +14,9 @@ type AdminMutation {
     "アカウントを消す。フォロワーと配信した投稿、登録したフィードと取り込んだ記事も消える。"
     deleteAccount(query: DeleteAccountQuery!): AdminDeleteAccountResult! @lazy
 
+    "全アカウントのアカウント情報を、それぞれのフォロワーに配り直す。キューに入れるだけで、相手に届くのはこの後"
+    broadcastActorUpdates: AdminBroadcastActorUpdatesResult! @lazy
+
     "アカウントとして投稿し、フォロワーへの配信をキューに入れる。相手に届くのはこの後"
     postNote(username: String!, body: String!): AdminPostNoteResult! @lazy
 
@@ -45,6 +48,17 @@ type AdminUpdateAccountProfileFailure {
     unknownAccount: Boolean!
     displayNameMaxLength: Int
     summaryMaxLength: Int
+}
+
+type AdminBroadcastActorUpdatesResult {
+    "キューに入れられたアカウントの数"
+    accountCount: Int!
+
+    "キューに入れた配信の数。宛先の inbox ごとに 1 件"
+    deliveryCount: Int!
+
+    "キューに入れられなかったアカウントの数"
+    failedAccountCount: Int!
 }
 
 input DeleteAccountQuery {

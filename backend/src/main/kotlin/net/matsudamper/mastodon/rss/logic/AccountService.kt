@@ -157,6 +157,41 @@ class AccountService(
     }
 
     /**
+     * 全アカウントの今のアクター情報を、それぞれのフォロワーに配るために投函する。
+     *
+     * 1 つ投函できなくても残りは続ける。途中で止めると、並びの後ろにあるアカウントだけが
+     * 毎回配られないままになる
+     */
+    fun broadcastActorUpdates(): BroadcastActorUpdatesResult {
+        var enqueuedAccounts = 0
+        var deliveries = 0
+        var failedAccounts = 0
+        var after: AccountPosition? = null
+        do {
+            val page = accounts.list(after = after, limit = BROADCAST_PAGE_SIZE)
+            page.forEach { account ->
+                val sender = ActorUrls(domain = domain, username = account.username)
+                runCatching { actorEnqueuer.enqueueUpdate(sender = sender) }
+                    .onSuccess { count ->
+                        enqueuedAccounts++
+                        deliveries += count
+                    }
+                    .onFailure { error ->
+                        failedAccounts++
+                        logger.warn("アクターの更新を投函できなかった: ${sender.acct}", error)
+                    }
+            }
+            after = page.lastOrNull()?.position()
+        } while (page.size == BROADCAST_PAGE_SIZE)
+
+        return BroadcastActorUpdatesResult(
+            enqueuedAccounts = enqueuedAccounts,
+            deliveries = deliveries,
+            failedAccounts = failedAccounts,
+        )
+    }
+
+    /**
      * アカウントを消して、消したことをフォロワーに配るために投函する。
      *
      * 配信した投稿とフォロワー、登録したフィードと取り込んだ記事、送り残した配信も
@@ -230,6 +265,17 @@ class AccountService(
         val nextPosition: AccountPosition?,
     )
 
+    /**
+     * @param enqueuedAccounts 投函できたアカウントの数
+     * @param deliveries 投函した配信の数
+     * @param failedAccounts 投函できなかったアカウントの数
+     */
+    data class BroadcastActorUpdatesResult(
+        val enqueuedAccounts: Int,
+        val deliveries: Int,
+        val failedAccounts: Int,
+    )
+
     sealed interface DeleteResult {
         data object Success : DeleteResult
 
@@ -271,5 +317,9 @@ class AccountService(
             val tooLong: Boolean,
             val duplicated: Boolean,
         ) : AddAccountResult
+    }
+
+    private companion object {
+        const val BROADCAST_PAGE_SIZE = 100
     }
 }
