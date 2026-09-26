@@ -789,16 +789,6 @@ class DeliveryWorkerTest {
     }
 
     /**
-     * 送信の差し替え。同時に何件送っているかを数える
-     *
-     * @param failing 失敗を返す宛先
-     * @param failTimes 失敗を返す回数。0 なら毎回
-     * @param throwing 例外を投げる宛先
-     * @param latency 1 件に掛かる時間。並列の確認に使う
-     * @param latencyByInbox 宛先ごとに [latency] の代わりに掛ける時間
-     * @param retryable 失敗を送り直せるものとして返すか
-     */
-    /**
      * 最初の 1 件だけ遅れて失敗し、残りはすぐに送れる。古い行の失敗が、新しい行が送れた後に返ってくる形
      */
     private class SlowFailureThenSuccess : ActivityDelivery {
@@ -819,6 +809,16 @@ class DeliveryWorkerTest {
         override fun close() = Unit
     }
 
+    /**
+     * 送信の差し替え。同時に何件送っているかを数える
+     *
+     * @param failing 失敗を返す宛先
+     * @param failTimes 失敗を返す回数。0 なら毎回
+     * @param throwing 例外を投げる宛先
+     * @param latency 1 件に掛かる時間。並列の確認に使う
+     * @param latencyByInbox 宛先ごとに [latency] の代わりに掛ける時間
+     * @param retryable 失敗を送り直せるものとして返すか
+     */
     private class RecordingDelivery(
         private val failing: Set<String> = emptySet(),
         private val failTimes: Int = 0,
