@@ -95,6 +95,9 @@ class DomainBlockService(
      *
      * 自動で止めたものを保存し直すと手動に変わり、以後は自動では外れない。
      *
+     * 何も止めない行は作らない。手動の行があると、届かなくなっても自動で止められない。
+     * 止めるのをやめるなら [delete] で外す
+     *
      * @param domain 入力されたドメイン。URL を貼られたときはホスト名を取り出す
      */
     fun save(
@@ -104,6 +107,7 @@ class DomainBlockService(
         description: String,
     ): SaveResult {
         val normalized = normalizeInput(domain) ?: return SaveResult.InvalidDomain
+        if (!blockDelivery && !blockInbox) return SaveResult.NothingBlocked
         val trimmedDescription = description.trim()
         if (trimmedDescription.codePointCount(0, trimmedDescription.length) > DESCRIPTION_MAX_LENGTH) {
             return SaveResult.DescriptionTooLong(DESCRIPTION_MAX_LENGTH)
@@ -173,6 +177,11 @@ class DomainBlockService(
         ) : SaveResult
 
         data object InvalidDomain : SaveResult
+
+        /**
+         * 配信も受信も止めない指定だった
+         */
+        data object NothingBlocked : SaveResult
 
         data class DescriptionTooLong(
             val maxLength: Int,

@@ -57,6 +57,9 @@ type AdminSaveDomainBlockFailure {
     "ドメインとして読めない"
     invalidDomain: Boolean!
 
+    "配信も受信も止めない指定だった。止めるのをやめるときは deleteDomainBlock で外す"
+    nothingBlocked: Boolean!
+
     "理由の説明の文字数の上限を超えている場合の上限"
     reasonDescriptionMaxLength: Int
 }

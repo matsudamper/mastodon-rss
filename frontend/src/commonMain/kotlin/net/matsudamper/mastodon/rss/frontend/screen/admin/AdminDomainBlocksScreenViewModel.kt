@@ -316,7 +316,8 @@ class AdminDomainBlocksScreenViewModel(
                 .takeIf { original?.reason == AdminDomainBlockReason.UNAVAILABLE },
             inputEnabled = !editor.busy,
             saveButtonText = if (editor.saving) "保存中" else "保存",
-            saveButtonEnabled = !editor.busy && editor.domain.isNotBlank(),
+            // 何も止めない行を作ると、届かなくなっても自動で止められなくなる。やめるなら外す
+            saveButtonEnabled = !editor.busy && editor.domain.isNotBlank() && (editor.blockDelivery || editor.blockInbox),
             deleteButtonVisible = original != null,
             deleteButtonText = if (editor.deleting) "外している" else "外す",
             deleteButtonEnabled = !editor.busy,
@@ -347,6 +348,7 @@ class AdminDomainBlocksScreenViewModel(
     private fun AdminSaveDomainBlockResult.Rejected.toMessage(): String =
         when {
             invalidDomain -> "ドメインとして読めない"
+            nothingBlocked -> "配信か受信のどちらかは止める。止めるのをやめるなら外す"
             reasonDescriptionMaxLength != null -> "理由は $reasonDescriptionMaxLength 文字まで"
             else -> "保存できなかった"
         }

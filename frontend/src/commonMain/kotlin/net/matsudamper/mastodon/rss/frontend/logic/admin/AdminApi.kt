@@ -249,6 +249,7 @@ class AdminApi(
         if (failure != null) {
             return AdminSaveDomainBlockResult.Rejected(
                 invalidDomain = failure.invalidDomain,
+                nothingBlocked = failure.nothingBlocked,
                 reasonDescriptionMaxLength = failure.reasonDescriptionMaxLength,
             )
         }

@@ -364,6 +364,7 @@ mutation AdminSaveDomainBlock($query: SaveDomainBlockQuery!) {
             }
             failure {
                 invalidDomain
+                nothingBlocked
                 reasonDescriptionMaxLength
             }
         }

@@ -66,10 +66,12 @@ sealed interface AdminSaveDomainBlockResult {
 
     /**
      * @param invalidDomain ドメインとして読めない
+     * @param nothingBlocked 配信も受信も止めない指定だった
      * @param reasonDescriptionMaxLength 理由の説明が長すぎるときの上限
      */
     data class Rejected(
         val invalidDomain: Boolean,
+        val nothingBlocked: Boolean,
         val reasonDescriptionMaxLength: Int?,
     ) : AdminSaveDomainBlockResult
 

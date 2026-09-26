@@ -65,6 +65,14 @@ class DomainBlockServiceTest {
     }
 
     @Test
+    fun `配信も受信も止めない指定は保存しない`() {
+        val result = service.save(domain = "remote.example", blockDelivery = false, blockInbox = false, description = "")
+
+        assertEquals(DomainBlockService.SaveResult.NothingBlocked, result)
+        assertNull(repository.find("remote.example"))
+    }
+
+    @Test
     fun `理由の説明が長すぎると保存しない`() {
         val result = service.save(
             domain = "remote.example",

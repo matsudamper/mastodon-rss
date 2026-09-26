@@ -242,13 +242,27 @@ class AdminMutationResolverImpl : AdminMutationResolver {
 
                 DomainBlockService.SaveResult.InvalidDomain -> QlAdminSaveDomainBlockResult(
                     domainBlock = null,
-                    failure = QlAdminSaveDomainBlockFailure(invalidDomain = true, reasonDescriptionMaxLength = null),
+                    failure = QlAdminSaveDomainBlockFailure(
+                        invalidDomain = true,
+                        nothingBlocked = false,
+                        reasonDescriptionMaxLength = null,
+                    ),
+                )
+
+                DomainBlockService.SaveResult.NothingBlocked -> QlAdminSaveDomainBlockResult(
+                    domainBlock = null,
+                    failure = QlAdminSaveDomainBlockFailure(
+                        invalidDomain = false,
+                        nothingBlocked = true,
+                        reasonDescriptionMaxLength = null,
+                    ),
                 )
 
                 is DomainBlockService.SaveResult.DescriptionTooLong -> QlAdminSaveDomainBlockResult(
                     domainBlock = null,
                     failure = QlAdminSaveDomainBlockFailure(
                         invalidDomain = false,
+                        nothingBlocked = false,
                         reasonDescriptionMaxLength = saved.maxLength,
                     ),
                 )
