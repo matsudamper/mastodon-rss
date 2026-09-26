@@ -219,13 +219,12 @@ class DeliveryWorker(
                 return
             }
 
-            // 止まっていた間に期限を過ぎた行を送らない。送ると 1 週間以上前の投稿が突然届く
+            // 止まっていた間に期限を過ぎた行を送らない。送ると 1 週間以上前の投稿が突然届く。
+            // こちらが止まっていただけで相手に送れなかったとは限らないので、ドメインは止めない
             if (retryPolicy.isExpired(enqueuedAt = row.enqueuedAt, now = clock())) {
-                val reason = "投函から時間が経ちすぎた"
                 DeliverySpan.outcome("gave_up.expired")
-                queue.giveUp(row.id, reason)
-                logger.warn("配信を諦めた: $reason ${row.username} → ${row.inbox}")
-                markUnavailable(inbox = row.inbox, reason = reason)
+                queue.giveUp(row.id, "投函から時間が経ちすぎた")
+                logger.warn("配信を諦めた: 投函から時間が経ちすぎた ${row.username} → ${row.inbox}")
                 return
             }
 

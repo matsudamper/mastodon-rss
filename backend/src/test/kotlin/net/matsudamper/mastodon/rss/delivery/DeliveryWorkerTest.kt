@@ -247,7 +247,7 @@ class DeliveryWorkerTest {
     }
 
     @Test
-    fun `投函から時間が経ちすぎて諦めたらそのドメインへの配信を止める`() = runTest {
+    fun `送らないまま投函から時間が経ちすぎて諦めてもドメインは止めない`() = runTest {
         val repositories = FakeRepositories()
         repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
 
@@ -258,7 +258,8 @@ class DeliveryWorkerTest {
             domainBlocks = repositories.domainBlocks,
         )
 
-        assertTrue(repositories.domainBlocks.blocksDelivery("a.example"))
+        // こちらが止まっていただけで、相手に送れなかったとは限らない
+        assertFalse(repositories.domainBlocks.blocksDelivery("a.example"))
     }
 
     @Test
