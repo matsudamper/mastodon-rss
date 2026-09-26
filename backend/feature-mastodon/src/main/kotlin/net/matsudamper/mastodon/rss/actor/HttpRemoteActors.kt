@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.actor
 
 import java.io.Closeable
+import kotlinx.coroutines.withContext
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -14,6 +15,8 @@ import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.http.isSuccess
 import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.context.Context
+import io.opentelemetry.extension.kotlin.asContextElement
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorClientTelemetry
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
@@ -50,6 +53,8 @@ class HttpRemoteActors(
     private val client: HttpClient = defaultClient(openTelemetry),
 ) : RemoteActors,
     Closeable {
+    private val tracer = (openTelemetry ?: OpenTelemetry.noop()).getTracer("activitypub-remote-actor")
+
     /**
      * アクター文書のキャッシュ。鍵と inbox を別々に持たないのは、
      * どちらも同じ 1 つの文書から読むものだから。
@@ -162,10 +167,42 @@ class HttpRemoteActors(
     }
 
     /**
+     * 1 回の inbox の処理で、署名の検証と宛先の引き当てのために何度か取りに行く。
+     * どの取得がキャッシュで済み、どれが何で取れなかったかを取得ごとに分けて残す
+     */
+    private suspend fun fetch(
+        rawUrl: String,
+        requestUrl: Url,
+        useCache: Boolean,
+    ): DocumentFetch {
+        val span =
+            tracer.spanBuilder("HttpRemoteActors.fetch")
+                .setAttribute(RemoteActorSpan.URL, rawUrl)
+                .setAttribute(RemoteActorSpan.USE_CACHE, useCache)
+                .startSpan()
+        return try {
+            withContext(Context.current().with(span).asContextElement()) {
+                fetchDocument(rawUrl = rawUrl, requestUrl = requestUrl, useCache = useCache)
+            }.also { fetched ->
+                span.setAttribute(
+                    RemoteActorSpan.RESULT,
+                    when (fetched) {
+                        is DocumentFetch.Found -> "found"
+                        DocumentFetch.Gone -> "gone"
+                        DocumentFetch.Unavailable -> "unavailable"
+                    },
+                )
+            }
+        } finally {
+            span.end()
+        }
+    }
+
+    /**
      * アクター文書を取る。取得先の URL を [requestUrl] として渡すのは、
      * 取れた文書の中身を突き合わせる基準がその URL のホストだから。
      */
-    private suspend fun fetch(
+    private suspend fun fetchDocument(
         rawUrl: String,
         requestUrl: Url,
         useCache: Boolean,
@@ -176,7 +213,10 @@ class HttpRemoteActors(
         val cacheKey = rawUrl.substringBefore('#')
 
         if (useCache) {
-            documents.get(cacheKey)?.let { return DocumentFetch.Found(it) }
+            documents.get(cacheKey)?.let {
+                RemoteActorSpan.outcome("cache_hit")
+                return DocumentFetch.Found(it)
+            }
             // 取りに行くことにしたので、次に取り直すまでの間隔をここから数える
             recentlyFetched.put(key = cacheKey, value = Unit, ttlMillis = REFRESH_INTERVAL_MILLIS)
         } else if (!recentlyFetched.tryPut(key = cacheKey, value = Unit, ttlMillis = REFRESH_INTERVAL_MILLIS)) {
@@ -186,6 +226,7 @@ class HttpRemoteActors(
             //
             // 直前に取りに行ったばかりなら、覚えているものはそのとき読んだ文書で、
             // 取り直しても同じものにしかならない
+            RemoteActorSpan.outcome("throttled")
             return documents.get(cacheKey)?.let { DocumentFetch.Found(it) } ?: DocumentFetch.Unavailable
         }
 
@@ -194,13 +235,20 @@ class HttpRemoteActors(
                 client.get(rawUrl) {
                     header(HttpHeaders.Accept, ActivityPubContentTypes.ActivityJson.toString())
                 }
-            }.getOrNull() ?: return DocumentFetch.Unavailable
+            }.getOrElse { failure ->
+                RemoteActorSpan.failed(failure)
+                RemoteActorSpan.outcome("request_failed")
+                return DocumentFetch.Unavailable
+            }
 
         // リダイレクトを追った結果、別のホストに移っていたら信用しない。
         // status を見る前に確かめるのは、消えたかどうかを答えてよいのは
         // そのアクターのホストだけだから
         val fetchedFrom = response.request.url.host
-        if (!fetchedFrom.equals(requestUrl.host, ignoreCase = true)) return DocumentFetch.Unavailable
+        if (!fetchedFrom.equals(requestUrl.host, ignoreCase = true)) {
+            RemoteActorSpan.outcome("redirected_to_other_host")
+            return DocumentFetch.Unavailable
+        }
 
         // 消えたと見なすのは 410 だけ。Mastodon は削除済みのアカウントにこれを返す。
         // 404 は消したのか置き場所が変わったのかを区別できず、
@@ -209,25 +257,41 @@ class HttpRemoteActors(
             // 消えた相手の文書を覚えたままにしない。取り直しの間隔の中に来た次の
             // 呼び出しが覚えているものを使い、消えたアクターを生きているものとして扱う
             documents.invalidate(cacheKey)
+            RemoteActorSpan.outcome("gone")
             return DocumentFetch.Gone
         }
-        if (!response.status.isSuccess()) return DocumentFetch.Unavailable
+        if (!response.status.isSuccess()) {
+            RemoteActorSpan.outcome("unsuccessful_status")
+            return DocumentFetch.Unavailable
+        }
 
-        val body = runCatching { response.bodyAsText() }.getOrNull() ?: return DocumentFetch.Unavailable
-        if (body.length > MAX_BODY_CHARS) return DocumentFetch.Unavailable
+        val body = runCatching { response.bodyAsText() }.getOrNull()
+        if (body == null) {
+            RemoteActorSpan.outcome("unreadable_body")
+            return DocumentFetch.Unavailable
+        }
+        if (body.length > MAX_BODY_CHARS) {
+            RemoteActorSpan.outcome("body_too_large")
+            return DocumentFetch.Unavailable
+        }
 
         val document =
-            runCatching { AppJson.decodeFromString(RemoteActorDocument.serializer(), body) }
-                .getOrNull() ?: return DocumentFetch.Unavailable
+            runCatching { AppJson.decodeFromString(RemoteActorDocument.serializer(), body) }.getOrNull()
+        if (document == null) {
+            RemoteActorSpan.outcome("undecodable_document")
+            return DocumentFetch.Unavailable
+        }
 
         // 使えると分かった文書だけを覚える。中身を見ずに入れ替えると、相手が 200 で
         // 空の JSON や他所のアクターの鍵を返した瞬間に、それまでの正しい文書を失う。
         // 取り直しは通らない署名を投げ込むだけで起こせるので、外から狙える
         if (!document.hasUsableKey(requestUrl)) {
+            RemoteActorSpan.outcome("no_usable_key")
             return documents.get(cacheKey)?.let { DocumentFetch.Found(it) } ?: DocumentFetch.Found(document)
         }
 
         documents.put(key = cacheKey, value = document, ttlMillis = CACHE_TTL_MILLIS)
+        RemoteActorSpan.outcome("fetched")
         return DocumentFetch.Found(document)
     }
 
