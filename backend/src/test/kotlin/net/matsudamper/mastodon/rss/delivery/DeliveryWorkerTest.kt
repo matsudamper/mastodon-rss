@@ -142,6 +142,7 @@ class DeliveryWorkerTest {
             clock = { current },
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
+            circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
             claimLimit = 8,
             sendConcurrency = 8,
         )
@@ -230,6 +231,7 @@ class DeliveryWorkerTest {
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
+            circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
             claimLimit = 8,
             sendConcurrency = 8,
         )
@@ -257,6 +259,7 @@ class DeliveryWorkerTest {
             clock = { current },
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
+            circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
             claimLimit = 8,
             sendConcurrency = 8,
         )
@@ -290,6 +293,7 @@ class DeliveryWorkerTest {
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
+            circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
             claimLimit = 8,
             sendConcurrency = 8,
         )
@@ -346,6 +350,7 @@ class DeliveryWorkerTest {
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
+            circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
             claimLimit = 100,
             sendConcurrency = 2,
         )
@@ -374,6 +379,22 @@ class DeliveryWorkerTest {
     }
 
     @Test
+    fun `同じ inbox で失敗が続いたら 送らずに送り直し待ちへ回す`() = runTest {
+        val repositories = FakeRepositories()
+        val inbox = "https://a.example/inbox"
+        val delivery = RecordingDelivery(failing = setOf(inbox))
+        repositories.enqueue(inboxes = List(11) { inbox })
+
+        runWorker(repositories.deliveryQueue, delivery, sendConcurrency = 1)
+
+        // 10 回続けて失敗した後の 1 件は送りに行かない
+        assertEquals(10, delivery.attempts)
+        val rows = repositories.deliveryQueue.rows()
+        assertTrue(rows.all { it.state == FakeDeliveryQueueRepository.State.PENDING })
+        assertEquals("失敗が続いているので送らずに待つ", rows.last().lastError)
+    }
+
+    @Test
     fun `アカウントが無い行は諦める`() = runTest {
         val repositories = FakeRepositories()
         val delivery = RecordingDelivery()
@@ -399,6 +420,7 @@ class DeliveryWorkerTest {
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
+            circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
             claimLimit = 8,
             sendConcurrency = 8,
         )
@@ -436,6 +458,7 @@ class DeliveryWorkerTest {
             deletedActorDirectory = deletedActorDirectory,
             retryPolicy = retryPolicy,
             backfill = backfillPublisher(delivery = delivery, notes = notes),
+            circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
             idleInterval = IDLE,
             claimLimit = claimLimit,
             sendConcurrency = sendConcurrency,

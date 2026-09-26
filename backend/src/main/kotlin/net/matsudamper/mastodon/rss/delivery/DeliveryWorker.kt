@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory
  *   これで引いて署名する
  * @param backfill フォローが成立した相手に過去の投稿を配る。成立するのは `Accept` が
  *   届いたときなので、始められるのはここになる
+ * @param circuitBreaker 失敗が続いている inbox に送らずに済ませる
  * @param claimLimit 1 回の claim で取り出す数。取った行を渡し終えるまで次の claim はしない
  * @param sendConcurrency 同時に送る数の上限
  * @param idleInterval claim が 0 件だったときに次を見に行くまでの待ち。
@@ -53,6 +54,7 @@ class DeliveryWorker(
     private val deletedActorDirectory: ActorDirectory,
     private val retryPolicy: DeliveryRetryPolicy,
     private val backfill: FollowBackfillPublisher,
+    private val circuitBreaker: DeliveryCircuitBreaker,
     private val claimLimit: Int,
     private val sendConcurrency: Int,
     private val idleInterval: Duration,
@@ -187,6 +189,13 @@ class DeliveryWorker(
                 return
             }
 
+            if (circuitBreaker.isOpen(inbox = row.inbox, now = clock())) {
+                val reason = "失敗が続いているので送らずに待つ"
+                DeliverySpan.failed(reason)
+                recordFailure(row, reason)
+                return
+            }
+
             val result = try {
                 delivery.deliver(inbox = row.inbox, sender = sender, body = row.body.toByteArray())
             } catch (e: CancellationException) {
@@ -198,6 +207,7 @@ class DeliveryWorker(
             when (result) {
                 is DeliveryResult.Delivered -> {
                     DeliverySpan.outcome("delivered")
+                    circuitBreaker.recordSuccess(row.inbox)
                     when (val outcome = queue.markDelivered(id = row.id, deliveredAt = clock())) {
                         DeliveredOutcome.None -> Unit
 
@@ -213,6 +223,7 @@ class DeliveryWorker(
                     // 相手が受け取らないと決めた応答は、間を空けても同じ答えが返る。
                     // 消えた inbox に 7 日送り続けても届かない
                     if (result.retryable) {
+                        circuitBreaker.recordFailure(inbox = row.inbox, now = clock())
                         recordFailure(row, result.reason)
                     } else {
                         DeliverySpan.outcome("gave_up.rejected")
