@@ -22,6 +22,9 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
     implementation(libs.opentelemetry.ktor)
+    // アクター文書の取得を span で囲み、その中の GET をぶら下げる。
+    // suspend の間も span を current に保つのに要る
+    implementation(libs.opentelemetry.extension.kotlin)
 
     // InboxService のように Ktor のルーティングから切り離したクラスは
     // Application.log を持たないので、SLF4J のロガーを直接引く

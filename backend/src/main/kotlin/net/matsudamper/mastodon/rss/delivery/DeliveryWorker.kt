@@ -8,6 +8,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.context.Context
+import io.opentelemetry.extension.kotlin.asContextElement
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
@@ -39,6 +43,7 @@ import org.slf4j.LoggerFactory
  * @param claimLimit 1 回の claim で取り出す数。同時に相手にするホストの数であり、同時実行数の上限でもある
  * @param idleInterval claim が 0 件だったときに次を見に行くまでの待ち。
  *   新しい投稿が入ってから送り始めるまでの遅れの上限になる
+ * @param openTelemetry 1 行ごとの span を出す先
  */
 class DeliveryWorker(
     private val queue: DeliveryQueueRepository,
@@ -50,7 +55,10 @@ class DeliveryWorker(
     private val claimLimit: Int,
     private val idleInterval: Duration,
     private val clock: () -> Instant,
+    openTelemetry: OpenTelemetry = OpenTelemetry.noop(),
 ) {
+    private val tracer = openTelemetry.getTracer("activitypub-delivery")
+
     /**
      * 送信中のまま残っている行を戻してから、繰り返しを始める
      */
@@ -110,8 +118,33 @@ class DeliveryWorker(
     ) {
         coroutineScope {
             claimed.forEach { row ->
-                launch { deliverOne(row = row, backfillScope = backfillScope) }
+                launch { deliverOneInSpan(row = row, backfillScope = backfillScope) }
             }
+        }
+    }
+
+    /**
+     * 送信の HTTP の span をこの行の span の下にまとめる。無いと POST だけがばらばらに出て、
+     * どの行の何回目の送信かが分からない
+     */
+    private suspend fun deliverOneInSpan(
+        row: ClaimedDelivery,
+        backfillScope: CoroutineScope,
+    ) {
+        val span =
+            tracer.spanBuilder("DeliveryWorker.deliver")
+                .setAttribute(DeliverySpan.ID, row.id.value)
+                .setAttribute(DeliverySpan.KIND, row.kind.name)
+                .setAttribute(DeliverySpan.SENDER, row.username)
+                .setAttribute(DeliverySpan.INBOX, row.inbox)
+                .setAttribute(DeliverySpan.ATTEMPTS, row.attempts.toLong())
+                .startSpan()
+        try {
+            withContext(Context.current().with(span).asContextElement()) {
+                deliverOne(row = row, backfillScope = backfillScope)
+            }
+        } finally {
+            span.end()
         }
     }
 
@@ -128,6 +161,7 @@ class DeliveryWorker(
         try {
             val sender = resolveSender(row)
             if (sender == null) {
+                DeliverySpan.outcome("gave_up.no_account")
                 queue.giveUp(row.id, "アカウントが無い: ${row.username}")
                 logger.warn("配信を諦めた: アカウントが無い ${row.username} → ${row.inbox}")
                 return
@@ -136,12 +170,14 @@ class DeliveryWorker(
             // claim した後に投稿が消されると、行ごと消える。claim から送り始めるまでは開くので、
             // 送る直前に確かめる。残るのは送っている最中に消された場合だけになる
             if (!queue.exists(row.id)) {
+                DeliverySpan.outcome("skipped.deleted")
                 logger.info("配信を取りやめた: 投稿が消えている ${row.username} → ${row.inbox}")
                 return
             }
 
             // 止まっていた間に期限を過ぎた行を送らない。送ると 1 か月以上前の投稿が突然届く
             if (retryPolicy.isExpired(enqueuedAt = row.enqueuedAt, now = clock())) {
+                DeliverySpan.outcome("gave_up.expired")
                 queue.giveUp(row.id, "投函から時間が経ちすぎた")
                 logger.warn("配信を諦めた: 投函から時間が経ちすぎた ${row.username} → ${row.inbox}")
                 return
@@ -157,6 +193,7 @@ class DeliveryWorker(
 
             when (result) {
                 is DeliveryResult.Delivered -> {
+                    DeliverySpan.outcome("delivered")
                     when (val outcome = queue.markDelivered(id = row.id, deliveredAt = clock())) {
                         DeliveredOutcome.None -> Unit
 
@@ -168,11 +205,13 @@ class DeliveryWorker(
                 }
 
                 is DeliveryResult.Failed -> {
+                    DeliverySpan.failed(result.reason)
                     // 相手が受け取らないと決めた応答は、間を空けても同じ答えが返る。
                     // 消えた inbox に 30 日送り続けても届かない
                     if (result.retryable) {
                         recordFailure(row, result.reason)
                     } else {
+                        DeliverySpan.outcome("gave_up.rejected")
                         queue.giveUp(row.id, result.reason)
                         logger.warn("配信を諦めた: 相手が受け取らない ${row.username} → ${row.inbox} ${result.reason}")
                     }
@@ -184,6 +223,8 @@ class DeliveryWorker(
             // DB への記録で落ちた分。delivering のまま残すと、起動時の復旧までこの行は二度と
             // claim されない。送り直しの時刻を付けて pending に戻すのをもう一度だけ試す。
             // 送れていた行を戻すと二重に届くことがあるが、受信側は id で冪等に扱う
+            DeliverySpan.outcome("record_failed")
+            DeliverySpan.failed(e)
             logger.error("配信の結果を記録できなかった: ${row.id.value} → ${row.inbox}", e)
             releaseToRetry(row, "結果を記録できなかった: ${e.message}")
         }
@@ -256,11 +297,13 @@ class DeliveryWorker(
     ) {
         val nextAttemptAt = retryPolicy.nextAttemptAt(attempts = row.attempts, enqueuedAt = row.enqueuedAt, now = clock())
         if (nextAttemptAt == null) {
+            DeliverySpan.outcome("gave_up.retry_exhausted")
             queue.giveUp(row.id, reason)
             logger.warn("配信を諦めた: ${row.username} → ${row.inbox} ${row.attempts} 回目 $reason")
             return
         }
 
+        DeliverySpan.outcome("retry_scheduled")
         queue.scheduleRetry(row.id, nextAttemptAt = nextAttemptAt, error = reason)
         logger.warn("配れなかったので $nextAttemptAt に送り直す: ${row.username} → ${row.inbox} ${row.attempts} 回目 $reason")
     }
