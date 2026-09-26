@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory
  * @param claimLimit 1 回の claim で取り出す数。同時に相手にするホストの数であり、同時実行数の上限でもある
  * @param idleInterval claim が 0 件だったときに次を見に行くまでの待ち。
  *   新しい投稿が入ってから送り始めるまでの遅れの上限になる
- * @param openTelemetry 1 行ごとの span を出す先。無ければ出さない
+ * @param openTelemetry 1 行ごとの span を出す先
  */
 class DeliveryWorker(
     private val queue: DeliveryQueueRepository,
@@ -55,9 +55,9 @@ class DeliveryWorker(
     private val claimLimit: Int,
     private val idleInterval: Duration,
     private val clock: () -> Instant,
-    openTelemetry: OpenTelemetry?,
+    openTelemetry: OpenTelemetry = OpenTelemetry.noop(),
 ) {
-    private val tracer = (openTelemetry ?: OpenTelemetry.noop()).getTracer("activitypub-delivery")
+    private val tracer = openTelemetry.getTracer("activitypub-delivery")
 
     /**
      * 送信中のまま残っている行を戻してから、繰り返しを始める
