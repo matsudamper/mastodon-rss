@@ -48,9 +48,27 @@ class InboxService(
         recipient: InboxRecipient,
         request: SignedRequest,
     ): InboxResult {
+        InboxSpan.set(InboxSpan.RECIPIENT, recipient.logLabel)
+        val result = receiveVerified(recipient = recipient, request = request)
+        InboxSpan.set(
+            InboxSpan.RESULT,
+            when (result) {
+                InboxResult.Accepted -> "accepted"
+                InboxResult.BadRequest -> "bad_request"
+                InboxResult.Unauthorized -> "unauthorized"
+            },
+        )
+        return result
+    }
+
+    private suspend fun receiveVerified(
+        recipient: InboxRecipient,
+        request: SignedRequest,
+    ): InboxResult {
         val verifiedSignerActorId =
             when (val verification = verifier.verify(request)) {
                 is HttpSignatureResult.Rejected -> {
+                    InboxSpan.set(InboxSpan.SIGNATURE_REJECT_REASON, verification.reason)
                     // 消えたアクターからの Delete だけは、検証できないことを理由に
                     // 落とすと相手が送り直し続ける。削除の通知は本人が消えた後に届き、
                     // 鍵はもう取りに行けない。フォロワーだった相手なら記録した鍵で
@@ -69,6 +87,7 @@ class InboxService(
                     verification.owner
                 }
             }
+        InboxSpan.set(InboxSpan.SIGNER, verifiedSignerActorId)
 
         val rawActivityJson =
             runCatching { AppJson.parseToJsonElement(request.body.decodeToString()) as? JsonObject }
@@ -91,6 +110,10 @@ class InboxService(
             return InboxResult.Unauthorized
         }
 
+        InboxSpan.set(InboxSpan.ACTIVITY_TYPE, activity.type)
+        InboxSpan.set(InboxSpan.ACTIVITY_ID, activity.id)
+        InboxSpan.set(InboxSpan.ACTIVITY_OBJECT, activity.target?.id)
+
         logger.info(
             "inbox で受信: 宛先=${recipient.logLabel} type=${activity.type} " +
                 "id=${activity.id} actor=$verifiedSignerActorId",
@@ -98,8 +121,10 @@ class InboxService(
 
         // 引き当てられない type は何もしない。未対応のアクティビティに 5xx を返すと
         // 相手は同じものを送り直し続けることになる
+        val handler = handlersByType[activity.type]
+        if (handler == null) InboxSpan.outcome("no_handler")
         val handled = runCatching {
-            handlersByType[activity.type]?.handle(
+            handler?.handle(
                 recipient = recipient,
                 verifiedSignerActorId = verifiedSignerActorId,
                 activity = activity,
@@ -111,6 +136,7 @@ class InboxService(
         // こちらが書き込めない間ずっと同じ失敗を繰り返すことになる。
         // 何が起きたかはここに残っているものが唯一の手がかりになる
         handled.onFailure { failure ->
+            InboxSpan.failed(failure)
             logger.warn(
                 "inbox の処理に失敗した: ${recipient.logLabel} type=${activity.type} actor=$verifiedSignerActorId",
                 failure,

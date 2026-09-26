@@ -45,22 +45,27 @@ class ReactionHandler(
         val targetUrl = activity.target?.id
         if (targetUrl == null) {
             logger.warn("$type に object が無い: ${recipient.logLabel} ← $verifiedSignerActorId")
+            InboxSpan.outcome("reaction.no_object")
             return
         }
 
         val notePublicId = NoteUrls.publicIdOf(domain = domain, url = targetUrl)
         if (notePublicId == null) {
             logger.info("$type の対象がこちらの投稿ではないので何もしない: object=$targetUrl")
+            InboxSpan.outcome("reaction.not_local_note")
             return
         }
 
         val emoji = StampEmoji.of(activity.content)
+        InboxSpan.set(InboxSpan.STAMP_EMOJI, emoji)
         if (emoji == null && type != LIKE_TYPE) {
             logger.info("$type に絵文字が無いので何もしない: ${recipient.logLabel} ← $verifiedSignerActorId")
+            InboxSpan.outcome("reaction.no_emoji")
             return
         }
         if (emoji != null && emoji.length > StampEmoji.MAX_LENGTH) {
             logger.info("$type の絵文字が長すぎるので受け付けない: ${recipient.logLabel} ← $verifiedSignerActorId")
+            InboxSpan.outcome("reaction.emoji_too_long")
             return
         }
 
@@ -69,6 +74,7 @@ class ReactionHandler(
             earlyUndoneLikes.isRemembered(actorUri = verifiedSignerActorId, activityUri = activityUri, now = Instant.now())
         if (undoneFirst) {
             logger.info("先に取り消しが届いた $type なので記録しない: ${recipient.logLabel} ← $verifiedSignerActorId id=$activityUri")
+            InboxSpan.outcome("reaction.undone_first")
             return
         }
 
@@ -77,6 +83,7 @@ class ReactionHandler(
         val actor = remoteActors.findActor(verifiedSignerActorId)
         if (actor == null) {
             logger.warn("$type の押し手のアクター文書を引けないので受け付けない: ${recipient.logLabel} ← $verifiedSignerActorId")
+            InboxSpan.outcome("reaction.actor_unavailable")
             return
         }
 
@@ -106,6 +113,7 @@ class ReactionHandler(
             ),
         )
 
+        InboxSpan.outcome(if (recorded) "favourite.recorded" else "favourite.not_recorded")
         if (recorded) {
             logger.info("お気に入りを記録した: ${recipient.logLabel} ← ${actor.actorId} 投稿=${notePublicId.value}")
         } else {
@@ -130,6 +138,7 @@ class ReactionHandler(
             ),
         )
 
+        InboxSpan.outcome(if (recorded) "stamp.recorded" else "stamp.not_recorded")
         if (recorded) {
             logger.info("スタンプを記録した: ${recipient.logLabel} ← ${actor.actorId} 投稿=${notePublicId.value} 絵文字=$emoji")
         } else {

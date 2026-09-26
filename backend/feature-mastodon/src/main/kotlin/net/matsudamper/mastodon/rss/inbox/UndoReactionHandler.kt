@@ -50,6 +50,7 @@ class UndoReactionHandler(
             runCatching { AppJson.decodeFromJsonElement(InboxActivity.serializer(), undoObject.json) }.getOrNull()
         if (undoneActivity == null) {
             logger.warn("Undo の object を読めなかった: ${recipient.logLabel} ← $verifiedSignerActorId")
+            InboxSpan.outcome("undo_reaction.unreadable_object")
             return false
         }
 
@@ -59,6 +60,7 @@ class UndoReactionHandler(
         val notePublicId = undoneActivity.target?.id?.let { NoteUrls.publicIdOf(domain = domain, url = it) }
         if (notePublicId == null) {
             logger.info("取り消す $undoneType を引き当てられない: ${recipient.logLabel} ← $verifiedSignerActorId")
+            InboxSpan.outcome("undo_reaction.not_local_note")
             return true
         }
 
@@ -68,6 +70,7 @@ class UndoReactionHandler(
             actorUri = verifiedSignerActorId,
             emoji = StampEmoji.of(undoneActivity.content),
         )
+        InboxSpan.outcome(if (removed) "undo_reaction.removed" else "undo_reaction.not_recorded")
         if (removed) {
             logger.info("$undoneType を取り消した: ${recipient.logLabel} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
             return true
