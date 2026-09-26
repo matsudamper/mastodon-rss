@@ -608,7 +608,7 @@ class DeliveryWorkerTest {
      */
     private suspend fun TestScope.runWorker(
         queue: FakeDeliveryQueueRepository,
-        delivery: RecordingDelivery,
+        delivery: ActivityDelivery,
         claimLimit: Int = 8,
         sendConcurrency: Int = 8,
         clock: () -> Instant = { now },
@@ -660,7 +660,7 @@ class DeliveryWorkerTest {
     )
 
     private fun backfillPublisher(
-        delivery: RecordingDelivery,
+        delivery: ActivityDelivery,
         notes: FakeNoteStore = FakeNoteStore(),
     ): FollowBackfillPublisher = FollowBackfillPublisher(
         notes = notes,
