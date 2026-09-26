@@ -44,6 +44,15 @@ class ActorDirectory(
         }
     }
 
+    fun resolveActorId(actorId: String): ActorUrls? {
+        val actorUrlPrefix = "https://$domain/users/"
+        if (actorId.length <= actorUrlPrefix.length || !actorId.startsWith(actorUrlPrefix, ignoreCase = true)) return null
+
+        // 残りがパスを含んでいたらユーザー名として不正になり、
+        // resolve が弾く（`/` は使える文字に入っていない）
+        return resolve(actorId.substring(actorUrlPrefix.length))
+    }
+
     /**
      * WebFinger の `resource` から引く。
      *
@@ -54,11 +63,8 @@ class ActorDirectory(
         val trimmed = resource.trim()
         if (trimmed.isEmpty()) return null
 
-        val actorUrlPrefix = "https://$domain/users/"
-        if (trimmed.length > actorUrlPrefix.length && trimmed.startsWith(actorUrlPrefix, ignoreCase = true)) {
-            // 残りが `feed1/inbox` のようにパスを含んでいたらユーザー名として不正になり、
-            // resolve が弾く（`/` は使える文字に入っていない）
-            return resolve(trimmed.substring(actorUrlPrefix.length))
+        if (trimmed.startsWith("https://$domain/users/", ignoreCase = true)) {
+            return resolveActorId(trimmed)
         }
 
         val withoutScheme =

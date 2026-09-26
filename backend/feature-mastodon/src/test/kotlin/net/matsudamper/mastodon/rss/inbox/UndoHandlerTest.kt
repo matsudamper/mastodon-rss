@@ -69,9 +69,9 @@ class UndoHandlerTest {
                 favourites = favourites,
                 earlyUndoneLikes = earlyUndoneLikes,
             ),
-            follows = UndoFollowHandler(followers),
+            follows = UndoFollowHandler(directory = TestLocalActor.directory, followers = followers),
         ).handle(
-            recipient = TestLocalActor.urls,
+            recipient = InboxRecipient.Account(TestLocalActor.urls),
             verifiedSignerActorId = TestRemoteActor.ACTOR_ID,
             activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), rawActivityJson),
             rawActivityJson = rawActivityJson,

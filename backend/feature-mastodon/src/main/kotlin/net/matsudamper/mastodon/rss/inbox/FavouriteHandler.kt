@@ -4,7 +4,6 @@ import java.time.Instant
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
-import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
@@ -27,14 +26,14 @@ class FavouriteHandler(
     private val logger = LoggerFactory.getLogger(FavouriteHandler::class.java)
 
     override suspend fun handle(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         verifiedSignerActorId: String,
         activity: InboxActivity,
         rawActivityJson: JsonObject,
     ) {
         val targetUrl = activity.target?.id
         if (targetUrl == null) {
-            logger.warn("Like に object が無い: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.warn("Like に object が無い: ${recipient.logLabel} ← $verifiedSignerActorId")
             return
         }
 
@@ -48,7 +47,7 @@ class FavouriteHandler(
         val undoneFirst = activityUri != null &&
             earlyUndoneLikes.isRemembered(actorUri = verifiedSignerActorId, activityUri = activityUri, now = Instant.now())
         if (undoneFirst) {
-            logger.info("先に取り消しが届いた Like なので記録しない: ${recipient.acct} ← $verifiedSignerActorId id=$activityUri")
+            logger.info("先に取り消しが届いた Like なので記録しない: ${recipient.logLabel} ← $verifiedSignerActorId id=$activityUri")
             return
         }
 
@@ -56,7 +55,7 @@ class FavouriteHandler(
         // 居ない相手のお気に入りが公開画面に出たままになる
         val actor = remoteActors.findActor(verifiedSignerActorId)
         if (actor == null) {
-            logger.warn("Like の押し手のアクター文書を引けないので受け付けない: ${recipient.acct} ← $verifiedSignerActorId")
+            logger.warn("Like の押し手のアクター文書を引けないので受け付けない: ${recipient.logLabel} ← $verifiedSignerActorId")
             return
         }
 
@@ -69,9 +68,9 @@ class FavouriteHandler(
         )
 
         if (recorded) {
-            logger.info("お気に入りを記録した: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
+            logger.info("お気に入りを記録した: ${recipient.logLabel} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
         } else {
-            logger.info("お気に入りを記録しなかった。記録済みか投稿が無い: ${recipient.acct} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
+            logger.info("お気に入りを記録しなかった。記録済みか投稿が無い: ${recipient.logLabel} ← $verifiedSignerActorId 投稿=${notePublicId.value}")
         }
     }
 

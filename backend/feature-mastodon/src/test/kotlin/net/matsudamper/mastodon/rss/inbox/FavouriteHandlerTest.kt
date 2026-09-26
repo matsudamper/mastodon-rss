@@ -35,7 +35,7 @@ class FavouriteHandlerTest {
             favourites = favourites,
             earlyUndoneLikes = earlyUndoneLikes,
         ).handle(
-            recipient = TestLocalActor.urls,
+            recipient = InboxRecipient.Account(TestLocalActor.urls),
             verifiedSignerActorId = TestRemoteActor.ACTOR_ID,
             activity = AppJson.decodeFromJsonElement(InboxActivity.serializer(), rawActivityJson),
             rawActivityJson = rawActivityJson,

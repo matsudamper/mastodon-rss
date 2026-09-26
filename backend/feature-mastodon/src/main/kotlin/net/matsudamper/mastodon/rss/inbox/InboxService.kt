@@ -3,7 +3,7 @@ package net.matsudamper.mastodon.rss.inbox
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.id
-import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.follower.FollowerStore
@@ -40,11 +40,11 @@ class InboxService(
         }
 
     /**
-     * @param recipient 宛先になるこちらのアクター。引き当ては呼び出し側で済ませておく
+     * @param recipient 届いた inbox。アカウントごとの inbox なら、宛先の引き当ては呼び出し側で済ませておく
      * @param request 署名の検証にかけるリクエスト。ボディは受け取り終えたものを渡す
      */
     suspend fun receive(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         request: SignedRequest,
     ): InboxResult {
         val verifiedSignerActorId =
@@ -56,11 +56,11 @@ class InboxService(
                     // 検証できるが、Mastodon は面識の無いサーバーにも配るので、
                     // 記録の無い相手は通しようが無い
                     if (isSelfDelete(request.body)) {
-                        logger.info("${recipient.acct} に検証できない Delete が届いたので受け流す。理由:${verification.reason}")
+                        logger.info("${recipient.logLabel} に検証できない Delete が届いたので受け流す。理由:${verification.reason}")
                         return InboxResult.Accepted
                     }
 
-                    logger.warn("${recipient.acct} のinboxの署名を拒否した。理由:${verification.reason}")
+                    logger.warn("inbox の署名を拒否した: ${recipient.logLabel} 理由:${verification.reason}")
                     return InboxResult.Unauthorized
                 }
 
@@ -78,7 +78,7 @@ class InboxService(
             }
 
         if (rawActivityJson == null || activity == null) {
-            logger.warn("inbox のボディを読めなかった: ${recipient.acct} 署名者=$verifiedSignerActorId")
+            logger.warn("inbox のボディを読めなかった: ${recipient.logLabel} 署名者=$verifiedSignerActorId")
             return InboxResult.BadRequest
         }
 
@@ -91,7 +91,7 @@ class InboxService(
         }
 
         logger.info(
-            "inbox で受信: 宛先=${recipient.acct} type=${activity.type} " +
+            "inbox で受信: 宛先=${recipient.logLabel} type=${activity.type} " +
                 "id=${activity.id} actor=$verifiedSignerActorId",
         )
 
@@ -111,7 +111,7 @@ class InboxService(
         // 何が起きたかはここに残っているものが唯一の手がかりになる
         handled.onFailure { failure ->
             logger.warn(
-                "inbox の処理に失敗した: ${recipient.acct} type=${activity.type} actor=$verifiedSignerActorId",
+                "inbox の処理に失敗した: ${recipient.logLabel} type=${activity.type} actor=$verifiedSignerActorId",
                 failure,
             )
         }
@@ -158,6 +158,7 @@ class InboxService(
          *   消えた相手の公開鍵の引き先にもなる
          */
         fun default(
+            directory: ActorDirectory,
             remoteActors: RemoteActors,
             followers: FollowerStore,
             favourites: FavouriteStore,
@@ -170,6 +171,7 @@ class InboxService(
                 ),
                 handlers = listOf(
                     FollowHandler(
+                        directory = directory,
                         remoteActors = remoteActors,
                         followers = followers,
                     ),
@@ -181,7 +183,7 @@ class InboxService(
                     ),
                     UndoHandler(
                         favourites = UndoFavouriteHandler(domain = domain, favourites = favourites, earlyUndoneLikes = earlyUndoneLikes),
-                        follows = UndoFollowHandler(followers),
+                        follows = UndoFollowHandler(directory = directory, followers = followers),
                     ),
                     UpdateActorHandler(followers),
                     DeleteActorHandler(followers = followers, favourites = favourites),

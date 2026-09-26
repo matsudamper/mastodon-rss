@@ -3,7 +3,6 @@ package net.matsudamper.mastodon.rss.inbox
 import kotlinx.serialization.json.JsonObject
 import net.matsudamper.mastodon.rss.activity.InboxActivity
 import net.matsudamper.mastodon.rss.activitypub.LinkOrObject
-import net.matsudamper.mastodon.rss.actor.ActorUrls
 
 /**
  * `Undo` は取り消せるものが 1 つではないので、`object` が何だったのかで
@@ -17,7 +16,7 @@ class UndoHandler(
     override val type: String = "Undo"
 
     override suspend fun handle(
-        recipient: ActorUrls,
+        recipient: InboxRecipient,
         verifiedSignerActorId: String,
         activity: InboxActivity,
         rawActivityJson: JsonObject,

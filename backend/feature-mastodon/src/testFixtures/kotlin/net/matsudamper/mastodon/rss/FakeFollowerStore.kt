@@ -84,6 +84,11 @@ class FakeFollowerStore(
             (followActivityUri == null || row.followActivityUri == followActivityUri)
     }
 
+    override fun findFolloweeUsername(
+        followerActorUri: String,
+        followActivityUri: String,
+    ): String? = rows.firstOrNull { it.followerActorUri == followerActorUri && it.followActivityUri == followActivityUri }?.username
+
     override fun removeAccount(username: String): Int {
         val before = rows.size
         rows.removeAll { it.username.equals(username, ignoreCase = true) }

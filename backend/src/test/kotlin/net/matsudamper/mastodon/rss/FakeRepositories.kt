@@ -297,6 +297,11 @@ class FakeFollowerRepository(
         return removed
     }
 
+    override fun findFolloweeUsername(
+        followerActorUri: String,
+        followActivityUri: String,
+    ): String? = stored.firstOrNull { it.follower.actorUri == followerActorUri && it.followActivityUri == followActivityUri }?.username
+
     override fun removeAccount(username: String): Int {
         onAccountRemoved(username)
 
