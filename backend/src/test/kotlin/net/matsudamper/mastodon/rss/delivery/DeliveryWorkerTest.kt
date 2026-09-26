@@ -247,6 +247,22 @@ class DeliveryWorkerTest {
     }
 
     @Test
+    fun `同じ inbox へ後から投函した行が先に送れていたら 古い行を諦めてもドメインは止めない`() = runTest {
+        val repositories = FakeRepositories()
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
+
+        runWorker(
+            repositories.deliveryQueue,
+            SlowFailureThenSuccess(),
+            retryPolicy = DeliveryRetryPolicy(initialInterval = 2.hours, maxInterval = 24.hours, giveUpAfter = 1.hours),
+            domainBlocks = repositories.domainBlocks,
+        )
+
+        assertFalse(repositories.domainBlocks.blocksDelivery("a.example"))
+    }
+
+    @Test
     fun `送らないまま投函から時間が経ちすぎて諦めてもドメインは止めない`() = runTest {
         val repositories = FakeRepositories()
         repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
@@ -782,6 +798,27 @@ class DeliveryWorkerTest {
      * @param latencyByInbox 宛先ごとに [latency] の代わりに掛ける時間
      * @param retryable 失敗を送り直せるものとして返すか
      */
+    /**
+     * 最初の 1 件だけ遅れて失敗し、残りはすぐに送れる。古い行の失敗が、新しい行が送れた後に返ってくる形
+     */
+    private class SlowFailureThenSuccess : ActivityDelivery {
+        private var calls = 0
+
+        override suspend fun deliver(
+            inbox: String,
+            sender: ActorUrls,
+            body: ByteArray,
+        ): DeliveryResult {
+            calls++
+            if (calls > 1) return DeliveryResult.Delivered
+
+            delay(2.seconds)
+            return DeliveryResult.Failed(reason = "届かない", retryable = true)
+        }
+
+        override fun close() = Unit
+    }
+
     private class RecordingDelivery(
         private val failing: Set<String> = emptySet(),
         private val failTimes: Int = 0,

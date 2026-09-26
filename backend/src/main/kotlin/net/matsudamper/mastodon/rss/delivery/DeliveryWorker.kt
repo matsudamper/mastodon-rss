@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.delivery
 
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 import kotlin.time.Duration
 import kotlinx.coroutines.CancellationException
@@ -73,6 +74,21 @@ class DeliveryWorker(
     openTelemetry: OpenTelemetry = OpenTelemetry.noop(),
 ) {
     private val tracer = openTelemetry.getTracer("activitypub-delivery")
+
+    /**
+     * inbox ごとの最後に送れた時刻。
+     *
+     * 同じ inbox の行も並べて送るので、新しい行が送れた後で、期限間近の古い行の失敗が
+     * 返ってくることがある。その失敗でドメインを止めると、動いている相手への配信が止まる。
+     * 状態はメモリに持つ。再起動で消えても、次に送れたときにまた記録される
+     */
+    private val lastDeliveredAt = ConcurrentHashMap<String, Instant>()
+
+    /**
+     * 送れたことの記録と止めるかの判断を、ドメインの記録と合わせて 1 つずつ行う。
+     * 分けると、判断した後に送れた記録が割り込み、送れた後から止まる
+     */
+    private val domainAvailabilityLock = Any()
 
     // 既定のサンプラー（parentbased）は親の判定を引き継ぐので、この下で作られた span は送られない
     private val unsampledContext: Context = Context.root().with(
@@ -248,7 +264,7 @@ class DeliveryWorker(
                     DeliverySpan.outcome("delivered")
                     circuitBreaker.recordSuccess(row.inbox)
                     val outcome = queue.markDelivered(id = row.id, deliveredAt = clock())
-                    markAvailable(row.inbox)
+                    markAvailable(inbox = row.inbox, deliveredAt = clock())
                     when (outcome) {
                         DeliveredOutcome.None -> Unit
 
@@ -356,7 +372,7 @@ class DeliveryWorker(
             DeliverySpan.outcome("gave_up.retry_exhausted")
             queue.giveUp(row.id, reason)
             logger.warn("配信を諦めた: ${row.username} → ${row.inbox} ${row.attempts} 回目 $reason")
-            markUnavailable(inbox = row.inbox, reason = reason)
+            markUnavailable(row = row, reason = reason)
             return
         }
 
@@ -368,19 +384,28 @@ class DeliveryWorker(
     /**
      * 期限まで送れなかったので、そのドメインへの配信を止める。
      *
+     * この行を投函した後に同じ inbox へ送れていたら止めない。相手は動いている。
+     *
      * 行の結果は記録済みなので、ここで落ちても行を送り直し待ちには戻さない。
      * 止められなくても、次に諦めたときにまた試す
      */
     private fun markUnavailable(
-        inbox: String,
+        row: ClaimedDelivery,
         reason: String,
     ) {
         try {
-            domainBlocks.markUnavailable(inbox = inbox, reason = reason)
+            synchronized(domainAvailabilityLock) {
+                val deliveredAt = lastDeliveredAt[row.inbox]
+                if (deliveredAt != null && !deliveredAt.isBefore(row.enqueuedAt)) {
+                    logger.info("諦めた後も送れているのでドメインは止めない: ${row.inbox}")
+                    return
+                }
+                domainBlocks.markUnavailable(inbox = row.inbox, reason = reason)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn("配信を止めるドメインを記録できなかった: $inbox", e)
+            logger.warn("配信を止めるドメインを記録できなかった: ${row.inbox}", e)
         }
     }
 
@@ -389,9 +414,15 @@ class DeliveryWorker(
      *
      * 行の結果は記録済みなので、ここで落ちても行を送り直し待ちには戻さない
      */
-    private fun markAvailable(inbox: String) {
+    private fun markAvailable(
+        inbox: String,
+        deliveredAt: Instant,
+    ) {
         try {
-            domainBlocks.markAvailable(inbox)
+            synchronized(domainAvailabilityLock) {
+                lastDeliveredAt[inbox] = deliveredAt
+                domainBlocks.markAvailable(inbox)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
