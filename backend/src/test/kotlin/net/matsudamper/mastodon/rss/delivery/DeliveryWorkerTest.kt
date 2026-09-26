@@ -15,6 +15,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.sdk.OpenTelemetrySdk
+import io.opentelemetry.sdk.common.CompletableResultCode
+import io.opentelemetry.sdk.trace.SdkTracerProvider
+import io.opentelemetry.sdk.trace.data.SpanData
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
+import io.opentelemetry.sdk.trace.export.SpanExporter
 import net.matsudamper.mastodon.rss.FakeDeliveryQueueRepository
 import net.matsudamper.mastodon.rss.FakeNoteRepository
 import net.matsudamper.mastodon.rss.FakeNoteStore
@@ -395,6 +402,44 @@ class DeliveryWorkerTest {
     }
 
     @Test
+    fun `claim の中の span は出さず 1 行ごとの span を root で出す`() = runTest {
+        val repositories = FakeRepositories()
+        val delivery = RecordingDelivery()
+        repositories.enqueue(inboxes = listOf("https://a.example/inbox"))
+        val exporter = RecordingSpanExporter()
+        val openTelemetry = OpenTelemetrySdk.builder()
+            .setTracerProvider(
+                SdkTracerProvider.builder()
+                    .addSpanProcessor(SimpleSpanProcessor.create(exporter))
+                    .build(),
+            )
+            .build()
+        val worker = DeliveryWorker(
+            queue = TracingClaim(repositories.deliveryQueue, openTelemetry),
+            delivery = delivery,
+            directory = TestLocalActor.directory,
+            deletedActorDirectory = deletedActorDirectory(),
+            idleInterval = IDLE,
+            clock = { now },
+            retryPolicy = TEST_RETRY_POLICY,
+            backfill = backfillPublisher(delivery),
+            circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
+            claimLimit = 8,
+            sendConcurrency = 8,
+            openTelemetry = openTelemetry,
+        )
+
+        val job = worker.start(this)
+        advanceTimeBy(IDLE * 5)
+        job.cancelAndJoin()
+
+        // 空振りを含めて claim は何度も呼ばれるが、出るのは送った 1 行分だけ
+        val span = exporter.spans.single()
+        assertEquals("DeliveryWorker.deliver", span.name)
+        assertEquals(false, span.parentSpanContext.isValid)
+    }
+
+    @Test
     fun `アカウントが無い行は諦める`() = runTest {
         val repositories = FakeRepositories()
         val delivery = RecordingDelivery()
@@ -555,6 +600,41 @@ class DeliveryWorkerTest {
             notes.all().forEach { notes.delete(it.publicId) }
             return claimed
         }
+    }
+
+    /**
+     * claim の中で SQL の span が作られる状態を作る
+     */
+    private class TracingClaim(
+        private val delegate: FakeDeliveryQueueRepository,
+        openTelemetry: OpenTelemetry,
+    ) : DeliveryQueueRepository by delegate {
+        private val tracer = openTelemetry.getTracer("jdbc")
+
+        override fun claim(
+            now: Instant,
+            limit: Int,
+        ): List<ClaimedDelivery> {
+            val span = tracer.spanBuilder("SELECT delivery_queue").startSpan()
+            try {
+                return delegate.claim(now = now, limit = limit)
+            } finally {
+                span.end()
+            }
+        }
+    }
+
+    private class RecordingSpanExporter : SpanExporter {
+        val spans = mutableListOf<SpanData>()
+
+        override fun export(spans: Collection<SpanData>): CompletableResultCode {
+            this.spans += spans
+            return CompletableResultCode.ofSuccess()
+        }
+
+        override fun flush(): CompletableResultCode = CompletableResultCode.ofSuccess()
+
+        override fun shutdown(): CompletableResultCode = CompletableResultCode.ofSuccess()
     }
 
     /**

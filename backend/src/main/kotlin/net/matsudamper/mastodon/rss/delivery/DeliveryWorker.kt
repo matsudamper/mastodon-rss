@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.delivery
 
 import java.time.Instant
+import kotlin.random.Random
 import kotlin.time.Duration
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -10,6 +11,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.api.trace.Span
+import io.opentelemetry.api.trace.SpanContext
+import io.opentelemetry.api.trace.SpanId
+import io.opentelemetry.api.trace.TraceFlags
+import io.opentelemetry.api.trace.TraceId
+import io.opentelemetry.api.trace.TraceState
 import io.opentelemetry.context.Context
 import io.opentelemetry.extension.kotlin.asContextElement
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
@@ -45,7 +52,7 @@ import org.slf4j.LoggerFactory
  * @param sendConcurrency 同時に送る数の上限
  * @param idleInterval claim が 0 件だったときに次を見に行くまでの待ち。
  *   新しい投稿が入ってから送り始めるまでの遅れの上限になる
- * @param openTelemetry 1 行ごとの span を出す先
+ * @param openTelemetry 1 行ごとの span を出す先。1 行ごとに root を作る
  */
 class DeliveryWorker(
     private val queue: DeliveryQueueRepository,
@@ -62,6 +69,18 @@ class DeliveryWorker(
     openTelemetry: OpenTelemetry = OpenTelemetry.noop(),
 ) {
     private val tracer = openTelemetry.getTracer("activitypub-delivery")
+
+    // 既定のサンプラー（parentbased）は親の判定を引き継ぐので、この下で作られた span は送られない
+    private val unsampledContext: Context = Context.root().with(
+        Span.wrap(
+            SpanContext.create(
+                TraceId.fromLongs(Random.nextLong(), Random.nextLong()),
+                SpanId.fromLong(Random.nextLong()),
+                TraceFlags.getDefault(),
+                TraceState.getDefault(),
+            ),
+        ),
+    )
 
     /**
      * 送信中のまま残っている行を戻してから、繰り返しを始める
@@ -117,11 +136,16 @@ class DeliveryWorker(
     }
 
     /**
-     * 引けなかったときは空として扱う。投げると繰り返しが終わり、次に再起動するまで配信が止まる
+     * 引けなかったときは空として扱う。投げると繰り返しが終わり、次に再起動するまで配信が止まる。
+     *
+     * 何も無くても [idleInterval] ごとに呼ぶので、中の SQL の span は出さない。
+     * 出すと、空振りの SQL が親の無いトレースとして並ぶ。取れた行は 1 行ごとの span で追える
      */
     private fun claimOrEmpty(): List<ClaimedDelivery> =
         try {
-            queue.claim(now = clock(), limit = claimLimit)
+            unsampledContext.makeCurrent().use {
+                queue.claim(now = clock(), limit = claimLimit)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -139,6 +163,8 @@ class DeliveryWorker(
     ) {
         val span =
             tracer.spanBuilder("DeliveryWorker.deliver")
+                // claim を包んだ送らない親を拾うと、この行の span まで送られなくなる
+                .setNoParent()
                 .setAttribute(DeliverySpan.ID, row.id.value)
                 .setAttribute(DeliverySpan.KIND, row.kind.name)
                 .setAttribute(DeliverySpan.SENDER, row.username)
