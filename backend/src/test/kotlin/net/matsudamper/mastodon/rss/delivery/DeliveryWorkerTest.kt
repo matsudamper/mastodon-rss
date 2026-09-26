@@ -143,6 +143,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             claimLimit = 8,
+            openTelemetry = null,
         )
 
         val job = worker.start(this)
@@ -230,6 +231,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             claimLimit = 8,
+            openTelemetry = null,
         )
         val job = worker.start(this)
         advanceTimeBy(IDLE * 10)
@@ -256,6 +258,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             claimLimit = 8,
+            openTelemetry = null,
         )
 
         val job = worker.start(this)
@@ -288,6 +291,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             claimLimit = 8,
+            openTelemetry = null,
         )
 
         val job = worker.start(this)
@@ -314,6 +318,7 @@ class DeliveryWorkerTest {
             claimLimit = 8,
             clock = { now },
             retryPolicy = TEST_RETRY_POLICY,
+            openTelemetry = null,
         )
 
         val job = worker.start(this)
@@ -417,6 +422,7 @@ class DeliveryWorkerTest {
             retryPolicy = TEST_RETRY_POLICY,
             backfill = backfillPublisher(delivery),
             claimLimit = 8,
+            openTelemetry = null,
         )
 
         val job = worker.start(this)
@@ -454,6 +460,7 @@ class DeliveryWorkerTest {
             idleInterval = IDLE,
             claimLimit = claimLimit,
             clock = clock,
+            openTelemetry = null,
         )
         val job: Job = worker.start(this)
         // 送るのに掛かる時間を進めて、空振りの待ちまで回してから止める

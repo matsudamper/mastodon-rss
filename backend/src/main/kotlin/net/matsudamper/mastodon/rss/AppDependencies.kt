@@ -323,6 +323,7 @@ class AppDependencies(
             claimLimit = 8,
             idleInterval = 1.seconds,
             clock = Instant::now,
+            openTelemetry = openTelemetry,
         ).start(deliveryScope)
 
         return purgedAccounts
