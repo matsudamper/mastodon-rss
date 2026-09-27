@@ -353,7 +353,10 @@ class AppDependencies(
      * 呼ぶまで動かない。止めるのは [stopBackgroundWork]
      */
     fun startFeedPolling() {
-        FeedPoller(feedService).start(feedPollingScope)
+        FeedPoller(
+            feedService = feedService,
+            openTelemetry = openTelemetry ?: OpenTelemetry.noop(),
+        ).start(feedPollingScope)
     }
 
     /**
