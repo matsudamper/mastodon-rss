@@ -11,6 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.context.Context
 import io.opentelemetry.extension.kotlin.asContextElement
 import net.matsudamper.mastodon.rss.logic.FeedService
@@ -95,14 +96,15 @@ class FeedPoller(
                 .startSpan()
         return try {
             withContext(Context.current().with(span).asContextElement()) {
-                feedService.findDue(now = now, limit = batchLimit)
-            }.also { due ->
-                FeedPollSpan.set(FeedPollSpan.DUE_COUNT, due.size.toLong())
+                feedService.findDue(now = now, limit = batchLimit).also { due ->
+                    FeedPollSpan.set(FeedPollSpan.DUE_COUNT, due.size.toLong())
+                }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            FeedPollSpan.pollFailed(e)
+            span.recordException(e)
+            span.setStatus(StatusCode.ERROR)
             throw e
         } finally {
             span.end()
@@ -121,16 +123,17 @@ class FeedPoller(
                 .startSpan()
         return try {
             withContext(Context.current().with(span).asContextElement()) {
-                feedService.pollOne(feed)
-            }.also { result ->
-                if (result.error != null) {
-                    FeedPollSpan.pollFailed(result.error)
+                feedService.pollOne(feed).also { result ->
+                    if (result.error != null) {
+                        FeedPollSpan.pollFailed(result.error)
+                    }
                 }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            FeedPollSpan.pollFailed(e)
+            span.recordException(e)
+            span.setStatus(StatusCode.ERROR)
             throw e
         } finally {
             span.end()
