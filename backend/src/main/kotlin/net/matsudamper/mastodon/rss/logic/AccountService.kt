@@ -9,6 +9,7 @@ import net.matsudamper.mastodon.rss.repository.AccountDeletion
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.LatestNoteAccountPosition
 import net.matsudamper.mastodon.rss.repository.StoredFollower
 import net.matsudamper.mastodon.rss.shared.AccountId
 import net.matsudamper.mastodon.rss.shared.AccountProfileLimits
@@ -81,6 +82,53 @@ class AccountService(
             accounts = page.map { it.toManaged() },
             hasMore = hasMore,
             nextPosition = if (hasMore) page.last().position() else null,
+        )
+    }
+
+    /**
+     * 追加した順の新しい方から、[before] の次から [limit] 件返す
+     */
+    fun accountsNewestAdded(before: AccountPosition?, limit: Int): ManagedAccountsPage {
+        if (limit <= 0) {
+            return ManagedAccountsPage(accounts = listOf(), hasMore = false, nextPosition = null)
+        }
+
+        val fetched = accounts.listNewestAdded(before = before, limit = limit + 1)
+        val hasMore = fetched.size > limit
+        val page = fetched.take(limit)
+
+        return ManagedAccountsPage(
+            accounts = page.map { it.toManaged() },
+            hasMore = hasMore,
+            nextPosition = if (hasMore) page.last().position() else null,
+        )
+    }
+
+    /**
+     * 最後に投稿した時刻の新しい順で、[after] の次から [limit] 件返す
+     */
+    fun accountsByLatestNote(after: LatestNoteAccountPosition?, limit: Int): ManagedLatestNoteAccountsPage {
+        if (limit <= 0) {
+            return ManagedLatestNoteAccountsPage(accounts = listOf(), hasMore = false, nextPosition = null)
+        }
+
+        val fetched = accounts.listByLatestNote(after = after, limit = limit + 1)
+        val hasMore = fetched.accounts.size > limit
+        val page = fetched.accounts.take(limit)
+
+        return ManagedLatestNoteAccountsPage(
+            accounts = page.map { it.account.toManaged() },
+            hasMore = hasMore,
+            nextPosition = if (hasMore) {
+                val last = page.last()
+                LatestNoteAccountPosition(
+                    notesUpToId = fetched.notesUpToId,
+                    latestNoteAt = last.latestNoteAt,
+                    id = last.account.id,
+                )
+            } else {
+                null
+            },
         )
     }
 
@@ -263,6 +311,15 @@ class AccountService(
         val accounts: List<ManagedAccount>,
         val hasMore: Boolean,
         val nextPosition: AccountPosition?,
+    )
+
+    /**
+     * @param nextPosition 続きがある場合の、次に渡す `after`
+     */
+    data class ManagedLatestNoteAccountsPage(
+        val accounts: List<ManagedAccount>,
+        val hasMore: Boolean,
+        val nextPosition: LatestNoteAccountPosition?,
     )
 
     /**

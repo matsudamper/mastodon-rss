@@ -104,35 +104,80 @@ class AccountGraphQlTest {
     fun `公開アカウントの一覧がページングで引ける`() =
         testApplication {
             val repositories = FakeRepositories()
-            repositories.accounts.add(username = "feed1", createdAt = Instant.now())
-            repositories.accounts.add(username = "feed2", createdAt = Instant.now())
+            repositories.accounts.add(username = "feed1", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "feed2", createdAt = CREATED_AT.plusSeconds(1))
             application { module(testDependencies(repositories = repositories)) }
 
             val page1 = queryAccounts(limit = 2).accounts()
             val page1Nodes = page1.nodes()
             assertEquals(2, page1Nodes.size)
             assertTrue(page1Nodes[0].long("id") > 0)
-            assertEquals("feed1", page1Nodes[0].string("username"))
-            assertEquals("@feed1@${TestServerEnv.DOMAIN}", page1Nodes[0].string("acct"))
-            assertEquals("https://${TestServerEnv.DOMAIN}/users/feed1", page1Nodes[0].string("actorUrl"))
-            assertEquals("feed2", page1Nodes[1].string("username"))
+            assertEquals("feed2", page1Nodes[0].string("username"))
+            assertEquals("@feed2@${TestServerEnv.DOMAIN}", page1Nodes[0].string("acct"))
+            assertEquals("https://${TestServerEnv.DOMAIN}/users/feed2", page1Nodes[0].string("actorUrl"))
+            assertEquals("feed1", page1Nodes[1].string("username"))
             assertEquals(false, page1.pageInfo().boolean("hasMore"))
         }
 
     @Test
-    fun `1 件ずつでも追加した順に辿れる`() =
+    fun `1 件ずつでも追加した順の新しい方から辿れる`() =
         testApplication {
             val repositories = FakeRepositories()
-            repositories.accounts.add(username = "feed1", createdAt = Instant.now())
-            repositories.accounts.add(username = "feed2", createdAt = Instant.now())
+            repositories.accounts.add(username = "feed1", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "feed2", createdAt = CREATED_AT.plusSeconds(1))
             application { module(testDependencies(repositories = repositories)) }
 
             val page1 = queryAccounts(limit = 1).accounts()
-            assertEquals(listOf("feed1"), page1.nodes().map { it.string("username") })
+            assertEquals(listOf("feed2"), page1.nodes().map { it.string("username") })
             assertEquals(true, page1.pageInfo().boolean("hasMore"))
 
             val page2 = queryAccounts(cursor = page1.pageInfo().string("nextCursor"), limit = 1).accounts()
-            assertEquals(listOf("feed2"), page2.nodes().map { it.string("username") })
+            assertEquals(listOf("feed1"), page2.nodes().map { it.string("username") })
+            assertEquals(false, page2.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `最後に投稿した順で辿れて途中に入った投稿では並びが変わらない`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "feed2", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "feed3", createdAt = CREATED_AT)
+            repositories.notes.add(newNote(username = "feed2", publicId = "note-1", publishedAt = CREATED_AT.plusSeconds(20)))
+            repositories.notes.add(newNote(username = "feed1", publicId = "note-2", publishedAt = CREATED_AT.plusSeconds(10)))
+            application { module(testDependencies(repositories = repositories)) }
+
+            val page1 = queryAccounts(limit = 1, order = "LATEST_NOTE").accounts()
+            assertEquals(listOf("feed2"), page1.nodes().map { it.string("username") })
+
+            // まだ返していない feed3 が先頭に移っても、続きで飛ばさない
+            repositories.notes.add(newNote(username = "feed3", publicId = "note-3", publishedAt = CREATED_AT.plusSeconds(30)))
+
+            val page2 = queryAccounts(
+                cursor = page1.pageInfo().string("nextCursor"),
+                limit = 2,
+                order = "LATEST_NOTE",
+            ).accounts()
+            assertEquals(listOf("feed1", "feed3"), page2.nodes().map { it.string("username") })
+            assertEquals(false, page2.pageInfo().boolean("hasMore"))
+        }
+
+    @Test
+    fun `別の並び順のカーソルでは続きを返さない`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            repositories.accounts.add(username = "feed1", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "feed2", createdAt = CREATED_AT.plusSeconds(1))
+            application { module(testDependencies(repositories = repositories)) }
+
+            val page1 = queryAccounts(limit = 1, order = "ADDED_NEWEST").accounts()
+
+            val page2 = queryAccounts(
+                cursor = page1.pageInfo().string("nextCursor"),
+                limit = 1,
+                order = "LATEST_NOTE",
+            ).accounts()
+            assertEquals(listOf(), page2.nodes())
             assertEquals(false, page2.pageInfo().boolean("hasMore"))
         }
 
@@ -657,7 +702,8 @@ class AccountGraphQlTest {
                 if (cursor != null) {
                     append(""""cursor":${JsonPrimitive(cursor)},""")
                 }
-                append(""""limit":${JsonPrimitive(limit)}""")
+                append(""""limit":${JsonPrimitive(limit)},""")
+                append(""""order":${JsonPrimitive(order)}""")
                 append("}")
             }
 
@@ -683,7 +729,8 @@ class AccountGraphQlTest {
                 if (cursor != null) {
                     append(""""cursor":${JsonPrimitive(cursor)},""")
                 }
-                append(""""limit":${JsonPrimitive(limit)}""")
+                append(""""limit":${JsonPrimitive(limit)},""")
+                append(""""order":${JsonPrimitive(order)}""")
                 append("}")
             }
 
@@ -708,7 +755,8 @@ class AccountGraphQlTest {
                 if (cursor != null) {
                     append(""""cursor":${JsonPrimitive(cursor)},""")
                 }
-                append(""""limit":${JsonPrimitive(limit)}""")
+                append(""""limit":${JsonPrimitive(limit)},""")
+                append(""""order":${JsonPrimitive(order)}""")
                 append("}")
             }
 
@@ -727,13 +775,17 @@ class AccountGraphQlTest {
             setBody("""{"query":${JsonPrimitive(query)},"variables":$variables}""")
         }
 
-    private suspend fun ApplicationTestBuilder.queryAccounts(cursor: String? = null, limit: Int = 20): HttpResponse =
+    private suspend fun ApplicationTestBuilder.queryAccounts(
+        cursor: String? = null,
+        limit: Int = 20,
+        order: String = "ADDED_NEWEST",
+    ): HttpResponse =
         client.post(GRAPHQL_PATH) {
             contentType(ContentType.Application.Json)
 
             val query =
-                "query Accounts(${'$'}cursor: String, ${'$'}limit: Int!) { " +
-                    "accounts(cursor: ${'$'}cursor, limit: ${'$'}limit) { " +
+                "query Accounts(${'$'}cursor: String, ${'$'}limit: Int!, ${'$'}order: AccountsOrder!) { " +
+                    "accounts(cursor: ${'$'}cursor, limit: ${'$'}limit, order: ${'$'}order) { " +
                     "nodes { id username acct actorUrl } pageInfo { hasMore nextCursor } } }"
 
             val variables = buildString {
@@ -741,7 +793,8 @@ class AccountGraphQlTest {
                 if (cursor != null) {
                     append(""""cursor":${JsonPrimitive(cursor)},""")
                 }
-                append(""""limit":${JsonPrimitive(limit)}""")
+                append(""""limit":${JsonPrimitive(limit)},""")
+                append(""""order":${JsonPrimitive(order)}""")
                 append("}")
             }
 
@@ -763,6 +816,19 @@ class AccountGraphQlTest {
         }
 
     private companion object {
+        val CREATED_AT: Instant = Instant.parse("2026-08-16T00:00:00Z")
+
+        fun newNote(
+            username: String,
+            publicId: String,
+            publishedAt: Instant,
+        ): NewNote = NewNote(
+            username = username,
+            publicId = PublicNoteId(publicId),
+            contentHtml = "<p>$publicId</p>",
+            publishedAt = publishedAt,
+        )
+
         /**
          * 何も名乗っていない相手。プロフィールの表示を見ないテストで使う
          */

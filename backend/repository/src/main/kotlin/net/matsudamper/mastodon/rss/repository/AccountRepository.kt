@@ -30,6 +30,24 @@ interface AccountRepository {
      */
     fun list(after: AccountPosition?, limit: Int): List<Account>
 
+    /**
+     * 追加した順の新しい方から、[before] の次から [limit] 件返す。
+     *
+     * @param before ここより前（古い方）を返す。null なら最新から
+     */
+    fun listNewestAdded(before: AccountPosition?, limit: Int): List<Account>
+
+    /**
+     * 最後に投稿した時刻の新しい順に、[after] の次から [limit] 件返す。
+     * 投稿の無いアカウントは後ろに、id の大きい順で並べる。
+     *
+     * 並べるときに見る投稿は [LatestNoteAccountPosition.notesUpToId] までに絞る。
+     * 途中で投稿が入ると並びが変わり、まだ返していないアカウントが前に移ると飛ばしてしまう。
+     *
+     * @param after null なら先頭から。そのとき見る投稿の範囲は今ある投稿までにする
+     */
+    fun listByLatestNote(after: LatestNoteAccountPosition?, limit: Int): LatestNoteAccountsPage
+
     fun findById(id: AccountId): Account?
 
     /**
@@ -135,6 +153,35 @@ data class AccountDeletionResult(
 data class AccountPosition(
     val createdAt: Instant,
     val id: AccountId,
+)
+
+/**
+ * 最後に投稿した順のページの位置。
+ *
+ * @param notesUpToId 並べるときに見る投稿の id の上限。1 ページ目で決めて持ち回る。
+ *   時刻で絞らないのは、公開日時は記事の日付なので後から古い日時の投稿が入りうるため
+ * @param latestNoteAt 並び順の鍵。投稿が無ければ null
+ */
+data class LatestNoteAccountPosition(
+    val notesUpToId: Long,
+    val latestNoteAt: Instant?,
+    val id: AccountId,
+)
+
+/**
+ * @param notesUpToId 並べるときに見た投稿の id の上限。続きを引くときに持ち回る
+ */
+data class LatestNoteAccountsPage(
+    val notesUpToId: Long,
+    val accounts: List<LatestNoteAccount>,
+)
+
+/**
+ * @param latestNoteAt 見た範囲の投稿で最後のものの公開日時。無ければ null
+ */
+data class LatestNoteAccount(
+    val account: Account,
+    val latestNoteAt: Instant?,
 )
 
 /**

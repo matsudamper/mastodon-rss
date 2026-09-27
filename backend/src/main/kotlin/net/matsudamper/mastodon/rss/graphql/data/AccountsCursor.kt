@@ -9,7 +9,7 @@ import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.shared.AccountId
 
 /**
- * 公開アカウント一覧の続きを指す印。
+ * 管理画面のアカウント一覧の続きを指す印。
  *
  * 受け渡す形は JSON を base64 にしたもので、外からは中身の無い文字列として扱う。
  * 何を目印に切っているかを変えても、クライアントを直さずに済む。
