@@ -23,7 +23,9 @@ internal class HttpUrl private constructor(
         private const val HTTPS = "https"
 
         fun parse(raw: String): HttpUrl? {
-            val uri = runCatching { URI(raw) }.getOrNull() ?: return null
+            // パスやクエリに percent-encoding されていない非 ASCII 文字があると、rawPath はそれを
+            // そのまま返す。送るときは UTF-8 で符号化されるので、署名する綴りもそちらに揃える
+            val uri = runCatching { URI(URI(raw).toASCIIString()) }.getOrNull() ?: return null
             val scheme = uri.scheme?.lowercase() ?: return null
             val host = uri.host?.takeIf { it.isNotEmpty() } ?: return null
 

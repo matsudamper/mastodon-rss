@@ -80,6 +80,31 @@ class HttpActivityDeliveryTest {
     }
 
     @Test
+    fun `非ASCIIのパスは送るときと同じ符号化で署名する`() {
+        val client = RecordingClient(status = HttpStatusCodes.ACCEPTED)
+        val body = """{"type":"Accept"}""".toByteArray()
+
+        runBlocking {
+            HttpActivityDelivery(TestActorKey.value, client = client).use { delivery ->
+                delivery.deliver(inbox = "https://remote.example/users/あ/inbox", sender = sender, body = body)
+            }
+        }
+
+        val verification =
+            runBlocking {
+                HttpSignatureVerifier(remoteActors).verify(
+                    SignedRequest(
+                        method = "POST",
+                        requestTarget = "/users/%E3%81%82/inbox",
+                        headers = RequestHeaders.ofSingleValues(client.headers),
+                        body = client.body,
+                    ),
+                )
+            }
+        assertIs<HttpSignatureResult.Verified>(verification)
+    }
+
+    @Test
     fun `送信の途中で止められたら失敗として返さない`() {
         val started = CompletableDeferred<Unit>()
         val client = object : FakeClient() {
