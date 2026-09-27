@@ -126,7 +126,7 @@ class DomainBlockService(
      * 自動で止めたものを保存し直すと手動に変わり、以後は自動では外れない。
      *
      * 何も止めない行は作らない。手動の行があると、届かなくなっても自動で止められない。
-     * 止めるのをやめるなら [delete] で外す
+     * 止めるのをやめるなら [delete] で削除する
      *
      * @param domain 入力されたドメイン。URL を貼られたときはホスト名を取り出す
      */
@@ -155,15 +155,15 @@ class DomainBlockService(
     }
 
     /**
-     * 理由を問わず外す
+     * 理由を問わず削除する
      *
-     * @return 外したドメイン。止めていなかったら null
+     * @return 削除したドメイン。止めていなかったら null
      */
     fun delete(domain: String): String? {
         val normalized = normalizeInput(domain) ?: return null
         if (!domainBlocks.delete(normalized)) return null
 
-        logger.info("管理画面から $normalized を外した")
+        logger.info("管理画面から $normalized を削除した")
         return normalized
     }
 

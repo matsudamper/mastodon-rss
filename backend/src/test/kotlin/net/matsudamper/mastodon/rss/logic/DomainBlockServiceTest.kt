@@ -104,7 +104,7 @@ class DomainBlockServiceTest {
     }
 
     @Test
-    fun `外すと外したドメインを返し 止めていなければ null`() {
+    fun `削除すると削除したドメインを返し 止めていなければ null`() {
         service.save(domain = "remote.example", blockDelivery = true, blockInbox = true, description = "")
 
         assertEquals("remote.example", service.delete("Remote.Example"))

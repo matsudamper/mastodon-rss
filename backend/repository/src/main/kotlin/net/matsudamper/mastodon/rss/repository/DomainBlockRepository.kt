@@ -72,9 +72,9 @@ interface DomainBlockRepository {
     ): DomainBlock
 
     /**
-     * 理由を問わず外す
+     * 理由を問わず削除する
      *
-     * @return 外したら true
+     * @return 削除したら true
      */
     fun delete(domain: String): Boolean
 }

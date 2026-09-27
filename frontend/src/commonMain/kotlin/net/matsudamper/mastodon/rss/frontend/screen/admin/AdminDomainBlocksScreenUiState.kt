@@ -61,7 +61,7 @@ data class AdminDomainBlocksScreenUiState(
 
     /**
      * @param noticeText 保存すると何が変わるかの注意。無ければ null
-     * @param deleteButtonVisible 止めているものを開いたときだけ外すボタンを出す
+     * @param deleteButtonVisible 止めているものを開いたときだけ削除ボタンを出す
      */
     data class Editor(
         val title: String,
