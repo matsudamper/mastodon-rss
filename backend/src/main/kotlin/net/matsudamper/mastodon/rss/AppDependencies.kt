@@ -35,6 +35,7 @@ import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
 import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
+import net.matsudamper.mastodon.rss.inbox.InboxDomainBlocks
 import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewImageService
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewService
@@ -42,6 +43,7 @@ import net.matsudamper.mastodon.rss.logic.AccountIconFiles
 import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
 import net.matsudamper.mastodon.rss.logic.ActorHeaderService
 import net.matsudamper.mastodon.rss.logic.ActorIconService
+import net.matsudamper.mastodon.rss.logic.DomainBlockService
 import net.matsudamper.mastodon.rss.logic.FeedHeaderService
 import net.matsudamper.mastodon.rss.logic.FeedHeaders
 import net.matsudamper.mastodon.rss.logic.FeedIconService
@@ -226,6 +228,11 @@ class AppDependencies(
         fetcher = imageFetcher,
     )
 
+    val domainBlockService: DomainBlockService = DomainBlockService(
+        domainBlocks = repositories.domainBlocks,
+        clock = Instant::now,
+    )
+
     /**
      * inbox が受け取ったアクティビティの検証と振り分け。
      *
@@ -240,6 +247,13 @@ class AppDependencies(
         favourites = favouriteStore,
         stamps = RepositoryStampStore(repositories.noteStamps),
         earlyUndoneLikes = RepositoryEarlyUndoneLikes(repositories.earlyUndoneLikes),
+        domainBlocks = object : InboxDomainBlocks {
+            override fun blocksInboxFrom(url: String): Boolean = domainBlockService.blocksInboxFrom(url)
+
+            override fun signedRequestReceived(verifiedSignerActorId: String) {
+                domainBlockService.markAvailable(verifiedSignerActorId)
+            }
+        },
         domain = env.domain,
     )
 
@@ -322,6 +336,7 @@ class AppDependencies(
             ),
             backfill = followBackfillPublisher,
             circuitBreaker = DeliveryCircuitBreaker(failureThreshold = 10, coolOff = 60.seconds),
+            domainBlocks = domainBlockService,
             claimLimit = 100,
             sendConcurrency = 8,
             idleInterval = 1.seconds,

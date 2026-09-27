@@ -36,6 +36,8 @@ interface FollowerRepository {
      * 消したアカウント宛は記録しない。`Follow` を処理している間に消されることがあり、
      * 記録すると消えたアカウントにフォロワーと `Accept` が生えて、名前が二度と空かない。
      *
+     * 配信を止めているドメインの相手には `Accept` を投函しない。フォローは成立しないまま残る。
+     *
      * @return 記録したら true。宛先のアカウントが消えていれば false
      */
     fun record(follow: IncomingFollow): Boolean

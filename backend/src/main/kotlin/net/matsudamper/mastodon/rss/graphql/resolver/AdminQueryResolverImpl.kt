@@ -11,12 +11,14 @@ import net.matsudamper.mastodon.rss.GraphqlExceptions
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.data.AccountsCursor
 import net.matsudamper.mastodon.rss.graphql.data.DeliveryQueueCursor
+import net.matsudamper.mastodon.rss.graphql.data.DomainBlocksCursor
 import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
 import net.matsudamper.mastodon.rss.graphql.model.AdminQueryResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountRetryingDeliveriesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountRetryingDelivery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountsConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDomainBlocksConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
@@ -81,6 +83,40 @@ class AdminQueryResolverImpl : AdminQueryResolver {
                 pageInfo = QlPageInfo(
                     hasMore = page.hasMore,
                     nextCursor = page.nextPosition?.let { DeliveryQueueCursor.of(it).encode() },
+                ),
+            )
+        }
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(connection).build())
+    }
+
+    override fun domainBlocks(
+        adminQuery: QlAdminQuery,
+        cursor: String?,
+        limit: Int,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<QlAdminDomainBlocksConnection>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val after = cursor?.let { DomainBlocksCursor.decode(it) }
+
+        // 読めないカーソルは一覧の終わりとして扱う。外から来る値なので投げない
+        val connection = if (cursor != null && after == null) {
+            QlAdminDomainBlocksConnection(
+                nodes = listOf(),
+                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+            )
+        } else {
+            val page = GraphQlEngine.diContainer(env).domainBlockService.list(
+                afterDomain = after?.afterDomain,
+                limit = limit,
+            )
+
+            QlAdminDomainBlocksConnection(
+                nodes = page.blocks.map { it.toGraphqlResponse() },
+                pageInfo = QlPageInfo(
+                    hasMore = page.hasMore,
+                    nextCursor = page.nextDomain?.let { DomainBlocksCursor(afterDomain = it).encode() },
                 ),
             )
         }

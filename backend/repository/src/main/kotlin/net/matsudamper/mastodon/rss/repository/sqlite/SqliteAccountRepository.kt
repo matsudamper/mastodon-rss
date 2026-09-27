@@ -188,7 +188,7 @@ internal class SqliteAccountRepository(
             .where(DELIVERY_QUEUE.USERNAME.eq(deletion.username))
             .execute()
 
-        deletion.inboxes.forEach { inbox ->
+        val deliveries = deletion.inboxes.count { inbox ->
             DeliveryQueueRows.insertPending(
                 dsl = dsl,
                 kind = DeliveryKindDbValue.DELETE_ACTOR,
@@ -204,7 +204,7 @@ internal class SqliteAccountRepository(
         AccountDeletionResult(
             deletedNotes = deletedNotes,
             removedFollowers = removedFollowers,
-            deliveries = deletion.inboxes.size,
+            deliveries = deliveries,
         )
     }
 

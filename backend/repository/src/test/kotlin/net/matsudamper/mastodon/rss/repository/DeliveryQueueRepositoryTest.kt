@@ -59,6 +59,39 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
+    fun `配信を止めているドメイン宛ては投函しない`() {
+        withRepositories { repositories ->
+            repositories.domainBlocks.markUnavailable(domain = "b.example", description = "諦めた", at = now)
+
+            val result = repositories.deliveryQueue.enqueueNote(
+                notePost(publicId = "n1", inboxes = listOf(INBOX_A, INBOX_B)),
+            )
+
+            assertEquals(EnqueueNoteResult.Queued(deliveries = 1), result)
+            assertEquals(listOf(INBOX_A), repositories.deliveryQueue.claim(now = now, limit = 10).map { it.inbox })
+        }
+    }
+
+    @Test
+    fun `受信だけを止めているドメイン宛ては投函する`() {
+        withRepositories { repositories ->
+            repositories.domainBlocks.saveManual(
+                domain = "b.example",
+                blockDelivery = false,
+                blockInbox = true,
+                description = null,
+                at = now,
+            )
+
+            val result = repositories.deliveryQueue.enqueueNote(
+                notePost(publicId = "n1", inboxes = listOf(INBOX_A, INBOX_B)),
+            )
+
+            assertEquals(EnqueueNoteResult.Queued(deliveries = 2), result)
+        }
+    }
+
+    @Test
     fun `宛先が無くても投稿は記録する`() {
         withRepositories { repositories ->
             val result = repositories.deliveryQueue.enqueueNote(notePost(publicId = "n1", inboxes = emptyList()))

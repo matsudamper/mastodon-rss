@@ -14,6 +14,9 @@ import net.matsudamper.mastodon.rss.repository.DeliveryKind
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueCounts
 import net.matsudamper.mastodon.rss.repository.DeliveryQueuePosition
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
+import net.matsudamper.mastodon.rss.repository.DomainBlock
+import net.matsudamper.mastodon.rss.repository.DomainBlockReason
+import net.matsudamper.mastodon.rss.repository.DomainBlockRepository
 import net.matsudamper.mastodon.rss.repository.EarlyUndoneLikeRepository
 import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FailedDelivery
@@ -140,6 +143,8 @@ class FakeRepositories : Repositories {
         feedItems = feedItems,
         markAccepted = { username, followerActorUri -> followers.markAccepted(username, followerActorUri) },
     )
+
+    override val domainBlocks: FakeDomainBlockRepository = FakeDomainBlockRepository()
 
     override fun verifyWritable() {
         verifyWritableCallCount++
@@ -1249,4 +1254,68 @@ class FakeEarlyUndoneLikeRepository : EarlyUndoneLikeRepository {
         activityUri: String,
         now: Instant,
     ): Boolean = expiresAt[actorUri to activityUri]?.isAfter(now) == true
+}
+
+class FakeDomainBlockRepository : DomainBlockRepository {
+    private val stored = mutableMapOf<String, DomainBlock>()
+
+    override fun blocksDelivery(domain: String): Boolean = stored[domain]?.blockDelivery == true
+
+    override fun blocksInbox(domain: String): Boolean = stored[domain]?.blockInbox == true
+
+    override fun markUnavailable(
+        domain: String,
+        description: String,
+        at: Instant,
+    ): Boolean {
+        if (domain in stored) return false
+
+        stored[domain] = DomainBlock(
+            domain = domain,
+            reason = DomainBlockReason.UNAVAILABLE,
+            reasonDescription = description,
+            blockDelivery = true,
+            blockInbox = false,
+            createdAt = at,
+        )
+        return true
+    }
+
+    override fun clearUnavailable(domain: String): Boolean {
+        if (stored[domain]?.reason != DomainBlockReason.UNAVAILABLE) return false
+
+        stored.remove(domain)
+        return true
+    }
+
+    override fun find(domain: String): DomainBlock? = stored[domain]
+
+    override fun list(
+        afterDomain: String?,
+        limit: Int,
+    ): List<DomainBlock> = stored.values
+        .sortedBy { it.domain }
+        .filter { afterDomain == null || it.domain > afterDomain }
+        .take(limit.coerceAtLeast(0))
+
+    override fun saveManual(
+        domain: String,
+        blockDelivery: Boolean,
+        blockInbox: Boolean,
+        description: String?,
+        at: Instant,
+    ): DomainBlock {
+        val saved = DomainBlock(
+            domain = domain,
+            reason = DomainBlockReason.MANUAL,
+            reasonDescription = description,
+            blockDelivery = blockDelivery,
+            blockInbox = blockInbox,
+            createdAt = stored[domain]?.createdAt ?: at,
+        )
+        stored[domain] = saved
+        return saved
+    }
+
+    override fun delete(domain: String): Boolean = stored.remove(domain) != null
 }

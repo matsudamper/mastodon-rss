@@ -18,6 +18,7 @@ import io.ktor.server.testing.testApplication
 import net.matsudamper.mastodon.rss.FakeEarlyUndoneLikes
 import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
+import net.matsudamper.mastodon.rss.FakeInboxDomainBlocks
 import net.matsudamper.mastodon.rss.FakeStampStore
 import net.matsudamper.mastodon.rss.TestLocalActor
 import net.matsudamper.mastodon.rss.TestRemoteActor
@@ -60,6 +61,7 @@ class InboxRoutesTest {
                         favourites = FakeFavouriteStore(),
                         stamps = FakeStampStore(),
                         earlyUndoneLikes = FakeEarlyUndoneLikes(),
+                        domainBlocks = FakeInboxDomainBlocks(blockedUrls = setOf()),
                         domain = TestLocalActor.DOMAIN,
                     ),
                 )

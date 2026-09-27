@@ -85,6 +85,14 @@ sealed interface Screen : NavKey {
     }
 
     /**
+     * 配信・受信を止めている相手のドメインの一覧。追加と編集もここで行う
+     */
+    data object AdminDomainBlocks : Screen {
+        override val path: String = "/$ADMIN_SEGMENT/$DOMAIN_BLOCKS_SEGMENT"
+        override val title: String = "配信・受信を止めるドメイン | $SITE_NAME"
+    }
+
+    /**
      * アカウントの追加
      */
     data object AdminAccountNew : Screen {
@@ -197,6 +205,8 @@ sealed interface Screen : NavKey {
 
         private const val DELIVERIES_SEGMENT: String = "deliveries"
 
+        private const val DOMAIN_BLOCKS_SEGMENT: String = "domain-blocks"
+
         private const val NEW_SEGMENT: String = "new"
 
         private const val FEEDS_SEGMENT: String = "feeds"
@@ -260,6 +270,8 @@ sealed interface Screen : NavKey {
                     rest == listOf(ACCOUNTS_SEGMENT) -> AdminAccounts
 
                     rest == listOf(DELIVERIES_SEGMENT) -> AdminDeliveries
+
+                    rest == listOf(DOMAIN_BLOCKS_SEGMENT) -> AdminDomainBlocks
 
                     rest == listOf(ACCOUNTS_SEGMENT, NEW_SEGMENT) -> AdminAccountNew
 

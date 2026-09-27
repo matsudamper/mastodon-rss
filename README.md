@@ -115,6 +115,7 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | `/admin` | 管理画面のトップ。ログインと、下の各画面への入口 |
 | `/admin/accounts` | アカウントの一覧 |
 | `/admin/accounts/new` | アカウントの追加 |
+| `/admin/domain-blocks` | 配信・受信を止めるドメインの一覧と編集 |
 | それ以外 | 見つからない（HTTP は 200 のまま） |
 
 管理画面の操作は 1 画面に並べず、操作ごとにパスを分ける。

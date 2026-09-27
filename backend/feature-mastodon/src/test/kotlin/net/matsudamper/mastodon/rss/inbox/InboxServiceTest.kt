@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.http.Headers
 import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
+import net.matsudamper.mastodon.rss.FakeInboxDomainBlocks
 import net.matsudamper.mastodon.rss.FakeStampStore
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
@@ -119,7 +120,12 @@ class InboxServiceTest {
         handlers: List<InboxActivityHandler>,
         remoteActors: RemoteActors = TestRemoteActor.remoteActors(),
         publicKeys: PublicKeys = remoteActors,
-    ): InboxService = InboxService(verifier = HttpSignatureVerifier(publicKeys), handlers = handlers)
+        domainBlocks: FakeInboxDomainBlocks = FakeInboxDomainBlocks(blockedUrls = setOf()),
+    ): InboxService = InboxService(
+        verifier = HttpSignatureVerifier(publicKeys),
+        domainBlocks = domainBlocks,
+        handlers = handlers,
+    )
 
     /**
      * フォローの記録に相手の鍵が残っている状態
@@ -157,6 +163,61 @@ class InboxServiceTest {
             assertEquals("Follow", call.activity.type)
             // Accept に丸ごと入れるので、元の JSON も渡っている必要がある
             assertEquals("https://remote.example/activities/1", call.rawActivityJson["id"]?.jsonPrimitive?.content)
+        }
+
+    @Test
+    fun `受信を止めているドメインからは鍵を引かずに受け取って捨てる`() =
+        runBlocking {
+            val handler = RecordingHandler("Follow")
+            val domainBlocks = FakeInboxDomainBlocks(blockedUrls = setOf(TestRemoteActor.KEY_ID))
+            // 鍵を引きに行くと落ちる。止めている相手のサーバーには取りに行かない
+            val publicKeys = object : PublicKeys {
+                override suspend fun find(keyId: String): PublicKeyLookup = fail("受信を止めているドメインの鍵を引きに行った")
+
+                override suspend fun refresh(keyId: String): PublicKeyLookup = fail("受信を止めているドメインの鍵を引きに行った")
+            }
+
+            val result = service(
+                handlers = listOf(handler),
+                publicKeys = publicKeys,
+                domainBlocks = domainBlocks,
+            ).receive(recipient, signedRequest(follow()))
+
+            // 4xx を返すと相手は諦めるまで送り直してくる
+            assertEquals(InboxResult.Accepted, result)
+            assertTrue(handler.calls.isEmpty(), "${handler.calls.size}")
+            assertTrue(domainBlocks.signedRequestSigners.isEmpty())
+        }
+
+    @Test
+    fun `受信を止めているかを引けなければハンドラに渡さずに受け取って捨てる`() =
+        runBlocking {
+            val handler = RecordingHandler("Follow")
+            val domainBlocks = object : InboxDomainBlocks {
+                override fun blocksInboxFrom(url: String): Boolean = throw IllegalStateException("DB がロックされている")
+
+                override fun signedRequestReceived(verifiedSignerActorId: String) = Unit
+            }
+
+            val result = InboxService(
+                verifier = HttpSignatureVerifier(TestRemoteActor.remoteActors()),
+                domainBlocks = domainBlocks,
+                handlers = listOf(handler),
+            ).receive(recipient, signedRequest(follow()))
+
+            assertEquals(InboxResult.Accepted, result)
+            assertTrue(handler.calls.isEmpty(), "${handler.calls.size}")
+        }
+
+    @Test
+    fun `署名を検証できたら届いたことを記録する`() =
+        runBlocking {
+            val domainBlocks = FakeInboxDomainBlocks(blockedUrls = setOf())
+
+            service(handlers = listOf(RecordingHandler("Follow")), domainBlocks = domainBlocks)
+                .receive(recipient, signedRequest(follow()))
+
+            assertEquals(listOf(TestRemoteActor.ACTOR_ID), domainBlocks.signedRequestSigners)
         }
 
     @Test

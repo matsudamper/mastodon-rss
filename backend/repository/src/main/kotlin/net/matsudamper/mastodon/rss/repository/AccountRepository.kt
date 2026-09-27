@@ -118,7 +118,7 @@ data class AccountDeletion(
 /**
  * @param deletedNotes 消した投稿の数
  * @param removedFollowers 外したフォロワーの数。`Accept` を返せていないものも含む
- * @param deliveries 投函した配信の数。宛先の数と同じ
+ * @param deliveries 投函した配信の数。配信を止めているドメイン宛ては入れないので、宛先の数より少ないことがある
  */
 data class AccountDeletionResult(
     val deletedNotes: Int,

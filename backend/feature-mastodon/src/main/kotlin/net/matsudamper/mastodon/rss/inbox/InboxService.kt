@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory
  */
 class InboxService(
     private val verifier: HttpSignatureVerifier,
+    private val domainBlocks: InboxDomainBlocks,
     handlers: List<InboxActivityHandler>,
 ) {
     private val logger = LoggerFactory.getLogger(InboxService::class.java)
@@ -65,6 +66,15 @@ class InboxService(
         recipient: InboxRecipient,
         request: SignedRequest,
     ): InboxResult {
+        // 鍵を取りに行く前に断る。検証してからだと、止めている相手のサーバーに取りに行くことになる。
+        // 断っても 202 で返す。4xx や 5xx を返すと、相手は諦めるまで同じものを送り直してくる
+        val claimedKeyId = verifier.claimedKeyId(request)
+        if (claimedKeyId != null && blocksInboxFrom(claimedKeyId)) {
+            InboxSpan.outcome("domain_blocked")
+            logger.info("${recipient.logLabel} に受信を止めているドメインから届いたので捨てる: keyId=$claimedKeyId")
+            return InboxResult.Accepted
+        }
+
         val verifiedSignerActorId =
             when (val verification = verifier.verify(request)) {
                 is HttpSignatureResult.Rejected -> {
@@ -88,6 +98,7 @@ class InboxService(
                 }
             }
         InboxSpan.set(InboxSpan.SIGNER, verifiedSignerActorId)
+        recordSignedRequest(verifiedSignerActorId)
 
         val rawActivityJson =
             runCatching { AppJson.parseToJsonElement(request.body.decodeToString()) as? JsonObject }
@@ -147,6 +158,25 @@ class InboxService(
     }
 
     /**
+     * 引けなければ止めているものとして捨てる。止めていないものとして通すと、止めている相手の
+     * アクティビティが処理される。5xx を返すと相手は同じものを送り直し続けるので、落としもしない
+     */
+    private fun blocksInboxFrom(keyId: String): Boolean =
+        runCatching { domainBlocks.blocksInboxFrom(keyId) }
+            .onFailure { failure -> logger.warn("受信を止めているドメインかを引けなかったので捨てる: $keyId", failure) }
+            .getOrDefault(true)
+
+    /**
+     * 受け取ったものの処理とは関係が無いので、落ちても受信は続ける
+     */
+    private fun recordSignedRequest(verifiedSignerActorId: String) {
+        runCatching { domainBlocks.signedRequestReceived(verifiedSignerActorId) }
+            .onFailure { failure ->
+                logger.warn("署名付きのリクエストが届いたことを記録できなかった: $verifiedSignerActorId", failure)
+            }
+    }
+
+    /**
      * 署名を検証できなかったボディが、送り主自身の削除の通知かどうか。
      *
      * 検証を通っていないので中身は信用できない。ここで見るのは
@@ -184,6 +214,7 @@ class InboxService(
          * @param favourites お気に入りの記録。[followers] と同じく、
          *   消えた相手の公開鍵の引き先にもなる
          * @param stamps スタンプの記録。[favourites] と同じく、消えた相手の公開鍵の引き先にもなる
+         * @param domainBlocks 受信を止めるドメインと、署名付きのリクエストが届いたことの記録先
          */
         fun default(
             directory: ActorDirectory,
@@ -192,6 +223,7 @@ class InboxService(
             favourites: FavouriteStore,
             stamps: StampStore,
             earlyUndoneLikes: EarlyUndoneLikes,
+            domainBlocks: InboxDomainBlocks,
             domain: String,
         ): InboxService =
             InboxService(
@@ -203,6 +235,7 @@ class InboxService(
                         stamps = stamps,
                     ),
                 ),
+                domainBlocks = domainBlocks,
                 handlers = listOf(
                     FollowHandler(
                         directory = directory,
@@ -254,6 +287,6 @@ sealed interface InboxResult {
     /** 署名は通ったが、ボディが JSON として読めない */
     data object BadRequest : InboxResult
 
-    /** 署名が通った。中身の処理の成否は含めない */
+    /** 署名が通った。中身の処理の成否は含めない。受信を止めているドメインから届いたものも、捨ててこれを返す */
     data object Accepted : InboxResult
 }
