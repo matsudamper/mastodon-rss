@@ -96,15 +96,15 @@ class FeedPollerOpenTelemetryTest {
             fetcher = FeedFetchService(HttpClient(engine)),
             actorDirectory = TestLocalActor.directory,
             noteEnqueuer =
-                NoteEnqueuer(
-                    publisher =
-                        NotePublisher(
-                            notes = FakeNoteStore(),
-                            webPages = TestWebPageUrls,
-                        ),
-                    followers = repositories.followers,
-                    deliveryQueue = repositories.deliveryQueue,
+            NoteEnqueuer(
+                publisher =
+                NotePublisher(
+                    notes = FakeNoteStore(),
+                    webPages = TestWebPageUrls,
                 ),
+                followers = repositories.followers,
+                deliveryQueue = repositories.deliveryQueue,
+            ),
             icons = FakeFeedIcons(),
             headers = FakeFeedHeaders(),
             actorEnqueuer = TestActorPublisher.enqueuerOf(repositories),
