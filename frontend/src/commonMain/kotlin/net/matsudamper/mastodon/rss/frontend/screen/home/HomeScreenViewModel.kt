@@ -11,6 +11,7 @@ import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.format.UnixTimeUtil
 import net.matsudamper.mastodon.rss.frontend.logic.PagingLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
+import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsOrder
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.HomeAccount
 import net.matsudamper.mastodon.rss.frontend.logic.account.NoteLinkPreview
@@ -31,7 +32,7 @@ class HomeScreenViewModel(
     private val timelinePaging = api.timeline(limit = TIMELINE_PAGE_SIZE)
 
     // 続きは取らない。全部は一覧の画面で見る
-    private val accountsPaging = api.accounts(limit = ACCOUNTS_PREVIEW_SIZE)
+    private val accountsPaging = api.accounts(limit = ACCOUNTS_PREVIEW_SIZE, order = AccountsOrder.AddedNewest)
 
     private var timelineJob: Job? = null
     private var loadMoreJob: Job? = null

@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -83,6 +84,16 @@ internal fun AccountsContent(
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                uiState.orderOptions.forEach { option ->
+                    FilterChip(
+                        selected = option.selected,
+                        onClick = option.listener::onClick,
+                        label = { Text(option.label) },
+                    )
+                }
+            }
 
             when (val content = uiState.content) {
                 AccountsScreenUiState.Content.Loading -> Box(

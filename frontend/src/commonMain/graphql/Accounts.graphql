@@ -1,5 +1,5 @@
-query AccountsScreen($cursor: String, $limit: Int!) {
-    accounts(cursor: $cursor, limit: $limit) {
+query AccountsScreen($cursor: String, $limit: Int!, $order: AccountsOrder!) {
+    accounts(cursor: $cursor, limit: $limit, order: $order) {
         nodes {
             id
             username

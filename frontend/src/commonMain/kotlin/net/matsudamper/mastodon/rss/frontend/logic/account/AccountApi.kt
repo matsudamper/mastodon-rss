@@ -19,6 +19,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.NoteLinkPreviewsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.fragment.AccountNoteFields
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountFollowersQuery as AccountFollowersQueryInput
 import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountNotesQuery as AccountNotesQueryInput
+import net.matsudamper.mastodon.rss.frontend.graphql.type.AccountsOrder as AccountsOrderInput
 import net.matsudamper.mastodon.rss.frontend.graphql.type.TimelineQuery as TimelineQueryInput
 import net.matsudamper.mastodon.rss.frontend.logic.CachedPaging
 import net.matsudamper.mastodon.rss.frontend.logic.GraphQlClient
@@ -27,11 +28,17 @@ import net.matsudamper.mastodon.rss.frontend.logic.Paging
 class AccountApi(
     private val client: ApolloClient = GraphQlClient.apollo,
 ) {
-    fun accounts(limit: Int): Paging<AccountsResult> {
+    fun accounts(limit: Int, order: AccountsOrder): Paging<AccountsResult> {
+        val queryOrder = when (order) {
+            AccountsOrder.AddedNewest -> AccountsOrderInput.ADDED_NEWEST
+            AccountsOrder.LatestNote -> AccountsOrderInput.LATEST_NOTE
+        }
         return CachedPaging(
             client = client,
-            firstPage = AccountsScreenQuery(cursor = Optional.absent(), limit = limit),
-            nextPage = { cursor -> AccountsScreenQuery(cursor = Optional.present(cursor), limit = limit) },
+            firstPage = AccountsScreenQuery(cursor = Optional.absent(), limit = limit, order = queryOrder),
+            nextPage = { cursor ->
+                AccountsScreenQuery(cursor = Optional.present(cursor), limit = limit, order = queryOrder)
+            },
             appendPage = { cached, fetched ->
                 cached.copy(
                     accounts = cached.accounts.copy(

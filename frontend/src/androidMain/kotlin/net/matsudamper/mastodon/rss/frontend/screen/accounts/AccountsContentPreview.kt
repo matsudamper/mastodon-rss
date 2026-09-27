@@ -10,6 +10,18 @@ private fun AccountsContentPreview() {
     MaterialTheme {
         AccountsContent(
             uiState = AccountsScreenUiState(
+                orderOptions = listOf(
+                    AccountsScreenUiState.OrderOption(
+                        label = "追加順",
+                        selected = true,
+                        listener = AndroidPreviewOrderOptionListener,
+                    ),
+                    AccountsScreenUiState.OrderOption(
+                        label = "最新の投稿順",
+                        selected = false,
+                        listener = AndroidPreviewOrderOptionListener,
+                    ),
+                ),
                 content = AccountsScreenUiState.Content.Loaded(
                     accounts = listOf(
                         AccountsScreenUiState.Account(
@@ -45,4 +57,8 @@ private object AndroidPreviewAccountsListener : AccountsScreenUiState.Listener {
     override fun onLoadMore() = Unit
 
     override fun onClickAccount(username: String) = Unit
+}
+
+private object AndroidPreviewOrderOptionListener : AccountsScreenUiState.OrderOption.Listener {
+    override fun onClick() = Unit
 }
