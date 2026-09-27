@@ -200,10 +200,12 @@ class FeedService(
      * 1 本が失敗しても残りを続ける。配信元同士に関係は無いので、
      * 落ちている 1 本のせいで他のフィードが止まる方が困る。
      */
-    suspend fun pollDue(
+    fun findDue(
         now: Instant,
         limit: Int,
-    ): List<PollResult> = feeds.findDue(now = now, limit = limit).map { feed ->
+    ): List<Feed> = feeds.findDue(now = now, limit = limit)
+
+    suspend fun pollOne(feed: Feed): PollResult =
         try {
             poll(feed)
         } catch (e: CancellationException) {
@@ -214,7 +216,11 @@ class FeedService(
             logger.warn("フィードを処理できなかった: フィード ${feed.id.value}", e)
             PollResult(feedId = feed.id, host = feed.host(), postedItems = emptyList(), error = "処理中に例外が出た")
         }
-    }
+
+    suspend fun pollDue(
+        now: Instant,
+        limit: Int,
+    ): List<PollResult> = findDue(now = now, limit = limit).map { pollOne(it) }
 
     /**
      * @param host 取得先のホスト。URL には購読者だけが知るトークンが入ることがあるので、
