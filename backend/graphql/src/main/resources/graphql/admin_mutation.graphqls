@@ -35,7 +35,7 @@ type AdminMutation {
     "相手のドメインへの配信・受信を止める。既に止めていれば置き換え、自動で止めたものは手動に変わる"
     saveDomainBlock(query: SaveDomainBlockQuery!): AdminSaveDomainBlockResult! @lazy
 
-    "相手のドメインへの配信・受信の停止を外す。理由は問わない"
+    "相手のドメインへの配信・受信の停止を削除する。理由は問わない"
     deleteDomainBlock(domain: String!): AdminDeleteDomainBlockResult! @lazy
 }
 

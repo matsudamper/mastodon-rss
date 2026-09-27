@@ -108,7 +108,7 @@ class DomainBlockRepositoryTest {
     }
 
     @Test
-    fun `理由を問わず外せる`() {
+    fun `理由を問わず削除できる`() {
         withRepository { repository ->
             repository.saveManual(domain = DOMAIN, blockDelivery = true, blockInbox = true, description = null, at = now)
 

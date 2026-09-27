@@ -84,7 +84,7 @@ sealed interface AdminDeleteDomainBlockResult {
     data object Success : AdminDeleteDomainBlockResult
 
     /**
-     * 止めていなかった。別の画面から先に外されていた
+     * 止めていなかった。別の画面から先に削除されていた
      */
     data object NotFound : AdminDeleteDomainBlockResult
 

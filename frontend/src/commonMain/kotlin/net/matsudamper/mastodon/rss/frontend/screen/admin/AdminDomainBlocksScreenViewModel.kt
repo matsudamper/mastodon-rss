@@ -239,7 +239,7 @@ class AdminDomainBlocksScreenViewModel(
 
         viewModelScope.launch {
             when (val result = api.deleteDomainBlock(original.domain)) {
-                // 先に外されていても、止めていない状態になったことは同じ
+                // 先に削除されていても、止めていない状態になったことは同じ
                 AdminDeleteDomainBlockResult.Success,
                 AdminDeleteDomainBlockResult.NotFound,
                 -> {
@@ -307,7 +307,7 @@ class AdminDomainBlocksScreenViewModel(
         return AdminDomainBlocksScreenUiState.Editor(
             title = if (original == null) "ドメインを止める" else original.domain,
             domain = editor.domain,
-            // ドメインを変えると別の行になる。変えたいときは外してから追加し直す
+            // ドメインを変えると別の行になる。変えたいときは削除してから追加し直す
             domainInputEnabled = original == null && !editor.busy,
             blockDelivery = editor.blockDelivery,
             blockInbox = editor.blockInbox,
@@ -316,10 +316,10 @@ class AdminDomainBlocksScreenViewModel(
                 .takeIf { original?.reason == AdminDomainBlockReason.UNAVAILABLE },
             inputEnabled = !editor.busy,
             saveButtonText = if (editor.saving) "保存中" else "保存",
-            // 何も止めない行を作ると、届かなくなっても自動で止められなくなる。やめるなら外す
+            // 何も止めない行を作ると、届かなくなっても自動で止められなくなる。やめるなら削除する
             saveButtonEnabled = !editor.busy && editor.domain.isNotBlank() && (editor.blockDelivery || editor.blockInbox),
             deleteButtonVisible = original != null,
-            deleteButtonText = if (editor.deleting) "外している" else "外す",
+            deleteButtonText = if (editor.deleting) "削除中" else "削除",
             deleteButtonEnabled = !editor.busy,
             closeEnabled = !editor.busy,
             errorMessage = editor.errorMessage,
@@ -348,7 +348,7 @@ class AdminDomainBlocksScreenViewModel(
     private fun AdminSaveDomainBlockResult.Rejected.toMessage(): String =
         when {
             invalidDomain -> "ドメインとして読めない"
-            nothingBlocked -> "配信か受信のどちらかは止める。止めるのをやめるなら外す"
+            nothingBlocked -> "配信か受信のどちらかは止める。止めるのをやめるなら削除する"
             reasonDescriptionMaxLength != null -> "理由は $reasonDescriptionMaxLength 文字まで"
             else -> "保存できなかった"
         }
