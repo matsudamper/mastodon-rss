@@ -265,11 +265,14 @@ class HttpRemoteActors(
             return DocumentFetch.Unavailable
         }
 
-        val body = runCatching { response.bodyAsText() }.getOrNull()
-        if (body == null) {
-            RemoteActorSpan.outcome("unreadable_body")
-            return DocumentFetch.Unavailable
-        }
+        // 本文は status を見た後で読む。先に読むと、410 の本文が読めなかっただけで
+        // 消えたことを判断できなくなる。読めなかった理由は例外として span に残す
+        val body =
+            runCatching { response.bodyAsText() }.getOrElse { failure ->
+                RemoteActorSpan.failed(failure)
+                RemoteActorSpan.outcome("request_failed")
+                return DocumentFetch.Unavailable
+            }
         if (body.length > MAX_BODY_CHARS) {
             RemoteActorSpan.outcome("body_too_large")
             return DocumentFetch.Unavailable
