@@ -12,9 +12,12 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.writeFully
 import net.matsudamper.mastodon.rss.FakeEarlyUndoneLikes
 import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
@@ -93,6 +96,26 @@ class InboxRoutesTest {
             val response = postInbox(body = follow())
 
             assertEquals(HttpStatusCode.Accepted, response.status)
+        }
+
+    @Test
+    fun `長さを名乗らないボディでも上限を超えたら413で断る`() =
+        testApplication {
+            installModule()
+
+            // Content-Length を付けずに送る。長さで先に弾けないので、読みながら止める経路を通る
+            val response =
+                client.post("/users/admin/inbox") {
+                    setBody(
+                        object : OutgoingContent.WriteChannelContent() {
+                            override suspend fun writeTo(channel: ByteWriteChannel) {
+                                channel.writeFully(ByteArray(1024 * 1024 + 1))
+                            }
+                        },
+                    )
+                }
+
+            assertEquals(HttpStatusCode.PayloadTooLarge, response.status)
         }
 
     @Test
