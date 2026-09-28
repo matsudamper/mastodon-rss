@@ -4,7 +4,7 @@ import java.time.Instant
 import java.util.Base64
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.activitypub.json.AppJson
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.LatestNoteAccountPosition
 import net.matsudamper.mastodon.rss.shared.AccountId
@@ -25,13 +25,13 @@ data class PublicAccountsCursor(
     @SerialName("order")
     val order: Order,
     @SerialName("epochSecond")
-    val epochSecond: Long?,
+    val epochSecond: Long? = null,
     @SerialName("nano")
-    val nano: Long?,
+    val nano: Long? = null,
     @SerialName("id")
     val id: Long,
     @SerialName("notesUpToId")
-    val notesUpToId: Long?,
+    val notesUpToId: Long? = null,
 ) {
     @Serializable
     enum class Order {
