@@ -230,11 +230,13 @@ class HttpRemoteActors(
             return documents.get(cacheKey)?.let { DocumentFetch.Found(it) } ?: DocumentFetch.Unavailable
         }
 
-        val response =
+        // 本文の読み取りも取得の一部として扱う。読めなかった理由は例外として span に残る
+        val (response, body) =
             runCatching {
-                client.get(rawUrl) {
+                val fetched = client.get(rawUrl) {
                     header(HttpHeaders.Accept, ActivityPubContentTypes.ActivityJson.toString())
                 }
+                fetched to fetched.bodyAsText()
             }.getOrElse { failure ->
                 RemoteActorSpan.failed(failure)
                 RemoteActorSpan.outcome("request_failed")
@@ -265,11 +267,6 @@ class HttpRemoteActors(
             return DocumentFetch.Unavailable
         }
 
-        val body = runCatching { response.bodyAsText() }.getOrNull()
-        if (body == null) {
-            RemoteActorSpan.outcome("unreadable_body")
-            return DocumentFetch.Unavailable
-        }
         if (body.length > MAX_BODY_CHARS) {
             RemoteActorSpan.outcome("body_too_large")
             return DocumentFetch.Unavailable
