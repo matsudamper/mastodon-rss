@@ -21,7 +21,10 @@ WebFinger・Actor・inbox・NodeInfo の応答、HTTP Signature の署名と検�
 - このアプリ固有のものを入れない。`ServerEnv` も `Repositories` も参照しない。
   設定は引数で受け取る（アクターの鍵の在り処は `ActorPrivateKey`、
   ドメインとユーザー名は `ActorUrls`）
-- 依存は Ktor・kotlinx.serialization・SLF4J・`:backend:crypto` まで。
+- HTTP の実装（Ktor など）に依存しない。エンドポイントは `EndpointResponse` を返し、
+  外向きの通信は `ActivityPubHttpClient` を受け取る。Ktor のルーティングと
+  `ActivityPubHttpClient` の Ktor 実装は `:backend` が持つ
+- 依存は kotlinx.serialization・kotlinx.coroutines・OpenTelemetry API・SLF4J・`:backend:crypto` まで。
   SQLite も jOOQ も入らない。相手のアクター文書のキャッシュを
   `:backend:repository` の `ExpiringCache` から、モジュール内の `internal` な
   実装に移したのはこのため

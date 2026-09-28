@@ -1,17 +1,11 @@
 package net.matsudamper.mastodon.rss.actor
 
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.call
-import io.ktor.server.request.header
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.get
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.activitypub.Actor
 import net.matsudamper.mastodon.rss.activitypub.ActorAttachment
 import net.matsudamper.mastodon.rss.activitypub.ActorPublicKey
-import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.http.EndpointResponse
+import net.matsudamper.mastodon.rss.http.HttpStatusCodes
 import net.matsudamper.mastodon.rss.url.WebPageUrls
 
 /**
@@ -19,23 +13,30 @@ import net.matsudamper.mastodon.rss.url.WebPageUrls
  *
  * 引き当ては [ActorDirectory] に任せる。知らない名前は 404。
  */
-fun Route.actorRoutes(
-    directory: ActorDirectory,
-    actorKey: ActorKey,
-    feedLinks: StoredFeedLinks,
-    profiles: StoredActorProfiles,
-    webPages: WebPageUrls?,
+class ActorEndpoint(
+    private val directory: ActorDirectory,
+    private val actorKey: ActorKey,
+    private val feedLinks: StoredFeedLinks,
+    private val profiles: StoredActorProfiles,
+    private val webPages: WebPageUrls?,
 ) {
-    get("/users/{username}") {
-        val requested = call.parameters["username"]
-        val urls = directory.resolve(requested)
+    /**
+     * `/users/{username}`
+     *
+     * @param accept `Accept` ヘッダ。見ずに application/json で返すとアクターとして認識されない
+     */
+    suspend fun get(
+        username: String?,
+        accept: String?,
+    ): EndpointResponse {
+        val urls = directory.resolve(username)
+            ?: return EndpointResponse.text(
+                status = HttpStatusCodes.NOT_FOUND,
+                text = "アクターが見つからない: $username",
+                headers = mapOf(),
+            )
 
-        if (urls == null) {
-            call.respondText("アクターが見つからない: $requested", status = HttpStatusCode.NotFound)
-            return@get
-        }
-
-        call.respondJson(
+        return EndpointResponse.json(
             serializer = Actor.serializer(),
             value = actorDocument(
                 urls = urls,
@@ -44,8 +45,7 @@ fun Route.actorRoutes(
                 profile = profiles.find(urls.username),
                 webPages = webPages,
             ),
-            // Accept を見ずに application/json で返すとアクターとして認識されない
-            contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
+            contentType = ActivityPubContentTypes.negotiate(accept),
         )
     }
 }

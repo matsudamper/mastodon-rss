@@ -3,8 +3,8 @@ package net.matsudamper.mastodon.rss.httpsignature
 import java.security.PrivateKey
 import java.time.Clock
 import java.util.Base64
-import io.ktor.http.Headers
 import net.matsudamper.mastodon.rss.crypto.RsaSignature
+import net.matsudamper.mastodon.rss.http.RequestHeaders
 
 /**
  * こちらから送るリクエストに HTTP Signatures を付ける。
@@ -57,7 +57,7 @@ class HttpSignatureSigner(
             SignedRequest(
                 method = method,
                 requestTarget = requestTarget,
-                headers = Headers.build { signed.forEach { (name, value) -> append(name, value) } },
+                headers = RequestHeaders.ofSingleValues(signed),
                 body = body,
             )
 

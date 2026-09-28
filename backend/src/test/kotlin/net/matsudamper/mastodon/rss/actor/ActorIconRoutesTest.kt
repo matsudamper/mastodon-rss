@@ -33,7 +33,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = 60.seconds)
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG.toString(), version = VERSION, cacheFor = 60.seconds)
                 },
             )
 
@@ -52,7 +52,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = 60.seconds)
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG.toString(), version = VERSION, cacheFor = 60.seconds)
                 },
             )
 
@@ -67,7 +67,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = 60.seconds)
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG.toString(), version = VERSION, cacheFor = 60.seconds)
                 },
             )
 
@@ -82,7 +82,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = Duration.ZERO)
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG.toString(), version = VERSION, cacheFor = Duration.ZERO)
                 },
             )
 
@@ -112,7 +112,7 @@ class ActorIconRoutesTest {
             installModule(
                 object : ActorIcons {
                     override suspend fun find(username: String): ActorIcon =
-                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG, version = VERSION, cacheFor = 60.seconds)
+                        ActorIcon(bytes = png, contentType = ContentType.Image.PNG.toString(), version = VERSION, cacheFor = 60.seconds)
                 },
             )
 

@@ -3,13 +3,12 @@ package net.matsudamper.mastodon.rss.httpsignature
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import io.ktor.http.Headers
-import io.ktor.http.headersOf
+import net.matsudamper.mastodon.rss.http.RequestHeaders
 
 // 送信側が署名した文字列と 1 バイトでも違えば検証は落ちる。
 class SigningStringTest {
     private fun request(
-        headers: Headers,
+        headers: RequestHeaders,
         method: String = "POST",
         requestTarget: String = "/users/admin/inbox",
         body: ByteArray = ByteArray(0),
@@ -18,10 +17,12 @@ class SigningStringTest {
     @Test
     fun `headers の並び順どおりに組み立てる`() {
         val headers =
-            headersOf(
-                "Host" to listOf("example.com"),
-                "Date" to listOf("Tue, 20 Apr 2021 02:07:55 GMT"),
-                "Digest" to listOf("SHA-256=xxxx"),
+            RequestHeaders.of(
+                mapOf(
+                    "Host" to listOf("example.com"),
+                    "Date" to listOf("Tue, 20 Apr 2021 02:07:55 GMT"),
+                    "Digest" to listOf("SHA-256=xxxx"),
+                ),
             )
 
         val actual =
@@ -43,7 +44,7 @@ class SigningStringTest {
     fun `メソッドは小文字にする`() {
         val actual =
             SigningString.build(
-                request(headers = Headers.Empty, method = "POST"),
+                request(headers = RequestHeaders.of(mapOf()), method = "POST"),
                 listOf(SigningString.REQUEST_TARGET),
             )
 
@@ -54,7 +55,7 @@ class SigningStringTest {
     fun `クエリを含むパスはそのまま入る`() {
         val actual =
             SigningString.build(
-                request(headers = Headers.Empty, requestTarget = "/users/admin/inbox?a=1"),
+                request(headers = RequestHeaders.of(mapOf()), requestTarget = "/users/admin/inbox?a=1"),
                 listOf(SigningString.REQUEST_TARGET),
             )
 
@@ -63,14 +64,14 @@ class SigningStringTest {
 
     @Test
     fun `ヘッダ名の大文字小文字は問わない`() {
-        val actual = SigningString.build(request(headersOf("HOST", "example.com")), listOf("host"))
+        val actual = SigningString.build(request(RequestHeaders.of(mapOf("HOST" to listOf("example.com")))), listOf("host"))
 
         assertEquals("host: example.com", actual)
     }
 
     @Test
     fun `同じヘッダが複数あればカンマで繋ぐ`() {
-        val headers = headersOf("X-Test" to listOf("a", "b"))
+        val headers = RequestHeaders.of(mapOf("X-Test" to listOf("a", "b")))
 
         assertEquals("x-test: a, b", SigningString.build(request(headers), listOf("x-test")))
     }
@@ -78,17 +79,17 @@ class SigningStringTest {
     @Test
     fun `並びにあるヘッダが無ければ組み立てない`() {
         // 空文字で埋めると、送信側が署名した内容と違うものを検証してしまう
-        assertNull(SigningString.build(request(Headers.Empty), listOf("host")))
+        assertNull(SigningString.build(request(RequestHeaders.of(mapOf())), listOf("host")))
     }
 
     @Test
     fun `対応していない擬似ヘッダがあれば組み立てない`() {
         // (created) は hs2019 用。黙って無視すると署名されていない値を通すことになる
-        assertNull(SigningString.build(request(Headers.Empty), listOf("(created)")))
+        assertNull(SigningString.build(request(RequestHeaders.of(mapOf())), listOf("(created)")))
     }
 
     @Test
     fun `並びが空なら組み立てない`() {
-        assertNull(SigningString.build(request(Headers.Empty), emptyList()))
+        assertNull(SigningString.build(request(RequestHeaders.of(mapOf())), emptyList()))
     }
 }

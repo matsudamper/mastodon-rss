@@ -1,13 +1,9 @@
 package net.matsudamper.mastodon.rss.webfinger
 
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.call
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.get
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.http.EndpointResponse
+import net.matsudamper.mastodon.rss.http.HttpStatusCodes
 
 /**
  * WebFinger (RFC 7033) のエンドポイント。アカウント発見の 1 ホップ目。
@@ -16,25 +12,31 @@ import net.matsudamper.mastodon.rss.json.respondJson
  * 知らない相手なら 404 で、ここで 200 を返してしまうと Mastodon 側に
  * 空のアカウントがあるように見える。
  */
-fun Route.webFingerRoutes(directory: ActorDirectory) {
-    get("/.well-known/webfinger") {
-        val resource = call.request.queryParameters["resource"]
-
+class WebFingerEndpoint(
+    private val directory: ActorDirectory,
+) {
+    /**
+     * `/.well-known/webfinger`
+     *
+     * @param resource クエリの `resource`
+     */
+    suspend fun get(resource: String?): EndpointResponse {
         if (resource.isNullOrBlank()) {
-            call.respondText(
-                "resource クエリパラメータが必要（例: ?resource=acct:admin@example.com）",
-                status = HttpStatusCode.BadRequest,
+            return EndpointResponse.text(
+                status = HttpStatusCodes.BAD_REQUEST,
+                text = "resource クエリパラメータが必要（例: ?resource=acct:admin@example.com）",
+                headers = mapOf(),
             )
-            return@get
         }
 
         val urls = directory.resolveResource(resource)
-        if (urls == null) {
-            call.respondText("該当する resource が無い: $resource", status = HttpStatusCode.NotFound)
-            return@get
-        }
+            ?: return EndpointResponse.text(
+                status = HttpStatusCodes.NOT_FOUND,
+                text = "該当する resource が無い: $resource",
+                headers = mapOf(),
+            )
 
-        call.respondJson(
+        return EndpointResponse.json(
             serializer = WebFingerResponse.serializer(),
             value =
             WebFingerResponse(

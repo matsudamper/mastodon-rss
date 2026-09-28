@@ -34,6 +34,7 @@ import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
 import net.matsudamper.mastodon.rss.follower.FollowerStore
+import net.matsudamper.mastodon.rss.http.KtorActivityPubHttpClient
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
 import net.matsudamper.mastodon.rss.inbox.InboxDomainBlocks
 import net.matsudamper.mastodon.rss.inbox.InboxService
@@ -442,10 +443,13 @@ class AppDependencies(
 
                 // 相手のアクターを引くのと、こちらから送るのとで外向きの HTTP を張る。
                 // どちらも接続を抱えるので、サーバーの外側で開いて確実に閉じる
-                val remoteActors = HttpRemoteActors(openTelemetry = openTelemetry)
+                val remoteActors = HttpRemoteActors(
+                    client = KtorActivityPubHttpClient(openTelemetry),
+                    openTelemetry = openTelemetry,
+                )
 
                 val delivery =
-                    runCatching { HttpActivityDelivery(actorKey, openTelemetry = openTelemetry) }
+                    runCatching { HttpActivityDelivery(actorKey, client = KtorActivityPubHttpClient(openTelemetry)) }
                         .getOrElse { failure ->
                             remoteActors.close()
                             throw failure

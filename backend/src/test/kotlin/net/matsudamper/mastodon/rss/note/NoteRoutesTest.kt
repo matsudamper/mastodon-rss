@@ -75,7 +75,7 @@ class NoteRoutesTest {
             assertEquals("Note", body.type)
             assertEquals("https://example.com/users/admin", body.attributedTo)
             assertEquals("<p>abc</p>", body.content)
-            assertEquals(publishedAt.toActivityPubPublished(), body.published)
+            assertEquals("2026-08-10T00:00:00Z", body.published)
             assertEquals("https://example.com/notes/abc", body.atomUri)
             assertEquals(listOf(ActivityStreamsIri.PUBLIC_AUDIENCE), body.to)
             assertEquals(listOf("https://example.com/users/admin/followers"), body.cc)

@@ -10,10 +10,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
-import io.ktor.http.Headers
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
+import net.matsudamper.mastodon.rss.http.RequestHeaders
 
 // ActivityPub のサーバー間通信で相手を確かめる手段はこれしか無い。
 // 判断が曖昧なものは通さない。
@@ -35,7 +35,7 @@ class HttpSignatureVerifierTest {
     ) = SignedRequest(
         method = "POST",
         requestTarget = requestTarget,
-        headers = Headers.build { headers.forEach { (name, value) -> append(name, value) } },
+        headers = RequestHeaders.ofSingleValues(headers),
         body = body,
     )
 

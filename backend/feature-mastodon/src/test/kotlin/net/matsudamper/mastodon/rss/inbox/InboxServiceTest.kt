@@ -10,7 +10,6 @@ import kotlin.test.fail
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import io.ktor.http.Headers
 import net.matsudamper.mastodon.rss.FakeFavouriteStore
 import net.matsudamper.mastodon.rss.FakeFollowerStore
 import net.matsudamper.mastodon.rss.FakeInboxDomainBlocks
@@ -24,6 +23,7 @@ import net.matsudamper.mastodon.rss.actor.RemoteActors
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
 import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
+import net.matsudamper.mastodon.rss.http.RequestHeaders
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeys
@@ -111,7 +111,7 @@ class InboxServiceTest {
         return SignedRequest(
             method = "POST",
             requestTarget = path,
-            headers = Headers.build { headers.forEach { (name, value) -> append(name, value) } },
+            headers = RequestHeaders.ofSingleValues(headers),
             body = body,
         )
     }
