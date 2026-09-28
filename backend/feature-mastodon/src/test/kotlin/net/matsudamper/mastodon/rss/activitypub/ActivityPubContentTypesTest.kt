@@ -62,4 +62,12 @@ class ActivityPubContentTypesTest {
             ActivityPubContentTypes.negotiate("///, application/ld+json"),
         )
     }
+
+    @Test
+    fun `品質値が0の型は選ばない`() {
+        assertEquals(
+            ActivityPubContentTypes.ActivityJson,
+            ActivityPubContentTypes.negotiate("application/ld+json;q=0"),
+        )
+    }
 }

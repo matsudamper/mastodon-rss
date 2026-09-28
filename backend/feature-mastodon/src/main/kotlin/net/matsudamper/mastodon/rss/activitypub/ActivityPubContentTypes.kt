@@ -40,6 +40,9 @@ object ActivityPubContentTypes {
 
         // 品質値 (q=) の高い順に並べ替えてから先頭から見る
         for (item in parseAndSortHeader(acceptHeader)) {
+            // q=0 は「受け付けない」という意味なので候補にしない
+            if (item.quality <= 0.0) continue
+
             // ld+json は profile パラメータ付きで飛んでくる。
             // ContentType.match はパラメータまで見るので、残っていても当たるよう落としておく
             val pattern =
