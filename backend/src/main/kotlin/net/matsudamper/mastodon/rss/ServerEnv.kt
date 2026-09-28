@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss
 
 import java.nio.file.Path
-import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
+import net.matsudamper.activitypub.actor.ActorPrivateKey
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
 /**

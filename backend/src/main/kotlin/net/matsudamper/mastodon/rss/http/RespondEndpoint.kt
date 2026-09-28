@@ -6,6 +6,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.header
 import io.ktor.server.response.respondBytes
+import net.matsudamper.activitypub.http.EndpointResponse
+import net.matsudamper.activitypub.http.RequestHeaders
 
 /**
  * エンドポイントが返した応答をそのまま書き出す

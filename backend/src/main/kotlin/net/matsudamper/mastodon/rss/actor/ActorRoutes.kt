@@ -4,8 +4,17 @@ import io.ktor.http.HttpHeaders
 import io.ktor.server.request.header
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import net.matsudamper.activitypub.actor.ActorDirectory
+import net.matsudamper.activitypub.actor.ActorEndpoint
+import net.matsudamper.activitypub.actor.ActorHeaderEndpoint
+import net.matsudamper.activitypub.actor.ActorHeaders
+import net.matsudamper.activitypub.actor.ActorIconEndpoint
+import net.matsudamper.activitypub.actor.ActorIcons
+import net.matsudamper.activitypub.actor.ActorKey
+import net.matsudamper.activitypub.actor.StoredActorProfiles
+import net.matsudamper.activitypub.actor.StoredFeedLinks
+import net.matsudamper.activitypub.url.WebPageUrls
 import net.matsudamper.mastodon.rss.http.respondEndpoint
-import net.matsudamper.mastodon.rss.url.WebPageUrls
 
 internal fun Route.actorRoutes(
     directory: ActorDirectory,

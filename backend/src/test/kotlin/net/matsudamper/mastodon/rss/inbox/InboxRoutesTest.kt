@@ -18,17 +18,18 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.writeFully
-import net.matsudamper.mastodon.rss.FakeEarlyUndoneLikes
-import net.matsudamper.mastodon.rss.FakeFavouriteStore
-import net.matsudamper.mastodon.rss.FakeFollowerStore
-import net.matsudamper.mastodon.rss.FakeInboxDomainBlocks
-import net.matsudamper.mastodon.rss.FakeStampStore
-import net.matsudamper.mastodon.rss.TestLocalActor
-import net.matsudamper.mastodon.rss.TestRemoteActor
-import net.matsudamper.mastodon.rss.TestRemoteActors
-import net.matsudamper.mastodon.rss.actor.RemoteActors
-import net.matsudamper.mastodon.rss.httpsignature.TestSigning
-import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.activitypub.FakeEarlyUndoneLikes
+import net.matsudamper.activitypub.FakeFavouriteStore
+import net.matsudamper.activitypub.FakeFollowerStore
+import net.matsudamper.activitypub.FakeInboxDomainBlocks
+import net.matsudamper.activitypub.FakeStampStore
+import net.matsudamper.activitypub.TestLocalActor
+import net.matsudamper.activitypub.TestRemoteActor
+import net.matsudamper.activitypub.TestRemoteActors
+import net.matsudamper.activitypub.actor.RemoteActors
+import net.matsudamper.activitypub.httpsignature.TestSigning
+import net.matsudamper.activitypub.inbox.InboxService
+import net.matsudamper.activitypub.json.AppJson
 
 // 相手のサーバーからアクティビティが POST されてくる口。
 // 署名が通ったかどうかが、送り主を確かめる唯一の根拠になる。

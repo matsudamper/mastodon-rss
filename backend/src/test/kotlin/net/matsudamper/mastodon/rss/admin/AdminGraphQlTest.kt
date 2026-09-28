@@ -35,12 +35,12 @@ import io.ktor.http.headersOf
 import io.ktor.http.setCookie
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import net.matsudamper.activitypub.json.AppJson
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
-import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.logic.NoteComposer
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.repository.IncomingFollow

@@ -5,6 +5,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respondText
+import net.matsudamper.activitypub.json.AppJson
 
 /**
  * serializer を明示して JSON を返す。
