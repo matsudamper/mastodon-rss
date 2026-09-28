@@ -40,7 +40,8 @@
         "/^io\\.coil-kt\\.coil3:/",
         "/^io\\.ktor:/",
         "/^org\\.graalvm\\.buildtools(?:\\.native|:)/",
-        "org.graalvm.sdk:nativeimage"
+        "org.graalvm.sdk:nativeimage",
+        "/^org\\.jetbrains\\.kotlinx:/"
       ],
       "automerge": true
     }
