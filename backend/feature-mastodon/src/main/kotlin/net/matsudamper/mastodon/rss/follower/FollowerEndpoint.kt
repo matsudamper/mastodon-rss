@@ -1,14 +1,6 @@
 package net.matsudamper.mastodon.rss.follower
 
 import kotlinx.serialization.builtins.serializer
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.encodeURLParameter
-import io.ktor.server.application.call
-import io.ktor.server.request.header
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.get
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
@@ -16,7 +8,9 @@ import net.matsudamper.mastodon.rss.collection.COLLECTION_CURSOR_PARAM
 import net.matsudamper.mastodon.rss.collection.COLLECTION_PAGE_SIZE
 import net.matsudamper.mastodon.rss.collection.OrderedCollection
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
-import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.http.EndpointResponse
+import net.matsudamper.mastodon.rss.http.HttpStatusCodes
+import net.matsudamper.mastodon.rss.http.QueryParameter
 
 /**
  * フォロワーの一覧を返す。Actor の `followers` が指している先。
@@ -25,25 +19,33 @@ import net.matsudamper.mastodon.rss.json.respondJson
  * 2 段構えは ActivityPub の決まりで、Mastodon は総数だけを見ることも、
  * ページを辿って中身を読むこともある。
  */
-fun Route.followerRoutes(
-    directory: ActorDirectory,
-    followers: FollowerStore,
+class FollowerEndpoint(
+    private val directory: ActorDirectory,
+    private val followers: FollowerStore,
 ) {
-    get("/users/{username}/followers") {
-        val requested = call.parameters["username"]
-        val urls = directory.resolve(requested)
-        if (urls == null) {
-            call.respondText("アカウントが見つからない: $requested", status = HttpStatusCode.NotFound)
-            return@get
-        }
+    /**
+     * `/users/{username}/followers`
+     *
+     * @param cursor クエリの `cursor`。付いていなければ null
+     */
+    suspend fun get(
+        username: String?,
+        accept: String?,
+        cursor: String?,
+    ): EndpointResponse {
+        val urls = directory.resolve(username)
+            ?: return EndpointResponse.text(
+                status = HttpStatusCodes.NOT_FOUND,
+                text = "アカウントが見つからない: $username",
+                headers = mapOf(),
+            )
 
-        val contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept))
+        val contentType = ActivityPubContentTypes.negotiate(accept)
         val total = followers.count(urls.username)
-        val cursor = call.request.queryParameters[COLLECTION_CURSOR_PARAM]
 
         // パラメータが無ければ集合そのもの。空文字でも付いていれば先頭のページ
         if (cursor == null) {
-            call.respondJson(
+            return EndpointResponse.json(
                 serializer = OrderedCollection.serializer(),
                 value = OrderedCollection(
                     id = urls.followers,
@@ -52,7 +54,6 @@ fun Route.followerRoutes(
                 ),
                 contentType = contentType,
             )
-            return@get
         }
 
         val items = followers.list(
@@ -61,7 +62,7 @@ fun Route.followerRoutes(
             limit = COLLECTION_PAGE_SIZE,
         )
 
-        call.respondJson(
+        return EndpointResponse.json(
             serializer = OrderedCollectionPage.serializer(String.serializer()),
             value = OrderedCollectionPage(
                 id = pageUrl(urls, cursor.ifEmpty { null }),
@@ -83,4 +84,4 @@ fun Route.followerRoutes(
 private fun pageUrl(
     urls: ActorUrls,
     after: String?,
-): String = "${urls.followers}?$COLLECTION_CURSOR_PARAM=${after?.encodeURLParameter().orEmpty()}"
+): String = "${urls.followers}?$COLLECTION_CURSOR_PARAM=${after?.let { QueryParameter.encode(it) }.orEmpty()}"

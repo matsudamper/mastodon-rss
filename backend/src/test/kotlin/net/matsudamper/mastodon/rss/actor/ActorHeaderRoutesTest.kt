@@ -24,7 +24,7 @@ class ActorHeaderRoutesTest {
                         headers = object : ActorHeaders {
                             override suspend fun find(username: String): ActorHeader? = ActorHeader(
                                 bytes = "header".encodeToByteArray(),
-                                contentType = ContentType.Image.JPEG,
+                                contentType = ContentType.Image.JPEG.toString(),
                                 version = "abc",
                                 cacheFor = 60.seconds,
                             )
@@ -51,7 +51,7 @@ class ActorHeaderRoutesTest {
                         headers = object : ActorHeaders {
                             override suspend fun find(username: String): ActorHeader? = ActorHeader(
                                 bytes = "header".encodeToByteArray(),
-                                contentType = ContentType.Image.JPEG,
+                                contentType = ContentType.Image.JPEG.toString(),
                                 version = "abc",
                                 cacheFor = Duration.ZERO,
                             )

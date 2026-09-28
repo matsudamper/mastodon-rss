@@ -12,37 +12,23 @@ dependencies {
     // このモジュールを切り出す際も一緒に付いてくる
     implementation(project(":backend:crypto"))
 
-    // ルーティングの拡張関数（Route.actorRoutes など）と respondJson を公開するので api にする。
-    // 使う側は Ktor のサーバーを立てることが前提になる
-    api(libs.ktor.server.core)
+    // HTTP のサーバーとクライアントには依存しない。エンドポイントは EndpointResponse を返し、
+    // 外向きの通信は ActivityPubHttpClient を受け取る。どちらの実装も使う側が用意する
     api(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.coroutines.core)
 
-    // 相手のアクター文書を GET し、相手の inbox に POST する。
-    // engine はサーバー側と揃えて CIO にする
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.cio)
-    implementation(libs.opentelemetry.ktor)
     // アクター文書の取得を span で囲み、その中の GET をぶら下げる。
     // suspend の間も span を current に保つのに要る
+    implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.extension.kotlin)
 
-    // InboxService のように Ktor のルーティングから切り離したクラスは
-    // Application.log を持たないので、SLF4J のロガーを直接引く
+    // Ktor の Application.log には頼れないので、SLF4J のロガーを直接引く
     implementation(libs.slf4j.api)
 
     // フェイクの鍵を作るのに使う。testFixtures は main の implementation を継がない
     testFixturesImplementation(project(":backend:crypto"))
 
-    testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test)
-
-    // 送信のテストだけは本物のサーバーを立てて往復させるので、engine が要る。
-    // 実装側は engine を選ばないため main には入れない
-    testImplementation(libs.ktor.server.cio)
-
-    // 送信の途中で止める場面は本物のサーバーでは狙って作れないので、
-    // 応答を返さない engine を差し替えて確かめる
-    testImplementation(libs.ktor.client.mock)
 }
 
 kotlin {

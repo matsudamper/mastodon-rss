@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.delivery
 
+import java.net.URI
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -9,33 +10,20 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.call
-import io.ktor.server.cio.CIO
-import io.ktor.server.engine.embeddedServer
-import io.ktor.server.request.httpMethod
-import io.ktor.server.request.receive
-import io.ktor.server.request.uri
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.post
-import io.ktor.server.routing.routing
 import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestRemoteActors
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.http.ActivityPubClientResponse
+import net.matsudamper.mastodon.rss.http.ActivityPubHttpClient
+import net.matsudamper.mastodon.rss.http.ActivityPubPostResponse
+import net.matsudamper.mastodon.rss.http.HttpStatusCodes
+import net.matsudamper.mastodon.rss.http.RequestHeaders
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureResult
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureVerifier
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
 
 /**
- * 実際に HTTP を張って送る側。
- *
- * 署名文字列だけを突き合わせるテストでは、engine が後から足したり書き換えたりする
- * ヘッダの影響が見えない。`Host` が二重に付く、`Date` が engine のものに置き換わる、
- * といった壊れ方は実際に送ってみないと分からず、相手側では「署名が一致しない」と
- * しか見えないので、ここだけは本物のサーバーを立てて往復させる。
+ * 署名を付けて POST する部分。通信そのものは差し替えて、渡したものと応答の扱いを見る
  */
 class HttpActivityDeliveryTest {
     private val sender = ActorUrls(domain = "example.com", username = "admin")
@@ -47,95 +35,63 @@ class HttpActivityDeliveryTest {
             publicKey = TestActorKey.value.publicKey,
         )
 
-    /**
-     * 受け取った側で署名を検証するサーバーを立て、[block] に宛先の URL を渡す。
-     *
-     * ポートは 0 で開いて実際に割り当てられたものを使う。固定すると
-     * 並列に走るテストや開発機の他のプロセスとぶつかる。
-     */
-    private fun withInbox(block: suspend (url: String) -> Unit): HttpSignatureResult? {
-        var received: HttpSignatureResult? = null
-
-        val server =
-            embeddedServer(CIO, port = 0, host = "127.0.0.1") {
-                routing {
-                    post("/users/alice/inbox") {
-                        val body = call.receive<ByteArray>()
-                        received =
-                            HttpSignatureVerifier(remoteActors).verify(
-                                SignedRequest(
-                                    method = call.request.httpMethod.value,
-                                    requestTarget = call.request.uri,
-                                    headers = call.request.headers,
-                                    body = body,
-                                ),
-                            )
-                        call.respondText("", status = HttpStatusCode.Accepted)
-                    }
-                }
-            }.start(wait = false)
-
-        try {
-            runBlocking {
-                val port =
-                    server.engine
-                        .resolvedConnectors()
-                        .first()
-                        .port
-                block("http://127.0.0.1:$port/users/alice/inbox")
-            }
-        } finally {
-            server.stop(gracePeriodMillis = 0, timeoutMillis = 1_000)
-        }
-
-        return received
-    }
-
     @Test
-    fun `送った署名が相手側の検証を通る`() {
-        var result: DeliveryResult? = null
+    fun `渡した署名が相手側の検証を通る`() {
+        val client = RecordingClient(status = HttpStatusCodes.ACCEPTED)
+        val body = """{"type":"Accept"}""".toByteArray()
 
-        val verification =
-            withInbox { url ->
-                HttpActivityDelivery(TestActorKey.value).use { delivery ->
-                    result =
-                        delivery.deliver(inbox = url, sender = sender, body = """{"type":"Accept"}""".toByteArray())
+        val result =
+            runBlocking {
+                HttpActivityDelivery(TestActorKey.value, client = client).use { delivery ->
+                    delivery.deliver(inbox = "https://remote.example/users/alice/inbox?a=1", sender = sender, body = body)
                 }
             }
-
         assertIs<DeliveryResult.Delivered>(result)
+
+        val sent = URI(client.url)
+        val verification =
+            runBlocking {
+                HttpSignatureVerifier(remoteActors).verify(
+                    SignedRequest(
+                        method = "POST",
+                        requestTarget = "${sent.rawPath}?${sent.rawQuery}",
+                        headers = RequestHeaders.ofSingleValues(client.headers),
+                        body = client.body,
+                    ),
+                )
+            }
         val verified = assertIs<HttpSignatureResult.Verified>(verification)
         assertEquals(sender.actorId, verified.owner)
+        assertEquals("remote.example", client.headers["Host"])
+        assertEquals("application/activity+json", client.headers["Content-Type"])
     }
 
     @Test
-    fun `相手が受け取らなければ失敗として返る`() {
-        var result: DeliveryResult? = null
+    fun `既定でないポートはHostに付ける`() {
+        val client = RecordingClient(status = HttpStatusCodes.ACCEPTED)
 
-        withInbox { url ->
-            HttpActivityDelivery(TestActorKey.value).use { delivery ->
-                // ルーティングに無いパスなので 404 が返る
-                result =
-                    delivery.deliver(
-                        inbox = url.replace("/users/alice/inbox", "/users/bob/inbox"),
-                        sender = sender,
-                        body = """{"type":"Accept"}""".toByteArray(),
-                    )
+        runBlocking {
+            HttpActivityDelivery(TestActorKey.value, client = client).use { delivery ->
+                delivery.deliver(inbox = "https://remote.example:8443/inbox", sender = sender, body = ByteArray(0))
             }
         }
 
-        assertIs<DeliveryResult.Failed>(result)
+        assertEquals("remote.example:8443", client.headers["Host"])
     }
 
     @Test
     fun `送信の途中で止められたら失敗として返さない`() {
         val started = CompletableDeferred<Unit>()
-        val client = HttpClient(
-            MockEngine {
+        val client = object : FakeClient() {
+            override suspend fun post(
+                url: String,
+                headers: Map<String, String>,
+                body: ByteArray,
+            ): ActivityPubPostResponse {
                 started.complete(Unit)
                 awaitCancellation()
-            },
-        )
+            }
+        }
         var result: DeliveryResult? = null
 
         runBlocking {
@@ -156,41 +112,62 @@ class HttpActivityDeliveryTest {
     }
 
     @Test
-    fun `URL として読めない宛先は送らずに失敗として返る`() {
+    fun `届かなければ送り直す失敗として返る`() {
+        val client = object : FakeClient() {
+            override suspend fun post(
+                url: String,
+                headers: Map<String, String>,
+                body: ByteArray,
+            ): ActivityPubPostResponse = throw java.io.IOException("接続できない")
+        }
+
         val result =
             runBlocking {
-                HttpActivityDelivery(TestActorKey.value).use { delivery ->
+                HttpActivityDelivery(TestActorKey.value, client = client).use { delivery ->
+                    delivery.deliver(inbox = "https://example.com/users/alice/inbox", sender = sender, body = ByteArray(0))
+                }
+            }
+
+        assertEquals(true, assertIs<DeliveryResult.Failed>(result).retryable)
+    }
+
+    @Test
+    fun `URL として読めない宛先は送らずに失敗として返る`() {
+        val client = RecordingClient(status = HttpStatusCodes.ACCEPTED)
+        val result =
+            runBlocking {
+                HttpActivityDelivery(TestActorKey.value, client = client).use { delivery ->
                     delivery.deliver(inbox = "not a url", sender = sender, body = ByteArray(0))
                 }
             }
 
         assertIs<DeliveryResult.Failed>(result)
+        assertNull(client.sentUrl)
     }
 
     @Test
     fun `相手が受け取らないと決めた応答は送り直さない`() {
-        assertEquals(false, deliverTo(HttpStatusCode.BadRequest).retryable)
-        assertEquals(false, deliverTo(HttpStatusCode.Forbidden).retryable)
-        assertEquals(false, deliverTo(HttpStatusCode.NotFound).retryable)
-        assertEquals(false, deliverTo(HttpStatusCode.Gone).retryable)
-        assertEquals(false, deliverTo(HttpStatusCode.NotImplemented).retryable)
+        assertEquals(false, deliverTo(400).retryable)
+        assertEquals(false, deliverTo(403).retryable)
+        assertEquals(false, deliverTo(404).retryable)
+        assertEquals(false, deliverTo(410).retryable)
+        assertEquals(false, deliverTo(501).retryable)
     }
 
     @Test
     fun `詰まっているだけの応答は送り直す`() {
         // 鍵の入れ替え中・詰まっている・落ちている。後なら通る
-        assertEquals(true, deliverTo(HttpStatusCode.Unauthorized).retryable)
-        assertEquals(true, deliverTo(HttpStatusCode.RequestTimeout).retryable)
-        assertEquals(true, deliverTo(HttpStatusCode.TooManyRequests).retryable)
-        assertEquals(true, deliverTo(HttpStatusCode.InternalServerError).retryable)
-        assertEquals(true, deliverTo(HttpStatusCode.ServiceUnavailable).retryable)
+        assertEquals(true, deliverTo(401).retryable)
+        assertEquals(true, deliverTo(408).retryable)
+        assertEquals(true, deliverTo(429).retryable)
+        assertEquals(true, deliverTo(500).retryable)
+        assertEquals(true, deliverTo(503).retryable)
     }
 
-    private fun deliverTo(status: HttpStatusCode): DeliveryResult.Failed {
-        val client = HttpClient(MockEngine { respond(content = "", status = status) })
+    private fun deliverTo(status: Int): DeliveryResult.Failed {
         val result =
             runBlocking {
-                HttpActivityDelivery(TestActorKey.value, client = client).use { delivery ->
+                HttpActivityDelivery(TestActorKey.value, client = RecordingClient(status)).use { delivery ->
                     delivery.deliver(
                         inbox = "https://example.com/users/alice/inbox",
                         sender = sender,
@@ -200,5 +177,36 @@ class HttpActivityDeliveryTest {
             }
 
         return assertIs<DeliveryResult.Failed>(result)
+    }
+
+    private abstract class FakeClient : ActivityPubHttpClient {
+        override suspend fun get(
+            url: String,
+            headers: Map<String, String>,
+            maxBodyBytes: Int,
+            readsBody: (status: Int, finalUrl: String) -> Boolean,
+        ): ActivityPubClientResponse = error("GET は使わない")
+
+        override fun close() = Unit
+    }
+
+    private class RecordingClient(
+        private val status: Int,
+    ) : FakeClient() {
+        var sentUrl: String? = null
+        var headers: Map<String, String> = mapOf()
+        var body: ByteArray = ByteArray(0)
+        val url: String get() = requireNotNull(sentUrl)
+
+        override suspend fun post(
+            url: String,
+            headers: Map<String, String>,
+            body: ByteArray,
+        ): ActivityPubPostResponse {
+            sentUrl = url
+            this.headers = headers
+            this.body = body
+            return ActivityPubPostResponse(status = status)
+        }
     }
 }

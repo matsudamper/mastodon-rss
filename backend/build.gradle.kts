@@ -9,9 +9,8 @@ dependencies {
     implementation(project(":backend:repository"))
 
     // ActivityPub（WebFinger / Actor / inbox / NodeInfo）の実装。
-    // 相手のサーバーとのやり取りはこのモジュールの中で完結していて、
-    // :backend の側にあるのは「何を渡して組み立てるか」だけ。
-    // ktor-client はこのモジュールの中でしか使わないので、こちらでは持たない
+    // HTTP の実装には依存しないので、Ktor のルーティングと ActivityPubHttpClient の
+    // Ktor 実装はこちらで持つ
     implementation(project(":backend:feature-mastodon"))
 
     // 管理画面のパスワードの照合

@@ -3,7 +3,6 @@ package net.matsudamper.mastodon.rss.logic
 import java.time.Duration
 import java.time.Instant
 import kotlin.time.toKotlinDuration
-import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.actor.ActorHeader
 import net.matsudamper.mastodon.rss.actor.ActorHeaders
 import net.matsudamper.mastodon.rss.repository.AccountRepository
@@ -31,7 +30,7 @@ class ActorHeaderService(
 
         return ActorHeader(
             bytes = bytes,
-            contentType = ContentType.parse(stored.contentType),
+            contentType = stored.contentType,
             // Actor JSON が URL に付けているのと同じ値。一致していれば、
             // その URL は今置いてあるものを指している
             version = stored.revision,

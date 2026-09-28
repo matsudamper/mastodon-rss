@@ -1,12 +1,12 @@
 package net.matsudamper.mastodon.rss.httpsignature
 
-import io.ktor.http.Headers
+import net.matsudamper.mastodon.rss.http.RequestHeaders
 
 /**
  * 署名を検証する対象のリクエスト。
  *
- * 検証は Ktor のルーティングから切り離してテストできるようにしたいので、
- * `ApplicationCall` ではなく必要なものだけを持つこの型を通す。
+ * 検証はサーバーの実装から切り離してテストできるようにしたいので、
+ * 必要なものだけを持つこの型を通す。
  *
  * @param method HTTP メソッド。署名文字列では小文字にして使う
  * @param requestTarget パスとクエリ。`/users/admin/inbox` の形。
@@ -17,6 +17,6 @@ import io.ktor.http.Headers
 class SignedRequest(
     val method: String,
     val requestTarget: String,
-    val headers: Headers,
+    val headers: RequestHeaders,
     val body: ByteArray,
 )

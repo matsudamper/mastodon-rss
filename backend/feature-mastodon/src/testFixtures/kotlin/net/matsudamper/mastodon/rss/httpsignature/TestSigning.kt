@@ -6,9 +6,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Base64
 import java.util.Locale
-import io.ktor.http.Headers
 import net.matsudamper.mastodon.rss.TestRemoteActor
 import net.matsudamper.mastodon.rss.crypto.RsaSignature
+import net.matsudamper.mastodon.rss.http.RequestHeaders
 
 /**
  * テストから送信側の署名を作る。
@@ -58,7 +58,7 @@ object TestSigning {
             SignedRequest(
                 method = method,
                 requestTarget = requestTarget,
-                headers = Headers.build { signed.forEach { (name, value) -> append(name, value) } },
+                headers = RequestHeaders.ofSingleValues(signed),
                 body = body,
             )
         val signingString = requireNotNull(SigningString.build(request, headerNames)) { "署名文字列を作れない" }

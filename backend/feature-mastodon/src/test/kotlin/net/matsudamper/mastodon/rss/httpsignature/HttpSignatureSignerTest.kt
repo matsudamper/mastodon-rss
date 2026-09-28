@@ -6,9 +6,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
-import io.ktor.http.Headers
 import net.matsudamper.mastodon.rss.TestActorKey
 import net.matsudamper.mastodon.rss.TestRemoteActors
+import net.matsudamper.mastodon.rss.http.RequestHeaders
 
 // こちらから送るリクエストに署名を付ける側。
 // 相手のサーバーは受け取った署名文字列を組み直して検証するので、
@@ -46,7 +46,7 @@ class HttpSignatureSignerTest {
                 SignedRequest(
                     method = "POST",
                     requestTarget = requestTarget,
-                    headers = Headers.build { headers.forEach { (name, value) -> append(name, value) } },
+                    headers = RequestHeaders.ofSingleValues(headers),
                     body = body,
                 ),
             )

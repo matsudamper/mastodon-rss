@@ -4,7 +4,6 @@ import java.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toKotlinDuration
-import io.ktor.http.HttpHeaders
 import net.matsudamper.mastodon.rss.crypto.RsaSignature
 
 /**
@@ -62,14 +61,14 @@ class HttpSignatureVerifier(
         }
 
         val date =
-            request.headers[HttpHeaders.Date]
+            request.headers[DATE_HEADER]
                 ?.let { HttpDate.parse(it) }
-                ?: return HttpSignatureResult.Rejected("Date ヘッダを読めない: ${request.headers[HttpHeaders.Date]}")
+                ?: return HttpSignatureResult.Rejected("Date ヘッダを読めない: ${request.headers[DATE_HEADER]}")
 
         // 署名ごと記録して後から投げ直されるのを防ぐ。時計のずれもここで弾く
         val skew = java.time.Duration.between(date, clock.instant()).abs().toKotlinDuration()
         if (skew > MAX_CLOCK_SKEW) {
-            return HttpSignatureResult.Rejected("Date が現在時刻から離れすぎている: ${request.headers[HttpHeaders.Date]}")
+            return HttpSignatureResult.Rejected("Date が現在時刻から離れすぎている: ${request.headers[DATE_HEADER]}")
         }
 
         if (request.body.isNotEmpty()) {
@@ -128,6 +127,7 @@ class HttpSignatureVerifier(
     private companion object {
         const val SIGNATURE_HEADER = "Signature"
         const val DIGEST_HEADER = "Digest"
+        const val DATE_HEADER = "Date"
 
         /**
          * `hs2019` は新しい draft での呼び名で、RSA 鍵に対しては中身が rsa-sha256 になる。

@@ -1,15 +1,8 @@
 package net.matsudamper.mastodon.rss.actor
 
 import kotlin.time.Duration
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.call
-import io.ktor.server.response.header
-import io.ktor.server.response.respondBytes
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.get
+import net.matsudamper.mastodon.rss.http.EndpointResponse
+import net.matsudamper.mastodon.rss.http.HttpStatusCodes
 
 /**
  * アクターのプロフィール画像。Actor JSON の `icon` が指す先。
@@ -18,34 +11,44 @@ import io.ktor.server.routing.get
  * 渡しておくと、フィードを差し替えてもアイコンの URL は変わらない。
  * 公開画面から見ても同じオリジンなので、配信元の CORS の設定に左右されない。
  */
-fun Route.actorIconRoutes(
-    directory: ActorDirectory,
-    icons: ActorIcons,
+class ActorIconEndpoint(
+    private val directory: ActorDirectory,
+    private val icons: ActorIcons,
 ) {
-    get("/users/{username}/icon") {
-        val requested = call.parameters["username"]
-        val urls = directory.resolve(requested)
-
+    /**
+     * `/users/{username}/icon`
+     *
+     * @param version クエリの `v`。[ActorUrls.icon] が付ける値
+     */
+    suspend fun get(
+        username: String?,
+        version: String?,
+    ): EndpointResponse {
         // 後からアカウントやアイコンが増えれば同じ URL で出るようになる。
         // 見に来た側が 404 を持っていると、出るようになった後も出ない
-        if (urls == null) {
-            call.response.header(HttpHeaders.CacheControl, NO_STORE)
-            call.respondText("アクターが見つからない: $requested", status = HttpStatusCode.NotFound)
-            return@get
-        }
+        val urls = directory.resolve(username)
+            ?: return notFound("アクターが見つからない: $username")
 
         val icon = icons.find(urls.username)
-        if (icon == null) {
-            call.response.header(HttpHeaders.CacheControl, NO_STORE)
-            call.respondText("アイコンが無い: ${urls.username}", status = HttpStatusCode.NotFound)
-            return@get
-        }
+            ?: return notFound("アイコンが無い: ${urls.username}")
 
-        val requestedVersion = call.request.queryParameters[VERSION_PARAMETER]
-        call.response.header(HttpHeaders.CacheControl, icon.cacheControl(requestedVersion))
-        call.response.header(CONTENT_TYPE_OPTIONS_HEADER, CONTENT_TYPE_OPTIONS)
-        call.respondBytes(bytes = icon.bytes, contentType = icon.contentType)
+        return EndpointResponse(
+            status = HttpStatusCodes.OK,
+            contentType = icon.contentType,
+            body = icon.bytes,
+            headers = mapOf(
+                CACHE_CONTROL_HEADER to icon.cacheControl(version),
+                CONTENT_TYPE_OPTIONS_HEADER to CONTENT_TYPE_OPTIONS,
+            ),
+        )
     }
+
+    private fun notFound(text: String): EndpointResponse =
+        EndpointResponse.text(
+            status = HttpStatusCodes.NOT_FOUND,
+            text = text,
+            headers = mapOf(CACHE_CONTROL_HEADER to NO_STORE),
+        )
 }
 
 /**
@@ -72,7 +75,7 @@ interface ActorIcons {
  */
 class ActorIcon(
     val bytes: ByteArray,
-    val contentType: ContentType,
+    val contentType: String,
     val version: String,
     val cacheFor: Duration,
 )
@@ -97,7 +100,7 @@ private fun ActorIcon.cacheControl(requestedVersion: String?): String {
 
 /** 1 年。`immutable` を見ない側でも取り直しに来なくなるだけの長さ */
 private const val IMMUTABLE = "public, max-age=31536000, immutable"
-private const val VERSION_PARAMETER = "v"
+private const val CACHE_CONTROL_HEADER = "Cache-Control"
 private const val NO_STORE = "no-store"
 private const val CONTENT_TYPE_OPTIONS_HEADER = "X-Content-Type-Options"
 private const val CONTENT_TYPE_OPTIONS = "nosniff"

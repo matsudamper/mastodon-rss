@@ -1,9 +1,7 @@
 package net.matsudamper.mastodon.rss.nodeinfo
 
-import io.ktor.server.application.call
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.get
-import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.http.EndpointResponse
+import net.matsudamper.mastodon.rss.http.MediaType
 
 /**
  * NodeInfo (https://nodeinfo.diaspora.software/) のエンドポイント。
@@ -16,9 +14,14 @@ import net.matsudamper.mastodon.rss.json.respondJson
  *   [net.matsudamper.mastodon.rss.actor.ActorUrls] と違いここでは id 等を持たないので、
  *   専用の URL 組み立てクラスは作らずそのまま受け取る
  */
-fun Route.nodeInfoRoutes(domain: String) {
-    get("/.well-known/nodeinfo") {
-        call.respondJson(
+class NodeInfoEndpoint(
+    private val domain: String,
+) {
+    /**
+     * `/.well-known/nodeinfo`
+     */
+    fun discovery(): EndpointResponse =
+        EndpointResponse.json(
             serializer = NodeInfoDiscovery.serializer(),
             value =
             NodeInfoDiscovery(
@@ -30,11 +33,14 @@ fun Route.nodeInfoRoutes(domain: String) {
                     ),
                 ),
             ),
+            contentType = MediaType.Json,
         )
-    }
 
-    get("/nodeinfo/2.1") {
-        call.respondJson(
+    /**
+     * `/nodeinfo/2.1`
+     */
+    fun nodeInfo(): EndpointResponse =
+        EndpointResponse.json(
             serializer = NodeInfo.serializer(),
             value =
             NodeInfo(
@@ -47,6 +53,6 @@ fun Route.nodeInfoRoutes(domain: String) {
                 ),
                 usage = NodeInfoUsage(users = NodeInfoUsers(total = 1)),
             ),
+            contentType = MediaType.Json,
         )
-    }
 }

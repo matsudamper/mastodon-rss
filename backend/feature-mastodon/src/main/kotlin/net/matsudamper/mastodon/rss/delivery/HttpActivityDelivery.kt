@@ -2,38 +2,29 @@ package net.matsudamper.mastodon.rss.delivery
 
 import java.io.Closeable
 import kotlin.coroutines.cancellation.CancellationException
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.request.header
-import io.ktor.client.request.preparePost
-import io.ktor.client.request.setBody
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
-import io.ktor.http.isSuccess
-import io.opentelemetry.api.OpenTelemetry
-import io.opentelemetry.instrumentation.ktor.v3_0.KtorClientTelemetry
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.mastodon.rss.http.ActivityPubHttpClient
+import net.matsudamper.mastodon.rss.http.HttpStatusCodes
+import net.matsudamper.mastodon.rss.http.HttpUrl
 import net.matsudamper.mastodon.rss.httpsignature.HttpSignatureSigner
 
 /**
  * 実際に相手のサーバーへ POST する [ActivityDelivery]。
  *
- * 署名対象のヘッダは自分で組み立てて明示的に載せる。engine に任せて後から
+ * 署名対象のヘッダは自分で組み立てて明示的に載せる。通信の実装に任せて後から
  * 足された値と、署名したときの値が食い違うと、相手側では「署名が一致しない」
  * としか見えず原因が追えなくなる。
  *
  * @param actorKey 署名に使う秘密鍵。いまはアクターが何人いても鍵は 1 本で、
  *   使い捨てアクターも同じ鍵を共有する。アクターごとの鍵になるのは Phase 6
+ * @param client 閉じるのはこのクラスの [close] が受け持つ
  */
 class HttpActivityDelivery(
     private val actorKey: ActorKey,
+    private val client: ActivityPubHttpClient,
     private val signer: HttpSignatureSigner = HttpSignatureSigner(),
-    openTelemetry: OpenTelemetry? = null,
-    private val client: HttpClient = defaultClient(openTelemetry),
 ) : ActivityDelivery,
     Closeable {
     override suspend fun deliver(
@@ -41,7 +32,7 @@ class HttpActivityDelivery(
         sender: ActorUrls,
         body: ByteArray,
     ): DeliveryResult {
-        val url = runCatching { Url(inbox) }.getOrNull()
+        val url = HttpUrl.parse(inbox)
             // 読めない URL は次に読めるようになることが無いので送り直さない
             ?: return DeliveryResult.Failed(reason = "inbox の URL を読めない: $inbox", retryable = false)
 
@@ -57,15 +48,13 @@ class HttpActivityDelivery(
                 body = body,
             )
 
-        // 判断は status だけで足りるので、本文は読まずに捨てる。相手が巨大な本文や
-        // 終わらない本文を返すと、届いた配信までメモリを食った末のタイムアウトで失敗になる
-        val status =
+        val response =
             runCatching {
-                client.preparePost(inbox) {
-                    headers.forEach { (name, value) -> header(name, value) }
-                    header(HttpHeaders.ContentType, ActivityPubContentTypes.ActivityJson.toString())
-                    setBody(body)
-                }.execute { response -> response.status }
+                client.post(
+                    url = inbox,
+                    headers = headers + (CONTENT_TYPE_HEADER to ActivityPubContentTypes.ActivityJson.toString()),
+                    body = body,
+                )
             }.getOrElse { error ->
                 // runCatching は Throwable を拾うので、呼び出し元が消えた合図まで
                 // 配信の失敗に化ける。化けると送れていない記事が投稿済みとして残る
@@ -74,10 +63,10 @@ class HttpActivityDelivery(
                 return DeliveryResult.Failed(reason = "POST に失敗した: $inbox ${error.message}", retryable = true)
             }
 
-        if (!status.isSuccess()) {
+        if (!HttpStatusCodes.isSuccess(response.status)) {
             return DeliveryResult.Failed(
-                reason = "相手が受け取らなかった: $inbox $status",
-                retryable = isRetryable(status),
+                reason = "相手が受け取らなかった: $inbox ${response.status}",
+                retryable = isRetryable(response.status),
             )
         }
 
@@ -89,6 +78,8 @@ class HttpActivityDelivery(
     }
 
     private companion object {
+        const val CONTENT_TYPE_HEADER = "Content-Type"
+
         /**
          * 相手の応答が、送り直せば届きうるものか。
          *
@@ -97,55 +88,40 @@ class HttpActivityDelivery(
          * 501 は実装していないという意味なので送り直さない。
          * Mastodon 自身もこの区切りで捨てているので、こちらも合わせる
          */
-        fun isRetryable(status: HttpStatusCode): Boolean {
-            if (status == HttpStatusCode.NotImplemented) return false
-            if (status.value !in 400..499) return true
+        fun isRetryable(status: Int): Boolean {
+            if (status == HttpStatusCodes.NOT_IMPLEMENTED) return false
+            if (status !in 400..499) return true
 
             return status in RETRYABLE_CLIENT_ERRORS
         }
 
         val RETRYABLE_CLIENT_ERRORS = setOf(
-            HttpStatusCode.Unauthorized,
-            HttpStatusCode.RequestTimeout,
-            HttpStatusCode.TooManyRequests,
+            HttpStatusCodes.UNAUTHORIZED,
+            HttpStatusCodes.REQUEST_TIMEOUT,
+            HttpStatusCodes.TOO_MANY_REQUESTS,
         )
 
-        /** 署名した `(request-target)` と実際に送るリクエストラインを揃える */
-        fun requestTarget(url: Url): String =
-            if (url.encodedQuery.isEmpty()) {
-                url.encodedPath
-            } else {
-                "${url.encodedPath}?${url.encodedQuery}"
-            }
+        /**
+         * 署名した `(request-target)` と実際に送るリクエストラインを揃える。
+         * パスが空なら、リクエストラインに載るのは `/`
+         */
+        fun requestTarget(url: HttpUrl): String {
+            val path = url.rawPath.ifEmpty { "/" }
+            val query = url.rawQuery
+            return if (query.isNullOrEmpty()) path else "$path?$query"
+        }
 
         /**
          * `Host` に載せる値。既定ポート（https の 443）ならポート番号は付けない。
          * 付いていると相手が組み立てる署名文字列と食い違う。
          */
-        fun hostHeader(url: Url): String =
-            if (url.port == url.protocol.defaultPort) {
+        fun hostHeader(url: HttpUrl): String =
+            if (url.port == -1 || url.port == DEFAULT_PORTS[url.scheme]) {
                 url.host
             } else {
                 "${url.host}:${url.port}"
             }
 
-        fun defaultClient(openTelemetry: OpenTelemetry? = null): HttpClient =
-            HttpClient(CIO) {
-                if (openTelemetry != null) {
-                    install(KtorClientTelemetry) {
-                        setOpenTelemetry(openTelemetry)
-                    }
-                }
-                install(HttpTimeout) {
-                    connectTimeoutMillis = 5_000
-                    requestTimeoutMillis = 10_000
-                    socketTimeoutMillis = 10_000
-                }
-                // status を見て判断するので、4xx や 5xx で例外にしない
-                expectSuccess = false
-                // リダイレクトを追わない。追うと署名した Host やパスと違う宛先に
-                // ボディごと POST し直すことになる
-                followRedirects = false
-            }
+        val DEFAULT_PORTS = mapOf("https" to 443, "http" to 80)
     }
 }
