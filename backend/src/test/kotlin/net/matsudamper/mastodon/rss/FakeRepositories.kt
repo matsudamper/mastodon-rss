@@ -221,11 +221,12 @@ class FakeAccountRepository(
     private fun LatestNoteAccount.isLaterThan(position: LatestNoteAccountPosition): Boolean {
         val ownLatestNoteAt = latestNoteAt
         val positionLatestNoteAt = position.latestNoteAt
+        val idIsSmaller = account.id.value < position.id.value
         return when {
-            positionLatestNoteAt == null -> ownLatestNoteAt == null && account.id.value < position.id.value
+            positionLatestNoteAt == null -> ownLatestNoteAt == null && idIsSmaller
             ownLatestNoteAt == null -> true
-            else -> ownLatestNoteAt < positionLatestNoteAt ||
-                (ownLatestNoteAt == positionLatestNoteAt && account.id.value < position.id.value)
+            ownLatestNoteAt == positionLatestNoteAt -> idIsSmaller
+            else -> ownLatestNoteAt < positionLatestNoteAt
         }
     }
 
