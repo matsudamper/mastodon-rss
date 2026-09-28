@@ -1,19 +1,22 @@
 package net.matsudamper.mastodon.rss.actor
 
 import java.io.Closeable
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.withContext
+import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.request.get
 import io.ktor.client.request.header
-import io.ktor.client.statement.bodyAsText
+import io.ktor.client.request.prepareGet
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.request
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.http.isSuccess
+import io.ktor.utils.io.readRemaining
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.context.Context
 import io.opentelemetry.extension.kotlin.asContextElement
@@ -230,10 +233,23 @@ class HttpRemoteActors(
             return documents.get(cacheKey)?.let { DocumentFetch.Found(it) } ?: DocumentFetch.Unavailable
         }
 
+        // 本文は上限まで読んだところで止める。get で受けると本文を全部メモリに載せてから
+        // 返るので、大きさを確かめる前に相手の送った分だけ確保することになる。
+        // 取りに行く先は未検証の keyId で誰でも指定できる
         val response =
             runCatching {
-                client.get(rawUrl) {
+                client.prepareGet(rawUrl) {
                     header(HttpHeaders.Accept, ActivityPubContentTypes.ActivityJson.toString())
+                }.execute { fetched ->
+                    FetchedResponse(
+                        status = fetched.status,
+                        host = fetched.request.url.host,
+                        // 上限を 1 バイト超えて読めたら、上限より大きいと分かる
+                        body =
+                        runCatching { fetched.bodyAsChannel().readRemaining(MAX_BODY_BYTES + 1L).readByteArray() }
+                            // 呼び出し元が止めた合図まで本文の失敗に化けさせない
+                            .onFailure { if (it is CancellationException) throw it },
+                    )
                 }
             }.getOrElse { failure ->
                 RemoteActorSpan.failed(failure)
@@ -244,7 +260,7 @@ class HttpRemoteActors(
         // リダイレクトを追った結果、別のホストに移っていたら信用しない。
         // status を見る前に確かめるのは、消えたかどうかを答えてよいのは
         // そのアクターのホストだけだから
-        val fetchedFrom = response.request.url.host
+        val fetchedFrom = response.host
         if (!fetchedFrom.equals(requestUrl.host, ignoreCase = true)) {
             RemoteActorSpan.outcome("redirected_to_other_host")
             return DocumentFetch.Unavailable
@@ -268,18 +284,20 @@ class HttpRemoteActors(
         // 本文は status を見た後で読む。先に読むと、410 の本文が読めなかっただけで
         // 消えたことを判断できなくなる。読めなかった理由は例外として span に残す
         val body =
-            runCatching { response.bodyAsText() }.getOrElse { failure ->
+            response.body.getOrElse { failure ->
                 RemoteActorSpan.failed(failure)
                 RemoteActorSpan.outcome("request_failed")
                 return DocumentFetch.Unavailable
             }
-        if (body.length > MAX_BODY_CHARS) {
+        if (body.size > MAX_BODY_BYTES) {
             RemoteActorSpan.outcome("body_too_large")
             return DocumentFetch.Unavailable
         }
 
         val document =
-            runCatching { AppJson.decodeFromString(RemoteActorDocument.serializer(), body) }.getOrNull()
+            runCatching {
+                AppJson.decodeFromString(RemoteActorDocument.serializer(), body.toString(Charsets.UTF_8))
+            }.getOrNull()
         if (document == null) {
             RemoteActorSpan.outcome("undecodable_document")
             return DocumentFetch.Unavailable
@@ -317,6 +335,18 @@ class HttpRemoteActors(
     }
 
     /**
+     * 取りに行った応答のうち、判断に使う部分。
+     *
+     * @param host リダイレクトを追った後のホスト
+     * @param body 本文。読めなかったときは失敗として持つ。status は本文が読めなくても使う
+     */
+    private class FetchedResponse(
+        val status: HttpStatusCode,
+        val host: String,
+        val body: Result<ByteArray>,
+    )
+
+    /**
      * [fetch] の結果。取れなかった理由のうち「もう無い」だけは区別する
      */
     private sealed interface DocumentFetch {
@@ -347,7 +377,7 @@ class HttpRemoteActors(
          * 読み込む応答の上限。アクター文書は鍵を含めても数 KB にしかならない。
          * 相手のサーバーが延々と送り続けてくる場合は、これと下のタイムアウトで止める。
          */
-        const val MAX_BODY_CHARS = 64 * 1024
+        const val MAX_BODY_BYTES = 64 * 1024
 
         /**
          * キャッシュの有効期間。
