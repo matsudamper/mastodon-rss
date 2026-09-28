@@ -1,7 +1,8 @@
 package net.matsudamper.mastodon.rss.graphql
 
-import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.actor.ActorPublisher
+import net.matsudamper.activitypub.actor.ActorDirectory
+import net.matsudamper.activitypub.actor.ActorPublisher
+import net.matsudamper.activitypub.note.NoteStore
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewImageUrls
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewService
@@ -14,7 +15,6 @@ import net.matsudamper.mastodon.rss.logic.DomainBlockService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.NoteReader
-import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.remoteactor.RemoteActorIconUrls
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository

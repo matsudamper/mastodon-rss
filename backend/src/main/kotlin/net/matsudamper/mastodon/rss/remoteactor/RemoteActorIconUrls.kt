@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.remoteactor
 
 import io.ktor.http.encodeURLParameter
-import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.activitypub.actor.ActorUrls
 
 /**
  * フォロワーのアイコンを中継する URL。

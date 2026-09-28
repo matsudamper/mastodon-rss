@@ -8,8 +8,11 @@ import io.ktor.server.request.uri
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import io.ktor.utils.io.readRemaining
-import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.activitypub.actor.ActorDirectory
+import net.matsudamper.activitypub.actor.ActorUrls
+import net.matsudamper.activitypub.inbox.InboxEndpoint
+import net.matsudamper.activitypub.inbox.InboxService
+import net.matsudamper.activitypub.inbox.IncomingInboxRequest
 import net.matsudamper.mastodon.rss.http.KtorRequestHeaders
 import net.matsudamper.mastodon.rss.http.respondEndpoint
 

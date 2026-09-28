@@ -4,9 +4,9 @@ import java.time.Instant
 import java.util.Base64
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import net.matsudamper.mastodon.rss.entity.PublicNoteId
-import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.note.NotePosition
+import net.matsudamper.activitypub.entity.PublicNoteId
+import net.matsudamper.activitypub.json.AppJson
+import net.matsudamper.activitypub.note.NotePosition
 
 /**
  * 配信した投稿の一覧の続きを指す印。

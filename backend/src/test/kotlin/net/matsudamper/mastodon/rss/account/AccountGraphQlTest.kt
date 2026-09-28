@@ -22,11 +22,11 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import net.matsudamper.activitypub.actor.ActorUrls
+import net.matsudamper.activitypub.json.AppJson
 import net.matsudamper.mastodon.rss.FakeFollowerRepository
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
-import net.matsudamper.mastodon.rss.actor.ActorUrls
-import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.repository.FeedHeader
 import net.matsudamper.mastodon.rss.repository.IncomingFollow

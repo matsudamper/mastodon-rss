@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss.webpage
 
-import net.matsudamper.mastodon.rss.entity.PublicNoteId
+import net.matsudamper.activitypub.entity.PublicNoteId
+import net.matsudamper.activitypub.url.WebPageUrls
 import net.matsudamper.mastodon.rss.shared.WebPagePath
-import net.matsudamper.mastodon.rss.url.WebPageUrls
 
 /**
  * 画面の URL。パスは画面側と同じ [WebPagePath]、ホスト名は `DOMAIN`。

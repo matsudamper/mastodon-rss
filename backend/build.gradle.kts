@@ -11,7 +11,7 @@ dependencies {
     // ActivityPub（WebFinger / Actor / inbox / NodeInfo）の実装。
     // HTTP の実装には依存しないので、Ktor のルーティングと ActivityPubHttpClient の
     // Ktor 実装はこちらで持つ
-    implementation(project(":backend:feature-mastodon"))
+    implementation(libs.kotpub.activitypub)
 
     // 管理画面のパスワードの照合
     implementation(project(":backend:crypto"))
@@ -53,7 +53,7 @@ dependencies {
 
     // 相手のアクターと送信先のフェイク。ActivityPub の組み立てを差し替えるものなので、
     // 実装と同じモジュールが出す
-    testImplementation(testFixtures(project(":backend:feature-mastodon")))
+    testImplementation(testFixtures(libs.kotpub.activitypub))
 }
 
 application {

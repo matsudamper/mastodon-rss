@@ -3,7 +3,7 @@ package net.matsudamper.mastodon.rss.graphql.data
 import java.util.Base64
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.activitypub.json.AppJson
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 
 /**

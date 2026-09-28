@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss.logic
 
-import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
-import net.matsudamper.mastodon.rss.favourite.FavouriteStore
-import net.matsudamper.mastodon.rss.favourite.FavouriteStore.ReceivedFavourite
+import net.matsudamper.activitypub.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.activitypub.favourite.FavouriteStore
+import net.matsudamper.activitypub.favourite.FavouriteStore.ReceivedFavourite
 import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository
 import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository.NewNoteFavourite
 import net.matsudamper.mastodon.rss.shared.PublicNoteId

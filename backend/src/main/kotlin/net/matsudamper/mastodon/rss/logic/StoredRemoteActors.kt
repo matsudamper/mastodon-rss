@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
-import net.matsudamper.mastodon.rss.actor.RemoteActor
-import net.matsudamper.mastodon.rss.actor.RemoteActorProfile
+import net.matsudamper.activitypub.actor.RemoteActor
+import net.matsudamper.activitypub.actor.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.RemoteActorProfile as StoredRemoteActorProfile
 

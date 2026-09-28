@@ -4,8 +4,8 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import net.matsudamper.mastodon.rss.entity.PublicNoteId
-import net.matsudamper.mastodon.rss.note.NotePosition
+import net.matsudamper.activitypub.entity.PublicNoteId
+import net.matsudamper.activitypub.note.NotePosition
 
 class NotesCursorTest {
     private val position = NotePosition(
