@@ -14,12 +14,13 @@ import io.ktor.http.contentType
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import net.matsudamper.mastodon.rss.TestActorKey
-import net.matsudamper.mastodon.rss.TestLocalActor
-import net.matsudamper.mastodon.rss.TestWebPageUrls
-import net.matsudamper.mastodon.rss.activitypub.Actor
-import net.matsudamper.mastodon.rss.json.AppJson
-import net.matsudamper.mastodon.rss.url.WebPageUrls
+import net.matsudamper.activitypub.TestActorKey
+import net.matsudamper.activitypub.TestLocalActor
+import net.matsudamper.activitypub.TestWebPageUrls
+import net.matsudamper.activitypub.activitypub.Actor
+import net.matsudamper.activitypub.actor.ActorUrls
+import net.matsudamper.activitypub.json.AppJson
+import net.matsudamper.activitypub.url.WebPageUrls
 
 // アカウント発見の 2 ホップ目。Mastodon はここの JSON からプロフィールと公開鍵を作る。
 class ActorRoutesTest {

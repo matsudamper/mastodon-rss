@@ -59,8 +59,42 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
+// pluginManagement の中の credential とは別物。pluginManagement ブロックは settings の他の部分より先に
+// 単独で評価されるため、同じ関数を共有できない
+fun gitHubPackagesCredential(
+    property: String,
+    environment: String,
+): String {
+    val value =
+        providers
+            .gradleProperty(property)
+            .orElse(providers.environmentVariable(environment))
+            .orNull
+
+    return requireNotNull(value) {
+        "GitHub Packages の資格情報が無い。~/.gradle/gradle.properties に $property を書くか、" +
+            "環境変数 $environment を渡すこと"
+    }
+}
+
 dependencyResolutionManagement {
     repositories {
+        // ActivityPub の実装は matsudamper/kotpub から取る
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = "KotpubGitHubPackages"
+                    url = uri("https://maven.pkg.github.com/matsudamper/kotpub")
+                    credentials {
+                        username = gitHubPackagesCredential("gpr.user", "GITHUB_ACTOR")
+                        password = gitHubPackagesCredential("gpr.key", "GITHUB_TOKEN")
+                    }
+                }
+            }
+            filter {
+                includeGroup("net.matsudamper.kotpub")
+            }
+        }
         mavenCentral()
         google()
     }
@@ -68,7 +102,6 @@ dependencyResolutionManagement {
 
 include(":backend")
 include(":backend:crypto")
-include(":backend:feature-mastodon")
 include(":backend:graphql")
 include(":backend:repository")
 include(":backend:rss")

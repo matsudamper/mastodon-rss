@@ -19,10 +19,12 @@ import io.opentelemetry.api.trace.TraceId
 import io.opentelemetry.api.trace.TraceState
 import io.opentelemetry.context.Context
 import io.opentelemetry.extension.kotlin.asContextElement
-import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.activitypub.actor.ActorDirectory
+import net.matsudamper.activitypub.actor.ActorUrls
+import net.matsudamper.activitypub.delivery.ActivityDelivery
+import net.matsudamper.activitypub.delivery.DeliveryResult
+import net.matsudamper.activitypub.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.logic.DomainBlockService
-import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
 import net.matsudamper.mastodon.rss.repository.DeliveryKind

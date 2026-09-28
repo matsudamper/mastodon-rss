@@ -8,9 +8,9 @@ import io.ktor.server.request.receiveText
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
+import net.matsudamper.activitypub.json.AppJson
 import net.matsudamper.mastodon.rss.graphql.data.GraphQlBadRequest
 import net.matsudamper.mastodon.rss.graphql.data.GraphQlRequest
-import net.matsudamper.mastodon.rss.json.AppJson
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.shared.GRAPHQL_PATH
 

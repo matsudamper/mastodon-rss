@@ -6,14 +6,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.future.future
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
+import net.matsudamper.activitypub.note.NoteUrls
+import net.matsudamper.activitypub.note.StoredNote
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AccountNoteResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNote
 import net.matsudamper.mastodon.rss.graphql.model.QlLinkPreview
 import net.matsudamper.mastodon.rss.graphql.model.QlNoteStamp
-import net.matsudamper.mastodon.rss.note.NoteUrls
-import net.matsudamper.mastodon.rss.note.StoredNote
 import net.matsudamper.mastodon.rss.telemetry.withOpenTelemetryContext
 
 class AccountNoteResolverImpl : AccountNoteResolver {

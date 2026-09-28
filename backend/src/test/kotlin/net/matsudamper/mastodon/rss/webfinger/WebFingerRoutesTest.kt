@@ -10,8 +10,9 @@ import io.ktor.http.contentType
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import net.matsudamper.mastodon.rss.TestLocalActor
-import net.matsudamper.mastodon.rss.json.AppJson
+import net.matsudamper.activitypub.TestLocalActor
+import net.matsudamper.activitypub.json.AppJson
+import net.matsudamper.activitypub.webfinger.WebFingerResponse
 
 // アカウント発見の 1 ホップ目。ここが 404 だと Mastodon の検索に何も出ない。
 class WebFingerRoutesTest {

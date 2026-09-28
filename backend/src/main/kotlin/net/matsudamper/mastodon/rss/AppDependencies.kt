@@ -12,32 +12,36 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import io.opentelemetry.api.OpenTelemetry
-import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.actor.ActorHeaders
-import net.matsudamper.mastodon.rss.actor.ActorIcons
-import net.matsudamper.mastodon.rss.actor.ActorKey
-import net.matsudamper.mastodon.rss.actor.ActorKeyLoader
-import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
-import net.matsudamper.mastodon.rss.actor.ActorPublisher
-import net.matsudamper.mastodon.rss.actor.HttpRemoteActors
-import net.matsudamper.mastodon.rss.actor.RemoteActors
-import net.matsudamper.mastodon.rss.actor.StoredActorNames
-import net.matsudamper.mastodon.rss.actor.StoredActorProfiles
-import net.matsudamper.mastodon.rss.actor.StoredFeedLinks
+import net.matsudamper.activitypub.actor.ActorDirectory
+import net.matsudamper.activitypub.actor.ActorHeaders
+import net.matsudamper.activitypub.actor.ActorIcons
+import net.matsudamper.activitypub.actor.ActorKey
+import net.matsudamper.activitypub.actor.ActorKeyLoader
+import net.matsudamper.activitypub.actor.ActorPrivateKey
+import net.matsudamper.activitypub.actor.ActorPublisher
+import net.matsudamper.activitypub.actor.HttpRemoteActors
+import net.matsudamper.activitypub.actor.RemoteActors
+import net.matsudamper.activitypub.actor.StoredActorNames
+import net.matsudamper.activitypub.actor.StoredActorProfiles
+import net.matsudamper.activitypub.actor.StoredFeedLinks
+import net.matsudamper.activitypub.delivery.ActivityDelivery
+import net.matsudamper.activitypub.delivery.HttpActivityDelivery
+import net.matsudamper.activitypub.favourite.FavouriteStore
+import net.matsudamper.activitypub.follower.FollowerStore
+import net.matsudamper.activitypub.inbox.InboxDomainBlocks
+import net.matsudamper.activitypub.inbox.InboxService
+import net.matsudamper.activitypub.note.FollowBackfillPublisher
+import net.matsudamper.activitypub.note.NotePublisher
+import net.matsudamper.activitypub.note.NoteStore
+import net.matsudamper.activitypub.url.WebPageUrls
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
-import net.matsudamper.mastodon.rss.delivery.ActivityDelivery
 import net.matsudamper.mastodon.rss.delivery.DeliveryCircuitBreaker
 import net.matsudamper.mastodon.rss.delivery.DeliveryRetryPolicy
 import net.matsudamper.mastodon.rss.delivery.DeliveryWorker
-import net.matsudamper.mastodon.rss.delivery.HttpActivityDelivery
-import net.matsudamper.mastodon.rss.favourite.FavouriteStore
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
-import net.matsudamper.mastodon.rss.follower.FollowerStore
 import net.matsudamper.mastodon.rss.http.KtorActivityPubHttpClient
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
-import net.matsudamper.mastodon.rss.inbox.InboxDomainBlocks
-import net.matsudamper.mastodon.rss.inbox.InboxService
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewImageService
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewService
 import net.matsudamper.mastodon.rss.logic.AccountIconFiles
@@ -59,16 +63,12 @@ import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
 import net.matsudamper.mastodon.rss.logic.RepositoryStampStore
-import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
-import net.matsudamper.mastodon.rss.note.NotePublisher
-import net.matsudamper.mastodon.rss.note.NoteStore
 import net.matsudamper.mastodon.rss.remoteactor.RemoteActorIconService
 import net.matsudamper.mastodon.rss.repository.DatabaseConfig
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.createRepositories
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
-import net.matsudamper.mastodon.rss.url.WebPageUrls
 import net.matsudamper.mastodon.rss.webpage.DomainWebPageUrls
 
 /**
@@ -88,7 +88,7 @@ import net.matsudamper.mastodon.rss.webpage.DomainWebPageUrls
  *   相手のサーバーに GET しに行く
  * @param delivery こちらから相手の inbox に POST する口
  * @param webPageUrlsOverride 相手に渡す、人が開くページの URL。ActivityPub の `url` に入る。
- *   画面のパスは `:frontend` の都合なので、`:backend:feature-mastodon` には持たせず
+ *   画面のパスは `:frontend` の都合なので、kotpub の `activitypub` には持たせず
  *   ここから渡す。渡さなければ [staticFiles] があるときだけ組み立てる。
  *   [webPageUrls] と名前を分けるのは、同じ名前だとクラス本体の初期化式が
  *   プロパティではなく引数（既定は null）を見てしまい、配信する `Create` にだけ

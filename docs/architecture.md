@@ -13,10 +13,10 @@
 使うものを作って配り（`AppDependencies`）、ルーティングに並べ（`Application.module`）、
 静的ファイルを配信する。相手のサーバーとどう話すかも、どこに保存するかも持たない。
 
-`:backend:feature-mastodon` は ActivityPub の実装をまとめたモジュール。
+ActivityPub の実装は別リポジトリ [matsudamper/kotpub](https://github.com/matsudamper/kotpub) の
+`activitypub`（`net.matsudamper.kotpub:activitypub`）に切り出してあり、GitHub Packages から取る。
 WebFinger・Actor・inbox・NodeInfo の応答、HTTP Signature の署名と検証、
-相手のアクター文書の取得、`Accept` の送信までが入る。後から単体のライブラリとして
-切り出せるようにしてあるので、次を守る。
+相手のアクター文書の取得、`Accept` の送信までが入る。単体のライブラリなので、次を守る。
 
 - このアプリ固有のものを入れない。`ServerEnv` も `Repositories` も参照しない。
   設定は引数で受け取る（アクターの鍵の在り処は `ActorPrivateKey`、
@@ -24,7 +24,8 @@ WebFinger・Actor・inbox・NodeInfo の応答、HTTP Signature の署名と検�
 - HTTP の実装（Ktor など）に依存しない。エンドポイントは `EndpointResponse` を返し、
   外向きの通信は `ActivityPubHttpClient` を受け取る。Ktor のルーティングと
   `ActivityPubHttpClient` の Ktor 実装は `:backend` が持つ
-- 依存は kotlinx.serialization・kotlinx.coroutines・OpenTelemetry API・SLF4J・`:backend:crypto` まで。
+- 依存は kotlinx.serialization・kotlinx.coroutines・OpenTelemetry API・SLF4J まで。
+  RSA 鍵と署名（`RsaKeys` / `RsaSignature`）もライブラリ側に持つ。
   SQLite も jOOQ も入らない。相手のアクター文書のキャッシュを
   `:backend:repository` の `ExpiringCache` から、モジュール内の `internal` な
   実装に移したのはこのため
@@ -36,8 +37,8 @@ sqlite-jdbc と jOOQ も `implementation` で入れているため、JDBC と jO
 `:backend` の compile classpath にも現れない。jOOQ の生成コードも
 `:backend:repository` の中で閉じていて、外には出さない。
 
-`:backend:crypto` は `:backend:feature-mastodon` がアクターの鍵を読み、HTTP Signatures の
-署名と検証をするために使っている。別モジュールに切り出してあるのは、
+`:backend:crypto` は管理画面のパスワードのハッシュ（`PasswordHash`）を持つ。
+別モジュールに切り出してあるのは、
 テストを native バイナリとして実行するため。`:backend` のテストは
 `ktor-server-test-host` 経由で ByteBuddy と JNA を引き込み、これらは実行時の
 バイトコード書き換えに依存するので native-image では動かない。JCA の確認を
@@ -86,12 +87,12 @@ Kotlin/Wasm のビルドに混ざる。
 画面を出す `:frontend` と、そのパスを外向きの URL として申告する `:backend` で
 綴りがずれると、リンクだけが 404 になったり、画面はあるのに誰も辿り着けなくなる。
 
-`:backend:feature-mastodon` は `:shared` を見ない。ActivityPub の `url` に入れる
+kotpub の `activitypub` は `:shared` を見ない。ActivityPub の `url` に入れる
 画面の URL は、組み立てを `WebPageUrls` として受け取る。どのパスにどの画面を出すかは
 ActivityPub の都合ではないので、決めるのは渡す側（`:backend` の `DomainWebPageUrls`）。
 
 環境変数を読むのは `:backend` の入口（`ServerEnv`）だけにする。`:backend:repository` や
-`:backend:feature-mastodon` のような下位のモジュールは、値を引数で受け取る。
+kotpub の `activitypub` のような下位のモジュールは、値を引数で受け取る。
 
 ## ビルドスクリプトに手続きを書かない
 
@@ -342,7 +343,7 @@ Cookie の `Secure` は既定で付ける。本番はリバースプロキシで
 
 投稿の場合、誰が何をするかは 3 つのモジュールに分かれる。
 
-- `:backend:feature-mastodon` の `NotePublisher.prepare` は `Create{Note}` を組み立てて
+- kotpub の `activitypub` の `NotePublisher.prepare` は `Create{Note}` を組み立てて
   返すだけ。DB も触らず HTTP も出さない
 - `:backend:repository` の `DeliveryQueueRepository.enqueueNote` が投函の口。投稿の記録
   （`notes`）・記事の投稿済み化（`feed_items`）・投函（`delivery_queue`）を 1 トランザクションで
@@ -352,14 +353,14 @@ Cookie の `Secure` は既定で付ける。本番はリバースプロキシで
   新しく作ると、既に届いている記事が別の投稿としてもう一度並ぶ
 - `:backend` の `NoteEnqueuer` が両方を繋ぐ。管理画面からの告知（GraphQL の resolver）も
   フィードの記事（`FeedService`）も同じ口を通る。記事の id は repository 側の概念なので、
-  `:backend:feature-mastodon` の型には持ち込まない
+  kotpub の `activitypub` の型には持ち込まない
 
 投稿を消すときは `NotePublisher.prepareDelete` が `Delete{Note}` を組み立て、
 `DeliveryQueueRepository.enqueueNoteDeletion` が投稿の記録を消すのと投函を
 1 トランザクションで書く。消した投稿に紐付く未配信の `Create` は外部キーで一緒に消える。
 `Delete` の行は投稿に紐付けない。紐付けると、いま消した投稿と一緒に消えて配られない。
 
-`Accept` も同じ形で、`:backend:feature-mastodon` の `FollowHandler` が組み立てて
+`Accept` も同じ形で、kotpub の `activitypub` の `FollowHandler` が組み立てて
 `FollowerStore.record` に預け、`:backend:repository` の `FollowerRepository.record` が
 フォローの記録と投函を 1 トランザクションで書く。フォローが成立するのは `Accept` を
 送れたときなので、状態を `accepted` にするのは `markDelivered` になる。相手に届いて

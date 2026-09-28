@@ -3,9 +3,9 @@ package net.matsudamper.mastodon.rss.linkpreview
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import io.ktor.http.ContentType
-import net.matsudamper.mastodon.rss.entity.PublicNoteId
+import net.matsudamper.activitypub.entity.PublicNoteId
+import net.matsudamper.activitypub.note.NoteStore
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
-import net.matsudamper.mastodon.rss.note.NoteStore
 
 /**
  * リンク先の OGP 画像を、見に来たときに取得元から取って返す。

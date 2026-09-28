@@ -3,7 +3,7 @@ package net.matsudamper.mastodon.rss.graphql.resolver
 import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
-import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.activitypub.actor.ActorUrls
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AccountResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount

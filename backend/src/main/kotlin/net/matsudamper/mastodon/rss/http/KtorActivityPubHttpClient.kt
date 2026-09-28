@@ -14,6 +14,9 @@ import io.ktor.client.statement.request
 import io.ktor.utils.io.readRemaining
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorClientTelemetry
+import net.matsudamper.activitypub.http.ActivityPubClientResponse
+import net.matsudamper.activitypub.http.ActivityPubHttpClient
+import net.matsudamper.activitypub.http.ActivityPubPostResponse
 
 /**
  * Ktor の CIO で相手のサーバーと話す [ActivityPubHttpClient]。
