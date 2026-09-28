@@ -702,8 +702,7 @@ class AccountGraphQlTest {
                 if (cursor != null) {
                     append(""""cursor":${JsonPrimitive(cursor)},""")
                 }
-                append(""""limit":${JsonPrimitive(limit)},""")
-                append(""""order":${JsonPrimitive(order)}""")
+                append(""""limit":${JsonPrimitive(limit)}""")
                 append("}")
             }
 
@@ -729,8 +728,7 @@ class AccountGraphQlTest {
                 if (cursor != null) {
                     append(""""cursor":${JsonPrimitive(cursor)},""")
                 }
-                append(""""limit":${JsonPrimitive(limit)},""")
-                append(""""order":${JsonPrimitive(order)}""")
+                append(""""limit":${JsonPrimitive(limit)}""")
                 append("}")
             }
 
@@ -755,8 +753,7 @@ class AccountGraphQlTest {
                 if (cursor != null) {
                     append(""""cursor":${JsonPrimitive(cursor)},""")
                 }
-                append(""""limit":${JsonPrimitive(limit)},""")
-                append(""""order":${JsonPrimitive(order)}""")
+                append(""""limit":${JsonPrimitive(limit)}""")
                 append("}")
             }
 
