@@ -241,14 +241,22 @@ class HttpRemoteActors(
                 client.prepareGet(rawUrl) {
                     header(HttpHeaders.Accept, ActivityPubContentTypes.ActivityJson.toString())
                 }.execute { fetched ->
+                    val host = fetched.request.url.host
+                    // 下で status とホストだけで捨てる応答は本文を読まない。読むと、相手が本文を
+                    // 少しずつ送り続けるだけでタイムアウトまで待たされる
+                    val usesBody = fetched.status.isSuccess() && host.equals(requestUrl.host, ignoreCase = true)
                     FetchedResponse(
                         status = fetched.status,
-                        host = fetched.request.url.host,
-                        // 上限を 1 バイト超えて読めたら、上限より大きいと分かる
+                        host = host,
                         body =
-                        runCatching { fetched.bodyAsChannel().readRemaining(MAX_BODY_BYTES + 1L).readByteArray() }
-                            // 呼び出し元が止めた合図まで本文の失敗に化けさせない
-                            .onFailure { if (it is CancellationException) throw it },
+                        if (usesBody) {
+                            // 上限を 1 バイト超えて読めたら、上限より大きいと分かる
+                            runCatching { fetched.bodyAsChannel().readRemaining(MAX_BODY_BYTES + 1L).readByteArray() }
+                                // 呼び出し元が止めた合図まで本文の失敗に化けさせない
+                                .onFailure { if (it is CancellationException) throw it }
+                        } else {
+                            null
+                        },
                     )
                 }
             }.getOrElse { failure ->
@@ -284,7 +292,7 @@ class HttpRemoteActors(
         // 本文は status を見た後で読む。先に読むと、410 の本文が読めなかっただけで
         // 消えたことを判断できなくなる。読めなかった理由は例外として span に残す
         val body =
-            response.body.getOrElse { failure ->
+            checkNotNull(response.body) { "成功応答なのに本文を読んでいない: $rawUrl" }.getOrElse { failure ->
                 RemoteActorSpan.failed(failure)
                 RemoteActorSpan.outcome("request_failed")
                 return DocumentFetch.Unavailable
@@ -338,12 +346,13 @@ class HttpRemoteActors(
      * 取りに行った応答のうち、判断に使う部分。
      *
      * @param host リダイレクトを追った後のホスト
-     * @param body 本文。読めなかったときは失敗として持つ。status は本文が読めなくても使う
+     * @param body 本文。読めなかったときは失敗として持つ。status は本文が読めなくても使う。
+     *   成功応答で、取得先と同じホストのときだけ読む。それ以外は null
      */
     private class FetchedResponse(
         val status: HttpStatusCode,
         val host: String,
-        val body: Result<ByteArray>,
+        val body: Result<ByteArray>?,
     )
 
     /**
