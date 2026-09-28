@@ -1,16 +1,18 @@
 package net.matsudamper.mastodon.rss.inbox
 
+import kotlinx.io.readByteArray
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.request.header
 import io.ktor.server.request.httpMethod
-import io.ktor.server.request.receive
+import io.ktor.server.request.receiveChannel
 import io.ktor.server.request.uri
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.RoutingContext
 import io.ktor.server.routing.post
+import io.ktor.utils.io.readRemaining
 import net.matsudamper.mastodon.rss.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.actor.ActorUrls
 import net.matsudamper.mastodon.rss.httpsignature.SignedRequest
@@ -64,8 +66,9 @@ private suspend fun RoutingContext.receive(
         return
     }
 
-    // Digest はバイト列に対して計算されているので、文字列にせずそのまま受ける
-    val requestBodyBytes = call.receive<ByteArray>()
+    // Digest はバイト列に対して計算されているので、文字列にせずそのまま受ける。
+    // Content-Length の無い chunked のボディは上で弾けないので、上限を 1 バイト超えたところで読むのを止める
+    val requestBodyBytes = call.receiveChannel().readRemaining(MAX_BODY_BYTES + 1L).readByteArray()
     if (requestBodyBytes.size > MAX_BODY_BYTES) {
         call.respondText("ボディが大きすぎる", status = HttpStatusCode.PayloadTooLarge)
         return
