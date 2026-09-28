@@ -6,7 +6,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.header
-import io.ktor.client.request.post
+import io.ktor.client.request.preparePost
 import io.ktor.client.request.setBody
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -57,13 +57,15 @@ class HttpActivityDelivery(
                 body = body,
             )
 
-        val response =
+        // 判断は status だけで足りるので、本文は読まずに捨てる。相手が巨大な本文や
+        // 終わらない本文を返すと、届いた配信までメモリを食った末のタイムアウトで失敗になる
+        val status =
             runCatching {
-                client.post(inbox) {
+                client.preparePost(inbox) {
                     headers.forEach { (name, value) -> header(name, value) }
                     header(HttpHeaders.ContentType, ActivityPubContentTypes.ActivityJson.toString())
                     setBody(body)
-                }
+                }.execute { response -> response.status }
             }.getOrElse { error ->
                 // runCatching は Throwable を拾うので、呼び出し元が消えた合図まで
                 // 配信の失敗に化ける。化けると送れていない記事が投稿済みとして残る
@@ -72,10 +74,10 @@ class HttpActivityDelivery(
                 return DeliveryResult.Failed(reason = "POST に失敗した: $inbox ${error.message}", retryable = true)
             }
 
-        if (!response.status.isSuccess()) {
+        if (!status.isSuccess()) {
             return DeliveryResult.Failed(
-                reason = "相手が受け取らなかった: $inbox ${response.status}",
-                retryable = isRetryable(response.status),
+                reason = "相手が受け取らなかった: $inbox $status",
+                retryable = isRetryable(status),
             )
         }
 
