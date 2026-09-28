@@ -19,8 +19,7 @@ import io.ktor.server.response.respondText
  * リフレクションが発生しないので `reflect-config.json` への登録も要らない。
  *
  * @param serializer 値のシリアライザ。`Foo.serializer()` で取れる
- * @param contentType 返す Content-Type。ActivityPub のエンドポイントでは
- *   `application/json` ではなく [net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes] の値を渡す
+ * @param contentType 返す Content-Type
  */
 suspend fun <T> ApplicationCall.respondJson(
     serializer: SerializationStrategy<T>,

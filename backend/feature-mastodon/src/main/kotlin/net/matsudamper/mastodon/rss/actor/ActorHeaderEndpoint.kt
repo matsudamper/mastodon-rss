@@ -1,15 +1,8 @@
 package net.matsudamper.mastodon.rss.actor
 
 import kotlin.time.Duration
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.call
-import io.ktor.server.response.header
-import io.ktor.server.response.respondBytes
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.get
+import net.matsudamper.mastodon.rss.http.EndpointResponse
+import net.matsudamper.mastodon.rss.http.HttpStatusCodes
 
 /**
  * アクターのプロフィールヘッダー。Actor JSON の `image` が指す先。
@@ -17,34 +10,44 @@ import io.ktor.server.routing.get
  * 中身はフィードや配信元ページが名乗っている画像で、こちらが取り直して返す。相手にこの URL を
  * 渡しておくと、名乗っている画像が差し替わってもヘッダーの URL は変わらない。
  */
-fun Route.actorHeaderRoutes(
-    directory: ActorDirectory,
-    headers: ActorHeaders,
+class ActorHeaderEndpoint(
+    private val directory: ActorDirectory,
+    private val headers: ActorHeaders,
 ) {
-    get("/users/{username}/header") {
-        val requested = call.parameters["username"]
-        val urls = directory.resolve(requested)
-
+    /**
+     * `/users/{username}/header`
+     *
+     * @param version クエリの `v`。[ActorUrls.header] が付ける値
+     */
+    suspend fun get(
+        username: String?,
+        version: String?,
+    ): EndpointResponse {
         // 後からアカウントやヘッダーが増えれば同じ URL で出るようになる。
         // 見に来た側が 404 を持っていると、出るようになった後も出ない
-        if (urls == null) {
-            call.response.header(HttpHeaders.CacheControl, NO_STORE)
-            call.respondText("アクターが見つからない: $requested", status = HttpStatusCode.NotFound)
-            return@get
-        }
+        val urls = directory.resolve(username)
+            ?: return notFound("アクターが見つからない: $username")
 
         val header = headers.find(urls.username)
-        if (header == null) {
-            call.response.header(HttpHeaders.CacheControl, NO_STORE)
-            call.respondText("ヘッダーが無い: ${urls.username}", status = HttpStatusCode.NotFound)
-            return@get
-        }
+            ?: return notFound("ヘッダーが無い: ${urls.username}")
 
-        val requestedVersion = call.request.queryParameters[VERSION_PARAMETER]
-        call.response.header(HttpHeaders.CacheControl, header.cacheControl(requestedVersion))
-        call.response.header(CONTENT_TYPE_OPTIONS_HEADER, CONTENT_TYPE_OPTIONS)
-        call.respondBytes(bytes = header.bytes, contentType = header.contentType)
+        return EndpointResponse(
+            status = HttpStatusCodes.OK,
+            contentType = header.contentType,
+            body = header.bytes,
+            headers = mapOf(
+                CACHE_CONTROL_HEADER to header.cacheControl(version),
+                CONTENT_TYPE_OPTIONS_HEADER to CONTENT_TYPE_OPTIONS,
+            ),
+        )
     }
+
+    private fun notFound(text: String): EndpointResponse =
+        EndpointResponse.text(
+            status = HttpStatusCodes.NOT_FOUND,
+            text = text,
+            headers = mapOf(CACHE_CONTROL_HEADER to NO_STORE),
+        )
 }
 
 /**
@@ -71,7 +74,7 @@ interface ActorHeaders {
  */
 class ActorHeader(
     val bytes: ByteArray,
-    val contentType: ContentType,
+    val contentType: String,
     val version: String,
     val cacheFor: Duration,
 )
@@ -96,7 +99,7 @@ private fun ActorHeader.cacheControl(requestedVersion: String?): String {
  * 1 年。`immutable` を見ない側でも取り直しに来なくなるだけの長さ
  */
 private const val IMMUTABLE = "public, max-age=31536000, immutable"
-private const val VERSION_PARAMETER = "v"
+private const val CACHE_CONTROL_HEADER = "Cache-Control"
 private const val NO_STORE = "no-store"
 private const val CONTENT_TYPE_OPTIONS_HEADER = "X-Content-Type-Options"
 private const val CONTENT_TYPE_OPTIONS = "nosniff"

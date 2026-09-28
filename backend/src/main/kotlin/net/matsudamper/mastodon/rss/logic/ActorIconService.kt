@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss.logic
 
 import java.time.Duration
 import kotlin.time.toKotlinDuration
-import io.ktor.http.ContentType
 import net.matsudamper.mastodon.rss.actor.ActorIcon
 import net.matsudamper.mastodon.rss.actor.ActorIcons
 import net.matsudamper.mastodon.rss.actor.ActorUrls
@@ -37,7 +36,7 @@ class ActorIconService(
 
         return ActorIcon(
             bytes = bytes,
-            contentType = ContentType.parse(stored.contentType),
+            contentType = stored.contentType,
             // Actor JSON と GraphQL が URL に付けているのと同じ値。
             // 一致していれば、その URL は今置いてあるものを指している
             version = ActorUrls.iconVersion(source),

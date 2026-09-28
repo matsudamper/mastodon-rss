@@ -2,24 +2,14 @@ package net.matsudamper.mastodon.rss.actor
 
 import java.io.Closeable
 import kotlinx.coroutines.withContext
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.statement.bodyAsText
-import io.ktor.client.statement.request
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.URLProtocol
-import io.ktor.http.Url
-import io.ktor.http.isSuccess
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.context.Context
 import io.opentelemetry.extension.kotlin.asContextElement
-import io.opentelemetry.instrumentation.ktor.v3_0.KtorClientTelemetry
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
 import net.matsudamper.mastodon.rss.crypto.RsaKeys
+import net.matsudamper.mastodon.rss.http.ActivityPubHttpClient
+import net.matsudamper.mastodon.rss.http.HttpStatusCodes
+import net.matsudamper.mastodon.rss.http.HttpUrl
 import net.matsudamper.mastodon.rss.httpsignature.PublicKeyLookup
 import net.matsudamper.mastodon.rss.httpsignature.SignatureKey
 import net.matsudamper.mastodon.rss.json.AppJson
@@ -47,10 +37,13 @@ import net.matsudamper.mastodon.rss.json.AppJson
  *
  * 覚えている鍵が古くなったかどうかは期限では分からないので、期限は鍵と関係なく決める。
  * 古い鍵に気付けるのは署名の検証が失敗したときだけで、そこからの取り直しは [refresh]。
+ *
+ * @param client 閉じるのはこのクラスの [close] が受け持つ
+ * @param openTelemetry 取得ごとの span を記録する先。null なら記録しない
  */
 class HttpRemoteActors(
-    openTelemetry: OpenTelemetry? = null,
-    private val client: HttpClient = defaultClient(openTelemetry),
+    private val client: ActivityPubHttpClient,
+    openTelemetry: OpenTelemetry?,
 ) : RemoteActors,
     Closeable {
     private val tracer = (openTelemetry ?: OpenTelemetry.noop()).getTracer("activitypub-remote-actor")
@@ -93,7 +86,7 @@ class HttpRemoteActors(
      */
     private fun publicKeyOf(
         keyId: String,
-        requestUrl: Url,
+        requestUrl: HttpUrl,
         fetched: DocumentFetch,
     ): PublicKeyLookup {
         val document =
@@ -159,7 +152,7 @@ class HttpRemoteActors(
      */
     private fun isDeliverable(
         raw: String,
-        actorUrl: Url,
+        actorUrl: HttpUrl,
     ): Boolean = parseHttpsUrl(raw) != null && isSameHost(raw, actorUrl)
 
     override fun close() {
@@ -172,7 +165,7 @@ class HttpRemoteActors(
      */
     private suspend fun fetch(
         rawUrl: String,
-        requestUrl: Url,
+        requestUrl: HttpUrl,
         useCache: Boolean,
     ): DocumentFetch {
         val span =
@@ -204,7 +197,7 @@ class HttpRemoteActors(
      */
     private suspend fun fetchDocument(
         rawUrl: String,
-        requestUrl: Url,
+        requestUrl: HttpUrl,
         useCache: Boolean,
     ): DocumentFetch {
         // `keyId` はアクター id にフラグメントを付けたもので、フラグメントはサーバーに
@@ -232,9 +225,15 @@ class HttpRemoteActors(
 
         val response =
             runCatching {
-                client.get(rawUrl) {
-                    header(HttpHeaders.Accept, ActivityPubContentTypes.ActivityJson.toString())
-                }
+                client.get(
+                    url = rawUrl,
+                    headers = mapOf(ACCEPT_HEADER to ActivityPubContentTypes.ActivityJson.toString()),
+                    maxBodyBytes = MAX_BODY_BYTES,
+                    // 下で status とホストだけで捨てる応答は本文を読まない
+                    readsBody = { status, finalUrl ->
+                        HttpStatusCodes.isSuccess(status) && HttpUrl.parse(finalUrl)?.isSameHost(requestUrl) == true
+                    },
+                )
             }.getOrElse { failure ->
                 RemoteActorSpan.failed(failure)
                 RemoteActorSpan.outcome("request_failed")
@@ -244,8 +243,8 @@ class HttpRemoteActors(
         // リダイレクトを追った結果、別のホストに移っていたら信用しない。
         // status を見る前に確かめるのは、消えたかどうかを答えてよいのは
         // そのアクターのホストだけだから
-        val fetchedFrom = response.request.url.host
-        if (!fetchedFrom.equals(requestUrl.host, ignoreCase = true)) {
+        val fetchedFrom = HttpUrl.parse(response.finalUrl)
+        if (fetchedFrom == null || !fetchedFrom.isSameHost(requestUrl)) {
             RemoteActorSpan.outcome("redirected_to_other_host")
             return DocumentFetch.Unavailable
         }
@@ -253,30 +252,34 @@ class HttpRemoteActors(
         // 消えたと見なすのは 410 だけ。Mastodon は削除済みのアカウントにこれを返す。
         // 404 は消したのか置き場所が変わったのかを区別できず、
         // 一時的なルーティングの不調でも返るので、分からないものとして扱う
-        if (response.status == HttpStatusCode.Gone) {
+        if (response.status == HttpStatusCodes.GONE) {
             // 消えた相手の文書を覚えたままにしない。取り直しの間隔の中に来た次の
             // 呼び出しが覚えているものを使い、消えたアクターを生きているものとして扱う
             documents.invalidate(cacheKey)
             RemoteActorSpan.outcome("gone")
             return DocumentFetch.Gone
         }
-        if (!response.status.isSuccess()) {
+        if (!HttpStatusCodes.isSuccess(response.status)) {
             RemoteActorSpan.outcome("unsuccessful_status")
             return DocumentFetch.Unavailable
         }
 
-        val body = runCatching { response.bodyAsText() }.getOrNull()
-        if (body == null) {
-            RemoteActorSpan.outcome("unreadable_body")
-            return DocumentFetch.Unavailable
-        }
-        if (body.length > MAX_BODY_CHARS) {
+        // 本文は status を見た後で読む。読めなかった理由は例外として span に残す
+        val body =
+            checkNotNull(response.body) { "成功応答なのに本文を読んでいない: $rawUrl" }.getOrElse { failure ->
+                RemoteActorSpan.failed(failure)
+                RemoteActorSpan.outcome("request_failed")
+                return DocumentFetch.Unavailable
+            }
+        if (body.size > MAX_BODY_BYTES) {
             RemoteActorSpan.outcome("body_too_large")
             return DocumentFetch.Unavailable
         }
 
         val document =
-            runCatching { AppJson.decodeFromString(RemoteActorDocument.serializer(), body) }.getOrNull()
+            runCatching {
+                AppJson.decodeFromString(RemoteActorDocument.serializer(), body.toString(Charsets.UTF_8))
+            }.getOrNull()
         if (document == null) {
             RemoteActorSpan.outcome("undecodable_document")
             return DocumentFetch.Unavailable
@@ -304,7 +307,7 @@ class HttpRemoteActors(
      * ここを通らない文書でも、呼び出し側は結果として受け取る。そこで落ちるのは
      * 同じ判断で、覚えるかどうかだけをここで決める
      */
-    private fun RemoteActorDocument.hasUsableKey(requestUrl: Url): Boolean {
+    private fun RemoteActorDocument.hasUsableKey(requestUrl: HttpUrl): Boolean {
         val publicKey = publicKey ?: return false
 
         val keyOwnerActorId = publicKey.owner ?: id ?: return false
@@ -326,25 +329,23 @@ class HttpRemoteActors(
         data object Unavailable : DocumentFetch
     }
 
-    private fun parseHttpsUrl(raw: String): Url? =
-        runCatching { Url(raw) }
-            .getOrNull()
-            ?.takeIf { it.protocol == URLProtocol.HTTPS }
+    private fun parseHttpsUrl(raw: String): HttpUrl? = HttpUrl.parseHttps(raw)
 
     private fun isSameHost(
         raw: String,
-        expected: Url,
+        expected: HttpUrl,
     ): Boolean {
-        val host = runCatching { Url(raw) }.getOrNull()?.host ?: return false
-        return host.equals(expected.host, ignoreCase = true)
+        val url = HttpUrl.parse(raw) ?: return false
+        return url.isSameHost(expected)
     }
 
     private companion object {
+        const val ACCEPT_HEADER = "Accept"
+
         /**
          * 読み込む応答の上限。アクター文書は鍵を含めても数 KB にしかならない。
-         * 相手のサーバーが延々と送り続けてくる場合は、これと下のタイムアウトで止める。
          */
-        const val MAX_BODY_CHARS = 64 * 1024
+        const val MAX_BODY_BYTES = 64 * 1024
 
         /**
          * キャッシュの有効期間。
@@ -373,23 +374,5 @@ class HttpRemoteActors(
          * 次に要るときに取り直すだけで、判断は変わらない
          */
         const val MAX_CACHED_ACTORS = 10_000
-
-        fun defaultClient(openTelemetry: OpenTelemetry? = null): HttpClient =
-            HttpClient(CIO) {
-                if (openTelemetry != null) {
-                    install(KtorClientTelemetry) {
-                        setOpenTelemetry(openTelemetry)
-                    }
-                }
-                // 相手のサーバーが応答しないままだと inbox の処理が詰まる。
-                // フォロー 1 件のために長く待つ意味は無いので短く切る
-                install(HttpTimeout) {
-                    connectTimeoutMillis = 5_000
-                    requestTimeoutMillis = 10_000
-                    socketTimeoutMillis = 10_000
-                }
-                // 404 や 500 を例外にせず、こちらで status を見て判断する
-                expectSuccess = false
-            }
     }
 }

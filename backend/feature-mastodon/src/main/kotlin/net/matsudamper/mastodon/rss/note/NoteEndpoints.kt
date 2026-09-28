@@ -1,13 +1,6 @@
 package net.matsudamper.mastodon.rss.note
 
 import java.time.Instant
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.encodeURLParameter
-import io.ktor.server.request.header
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.get
 import net.matsudamper.mastodon.rss.activity.ActivityStreamsIri
 import net.matsudamper.mastodon.rss.activity.CreateNoteActivity
 import net.matsudamper.mastodon.rss.activitypub.ActivityPubContentTypes
@@ -19,7 +12,9 @@ import net.matsudamper.mastodon.rss.collection.OrderedCollection
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionPage
 import net.matsudamper.mastodon.rss.collection.OrderedCollectionWithItems
 import net.matsudamper.mastodon.rss.entity.PublicNoteId
-import net.matsudamper.mastodon.rss.json.respondJson
+import net.matsudamper.mastodon.rss.http.EndpointResponse
+import net.matsudamper.mastodon.rss.http.HttpStatusCodes
+import net.matsudamper.mastodon.rss.http.QueryParameter
 import net.matsudamper.mastodon.rss.url.WebPageUrls
 
 /**
@@ -28,21 +23,22 @@ import net.matsudamper.mastodon.rss.url.WebPageUrls
  * 相手は受け取った `Create` の `object.id` をパーマリンクとして引きに来る。
  * ここが 404 だと、タイムラインには出ていても開けない投稿になる。
  */
-fun Route.noteRoutes(
-    domain: String,
-    notes: NoteStore,
-    webPages: WebPageUrls?,
+class NoteEndpoint(
+    private val domain: String,
+    private val notes: NoteStore,
+    private val webPages: WebPageUrls?,
 ) {
-    get("/notes/{publicId}") {
-        val publicId = call.parameters["publicId"]
+    /**
+     * `/notes/{publicId}`
+     */
+    suspend fun get(
+        publicId: String?,
+        accept: String?,
+    ): EndpointResponse {
         val note = publicId?.let { notes.find(PublicNoteId(it)) }
+            ?: return notFound("投稿が見つからない: $publicId")
 
-        if (note == null) {
-            call.respondText("投稿が見つからない: $publicId", status = HttpStatusCode.NotFound)
-            return@get
-        }
-
-        call.respondJson(
+        return EndpointResponse.json(
             serializer = Note.serializer(),
             value = noteDocument(
                 urls = ActorUrls(domain = domain, username = note.username),
@@ -50,7 +46,7 @@ fun Route.noteRoutes(
                 embedded = false,
                 webPages = webPages,
             ),
-            contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
+            contentType = ActivityPubContentTypes.negotiate(accept),
         )
     }
 }
@@ -62,26 +58,30 @@ fun Route.noteRoutes(
  * `outbox` はアクティビティの記録であって投稿の一覧ではない、というのが
  * ActivityPub の決まり。
  */
-fun Route.outboxRoutes(
-    directory: ActorDirectory,
-    notes: NoteStore,
-    webPages: WebPageUrls?,
+class OutboxEndpoint(
+    private val directory: ActorDirectory,
+    private val notes: NoteStore,
+    private val webPages: WebPageUrls?,
 ) {
-    get("/users/{username}/outbox") {
-        val requested = call.parameters["username"]
-        val urls = directory.resolve(requested)
-        if (urls == null) {
-            call.respondText("アカウントが見つからない: $requested", status = HttpStatusCode.NotFound)
-            return@get
-        }
+    /**
+     * `/users/{username}/outbox`
+     *
+     * @param cursor クエリの `cursor`。付いていなければ null
+     */
+    suspend fun get(
+        username: String?,
+        accept: String?,
+        cursor: String?,
+    ): EndpointResponse {
+        val urls = directory.resolve(username)
+            ?: return notFound("アカウントが見つからない: $username")
 
-        val contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept))
+        val contentType = ActivityPubContentTypes.negotiate(accept)
         val total = notes.count(urls.username)
-        val cursor = call.request.queryParameters[COLLECTION_CURSOR_PARAM]
 
         // パラメータが無ければ集合そのもの。空文字でも付いていれば先頭のページ
         if (cursor == null) {
-            call.respondJson(
+            return EndpointResponse.json(
                 serializer = OrderedCollection.serializer(),
                 value = OrderedCollection(
                     id = urls.outbox,
@@ -90,7 +90,6 @@ fun Route.outboxRoutes(
                 ),
                 contentType = contentType,
             )
-            return@get
         }
 
         val page = notes.list(
@@ -113,7 +112,7 @@ fun Route.outboxRoutes(
                 )
             }
 
-        call.respondJson(
+        return EndpointResponse.json(
             serializer = OrderedCollectionPage.serializer(CreateNoteActivity.serializer()),
             value = OrderedCollectionPage(
                 id = pageUrl(urls, cursor.ifEmpty { null }?.let { decodeCursor(it) }),
@@ -133,28 +132,33 @@ fun Route.outboxRoutes(
  *
  * いまは空を返す。投稿を自動でピン留めしない。載せる処理は将来ここに足す。
  */
-fun Route.featuredRoutes(
-    directory: ActorDirectory,
+class FeaturedEndpoint(
+    private val directory: ActorDirectory,
 ) {
-    get("/users/{username}/collections/featured") {
-        val requested = call.parameters["username"]
-        val urls = directory.resolve(requested)
-        if (urls == null) {
-            call.respondText("アカウントが見つからない: $requested", status = HttpStatusCode.NotFound)
-            return@get
-        }
+    /**
+     * `/users/{username}/collections/featured`
+     */
+    suspend fun get(
+        username: String?,
+        accept: String?,
+    ): EndpointResponse {
+        val urls = directory.resolve(username)
+            ?: return notFound("アカウントが見つからない: $username")
 
-        call.respondJson(
+        return EndpointResponse.json(
             serializer = OrderedCollectionWithItems.serializer(Note.serializer()),
             value = OrderedCollectionWithItems(
                 id = urls.featured,
                 totalItems = 0,
                 orderedItems = emptyList(),
             ),
-            contentType = ActivityPubContentTypes.negotiate(call.request.header(HttpHeaders.Accept)),
+            contentType = ActivityPubContentTypes.negotiate(accept),
         )
     }
 }
+
+private fun notFound(text: String): EndpointResponse =
+    EndpointResponse.text(status = HttpStatusCodes.NOT_FOUND, text = text, headers = mapOf())
 
 /**
  * @param after 直前のページの最後の位置。null なら先頭のページ
@@ -162,7 +166,7 @@ fun Route.featuredRoutes(
 private fun pageUrl(
     urls: ActorUrls,
     after: NotePosition?,
-): String = "${urls.outbox}?$COLLECTION_CURSOR_PARAM=${after?.encodeCursor()?.encodeURLParameter().orEmpty()}"
+): String = "${urls.outbox}?$COLLECTION_CURSOR_PARAM=${after?.let { QueryParameter.encode(it.encodeCursor()) }.orEmpty()}"
 
 /**
  * 相手が辿るだけの値なので、読める形にしておく必要は無い。

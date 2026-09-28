@@ -7,8 +7,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import io.ktor.http.URLProtocol
-import io.ktor.http.Url
+import net.matsudamper.mastodon.rss.http.HttpUrl
 
 /**
  * 相手のアクター文書のうち、こちらが見る部分だけ。
@@ -130,4 +129,4 @@ private fun JsonElement?.firstHttpsUrl(): String? =
         is JsonObject -> this["href"].firstHttpsUrl() ?: this["url"].firstHttpsUrl()
     }
 
-private fun String.isHttpsUrl(): Boolean = runCatching { Url(this) }.getOrNull()?.protocol == URLProtocol.HTTPS
+private fun String.isHttpsUrl(): Boolean = HttpUrl.parseHttps(this) != null
