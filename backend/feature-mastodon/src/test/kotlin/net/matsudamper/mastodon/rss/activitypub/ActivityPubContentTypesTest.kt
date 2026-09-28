@@ -70,4 +70,12 @@ class ActivityPubContentTypesTest {
             ActivityPubContentTypes.negotiate("application/ld+json;q=0"),
         )
     }
+
+    @Test
+    fun `ワイルドカードで許していても具体的にq=0で断った型は選ばない`() {
+        assertEquals(
+            ActivityPubContentTypes.LdJson,
+            ActivityPubContentTypes.negotiate("application/*;q=1, application/activity+json;q=0"),
+        )
+    }
 }

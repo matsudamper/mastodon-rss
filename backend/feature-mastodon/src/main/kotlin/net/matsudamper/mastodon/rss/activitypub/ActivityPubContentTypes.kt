@@ -38,23 +38,50 @@ object ActivityPubContentTypes {
     fun negotiate(acceptHeader: String?): ContentType {
         if (acceptHeader.isNullOrBlank()) return ActivityJson
 
-        // 品質値 (q=) の高い順に並べ替えてから先頭から見る
-        for (item in parseAndSortHeader(acceptHeader)) {
-            // q=0 は「受け付けない」という意味なので候補にしない
-            if (item.quality <= 0.0) continue
-
-            // ld+json は profile パラメータ付きで飛んでくる。
-            // ContentType.match はパラメータまで見るので、残っていても当たるよう落としておく
-            val pattern =
+        // ld+json は profile パラメータ付きで飛んでくる。
+        // ContentType.match はパラメータまで見るので、残っていても当たるよう落としておく
+        val ranges =
+            parseAndSortHeader(acceptHeader).mapNotNull { item ->
                 runCatching { ContentType.parse(item.value) }
                     .getOrNull()
                     ?.withoutParameters()
-                    ?: continue
+                    ?.let { AcceptedRange(pattern = it, quality = item.quality) }
+            }
 
-            val matched = negotiable.firstOrNull { it.match(pattern) }
-            if (matched != null) return matched
-        }
+        // 品質値が同じなら negotiable に先に書いた方を選ぶ。maxByOrNull は最初の最大を返す
+        return negotiable
+            .map { candidate -> candidate to qualityOf(candidate, ranges) }
+            .filter { (_, quality) -> quality > 0.0 }
+            .maxByOrNull { (_, quality) -> quality }
+            ?.first
+            ?: ActivityJson
+    }
 
-        return ActivityJson
+    /**
+     * [candidate] に当たる指定のうち、最も具体的なものの品質値。当たるものが無ければ 0。
+     *
+     * `application/&#42;;q=1, application/activity+json;q=0` のように、ワイルドカードで広く許しつつ
+     * 特定の型だけ断ることができる。ワイルドカードの品質値で決めると、断られた型を返してしまう
+     */
+    private fun qualityOf(
+        candidate: ContentType,
+        ranges: List<AcceptedRange>,
+    ): Double =
+        ranges
+            .filter { candidate.match(it.pattern) }
+            .maxByOrNull { it.specificity }
+            ?.quality
+            ?: 0.0
+
+    private class AcceptedRange(
+        val pattern: ContentType,
+        val quality: Double,
+    ) {
+        val specificity: Int =
+            when {
+                pattern.contentType == "*" -> 0
+                pattern.contentSubtype == "*" -> 1
+                else -> 2
+            }
     }
 }
