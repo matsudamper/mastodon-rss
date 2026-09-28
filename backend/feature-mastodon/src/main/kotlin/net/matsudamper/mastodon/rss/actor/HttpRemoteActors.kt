@@ -230,13 +230,11 @@ class HttpRemoteActors(
             return documents.get(cacheKey)?.let { DocumentFetch.Found(it) } ?: DocumentFetch.Unavailable
         }
 
-        // 本文の読み取りも取得の一部として扱う。読めなかった理由は例外として span に残る
-        val (response, body) =
+        val response =
             runCatching {
-                val fetched = client.get(rawUrl) {
+                client.get(rawUrl) {
                     header(HttpHeaders.Accept, ActivityPubContentTypes.ActivityJson.toString())
                 }
-                fetched to fetched.bodyAsText()
             }.getOrElse { failure ->
                 RemoteActorSpan.failed(failure)
                 RemoteActorSpan.outcome("request_failed")
@@ -267,6 +265,14 @@ class HttpRemoteActors(
             return DocumentFetch.Unavailable
         }
 
+        // 本文は status を見た後で読む。先に読むと、410 の本文が読めなかっただけで
+        // 消えたことを判断できなくなる。読めなかった理由は例外として span に残す
+        val body =
+            runCatching { response.bodyAsText() }.getOrElse { failure ->
+                RemoteActorSpan.failed(failure)
+                RemoteActorSpan.outcome("request_failed")
+                return DocumentFetch.Unavailable
+            }
         if (body.length > MAX_BODY_CHARS) {
             RemoteActorSpan.outcome("body_too_large")
             return DocumentFetch.Unavailable
