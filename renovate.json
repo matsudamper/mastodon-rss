@@ -24,9 +24,12 @@
       ]
     },
     {
-      "description": "actions/ 配下の GitHub Actions を自動マージする",
+      "description": "指定した GitHub Actions を自動マージする",
       "matchManagers": ["github-actions"],
-      "matchPackageNames": ["/^actions\\//"],
+      "matchPackageNames": [
+        "/^actions\\//",
+        "gradle/actions"
+      ],
       "automerge": true
     },
     {
