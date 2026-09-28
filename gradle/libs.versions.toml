@@ -27,6 +27,7 @@ composeRules = "0.6.7"
 opentelemetry = "1.66.0"
 opentelemetryApiIncubator = "1.65.0-alpha"
 opentelemetryInstrumentation = "2.31.1-alpha"
+kotpub = "0.1.0"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
@@ -69,6 +70,7 @@ opentelemetry-jdbc = { module = "io.opentelemetry.instrumentation:opentelemetry-
 opentelemetry-graphql-java = { module = "io.opentelemetry.instrumentation:opentelemetry-graphql-java-20.0", version.ref = "opentelemetryInstrumentation" }
 opentelemetry-runtime-telemetry = { module = "io.opentelemetry.instrumentation:opentelemetry-runtime-telemetry", version.ref = "opentelemetryInstrumentation" }
 opentelemetry-extension-kotlin = { module = "io.opentelemetry:opentelemetry-extension-kotlin", version.ref = "opentelemetry" }
+kotpub-activitypub = { module = "net.matsudamper.kotpub:activitypub", version.ref = "kotpub" }
 compose-rules-detekt = { module = "io.nlopez.compose.rules:detekt", version.ref = "composeRules" }
 
 [plugins]

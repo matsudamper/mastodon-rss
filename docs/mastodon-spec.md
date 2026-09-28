@@ -65,7 +65,7 @@ Actor は `endpoints.sharedInbox` に `/inbox` を出す。相手は同じサー
 どのアカウントへのフォローかを引く。
 
 inbox は署名が通れば 202、通らなければ 401 を返す。検証の内容は
-[HttpSignatureVerifier.kt](../backend/feature-mastodon/src/main/kotlin/net/matsudamper/mastodon/rss/httpsignature/HttpSignatureVerifier.kt)
+[HttpSignatureVerifier.kt](https://github.com/matsudamper/kotpub/blob/main/activitypub/src/main/kotlin/net/matsudamper/activitypub/httpsignature/HttpSignatureVerifier.kt)
 の KDoc にある。
 
 届いたアクティビティのうち処理するのは `Follow` と `Like` と `EmojiReact` と `Undo` と

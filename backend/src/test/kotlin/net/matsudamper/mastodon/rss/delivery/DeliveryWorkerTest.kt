@@ -23,20 +23,22 @@ import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 import io.opentelemetry.sdk.trace.export.SpanExporter
+import net.matsudamper.activitypub.FakeNoteStore
+import net.matsudamper.activitypub.FakeStoredActorNames
+import net.matsudamper.activitypub.TestLocalActor
+import net.matsudamper.activitypub.TestWebPageUrls
+import net.matsudamper.activitypub.actor.ActorDirectory
+import net.matsudamper.activitypub.actor.ActorUrls
+import net.matsudamper.activitypub.delivery.ActivityDelivery
+import net.matsudamper.activitypub.delivery.DeliveryResult
+import net.matsudamper.activitypub.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.activitypub.note.FollowBackfillPublisher
+import net.matsudamper.activitypub.note.StoredNote
 import net.matsudamper.mastodon.rss.FakeDeliveryQueueRepository
 import net.matsudamper.mastodon.rss.FakeDomainBlockRepository
 import net.matsudamper.mastodon.rss.FakeNoteRepository
-import net.matsudamper.mastodon.rss.FakeNoteStore
 import net.matsudamper.mastodon.rss.FakeRepositories
-import net.matsudamper.mastodon.rss.FakeStoredActorNames
-import net.matsudamper.mastodon.rss.TestLocalActor
-import net.matsudamper.mastodon.rss.TestWebPageUrls
-import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.actor.ActorUrls
-import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
 import net.matsudamper.mastodon.rss.logic.DomainBlockService
-import net.matsudamper.mastodon.rss.note.FollowBackfillPublisher
-import net.matsudamper.mastodon.rss.note.StoredNote
 import net.matsudamper.mastodon.rss.repository.ClaimedDelivery
 import net.matsudamper.mastodon.rss.repository.DeliveredOutcome
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository

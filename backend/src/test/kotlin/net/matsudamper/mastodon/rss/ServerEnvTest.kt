@@ -8,7 +8,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import net.matsudamper.mastodon.rss.actor.ActorPrivateKey
+import net.matsudamper.activitypub.actor.ActorPrivateKey
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
 // 環境変数の読み取りを確認する。読むのはここ 1 か所だけなので、

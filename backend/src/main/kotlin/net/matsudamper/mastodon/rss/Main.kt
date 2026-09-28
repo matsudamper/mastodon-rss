@@ -10,7 +10,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
-import net.matsudamper.mastodon.rss.actor.ActorKey
+import net.matsudamper.activitypub.actor.ActorKey
 import net.matsudamper.mastodon.rss.actor.actorHeaderRoutes
 import net.matsudamper.mastodon.rss.actor.actorIconRoutes
 import net.matsudamper.mastodon.rss.actor.actorRoutes

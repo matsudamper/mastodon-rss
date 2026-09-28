@@ -1,11 +1,11 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.actor.ActorUrls
-import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
-import net.matsudamper.mastodon.rss.note.DeletedNote
-import net.matsudamper.mastodon.rss.note.NotePublisher
-import net.matsudamper.mastodon.rss.note.PreparedNote
+import net.matsudamper.activitypub.actor.ActorUrls
+import net.matsudamper.activitypub.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.activitypub.note.DeletedNote
+import net.matsudamper.activitypub.note.NotePublisher
+import net.matsudamper.activitypub.note.PreparedNote
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory
 /**
  * 投稿を組み立てて、記録と配信の投函を 1 回で確定させる。
  *
- * `:backend:feature-mastodon` の [NotePublisher] が `Create{Note}` を組み立て、
+ * kotpub の `activitypub` の [NotePublisher] が `Create{Note}` を組み立て、
  * `:backend:repository` の投函の口が記録・投函・記事の投稿済み化を 1 トランザクションで書く。
  * 両方を知っているのは `:backend` だけなので、繋ぐのはここになる。
  *

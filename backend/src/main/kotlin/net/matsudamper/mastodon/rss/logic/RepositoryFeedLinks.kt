@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
-import net.matsudamper.mastodon.rss.actor.FeedLinks
-import net.matsudamper.mastodon.rss.actor.StoredFeedLinks
+import net.matsudamper.activitypub.actor.FeedLinks
+import net.matsudamper.activitypub.actor.StoredFeedLinks
 import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository

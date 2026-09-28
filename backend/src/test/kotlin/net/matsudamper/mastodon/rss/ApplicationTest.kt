@@ -38,7 +38,7 @@ class ApplicationTest {
                 module(testDependencies(repositories = repositories))
             }
 
-            // 返す中身は :backend:feature-mastodon 側で確かめる。
+            // 返す中身は kotpub の activitypub 側で確かめる。
             // ここで見るのは module() がそれらを組み込んでいることだけ
             assertEquals(
                 HttpStatusCode.OK,

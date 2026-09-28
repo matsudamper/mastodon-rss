@@ -1,10 +1,10 @@
 package net.matsudamper.mastodon.rss.logic
 
-import net.matsudamper.mastodon.rss.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.entity.PublicNoteId as MastodonPublicNoteId
-import net.matsudamper.mastodon.rss.note.NotePosition
-import net.matsudamper.mastodon.rss.note.NoteStore
-import net.matsudamper.mastodon.rss.note.StoredNote
+import net.matsudamper.activitypub.actor.ActorDirectory
+import net.matsudamper.activitypub.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.activitypub.note.NotePosition
+import net.matsudamper.activitypub.note.NoteStore
+import net.matsudamper.activitypub.note.StoredNote
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 
 /**

@@ -1,6 +1,6 @@
 package net.matsudamper.mastodon.rss.graphql.resolver
 
-import net.matsudamper.mastodon.rss.actor.ActorUrls
+import net.matsudamper.activitypub.actor.ActorUrls
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
 import net.matsudamper.mastodon.rss.shared.AccountId
 

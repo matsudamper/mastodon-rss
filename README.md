@@ -19,7 +19,9 @@ Gradle 自体も wrapper が入っているので個別のインストールは�
 
 管理 API のコード生成に使う graphql-java-codegen は
 [matsudamper/graphql-java-codegen](https://github.com/matsudamper/graphql-java-codegen)
-の fork のビルドを GitHub Packages から取る。無いと構成の時点で落ちるので、
+の fork のビルドを、ActivityPub の実装は
+[matsudamper/kotpub](https://github.com/matsudamper/kotpub) の `activitypub` を
+GitHub Packages から取る。無いと構成の時点で落ちるので、
 `~/.gradle/gradle.properties` に置く。
 
 ```properties

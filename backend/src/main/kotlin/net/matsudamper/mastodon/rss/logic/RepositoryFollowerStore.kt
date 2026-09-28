@@ -1,16 +1,16 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
-import net.matsudamper.mastodon.rss.actor.RemoteActor
-import net.matsudamper.mastodon.rss.actor.RemoteActorProfile
-import net.matsudamper.mastodon.rss.follower.FollowerStore
+import net.matsudamper.activitypub.actor.RemoteActor
+import net.matsudamper.activitypub.actor.RemoteActorProfile
+import net.matsudamper.activitypub.follower.FollowerStore
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 
 /**
  * ActivityPub 側の [FollowerStore] を DB に繋ぐ。
  *
- * `:backend:feature-mastodon` が `:backend:repository` を知らないので型を持ち替える
+ * kotpub の `activitypub` が `:backend:repository` を知らないので型を持ち替える
  */
 class RepositoryFollowerStore(
     private val followers: FollowerRepository,
