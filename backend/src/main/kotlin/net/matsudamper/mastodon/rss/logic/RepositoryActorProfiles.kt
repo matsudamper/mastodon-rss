@@ -14,6 +14,13 @@ class RepositoryActorProfiles(
 ) : StoredActorProfiles {
     override fun find(username: String): ActorProfile {
         val account = accounts.findByUsername(username) ?: return ActorProfile.EMPTY
-        return ActorProfile(displayName = account.displayName, summary = account.summary)
+        return ActorProfile(displayName = account.displayName, summary = account.summary ?: DEFAULT_SUMMARY)
+    }
+
+    private companion object {
+        /**
+         * 説明文が未設定のときに出す。画面側のアカウント画面も同じ文言を出している
+         */
+        const val DEFAULT_SUMMARY = "RSS/Atom フィードを ActivityPub で配信するアカウント"
     }
 }

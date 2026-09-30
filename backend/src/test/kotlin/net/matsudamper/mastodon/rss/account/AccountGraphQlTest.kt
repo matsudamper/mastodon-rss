@@ -22,11 +22,11 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import net.matsudamper.activitypub.actor.ActorUrls
 import net.matsudamper.activitypub.json.AppJson
 import net.matsudamper.mastodon.rss.FakeFollowerRepository
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
+import net.matsudamper.mastodon.rss.logic.ActorIconVersion
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.repository.FeedHeader
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
@@ -570,7 +570,7 @@ class AccountGraphQlTest {
             assertEquals(
                 "https://${TestServerEnv.DOMAIN}/remote-actors/icon.bin" +
                     "?actor=https%3A%2F%2Fmastodon.example%2Fusers%2Falice" +
-                    "&v=${ActorUrls.iconVersion("https://files.mastodon.example/alice.png")}",
+                    "&v=${ActorIconVersion.of("https://files.mastodon.example/alice.png")}",
                 follower.string("iconUrl"),
             )
         }

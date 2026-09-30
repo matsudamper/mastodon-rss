@@ -11,19 +11,19 @@ import net.matsudamper.activitypub.actor.ActorHeaders
 import net.matsudamper.activitypub.actor.ActorIconEndpoint
 import net.matsudamper.activitypub.actor.ActorIcons
 import net.matsudamper.activitypub.actor.ActorKey
+import net.matsudamper.activitypub.actor.StoredActorAppearances
 import net.matsudamper.activitypub.actor.StoredActorProfiles
-import net.matsudamper.activitypub.actor.StoredFeedLinks
 import net.matsudamper.activitypub.url.WebPageUrls
 import net.matsudamper.mastodon.rss.http.respondEndpoint
 
 internal fun Route.actorRoutes(
     directory: ActorDirectory,
     actorKey: ActorKey,
-    feedLinks: StoredFeedLinks,
+    appearances: StoredActorAppearances,
     profiles: StoredActorProfiles,
     webPages: WebPageUrls?,
 ) {
-    val endpoint = ActorEndpoint(directory, actorKey, feedLinks, profiles, webPages)
+    val endpoint = ActorEndpoint(directory, actorKey, appearances, profiles, webPages)
     get("/users/{username}") {
         call.respondEndpoint(
             endpoint.get(username = call.parameters["username"], accept = call.request.header(HttpHeaders.Accept)),
