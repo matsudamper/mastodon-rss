@@ -12,7 +12,7 @@ private fun AccountsContentPreview() {
             uiState = AccountsScreenUiState(
                 orderOptions = listOf(
                     AccountsScreenUiState.OrderOption(
-                        label = "追加順",
+                        label = "最新の追加順",
                         selected = true,
                         listener = AndroidPreviewOrderOptionListener,
                     ),

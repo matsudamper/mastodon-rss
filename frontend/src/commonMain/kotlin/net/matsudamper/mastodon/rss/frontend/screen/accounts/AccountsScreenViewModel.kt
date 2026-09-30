@@ -136,7 +136,7 @@ class AccountsScreenViewModel(
         AccountsOrder.entries.map { order ->
             AccountsScreenUiState.OrderOption(
                 label = when (order) {
-                    AccountsOrder.AddedNewest -> "追加順"
+                    AccountsOrder.AddedNewest -> "最新の追加順"
                     AccountsOrder.LatestNote -> "最新の投稿順"
                 },
                 selected = order == selectedOrder,
