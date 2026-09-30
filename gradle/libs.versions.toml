@@ -27,7 +27,7 @@ composeRules = "0.6.7"
 opentelemetry = "1.66.0"
 opentelemetryApiIncubator = "1.65.0-alpha"
 opentelemetryInstrumentation = "2.31.1-alpha"
-kotpub = "1.0.0"
+kotpub = "1.1.0"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }

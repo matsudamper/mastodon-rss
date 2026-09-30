@@ -21,9 +21,9 @@ import net.matsudamper.activitypub.actor.ActorPrivateKey
 import net.matsudamper.activitypub.actor.ActorPublisher
 import net.matsudamper.activitypub.actor.HttpRemoteActors
 import net.matsudamper.activitypub.actor.RemoteActors
+import net.matsudamper.activitypub.actor.StoredActorAppearances
 import net.matsudamper.activitypub.actor.StoredActorNames
 import net.matsudamper.activitypub.actor.StoredActorProfiles
-import net.matsudamper.activitypub.actor.StoredFeedLinks
 import net.matsudamper.activitypub.delivery.ActivityDelivery
 import net.matsudamper.activitypub.delivery.HttpActivityDelivery
 import net.matsudamper.activitypub.favourite.FavouriteStore
@@ -56,10 +56,10 @@ import net.matsudamper.mastodon.rss.logic.FeedIconStore
 import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
+import net.matsudamper.mastodon.rss.logic.RepositoryActorAppearances
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
 import net.matsudamper.mastodon.rss.logic.RepositoryEarlyUndoneLikes
 import net.matsudamper.mastodon.rss.logic.RepositoryFavouriteStore
-import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore
 import net.matsudamper.mastodon.rss.logic.RepositoryStampStore
@@ -168,7 +168,7 @@ class AppDependencies(
         },
     )
 
-    val feedLinks: StoredFeedLinks = RepositoryFeedLinks(
+    val actorAppearances: StoredActorAppearances = RepositoryActorAppearances(
         accounts = repositories.accounts,
         feeds = repositories.feeds,
         headers = repositories.feedHeaders,
@@ -284,7 +284,7 @@ class AppDependencies(
 
     val actorPublisher: ActorPublisher = ActorPublisher(
         actorKey = actorKey,
-        feedLinks = feedLinks,
+        appearances = actorAppearances,
         profiles = actorProfiles,
         webPages = webPageUrls,
     )

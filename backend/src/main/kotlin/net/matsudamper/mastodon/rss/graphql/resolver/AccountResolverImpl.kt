@@ -8,6 +8,7 @@ import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AccountResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlFeed
+import net.matsudamper.mastodon.rss.logic.ActorIconVersion
 
 class AccountResolverImpl : AccountResolver {
     override fun followerCount(
@@ -59,7 +60,7 @@ class AccountResolverImpl : AccountResolver {
                 val iconUrl = if (source == null) {
                     null
                 } else {
-                    "${account.actorUrl}${ActorUrls.ICON_PATH}?v=${ActorUrls.iconVersion(source)}"
+                    "${account.actorUrl}${ActorUrls.ICON_PATH}?v=${ActorIconVersion.of(source)}"
                 }
                 DataFetcherResult.Builder<String?>(iconUrl).build()
             }

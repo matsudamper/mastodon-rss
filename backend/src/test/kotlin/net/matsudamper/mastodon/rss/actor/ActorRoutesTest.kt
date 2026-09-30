@@ -18,7 +18,6 @@ import net.matsudamper.activitypub.TestActorKey
 import net.matsudamper.activitypub.TestLocalActor
 import net.matsudamper.activitypub.TestWebPageUrls
 import net.matsudamper.activitypub.activitypub.Actor
-import net.matsudamper.activitypub.actor.ActorUrls
 import net.matsudamper.activitypub.json.AppJson
 import net.matsudamper.activitypub.url.WebPageUrls
 
@@ -30,7 +29,7 @@ class ActorRoutesTest {
                 actorRoutes(
                     directory = TestLocalActor.directory,
                     actorKey = TestActorKey.value,
-                    feedLinks = TestLocalActor.feedLinks,
+                    appearances = TestLocalActor.appearances,
                     profiles = TestLocalActor.profiles,
                     webPages = webPages,
                 )
@@ -131,37 +130,32 @@ class ActorRoutesTest {
         }
 
     @Test
-    fun `フィードを持つアカウントはサイトとフィードの URL が attachment に並ぶ`() =
+    fun `リンクを持つアカウントは attachment にリンクが並ぶ`() =
         testApplication {
             installModule()
 
             val path = "/users/${TestLocalActor.STORED_USERNAME}"
             val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
 
-            assertEquals(listOf("サイト", "フィード"), actor.attachment.map { it.name })
-            assertEquals(listOf("PropertyValue", "PropertyValue"), actor.attachment.map { it.type })
+            assertEquals(listOf("サイト"), actor.attachment.map { it.name })
+            assertEquals(listOf("PropertyValue"), actor.attachment.map { it.type })
             // 素の URL を入れてもリンクにならない
             assertEquals(
                 """<a href="https://feed1.example.org/" rel="nofollow noopener" target="_blank">https://feed1.example.org/</a>""",
                 actor.attachment[0].htmlContent,
             )
-            assertEquals(
-                """<a href="https://feed1.example.org/rss.xml" rel="nofollow noopener" target="_blank">""" +
-                    """https://feed1.example.org/rss.xml</a>""",
-                actor.attachment[1].htmlContent,
-            )
         }
 
     @Test
-    fun `フィードがアイコンを名乗っていれば icon にこちらの URL が入る`() =
+    fun `アイコンの版があれば icon にこちらの URL が入る`() =
         testApplication {
             installModule()
 
             val path = "/users/${TestLocalActor.STORED_USERNAME}"
             val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
 
-            // 差し替えたときに相手のキャッシュが外れるよう、取得元から決まる値が付く
-            assertEquals("https://example.com$path/icon?v=${ActorUrls.iconVersion(TestLocalActor.FEED_ICON_URL)}", actor.icon?.url)
+            // 差し替えたときに相手のキャッシュが外れるよう、版が付く
+            assertEquals("https://example.com$path/icon?v=${TestLocalActor.ICON_VERSION}", actor.icon?.url)
             assertEquals("Image", actor.icon?.type)
         }
 
@@ -207,7 +201,7 @@ class ActorRoutesTest {
             val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
 
             assertEquals("admin", actor.name)
-            assertEquals("RSS/Atom フィードを ActivityPub で配信するアカウント", actor.summary)
+            assertNull(actor.summary)
         }
 
     @Test
