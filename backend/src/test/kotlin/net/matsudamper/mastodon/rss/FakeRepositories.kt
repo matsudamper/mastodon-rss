@@ -33,6 +33,9 @@ import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
+import net.matsudamper.mastodon.rss.repository.LatestNoteAccount
+import net.matsudamper.mastodon.rss.repository.LatestNoteAccountPosition
+import net.matsudamper.mastodon.rss.repository.LatestNoteAccountsPage
 import net.matsudamper.mastodon.rss.repository.NewFeed
 import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
@@ -87,6 +90,9 @@ class FakeRepositories : Repositories {
             )
         },
         hasDeliveries = { username -> deliveryQueue.hasRows(username) },
+        // 最後に投稿した順は本物では notes を結合して並べる
+        lastNoteId = { notes.lastId() },
+        latestNoteAts = { notesUpToId -> notes.latestPublishedAts(notesUpToId) },
     )
 
     // Follow の記録と Accept の投函が 1 トランザクションで確定するのは本物の
@@ -159,6 +165,8 @@ class FakeAccountRepository(
     private val onDeleted: (accountId: AccountId) -> Unit = {},
     private val onAccountDeletion: (AccountDeletion) -> AccountDeletionCounts = { AccountDeletionCounts(0, 0) },
     private val hasDeliveries: (username: String) -> Boolean = { false },
+    private val lastNoteId: () -> Long = { 0L },
+    private val latestNoteAts: (notesUpToId: Long) -> Map<String, Instant> = { mapOf() },
 ) : AccountRepository {
     private val stored = mutableListOf<Account>()
     private var nextId = 1L
@@ -180,6 +188,46 @@ class FakeAccountRepository(
             sorted.filter { it.createdAt > after.createdAt || (it.createdAt == after.createdAt && it.id.value > after.id.value) }
         }
         return laterThanAfter.take(limit)
+    }
+
+    override fun listNewestAdded(before: AccountPosition?, limit: Int): List<Account> {
+        if (limit <= 0) return listOf()
+        return alive
+            .sortedWith(compareByDescending<Account> { it.createdAt }.thenByDescending { it.id.value })
+            .filter {
+                before == null ||
+                    it.createdAt < before.createdAt ||
+                    (it.createdAt == before.createdAt && it.id.value < before.id.value)
+            }
+            .take(limit)
+    }
+
+    override fun listByLatestNote(after: LatestNoteAccountPosition?, limit: Int): LatestNoteAccountsPage {
+        val notesUpToId = after?.notesUpToId ?: lastNoteId()
+        if (limit <= 0) return LatestNoteAccountsPage(notesUpToId = notesUpToId, accounts = listOf())
+
+        val latestNoteAtByUsername = latestNoteAts(notesUpToId)
+        val sorted = alive
+            .map { LatestNoteAccount(account = it, latestNoteAt = latestNoteAtByUsername[it.username.lowercase()]) }
+            .sortedWith(
+                compareBy<LatestNoteAccount> { it.latestNoteAt == null }
+                    .thenByDescending { it.latestNoteAt }
+                    .thenByDescending { it.account.id.value },
+            )
+        val laterThanAfter = if (after == null) sorted else sorted.filter { it.isLaterThan(after) }
+        return LatestNoteAccountsPage(notesUpToId = notesUpToId, accounts = laterThanAfter.take(limit))
+    }
+
+    private fun LatestNoteAccount.isLaterThan(position: LatestNoteAccountPosition): Boolean {
+        val ownLatestNoteAt = latestNoteAt
+        val positionLatestNoteAt = position.latestNoteAt
+        val idIsSmaller = account.id.value < position.id.value
+        return when {
+            positionLatestNoteAt == null -> ownLatestNoteAt == null && idIsSmaller
+            ownLatestNoteAt == null -> true
+            ownLatestNoteAt == positionLatestNoteAt -> idIsSmaller
+            else -> ownLatestNoteAt < positionLatestNoteAt
+        }
     }
 
     override fun findById(id: AccountId): Account? = alive.firstOrNull { it.id == id }
@@ -407,8 +455,11 @@ class FakeNoteRepository(
     private val onDeleted: (publicId: PublicNoteId) -> Unit = {},
 ) : NoteRepository {
     private val stored = mutableListOf<Note>()
+    private val ids = mutableMapOf<PublicNoteId, Long>()
+    private var nextId = 1L
 
     override fun add(note: NewNote) {
+        ids[note.publicId] = nextId++
         stored += Note(
             publicId = note.publicId,
             username = note.username,
@@ -466,6 +517,16 @@ class FakeNoteRepository(
 
     override fun counts(usernames: Set<String>): Map<String, Long> =
         usernames.associateWith { count(it) }
+
+    fun lastId(): Long = nextId - 1
+
+    /**
+     * id が [notesUpToId] までの投稿で、名前（小文字）ごとの最後の公開日時
+     */
+    fun latestPublishedAts(notesUpToId: Long): Map<String, Instant> = stored
+        .filter { (ids[it.publicId] ?: Long.MAX_VALUE) <= notesUpToId }
+        .groupBy { it.username.lowercase() }
+        .mapValues { (_, notes) -> notes.maxOf { it.publishedAt } }
 
     /**
      * 記録した順に全部返す。一覧は新しい順で、同じ時刻の並びが id 次第になるので、

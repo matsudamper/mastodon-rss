@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.PagingLoadMoreResult
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountApi
+import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsOrder
 import net.matsudamper.mastodon.rss.frontend.logic.account.AccountsResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
@@ -21,7 +22,7 @@ class AccountsScreenViewModel(
     internal val eventHandler = events.asHandler()
     private val viewModelStateFlow: MutableStateFlow<ViewModelState> = MutableStateFlow(ViewModelState())
 
-    private val accountsPaging = api.accounts(limit = PAGE_SIZE)
+    private var accountsPaging = api.accounts(limit = PAGE_SIZE, order = viewModelStateFlow.value.order)
 
     private var accountsJob: Job? = null
     private var loadMoreJob: Job? = null
@@ -29,6 +30,7 @@ class AccountsScreenViewModel(
     val uiStateFlow: StateFlow<AccountsScreenUiState> =
         MutableStateFlow(
             AccountsScreenUiState(
+                orderOptions = listOf(),
                 content = AccountsScreenUiState.Content.Loading,
                 listener =
                 object : AccountsScreenUiState.Listener {
@@ -57,7 +59,10 @@ class AccountsScreenViewModel(
             viewModelScope.launch {
                 viewModelStateFlow.collect { viewModelState ->
                     uiStateFlow.update { uiState ->
-                        uiState.copy(content = createContent(viewModelState))
+                        uiState.copy(
+                            orderOptions = createOrderOptions(viewModelState.order),
+                            content = createContent(viewModelState),
+                        )
                     }
                 }
             }
@@ -68,6 +73,14 @@ class AccountsScreenViewModel(
         if (state.accounts == null && !state.isLoading) {
             reload()
         }
+    }
+
+    private fun changeOrder(order: AccountsOrder) {
+        if (viewModelStateFlow.value.order == order) return
+
+        viewModelStateFlow.update { it.copy(order = order) }
+        accountsPaging = api.accounts(limit = PAGE_SIZE, order = order)
+        reload()
     }
 
     private fun navigate(screen: Screen) {
@@ -81,7 +94,7 @@ class AccountsScreenViewModel(
      */
     private fun reload() {
         loadMoreJob?.cancel()
-        viewModelStateFlow.update { ViewModelState(isLoading = true) }
+        viewModelStateFlow.update { ViewModelState(order = it.order, isLoading = true) }
 
         accountsJob?.cancel()
         accountsJob = viewModelScope.launch {
@@ -119,6 +132,22 @@ class AccountsScreenViewModel(
         }
     }
 
+    private fun createOrderOptions(selectedOrder: AccountsOrder): List<AccountsScreenUiState.OrderOption> =
+        AccountsOrder.entries.map { order ->
+            AccountsScreenUiState.OrderOption(
+                label = when (order) {
+                    AccountsOrder.AddedNewest -> "最新の追加順"
+                    AccountsOrder.LatestNote -> "最新の投稿順"
+                },
+                selected = order == selectedOrder,
+                listener = object : AccountsScreenUiState.OrderOption.Listener {
+                    override fun onClick() {
+                        changeOrder(order)
+                    }
+                },
+            )
+        }
+
     private fun createContent(state: ViewModelState): AccountsScreenUiState.Content {
         if (state.isLoading && state.accounts == null) {
             return AccountsScreenUiState.Content.Loading
@@ -149,6 +178,7 @@ class AccountsScreenViewModel(
     }
 
     private data class ViewModelState(
+        val order: AccountsOrder = AccountsOrder.AddedNewest,
         val isLoading: Boolean = false,
         val loadingMore: Boolean = false,
         val accounts: AccountsResult? = null,

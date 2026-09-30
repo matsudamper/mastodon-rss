@@ -6,8 +6,8 @@ schema {
 type Query {
     admin: AdminQuery!
 
-    "公開アカウントの一覧"
-    accounts(cursor: String, limit: Int!): AccountsConnection! @lazy
+    "公開アカウントの一覧。続きを引くときは 1 ページ目と同じ order を渡す"
+    accounts(cursor: String, limit: Int!, order: AccountsOrder!): AccountsConnection! @lazy
     account(username: String!): Account @lazy
 
     "アカウントが配信した投稿。新しい順"
@@ -25,6 +25,14 @@ type Query {
 
 type Mutation {
     admin: AdminMutation!
+}
+
+enum AccountsOrder {
+    "追加した順。新しいものが先"
+    ADDED_NEWEST
+
+    "最後に投稿した順。新しいものが先。投稿の無いアカウントは後ろ"
+    LATEST_NOTE
 }
 
 type AccountsConnection {

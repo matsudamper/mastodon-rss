@@ -6,6 +6,9 @@ import net.matsudamper.mastodon.rss.repository.AccountDeletion
 import net.matsudamper.mastodon.rss.repository.AccountDeletionResult
 import net.matsudamper.mastodon.rss.repository.AccountPosition
 import net.matsudamper.mastodon.rss.repository.AccountRepository
+import net.matsudamper.mastodon.rss.repository.LatestNoteAccount
+import net.matsudamper.mastodon.rss.repository.LatestNoteAccountPosition
+import net.matsudamper.mastodon.rss.repository.LatestNoteAccountsPage
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.DELIVERY_QUEUE
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.FEEDS
@@ -15,6 +18,7 @@ import net.matsudamper.mastodon.rss.repository.sqlite.db.DeliveryKindDbValue
 import net.matsudamper.mastodon.rss.shared.AccountId
 import org.jooq.Condition
 import org.jooq.DSLContext
+import org.jooq.Field
 import org.jooq.Record
 import org.jooq.impl.DSL
 
@@ -57,6 +61,82 @@ internal class SqliteAccountRepository(
 
         return ACCOUNTS.CREATED_AT.gt(createdAt)
             .or(ACCOUNTS.CREATED_AT.eq(createdAt).and(ACCOUNTS.ID.gt(position.id.value)))
+    }
+
+    override fun listNewestAdded(before: AccountPosition?, limit: Int): List<Account> = jooq.withConnection { dsl ->
+        if (limit <= 0) return@withConnection emptyList()
+
+        dsl
+            .select(ACCOUNT_COLUMNS)
+            .from(ACCOUNTS)
+            .where(ALIVE)
+            .and(before?.let { earlierThan(it) } ?: DSL.noCondition())
+            .orderBy(ACCOUNTS.CREATED_AT.desc(), ACCOUNTS.ID.desc())
+            .limit(limit)
+            .fetch()
+            .map { it.toAccount() }
+    }
+
+    private fun earlierThan(position: AccountPosition): Condition {
+        val createdAt = StoredInstant.format(position.createdAt)
+
+        return ACCOUNTS.CREATED_AT.lt(createdAt)
+            .or(ACCOUNTS.CREATED_AT.eq(createdAt).and(ACCOUNTS.ID.lt(position.id.value)))
+    }
+
+    override fun listByLatestNote(
+        after: LatestNoteAccountPosition?,
+        limit: Int,
+    ): LatestNoteAccountsPage = jooq.withConnection { dsl ->
+        val notesUpToId = after?.notesUpToId
+            ?: dsl.select(DSL.max(NOTES.ID)).from(NOTES).fetchOne()?.value1()
+            ?: 0L
+
+        if (limit <= 0) return@withConnection LatestNoteAccountsPage(notesUpToId = notesUpToId, accounts = emptyList())
+
+        val latestNotes = dsl
+            .select(NOTES.USERNAME, DSL.max(NOTES.PUBLISHED_AT).`as`(LATEST_NOTE_AT_NAME))
+            .from(NOTES)
+            .where(NOTES.ID.le(notesUpToId))
+            .groupBy(NOTES.USERNAME)
+            .asTable(LATEST_NOTES_NAME)
+        val latestNoteAt = latestNotes.field(LATEST_NOTE_AT_NAME, String::class.java)
+            ?: error("$LATEST_NOTE_AT_NAME が無い")
+        val latestNoteUsername = latestNotes.field(NOTES.USERNAME) ?: error("${NOTES.USERNAME.name} が無い")
+
+        val accounts = dsl
+            .select(ACCOUNT_COLUMNS + latestNoteAt)
+            .from(ACCOUNTS)
+            .leftJoin(latestNotes).on(latestNoteUsername.eq(ACCOUNTS.USERNAME))
+            .where(ALIVE)
+            .and(after?.let { laterByLatestNote(latestNoteAt = latestNoteAt, position = it) } ?: DSL.noCondition())
+            .orderBy(latestNoteAt.desc().nullsLast(), ACCOUNTS.ID.desc())
+            .limit(limit)
+            .fetch()
+            .map { record ->
+                LatestNoteAccount(
+                    account = record.toAccount(),
+                    latestNoteAt = record.get(latestNoteAt)?.let { StoredInstant.parse(it) },
+                )
+            }
+
+        LatestNoteAccountsPage(notesUpToId = notesUpToId, accounts = accounts)
+    }
+
+    /**
+     * 投稿の無いアカウントは投稿のあるものより後ろに並ぶ
+     */
+    private fun laterByLatestNote(
+        latestNoteAt: Field<String>,
+        position: LatestNoteAccountPosition,
+    ): Condition {
+        val positionLatestNoteAt = position.latestNoteAt
+            ?: return latestNoteAt.isNull.and(ACCOUNTS.ID.lt(position.id.value))
+        val formatted = StoredInstant.format(positionLatestNoteAt)
+
+        return latestNoteAt.lt(formatted)
+            .or(latestNoteAt.eq(formatted).and(ACCOUNTS.ID.lt(position.id.value)))
+            .or(latestNoteAt.isNull)
     }
 
     override fun findById(id: AccountId): Account? = jooq.withConnection { dsl ->
@@ -254,5 +334,8 @@ internal class SqliteAccountRepository(
          * 消していないアカウントだけを見る条件。消した行は名前を押さえるためだけに残る
          */
         val ALIVE: Condition = ACCOUNTS.DELETED_AT.isNull
+
+        const val LATEST_NOTES_NAME = "latest_notes"
+        const val LATEST_NOTE_AT_NAME = "latest_note_at"
     }
 }

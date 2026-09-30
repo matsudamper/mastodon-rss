@@ -289,6 +289,91 @@ class AccountRepositoryTest {
         }
     }
 
+    @Test
+    fun `追加した順の新しい方から辿れる`() {
+        withRepositories { repositories ->
+            repositories.accounts.add(username = "feed1", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "feed2", createdAt = CREATED_AT.plusSeconds(1))
+            repositories.accounts.add(username = "feed3", createdAt = CREATED_AT.plusSeconds(1))
+
+            val page1 = repositories.accounts.listNewestAdded(before = null, limit = 2)
+            // 同じ時刻なら id の大きい方が先
+            assertEquals(listOf("feed3", "feed2"), page1.map { it.username })
+
+            val page2 = repositories.accounts.listNewestAdded(before = page1.last().position(), limit = 2)
+            assertEquals(listOf("feed1"), page2.map { it.username })
+        }
+    }
+
+    @Test
+    fun `最後に投稿した順で辿れて投稿の無いアカウントは後ろに並ぶ`() {
+        withRepositories { repositories ->
+            repositories.accounts.add(username = "feed1", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "feed2", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "feed3", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "feed4", createdAt = CREATED_AT)
+            repositories.addNote(username = "feed1", publicId = "note-1", publishedAt = CREATED_AT.plusSeconds(10))
+            repositories.addNote(username = "feed1", publicId = "note-2", publishedAt = CREATED_AT.plusSeconds(30))
+            repositories.addNote(username = "feed2", publicId = "note-3", publishedAt = CREATED_AT.plusSeconds(20))
+
+            val page1 = repositories.accounts.listByLatestNote(after = null, limit = 2)
+            assertEquals(listOf("feed1", "feed2"), page1.accounts.map { it.account.username })
+            assertEquals(CREATED_AT.plusSeconds(30), page1.accounts.first().latestNoteAt)
+
+            val page2 = repositories.accounts.listByLatestNote(after = page1.nextPosition(), limit = 2)
+            assertEquals(listOf("feed4", "feed3"), page2.accounts.map { it.account.username })
+            assertEquals(listOf(null, null), page2.accounts.map { it.latestNoteAt })
+
+            val page3 = repositories.accounts.listByLatestNote(after = page2.nextPosition(), limit = 2)
+            assertEquals(listOf(), page3.accounts)
+        }
+    }
+
+    @Test
+    fun `辿っている途中に入った投稿では並びが変わらない`() {
+        withRepositories { repositories ->
+            repositories.accounts.add(username = "feed1", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "feed2", createdAt = CREATED_AT)
+            repositories.accounts.add(username = "feed3", createdAt = CREATED_AT)
+            repositories.addNote(username = "feed1", publicId = "note-1", publishedAt = CREATED_AT.plusSeconds(30))
+            repositories.addNote(username = "feed2", publicId = "note-2", publishedAt = CREATED_AT.plusSeconds(20))
+            repositories.addNote(username = "feed3", publicId = "note-3", publishedAt = CREATED_AT.plusSeconds(10))
+
+            val page1 = repositories.accounts.listByLatestNote(after = null, limit = 1)
+            assertEquals(listOf("feed1"), page1.accounts.map { it.account.username })
+
+            // まだ返していない feed3 が先頭に移っても、続きで飛ばさない
+            repositories.addNote(username = "feed3", publicId = "note-4", publishedAt = CREATED_AT.plusSeconds(40))
+
+            val page2 = repositories.accounts.listByLatestNote(after = page1.nextPosition(), limit = 2)
+            assertEquals(listOf("feed2", "feed3"), page2.accounts.map { it.account.username })
+        }
+    }
+
+    private fun LatestNoteAccountsPage.nextPosition(): LatestNoteAccountPosition {
+        val last = accounts.last()
+        return LatestNoteAccountPosition(
+            notesUpToId = notesUpToId,
+            latestNoteAt = last.latestNoteAt,
+            id = last.account.id,
+        )
+    }
+
+    private fun Repositories.addNote(
+        username: String,
+        publicId: String,
+        publishedAt: Instant,
+    ) {
+        notes.add(
+            NewNote(
+                username = username,
+                publicId = PublicNoteId(publicId),
+                contentHtml = "<p>$publicId</p>",
+                publishedAt = publishedAt,
+            ),
+        )
+    }
+
     /**
      * アカウントを消して `Delete{Actor}` を投函する
      */

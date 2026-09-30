@@ -1,11 +1,24 @@
 package net.matsudamper.mastodon.rss.frontend.screen.accounts
 
+import androidx.compose.runtime.Immutable
 import net.matsudamper.mastodon.rss.frontend.ui.PublicScaffoldListener
 
 data class AccountsScreenUiState(
+    val orderOptions: List<OrderOption>,
     val content: Content,
     val listener: Listener,
 ) {
+    data class OrderOption(
+        val label: String,
+        val selected: Boolean,
+        val listener: OrderOption.Listener,
+    ) {
+        @Immutable
+        interface Listener {
+            fun onClick()
+        }
+    }
+
     sealed interface Content {
         data object Loading : Content
 

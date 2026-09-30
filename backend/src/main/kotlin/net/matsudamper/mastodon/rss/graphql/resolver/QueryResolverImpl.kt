@@ -6,9 +6,9 @@ import java.util.concurrent.CompletionStage
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
-import net.matsudamper.mastodon.rss.graphql.data.AccountsCursor
 import net.matsudamper.mastodon.rss.graphql.data.FollowersCursor
 import net.matsudamper.mastodon.rss.graphql.data.NotesCursor
+import net.matsudamper.mastodon.rss.graphql.data.PublicAccountsCursor
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountFollower
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountFollowersConnection
@@ -17,10 +17,12 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAccountNote
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNotesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountNotesQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlAccountsConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAccountsOrder
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlPageInfo
 import net.matsudamper.mastodon.rss.graphql.model.QlTimelineQuery
 import net.matsudamper.mastodon.rss.graphql.model.QueryResolver
+import net.matsudamper.mastodon.rss.logic.AccountService.ManagedAccount
 import net.matsudamper.mastodon.rss.remoteactor.RemoteActorIconUrls
 import net.matsudamper.mastodon.rss.repository.StoredFollower
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
@@ -33,43 +35,60 @@ class QueryResolverImpl : QueryResolver {
     override fun accounts(
         cursor: String?,
         limit: Int,
+        order: QlAccountsOrder,
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAccountsConnection>> {
-        val after = cursor?.let { AccountsCursor.decode(it) }
+        val decoded = cursor?.let { PublicAccountsCursor.decode(it) }
+        val accountService = GraphQlEngine.diContainer(env).accountService
+        val coercedLimit = limit.coerceIn(0, MAX_ACCOUNTS_LIMIT)
 
-        val connection = if (cursor != null && after == null) {
-            QlAccountsConnection(
-                nodes = emptyList(),
-                pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
-            )
-        } else {
-            val result = GraphQlEngine
-                .diContainer(env)
-                .accountService
-                .accounts(
-                    after = after?.toPosition(),
-                    limit = limit.coerceIn(0, MAX_ACCOUNTS_LIMIT),
-                )
-
-            QlAccountsConnection(
-                nodes = result.accounts.map {
-                    it.urls.toGraphqlResponse(
-                        accountId = it.accountId,
-                        displayName = it.displayName,
-                        summary = it.summary,
+        // 読めないカーソルと、別の並び順で作られたカーソルは続きが無い扱いにする
+        val connection = when (order) {
+            QlAccountsOrder.ADDED_NEWEST -> {
+                val before = decoded?.toAccountPosition()
+                if (cursor != null && before == null) {
+                    EMPTY_ACCOUNTS
+                } else {
+                    val page = accountService.accountsNewestAdded(before = before, limit = coercedLimit)
+                    page.accounts.toConnection(
+                        hasMore = page.hasMore,
+                        nextCursor = page.nextPosition?.let { PublicAccountsCursor.of(it).encode() },
                     )
-                },
-                pageInfo = QlPageInfo(
-                    hasMore = result.hasMore,
-                    nextCursor = result.nextPosition?.let { AccountsCursor.of(it).encode() },
-                ),
-            )
+                }
+            }
+
+            QlAccountsOrder.LATEST_NOTE -> {
+                val after = decoded?.toLatestNoteAccountPosition()
+                if (cursor != null && after == null) {
+                    EMPTY_ACCOUNTS
+                } else {
+                    val page = accountService.accountsByLatestNote(after = after, limit = coercedLimit)
+                    page.accounts.toConnection(
+                        hasMore = page.hasMore,
+                        nextCursor = page.nextPosition?.let { PublicAccountsCursor.of(it).encode() },
+                    )
+                }
+            }
         }
 
         return CompletableFuture.completedFuture(
             DataFetcherResult.Builder(connection).build(),
         )
     }
+
+    private fun List<ManagedAccount>.toConnection(
+        hasMore: Boolean,
+        nextCursor: String?,
+    ): QlAccountsConnection = QlAccountsConnection(
+        nodes = map {
+            it.urls.toGraphqlResponse(
+                accountId = it.accountId,
+                displayName = it.displayName,
+                summary = it.summary,
+            )
+        },
+        pageInfo = QlPageInfo(hasMore = hasMore, nextCursor = nextCursor),
+    )
 
     override fun account(
         username: String,
@@ -216,6 +235,11 @@ class QueryResolverImpl : QueryResolver {
 
     private companion object {
         const val MAX_ACCOUNTS_LIMIT = 100
+
+        val EMPTY_ACCOUNTS = QlAccountsConnection(
+            nodes = emptyList(),
+            pageInfo = QlPageInfo(hasMore = false, nextCursor = null),
+        )
 
         const val MAX_FOLLOWERS_LIMIT = 100
     }
