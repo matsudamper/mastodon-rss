@@ -2,7 +2,6 @@ package net.matsudamper.mastodon.rss.remoteactor
 
 import kotlin.time.Duration
 import io.ktor.http.ContentType
-import net.matsudamper.activitypub.actor.ActorUrls
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
 import net.matsudamper.mastodon.rss.logic.ActorIconVersion
 import net.matsudamper.mastodon.rss.repository.FollowerRepository

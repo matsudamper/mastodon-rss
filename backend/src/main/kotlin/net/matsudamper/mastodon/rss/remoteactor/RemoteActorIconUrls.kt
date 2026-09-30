@@ -1,7 +1,6 @@
 package net.matsudamper.mastodon.rss.remoteactor
 
 import io.ktor.http.encodeURLParameter
-import net.matsudamper.activitypub.actor.ActorUrls
 import net.matsudamper.mastodon.rss.logic.ActorIconVersion
 
 /**

@@ -18,10 +18,8 @@ import net.matsudamper.activitypub.TestActorKey
 import net.matsudamper.activitypub.TestLocalActor
 import net.matsudamper.activitypub.TestWebPageUrls
 import net.matsudamper.activitypub.activitypub.Actor
-import net.matsudamper.activitypub.actor.ActorUrls
 import net.matsudamper.activitypub.json.AppJson
 import net.matsudamper.activitypub.url.WebPageUrls
-import net.matsudamper.mastodon.rss.logic.ActorIconVersion
 
 // アカウント発見の 2 ホップ目。Mastodon はここの JSON からプロフィールと公開鍵を作る。
 class ActorRoutesTest {

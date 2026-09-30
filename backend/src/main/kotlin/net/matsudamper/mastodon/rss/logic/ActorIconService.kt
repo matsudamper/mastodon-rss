@@ -4,7 +4,6 @@ import java.time.Duration
 import kotlin.time.toKotlinDuration
 import net.matsudamper.activitypub.actor.ActorIcon
 import net.matsudamper.activitypub.actor.ActorIcons
-import net.matsudamper.activitypub.actor.ActorUrls
 import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedIconRepository
