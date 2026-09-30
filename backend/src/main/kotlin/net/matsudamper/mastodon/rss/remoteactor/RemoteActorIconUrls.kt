@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.remoteactor
 
 import io.ktor.http.encodeURLParameter
 import net.matsudamper.activitypub.actor.ActorUrls
+import net.matsudamper.mastodon.rss.logic.ActorIconVersion
 
 /**
  * フォロワーのアイコンを中継する URL。
@@ -22,7 +23,7 @@ class RemoteActorIconUrls(
         actorUri: String,
         sourceUrl: String,
     ): String = "https://$domain$PATH?$ACTOR_PARAMETER=${actorUri.encodeURLParameter()}" +
-        "&$VERSION_PARAMETER=${ActorUrls.iconVersion(sourceUrl)}"
+        "&$VERSION_PARAMETER=${ActorIconVersion.of(sourceUrl)}"
 
     companion object {
         /**

@@ -53,7 +53,7 @@ class ActorIconServiceTest {
 
             val icon = assertNotNull(serviceOf(repositories).find(USERNAME))
 
-            assertEquals(ActorUrls.iconVersion(ICON_URL), icon.version)
+            assertEquals(ActorIconVersion.of(ICON_URL), icon.version)
         }
 
     @Test

@@ -39,7 +39,7 @@ class ActorIconService(
             contentType = stored.contentType,
             // Actor JSON と GraphQL が URL に付けているのと同じ値。
             // 一致していれば、その URL は今置いてあるものを指している
-            version = ActorUrls.iconVersion(source),
+            version = ActorIconVersion.of(source),
             // 置いてあるものは期限を過ぎていても出す。取り直すかどうかは
             // 取り込みの側で決めるので、ここで期限を見ると出せるものを出さなくなる。
             // 見に来た側に持たせる時間は、配信元が取得時に言ってきた長さをそのまま渡す

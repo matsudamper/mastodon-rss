@@ -4,6 +4,7 @@ import kotlin.time.Duration
 import io.ktor.http.ContentType
 import net.matsudamper.activitypub.actor.ActorUrls
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
+import net.matsudamper.mastodon.rss.logic.ActorIconVersion
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 
 /**
@@ -26,7 +27,7 @@ class RemoteActorIconService(
      * フォロワーとして記録が無いか、アイコンを名乗っていないか、版が合わないか、
      * 取ってこられなければ null。
      *
-     * @param version [ActorUrls.iconVersion] の値。相手がいま名乗っている
+     * @param version [ActorIconVersion.of] の値。相手がいま名乗っている
      *   取得元から決まる値と一致するものだけを受ける
      */
     suspend fun find(
@@ -40,7 +41,7 @@ class RemoteActorIconService(
         // 版が合わなければ取りに行かない。この口は無認証なので、版を変えながら
         // 呼ぶだけで前段のキャッシュを外し、そのたびに配信元へ取りに行かせられる。
         // 合う版は 1 つしか無いので、前段に載る URL も 1 つに絞れる
-        if (version != ActorUrls.iconVersion(sourceUrl)) return null
+        if (version != ActorIconVersion.of(sourceUrl)) return null
 
         return when (val fetched = fetcher.fetch(sourceUrl)) {
             is RemoteImageFetchService.FetchResult.Success -> RemoteActorIcon(

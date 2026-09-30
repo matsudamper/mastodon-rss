@@ -4,8 +4,8 @@ import net.matsudamper.activitypub.TestActorKey
 import net.matsudamper.activitypub.TestWebPageUrls
 import net.matsudamper.activitypub.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
+import net.matsudamper.mastodon.rss.logic.RepositoryActorAppearances
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
-import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 
 /**
  * 載せる中身を本物と同じ引き先から組み立てる [ActorPublisher]
@@ -13,7 +13,7 @@ import net.matsudamper.mastodon.rss.logic.RepositoryFeedLinks
 object TestActorPublisher {
     fun of(repositories: FakeRepositories): ActorPublisher = ActorPublisher(
         actorKey = TestActorKey.value,
-        feedLinks = RepositoryFeedLinks(
+        appearances = RepositoryActorAppearances(
             accounts = repositories.accounts,
             feeds = repositories.feeds,
             headers = repositories.feedHeaders,

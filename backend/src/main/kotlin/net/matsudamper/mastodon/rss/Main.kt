@@ -186,7 +186,7 @@ fun Application.module(deps: AppDependencies) {
 
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
         webFingerRoutes(deps.directory)
-        actorRoutes(deps.directory, actorKey, deps.feedLinks, deps.actorProfiles, deps.webPageUrls)
+        actorRoutes(deps.directory, actorKey, deps.actorAppearances, deps.actorProfiles, deps.webPageUrls)
         actorIconRoutes(deps.directory, deps.actorIcons)
         actorHeaderRoutes(deps.directory, deps.actorHeaders)
 
