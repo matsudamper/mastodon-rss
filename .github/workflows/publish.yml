@@ -32,7 +32,7 @@ jobs:
 
       # イメージに入れる native バイナリはここで作る。
       # Dockerfile は出来上がったものを置くだけ
-      - name: GraalVM のセットアップ
+      - name: GraalVM 25 のセットアップ
         uses: graalvm/setup-graalvm@27b360dbb857524eaf0b4c4cef364d38e5b4f173 # v1.6.7
         with:
           java-version: "25"
