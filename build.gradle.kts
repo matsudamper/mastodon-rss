@@ -1,5 +1,9 @@
 import javax.xml.parsers.DocumentBuilderFactory
 import dev.detekt.gradle.Detekt
+import org.gradle.buildconfiguration.tasks.UpdateDaemonJvm
+import org.gradle.platform.Architecture
+import org.gradle.platform.BuildPlatformFactory
+import org.gradle.platform.OperatingSystem
 import org.jlleitschuh.gradle.ktlint.KtlintExtension
 import org.w3c.dom.Element
 
@@ -192,6 +196,25 @@ tasks.register("compileAll") {
                     task.name == "compileAndroidMain" ||
                     task.name in listOf("compileJava", "compileTestJava")
             }
+        },
+    )
+}
+
+// Foojay に FreeBSD / 汎用 UNIX 向け JDK 25 が無いとき、updateDaemonJvm の既定では
+// Linux 用 URL が FREE_BSD / UNIX にも書かれる。CI と開発環境は Linux / macOS / Windows
+// だけなので、対応プラットフォームをそこに限定する。
+tasks.named<UpdateDaemonJvm>("updateDaemonJvm") {
+    val supportedOperatingSystems =
+        listOf(
+            OperatingSystem.LINUX,
+            OperatingSystem.MAC_OS,
+            OperatingSystem.WINDOWS,
+        )
+    val supportedArchitectures = listOf(Architecture.X86_64, Architecture.AARCH64)
+
+    toolchainPlatforms.set(
+        supportedOperatingSystems.flatMap { os ->
+            supportedArchitectures.map { arch -> BuildPlatformFactory.of(arch, os) }
         },
     )
 }
