@@ -12,35 +12,35 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import io.opentelemetry.api.OpenTelemetry
-import net.matsudamper.activitypub.actor.ActorDirectory
-import net.matsudamper.activitypub.actor.ActorHeaders
-import net.matsudamper.activitypub.actor.ActorIcons
-import net.matsudamper.activitypub.actor.ActorKey
-import net.matsudamper.activitypub.actor.ActorKeyLoader
-import net.matsudamper.activitypub.actor.ActorPrivateKey
-import net.matsudamper.activitypub.actor.ActorPublisher
-import net.matsudamper.activitypub.actor.HttpRemoteActors
-import net.matsudamper.activitypub.actor.RemoteActors
-import net.matsudamper.activitypub.actor.StoredActorAppearances
-import net.matsudamper.activitypub.actor.StoredActorNames
-import net.matsudamper.activitypub.actor.StoredActorProfiles
-import net.matsudamper.activitypub.delivery.ActivityDelivery
-import net.matsudamper.activitypub.delivery.HttpActivityDelivery
-import net.matsudamper.activitypub.favourite.FavouriteStore
-import net.matsudamper.activitypub.follower.FollowerStore
-import net.matsudamper.activitypub.inbox.InboxDomainBlocks
-import net.matsudamper.activitypub.inbox.InboxService
-import net.matsudamper.activitypub.note.FollowBackfillPublisher
-import net.matsudamper.activitypub.note.NotePublisher
-import net.matsudamper.activitypub.note.NoteStore
-import net.matsudamper.activitypub.url.WebPageUrls
+import net.matsudamper.kotpub.actor.ActorDirectory
+import net.matsudamper.kotpub.actor.ActorHeaders
+import net.matsudamper.kotpub.actor.ActorIcons
+import net.matsudamper.kotpub.actor.ActorKey
+import net.matsudamper.kotpub.actor.ActorKeyLoader
+import net.matsudamper.kotpub.actor.ActorPrivateKey
+import net.matsudamper.kotpub.actor.ActorPublisher
+import net.matsudamper.kotpub.actor.HttpRemoteActors
+import net.matsudamper.kotpub.actor.RemoteActors
+import net.matsudamper.kotpub.actor.StoredActorAppearances
+import net.matsudamper.kotpub.actor.StoredActorNames
+import net.matsudamper.kotpub.actor.StoredActorProfiles
+import net.matsudamper.kotpub.delivery.ActivityDelivery
+import net.matsudamper.kotpub.delivery.HttpActivityDelivery
+import net.matsudamper.kotpub.favourite.FavouriteStore
+import net.matsudamper.kotpub.follower.FollowerStore
+import net.matsudamper.kotpub.http.KtorActivityPubHttpClient
+import net.matsudamper.kotpub.inbox.InboxDomainBlocks
+import net.matsudamper.kotpub.inbox.InboxService
+import net.matsudamper.kotpub.note.FollowBackfillPublisher
+import net.matsudamper.kotpub.note.NotePublisher
+import net.matsudamper.kotpub.note.NoteStore
+import net.matsudamper.kotpub.url.WebPageUrls
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.DeliveryCircuitBreaker
 import net.matsudamper.mastodon.rss.delivery.DeliveryRetryPolicy
 import net.matsudamper.mastodon.rss.delivery.DeliveryWorker
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
-import net.matsudamper.mastodon.rss.http.KtorActivityPubHttpClient
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewImageService
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewService
@@ -88,7 +88,7 @@ import net.matsudamper.mastodon.rss.webpage.DomainWebPageUrls
  *   相手のサーバーに GET しに行く
  * @param delivery こちらから相手の inbox に POST する口
  * @param webPageUrlsOverride 相手に渡す、人が開くページの URL。ActivityPub の `url` に入る。
- *   画面のパスは `:frontend` の都合なので、kotpub の `activitypub` には持たせず
+ *   画面のパスは `:frontend` の都合なので、kotpub の `core` には持たせず
  *   ここから渡す。渡さなければ [staticFiles] があるときだけ組み立てる。
  *   [webPageUrls] と名前を分けるのは、同じ名前だとクラス本体の初期化式が
  *   プロパティではなく引数（既定は null）を見てしまい、配信する `Create` にだけ

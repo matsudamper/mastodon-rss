@@ -3,8 +3,8 @@ package net.matsudamper.mastodon.rss.logic
 import java.time.Duration
 import java.time.Instant
 import kotlin.time.toKotlinDuration
-import net.matsudamper.activitypub.actor.ActorHeader
-import net.matsudamper.activitypub.actor.ActorHeaders
+import net.matsudamper.kotpub.actor.ActorHeader
+import net.matsudamper.kotpub.actor.ActorHeaders
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository
 import net.matsudamper.mastodon.rss.repository.FeedRepository

@@ -17,10 +17,10 @@ import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 import io.opentelemetry.sdk.trace.export.SpanExporter
-import net.matsudamper.activitypub.FakeNoteStore
-import net.matsudamper.activitypub.TestLocalActor
-import net.matsudamper.activitypub.TestWebPageUrls
-import net.matsudamper.activitypub.note.NotePublisher
+import net.matsudamper.kotpub.FakeNoteStore
+import net.matsudamper.kotpub.TestLocalActor
+import net.matsudamper.kotpub.TestWebPageUrls
+import net.matsudamper.kotpub.note.NotePublisher
 import net.matsudamper.mastodon.rss.FakeFeedHeaders
 import net.matsudamper.mastodon.rss.FakeFeedIcons
 import net.matsudamper.mastodon.rss.FakeRepositories

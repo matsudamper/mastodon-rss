@@ -3,7 +3,7 @@ package net.matsudamper.mastodon.rss.graphql.data
 import java.util.Base64
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import net.matsudamper.activitypub.json.AppJson
+import net.matsudamper.kotpub.json.AppJson
 
 /**
  * 止めているドメインの一覧の続きを指す印。

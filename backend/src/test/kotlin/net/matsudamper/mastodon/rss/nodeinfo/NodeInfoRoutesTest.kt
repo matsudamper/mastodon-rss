@@ -8,10 +8,10 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import net.matsudamper.activitypub.TestLocalActor
-import net.matsudamper.activitypub.json.AppJson
-import net.matsudamper.activitypub.nodeinfo.NodeInfo
-import net.matsudamper.activitypub.nodeinfo.NodeInfoDiscovery
+import net.matsudamper.kotpub.TestLocalActor
+import net.matsudamper.kotpub.json.AppJson
+import net.matsudamper.kotpub.nodeinfo.NodeInfo
+import net.matsudamper.kotpub.nodeinfo.NodeInfoDiscovery
 
 // 調査ツール向けの任意実装。無くても Mastodon からのフォローには影響しない。
 class NodeInfoRoutesTest {

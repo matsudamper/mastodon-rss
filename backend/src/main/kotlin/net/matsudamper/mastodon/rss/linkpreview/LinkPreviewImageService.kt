@@ -3,8 +3,8 @@ package net.matsudamper.mastodon.rss.linkpreview
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import io.ktor.http.ContentType
-import net.matsudamper.activitypub.entity.PublicNoteId
-import net.matsudamper.activitypub.note.NoteStore
+import net.matsudamper.kotpub.entity.PublicNoteId
+import net.matsudamper.kotpub.note.NoteStore
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
 
 /**

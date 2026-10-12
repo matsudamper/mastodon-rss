@@ -7,10 +7,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.coroutines.runBlocking
-import net.matsudamper.activitypub.TestLocalActor
-import net.matsudamper.activitypub.TestWebPageUrls
-import net.matsudamper.activitypub.entity.PublicNoteId
-import net.matsudamper.activitypub.note.NotePublisher
+import net.matsudamper.kotpub.TestLocalActor
+import net.matsudamper.kotpub.TestWebPageUrls
+import net.matsudamper.kotpub.entity.PublicNoteId
+import net.matsudamper.kotpub.note.NotePublisher
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.RepositoryNoteStore

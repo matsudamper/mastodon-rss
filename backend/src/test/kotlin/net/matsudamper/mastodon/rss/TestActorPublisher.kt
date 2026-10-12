@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss
 
-import net.matsudamper.activitypub.TestActorKey
-import net.matsudamper.activitypub.TestWebPageUrls
-import net.matsudamper.activitypub.actor.ActorPublisher
+import net.matsudamper.kotpub.TestActorKey
+import net.matsudamper.kotpub.TestWebPageUrls
+import net.matsudamper.kotpub.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
 import net.matsudamper.mastodon.rss.logic.RepositoryActorAppearances
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles

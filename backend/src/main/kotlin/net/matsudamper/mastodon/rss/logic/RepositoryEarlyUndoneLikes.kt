@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
-import net.matsudamper.activitypub.inbox.EarlyUndoneLikes
+import net.matsudamper.kotpub.inbox.EarlyUndoneLikes
 import net.matsudamper.mastodon.rss.repository.EarlyUndoneLikeRepository
 
 class RepositoryEarlyUndoneLikes(

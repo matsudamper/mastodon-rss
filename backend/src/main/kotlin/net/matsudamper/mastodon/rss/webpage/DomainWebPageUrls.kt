@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.webpage
 
-import net.matsudamper.activitypub.entity.PublicNoteId
-import net.matsudamper.activitypub.url.WebPageUrls
+import net.matsudamper.kotpub.entity.PublicNoteId
+import net.matsudamper.kotpub.url.WebPageUrls
 import net.matsudamper.mastodon.rss.shared.WebPagePath
 
 /**

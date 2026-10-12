@@ -11,9 +11,9 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
-import net.matsudamper.activitypub.TestLocalActor
-import net.matsudamper.activitypub.actor.ActorHeader
-import net.matsudamper.activitypub.actor.ActorHeaders
+import net.matsudamper.kotpub.TestLocalActor
+import net.matsudamper.kotpub.actor.ActorHeader
+import net.matsudamper.kotpub.actor.ActorHeaders
 
 class ActorHeaderRoutesTest {
     @Test

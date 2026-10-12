@@ -4,8 +4,8 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import net.matsudamper.activitypub.actor.ActorAppearance
-import net.matsudamper.activitypub.actor.ActorLink
+import net.matsudamper.kotpub.actor.ActorAppearance
+import net.matsudamper.kotpub.actor.ActorLink
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.repository.FeedHeader
 import net.matsudamper.mastodon.rss.repository.NewFeed

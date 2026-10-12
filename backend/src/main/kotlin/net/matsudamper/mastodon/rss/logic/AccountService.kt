@@ -1,9 +1,9 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
-import net.matsudamper.activitypub.actor.ActorPublisher
-import net.matsudamper.activitypub.actor.ActorUrls
-import net.matsudamper.activitypub.actor.ActorUsernameUtil
+import net.matsudamper.kotpub.actor.ActorPublisher
+import net.matsudamper.kotpub.actor.ActorUrls
+import net.matsudamper.kotpub.actor.ActorUsernameUtil
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountDeletion
 import net.matsudamper.mastodon.rss.repository.AccountPosition

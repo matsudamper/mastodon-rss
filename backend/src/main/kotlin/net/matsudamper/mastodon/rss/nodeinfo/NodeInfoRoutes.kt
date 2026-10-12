@@ -2,8 +2,8 @@ package net.matsudamper.mastodon.rss.nodeinfo
 
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import net.matsudamper.activitypub.nodeinfo.NodeInfoEndpoint
-import net.matsudamper.activitypub.nodeinfo.NodeInfoSoftware
+import net.matsudamper.kotpub.nodeinfo.NodeInfoEndpoint
+import net.matsudamper.kotpub.nodeinfo.NodeInfoSoftware
 import net.matsudamper.mastodon.rss.http.respondEndpoint
 
 internal fun Route.nodeInfoRoutes(domain: String) {

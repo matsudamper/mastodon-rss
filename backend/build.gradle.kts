@@ -9,9 +9,10 @@ dependencies {
     implementation(project(":backend:repository"))
 
     // ActivityPub（WebFinger / Actor / inbox / NodeInfo）の実装。
-    // HTTP の実装には依存しないので、Ktor のルーティングと ActivityPubHttpClient の
-    // Ktor 実装はこちらで持つ
-    implementation(libs.kotpub.activitypub)
+    // core は HTTP の実装に依存しない。外向きの Ktor クライアントは client-ktor。
+    // Ktor のルーティングはこちらで持つ
+    implementation(libs.kotpub.core)
+    implementation(libs.kotpub.client.ktor)
 
     // 管理画面のパスワードの照合
     implementation(project(":backend:crypto"))
@@ -53,7 +54,7 @@ dependencies {
 
     // 相手のアクターと送信先のフェイク。ActivityPub の組み立てを差し替えるものなので、
     // 実装と同じモジュールが出す
-    testImplementation(testFixtures(libs.kotpub.activitypub))
+    testImplementation(testFixtures(libs.kotpub.core))
 }
 
 application {
