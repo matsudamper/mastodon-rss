@@ -11,7 +11,7 @@ kotlinxCoroutines = "1.11.0"
 kotlinxDatetime = "0.8.0-0.6.x-compat"
 graphqlJava = "26.1"
 graphqlKickstartTools = "14.0.1"
-graphqlCodegen = "5.10.1-BUILD-2dd014e63d18dcb3c0fcd704b1f3b6db2ac18b1e"
+graphqlCodegen = "5.10.2"
 apollo = "5.2.0"
 coil = "3.6.3"
 apollo-cache = "1.0.9"
@@ -82,7 +82,7 @@ kotlin-compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose = { id = "org.jetbrains.compose", version.ref = "compose" }
 apollo = { id = "com.apollographql.apollo", version.ref = "apollo" }
-graphql-codegen = { id = "io.github.kobylynskyi.graphql.codegen", version.ref = "graphqlCodegen" }
+graphql-codegen = { id = "net.matsudamper.graphql.codegen", version.ref = "graphqlCodegen" }
 graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvmBuildtools" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }
