@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss.logic
 
-import net.matsudamper.activitypub.entity.PublicNoteId as MastodonPublicNoteId
-import net.matsudamper.activitypub.stamp.StampStore
-import net.matsudamper.activitypub.stamp.StampStore.ReceivedStamp
+import net.matsudamper.kotpub.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.kotpub.stamp.StampStore
+import net.matsudamper.kotpub.stamp.StampStore.ReceivedStamp
 import net.matsudamper.mastodon.rss.repository.NoteStampRepository
 import net.matsudamper.mastodon.rss.repository.NoteStampRepository.NewNoteStamp
 import net.matsudamper.mastodon.rss.shared.PublicNoteId

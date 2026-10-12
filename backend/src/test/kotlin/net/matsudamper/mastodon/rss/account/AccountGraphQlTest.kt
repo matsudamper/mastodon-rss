@@ -22,7 +22,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import net.matsudamper.activitypub.json.AppJson
+import net.matsudamper.kotpub.json.AppJson
 import net.matsudamper.mastodon.rss.FakeFollowerRepository
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv

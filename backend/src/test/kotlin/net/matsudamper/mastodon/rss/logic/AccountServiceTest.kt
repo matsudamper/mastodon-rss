@@ -10,8 +10,8 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
-import net.matsudamper.activitypub.TestLocalActor
-import net.matsudamper.activitypub.TestWebPageUrls
+import net.matsudamper.kotpub.TestLocalActor
+import net.matsudamper.kotpub.TestWebPageUrls
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestActorPublisher
 import net.matsudamper.mastodon.rss.image.RemoteImageType

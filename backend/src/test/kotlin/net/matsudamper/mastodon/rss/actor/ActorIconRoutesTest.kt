@@ -13,9 +13,9 @@ import io.ktor.http.contentType
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import net.matsudamper.activitypub.TestLocalActor
-import net.matsudamper.activitypub.actor.ActorIcon
-import net.matsudamper.activitypub.actor.ActorIcons
+import net.matsudamper.kotpub.TestLocalActor
+import net.matsudamper.kotpub.actor.ActorIcon
+import net.matsudamper.kotpub.actor.ActorIcons
 
 // Actor JSON の icon が指す先。Mastodon と公開画面の両方がここを引く。
 class ActorIconRoutesTest {

@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.dataloader
 
-import net.matsudamper.activitypub.entity.PublicNoteId as MastodonPublicNoteId
-import net.matsudamper.activitypub.note.NoteStore
+import net.matsudamper.kotpub.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.kotpub.note.NoteStore
 import net.matsudamper.mastodon.rss.graphql.otelSupplyAsync
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.shared.PublicNoteId

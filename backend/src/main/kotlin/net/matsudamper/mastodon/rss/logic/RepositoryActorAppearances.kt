@@ -1,8 +1,8 @@
 package net.matsudamper.mastodon.rss.logic
 
-import net.matsudamper.activitypub.actor.ActorAppearance
-import net.matsudamper.activitypub.actor.ActorLink
-import net.matsudamper.activitypub.actor.StoredActorAppearances
+import net.matsudamper.kotpub.actor.ActorAppearance
+import net.matsudamper.kotpub.actor.ActorLink
+import net.matsudamper.kotpub.actor.StoredActorAppearances
 import net.matsudamper.mastodon.rss.feed.HttpUrl
 import net.matsudamper.mastodon.rss.repository.AccountRepository
 import net.matsudamper.mastodon.rss.repository.FeedHeaderRepository

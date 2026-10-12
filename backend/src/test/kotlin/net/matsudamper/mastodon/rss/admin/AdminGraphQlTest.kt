@@ -35,7 +35,7 @@ import io.ktor.http.headersOf
 import io.ktor.http.setCookie
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import net.matsudamper.activitypub.json.AppJson
+import net.matsudamper.kotpub.json.AppJson
 import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.crypto.PasswordHash

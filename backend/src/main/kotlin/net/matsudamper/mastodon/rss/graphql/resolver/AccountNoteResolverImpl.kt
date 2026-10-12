@@ -6,8 +6,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.future.future
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
-import net.matsudamper.activitypub.note.NoteUrls
-import net.matsudamper.activitypub.note.StoredNote
+import net.matsudamper.kotpub.note.NoteUrls
+import net.matsudamper.kotpub.note.StoredNote
 import net.matsudamper.mastodon.rss.graphql.GraphQlEngine
 import net.matsudamper.mastodon.rss.graphql.model.AccountNoteResolver
 import net.matsudamper.mastodon.rss.graphql.model.QlAccount

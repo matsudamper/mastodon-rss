@@ -18,18 +18,18 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.writeFully
-import net.matsudamper.activitypub.FakeEarlyUndoneLikes
-import net.matsudamper.activitypub.FakeFavouriteStore
-import net.matsudamper.activitypub.FakeFollowerStore
-import net.matsudamper.activitypub.FakeInboxDomainBlocks
-import net.matsudamper.activitypub.FakeStampStore
-import net.matsudamper.activitypub.TestLocalActor
-import net.matsudamper.activitypub.TestRemoteActor
-import net.matsudamper.activitypub.TestRemoteActors
-import net.matsudamper.activitypub.actor.RemoteActors
-import net.matsudamper.activitypub.httpsignature.TestSigning
-import net.matsudamper.activitypub.inbox.InboxService
-import net.matsudamper.activitypub.json.AppJson
+import net.matsudamper.kotpub.FakeEarlyUndoneLikes
+import net.matsudamper.kotpub.FakeFavouriteStore
+import net.matsudamper.kotpub.FakeFollowerStore
+import net.matsudamper.kotpub.FakeInboxDomainBlocks
+import net.matsudamper.kotpub.FakeStampStore
+import net.matsudamper.kotpub.TestLocalActor
+import net.matsudamper.kotpub.TestRemoteActor
+import net.matsudamper.kotpub.TestRemoteActors
+import net.matsudamper.kotpub.actor.RemoteActors
+import net.matsudamper.kotpub.httpsignature.TestSigning
+import net.matsudamper.kotpub.inbox.InboxService
+import net.matsudamper.kotpub.json.AppJson
 
 // 相手のサーバーからアクティビティが POST されてくる口。
 // 署名が通ったかどうかが、送り主を確かめる唯一の根拠になる。

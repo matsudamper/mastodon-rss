@@ -1,9 +1,9 @@
 package net.matsudamper.mastodon.rss.logic
 
-import net.matsudamper.activitypub.entity.PublicNoteId as MastodonPublicNoteId
-import net.matsudamper.activitypub.note.NotePosition
-import net.matsudamper.activitypub.note.NoteStore
-import net.matsudamper.activitypub.note.StoredNote
+import net.matsudamper.kotpub.entity.PublicNoteId as MastodonPublicNoteId
+import net.matsudamper.kotpub.note.NotePosition
+import net.matsudamper.kotpub.note.NoteStore
+import net.matsudamper.kotpub.note.StoredNote
 import net.matsudamper.mastodon.rss.repository.Note
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.shared.PublicNoteId

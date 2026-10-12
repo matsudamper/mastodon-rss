@@ -14,21 +14,21 @@ import io.ktor.http.contentType
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import net.matsudamper.activitypub.FakeNoteStore
-import net.matsudamper.activitypub.TestLocalActor
-import net.matsudamper.activitypub.TestWebPageUrls
-import net.matsudamper.activitypub.activity.ActivityStreamsIri
-import net.matsudamper.activitypub.activity.CreateNoteActivity
-import net.matsudamper.activitypub.collection.COLLECTION_CURSOR_PARAM
-import net.matsudamper.activitypub.collection.COLLECTION_PAGE_SIZE
-import net.matsudamper.activitypub.collection.OrderedCollection
-import net.matsudamper.activitypub.collection.OrderedCollectionPage
-import net.matsudamper.activitypub.collection.OrderedCollectionWithItems
-import net.matsudamper.activitypub.entity.PublicNoteId
-import net.matsudamper.activitypub.json.AppJson
-import net.matsudamper.activitypub.note.Note
-import net.matsudamper.activitypub.note.StoredNote
-import net.matsudamper.activitypub.url.WebPageUrls
+import net.matsudamper.kotpub.FakeNoteStore
+import net.matsudamper.kotpub.TestLocalActor
+import net.matsudamper.kotpub.TestWebPageUrls
+import net.matsudamper.kotpub.activity.ActivityStreamsIri
+import net.matsudamper.kotpub.activity.CreateNoteActivity
+import net.matsudamper.kotpub.collection.COLLECTION_CURSOR_PARAM
+import net.matsudamper.kotpub.collection.COLLECTION_PAGE_SIZE
+import net.matsudamper.kotpub.collection.OrderedCollection
+import net.matsudamper.kotpub.collection.OrderedCollectionPage
+import net.matsudamper.kotpub.collection.OrderedCollectionWithItems
+import net.matsudamper.kotpub.entity.PublicNoteId
+import net.matsudamper.kotpub.json.AppJson
+import net.matsudamper.kotpub.note.Note
+import net.matsudamper.kotpub.note.StoredNote
+import net.matsudamper.kotpub.url.WebPageUrls
 
 // Mastodon が後から引きに来る投稿のパーマリンクと outbox。
 // タイムラインに出ていても、ここが 404 だと開けない投稿になる。
