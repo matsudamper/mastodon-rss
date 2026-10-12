@@ -8,11 +8,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
-
-env:
-  GITHUB_ACTOR: ${{ github.actor }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   ktlint:
