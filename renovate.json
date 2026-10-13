@@ -22,16 +22,6 @@
       "matchPackageNames": ["/^org\\.jetbrains\\.compose\\.ui:/"]
     },
     {
-      "description": "JetBrains Compose 関連は Maven Central の公開タイミング差のため自動マージしない",
-      "matchManagers": ["gradle"],
-      "matchDepNames": ["composePlugin", "composeLibraries"],
-      "matchPackageNames": [
-        "org.jetbrains.compose",
-        "/^org\\.jetbrains\\.compose/"
-      ],
-      "automerge": false
-    },
-    {
       "description": "OpenTelemetry SDK・incubator・instrumentation を同一 PR で更新する",
       "groupName": "opentelemetry",
       "matchManagers": ["gradle"],
