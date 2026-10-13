@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended"
   ],
+  "automerge": false,
   "packageRules": [
     {
       "description": "OpenTelemetry SDK・incubator・instrumentation を同一 PR で更新する",
@@ -22,28 +23,6 @@
         "opentelemetryApiIncubator",
         "opentelemetryInstrumentation"
       ]
-    },
-    {
-      "description": "指定した GitHub Actions を自動マージする",
-      "matchManagers": ["github-actions"],
-      "matchPackageNames": [
-        "/^actions\\//",
-        "gradle/actions"
-      ],
-      "automerge": true
-    },
-    {
-      "description": "指定した Gradle 依存を自動マージする",
-      "matchManagers": ["gradle"],
-      "matchPackageNames": [
-        "com.android.kotlin.multiplatform.library",
-        "/^io\\.coil-kt\\.coil3:/",
-        "/^io\\.ktor:/",
-        "/^org\\.graalvm\\.buildtools(?:\\.native|:)/",
-        "org.graalvm.sdk:nativeimage",
-        "/^org\\.jetbrains\\.kotlinx:/"
-      ],
-      "automerge": true
     }
   ]
 }
