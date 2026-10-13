@@ -8,8 +8,8 @@
       "description": "JetBrains Compose Gradle プラグインと BOM 由来の org.jetbrains.compose 依存を同一 PR にまとめる",
       "groupName": "jetbrains-compose-plugin",
       "matchManagers": ["gradle"],
-      "matchDepNames": ["composePlugin"],
       "matchPackageNames": [
+        "org.jetbrains.compose",
         "/^org\\.jetbrains\\.compose:/",
         "!/^org\\.jetbrains\\.compose\\.ui:/"
       ]
@@ -18,7 +18,6 @@
       "description": "org.jetbrains.compose.ui ライブラリは Gradle プラグインとは別 PR で更新する",
       "groupName": "jetbrains-compose-libraries",
       "matchManagers": ["gradle"],
-      "matchDepNames": ["composeLibraries"],
       "matchPackageNames": ["/^org\\.jetbrains\\.compose\\.ui:/"]
     },
     {
