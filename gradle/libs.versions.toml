@@ -3,7 +3,8 @@ kotlin = "2.4.21"
 androidGradlePlugin = "9.4.1"
 androidCompileSdk = "37"
 ktor = "3.6.0"
-compose = "1.12.1"
+composePlugin = "1.12.1"
+composeLibraries = "1.12.1"
 navigation3 = "1.1.2"
 kotlinxBrowser = "0.5.0"
 kotlinxSerialization = "1.11.0"
@@ -43,8 +44,8 @@ kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.re
 navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
-compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "compose" }
-compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "compose" }
+compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "composeLibraries" }
+compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeLibraries" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
@@ -80,7 +81,7 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "androidGradlePlugin" }
 kotlin-compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-compose = { id = "org.jetbrains.compose", version.ref = "compose" }
+compose = { id = "org.jetbrains.compose", version.ref = "composePlugin" }
 apollo = { id = "com.apollographql.apollo", version.ref = "apollo" }
 graphql-codegen = { id = "net.matsudamper.graphql.codegen", version.ref = "graphqlCodegen" }
 graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvmBuildtools" }
