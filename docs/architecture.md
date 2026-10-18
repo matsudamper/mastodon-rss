@@ -414,7 +414,7 @@ Mastodon のドメインごとの「利用不可」と同じ条件で、失敗�
 ```mermaid
 sequenceDiagram
     participant M as main
-    participant A as ActorKeyLoader
+    participant A as ActorPrivateKeyLoader
     participant R as Repositories
     participant DB as SQLite
     participant K as Ktor CIO

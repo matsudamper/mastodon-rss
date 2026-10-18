@@ -14,7 +14,7 @@ import io.ktor.http.contentType
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import net.matsudamper.kotpub.TestActorKey
+import net.matsudamper.kotpub.TestActorPrivateKey
 import net.matsudamper.kotpub.TestLocalActor
 import net.matsudamper.kotpub.TestWebPageUrls
 import net.matsudamper.kotpub.activitypub.Actor
@@ -28,7 +28,7 @@ class ActorRoutesTest {
             routing {
                 actorRoutes(
                     directory = TestLocalActor.directory,
-                    actorKey = TestActorKey.value,
+                    actorKey = TestActorPrivateKey.value,
                     appearances = TestLocalActor.appearances,
                     profiles = TestLocalActor.profiles,
                     webPages = webPages,
@@ -101,7 +101,7 @@ class ActorRoutesTest {
 
             assertEquals("https://example.com/users/admin#main-key", actor.publicKey.id)
             assertEquals("https://example.com/users/admin", actor.publicKey.owner)
-            assertEquals(TestActorKey.value.publicKeyPem, actor.publicKey.publicKeyPem)
+            assertEquals(TestActorPrivateKey.value.publicKeyPem, actor.publicKey.publicKeyPem)
             // PKCS#1 の BEGIN RSA PUBLIC KEY だと Mastodon が読めない
             assertTrue(actor.publicKey.publicKeyPem.startsWith("-----BEGIN PUBLIC KEY-----"))
         }
@@ -225,6 +225,6 @@ class ActorRoutesTest {
             assertEquals("https://example.com$path/inbox", actor.inbox)
             assertEquals("https://example.com$path#main-key", actor.publicKey.id)
             // 鍵はまだアクターごとに持っていない
-            assertEquals(TestActorKey.value.publicKeyPem, actor.publicKey.publicKeyPem)
+            assertEquals(TestActorPrivateKey.value.publicKeyPem, actor.publicKey.publicKeyPem)
         }
 }

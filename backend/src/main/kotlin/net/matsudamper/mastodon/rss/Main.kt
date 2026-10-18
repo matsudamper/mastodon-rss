@@ -10,7 +10,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
-import net.matsudamper.kotpub.actor.ActorKey
+import net.matsudamper.kotpub.actor.ActorPrivateKey
 import net.matsudamper.mastodon.rss.actor.actorHeaderRoutes
 import net.matsudamper.mastodon.rss.actor.actorIconRoutes
 import net.matsudamper.mastodon.rss.actor.actorRoutes
@@ -106,15 +106,15 @@ fun Application.module(deps: AppDependencies) {
     // 鍵が入れ替わると相手側は署名検証に失敗し続ける。
     // どこから読んだ鍵なのかが後から追えるよう、取得元を必ず出す
     when (val origin = actorKey.origin) {
-        is ActorKey.Origin.Environment -> {
+        is ActorPrivateKey.Origin.Environment -> {
             log.info("アクターの秘密鍵: ACTOR_PRIVATE_KEY_PEM から読んだ")
         }
 
-        is ActorKey.Origin.LoadedFile -> {
+        is ActorPrivateKey.Origin.LoadedFile -> {
             log.info("アクターの秘密鍵: ${origin.path} から読んだ")
         }
 
-        is ActorKey.Origin.GeneratedFile -> {
+        is ActorPrivateKey.Origin.GeneratedFile -> {
             log.warn(
                 "アクターの秘密鍵を新しく生成して ${origin.path} に書き出した。" +
                     "既にフォロワーがいる状態でこれが出たら、以前の鍵を失っている",
