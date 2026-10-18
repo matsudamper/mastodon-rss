@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss
 
 import java.nio.file.Path
-import net.matsudamper.kotpub.actor.ActorPrivateKey
+import net.matsudamper.kotpub.actor.ActorPrivateKeySource
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
 /**
@@ -83,7 +83,7 @@ class ServerEnv(
     /**
      * アクターの秘密鍵をどこから読むか
      */
-    val actorPrivateKey: ActorPrivateKey =
+    val actorPrivateKey: ActorPrivateKeySource =
         run {
             // PEM は中身をそのまま鍵として読むので、前後の空白も落とさずに渡す
             val pem = env["ACTOR_PRIVATE_KEY_PEM"]?.takeIf { it.isNotBlank() }
@@ -97,9 +97,9 @@ class ServerEnv(
             }
 
             if (pem != null) {
-                ActorPrivateKey.Pem(pem)
+                ActorPrivateKeySource.Pem(pem)
             } else {
-                ActorPrivateKey.File(Path.of(path ?: "./data/actor-private-key.pem"))
+                ActorPrivateKeySource.File(Path.of(path ?: "./data/actor-private-key.pem"))
             }
         }
 

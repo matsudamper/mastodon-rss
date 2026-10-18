@@ -20,7 +20,9 @@ import io.opentelemetry.api.trace.TraceState
 import io.opentelemetry.context.Context
 import io.opentelemetry.extension.kotlin.asContextElement
 import net.matsudamper.kotpub.actor.ActorDirectory
+import net.matsudamper.kotpub.actor.ActorPrivateKey
 import net.matsudamper.kotpub.actor.ActorUrls
+import net.matsudamper.kotpub.actor.LocalActor
 import net.matsudamper.kotpub.delivery.ActivityDelivery
 import net.matsudamper.kotpub.delivery.DeliveryResult
 import net.matsudamper.kotpub.note.FollowBackfillPublisher
@@ -62,6 +64,7 @@ import org.slf4j.LoggerFactory
 class DeliveryWorker(
     private val queue: DeliveryQueueRepository,
     private val delivery: ActivityDelivery,
+    private val actorKey: ActorPrivateKey,
     private val directory: ActorDirectory,
     private val deletedActorDirectory: ActorDirectory,
     private val retryPolicy: DeliveryRetryPolicy,
@@ -238,7 +241,7 @@ class DeliveryWorker(
             }
 
             val result = try {
-                delivery.deliver(inbox = row.inbox, sender = sender, body = row.body.toByteArray())
+                delivery.deliver(inbox = row.inbox, sender = LocalActor(urls = sender, privateKey = actorKey), body = row.body.toByteArray())
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -321,7 +324,7 @@ class DeliveryWorker(
         scope.launch {
             runCatching {
                 backfill.deliverRecentNotes(
-                    sender = sender,
+                    sender = LocalActor(urls = sender, privateKey = actorKey),
                     inbox = accepted.inbox,
                     publishedBefore = backfillUntil,
                 )

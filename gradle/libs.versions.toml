@@ -11,7 +11,7 @@ kotlinxCoroutines = "1.11.0"
 kotlinxDatetime = "0.8.0-0.6.x-compat"
 graphqlJava = "26.1"
 graphqlKickstartTools = "14.0.1"
-graphqlCodegen = "5.10.2"
+graphqlCodegen = "5.10.5"
 apollo = "5.2.0"
 coil = "3.6.3"
 apollo-cache = "1.0.9"
@@ -27,7 +27,7 @@ composeRules = "0.6.8"
 opentelemetry = "1.67.0"
 opentelemetryApiIncubator = "1.67.0-alpha"
 opentelemetryInstrumentation = "2.31.1-alpha"
-kotpub = "1.2.0"
+kotpub = "1.3.3"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }

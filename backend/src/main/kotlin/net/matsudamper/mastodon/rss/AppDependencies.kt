@@ -15,9 +15,9 @@ import io.opentelemetry.api.OpenTelemetry
 import net.matsudamper.kotpub.actor.ActorDirectory
 import net.matsudamper.kotpub.actor.ActorHeaders
 import net.matsudamper.kotpub.actor.ActorIcons
-import net.matsudamper.kotpub.actor.ActorKey
-import net.matsudamper.kotpub.actor.ActorKeyLoader
 import net.matsudamper.kotpub.actor.ActorPrivateKey
+import net.matsudamper.kotpub.actor.ActorPrivateKeyLoader
+import net.matsudamper.kotpub.actor.ActorPrivateKeySource
 import net.matsudamper.kotpub.actor.ActorPublisher
 import net.matsudamper.kotpub.actor.HttpRemoteActors
 import net.matsudamper.kotpub.actor.RemoteActors
@@ -96,7 +96,7 @@ import net.matsudamper.mastodon.rss.webpage.DomainWebPageUrls
  */
 class AppDependencies(
     val repositories: Repositories,
-    val actorKey: ActorKey,
+    val actorKey: ActorPrivateKey,
     val env: ServerEnv,
     val remoteActors: RemoteActors,
     val delivery: ActivityDelivery,
@@ -283,7 +283,6 @@ class AppDependencies(
     )
 
     val actorPublisher: ActorPublisher = ActorPublisher(
-        actorKey = actorKey,
         appearances = actorAppearances,
         profiles = actorProfiles,
         webPages = webPageUrls,
@@ -291,6 +290,7 @@ class AppDependencies(
 
     val actorEnqueuer: ActorEnqueuer = ActorEnqueuer(
         publisher = actorPublisher,
+        actorKey = actorKey,
         followers = repositories.followers,
         deliveryQueue = repositories.deliveryQueue,
     )
@@ -328,6 +328,7 @@ class AppDependencies(
         DeliveryWorker(
             queue = repositories.deliveryQueue,
             delivery = delivery,
+            actorKey = actorKey,
             directory = directory,
             deletedActorDirectory = deletedActorDirectory,
             retryPolicy = DeliveryRetryPolicy(
@@ -425,7 +426,7 @@ class AppDependencies(
 
             // ここから先で失敗すると、開いた DB が閉じられないまま起動が止まる
             return runCatching {
-                val loadActorKey = ActorKeyLoader.load(env.actorPrivateKey)
+                val loadActorKey = ActorPrivateKeyLoader.load(env.actorPrivateKey)
                 // 送り残した配信は、消したアカウントの Delete{Actor} のようにフォロワーが
                 // 1 人も残っていない形でも起きる。新しい鍵で署名すると、相手が覚えている
                 // 鍵で検証できずに届かない
@@ -437,8 +438,8 @@ class AppDependencies(
                     )
                 }
                 val actorKey = loadActorKey ?: when (env.actorPrivateKey) {
-                    is ActorPrivateKey.Pem -> throw IllegalStateException()
-                    is ActorPrivateKey.File -> ActorKeyLoader.create(env.actorPrivateKey)
+                    is ActorPrivateKeySource.Pem -> throw IllegalStateException()
+                    is ActorPrivateKeySource.File -> ActorPrivateKeyLoader.create(env.actorPrivateKey)
                 }
 
                 // 相手のアクターを引くのと、こちらから送るのとで外向きの HTTP を張る。
@@ -449,7 +450,7 @@ class AppDependencies(
                 )
 
                 val delivery =
-                    runCatching { HttpActivityDelivery(actorKey, client = KtorActivityPubHttpClient(openTelemetry)) }
+                    runCatching { HttpActivityDelivery(client = KtorActivityPubHttpClient(openTelemetry)) }
                         .getOrElse { failure ->
                             remoteActors.close()
                             throw failure

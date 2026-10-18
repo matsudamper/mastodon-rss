@@ -1,6 +1,6 @@
 package net.matsudamper.mastodon.rss
 
-import net.matsudamper.kotpub.TestActorKey
+import net.matsudamper.kotpub.TestActorPrivateKey
 import net.matsudamper.kotpub.TestWebPageUrls
 import net.matsudamper.kotpub.actor.ActorPublisher
 import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
@@ -12,7 +12,6 @@ import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
  */
 object TestActorPublisher {
     fun of(repositories: FakeRepositories): ActorPublisher = ActorPublisher(
-        actorKey = TestActorKey.value,
         appearances = RepositoryActorAppearances(
             accounts = repositories.accounts,
             feeds = repositories.feeds,
@@ -27,6 +26,7 @@ object TestActorPublisher {
      */
     fun enqueuerOf(repositories: FakeRepositories): ActorEnqueuer = ActorEnqueuer(
         publisher = of(repositories),
+        actorKey = TestActorPrivateKey.value,
         followers = repositories.followers,
         deliveryQueue = repositories.deliveryQueue,
     )

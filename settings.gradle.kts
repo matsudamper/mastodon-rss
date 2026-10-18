@@ -13,6 +13,10 @@ pluginManagement {
         }
         mavenCentral()
         google()
+        exclusiveContent {
+            forRepository { maven("https://maven.matsudamper.net/releases") }
+            filter { includeGroupByRegex("net\\.matsudamper(\\..*)?") }
+        }
     }
 }
 
@@ -29,6 +33,10 @@ dependencyResolutionManagement {
     repositories {
         mavenCentral()
         google()
+        exclusiveContent {
+            forRepository { maven("https://maven.matsudamper.net/releases") }
+            filter { includeGroupByRegex("net\\.matsudamper(\\..*)?") }
+        }
     }
 }
 

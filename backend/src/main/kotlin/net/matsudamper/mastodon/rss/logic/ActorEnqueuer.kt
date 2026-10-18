@@ -1,8 +1,10 @@
 package net.matsudamper.mastodon.rss.logic
 
 import java.time.Instant
+import net.matsudamper.kotpub.actor.ActorPrivateKey
 import net.matsudamper.kotpub.actor.ActorPublisher
 import net.matsudamper.kotpub.actor.ActorUrls
+import net.matsudamper.kotpub.actor.LocalActor
 import net.matsudamper.mastodon.rss.repository.ActorUpdatePost
 import net.matsudamper.mastodon.rss.repository.DeliveryQueueRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
@@ -17,6 +19,7 @@ import org.slf4j.LoggerFactory
  */
 class ActorEnqueuer(
     private val publisher: ActorPublisher,
+    private val actorKey: ActorPrivateKey,
     private val followers: FollowerRepository,
     private val deliveryQueue: DeliveryQueueRepository,
 ) {
@@ -36,7 +39,7 @@ class ActorEnqueuer(
         val deliveries = deliveryQueue.enqueueActorUpdate(
             ActorUpdatePost(
                 username = sender.username,
-                body = publisher.prepareUpdate(sender),
+                body = publisher.prepareUpdate(LocalActor(urls = sender, privateKey = actorKey)),
                 inboxes = inboxes,
                 enqueuedAt = Instant.now(),
             ),

@@ -14,7 +14,7 @@
 静的ファイルを配信する。相手のサーバーとどう話すかも、どこに保存するかも持たない。
 
 ActivityPub の実装は別リポジトリ [matsudamper/kotpub](https://github.com/matsudamper/kotpub) の
-`core`（`net.matsudamper.kotpub:core`）に切り出してあり、Maven Central から取る。
+`core`（`net.matsudamper.kotpub:core`）に切り出してあり、`https://maven.matsudamper.net/releases` から取る。
 外向きの Ktor クライアントは同じリポジトリの `client-ktor`。
 WebFinger・Actor・inbox・NodeInfo の応答、HTTP Signature の署名と検証、
 相手のアクター文書の取得、`Accept` の送信までが入る。単体のライブラリなので、次を守る。
@@ -227,7 +227,7 @@ dev server はこの経路を通らないため、ハッシュの無い名前の
 
 - サーバーのモデルとリゾルバのインタフェース: kobylynskyi の
   graphql-java-codegen（Gradle プラグイン `net.matsudamper.graphql.codegen`）。
-  取るのは [fork](https://github.com/matsudamper/graphql-java-codegen) を Maven Central
+  取るのは [fork](https://github.com/matsudamper/graphql-java-codegen) を `https://maven.matsudamper.net/releases`
  （`net.matsudamper`）に公開したビルド。設定は `backend/graphql/build.gradle.kts`
 - 結線: graphql-java-tools (kickstart) の `SchemaParser`。リゾルバの実装を渡すだけで、
   スキーマのフィールドとメソッドを対応付ける
@@ -414,7 +414,7 @@ Mastodon のドメインごとの「利用不可」と同じ条件で、失敗�
 ```mermaid
 sequenceDiagram
     participant M as main
-    participant A as ActorKeyLoader
+    participant A as ActorPrivateKeyLoader
     participant R as Repositories
     participant DB as SQLite
     participant K as Ktor CIO
