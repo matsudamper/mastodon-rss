@@ -17,7 +17,7 @@ Gradle 自体も wrapper が入っているので個別のインストールは�
 
 管理 API のコード生成に使う graphql-java-codegen は
 [matsudamper/graphql-java-codegen](https://github.com/matsudamper/graphql-java-codegen)
-の fork を Maven Central（`net.matsudamper`）から取る。Gradle プラグイン ID は
+の fork を `https://maven.matsudamper.net/releases`（`net.matsudamper`）から取る。Gradle プラグイン ID は
 `net.matsudamper.graphql.codegen`。
 
 ## ビルド
