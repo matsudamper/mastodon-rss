@@ -188,9 +188,9 @@ class ActorRoutesTest {
             val path = "/users/${TestLocalActor.STORED_USERNAME}"
             val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
 
-            assertEquals("フィード 1", actor.name)
+            assertEquals("アカウント 1", actor.name)
             // 説明文はプレーンテキストで持つ。相手に渡す HTML はここで組み立てる
-            assertEquals("<p>1 つ目のフィード<br>&lt;b&gt;タグ&lt;/b&gt;</p>", actor.summary)
+            assertEquals("<p>1 つ目のアカウント<br>&lt;b&gt;タグ&lt;/b&gt;</p>", actor.summary)
         }
 
     @Test
