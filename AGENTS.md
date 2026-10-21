@@ -8,7 +8,7 @@
 - frontendはfrontendとsharedのみ知ってよい（スキーマは例外）
 - backendはbackendとsharedのみ
 - frontendがbackend事情を知るコード/コメントを書かない
-- backend/frontend の短い補足は `backend/AGENTS.md` / `frontend/AGENTS.md` も参照
+- backend/frontend の短い補足は `backend/AGENTS.md` / `frontend/README.md` も参照
 
 ## コメント例外
 - mastodon / ActivityPub のコメントは詳細に記述してよい
