@@ -52,6 +52,7 @@ internal fun LinkPreviewCard(
                 if (imageUrl != null) {
                     AsyncImage(
                         model = imageUrl,
+                        imageLoader = rememberLinkPreviewImageLoader(),
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
