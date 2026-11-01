@@ -18,7 +18,7 @@ ActivityPub で決まっていないところや、実装ごとに違うとこ�
 | パス | 内容 |
 | --- | --- |
 | `GET /.well-known/webfinger?resource=acct:<name>@<domain>` | アカウント発見の 1 ホップ目 (RFC 7033) |
-| `GET /users/{name}` | Actor JSON。プロフィールと公開鍵 |
+| `GET /users/{name}` | JSON 要求には Actor（プロフィールと公開鍵）、HTML 要求には画面への 301 |
 | `POST /users/{name}/inbox` | アクティビティの受け口。HTTP Signatures を検証する |
 | `POST /inbox` | 共有 inbox。全アカウントで 1 つの受け口で、検証と処理は `/users/{name}/inbox` と同じ |
 | `GET /users/{name}/followers` | フォロワーの OrderedCollection。`?cursor=` で中身 |
@@ -26,7 +26,7 @@ ActivityPub で決まっていないところや、実装ごとに違うとこ�
 | `GET /users/{name}/collections/featured` | プロフィールに載せる投稿の OrderedCollection |
 | `GET /users/{name}/icon` | プロフィール画像。フィードのアイコンを取り直して返す |
 | `GET /users/{name}/header` | プロフィールヘッダー。取り込み済みのヘッダー画像を返す |
-| `GET /notes/{id}` | 配信した投稿。相手がパーマリンクとして引きに来る |
+| `GET /notes/{id}` | JSON 要求には配信した投稿、HTML 要求には画面への 301 |
 | `GET /.well-known/nodeinfo` | NodeInfo の discovery document |
 | `GET /nodeinfo/2.1` | サーバーの実装と規模。調査用 |
 
@@ -36,15 +36,33 @@ ActivityPub で決まっていないところや、実装ごとに違うとこ�
 サーバーが持つパス以外は静的ファイルの配信に落ちる。どの画面が出るかは
 [README.md](../README.md) の「画面のパス」を参照。
 
-アカウント画面の `/@{name}` と Actor JSON の `/users/{name}` は別のパス。
-1 つのパスで `Accept` を見て HTML と JSON を出し分けると、相手の綴りの揺れで
-アカウントごと見つからなくなる。投稿も同じで、画面は `/@{name}/{id}`、
-JSON は `/notes/{id}` になる。
+プロフィールと投稿の画面 URL も `Accept` で HTML と ActivityPub JSON を出し分ける。
+`application/activity+json` と `application/ld+json`（ActivityStreams の profile 付きも含む）
+を JSON として受け、応答の Content-Type は本家と同じ `application/activity+json` にする。
+Mastodon の URL 検索が送る JSON 優先・HTML 低優先の Accept では JSON を直接返す。
+HTML が優先される要求と Accept 無し・`*/*` は画面として扱う。
+
+| パス | HTML 要求 | ActivityPub JSON 要求 | Link |
+| --- | --- | --- | --- |
+| `/@{name}`（末尾 `/` も可） | 200 HTML | 200 Actor JSON | HTML のみ WebFinger lrdd と Actor alternate |
+| `/users/{name}` | 301 で `/@{name}` へ | 200 Actor JSON | 無し |
+| `/@{name}/{id}`（末尾 `/` も可） | 200 HTML | 200 Note JSON | HTML・JSON とも Note alternate |
+| `/notes/{id}` | 301 で `/@{name}/{id}` へ | 200 Note JSON | JSON のみ Note alternate |
+
+画面・JSON の応答には `Vary: Accept`、301 には本家のルートと同じ
+`Vary: Origin, Accept` を付ける。こちらには応答を変える言語・Cookie・署名の
+条件が無いため、本家のコントローラーが列挙する残りの Vary は付けない。
+存在しないアカウント・投稿と投稿者名の不一致は 404。
+`/users/{name}` の HTML 用 301 は本家と同様に存在確認より前に行う。
+静的ファイルが無くても JSON は返す。HTML は従来どおり SPA の index.html を配信する。
+
+調査した本家のコード・正常系と署名必須設定の違いは
+[Mastodon の URL 解決の調査](mastodon-url-resolution.md) を参照。
 
 `id` と `url` は別のものを申告する。`id` は JSON のパスで、相手が通信と
 重複判定に使う。`url` は画面のパスで、相手の「元のページを開く」のリンク先になる。
 `url` を出さないか `id` と同じにすると、相手のプロフィールやパーマリンクから
-JSON を返すパスが開く。
+正規 ID のパスを開き、画面へのリダイレクトを経由することになる。
 
 | 種類 | `id` | `url` |
 | --- | --- | --- |

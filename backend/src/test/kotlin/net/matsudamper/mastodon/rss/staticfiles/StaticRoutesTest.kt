@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.staticfiles
 
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Instant
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteRecursively
 import kotlin.io.path.writeText
@@ -9,6 +10,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -16,6 +18,10 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import net.matsudamper.kotpub.activitypub.Actor
+import net.matsudamper.kotpub.json.AppJson
+import net.matsudamper.kotpub.webfinger.WebFingerResponse
+import net.matsudamper.mastodon.rss.FakeRepositories
 import net.matsudamper.mastodon.rss.TestServerEnv
 import net.matsudamper.mastodon.rss.module
 import net.matsudamper.mastodon.rss.testDependencies
@@ -130,6 +136,91 @@ class StaticRoutesTest {
         }
 
     @Test
+    fun `プロフィールURLからアクターを発見してWebFingerで確認できる`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            applicationWith(root)
+
+            val actorUrl = "https://example.com/users/feed1"
+            val accept = """application/ld+json; profile="https://www.w3.org/ns/activitystreams", application/activity+json, text/html;q=0.1"""
+            listOf("/@feed1", "/@feed1/").forEach { path ->
+                val response = client.get(path) { header(HttpHeaders.Accept, accept) }
+                assertEquals(HttpStatusCode.OK, response.status)
+                assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
+                assertEquals(actorUrl, AppJson.decodeFromString(Actor.serializer(), response.bodyAsText()).id)
+                assertEquals("Accept", response.headers[HttpHeaders.Vary])
+                assertEquals(null, response.headers[HttpHeaders.Link])
+            }
+
+            val actorResponse = client.get("/users/feed1") { header(HttpHeaders.Accept, accept) }
+            assertEquals(HttpStatusCode.OK, actorResponse.status)
+            val actor = AppJson.decodeFromString(Actor.serializer(), actorResponse.bodyAsText())
+            assertEquals(actorUrl, actor.id)
+            assertEquals(actorUrl, actor.publicKey.owner)
+            val webFingerResponse = client.get("/.well-known/webfinger?resource=acct:${actor.preferredUsername}@example.com")
+            val webFinger = AppJson.decodeFromString(WebFingerResponse.serializer(), webFingerResponse.bodyAsText())
+            assertEquals(actor.id, webFinger.links.single { it.rel == "self" }.href)
+        }
+
+    @Test
+    fun `プロフィールのHTMLには発見リンクがありJSON用URLは301で画面へ戻す`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            applicationWith(root)
+            val noRedirect = createClient { followRedirects = false }
+
+            listOf("text/html", "*/*", "text/html, application/activity+json;q=0.1").forEach { accept ->
+                val page = client.get("/@feed1") { header(HttpHeaders.Accept, accept) }
+                assertEquals(HttpStatusCode.OK, page.status)
+                assertEquals(ContentType.Text.Html, page.contentType()?.withoutParameters())
+                assertEquals("Accept", page.headers[HttpHeaders.Vary])
+                assertEquals(
+                    "<https://example.com/.well-known/webfinger?resource=acct:feed1@example.com>; rel=\"lrdd\"; type=\"application/jrd+json\", " +
+                        "<https://example.com/users/feed1>; rel=\"alternate\"; type=\"application/activity+json\"",
+                    page.headers[HttpHeaders.Link],
+                )
+                val redirect = noRedirect.get("/users/feed1") { header(HttpHeaders.Accept, accept) }
+                assertEquals(HttpStatusCode.MovedPermanently, redirect.status)
+                assertEquals("/@feed1", redirect.headers[HttpHeaders.Location])
+                assertEquals("Origin, Accept", redirect.headers[HttpHeaders.Vary])
+                assertEquals(null, redirect.headers[HttpHeaders.Link])
+            }
+        }
+
+    @Test
+    fun `静的ファイルがなくてもプロフィールのJSONを返し不明なアカウントは404`() =
+        testApplication {
+            applicationWith(srcDir = null)
+            val accepts = listOf(
+                "application/activity+json",
+                "application/ld+json",
+                "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
+            )
+            accepts.forEach { accept ->
+                listOf("/@FEED1", "/@feed1/", "/users/feed1").forEach { path ->
+                    val response = client.get(path) { header(HttpHeaders.Accept, accept) }
+                    assertEquals(HttpStatusCode.OK, response.status)
+                    assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
+                    assertEquals("https://example.com/users/feed1", AppJson.decodeFromString(Actor.serializer(), response.bodyAsText()).id)
+                }
+                listOf("/@missing", "/users/missing").forEach { path ->
+                    assertEquals(HttpStatusCode.NotFound, client.get(path) { header(HttpHeaders.Accept, accept) }.status)
+                }
+            }
+        }
+
+    @Test
+    fun `存在しないアカウントや管理画面にはアクターのリンクを出さない`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            applicationWith(root)
+
+            listOf("/@missing", "/@missing/", "/admin/accounts", "/").forEach { path ->
+                assertEquals(null, client.get(path).headers[HttpHeaders.Link])
+            }
+        }
+
+    @Test
     fun `ユーザー名にドットが入っていても画面が返る`() =
         testApplication {
             putFile("index.html", "<html></html>")
@@ -228,8 +319,11 @@ class StaticRoutesTest {
                 TestServerEnv.of("STATIC_SRC_DIR" to srcDir.toString())
             }
 
+        val repositories = FakeRepositories()
+        repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+        repositories.accounts.add(username = "feed1.example", createdAt = Instant.now())
         application {
-            module(testDependencies(env = env))
+            module(testDependencies(env = env, repositories = repositories))
         }
     }
 

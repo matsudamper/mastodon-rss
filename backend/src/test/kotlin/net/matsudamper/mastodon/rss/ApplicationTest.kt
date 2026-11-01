@@ -2,11 +2,14 @@ package net.matsudamper.mastodon.rss
 
 import java.time.Instant
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
@@ -44,7 +47,18 @@ class ApplicationTest {
                 HttpStatusCode.OK,
                 client.get("/.well-known/webfinger?resource=acct:admin@example.com").status,
             )
-            assertEquals(HttpStatusCode.OK, client.get("/users/admin").status)
+            val actorResponse = client.get("/users/admin") {
+                header(HttpHeaders.Accept, "application/activity+json")
+            }
+            assertEquals(HttpStatusCode.OK, actorResponse.status)
+            assertEquals(ContentType.parse("application/activity+json"), actorResponse.contentType()?.withoutParameters())
+            assertContains(actorResponse.bodyAsText(), "\"id\":\"https://example.com/users/admin\"")
+
+            val noRedirect = createClient { followRedirects = false }
+            val htmlResponse = noRedirect.get("/users/admin")
+            assertEquals(HttpStatusCode.MovedPermanently, htmlResponse.status)
+            assertEquals("/@admin", htmlResponse.headers[HttpHeaders.Location])
+            assertEquals("Origin, Accept", htmlResponse.headers[HttpHeaders.Vary])
             assertEquals(HttpStatusCode.OK, client.get("/.well-known/nodeinfo").status)
 
             // 署名が無いので inbox は 401。ルートが無ければ 404 になる
