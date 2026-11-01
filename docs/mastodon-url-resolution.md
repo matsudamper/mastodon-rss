@@ -56,6 +56,23 @@ HTML にも [accounts/show.html.haml L8-L9](https://github.com/mastodon/mastodon
 と [statuses/show.html.haml L11-L12](https://github.com/mastodon/mastodon/blob/147bfc1f1784b173a1ce157830c480787dd13fe0/app/views/statuses/show.html.haml#L11)
 で両 MIME 型の alternate link を埋めている。
 
+## ワイルドカードと明示的な HTML 拒否
+
+上記 Mastodon の [Gemfile.lock](https://github.com/mastodon/mastodon/blob/147bfc1f1784b173a1ce157830c480787dd13fe0/Gemfile.lock)
+が固定する Rails は 8.1.4。
+`Accept: */*;q=0.9, text/html;q=0, application/activity+json;q=0.8` は本家でも HTML を選ぶ。
+この入力について、最も具体的な媒体範囲の quality を使って JSON を選ぶ変更は行わない。
+
+- [Mime::Type の AcceptItem / AcceptList / parse](https://github.com/rails/rails/blob/v8.1.4/actionpack/lib/action_dispatch/http/mime_type.rb#L92-L155)
+  は quality の降順、同値なら記載順で並べる。この入力の順序は `*/*`、JSON、HTML になる。
+- [MimeNegotiation#formats / #negotiate_mime](https://github.com/rails/rails/blob/v8.1.4/actionpack/lib/action_dispatch/http/mime_negotiation.rb#L72-L91)
+  は `*/*` を保持し、先頭の `Mime::ALL` に対してコントローラーの最初の形式を返す。
+  この入力の `*/*` の直後には `;q=0.9` があるため、同ファイルの
+  `BROWSER_LIKE_ACCEPTS` による HTML へのフォールバックではなく、通常のネゴシエーションを通る。
+- 前述の AccountsController / StatusesController は `format.html` を最初に定義しているため、HTML が選ばれる。
+
+これはこの入力での形式選択の互換性であり、Rails の Accept 処理全般を完全再現しているという意味ではない。
+
 ## リモート URL の検索
 
 [ResolveURLService L13-L16、L24-L27、L65-L70](https://github.com/mastodon/mastodon/blob/147bfc1f1784b173a1ce157830c480787dd13fe0/app/services/resolve_url_service.rb#L65)
