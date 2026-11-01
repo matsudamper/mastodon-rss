@@ -209,7 +209,7 @@ fun Application.module(deps: AppDependencies) {
         graphQlRoutes(graphQl)
 
         // 残り全部を受けるので最後に置く
-        staticRoutes(staticFiles)
+        staticRoutes(staticFiles, deps.directory)
     }
 }
 

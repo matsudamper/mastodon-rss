@@ -41,6 +41,11 @@ ActivityPub で決まっていないところや、実装ごとに違うとこ�
 アカウントごと見つからなくなる。投稿も同じで、画面は `/@{name}/{id}`、
 JSON は `/notes/{id}` になる。
 
+存在するアカウントの `/@{name}`（末尾 `/` 付きも含む）は、HTML とともに
+`Link: <https://<DOMAIN>/users/{name}>; rel="alternate"; type="application/activity+json"`
+を返す。Mastodon の URL 検索は JavaScript を実行せず、このリンクから Actor JSON を
+取得して WebFinger の `self` と照合する。存在しないアカウントにはリンクを出さない。
+
 `id` と `url` は別のものを申告する。`id` は JSON のパスで、相手が通信と
 重複判定に使う。`url` は画面のパスで、相手の「元のページを開く」のリンク先になる。
 `url` を出さないか `id` と同じにすると、相手のプロフィールやパーマリンクから

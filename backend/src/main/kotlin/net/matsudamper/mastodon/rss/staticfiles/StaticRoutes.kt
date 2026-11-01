@@ -11,6 +11,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import net.matsudamper.kotpub.actor.ActorDirectory
 import net.matsudamper.mastodon.rss.shared.WebPagePath
 
 private const val NO_STATIC_FILES_MESSAGE: String = "静的ファイルの配信先が無い。STATIC_SRC_DIR を確認すること"
@@ -33,7 +34,7 @@ private const val INDEX_CACHE_CONTROL: String = "no-store"
  * @param staticFiles 配信元。未設定またはディレクトリが無いときは null。
  *   この場合は 404 を返す。理由は起動ログに出している
  */
-fun Route.staticRoutes(staticFiles: StaticFiles?) {
+fun Route.staticRoutes(staticFiles: StaticFiles?, directory: ActorDirectory) {
     val hashedNameExtensions = setOf("js", "wasm")
 
     // アカウントの画面は受ける段階で分ける。ユーザー名には `.` が使えるので、
@@ -56,6 +57,15 @@ fun Route.staticRoutes(staticFiles: StaticFiles?) {
             }
 
             call.response.header(HttpHeaders.CacheControl, INDEX_CACHE_CONTROL)
+
+            // Mastodon の URL 検索は SPA を実行しないため、HTTP 応答からアクターを発見できるようにする。
+            val actor = directory.resolve(call.parameters["username"].orEmpty())
+            if (actor != null) {
+                call.response.header(
+                    HttpHeaders.Link,
+                    "<${actor.actorId}>; rel=\"alternate\"; type=\"application/activity+json\"",
+                )
+            }
 
             call.respond(LocalFileContent(index.toFile(), StaticFiles.contentTypeOf(index.fileName.toString())))
         }
