@@ -11,8 +11,6 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import net.matsudamper.kotpub.actor.ActorDirectory
-import net.matsudamper.mastodon.rss.shared.WebPagePath
 
 private const val NO_STATIC_FILES_MESSAGE: String = "静的ファイルの配信先が無い。STATIC_SRC_DIR を確認すること"
 
@@ -34,42 +32,8 @@ private const val INDEX_CACHE_CONTROL: String = "no-store"
  * @param staticFiles 配信元。未設定またはディレクトリが無いときは null。
  *   この場合は 404 を返す。理由は起動ログに出している
  */
-fun Route.staticRoutes(staticFiles: StaticFiles?, directory: ActorDirectory) {
+fun Route.staticRoutes(staticFiles: StaticFiles?) {
     val hashedNameExtensions = setOf("js", "wasm")
-
-    // アカウントの画面は受ける段階で分ける。ユーザー名には `.` が使えるので、
-    // ファイルを引く経路に流すと `/@name.example` が拡張子付きのファイル要求に見え、
-    // 画面が開けなくなる。ファイルを引く側は拡張子だけを見ればよくなる。
-    //
-    // 末尾のスラッシュは Ktor では別のパスになる。画面側は空のセグメントを無視して
-    // 同じ画面を出すので、両方受けないと `/@name/` だけ開けない
-    listOf("", "/").forEach { trailing ->
-        get("/${WebPagePath.ACCOUNT_PREFIX}{username}$trailing") {
-            if (staticFiles == null) {
-                call.respondText(NO_STATIC_FILES_MESSAGE, status = HttpStatusCode.NotFound)
-                return@get
-            }
-
-            val index = staticFiles.index()
-            if (index == null) {
-                call.respondText("見つからない: ${call.request.path()}", status = HttpStatusCode.NotFound)
-                return@get
-            }
-
-            call.response.header(HttpHeaders.CacheControl, INDEX_CACHE_CONTROL)
-
-            // Mastodon の URL 検索は SPA を実行しないため、HTTP 応答からアクターを発見できるようにする。
-            val actor = directory.resolve(call.parameters["username"].orEmpty())
-            if (actor != null) {
-                call.response.header(
-                    HttpHeaders.Link,
-                    "<${actor.actorId}>; rel=\"alternate\"; type=\"application/activity+json\"",
-                )
-            }
-
-            call.respond(LocalFileContent(index.toFile(), StaticFiles.contentTypeOf(index.fileName.toString())))
-        }
-    }
 
     get("/{path...}") {
         if (staticFiles == null) {

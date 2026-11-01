@@ -32,6 +32,7 @@ class ActorRoutesTest {
                     appearances = TestLocalActor.appearances,
                     profiles = TestLocalActor.profiles,
                     webPages = webPages,
+                    staticFiles = null,
                 )
             }
         }
@@ -42,7 +43,7 @@ class ActorRoutesTest {
         testApplication {
             installModule()
 
-            val response = client.get("/users/admin")
+            val response = client.get("/users/admin") { header(HttpHeaders.Accept, "application/activity+json") }
 
             assertEquals(HttpStatusCode.OK, response.status)
             assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
@@ -67,7 +68,7 @@ class ActorRoutesTest {
         testApplication {
             installModule(webPages = null)
 
-            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin") { header(HttpHeaders.Accept, "application/activity+json") }.bodyAsText())
 
             // 出すと相手のプロフィールから 404 のページが開く。無ければ相手は id に倒す
             assertNull(actor.url)
@@ -78,7 +79,7 @@ class ActorRoutesTest {
         testApplication {
             installModule()
 
-            val body = client.get("/users/admin").bodyAsText()
+            val body = client.get("/users/admin") { header(HttpHeaders.Accept, "application/activity+json") }.bodyAsText()
 
             val expectedContext =
                 """"@context":["https://www.w3.org/ns/activitystreams",""" +
@@ -97,7 +98,7 @@ class ActorRoutesTest {
         testApplication {
             installModule()
 
-            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin") { header(HttpHeaders.Accept, "application/activity+json") }.bodyAsText())
 
             assertEquals("https://example.com/users/admin#main-key", actor.publicKey.id)
             assertEquals("https://example.com/users/admin", actor.publicKey.owner)
@@ -107,24 +108,13 @@ class ActorRoutesTest {
         }
 
     @Test
-    fun `Accept が ld+json ならその Content-Type で返す`() =
+    fun `Accept が ld+json でも activity+json で返す`() =
         testApplication {
             installModule()
 
             // Mastodon は profile パラメータ付きで送ってくる
             val accept = """application/ld+json; profile="https://www.w3.org/ns/activitystreams""""
             val response = client.get("/users/admin") { header(HttpHeaders.Accept, accept) }
-
-            assertEquals("application/ld+json", response.contentType()?.withoutParameters()?.toString())
-        }
-
-    @Test
-    fun `Accept が無くても activity+json で返す`() =
-        testApplication {
-            installModule()
-
-            // Accept を送らない相手に application/json を返すとアクターとして認識されない
-            val response = client.get("/users/admin") { header(HttpHeaders.Accept, "*/*") }
 
             assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
         }
@@ -135,7 +125,7 @@ class ActorRoutesTest {
             installModule()
 
             val path = "/users/${TestLocalActor.STORED_USERNAME}"
-            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path) { header(HttpHeaders.Accept, "application/activity+json") }.bodyAsText())
 
             assertEquals(listOf("サイト"), actor.attachment.map { it.name })
             assertEquals(listOf("PropertyValue"), actor.attachment.map { it.type })
@@ -152,7 +142,7 @@ class ActorRoutesTest {
             installModule()
 
             val path = "/users/${TestLocalActor.STORED_USERNAME}"
-            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path) { header(HttpHeaders.Accept, "application/activity+json") }.bodyAsText())
 
             // 差し替えたときに相手のキャッシュが外れるよう、版が付く
             assertEquals("https://example.com$path/icon?v=${TestLocalActor.ICON_VERSION}", actor.icon?.url)
@@ -164,7 +154,7 @@ class ActorRoutesTest {
         testApplication {
             installModule()
 
-            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin") { header(HttpHeaders.Accept, "application/activity+json") }.bodyAsText())
 
             assertNull(actor.icon)
         }
@@ -174,7 +164,7 @@ class ActorRoutesTest {
         testApplication {
             installModule()
 
-            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin") { header(HttpHeaders.Accept, "application/activity+json") }.bodyAsText())
 
             // 見出しだけの行がプロフィールに並ばないようにする
             assertTrue(actor.attachment.isEmpty())
@@ -186,7 +176,7 @@ class ActorRoutesTest {
             installModule()
 
             val path = "/users/${TestLocalActor.STORED_USERNAME}"
-            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path) { header(HttpHeaders.Accept, "application/activity+json") }.bodyAsText())
 
             assertEquals("アカウント 1", actor.name)
             // 説明文はプレーンテキストで持つ。相手に渡す HTML はここで組み立てる
@@ -198,7 +188,7 @@ class ActorRoutesTest {
         testApplication {
             installModule()
 
-            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin").bodyAsText())
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get("/users/admin") { header(HttpHeaders.Accept, "application/activity+json") }.bodyAsText())
 
             assertEquals("admin", actor.name)
             assertNull(actor.summary)
@@ -209,7 +199,7 @@ class ActorRoutesTest {
         testApplication {
             installModule()
 
-            assertEquals(HttpStatusCode.NotFound, client.get("/users/other").status)
+            assertEquals(HttpStatusCode.NotFound, client.get("/users/other") { header(HttpHeaders.Accept, "application/activity+json") }.status)
         }
 
     @Test
@@ -218,7 +208,7 @@ class ActorRoutesTest {
             installModule()
 
             val path = "/users/${TestLocalActor.STORED_USERNAME}"
-            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path).bodyAsText())
+            val actor = AppJson.decodeFromString(Actor.serializer(), client.get(path) { header(HttpHeaders.Accept, "application/activity+json") }.bodyAsText())
 
             assertEquals("https://example.com$path", actor.id)
             assertEquals(TestLocalActor.STORED_USERNAME, actor.preferredUsername)

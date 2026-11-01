@@ -1,6 +1,10 @@
 package net.matsudamper.mastodon.rss.note
 
+import java.nio.file.Files
 import java.time.Instant
+import kotlin.io.path.deleteRecursively
+import kotlin.io.path.writeText
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -29,11 +33,19 @@ import net.matsudamper.kotpub.json.AppJson
 import net.matsudamper.kotpub.note.Note
 import net.matsudamper.kotpub.note.StoredNote
 import net.matsudamper.kotpub.url.WebPageUrls
+import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 
 // Mastodon が後から引きに来る投稿のパーマリンクと outbox。
 // タイムラインに出ていても、ここが 404 だと開けない投稿になる。
 class NoteRoutesTest {
     private val publishedAt = Instant.parse("2026-08-10T00:00:00Z")
+    private val staticRoot = Files.createTempDirectory("note-routes-test")
+
+    @AfterTest
+    @OptIn(kotlin.io.path.ExperimentalPathApi::class)
+    fun tearDown() {
+        staticRoot.deleteRecursively()
+    }
 
     private fun ApplicationTestBuilder.installModule(
         notes: FakeNoteStore = FakeNoteStore(),
@@ -41,7 +53,7 @@ class NoteRoutesTest {
     ) {
         application {
             routing {
-                noteRoutes(TestLocalActor.DOMAIN, notes, webPages)
+                noteRoutes(TestLocalActor.DOMAIN, notes, webPages, StaticFiles(staticRoot))
                 outboxRoutes(TestLocalActor.directory, notes, webPages)
                 featuredRoutes(TestLocalActor.directory)
             }
@@ -61,13 +73,66 @@ class NoteRoutesTest {
     )
 
     @Test
+    fun `投稿のHTMLもalternateリンクを返す`() =
+        testApplication {
+            staticRoot.resolve("index.html").writeText("<html>投稿</html>")
+            val notes = FakeNoteStore()
+            notes.add(note("abc"))
+            installModule(notes)
+
+            listOf("/@admin/abc", "/@admin/abc/").forEach { path ->
+                val response = client.get(path) { header(HttpHeaders.Accept, "text/html") }
+                assertEquals(HttpStatusCode.OK, response.status)
+                assertEquals("text/html", response.contentType()?.withoutParameters()?.toString())
+                assertEquals("<html>投稿</html>", response.bodyAsText())
+                assertEquals("Accept", response.headers[HttpHeaders.Vary])
+                assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
+                assertEquals(
+                    "<https://example.com/notes/abc>; rel=\"alternate\"; type=\"application/activity+json\"",
+                    response.headers[HttpHeaders.Link],
+                )
+            }
+        }
+
+    @Test
+    fun `投稿の画面URLもActivityPubのAcceptには同じJSONを返す`() =
+        testApplication {
+            val notes = FakeNoteStore()
+            notes.add(note("abc"))
+            installModule(notes)
+
+            listOf("application/activity+json", "application/ld+json", "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\", text/html;q=0.1")
+                .forEach { accept ->
+                    listOf("/@admin/abc", "/@admin/abc/", "/notes/abc").forEach { path ->
+                        val response = client.get(path) { header(HttpHeaders.Accept, accept) }
+                        assertEquals(HttpStatusCode.OK, response.status)
+                        assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
+                        assertEquals("Accept", response.headers[HttpHeaders.Vary])
+                        assertEquals(
+                            "<https://example.com/notes/abc>; rel=\"alternate\"; type=\"application/activity+json\"",
+                            response.headers[HttpHeaders.Link],
+                        )
+                        assertEquals("https://example.com/notes/abc", AppJson.decodeFromString(Note.serializer(), response.bodyAsText()).id.value)
+                    }
+                }
+            listOf("/@other/abc", "/@admin/missing").forEach { path ->
+                assertEquals(HttpStatusCode.NotFound, client.get(path) { header(HttpHeaders.Accept, "application/activity+json") }.status)
+            }
+            val noRedirect = createClient { followRedirects = false }
+            val redirect = noRedirect.get("/notes/abc") { header(HttpHeaders.Accept, "text/html") }
+            assertEquals(HttpStatusCode.MovedPermanently, redirect.status)
+            assertEquals("/@admin/abc", redirect.headers[HttpHeaders.Location])
+            assertEquals("Origin, Accept", redirect.headers[HttpHeaders.Vary])
+        }
+
+    @Test
     fun `投稿のパーマリンクが返る`() =
         testApplication {
             val notes = FakeNoteStore()
             notes.added += note("abc")
             installModule(notes)
 
-            val response = client.get("/notes/abc")
+            val response = client.get("/notes/abc") { header(HttpHeaders.Accept, "application/activity+json") }
 
             assertEquals(HttpStatusCode.OK, response.status)
             assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
@@ -92,7 +157,7 @@ class NoteRoutesTest {
             notes.add(note("abc"))
             installModule(notes = notes, webPages = null)
 
-            val body = AppJson.decodeFromString(Note.serializer(), client.get("/notes/abc").bodyAsText())
+            val body = AppJson.decodeFromString(Note.serializer(), client.get("/notes/abc") { header(HttpHeaders.Accept, "application/activity+json") }.bodyAsText())
 
             // 出すと相手のパーマリンクが 404 のページを指す。無ければ相手は id に倒す
             assertNull(body.url)
@@ -228,7 +293,7 @@ class NoteRoutesTest {
         }
 
     @Test
-    fun `Accept が ld+json ならその Content-Type で返す`() =
+    fun `Accept が ld+json でも activity+json で返す`() =
         testApplication {
             val notes = FakeNoteStore()
             notes.added += note("abc")
@@ -237,6 +302,6 @@ class NoteRoutesTest {
             val accept = """application/ld+json; profile="https://www.w3.org/ns/activitystreams""""
             val response = client.get("/notes/abc") { header(HttpHeaders.Accept, accept) }
 
-            assertEquals("application/ld+json", response.contentType()?.withoutParameters()?.toString())
+            assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
         }
 }

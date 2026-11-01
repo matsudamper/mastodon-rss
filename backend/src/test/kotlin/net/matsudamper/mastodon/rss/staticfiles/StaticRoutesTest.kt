@@ -146,12 +146,10 @@ class StaticRoutesTest {
             listOf("/@feed1", "/@feed1/").forEach { path ->
                 val response = client.get(path) { header(HttpHeaders.Accept, accept) }
                 assertEquals(HttpStatusCode.OK, response.status)
-                assertEquals(ContentType.Text.Html, response.contentType()?.withoutParameters())
-                assertEquals("<html></html>", response.bodyAsText())
-                assertEquals(
-                    """<$actorUrl>; rel="alternate"; type="application/activity+json"""",
-                    response.headers[HttpHeaders.Link],
-                )
+                assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
+                assertEquals(actorUrl, AppJson.decodeFromString(Actor.serializer(), response.bodyAsText()).id)
+                assertEquals("Accept", response.headers[HttpHeaders.Vary])
+                assertEquals(null, response.headers[HttpHeaders.Link])
             }
 
             val actorResponse = client.get("/users/feed1") { header(HttpHeaders.Accept, accept) }
@@ -162,6 +160,53 @@ class StaticRoutesTest {
             val webFingerResponse = client.get("/.well-known/webfinger?resource=acct:${actor.preferredUsername}@example.com")
             val webFinger = AppJson.decodeFromString(WebFingerResponse.serializer(), webFingerResponse.bodyAsText())
             assertEquals(actor.id, webFinger.links.single { it.rel == "self" }.href)
+        }
+
+    @Test
+    fun `プロフィールのHTMLには発見リンクがありJSON用URLは301で画面へ戻す`() =
+        testApplication {
+            putFile("index.html", "<html></html>")
+            applicationWith(root)
+            val noRedirect = createClient { followRedirects = false }
+
+            listOf("text/html", "*/*", "text/html, application/activity+json;q=0.1").forEach { accept ->
+                val page = client.get("/@feed1") { header(HttpHeaders.Accept, accept) }
+                assertEquals(HttpStatusCode.OK, page.status)
+                assertEquals(ContentType.Text.Html, page.contentType()?.withoutParameters())
+                assertEquals("Accept", page.headers[HttpHeaders.Vary])
+                assertEquals(
+                    "<https://example.com/.well-known/webfinger?resource=acct:feed1@example.com>; rel=\"lrdd\"; type=\"application/jrd+json\", " +
+                        "<https://example.com/users/feed1>; rel=\"alternate\"; type=\"application/activity+json\"",
+                    page.headers[HttpHeaders.Link],
+                )
+                val redirect = noRedirect.get("/users/feed1") { header(HttpHeaders.Accept, accept) }
+                assertEquals(HttpStatusCode.MovedPermanently, redirect.status)
+                assertEquals("/@feed1", redirect.headers[HttpHeaders.Location])
+                assertEquals("Origin, Accept", redirect.headers[HttpHeaders.Vary])
+                assertEquals(null, redirect.headers[HttpHeaders.Link])
+            }
+        }
+
+    @Test
+    fun `静的ファイルがなくてもプロフィールのJSONを返し不明なアカウントは404`() =
+        testApplication {
+            applicationWith(srcDir = null)
+            val accepts = listOf(
+                "application/activity+json",
+                "application/ld+json",
+                "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
+            )
+            accepts.forEach { accept ->
+                listOf("/@FEED1", "/@feed1/", "/users/feed1").forEach { path ->
+                    val response = client.get(path) { header(HttpHeaders.Accept, accept) }
+                    assertEquals(HttpStatusCode.OK, response.status)
+                    assertEquals("application/activity+json", response.contentType()?.withoutParameters()?.toString())
+                    assertEquals("https://example.com/users/feed1", AppJson.decodeFromString(Actor.serializer(), response.bodyAsText()).id)
+                }
+                listOf("/@missing", "/users/missing").forEach { path ->
+                    assertEquals(HttpStatusCode.NotFound, client.get(path) { header(HttpHeaders.Accept, accept) }.status)
+                }
+            }
         }
 
     @Test
@@ -276,6 +321,7 @@ class StaticRoutesTest {
 
         val repositories = FakeRepositories()
         repositories.accounts.add(username = "feed1", createdAt = Instant.now())
+        repositories.accounts.add(username = "feed1.example", createdAt = Instant.now())
         application {
             module(testDependencies(env = env, repositories = repositories))
         }
