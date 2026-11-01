@@ -11,6 +11,8 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import net.matsudamper.mastodon.rss.shared.WebPagePath
+import net.matsudamper.mastodon.rss.webpage.PublicPageResponse
 
 private const val NO_STATIC_FILES_MESSAGE: String = "静的ファイルの配信先が無い。STATIC_SRC_DIR を確認すること"
 
@@ -33,6 +35,12 @@ private const val INDEX_CACHE_CONTROL: String = "no-store"
  *   この場合は 404 を返す。理由は起動ログに出している
  */
 fun Route.staticRoutes(staticFiles: StaticFiles?) {
+    listOf("", "/").forEach { trailing ->
+        get("/${WebPagePath.ACCOUNT_PREFIX}{username}/followers$trailing") {
+            PublicPageResponse.html(call, staticFiles)
+        }
+    }
+
     val hashedNameExtensions = setOf("js", "wasm")
 
     get("/{path...}") {

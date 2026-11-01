@@ -34,6 +34,7 @@ import net.matsudamper.kotpub.note.Note
 import net.matsudamper.kotpub.note.StoredNote
 import net.matsudamper.kotpub.url.WebPageUrls
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
+import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
 
 // Mastodon が後から引きに来る投稿のパーマリンクと outbox。
 // タイムラインに出ていても、ここが 404 だと開けない投稿になる。
@@ -56,6 +57,7 @@ class NoteRoutesTest {
                 noteRoutes(TestLocalActor.DOMAIN, notes, webPages, StaticFiles(staticRoot))
                 outboxRoutes(TestLocalActor.directory, notes, webPages)
                 featuredRoutes(TestLocalActor.directory)
+                staticRoutes(StaticFiles(staticRoot))
             }
         }
     }
@@ -71,6 +73,24 @@ class NoteRoutesTest {
         contentHtml = contentHtml,
         publishedAt = publishedAt,
     )
+
+    @Test
+    fun `フォロワー画面の直接アクセスと再読み込みは投稿ルートより優先してSPAを返す`() =
+        testApplication {
+            staticRoot.resolve("index.html").writeText("<html>フォロワー一覧</html>")
+            installModule()
+
+            listOf("/@admin/followers", "/@admin/followers/").forEach { path ->
+                repeat(2) {
+                    val response = client.get(path) { header(HttpHeaders.Accept, "text/html") }
+                    assertEquals(HttpStatusCode.OK, response.status)
+                    assertEquals("text/html", response.contentType()?.withoutParameters()?.toString())
+                    assertEquals("<html>フォロワー一覧</html>", response.bodyAsText())
+                    assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
+                    assertNull(response.headers[HttpHeaders.Link])
+                }
+            }
+        }
 
     @Test
     fun `投稿のHTMLもalternateリンクを返す`() =
