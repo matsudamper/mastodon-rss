@@ -3,10 +3,13 @@ package net.matsudamper.mastodon.rss
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
@@ -15,6 +18,28 @@ import io.ktor.server.testing.testApplication
 // DB そのものの挙動は :backend:repository 側でテストするので、
 // ここでは FakeRepositories を渡して実ファイルを触らない。
 class ApplicationTest {
+    @Test
+    fun `リンクプレビュー画像は認証情報の有無によらず共有キャッシュ可能`() =
+        testApplication {
+            application {
+                module(testDependencies())
+            }
+
+            val url = "/link-previews/image.bin?note=missing&link=0&v=0"
+            val anonymous = client.get(url)
+            val authenticated = client.get(url) {
+                header(HttpHeaders.Cookie, "admin_session=invalid")
+                header(HttpHeaders.Authorization, "Bearer invalid")
+            }
+
+            for (response in listOf(anonymous, authenticated)) {
+                assertEquals(HttpStatusCode.NotFound, response.status)
+                assertEquals("public, max-age=600", response.headers[HttpHeaders.CacheControl])
+                assertNull(response.headers[HttpHeaders.SetCookie])
+                assertNull(response.headers[HttpHeaders.Vary])
+            }
+        }
+
     @Test
     fun `healthzにアクセスすると200とstatus okのJSONが返る`() =
         testApplication {
