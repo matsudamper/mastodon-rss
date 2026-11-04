@@ -11,12 +11,12 @@ pluginManagement {
                 excludeGroup("com.apollographql.apollo")
             }
         }
-        mavenCentral()
         google()
         exclusiveContent {
             forRepository { maven("https://maven.matsudamper.net/releases") }
             filter { includeGroupByRegex("net\\.matsudamper(\\..*)?") }
         }
+        mavenCentral()
     }
 }
 
@@ -31,12 +31,12 @@ plugins {
 
 dependencyResolutionManagement {
     repositories {
-        mavenCentral()
         google()
         exclusiveContent {
             forRepository { maven("https://maven.matsudamper.net/releases") }
             filter { includeGroupByRegex("net\\.matsudamper(\\..*)?") }
         }
+        mavenCentral()
     }
 }
 
