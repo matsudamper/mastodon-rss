@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+CMDLINE_TOOLS_REVISION="13114758"
+# AGP の DEFAULT_BUILD_TOOLS_REVISION。compileSdk とは独立していて、
+# 揃えないと AGP がビルド中に別バージョンを取りに行く
+BUILD_TOOLS_VERSION="36.0.0"
+# compileSdk と別バージョンの platform を入れても AGP が SDK 未検出で落ちるので、ビルドファイルを正とする
+COMPILE_SDK_FILE="gradle/libs.versions.toml"
+
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
@@ -14,22 +21,31 @@ if [ -f local.properties ]; then
   sdk_dir_in_local_properties="$(sed -n 's/^[[:space:]]*sdk\.dir[[:space:]]*=[[:space:]]*\(.*\)$/\1/p' local.properties | tail -n 1)"
 fi
 ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-${sdk_dir_in_local_properties:-${HOME}/android-sdk}}}"
-CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
-# AGP 9.4.0 の DEFAULT_BUILD_TOOLS_REVISION。compileSdk とは独立していて、
-# 揃えないと AGP がビルド中に別バージョンを取りに行く
-BUILD_TOOLS_VERSION="36.0.0"
 SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
 
-# compileSdk と別バージョンの platform を入れても AGP が SDK 未検出で落ちるので catalog を正とする
-compile_sdk="$(sed -n 's/^androidCompileSdk = "\(.*\)"$/\1/p' gradle/libs.versions.toml)"
-if [ -z "${compile_sdk}" ]; then
-  echo "gradle/libs.versions.toml から androidCompileSdk を読めなかった" >&2
+compile_sdk_major="$(sed -n -E \
+  -e 's/^[[:space:]]*(androidCompileSdk|compileSdk)[[:space:]]*=[[:space:]]*"?([0-9]+)"?[[:space:]]*$/\2/p' \
+  -e 's/.*compileSdkVersion\("android-([0-9]+)\.[0-9]+"\).*/\1/p' \
+  "${COMPILE_SDK_FILE}" | head -n 1)"
+compile_sdk_minor="$(sed -n -E \
+  -e 's/^[[:space:]]*(androidCompileSdkMinor|compileSdkMinor)[[:space:]]*=[[:space:]]*"?([0-9]+)"?[[:space:]]*$/\2/p' \
+  -e 's/.*compileSdkVersion\("android-[0-9]+\.([0-9]+)"\).*/\1/p' \
+  "${COMPILE_SDK_FILE}" | head -n 1)"
+if [ -z "${compile_sdk_major}" ]; then
+  echo "${COMPILE_SDK_FILE} から compileSdk を読めなかった" >&2
   exit 1
+fi
+compile_sdk_minor="${compile_sdk_minor:-0}"
+# SDK のパッケージ名は API 36 までは android-36 / android-36.1、API 37 からは android-37.0 と .0 も付く
+if [ "${compile_sdk_major}" -le 36 ] && [ "${compile_sdk_minor}" = 0 ]; then
+  platform="android-${compile_sdk_major}"
+else
+  platform="android-${compile_sdk_major}.${compile_sdk_minor}"
 fi
 
 # SessionStart フックからも呼ぶので、揃っているときは sdkmanager を起動しない。
 # sdkmanager は何もすることが無くてもリモートのリポジトリを引きに行って数秒かかる
-if [ ! -f "${ANDROID_SDK_ROOT}/platforms/android-${compile_sdk}.0/android.jar" ] ||
+if [ ! -f "${ANDROID_SDK_ROOT}/platforms/${platform}/android.jar" ] ||
   [ ! -d "${ANDROID_SDK_ROOT}/build-tools/${BUILD_TOOLS_VERSION}" ] ||
   [ ! -x "${ANDROID_SDK_ROOT}/platform-tools/adb" ]; then
   if [ ! -x "${SDKMANAGER}" ]; then
@@ -37,18 +53,28 @@ if [ ! -f "${ANDROID_SDK_ROOT}/platforms/android-${compile_sdk}.0/android.jar" ]
     mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
     tmp="$(mktemp -d)"
     trap 'rm -rf "${tmp}"' EXIT
-    curl -fsSL -o "${tmp}/cmdline-tools.zip" "${CMDLINE_TOOLS_URL}"
+    # プロキシ経由だと転送が途中で切れて壊れた zip になることがあるので、確かめて取り直す
+    for attempt in 1 2 3 4; do
+      if curl -fsSL -o "${tmp}/cmdline-tools.zip" "https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_TOOLS_REVISION}_latest.zip" &&
+        unzip -tq "${tmp}/cmdline-tools.zip" > /dev/null; then
+        break
+      fi
+      if [ "${attempt}" = 4 ]; then
+        echo "cmdline-tools を取得できなかった" >&2
+        exit 1
+      fi
+    done
     unzip -q "${tmp}/cmdline-tools.zip" -d "${tmp}"
     rm -rf "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
     mv "${tmp}/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
   fi
 
-  echo "[setup] Android SDK パッケージを導入する (compileSdk=${compile_sdk})"
+  echo "[setup] Android SDK パッケージを導入する (${platform})"
   # yes だと SIGPIPE で 141 を返し pipefail に引っかかるので、有限個の y を流す
   { for _ in $(seq 1 200); do printf 'y\n'; done; } | "${SDKMANAGER}" --sdk_root="${ANDROID_SDK_ROOT}" --licenses > /dev/null
   "${SDKMANAGER}" --sdk_root="${ANDROID_SDK_ROOT}" --install \
     "platform-tools" \
-    "platforms;android-${compile_sdk}.0" \
+    "platforms;${platform}" \
     "build-tools;${BUILD_TOOLS_VERSION}" > /dev/null
 fi
 
@@ -69,8 +95,6 @@ if [ ! -f "${android_user_home}/debug.keystore" ]; then
     -storepass android -alias androiddebugkey -keypass android \
     -keyalg RSA -keysize 2048 -validity 10000 \
     -dname "CN=Android Debug,O=Android,C=US" > /dev/null
-  # 既定の umask だと 0644 になり、秘密鍵を同一ホストの別ユーザーにコピーされる
-  chmod 600 "${android_user_home}/debug.keystore"
 fi
 
 echo "[setup] 完了"
