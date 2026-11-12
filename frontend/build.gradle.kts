@@ -46,12 +46,6 @@ kotlin {
                 implementation(compose.ui)
                 implementation(compose.material3)
                 implementation(libs.navigation3.ui)
-            }
-        }
-
-        androidMain {
-            dependencies {
-                implementation(libs.compose.ui.tooling)
                 implementation(libs.compose.ui.tooling.preview)
             }
         }
@@ -102,4 +96,9 @@ apollo {
         plugin("com.apollographql.cache:normalized-cache-apollo-compiler-plugin:${libs.versions.apollo.cache.get()}")
         pluginArgument("com.apollographql.cache.packageName", packageName.get())
     }
+}
+
+// Android Studio の Preview に必要な ComposeViewAdapter を実行時だけ提供する。
+dependencies {
+    add("androidRuntimeClasspath", libs.compose.ui.tooling)
 }
