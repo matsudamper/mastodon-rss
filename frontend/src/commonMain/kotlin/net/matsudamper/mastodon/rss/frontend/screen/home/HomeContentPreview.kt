@@ -2,7 +2,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.home
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
+import net.matsudamper.mastodon.rss.frontend.screen.PreviewScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.PreviewsMultiSize
 import net.matsudamper.mastodon.rss.frontend.ui.NoteReactionsUiState
 
@@ -74,7 +74,7 @@ private fun HomeContentPreview() {
                 ),
                 listener = AndroidPreviewHomeListener,
             ),
-            platform = AndroidPreviewScreenPlatform,
+            platform = PreviewScreenPlatform,
         )
     }
 }

@@ -2,7 +2,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.account
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
+import net.matsudamper.mastodon.rss.frontend.screen.PreviewScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.PreviewsMultiSize
 import net.matsudamper.mastodon.rss.frontend.ui.NoteReactionsUiState
 
@@ -60,7 +60,7 @@ private fun AccountContentPreview() {
                 listener = AndroidPreviewAccountListener,
             ),
             username = username,
-            platform = AndroidPreviewScreenPlatform,
+            platform = PreviewScreenPlatform,
         )
     }
 }

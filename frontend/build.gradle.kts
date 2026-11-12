@@ -46,12 +46,6 @@ kotlin {
                 implementation(compose.ui)
                 implementation(compose.material3)
                 implementation(libs.navigation3.ui)
-            }
-        }
-
-        androidMain {
-            dependencies {
-                implementation(libs.compose.ui.tooling)
                 implementation(libs.compose.ui.tooling.preview)
             }
         }
@@ -77,6 +71,11 @@ kotlin {
             }
         }
     }
+}
+
+// Android Studio Preview の描画用実装は Android 実行時のみに置く
+dependencies {
+    add("androidRuntimeClasspath", libs.compose.ui.tooling)
 }
 
 // 問い合わせ（src/commonMain/graphql/*.graphql）はこのモジュールが持つ。

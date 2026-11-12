@@ -2,7 +2,7 @@ package net.matsudamper.mastodon.rss.frontend.screen.admin
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import net.matsudamper.mastodon.rss.frontend.screen.AndroidPreviewScreenPlatform
+import net.matsudamper.mastodon.rss.frontend.screen.PreviewScreenPlatform
 import net.matsudamper.mastodon.rss.frontend.screen.PreviewsMultiSize
 
 @PreviewsMultiSize
@@ -33,7 +33,7 @@ private fun AdminContentPreview() {
                 ),
                 listener = AndroidPreviewAdminListener,
             ),
-            platform = AndroidPreviewScreenPlatform,
+            platform = PreviewScreenPlatform,
         )
     }
 }
