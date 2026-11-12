@@ -1,6 +1,6 @@
 package net.matsudamper.mastodon.rss.frontend.screen
 
-internal object AndroidPreviewScreenPlatform : ScreenPlatform {
+internal object PreviewScreenPlatform : ScreenPlatform {
     override val host: String = "example.com"
 
     override fun openExternalLink(url: String) = Unit
