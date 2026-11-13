@@ -37,7 +37,7 @@
       "description": "指定した Gradle 依存を自動マージする",
       "matchManagers": ["gradle"],
       "matchPackageNames": [
-        "com.android.kotlin.multiplatform.library",
+        "/^com\\.android\\.kotlin\\.multiplatform\\.library(?::|$)/",
         "/^io\\.coil-kt\\.coil3:/",
         "/^io\\.ktor:/",
         "/^org\\.graalvm\\.buildtools(?:\\.native|:)/",
