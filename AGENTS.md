@@ -23,9 +23,6 @@
 - 更新前に読み手と作業を決める。不要なら更新しない
 - `README.md` / `docs/architecture.md` の役割分担に従う
 
-## backend
-- pagingはoffset禁止。cursorと最後のid等を使う
-
 ## ActivityPub
 ライブラリは https://github.com/matsudamper/kotpub を使用する。ライブラリ側に必要な機能はそちらに実装する。  
 - このために確認は取らない。kotpub をセッションに追加し、kotpub の PR を作って購読する。これは「実装方針を変える」には当たらない
