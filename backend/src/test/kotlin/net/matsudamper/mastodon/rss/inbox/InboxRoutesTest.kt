@@ -18,6 +18,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.writeFully
+import net.matsudamper.kotpub.FakeBoostStore
 import net.matsudamper.kotpub.FakeEarlyUndoneLikes
 import net.matsudamper.kotpub.FakeFavouriteStore
 import net.matsudamper.kotpub.FakeFollowerStore
@@ -65,7 +66,7 @@ class InboxRoutesTest {
                         followers = followers,
                         favourites = FakeFavouriteStore(),
                         stamps = FakeStampStore(),
-                        boosts = IgnoredBoosts.store,
+                        boosts = FakeBoostStore(),
                         remoteNotes = IgnoredBoosts.remoteNotes,
                         earlyUndoneLikes = FakeEarlyUndoneLikes(),
                         domainBlocks = FakeInboxDomainBlocks(blockedUrls = setOf()),

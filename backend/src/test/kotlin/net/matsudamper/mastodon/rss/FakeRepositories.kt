@@ -41,6 +41,8 @@ import net.matsudamper.mastodon.rss.repository.NewFeedItem
 import net.matsudamper.mastodon.rss.repository.NewNote
 import net.matsudamper.mastodon.rss.repository.NewRemoteActor
 import net.matsudamper.mastodon.rss.repository.Note
+import net.matsudamper.mastodon.rss.repository.NoteBoostRepository
+import net.matsudamper.mastodon.rss.repository.NoteBoostRepository.NewNoteBoost
 import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository
 import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository.NewNoteFavourite
@@ -107,6 +109,7 @@ class FakeRepositories : Repositories {
             // remote_actors を消すとお気に入りとスタンプも消えるのは SQLite の ON DELETE CASCADE
             noteFavourites.removeByActor(followerActorUri)
             noteStamps.removeByActor(followerActorUri)
+            noteBoosts.removeByActor(followerActorUri)
         },
     )
 
@@ -129,10 +132,15 @@ class FakeRepositories : Repositories {
             deliveryQueue.deleteByNote(publicId)
             noteFavourites.deleteByNote(publicId)
             noteStamps.deleteByNote(publicId)
+            noteBoosts.deleteByNote(publicId)
         },
     )
 
     override val noteFavourites: FakeNoteFavouriteRepository = FakeNoteFavouriteRepository(
+        hasNote = { publicId -> notes.find(publicId) != null },
+    )
+
+    override val noteBoosts: FakeNoteBoostRepository = FakeNoteBoostRepository(
         hasNote = { publicId -> notes.find(publicId) != null },
     )
 
@@ -1237,6 +1245,54 @@ class FakeNoteFavouriteRepository(
 
     /**
      * 投稿を消すとお気に入りも消えるのは SQLite の ON DELETE CASCADE
+     */
+    fun deleteByNote(publicId: PublicNoteId) {
+        stored.removeAll { it.notePublicId == publicId }
+    }
+}
+
+/**
+ * 投稿が無ければ記録しないのと、同じ相手が同じ投稿に重ねないのは
+ * 本物の一意制約と外部キーに合わせてある
+ */
+class FakeNoteBoostRepository(
+    private val hasNote: (publicId: PublicNoteId) -> Boolean,
+) : NoteBoostRepository {
+    private val stored = mutableListOf<NewNoteBoost>()
+
+    override fun add(boost: NewNoteBoost): Boolean {
+        if (!hasNote(boost.notePublicId)) return false
+
+        val duplicated = stored.any {
+            it.actor.actorUri == boost.actor.actorUri && it.notePublicId == boost.notePublicId
+        }
+        if (duplicated) return false
+
+        stored += boost
+        return true
+    }
+
+    override fun removeByActivity(
+        actorUri: String,
+        activityUri: String,
+    ): Boolean = stored.removeAll { it.activityUri == activityUri && it.actor.actorUri == actorUri }
+
+    override fun removeByActor(actorUri: String): Int {
+        val before = stored.size
+        stored.removeAll { it.actor.actorUri == actorUri }
+        return before - stored.size
+    }
+
+    override fun findPublicKeyPem(actorUri: String): String? =
+        stored.firstOrNull { it.actor.actorUri == actorUri }?.actor?.publicKeyPem
+
+    override fun countsByNotes(notePublicIds: Set<PublicNoteId>): Map<PublicNoteId, Int> = stored
+        .filter { it.notePublicId in notePublicIds }
+        .groupingBy { it.notePublicId }
+        .eachCount()
+
+    /**
+     * 投稿を消すとブーストも消えるのは SQLite の ON DELETE CASCADE
      */
     fun deleteByNote(publicId: PublicNoteId) {
         stored.removeAll { it.notePublicId == publicId }

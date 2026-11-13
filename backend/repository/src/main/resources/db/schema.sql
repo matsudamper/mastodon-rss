@@ -187,6 +187,17 @@ CREATE TABLE notes (
     published_at TEXT NOT NULL
 );
 
+CREATE TABLE note_boosts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
+    -- ブーストした相手。公開鍵は note_favourites と同じく remote_actors の行が持つ
+    remote_actor_id INTEGER NOT NULL REFERENCES remote_actors (id) ON DELETE CASCADE,
+    -- Announce の id。Undo はこの id で取り消しを指してくる
+    activity_uri TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (note_public_id, remote_actor_id)
+);
+
 CREATE TABLE note_favourites (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
@@ -253,6 +264,8 @@ CREATE INDEX feed_items_note_id ON feed_items (note_id);
 CREATE INDEX notes_published_at_public_id ON notes (published_at, public_id);
 
 CREATE INDEX notes_username_published_at ON notes (username, published_at);
+
+CREATE INDEX note_boosts_remote_actor_id ON note_boosts (remote_actor_id);
 
 CREATE INDEX note_favourites_remote_actor_id ON note_favourites (remote_actor_id);
 

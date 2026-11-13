@@ -57,6 +57,18 @@ class AccountNoteResolverImpl : AccountNoteResolver {
             .thenApply { count -> DataFetcherResult.Builder(count ?: 0).build() }
     }
 
+    override fun boostCount(
+        accountNote: QlAccountNote,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<Int>> {
+        return GraphQlEngine
+            .dataLoaders(env)
+            .noteBoostCountDataLoader
+            .get(env)
+            .load(accountNote.id)
+            .thenApply { count -> DataFetcherResult.Builder(count ?: 0).build() }
+    }
+
     override fun stamps(
         accountNote: QlAccountNote,
         env: DataFetchingEnvironment,

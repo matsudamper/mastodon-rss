@@ -24,6 +24,9 @@ type AccountNote {
     "お気に入りの数"
     favouriteCount: Int! @lazy
 
+    "ブーストの数"
+    boostCount: Int! @lazy
+
     "スタンプの種類ごとの数。多い順"
     stamps: [NoteStamp!]! @lazy
 

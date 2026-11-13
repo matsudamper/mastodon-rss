@@ -59,6 +59,7 @@ import net.matsudamper.mastodon.rss.logic.IgnoredBoosts
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.RepositoryActorAppearances
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
+import net.matsudamper.mastodon.rss.logic.RepositoryBoostStore
 import net.matsudamper.mastodon.rss.logic.RepositoryEarlyUndoneLikes
 import net.matsudamper.mastodon.rss.logic.RepositoryFavouriteStore
 import net.matsudamper.mastodon.rss.logic.RepositoryFollowerStore
@@ -248,7 +249,7 @@ class AppDependencies(
         followers = followerStore,
         favourites = favouriteStore,
         stamps = RepositoryStampStore(repositories.noteStamps),
-        boosts = IgnoredBoosts.store,
+        boosts = RepositoryBoostStore(repositories.noteBoosts),
         remoteNotes = IgnoredBoosts.remoteNotes,
         earlyUndoneLikes = RepositoryEarlyUndoneLikes(repositories.earlyUndoneLikes),
         domainBlocks = object : InboxDomainBlocks {
