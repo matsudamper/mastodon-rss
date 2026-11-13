@@ -82,5 +82,8 @@ class RepositoryNoteStore(
         username = username,
         contentHtml = contentHtml,
         publishedAt = publishedAt,
+        attachments = listOf(),
+        inReplyTo = null,
+        mentions = listOf(),
     )
 }

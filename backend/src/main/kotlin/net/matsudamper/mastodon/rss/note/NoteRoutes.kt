@@ -17,6 +17,7 @@ import net.matsudamper.kotpub.note.NoteStore
 import net.matsudamper.kotpub.note.OutboxEndpoint
 import net.matsudamper.kotpub.url.WebPageUrls
 import net.matsudamper.mastodon.rss.http.respondEndpoint
+import net.matsudamper.mastodon.rss.logic.IgnoredBoosts
 import net.matsudamper.mastodon.rss.shared.WebPagePath
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.webpage.PublicPageResponse
@@ -67,7 +68,7 @@ internal fun Route.outboxRoutes(
     notes: NoteStore,
     webPages: WebPageUrls?,
 ) {
-    val endpoint = OutboxEndpoint(directory, notes, webPages)
+    val endpoint = OutboxEndpoint(directory, notes, IgnoredBoosts.outbox, webPages)
     get("/users/{username}/outbox") {
         call.respondEndpoint(
             endpoint.get(
@@ -79,8 +80,12 @@ internal fun Route.outboxRoutes(
     }
 }
 
-internal fun Route.featuredRoutes(directory: ActorDirectory) {
-    val endpoint = FeaturedEndpoint(directory)
+internal fun Route.featuredRoutes(
+    directory: ActorDirectory,
+    webPages: WebPageUrls?,
+) {
+    // 投稿をプロフィールに固定する機能は無い
+    val endpoint = FeaturedEndpoint(directory, { _, _ -> listOf() }, webPages)
     get("/users/{username}/collections/featured") {
         call.respondEndpoint(
             endpoint.get(username = call.parameters["username"], accept = call.request.header(HttpHeaders.Accept)),

@@ -30,6 +30,7 @@ import net.matsudamper.kotpub.actor.RemoteActors
 import net.matsudamper.kotpub.httpsignature.TestSigning
 import net.matsudamper.kotpub.inbox.InboxService
 import net.matsudamper.kotpub.json.AppJson
+import net.matsudamper.mastodon.rss.logic.IgnoredBoosts
 
 // 相手のサーバーからアクティビティが POST されてくる口。
 // 署名が通ったかどうかが、送り主を確かめる唯一の根拠になる。
@@ -64,6 +65,8 @@ class InboxRoutesTest {
                         followers = followers,
                         favourites = FakeFavouriteStore(),
                         stamps = FakeStampStore(),
+                        boosts = IgnoredBoosts.store,
+                        remoteNotes = IgnoredBoosts.remoteNotes,
                         earlyUndoneLikes = FakeEarlyUndoneLikes(),
                         domainBlocks = FakeInboxDomainBlocks(blockedUrls = setOf()),
                         domain = TestLocalActor.DOMAIN,

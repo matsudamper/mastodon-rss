@@ -55,6 +55,7 @@ import net.matsudamper.mastodon.rss.logic.FeedIconService
 import net.matsudamper.mastodon.rss.logic.FeedIconStore
 import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
+import net.matsudamper.mastodon.rss.logic.IgnoredBoosts
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
 import net.matsudamper.mastodon.rss.logic.RepositoryActorAppearances
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
@@ -247,6 +248,8 @@ class AppDependencies(
         followers = followerStore,
         favourites = favouriteStore,
         stamps = RepositoryStampStore(repositories.noteStamps),
+        boosts = IgnoredBoosts.store,
+        remoteNotes = IgnoredBoosts.remoteNotes,
         earlyUndoneLikes = RepositoryEarlyUndoneLikes(repositories.earlyUndoneLikes),
         domainBlocks = object : InboxDomainBlocks {
             override fun blocksInboxFrom(url: String): Boolean = domainBlockService.blocksInboxFrom(url)
