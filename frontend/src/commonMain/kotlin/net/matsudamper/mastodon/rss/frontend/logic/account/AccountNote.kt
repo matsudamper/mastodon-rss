@@ -8,6 +8,7 @@ data class AccountNote(
     val contentHtml: String,
     val publishedAt: Instant,
     val favouriteCount: Int,
+    val boostCount: Int,
     val stamps: List<NoteStamp>,
 )
 

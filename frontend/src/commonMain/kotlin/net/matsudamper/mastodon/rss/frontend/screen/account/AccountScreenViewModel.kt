@@ -277,7 +277,11 @@ class AccountScreenViewModel(
             url = note.url,
             contentHtml = note.contentHtml,
             publishedAt = UnixTimeUtil.format(note.publishedAt.epochSeconds),
-            reactions = NoteReactionsUiStateFactory.create(favouriteCount = note.favouriteCount, stamps = note.stamps),
+            reactions = NoteReactionsUiStateFactory.create(
+                favouriteCount = note.favouriteCount,
+                boostCount = note.boostCount,
+                stamps = note.stamps,
+            ),
             linkPreviews = linkUrls.map { url ->
                 createLinkPreview(url = url, preview = linkPreviews.firstOrNull { it.url == url })
             },

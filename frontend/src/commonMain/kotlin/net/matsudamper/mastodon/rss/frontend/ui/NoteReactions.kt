@@ -18,6 +18,9 @@ internal fun NoteReactions(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (uiState.boostCount != null) {
+            NoteBoostCount(count = uiState.boostCount)
+        }
         if (uiState.favouriteCount != null) {
             NoteFavouriteCount(count = uiState.favouriteCount)
         }

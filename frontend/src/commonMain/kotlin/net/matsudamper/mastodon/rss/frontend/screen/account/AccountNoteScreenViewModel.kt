@@ -111,6 +111,7 @@ class AccountNoteScreenViewModel(
                 publishedAt = UnixTimeUtil.format(result.note.publishedAt.epochSeconds),
                 reactions = NoteReactionsUiStateFactory.create(
                     favouriteCount = result.note.favouriteCount,
+                    boostCount = result.note.boostCount,
                     stamps = result.note.stamps,
                 ),
                 linkPreviews = result.linkUrls.map { url ->
