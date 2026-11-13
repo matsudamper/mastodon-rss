@@ -28,7 +28,8 @@
       "matchManagers": ["github-actions"],
       "matchPackageNames": [
         "/^actions\\//",
-        "gradle/actions"
+        "gradle/actions",
+        "graalvm/setup-graalvm"
       ],
       "automerge": true
     },
@@ -41,8 +42,14 @@
         "/^io\\.ktor:/",
         "/^org\\.graalvm\\.buildtools(?:\\.native|:)/",
         "org.graalvm.sdk:nativeimage",
+        "/^org\\.jetbrains\\.kotlin(?:\\.|:)/",
         "/^org\\.jetbrains\\.kotlinx:/"
       ],
+      "automerge": true
+    },
+    {
+      "description": "Gradle Wrapper の更新を自動マージする",
+      "matchManagers": ["gradle-wrapper"],
       "automerge": true
     }
   ]
