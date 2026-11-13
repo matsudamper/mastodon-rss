@@ -13,6 +13,7 @@ import net.matsudamper.mastodon.rss.dataloader.FeedByAccountIdDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.FeedItemByNoteDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.FollowerCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.HeaderVersionByAccountIdDataLoaderDefine
+import net.matsudamper.mastodon.rss.dataloader.NoteBoostCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.NoteCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.NoteFavouriteCountDataLoaderDefine
 import net.matsudamper.mastodon.rss.dataloader.NoteStampsDataLoaderDefine
@@ -60,6 +61,8 @@ class DataLoaders(
     val feedItemByNoteDataLoader by register { FeedItemByNoteDataLoaderDefine(diContainer.feedService) }
 
     val noteFavouriteCountDataLoader by register { NoteFavouriteCountDataLoaderDefine(diContainer.noteFavouriteRepository) }
+
+    val noteBoostCountDataLoader by register { NoteBoostCountDataLoaderDefine(diContainer.noteBoostRepository) }
 
     val noteStampsDataLoader by register { NoteStampsDataLoaderDefine(diContainer.noteStampRepository) }
 

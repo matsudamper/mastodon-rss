@@ -56,7 +56,7 @@ class NoteRoutesTest {
             routing {
                 noteRoutes(TestLocalActor.DOMAIN, notes, webPages, StaticFiles(staticRoot))
                 outboxRoutes(TestLocalActor.directory, notes, webPages)
-                featuredRoutes(TestLocalActor.directory)
+                featuredRoutes(TestLocalActor.directory, webPages)
                 staticRoutes(StaticFiles(staticRoot))
             }
         }
@@ -72,6 +72,9 @@ class NoteRoutesTest {
         username = username,
         contentHtml = contentHtml,
         publishedAt = publishedAt,
+        attachments = listOf(),
+        inReplyTo = null,
+        mentions = listOf(),
     )
 
     @Test

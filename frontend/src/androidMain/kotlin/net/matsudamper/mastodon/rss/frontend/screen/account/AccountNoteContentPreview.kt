@@ -22,6 +22,7 @@ private fun AccountNoteContentPreview() {
                     publishedAt = "2026-09-02 12:00",
                     reactions = NoteReactionsUiState(
                         favouriteCount = "3",
+                        boostCount = "2",
                         stamps = listOf(
                             NoteReactionsUiState.Stamp(name = "👍", imageUrl = null, count = "2"),
                         ),

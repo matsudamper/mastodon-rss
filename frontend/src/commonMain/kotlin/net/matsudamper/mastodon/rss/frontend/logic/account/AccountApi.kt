@@ -326,6 +326,7 @@ class AccountApi(
         contentHtml = contentHtml,
         publishedAt = Instant.fromEpochSeconds(publishedAt),
         favouriteCount = favouriteCount,
+        boostCount = boostCount,
         stamps = stamps.map { stamp ->
             NoteStamp(
                 name = stamp.name,

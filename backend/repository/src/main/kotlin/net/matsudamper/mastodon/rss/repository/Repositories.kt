@@ -25,6 +25,7 @@ interface Repositories : AutoCloseable {
     val notes: NoteRepository
 
     val noteFavourites: NoteFavouriteRepository
+    val noteBoosts: NoteBoostRepository
 
     val noteStamps: NoteStampRepository
 

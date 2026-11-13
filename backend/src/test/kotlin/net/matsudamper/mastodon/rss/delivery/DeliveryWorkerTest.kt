@@ -83,6 +83,9 @@ class DeliveryWorkerTest {
                     username = TestLocalActor.USERNAME,
                     contentHtml = "<p>フォローより前</p>",
                     publishedAt = now.minusSeconds(60),
+                    attachments = listOf(),
+                    inReplyTo = null,
+                    mentions = listOf(),
                 ),
             )
         }

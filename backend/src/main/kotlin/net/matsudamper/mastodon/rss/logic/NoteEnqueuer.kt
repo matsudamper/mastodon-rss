@@ -64,7 +64,13 @@ class NoteEnqueuer(
         contentHtml: String,
         feedItemId: FeedItemId?,
     ): QueuedNote? {
-        val prepared = publisher.prepare(sender = sender, contentHtml = contentHtml)
+        val prepared = publisher.prepare(
+            sender = sender,
+            contentHtml = contentHtml,
+            attachments = listOf(),
+            inReplyTo = null,
+            mentions = listOf(),
+        )
         val inboxes = followers.deliveryTargets(sender.username)
 
         val result = deliveryQueue.enqueueNote(

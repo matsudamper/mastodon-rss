@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.frontend.ui
 
 data class NoteReactionsUiState(
     val favouriteCount: String?,
+    val boostCount: String?,
     val stamps: List<Stamp>,
 ) {
     data class Stamp(

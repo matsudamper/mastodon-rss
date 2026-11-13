@@ -35,6 +35,7 @@ private fun HomeContentPreview() {
                             account = kotlin,
                             reactions = NoteReactionsUiState(
                                 favouriteCount = "3",
+                                boostCount = "2",
                                 stamps = listOf(
                                     NoteReactionsUiState.Stamp(name = "👍", imageUrl = null, count = "2"),
                                 ),
