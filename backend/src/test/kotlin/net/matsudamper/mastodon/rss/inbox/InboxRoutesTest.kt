@@ -23,15 +23,18 @@ import net.matsudamper.kotpub.FakeEarlyUndoneLikes
 import net.matsudamper.kotpub.FakeFavouriteStore
 import net.matsudamper.kotpub.FakeFollowerStore
 import net.matsudamper.kotpub.FakeInboxDomainBlocks
+import net.matsudamper.kotpub.FakeNoteStore
+import net.matsudamper.kotpub.FakeQuoteApprovals
 import net.matsudamper.kotpub.FakeStampStore
 import net.matsudamper.kotpub.TestLocalActor
 import net.matsudamper.kotpub.TestRemoteActor
 import net.matsudamper.kotpub.TestRemoteActors
 import net.matsudamper.kotpub.actor.RemoteActors
+import net.matsudamper.kotpub.http.RemoteFetchFailure
 import net.matsudamper.kotpub.httpsignature.TestSigning
 import net.matsudamper.kotpub.inbox.InboxService
 import net.matsudamper.kotpub.json.AppJson
-import net.matsudamper.mastodon.rss.logic.IgnoredBoosts
+import net.matsudamper.kotpub.note.RemoteNoteLookup
 
 // 相手のサーバーからアクティビティが POST されてくる口。
 // 署名が通ったかどうかが、送り主を確かめる唯一の根拠になる。
@@ -67,9 +70,11 @@ class InboxRoutesTest {
                         favourites = FakeFavouriteStore(),
                         stamps = FakeStampStore(),
                         boosts = FakeBoostStore(),
-                        remoteNotes = IgnoredBoosts.remoteNotes,
+                        remoteNotes = { noteId -> RemoteNoteLookup.NotFound(RemoteFetchFailure.NotHttps(noteId)) },
                         earlyUndoneLikes = FakeEarlyUndoneLikes(),
                         domainBlocks = FakeInboxDomainBlocks(blockedUrls = setOf()),
+                        notes = FakeNoteStore(),
+                        quoteApprovals = FakeQuoteApprovals(),
                         domain = TestLocalActor.DOMAIN,
                     ),
                 )

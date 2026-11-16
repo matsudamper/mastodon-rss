@@ -69,7 +69,9 @@ class NoteEnqueuer(
             contentHtml = contentHtml,
             attachments = listOf(),
             inReplyTo = null,
+            quote = null,
             mentions = listOf(),
+            emojis = listOf(),
         )
         val inboxes = followers.deliveryTargets(sender.username)
 

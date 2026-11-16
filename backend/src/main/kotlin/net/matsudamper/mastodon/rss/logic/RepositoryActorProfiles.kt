@@ -14,7 +14,7 @@ class RepositoryActorProfiles(
 ) : StoredActorProfiles {
     override fun find(username: String): ActorProfile {
         val account = accounts.findByUsername(username) ?: return ActorProfile.EMPTY
-        return ActorProfile(displayName = account.displayName, summary = account.summary ?: DEFAULT_SUMMARY)
+        return ActorProfile(displayName = account.displayName, summary = account.summary ?: DEFAULT_SUMMARY, likedPublic = false)
     }
 
     private companion object {

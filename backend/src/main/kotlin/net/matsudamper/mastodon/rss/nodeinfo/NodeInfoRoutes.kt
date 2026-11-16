@@ -4,9 +4,13 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import net.matsudamper.kotpub.nodeinfo.NodeInfoEndpoint
 import net.matsudamper.kotpub.nodeinfo.NodeInfoSoftware
+import net.matsudamper.kotpub.nodeinfo.NodeInfoUsageSource
 import net.matsudamper.mastodon.rss.http.respondEndpoint
 
-internal fun Route.nodeInfoRoutes(domain: String) {
+internal fun Route.nodeInfoRoutes(
+    domain: String,
+    usageSource: NodeInfoUsageSource,
+) {
     val endpoint =
         NodeInfoEndpoint(
             domain = domain,
@@ -17,6 +21,8 @@ internal fun Route.nodeInfoRoutes(domain: String) {
                 version = "0.1.0",
                 repository = "https://github.com/matsudamper/mastodon-rss",
             ),
+            openRegistrations = false,
+            usageSource = usageSource,
         )
     get("/.well-known/nodeinfo") {
         call.respondEndpoint(endpoint.discovery())

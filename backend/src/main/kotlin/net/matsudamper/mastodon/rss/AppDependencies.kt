@@ -28,12 +28,15 @@ import net.matsudamper.kotpub.delivery.ActivityDelivery
 import net.matsudamper.kotpub.delivery.HttpActivityDelivery
 import net.matsudamper.kotpub.favourite.FavouriteStore
 import net.matsudamper.kotpub.follower.FollowerStore
+import net.matsudamper.kotpub.http.ActivityPubHttpClient
 import net.matsudamper.kotpub.http.KtorActivityPubHttpClient
 import net.matsudamper.kotpub.inbox.InboxDomainBlocks
 import net.matsudamper.kotpub.inbox.InboxService
 import net.matsudamper.kotpub.note.FollowBackfillPublisher
+import net.matsudamper.kotpub.note.HttpRemoteNotes
 import net.matsudamper.kotpub.note.NotePublisher
 import net.matsudamper.kotpub.note.NoteStore
+import net.matsudamper.kotpub.quote.QuoteApprovals
 import net.matsudamper.kotpub.url.WebPageUrls
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.DeliveryCircuitBreaker
@@ -55,8 +58,8 @@ import net.matsudamper.mastodon.rss.logic.FeedIconService
 import net.matsudamper.mastodon.rss.logic.FeedIconStore
 import net.matsudamper.mastodon.rss.logic.FeedIcons
 import net.matsudamper.mastodon.rss.logic.FeedService
-import net.matsudamper.mastodon.rss.logic.IgnoredBoosts
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
+import net.matsudamper.mastodon.rss.logic.QueuedQuoteApprovals
 import net.matsudamper.mastodon.rss.logic.RepositoryActorAppearances
 import net.matsudamper.mastodon.rss.logic.RepositoryActorProfiles
 import net.matsudamper.mastodon.rss.logic.RepositoryBoostStore
@@ -88,6 +91,8 @@ import net.matsudamper.mastodon.rss.webpage.DomainWebPageUrls
  * @param remoteActors 相手のアクターの引き先。署名検証に使う公開鍵と、
  *   `Accept` の宛先になる inbox をここから取る。本番は [HttpRemoteActors] が
  *   相手のサーバーに GET しに行く
+ * @param remoteNotesClient 他のサーバーの投稿を取得する HTTP の口。引用を承認する前に、
+ *   引用した投稿の投稿者を確かめるのに使う
  * @param delivery こちらから相手の inbox に POST する口
  * @param webPageUrlsOverride 相手に渡す、人が開くページの URL。ActivityPub の `url` に入る。
  *   画面のパスは `:frontend` の都合なので、kotpub の `core` には持たせず
@@ -101,6 +106,7 @@ class AppDependencies(
     val actorKey: ActorPrivateKey,
     val env: ServerEnv,
     val remoteActors: RemoteActors,
+    private val remoteNotesClient: ActivityPubHttpClient,
     val delivery: ActivityDelivery,
     val feedFetcher: FeedFetchService = FeedFetchService(),
     val imageFetcher: RemoteImageFetchService = RemoteImageFetchService(),
@@ -236,6 +242,14 @@ class AppDependencies(
         clock = Instant::now,
     )
 
+    val quoteApprovals: QuoteApprovals = QueuedQuoteApprovals(
+        directory = directory,
+        actorKey = actorKey,
+        domainBlocks = domainBlockService,
+        deliveryQueue = repositories.deliveryQueue,
+        clock = Instant::now,
+    )
+
     /**
      * inbox が受け取ったアクティビティの検証と振り分け。
      *
@@ -250,7 +264,7 @@ class AppDependencies(
         favourites = favouriteStore,
         stamps = RepositoryStampStore(repositories.noteStamps),
         boosts = RepositoryBoostStore(repositories.noteBoosts),
-        remoteNotes = IgnoredBoosts.remoteNotes,
+        remoteNotes = HttpRemoteNotes(remoteNotesClient),
         earlyUndoneLikes = RepositoryEarlyUndoneLikes(repositories.earlyUndoneLikes),
         domainBlocks = object : InboxDomainBlocks {
             override fun blocksInboxFrom(url: String): Boolean = domainBlockService.blocksInboxFrom(url)
@@ -259,6 +273,8 @@ class AppDependencies(
                 domainBlockService.markAvailable(verifiedSignerActorId)
             }
         },
+        notes = noteStore,
+        quoteApprovals = quoteApprovals,
         domain = env.domain,
     )
 
@@ -403,6 +419,7 @@ class AppDependencies(
             { imageFetcher.close() },
             { linkPreviewService.close() },
             { delivery.close() },
+            { remoteNotesClient.close() },
             { remoteActors.close() },
             { repositories.close() },
             { telemetry?.close() },
@@ -453,9 +470,17 @@ class AppDependencies(
                     openTelemetry = openTelemetry,
                 )
 
+                val remoteNotesClient =
+                    runCatching { KtorActivityPubHttpClient(openTelemetry) }
+                        .getOrElse { failure ->
+                            remoteActors.close()
+                            throw failure
+                        }
+
                 val delivery =
                     runCatching { HttpActivityDelivery(client = KtorActivityPubHttpClient(openTelemetry)) }
                         .getOrElse { failure ->
+                            remoteNotesClient.close()
                             remoteActors.close()
                             throw failure
                         }
@@ -465,6 +490,7 @@ class AppDependencies(
                     actorKey = actorKey,
                     env = env,
                     remoteActors = remoteActors,
+                    remoteNotesClient = remoteNotesClient,
                     delivery = delivery,
                     openTelemetry = openTelemetry,
                     telemetry = telemetry,

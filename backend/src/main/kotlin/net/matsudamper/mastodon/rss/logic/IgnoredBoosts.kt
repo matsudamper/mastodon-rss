@@ -4,8 +4,6 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Span
 import net.matsudamper.kotpub.note.OutboxBoostStore
 import net.matsudamper.kotpub.note.OutboxPosition
-import net.matsudamper.kotpub.note.RemoteNoteLookup
-import net.matsudamper.kotpub.note.RemoteNotes
 import net.matsudamper.kotpub.note.StoredBoost
 
 /**
@@ -16,14 +14,6 @@ import net.matsudamper.kotpub.note.StoredBoost
  */
 internal object IgnoredBoosts {
     private val IGNORED: AttributeKey<String> = AttributeKey.stringKey("activitypub.boost.ignored")
-
-    /**
-     * ブーストされた投稿を記録しないので、取りに行かない
-     */
-    val remoteNotes: RemoteNotes = RemoteNotes {
-        markIgnored("remote_note_lookup")
-        RemoteNoteLookup.NotFound
-    }
 
     val outbox: OutboxBoostStore = object : OutboxBoostStore {
         override fun list(

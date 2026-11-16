@@ -74,7 +74,9 @@ class NoteRoutesTest {
         publishedAt = publishedAt,
         attachments = listOf(),
         inReplyTo = null,
+        quote = null,
         mentions = listOf(),
+        emojis = listOf(),
     )
 
     @Test

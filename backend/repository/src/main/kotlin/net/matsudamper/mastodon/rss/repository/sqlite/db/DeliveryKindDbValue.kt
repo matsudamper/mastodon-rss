@@ -10,6 +10,7 @@ internal enum class DeliveryKindDbValue(
     UPDATE_ACTOR("update_actor"),
     DELETE_ACTOR("delete_actor"),
     ACCEPT_FOLLOW("accept_follow"),
+    ACCEPT_QUOTE("accept_quote"),
     ;
 
     fun toDeliveryKind(): DeliveryKind =
@@ -19,6 +20,7 @@ internal enum class DeliveryKindDbValue(
             UPDATE_ACTOR -> DeliveryKind.UPDATE_ACTOR
             DELETE_ACTOR -> DeliveryKind.DELETE_ACTOR
             ACCEPT_FOLLOW -> DeliveryKind.ACCEPT_FOLLOW
+            ACCEPT_QUOTE -> DeliveryKind.ACCEPT_QUOTE
         }
 
     companion object {
@@ -29,6 +31,7 @@ internal enum class DeliveryKindDbValue(
                 DeliveryKind.UPDATE_ACTOR -> UPDATE_ACTOR
                 DeliveryKind.DELETE_ACTOR -> DELETE_ACTOR
                 DeliveryKind.ACCEPT_FOLLOW -> ACCEPT_FOLLOW
+                DeliveryKind.ACCEPT_QUOTE -> ACCEPT_QUOTE
             }
 
         fun parse(value: String): DeliveryKindDbValue =
