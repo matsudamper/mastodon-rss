@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.repository.EnqueueNoteResult
 import net.matsudamper.mastodon.rss.repository.FailedDelivery
 import net.matsudamper.mastodon.rss.repository.NoteDeletionPost
 import net.matsudamper.mastodon.rss.repository.NotePost
+import net.matsudamper.mastodon.rss.repository.QuoteAcceptPost
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
@@ -146,6 +147,21 @@ internal class SqliteDeliveryQueueRepository(
         }
     }
 
+    override fun enqueueQuoteAccept(post: QuoteAcceptPost) {
+        jooq.transaction { dsl ->
+            DeliveryQueueRows.insertPending(
+                dsl = dsl,
+                kind = DeliveryKindDbValue.ACCEPT_QUOTE,
+                username = post.username,
+                inbox = post.inbox,
+                body = post.body,
+                enqueuedAt = post.enqueuedAt,
+                notePublicId = null,
+                targetActorUri = null,
+            )
+        }
+    }
+
     /**
      * 記事を投稿済みにする。`pending` でなければ [FeedItemNotPending] でトランザクションごと巻き戻す
      */
@@ -251,6 +267,7 @@ internal class SqliteDeliveryQueueRepository(
             DeliveryKindDbValue.DELETE_NOTE,
             DeliveryKindDbValue.UPDATE_ACTOR,
             DeliveryKindDbValue.DELETE_ACTOR,
+            DeliveryKindDbValue.ACCEPT_QUOTE,
             -> DeliveredOutcome.None
 
             DeliveryKindDbValue.ACCEPT_FOLLOW -> {

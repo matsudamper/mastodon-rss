@@ -30,10 +30,12 @@ import net.matsudamper.mastodon.rss.graphql.resolver.QueryResolverImpl
 import net.matsudamper.mastodon.rss.inbox.inboxRoutes
 import net.matsudamper.mastodon.rss.json.respondJson
 import net.matsudamper.mastodon.rss.linkpreview.linkPreviewImageRoutes
+import net.matsudamper.mastodon.rss.nodeinfo.RepositoryNodeInfoUsage
 import net.matsudamper.mastodon.rss.nodeinfo.nodeInfoRoutes
 import net.matsudamper.mastodon.rss.note.featuredRoutes
 import net.matsudamper.mastodon.rss.note.noteRoutes
 import net.matsudamper.mastodon.rss.note.outboxRoutes
+import net.matsudamper.mastodon.rss.note.quoteAuthorizationRoutes
 import net.matsudamper.mastodon.rss.remoteactor.remoteActorIconRoutes
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.staticfiles.staticRoutes
@@ -204,8 +206,12 @@ fun Application.module(deps: AppDependencies) {
         outboxRoutes(deps.directory, deps.noteStore, deps.webPageUrls)
         featuredRoutes(deps.directory, deps.webPageUrls)
         noteRoutes(env.domain, deps.noteStore, deps.webPageUrls, staticFiles)
+        quoteAuthorizationRoutes(domain = env.domain, notes = deps.noteStore, approvals = deps.quoteApprovals)
 
-        nodeInfoRoutes(env.domain)
+        nodeInfoRoutes(
+            domain = env.domain,
+            usageSource = RepositoryNodeInfoUsage(accounts = deps.repositories.accounts, notes = deps.repositories.notes),
+        )
 
         graphQlRoutes(graphQl)
 

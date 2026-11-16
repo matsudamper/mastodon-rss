@@ -12,13 +12,18 @@ import net.matsudamper.kotpub.TestLocalActor
 import net.matsudamper.kotpub.json.AppJson
 import net.matsudamper.kotpub.nodeinfo.NodeInfo
 import net.matsudamper.kotpub.nodeinfo.NodeInfoDiscovery
+import net.matsudamper.kotpub.nodeinfo.NodeInfoUsage
+import net.matsudamper.kotpub.nodeinfo.NodeInfoUsers
 
 // 調査ツール向けの任意実装。無くても Mastodon からのフォローには影響しない。
 class NodeInfoRoutesTest {
     private fun ApplicationTestBuilder.installModule() {
         application {
             routing {
-                nodeInfoRoutes(TestLocalActor.DOMAIN)
+                nodeInfoRoutes(
+                    domain = TestLocalActor.DOMAIN,
+                    usageSource = { NodeInfoUsage(users = NodeInfoUsers(total = 1), localPosts = 0) },
+                )
             }
         }
     }

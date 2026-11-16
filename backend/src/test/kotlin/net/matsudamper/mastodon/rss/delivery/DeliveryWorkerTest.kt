@@ -85,7 +85,9 @@ class DeliveryWorkerTest {
                     publishedAt = now.minusSeconds(60),
                     attachments = listOf(),
                     inReplyTo = null,
+                    quote = null,
                     mentions = listOf(),
+                    emojis = listOf(),
                 ),
             )
         }

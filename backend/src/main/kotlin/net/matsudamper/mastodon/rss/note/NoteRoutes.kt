@@ -15,6 +15,8 @@ import net.matsudamper.kotpub.note.FeaturedEndpoint
 import net.matsudamper.kotpub.note.NoteEndpoint
 import net.matsudamper.kotpub.note.NoteStore
 import net.matsudamper.kotpub.note.OutboxEndpoint
+import net.matsudamper.kotpub.quote.QuoteApprovals
+import net.matsudamper.kotpub.quote.QuoteAuthorizationEndpoint
 import net.matsudamper.kotpub.url.WebPageUrls
 import net.matsudamper.mastodon.rss.http.respondEndpoint
 import net.matsudamper.mastodon.rss.logic.IgnoredBoosts
@@ -60,6 +62,23 @@ internal fun Route.noteRoutes(
                 }
             }
         }
+    }
+}
+
+internal fun Route.quoteAuthorizationRoutes(
+    domain: String,
+    notes: NoteStore,
+    approvals: QuoteApprovals,
+) {
+    val endpoint = QuoteAuthorizationEndpoint(domain = domain, notes = notes, approvals = approvals)
+    get("/notes/{publicId}/quote_authorizations/{token}") {
+        call.respondEndpoint(
+            endpoint.get(
+                publicId = call.parameters["publicId"],
+                token = call.parameters["token"],
+                accept = call.request.header(HttpHeaders.Accept),
+            ),
+        )
     }
 }
 

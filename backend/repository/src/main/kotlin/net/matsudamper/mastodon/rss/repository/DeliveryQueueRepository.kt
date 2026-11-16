@@ -68,6 +68,13 @@ interface DeliveryQueueRepository {
     fun enqueueActorUpdate(post: ActorUpdatePost): Int
 
     /**
+     * 引用を承認する `Accept` を投函する。
+     *
+     * 配信を止めているドメインの相手には投函しない。相手の引用は保留のまま残る
+     */
+    fun enqueueQuoteAccept(post: QuoteAcceptPost)
+
+    /**
      * 送る時刻を過ぎた `pending` を、送る時刻の古い順に `delivering` にして返す。
      *
      * 選ぶのと `delivering` にするのを一度に行い、更新できた行だけを返す。
@@ -270,6 +277,21 @@ data class ActorUpdatePost(
     val enqueuedAt: Instant,
 )
 
+/**
+ * 投函する引用の承認。
+ *
+ * @param username 引用された投稿の持ち主。署名するこちらのアカウントの名前
+ * @param inbox 引用した相手の inbox。`sharedInbox` ではない。`Accept` は相手 1 人への応答
+ * @param body 署名対象になる `Accept` の JSON
+ * @param enqueuedAt 投函した時刻。最初の 1 回はこの時刻にすぐ送る
+ */
+data class QuoteAcceptPost(
+    val username: String,
+    val inbox: String,
+    val body: String,
+    val enqueuedAt: Instant,
+)
+
 sealed interface EnqueueNoteResult {
     /**
      * @param deliveries 投函した配信の数。配信を止めているドメイン宛ては入れないので、宛先の数より少ないことがある
@@ -312,6 +334,11 @@ enum class DeliveryKind {
      * 受け取った `Follow` への `Accept`
      */
     ACCEPT_FOLLOW,
+
+    /**
+     * 受け取った `QuoteRequest` への `Accept`
+     */
+    ACCEPT_QUOTE,
 }
 
 /**

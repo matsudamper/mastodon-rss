@@ -52,6 +52,7 @@ import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.NoteStampRepository
 import net.matsudamper.mastodon.rss.repository.NoteStampRepository.NewNoteStamp
 import net.matsudamper.mastodon.rss.repository.NoteStampRepository.StampCount
+import net.matsudamper.mastodon.rss.repository.QuoteAcceptPost
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
 import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.Repositories
@@ -887,6 +888,23 @@ class FakeDeliveryQueueRepository(
         }
 
         return post.inboxes.size
+    }
+
+    override fun enqueueQuoteAccept(post: QuoteAcceptPost) {
+        stored += Row(
+            id = DeliveryId(nextId++),
+            kind = DeliveryKind.ACCEPT_QUOTE,
+            notePublicId = null,
+            targetActorUri = null,
+            username = post.username,
+            inbox = post.inbox,
+            body = post.body,
+            state = State.PENDING,
+            attempts = 0,
+            nextAttemptAt = post.enqueuedAt,
+            enqueuedAt = post.enqueuedAt,
+            lastError = null,
+        )
     }
 
     override fun enqueueNoteDeletion(post: NoteDeletionPost): Int {

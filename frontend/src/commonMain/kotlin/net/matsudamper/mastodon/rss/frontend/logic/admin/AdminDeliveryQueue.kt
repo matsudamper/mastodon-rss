@@ -52,6 +52,7 @@ enum class AdminDeliveryKind {
     CREATE_NOTE,
     DELETE_NOTE,
     ACCEPT_FOLLOW,
+    ACCEPT_QUOTE,
     UPDATE_ACTOR,
     DELETE_ACTOR,
     UNKNOWN,
@@ -67,6 +68,7 @@ internal fun GraphQlAdminDeliveryKind.toAdminDeliveryKind(): AdminDeliveryKind =
         GraphQlAdminDeliveryKind.CREATE_NOTE -> AdminDeliveryKind.CREATE_NOTE
         GraphQlAdminDeliveryKind.DELETE_NOTE -> AdminDeliveryKind.DELETE_NOTE
         GraphQlAdminDeliveryKind.ACCEPT_FOLLOW -> AdminDeliveryKind.ACCEPT_FOLLOW
+        GraphQlAdminDeliveryKind.ACCEPT_QUOTE -> AdminDeliveryKind.ACCEPT_QUOTE
         GraphQlAdminDeliveryKind.UPDATE_ACTOR -> AdminDeliveryKind.UPDATE_ACTOR
         GraphQlAdminDeliveryKind.DELETE_ACTOR -> AdminDeliveryKind.DELETE_ACTOR
         GraphQlAdminDeliveryKind.UNKNOWN__ -> AdminDeliveryKind.UNKNOWN

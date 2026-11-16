@@ -11,10 +11,13 @@ import io.ktor.utils.io.readRemaining
 import net.matsudamper.kotpub.actor.ActorDirectory
 import net.matsudamper.kotpub.actor.ActorUrls
 import net.matsudamper.kotpub.inbox.InboxEndpoint
+import net.matsudamper.kotpub.inbox.InboxHandling
+import net.matsudamper.kotpub.inbox.InboxResult
 import net.matsudamper.kotpub.inbox.InboxService
 import net.matsudamper.kotpub.inbox.IncomingInboxRequest
 import net.matsudamper.mastodon.rss.http.KtorRequestHeaders
 import net.matsudamper.mastodon.rss.http.respondEndpoint
+import org.slf4j.LoggerFactory
 
 internal fun Route.inboxRoutes(
     directory: ActorDirectory,
@@ -22,13 +25,39 @@ internal fun Route.inboxRoutes(
 ) {
     val endpoint = InboxEndpoint(directory, service)
     post("/users/{username}/inbox") {
-        call.respondEndpoint(
-            endpoint.receiveForAccount(username = call.parameters["username"], request = call.incomingInboxRequest()),
-        )
+        val received = endpoint.receiveForAccount(username = call.parameters["username"], request = call.incomingInboxRequest())
+        logInboxResult(received.result)
+        call.respondEndpoint(received.response)
     }
 
     post(ActorUrls.SHARED_INBOX_PATH) {
-        call.respondEndpoint(endpoint.receiveShared(call.incomingInboxRequest()))
+        val received = endpoint.receiveShared(call.incomingInboxRequest())
+        logInboxResult(received.result)
+        call.respondEndpoint(received.response)
+    }
+}
+
+private val inboxLogger = LoggerFactory.getLogger("net.matsudamper.mastodon.rss.inbox.Inbox")
+
+/**
+ * kotpub は受け付けなかった理由をログに残さずに結果で返すので、こちらで残す
+ *
+ * @param result 宛先のアカウントが無いなど、処理まで進まなかったときは null
+ */
+private fun logInboxResult(result: InboxResult?) {
+    when (result) {
+        null -> Unit
+
+        is InboxResult.Accepted -> {
+            val handling = result.handling
+            if (handling is InboxHandling.Ignored) inboxLogger.info("inbox で受け付けなかった: ${handling.reason}")
+        }
+
+        is InboxResult.Unauthorized -> inboxLogger.warn("inbox の署名を拒否した: ${result.reason}")
+
+        is InboxResult.BadRequest -> inboxLogger.warn("inbox のボディを読めなかった: ${result.reason}")
+
+        is InboxResult.TemporarilyUnavailable -> inboxLogger.warn("inbox を処理できなかったので送り直してもらう", result.cause)
     }
 }
 
