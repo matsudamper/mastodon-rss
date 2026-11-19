@@ -81,11 +81,15 @@ class RepositoryNoteStore(
         publicId = MastodonPublicNoteId(publicId.value),
         username = username,
         contentHtml = contentHtml,
+        summary = null,
         publishedAt = publishedAt,
+        updatedAt = null,
         attachments = listOf(),
         inReplyTo = null,
         quote = null,
         mentions = listOf(),
         emojis = listOf(),
+        sensitive = false,
+        poll = null,
     )
 }

@@ -32,6 +32,22 @@ class RepositoryFollowerStore(
             ),
         )
 
+    /**
+     * 受信を止めたドメインからの Follow は inbox で捨てているので、ここまで届いたものは断らない
+     */
+    override fun refuses(
+        username: String,
+        followerActorUri: String,
+    ): Boolean = false
+
+    override fun reject(
+        username: String,
+        follower: RemoteActor,
+        followActivityUri: String,
+        receivedAt: Instant,
+        rejectBody: String,
+    ): Boolean = error("refuses が常に false なので Follow は断らない")
+
     override fun remove(
         username: String,
         followerActorUri: String,

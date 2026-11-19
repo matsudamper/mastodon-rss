@@ -82,12 +82,16 @@ class DeliveryWorkerTest {
                     publicId = MastodonPublicNoteId("note-1"),
                     username = TestLocalActor.USERNAME,
                     contentHtml = "<p>フォローより前</p>",
+                    summary = null,
                     publishedAt = now.minusSeconds(60),
+                    updatedAt = null,
                     attachments = listOf(),
                     inReplyTo = null,
                     quote = null,
                     mentions = listOf(),
                     emojis = listOf(),
+                    sensitive = false,
+                    poll = null,
                 ),
             )
         }

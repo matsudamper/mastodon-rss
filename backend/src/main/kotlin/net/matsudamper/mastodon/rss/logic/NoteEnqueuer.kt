@@ -67,11 +67,14 @@ class NoteEnqueuer(
         val prepared = publisher.prepare(
             sender = sender,
             contentHtml = contentHtml,
+            summary = null,
             attachments = listOf(),
             inReplyTo = null,
             quote = null,
             mentions = listOf(),
             emojis = listOf(),
+            sensitive = false,
+            poll = null,
         )
         val inboxes = followers.deliveryTargets(sender.username)
 
