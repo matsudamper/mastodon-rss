@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.feed
 
+import java.net.InetAddress
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -93,7 +94,10 @@ class FeedPollerOpenTelemetryTest {
             accounts = repositories.accounts,
             feeds = repositories.feeds,
             feedItems = repositories.feedItems,
-            fetcher = FeedFetchService(HttpClient(engine)),
+            fetcher = FeedFetchService(
+                client = HttpClient(engine) { followRedirects = false },
+                resolveAddresses = { listOf(InetAddress.getByName("93.184.216.34")) },
+            ),
             actorDirectory = TestLocalActor.directory,
             noteEnqueuer =
             NoteEnqueuer(

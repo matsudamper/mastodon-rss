@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.feed
 
+import java.net.InetAddress
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -9,6 +10,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondError
+import io.ktor.client.engine.mock.respondRedirect
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 
@@ -59,7 +61,73 @@ class FeedFetchServiceTest {
             assertEquals(FeedFetchService.FetchResult.ChannelIdNotFound, result)
         }
 
-    private fun serviceOf(engine: MockEngine): FeedFetchService = FeedFetchService(HttpClient(engine))
+    @Test
+    fun `内側のアドレスへのリダイレクトは辿らない`() =
+        runTest {
+            val requestedHosts = mutableListOf<String>()
+            val engine = MockEngine { request ->
+                requestedHosts += request.url.host
+                if (request.url.host == "example.com") {
+                    respondRedirect("http://internal.example/feed.xml")
+                } else {
+                    respondXml(atomFeed)
+                }
+            }
+            val service = FeedFetchService(
+                client = HttpClient(engine) { followRedirects = false },
+                resolveAddresses = { host ->
+                    listOf(InetAddress.getByName(if (host == "example.com") "93.184.216.34" else "10.0.0.1"))
+                },
+            )
+
+            val result = service.fetch("https://example.com/feed.xml", needsDescription = false)
+
+            assertIs<FeedFetchService.FetchResult.HttpError>(result)
+            assertEquals(listOf("example.com"), requestedHosts)
+        }
+
+    @Test
+    fun `内側のアドレスを指す URL は取りに行かない`() =
+        runTest {
+            var requested = false
+            val engine = MockEngine {
+                requested = true
+                respondXml(atomFeed)
+            }
+            val service = FeedFetchService(
+                client = HttpClient(engine) { followRedirects = false },
+                resolveAddresses = { listOf(InetAddress.getByName("127.0.0.1")) },
+            )
+
+            val result = service.fetch("http://localhost/feed.xml", needsDescription = false)
+
+            assertIs<FeedFetchService.FetchResult.HttpError>(result)
+            assertEquals(false, requested)
+        }
+
+    @Test
+    fun `外のアドレスへのリダイレクトは辿って飛んだ先の URL を返す`() =
+        runTest {
+            val engine = MockEngine { request ->
+                if (request.url.host == "example.com") {
+                    respondRedirect("https://cdn.example.net/feed.xml")
+                } else {
+                    respondXml(atomFeed)
+                }
+            }
+
+            val result = serviceOf(engine).fetch("https://example.com/feed.xml", needsDescription = false)
+
+            assertEquals(
+                "https://cdn.example.net/feed.xml",
+                assertIs<FeedFetchService.FetchResult.Success>(result).feedUrl,
+            )
+        }
+
+    private fun serviceOf(engine: MockEngine): FeedFetchService = FeedFetchService(
+        client = HttpClient(engine) { followRedirects = false },
+        resolveAddresses = { listOf(InetAddress.getByName("93.184.216.34")) },
+    )
 
     private fun MockRequestHandleScope.respondHtml(html: String) =
         respond(content = html, headers = headersOf("Content-Type", "text/html; charset=utf-8"))
