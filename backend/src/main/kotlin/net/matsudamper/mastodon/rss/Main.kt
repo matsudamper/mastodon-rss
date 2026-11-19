@@ -150,6 +150,7 @@ fun Application.module(deps: AppDependencies) {
         feedService = deps.feedService,
         linkPreviewService = deps.linkPreviewService,
         domainBlockService = deps.domainBlockService,
+        adminLoginThrottle = deps.adminLoginThrottle,
     )
 
     val graphQl = GraphQlEngine.create(
@@ -168,6 +169,7 @@ fun Application.module(deps: AppDependencies) {
                 call = call,
                 sessionStore = deps.adminSessionStore,
                 cookieSecure = env.adminCookieSecure,
+                trustCfConnectingIp = env.trustCfConnectingIp,
             )
         },
         diContainer = diContainer,

@@ -61,7 +61,10 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminLoginResult>> {
         val context = GraphQlEngine.graphQlContext(env)
-        val adminLoginService = GraphQlEngine.diContainer(env).adminLoginService
+        if (context.claimLoginAttempt().not()) throw GraphqlExceptions.LoginAttemptLimit()
+        val diContainer = GraphQlEngine.diContainer(env)
+        val adminLoginService = diContainer.adminLoginService
+        val adminLoginThrottle = diContainer.adminLoginThrottle
 
         if (adminLoginService.adminPasswordConfigured.not()) {
             return CompletableFuture.completedFuture(
@@ -75,7 +78,9 @@ class AdminMutationResolverImpl : AdminMutationResolver {
             )
         }
 
-        if (adminLoginService.matchesAdminPassword(password).not()) {
+        if (adminLoginThrottle.tryReserve(clientIp = context.clientIp).not() ||
+            adminLoginService.matchesAdminPassword(password).not()
+        ) {
             return CompletableFuture.completedFuture(
                 DataFetcherResult.Builder(
                     loginFailure(
@@ -87,6 +92,7 @@ class AdminMutationResolverImpl : AdminMutationResolver {
             )
         }
 
+        adminLoginThrottle.recordSuccess(clientIp = context.clientIp)
         context.issueAdminSession()
 
         return CompletableFuture.completedFuture(

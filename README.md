@@ -205,6 +205,7 @@ Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み
 | `STATIC_SRC_DIR` | なし | 配信する静的ファイルのディレクトリ。未設定なら何も配信しない |
 | `ADMIN_PASSWORD_HASH` | なし | 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない |
 | `ADMIN_COOKIE_SECURE` | `true` | セッション Cookie に `Secure` を付けるか。手元で http で試すときだけ `false` にする |
+| `TRUST_CF_CONNECTING_IP` | `false` | `CF-Connecting-IP` を送信元 IP として使うか。Cloudflare 経由でしか届かない構成のときだけ `true` にする。ログイン失敗の締め出しを IP ごとに数えるのに使う |
 
 `DOMAIN` は scheme と末尾の `/` を書いても落として扱う。未設定だと起動しない。
 アカウント名に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`、

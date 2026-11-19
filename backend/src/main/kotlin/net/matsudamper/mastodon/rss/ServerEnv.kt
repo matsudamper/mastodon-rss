@@ -131,4 +131,19 @@ class ServerEnv(
             raw.lowercase().toBooleanStrictOrNull()
                 ?: throw IllegalArgumentException("ADMIN_COOKIE_SECURE は true か false にすること: $raw")
         }
+
+    /**
+     * Cloudflare の後ろに置くとき、`CF-Connecting-IP` を送信元として信じるか。
+     * Cloudflare を通らずに届く構成で true にすると、ヘッダーを偽ってログインの締め出しを逃れられる
+     */
+    val trustCfConnectingIp: Boolean =
+        run {
+            val raw = env["TRUST_CF_CONNECTING_IP"]?.trim()
+            if (raw.isNullOrEmpty()) {
+                return@run false
+            }
+
+            raw.lowercase().toBooleanStrictOrNull()
+                ?: throw IllegalArgumentException("TRUST_CF_CONNECTING_IP は true か false にすること: $raw")
+        }
 }

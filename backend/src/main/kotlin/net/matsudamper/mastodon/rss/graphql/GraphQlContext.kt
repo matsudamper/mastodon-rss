@@ -1,6 +1,8 @@
 package net.matsudamper.mastodon.rss.graphql
 
+import java.util.concurrent.atomic.AtomicBoolean
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.plugins.origin
 import net.matsudamper.mastodon.rss.admin.AdminSessionCookieManager
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
@@ -12,8 +14,23 @@ class GraphQlContext(
     call: ApplicationCall,
     private val sessionStore: AdminSessionInMemoryStore,
     cookieSecure: Boolean,
+    trustCfConnectingIp: Boolean,
 ) {
+    /**
+     * trustCfConnectingIp が無いままリバースプロキシの後ろに置くとプロキシの IP になり、全員がまとめて締め出される
+     */
+    val clientIp: String =
+        call.request.headers["CF-Connecting-IP"]?.takeIf { trustCfConnectingIp }
+            ?: call.request.origin.remoteAddress
+
     private val cookie = AdminSessionCookieManager(call = call, secure = cookieSecure)
+
+    private val loginAttempted = AtomicBoolean(false)
+
+    /**
+     * alias で login を並べてもハッシュ計算は 1 リクエスト 1 回までにする
+     */
+    fun claimLoginAttempt(): Boolean = loginAttempted.compareAndSet(false, true)
 
     fun isAdminLoggedIn(): Boolean = sessionStore.isValid(cookie.token())
 
