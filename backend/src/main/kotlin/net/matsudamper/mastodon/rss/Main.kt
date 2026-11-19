@@ -189,7 +189,7 @@ fun Application.module(deps: AppDependencies) {
 
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
         webFingerRoutes(deps.directory)
-        actorRoutes(deps.directory, actorKey, deps.actorAppearances, deps.actorProfiles, deps.webPageUrls, staticFiles)
+        actorRoutes(deps.directory, actorKey, deps.actorAppearances, deps.actorProfiles, deps.webPageUrls, staticFiles, deps.pageOgpService)
         actorIconRoutes(deps.directory, deps.actorIcons)
         actorHeaderRoutes(deps.directory, deps.actorHeaders)
 
@@ -205,7 +205,7 @@ fun Application.module(deps: AppDependencies) {
         followerRoutes(deps.directory, deps.followerStore)
         outboxRoutes(deps.directory, deps.noteStore, deps.webPageUrls)
         featuredRoutes(deps.directory, deps.webPageUrls)
-        noteRoutes(env.domain, deps.noteStore, deps.webPageUrls, staticFiles)
+        noteRoutes(env.domain, deps.noteStore, deps.webPageUrls, staticFiles, deps.pageOgpService)
         quoteAuthorizationRoutes(domain = env.domain, notes = deps.noteStore, approvals = deps.quoteApprovals)
 
         nodeInfoRoutes(

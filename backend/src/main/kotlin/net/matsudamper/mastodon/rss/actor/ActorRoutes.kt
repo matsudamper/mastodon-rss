@@ -20,6 +20,7 @@ import net.matsudamper.kotpub.url.WebPageUrls
 import net.matsudamper.mastodon.rss.http.respondEndpoint
 import net.matsudamper.mastodon.rss.shared.WebPagePath
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
+import net.matsudamper.mastodon.rss.webpage.PageOgpService
 import net.matsudamper.mastodon.rss.webpage.PublicPageResponse
 
 internal fun Route.actorRoutes(
@@ -29,6 +30,7 @@ internal fun Route.actorRoutes(
     profiles: StoredActorProfiles,
     webPages: WebPageUrls?,
     staticFiles: StaticFiles?,
+    pageOgp: PageOgpService?,
 ) {
     val publicKeys = object : StoredActorPublicKeys {
         override fun find(username: String): String = actorKey.publicKeyPem
@@ -51,14 +53,14 @@ internal fun Route.actorRoutes(
             if (PublicPageResponse.wantsJson(call.request.header(HttpHeaders.Accept))) {
                 call.respondEndpoint(endpoint.get(username, PublicPageResponse.JSON_ACCEPT))
             } else if (actor == null) {
-                PublicPageResponse.html(call, null)
+                PublicPageResponse.html(call = call, staticFiles = null, ogp = null)
             } else {
                 call.response.header(
                     HttpHeaders.Link,
                     "<https://${actor.domain}/.well-known/webfinger?resource=${actor.acct}>; rel=\"lrdd\"; type=\"application/jrd+json\", " +
                         "<${actor.actorId}>; rel=\"alternate\"; type=\"application/activity+json\"",
                 )
-                PublicPageResponse.html(call, staticFiles)
+                PublicPageResponse.html(call = call, staticFiles = staticFiles, ogp = pageOgp?.account(actor.username))
             }
         }
     }
