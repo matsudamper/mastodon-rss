@@ -36,9 +36,18 @@ Gradle 自体も wrapper が入っているので個別のインストールは�
 
 ```sh
 # JVM で起動する（http://localhost:8080）
-# DOMAIN は必須。手元で試すだけなら適当な値でよいが、
+# 環境変数はどれも必須（下の「環境変数」を参照）。
+# DOMAIN は手元で試すだけなら適当な値でよいが、
 # Mastodon から実際に引かせるときは公開しているホスト名にすること
-DOMAIN=example.com ./gradlew :backend:run
+HOST=0.0.0.0 \
+PORT=8080 \
+DB_PATH=./data/mastodon-rss.db \
+ICON_CACHE_DIR=./data/image-cache \
+ACTOR_PRIVATE_KEY_PATH=./data/actor-private-key.pem \
+ENABLE_OTEL=false \
+ADMIN_COOKIE_SECURE=false \
+DOMAIN=example.com \
+  ./gradlew :backend:run
 ```
 
 起動できたかは `GET /healthz` で見る。`{"status":"ok"}` が返れば動いている。
@@ -53,7 +62,15 @@ GraalVM は Gradle が用意するので、事前のインストールは要ら�
 ./gradlew :backend:nativeCompile
 
 # 生成されたバイナリを起動する
-DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
+HOST=0.0.0.0 \
+PORT=8080 \
+DB_PATH=./data/mastodon-rss.db \
+ICON_CACHE_DIR=./data/image-cache \
+ACTOR_PRIVATE_KEY_PATH=./data/actor-private-key.pem \
+ENABLE_OTEL=false \
+ADMIN_COOKIE_SECURE=false \
+DOMAIN=example.com \
+  ./backend/build/native/nativeCompile/mastodon-rss
 ```
 
 ### frontend
@@ -88,6 +105,13 @@ DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
 ./gradlew :frontend:wasmJsBrowserDistribution
 
 # DOMAIN は画面の配信には関係しないが、必須なので入れる
+HOST=0.0.0.0 \
+PORT=8080 \
+DB_PATH=./data/mastodon-rss.db \
+ICON_CACHE_DIR=./data/image-cache \
+ACTOR_PRIVATE_KEY_PATH=./data/actor-private-key.pem \
+ENABLE_OTEL=false \
+ADMIN_COOKIE_SECURE=false \
 DOMAIN=example.com \
 STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
   ./gradlew :backend:run
@@ -125,11 +149,17 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 ./gradlew --quiet :backend:crypto:passwordHash
 ```
 
-手元で試すときは `ADMIN_COOKIE_SECURE=false` を付ける。既定ではセッション Cookie に
+手元で試すときは `ADMIN_COOKIE_SECURE=false` にする。`true` ではセッション Cookie に
 `Secure` が付き、`http://localhost:8080` ではブラウザが Cookie を保存しないので、
 ログインしてもログインしていない状態のままになる。
 
 ```sh
+HOST=0.0.0.0 \
+PORT=8080 \
+DB_PATH=./data/mastodon-rss.db \
+ICON_CACHE_DIR=./data/image-cache \
+ACTOR_PRIVATE_KEY_PATH=./data/actor-private-key.pem \
+ENABLE_OTEL=false \
 DOMAIN=example.com \
 STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 ADMIN_PASSWORD_HASH='pbkdf2-sha256:...' \
@@ -193,20 +223,23 @@ Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み
 
 ## 環境変数
 
-| 変数 | 既定値 | 内容 |
-| --- | --- | --- |
-| `HOST` | `0.0.0.0` | バインドするアドレス |
-| `PORT` | `8080` | 待ち受けポート |
-| `DB_PATH` | `./data/mastodon-rss.db` | SQLite の DB ファイル。親ディレクトリは起動時に作られる |
-| `DOMAIN` | **必須** | 外部に公開するドメイン。WebFinger の `acct:` とアクターの `id` に使う |
-| `ACTOR_PRIVATE_KEY_PATH` | `./data/actor-private-key.pem` | アクターの秘密鍵 (PEM)。無ければ起動時に生成して書き出す |
-| `ACTOR_PRIVATE_KEY_PEM` | なし | 秘密鍵の PEM を直接渡す場合に使う。`ACTOR_PRIVATE_KEY_PATH` とは併用できない |
-| `ICON_CACHE_DIR` | `./data/image-cache` | 取ってきたアイコンの置き場。無ければ書き込むときに作られる |
-| `STATIC_SRC_DIR` | なし | 配信する静的ファイルのディレクトリ。未設定なら何も配信しない |
-| `ADMIN_PASSWORD_HASH` | なし | 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない |
-| `ADMIN_COOKIE_SECURE` | `true` | セッション Cookie に `Secure` を付けるか。手元で http で試すときだけ `false` にする |
+既定値は持たない。必須の変数が未設定（空や空白だけも含む）だと起動しない。
 
-`DOMAIN` は scheme と末尾の `/` を書いても落として扱う。未設定だと起動しない。
+| 変数 | 必須 | 内容 |
+| --- | --- | --- |
+| `HOST` | 必須 | バインドするアドレス |
+| `PORT` | 必須 | 待ち受けポート |
+| `DB_PATH` | 必須 | SQLite の DB ファイル。親ディレクトリは起動時に作られる |
+| `DOMAIN` | 必須 | 外部に公開するドメイン。WebFinger の `acct:` とアクターの `id` に使う |
+| `ACTOR_PRIVATE_KEY_PATH` | どちらか一方 | アクターの秘密鍵 (PEM)。無ければ起動時に生成して書き出す |
+| `ACTOR_PRIVATE_KEY_PEM` | どちらか一方 | 秘密鍵の PEM を直接渡す場合に使う。`ACTOR_PRIVATE_KEY_PATH` とは併用できない |
+| `ICON_CACHE_DIR` | 必須 | 取ってきたアイコンの置き場。無ければ書き込むときに作られる |
+| `STATIC_SRC_DIR` | 任意 | 配信する静的ファイルのディレクトリ。未設定なら何も配信しない |
+| `ADMIN_PASSWORD_HASH` | 任意 | 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない |
+| `ADMIN_COOKIE_SECURE` | 必須 | セッション Cookie に `Secure` を付けるか。手元で http で試すときだけ `false` にする |
+| `ENABLE_OTEL` | 必須 | `true` なら OpenTelemetry を起動する |
+
+`DOMAIN` は scheme と末尾の `/` を書いても落として扱う。
 アカウント名に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`、
 長さは 30 文字まで。
 

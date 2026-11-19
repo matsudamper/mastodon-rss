@@ -4,6 +4,14 @@ cd "$(dirname "$0")/.."
 
 # DOMAIN は必須。開発では公開しないので localhost でよい。
 export DOMAIN="${DOMAIN:-localhost}"
+export HOST="${HOST:-0.0.0.0}"
+export PORT="${PORT:-8080}"
+export DB_PATH="${DB_PATH:-./data/mastodon-rss.db}"
+export ICON_CACHE_DIR="${ICON_CACHE_DIR:-./data/image-cache}"
+if [ -z "${ACTOR_PRIVATE_KEY_PEM:-}" ]; then
+  export ACTOR_PRIVATE_KEY_PATH="${ACTOR_PRIVATE_KEY_PATH:-./data/actor-private-key.pem}"
+fi
+export ENABLE_OTEL="${ENABLE_OTEL:-false}"
 # :frontend の成果物を同一オリジンで配信し、画面と GraphQL を 8080 だけで動かす。
 export STATIC_SRC_DIR="${STATIC_SRC_DIR:-frontend/build/dist/wasmJs/productionExecutable}"
 # http で試すので Secure Cookie は外す。付けるとログインしても Cookie が保存されない。
