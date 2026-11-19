@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.graphql
 import net.matsudamper.kotpub.actor.ActorDirectory
 import net.matsudamper.kotpub.actor.ActorPublisher
 import net.matsudamper.kotpub.note.NoteStore
+import net.matsudamper.mastodon.rss.admin.AdminLoginThrottle
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewImageUrls
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewService
@@ -43,6 +44,7 @@ class DiContainer(
     val feedService: FeedService,
     val linkPreviewService: LinkPreviewService,
     val domainBlockService: DomainBlockService,
+    val adminLoginThrottle: AdminLoginThrottle,
 ) {
     val adminLoginService: AdminLoginService = AdminLoginService(passwordHash)
 
