@@ -192,6 +192,7 @@ jobs:
           export PORT=8080
           export ICON_CACHE_DIR="$RUNNER_TEMP/native-check/image-cache"
           export ENABLE_OTEL=false
+          export TRUST_CF_CONNECTING_IP=false
 
           ./backend/build/native/nativeCompile/mastodon-rss > /tmp/server.log 2>&1 &
           SERVER_PID=$!
@@ -510,6 +511,8 @@ jobs:
           export PORT=8080
           export ADMIN_COOKIE_SECURE=false
           export ENABLE_OTEL=false
+          # DOMAIN 以外の必須を欠いて落ちたのでは、DOMAIN の確認にならない
+          export TRUST_CF_CONNECTING_IP=false
 
           # 起動を止められていないと待ち受けたまま返ってこないので、
           # timeout で打ち切って「終了しなかった」ことも失敗として扱う

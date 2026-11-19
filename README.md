@@ -47,6 +47,7 @@ ACTOR_PRIVATE_KEY_PATH=./data/actor-private-key.pem \
 ENABLE_OTEL=false \
 ADMIN_COOKIE_SECURE=false \
 DOMAIN=example.com \
+TRUST_CF_CONNECTING_IP=false \
   ./gradlew :backend:run
 ```
 
@@ -70,6 +71,7 @@ ACTOR_PRIVATE_KEY_PATH=./data/actor-private-key.pem \
 ENABLE_OTEL=false \
 ADMIN_COOKIE_SECURE=false \
 DOMAIN=example.com \
+TRUST_CF_CONNECTING_IP=false \
   ./backend/build/native/nativeCompile/mastodon-rss
 ```
 
@@ -113,6 +115,7 @@ ACTOR_PRIVATE_KEY_PATH=./data/actor-private-key.pem \
 ENABLE_OTEL=false \
 ADMIN_COOKIE_SECURE=false \
 DOMAIN=example.com \
+TRUST_CF_CONNECTING_IP=false \
 STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
   ./gradlew :backend:run
 ```
@@ -161,6 +164,7 @@ ICON_CACHE_DIR=./data/image-cache \
 ACTOR_PRIVATE_KEY_PATH=./data/actor-private-key.pem \
 ENABLE_OTEL=false \
 DOMAIN=example.com \
+TRUST_CF_CONNECTING_IP=false \
 STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 ADMIN_PASSWORD_HASH='pbkdf2-sha256:...' \
 ADMIN_COOKIE_SECURE=false \
@@ -238,6 +242,7 @@ Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み
 | `ADMIN_PASSWORD_HASH` | 任意 | 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない |
 | `ADMIN_COOKIE_SECURE` | 必須 | セッション Cookie に `Secure` を付けるか。手元で http で試すときだけ `false` にする |
 | `ENABLE_OTEL` | 必須 | `true` なら OpenTelemetry を起動する |
+| `TRUST_CF_CONNECTING_IP` | 必須 | `true` か `false`。`CF-Connecting-IP` を送信元 IP として使うか。Cloudflare 経由でしか届かない構成のときだけ `true` にする。ログイン失敗の締め出しを IP ごとに数えるのに使う |
 
 `DOMAIN` は scheme と末尾の `/` を書いても落として扱う。
 アカウント名に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`、

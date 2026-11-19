@@ -12,6 +12,7 @@ if [ -z "${ACTOR_PRIVATE_KEY_PEM:-}" ]; then
   export ACTOR_PRIVATE_KEY_PATH="${ACTOR_PRIVATE_KEY_PATH:-./data/actor-private-key.pem}"
 fi
 export ENABLE_OTEL="${ENABLE_OTEL:-false}"
+export TRUST_CF_CONNECTING_IP="${TRUST_CF_CONNECTING_IP:-false}"
 # :frontend の成果物を同一オリジンで配信し、画面と GraphQL を 8080 だけで動かす。
 export STATIC_SRC_DIR="${STATIC_SRC_DIR:-frontend/build/dist/wasmJs/productionExecutable}"
 # http で試すので Secure Cookie は外す。付けるとログインしても Cookie が保存されない。

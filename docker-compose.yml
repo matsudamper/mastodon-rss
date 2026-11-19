@@ -15,6 +15,9 @@ services:
       # 後から変えられない。ここに既定値を置くと気付かないまま起動できてしまうので、
       # これだけは外から渡させる
       DOMAIN: ${DOMAIN:?DOMAIN を .env か環境変数で指定すること}
+      # Cloudflare 経由でしか届かないなら true。CF-Connecting-IP を送信元として
+      # ログイン失敗の締め出しを数える。構成次第でどちらにも壊れるので外から渡させる
+      TRUST_CF_CONNECTING_IP: ${TRUST_CF_CONNECTING_IP:?TRUST_CF_CONNECTING_IP を .env か環境変数で指定すること}
       DB_PATH: /data/mastodon-rss.db
       # アクターの秘密鍵。無ければ初回起動時に生成してここに書き出す。
       # ボリュームの中に置くので、コンテナを作り直しても同じ鍵のまま。

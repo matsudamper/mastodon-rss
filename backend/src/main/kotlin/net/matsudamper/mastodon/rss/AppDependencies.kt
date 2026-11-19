@@ -38,6 +38,7 @@ import net.matsudamper.kotpub.note.NotePublisher
 import net.matsudamper.kotpub.note.NoteStore
 import net.matsudamper.kotpub.quote.QuoteApprovals
 import net.matsudamper.kotpub.url.WebPageUrls
+import net.matsudamper.mastodon.rss.admin.AdminLoginThrottle
 import net.matsudamper.mastodon.rss.admin.AdminSessionInMemoryStore
 import net.matsudamper.mastodon.rss.delivery.DeliveryCircuitBreaker
 import net.matsudamper.mastodon.rss.delivery.DeliveryRetryPolicy
@@ -112,6 +113,7 @@ class AppDependencies(
     val imageFetcher: RemoteImageFetchService = RemoteImageFetchService(),
     val linkPreviewService: LinkPreviewService = LinkPreviewService(),
     val adminSessionStore: AdminSessionInMemoryStore = AdminSessionInMemoryStore(),
+    val adminLoginThrottle: AdminLoginThrottle = AdminLoginThrottle(),
     val openTelemetry: OpenTelemetry? = null,
     webPageUrlsOverride: WebPageUrls? = null,
     private val telemetry: OpenTelemetryInitializer.Handler? = null,

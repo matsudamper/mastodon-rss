@@ -23,6 +23,7 @@ object TestServerEnv {
             "ICON_CACHE_DIR" to "./data/image-cache",
             "ACTOR_PRIVATE_KEY_PATH" to "./data/actor-private-key.pem",
             "ADMIN_COOKIE_SECURE" to "true",
+            "TRUST_CF_CONNECTING_IP" to "false",
         )
 
     val value: ServerEnv = of()

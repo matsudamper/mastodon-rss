@@ -76,6 +76,13 @@ class ServerEnvTest {
     }
 
     @Test
+    fun `TRUST_CF_CONNECTING_IP が未設定なら落ちる`() {
+        assertFailsWith<IllegalArgumentException> { ServerEnv(TestServerEnv.REQUIRED - "TRUST_CF_CONNECTING_IP") }
+        assertFailsWith<IllegalArgumentException> { env("TRUST_CF_CONNECTING_IP" to " ") }
+        assertFailsWith<IllegalArgumentException> { env("TRUST_CF_CONNECTING_IP" to "yes") }
+    }
+
+    @Test
     fun `鍵の PEM を直接指定できる`() {
         val env = ServerEnv(TestServerEnv.REQUIRED - "ACTOR_PRIVATE_KEY_PATH" + ("ACTOR_PRIVATE_KEY_PEM" to "-----BEGIN PRIVATE KEY-----"))
 
