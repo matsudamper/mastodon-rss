@@ -24,6 +24,7 @@ import io.ktor.http.URLBuilder
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.http.isSuccess
+import io.ktor.http.takeFrom
 import io.ktor.utils.io.readRemaining
 import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.channelIdFromPageHtml
 import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.resolve
@@ -228,9 +229,21 @@ class FeedFetchService(
 
             val location = response.redirectLocation() ?: return response
             response.discardBody()
-            target = HttpUrl.sanitize(location, target) ?: return null
+            target = redirectTarget(location = location, from = target) ?: return null
         }
         return null
+    }
+
+    /**
+     * java.net.URI.resolve は RFC 2396 に従うので、`?token=new` のようなクエリだけの参照で
+     * 元のパスの最後の部分を落とす。RFC 3986 ではパスを保ってクエリだけを差し替える
+     */
+    private fun redirectTarget(
+        location: String,
+        from: String,
+    ): String? {
+        if (!location.startsWith("?")) return HttpUrl.sanitize(location, from)
+        return HttpUrl.sanitize(from.substringBefore('#').substringBefore('?') + location)
     }
 
     private fun HttpResponse.redirectLocation(): String? {

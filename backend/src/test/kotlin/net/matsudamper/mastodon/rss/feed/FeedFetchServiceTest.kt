@@ -124,6 +124,25 @@ class FeedFetchServiceTest {
             )
         }
 
+    @Test
+    fun `クエリだけのリダイレクトでは元のパスを保つ`() =
+        runTest {
+            val engine = MockEngine { request ->
+                if (request.url.parameters["token"] == null) {
+                    respondRedirect("?token=new")
+                } else {
+                    respondXml(atomFeed)
+                }
+            }
+
+            val result = serviceOf(engine).fetch("https://example.com/rss/feed.xml?old=1", needsDescription = false)
+
+            assertEquals(
+                "https://example.com/rss/feed.xml?token=new",
+                assertIs<FeedFetchService.FetchResult.Success>(result).feedUrl,
+            )
+        }
+
     private fun serviceOf(engine: MockEngine): FeedFetchService = FeedFetchService(
         client = HttpClient(engine) { followRedirects = false },
         resolveAddresses = { listOf(InetAddress.getByName("93.184.216.34")) },
