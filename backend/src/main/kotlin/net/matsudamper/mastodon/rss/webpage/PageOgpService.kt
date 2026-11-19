@@ -29,7 +29,7 @@ class PageOgpService(
         return PageOgp(
             type = PageOgpType.Profile,
             title = titleOf(actor = actor, displayName = profile.displayName),
-            description = profile.summary?.let { HtmlText.description(it) }?.ifEmpty { null },
+            description = profile.summary?.let { HtmlText.plainDescription(it) }?.ifEmpty { null },
             url = "https://${actor.domain}${WebPagePath.account(actor.username)}",
             imageUrl = iconUrlOf(actor),
         )

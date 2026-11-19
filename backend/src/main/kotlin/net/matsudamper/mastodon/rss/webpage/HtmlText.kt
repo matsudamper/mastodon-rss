@@ -1,7 +1,7 @@
 package net.matsudamper.mastodon.rss.webpage
 
 /**
- * カードの説明文にするため、投稿の HTML を 1 行の平文にする。
+ * カードの説明文にするため、1 行の平文にする。
  *
  * 投稿の HTML は取り込み時に組み立てた単純なものなので、タグを落として文字参照を戻すだけで足りる。
  */
@@ -12,15 +12,25 @@ internal object HtmlText {
     private val characterReference = Regex("""&(#[0-9]+|#[xX][0-9A-Fa-f]+|amp|lt|gt|quot|apos|nbsp);""")
     private val whitespace = Regex("""\s+""")
 
-    fun description(html: String): String {
-        val text = html
-            .replace(lineBreakTag, " ")
-            .replace(tag, "")
-            .replace(characterReference) { decode(it.groupValues[1]) }
-            .replace(whitespace, " ")
-            .trim()
-        if (text.codePointCount(0, text.length) <= MAX_DESCRIPTION_CODE_POINTS) return text
-        return text.substring(0, text.offsetByCodePoints(0, MAX_DESCRIPTION_CODE_POINTS - 1)) + "…"
+    /**
+     * 投稿の本文のような HTML から作る
+     */
+    fun description(html: String): String =
+        plainDescription(
+            html
+                .replace(lineBreakTag, " ")
+                .replace(tag, "")
+                .replace(characterReference) { decode(it.groupValues[1]) },
+        )
+
+    /**
+     * アカウントの説明文のような、平文のまま保存しているものから作る。
+     * HTML として読むと、書いたとおりの `&amp;` や `<b>` が変わったり消えたりする
+     */
+    fun plainDescription(text: String): String {
+        val oneLine = text.replace(whitespace, " ").trim()
+        if (oneLine.codePointCount(0, oneLine.length) <= MAX_DESCRIPTION_CODE_POINTS) return oneLine
+        return oneLine.substring(0, oneLine.offsetByCodePoints(0, MAX_DESCRIPTION_CODE_POINTS - 1)) + "…"
     }
 
     private fun decode(reference: String): String =

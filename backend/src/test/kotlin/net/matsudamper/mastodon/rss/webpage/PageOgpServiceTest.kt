@@ -17,7 +17,7 @@ class PageOgpServiceTest {
     private val notes = FakeNoteStore()
     private val profiles = object : StoredActorProfiles {
         override fun find(username: String): ActorProfile =
-            ActorProfile(displayName = "フィード名", summary = "<p>説明 &amp; 補足</p>", likedPublic = false)
+            ActorProfile(displayName = "フィード名", summary = "R&amp;D <b>説明</b>\n補足", likedPublic = false)
     }
     private val appearances = object : StoredActorAppearances {
         override fun find(username: String): ActorAppearance = ActorAppearance(links = listOf(), iconVersion = "v1", headerVersion = "h1")
@@ -32,12 +32,12 @@ class PageOgpServiceTest {
     private val domain = TestLocalActor.DOMAIN
 
     @Test
-    fun `アカウントは表示名と説明とアイコンを出す`() {
+    fun `アカウントは表示名とアイコンを出し、説明は平文のまま出す`() {
         val ogp = service.account(username)
 
         assertEquals(PageOgpType.Profile, ogp?.type)
         assertEquals("フィード名 (@$username@$domain)", ogp?.title)
-        assertEquals("説明 & 補足", ogp?.description)
+        assertEquals("R&amp;D <b>説明</b> 補足", ogp?.description)
         assertEquals("https://$domain/@$username", ogp?.url)
         assertEquals(TestLocalActor.urls.icon("v1"), ogp?.imageUrl)
     }
