@@ -188,6 +188,7 @@ jobs:
           export ADMIN_COOKIE_SECURE=false
           # DOMAIN は必須。未設定だと起動せず、WebFinger と Actor も確認できない
           export DOMAIN=example.com
+          export TRUST_CF_CONNECTING_IP=false
 
           ./backend/build/native/nativeCompile/mastodon-rss > /tmp/server.log 2>&1 &
           SERVER_PID=$!
@@ -501,6 +502,8 @@ jobs:
           # Mastodon 側にキャッシュされて後から直せない
           export DB_PATH="$RUNNER_TEMP/no-domain/mastodon-rss.db"
           export ACTOR_PRIVATE_KEY_PATH="$RUNNER_TEMP/no-domain/actor-private-key.pem"
+          # DOMAIN 以外の必須を欠いて落ちたのでは、DOMAIN の確認にならない
+          export TRUST_CF_CONNECTING_IP=false
 
           # 起動を止められていないと待ち受けたまま返ってこないので、
           # timeout で打ち切って「終了しなかった」ことも失敗として扱う

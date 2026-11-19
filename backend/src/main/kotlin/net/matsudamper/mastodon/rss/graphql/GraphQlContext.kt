@@ -15,9 +15,6 @@ class GraphQlContext(
     cookieSecure: Boolean,
     trustCfConnectingIp: Boolean,
 ) {
-    /**
-     * trustCfConnectingIp が無いままリバースプロキシの後ろに置くとプロキシの IP になり、全員がまとめて締め出される
-     */
     val clientIp: String =
         call.request.headers["CF-Connecting-IP"]?.takeIf { trustCfConnectingIp }
             ?: call.request.origin.remoteAddress

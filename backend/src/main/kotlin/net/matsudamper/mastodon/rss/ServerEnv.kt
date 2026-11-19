@@ -134,13 +134,15 @@ class ServerEnv(
 
     /**
      * Cloudflare の後ろに置くとき、`CF-Connecting-IP` を送信元として信じるか。
-     * Cloudflare を通らずに届く構成で true にすると、ヘッダーを偽ってログインの締め出しを逃れられる
+     * Cloudflare を通らずに届く構成で true にすると、ヘッダーを偽ってログインの締め出しを逃れられる。
+     * 逆にリバースプロキシの後ろで false にすると、全員がプロキシの IP として数えられ、まとめて締め出される。
+     * どちらに倒しても構成次第で壊れるので、既定値を置かずに指定させる
      */
     val trustCfConnectingIp: Boolean =
         run {
             val raw = env["TRUST_CF_CONNECTING_IP"]?.trim()
-            if (raw.isNullOrEmpty()) {
-                return@run false
+            require(!raw.isNullOrEmpty()) {
+                "TRUST_CF_CONNECTING_IP が未設定。true か false を必ず指定すること"
             }
 
             raw.lowercase().toBooleanStrictOrNull()

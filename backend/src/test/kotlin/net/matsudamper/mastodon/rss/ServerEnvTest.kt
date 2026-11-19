@@ -15,10 +15,10 @@ import net.matsudamper.mastodon.rss.crypto.PasswordHash
 // 変数と既定値の一覧としてもこのテストを見れば分かるようにしておく。
 class ServerEnvTest {
     private fun env(vararg values: Pair<String, String>): ServerEnv =
-        ServerEnv(values.toMap() + ("DOMAIN" to "example.com"))
+        ServerEnv(TestServerEnv.REQUIRED + values.toMap())
 
     @Test
-    fun `DOMAIN 以外は未設定なら既定値になる`() {
+    fun `必須の変数以外は未設定なら既定値になる`() {
         val env = env()
 
         assertEquals("0.0.0.0", env.host)
@@ -69,7 +69,7 @@ class ServerEnvTest {
 
     @Test
     fun `DOMAIN の scheme と末尾のスラッシュを落とす`() {
-        fun domain(raw: String): String = ServerEnv(mapOf("DOMAIN" to raw)).domain
+        fun domain(raw: String): String = ServerEnv(TestServerEnv.REQUIRED + ("DOMAIN" to raw)).domain
 
         assertEquals("example.com", domain("https://example.com"))
         assertEquals("example.com", domain("http://example.com/"))
@@ -80,9 +80,16 @@ class ServerEnvTest {
     // Mastodon 側にキャッシュされて後から直せない
     @Test
     fun `DOMAIN が未設定なら落ちる`() {
-        assertFailsWith<IllegalArgumentException> { ServerEnv(emptyMap()) }
-        assertFailsWith<IllegalArgumentException> { ServerEnv(mapOf("DOMAIN" to "   ")) }
-        assertFailsWith<IllegalArgumentException> { ServerEnv(mapOf("DOMAIN" to "https://")) }
+        assertFailsWith<IllegalArgumentException> { ServerEnv(TestServerEnv.REQUIRED - "DOMAIN") }
+        assertFailsWith<IllegalArgumentException> { ServerEnv(TestServerEnv.REQUIRED + ("DOMAIN" to "   ")) }
+        assertFailsWith<IllegalArgumentException> { ServerEnv(TestServerEnv.REQUIRED + ("DOMAIN" to "https://")) }
+    }
+
+    @Test
+    fun `TRUST_CF_CONNECTING_IP が未設定なら落ちる`() {
+        assertFailsWith<IllegalArgumentException> { ServerEnv(TestServerEnv.REQUIRED - "TRUST_CF_CONNECTING_IP") }
+        assertFailsWith<IllegalArgumentException> { env("TRUST_CF_CONNECTING_IP" to " ") }
+        assertFailsWith<IllegalArgumentException> { env("TRUST_CF_CONNECTING_IP" to "yes") }
     }
 
     @Test
