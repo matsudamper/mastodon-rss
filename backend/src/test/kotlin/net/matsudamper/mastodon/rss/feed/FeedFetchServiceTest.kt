@@ -4,6 +4,7 @@ import java.net.InetAddress
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.test.runTest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -141,6 +142,30 @@ class FeedFetchServiceTest {
                 "https://example.com/rss/feed.xml?token=new",
                 assertIs<FeedFetchService.FetchResult.Success>(result).feedUrl,
             )
+        }
+
+    @Test
+    fun `名前を引くのが終わらなければ待ちきらずに取得の失敗として返す`() =
+        runTest {
+            var requested = false
+            val engine = MockEngine {
+                requested = true
+                respondXml(atomFeed)
+            }
+            val service = FeedFetchService(
+                client = HttpClient(engine) { followRedirects = false },
+                resolveAddresses = {
+                    Thread.sleep(5_000)
+                    listOf(InetAddress.getByName("93.184.216.34"))
+                },
+                resolveTimeout = 100.milliseconds,
+            )
+
+            val result = service.fetch("https://example.com/feed.xml", needsDescription = false)
+
+            assertIs<FeedFetchService.FetchResult.HttpError>(result)
+            assertEquals(false, requested)
+            service.close()
         }
 
     private fun serviceOf(engine: MockEngine): FeedFetchService = FeedFetchService(

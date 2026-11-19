@@ -7,9 +7,16 @@ import java.net.InetAddress
 import java.net.Proxy
 import java.net.URI
 import java.net.UnknownHostException
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -38,7 +45,15 @@ import okhttp3.Dns
 class FeedFetchService(
     private val client: HttpClient = defaultClient(),
     private val resolveAddresses: (String) -> List<InetAddress> = { InetAddress.getAllByName(it).toList() },
+    private val resolveTimeout: Duration = DEFAULT_RESOLVE_TIMEOUT,
 ) : Closeable {
+    /**
+     * 名前を引く待ちを呼び出し側から切り離すための場所。
+     *
+     * 引き終わらないものが残っても、呼び出し側は待たずに戻る
+     */
+    private val resolveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     /**
      * フィードを取得して解析する。
      *
@@ -259,15 +274,29 @@ class FeedFetchService(
      */
     private suspend fun isInternalTarget(url: String): Boolean {
         val host = runCatching { URI(url).host }.getOrNull()?.removeSurrounding("[", "]") ?: return true
-        val addresses = runCatching {
-            withContext(Dispatchers.IO) { resolveAddresses(host) }
-        }.getOrElse { error ->
-            if (error is CancellationException) throw error
-            return true
-        }
+        val addresses = resolveHost(host) ?: return true
         if (addresses.isEmpty()) return true
 
         return addresses.any { it.isInternal() }
+    }
+
+    /**
+     * 名前を引く。引けなければ null。
+     *
+     * 名前を引く呼び出しは途中で止められず、[HttpTimeout] の対象にもならない。
+     * 同じ所で待つと応答しない名前 1 つで定期取得全体が止まるので、
+     * 切り離した所に投げて [resolveTimeout] だけ待つ。
+     * 待つのを IO の側で行うのは、待ち時間を実際の時計で計るため
+     */
+    private suspend fun resolveHost(host: String): List<InetAddress>? {
+        val resolving = resolveScope.async { runCatching { resolveAddresses(host) }.getOrNull() }
+
+        val resolved = withContext(Dispatchers.IO) {
+            withTimeoutOrNull(resolveTimeout) { resolving.await() }
+        }
+        if (resolved == null) resolving.cancel()
+
+        return resolved
     }
 
     /**
@@ -361,6 +390,7 @@ class FeedFetchService(
     }
 
     override fun close() {
+        resolveScope.cancel()
         client.close()
     }
 
@@ -402,6 +432,7 @@ class FeedFetchService(
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val MAX_BODY_BYTES = 5 * 1024 * 1024
         private const val MAX_HOPS = 6
+        private val DEFAULT_RESOLVE_TIMEOUT: Duration = 5.seconds
         private const val BLOCKED_MESSAGE = "取得先に繋がなかった"
         private val REDIRECT_STATUS_RANGE = 300..399
 
