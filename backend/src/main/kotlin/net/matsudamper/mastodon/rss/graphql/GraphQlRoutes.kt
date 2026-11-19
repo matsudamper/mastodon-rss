@@ -28,7 +28,11 @@ fun Route.graphQlRoutes(engine: GraphQlEngine) {
         }
 
         // Content-Length の無いチャンク転送もあるので、上限 +1 バイトで読むのを止めて超過を見分ける
-        val bodyBytes = call.receiveChannel().readRemaining(MAX_BODY_BYTES + 1L).readByteArray()
+        val bodyChannel = call.receiveChannel()
+        val bodyBytes = bodyChannel.readRemaining(MAX_BODY_BYTES + 1L).readByteArray()
+        // readRemaining は受信エラーで閉じても読めた分を返すので、途中で切れた本文を実行しないよう再送出する
+        val bodyReceiveError = bodyChannel.closedCause
+        if (bodyReceiveError != null) throw bodyReceiveError
         if (bodyBytes.size > MAX_BODY_BYTES) {
             call.respondText("ボディが大きすぎる", status = HttpStatusCode.PayloadTooLarge)
             return@post
