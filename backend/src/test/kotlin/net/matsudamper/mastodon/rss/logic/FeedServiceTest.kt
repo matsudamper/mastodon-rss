@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.logic
 
+import java.net.InetAddress
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -1093,7 +1094,10 @@ class FeedServiceTest {
             accounts = accounts,
             feeds = repositories.feeds,
             feedItems = repositories.feedItems,
-            fetcher = FeedFetchService(HttpClient(mockEngine)),
+            fetcher = FeedFetchService(
+                client = HttpClient(mockEngine) { followRedirects = false },
+                resolveAddresses = { listOf(InetAddress.getByName("93.184.216.34")) },
+            ),
             actorDirectory = actorDirectory,
             noteEnqueuer = NoteEnqueuer(
                 publisher = NotePublisher(

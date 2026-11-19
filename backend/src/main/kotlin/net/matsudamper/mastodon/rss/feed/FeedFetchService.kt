@@ -1,11 +1,25 @@
 package net.matsudamper.mastodon.rss.feed
 
 import java.io.Closeable
+import java.net.Inet4Address
+import java.net.Inet6Address
+import java.net.InetAddress
+import java.net.Proxy
 import java.net.URI
+import java.net.UnknownHostException
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -17,13 +31,29 @@ import io.ktor.http.URLBuilder
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.http.isSuccess
+import io.ktor.http.takeFrom
 import io.ktor.utils.io.readRemaining
 import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.channelIdFromPageHtml
 import net.matsudamper.mastodon.rss.feed.YouTubeFeedResolver.resolve
+import okhttp3.Dns
 
+/**
+ * 取りに行く先は管理者が登録した URL だが、リダイレクト先は配信元が決める。
+ * 配信元が内側のアドレスへ飛ばすと、内側のフィードを公開の投稿として外へ出してしまうので、
+ * 飛んだ先も含めてこちらのネットワークの内側には繋がない。
+ */
 class FeedFetchService(
     private val client: HttpClient = defaultClient(),
+    private val resolveAddresses: (String) -> List<InetAddress> = { InetAddress.getAllByName(it).toList() },
+    private val resolveTimeout: Duration = DEFAULT_RESOLVE_TIMEOUT,
 ) : Closeable {
+    /**
+     * 名前を引く待ちを呼び出し側から切り離すための場所。
+     *
+     * 引き終わらないものが残っても、呼び出し側は待たずに戻る
+     */
+    private val resolveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     /**
      * フィードを取得して解析する。
      *
@@ -46,9 +76,8 @@ class FeedFetchService(
                 is FeedUrlResolution.Failed -> return resolution.result
             }
 
-            val response = client.get(resolved.feedUrl) {
-                header(HttpHeaders.UserAgent, USER_AGENT)
-            }
+            val response = getFollowingRedirects(resolved.feedUrl)
+                ?: return FetchResult.HttpError(message = BLOCKED_MESSAGE)
 
             if (!response.status.isSuccess()) {
                 response.discardBody()
@@ -106,9 +135,8 @@ class FeedFetchService(
             )
 
             is YouTubeFeedSource.NeedsPageLookup -> {
-                val response = client.get(source.pageUrl) {
-                    header(HttpHeaders.UserAgent, USER_AGENT)
-                }
+                val response = getFollowingRedirects(source.pageUrl)
+                    ?: return FeedUrlResolution.Failed(FetchResult.HttpError(message = BLOCKED_MESSAGE))
                 if (!response.status.isSuccess()) {
                     response.discardBody()
                     return FeedUrlResolution.Failed(FetchResult.HttpError(response.status.value))
@@ -187,9 +215,7 @@ class FeedFetchService(
     private suspend fun fetchYouTubeChannelPage(channelId: String): String? {
         val pageUrl = YouTubeFeedResolver.channelPageUrl(channelId) ?: return null
         return runCatching {
-            val response = client.get(pageUrl) {
-                header(HttpHeaders.UserAgent, USER_AGENT)
-            }
+            val response = getFollowingRedirects(pageUrl) ?: return null
             if (!response.status.isSuccess()) {
                 response.discardBody()
                 return null
@@ -199,6 +225,78 @@ class FeedFetchService(
             if (error is CancellationException) throw error
             null
         }
+    }
+
+    /**
+     * リダイレクトを自分で辿って取る。内側を指す URL や、辿りきれないリダイレクトなら null。
+     *
+     * クライアントに任せると、飛んだ先が内側を指していても検査を通さずに繋いでしまう。
+     * 返した応答の `request.url` が辿り着いた先の URL になる
+     */
+    private suspend fun getFollowingRedirects(url: String): HttpResponse? {
+        var target = url
+        repeat(MAX_HOPS) {
+            if (isInternalTarget(target)) return null
+
+            val response = client.get(target) {
+                header(HttpHeaders.UserAgent, USER_AGENT)
+            }
+
+            val location = response.redirectLocation() ?: return response
+            response.discardBody()
+            target = redirectTarget(location = location, from = target) ?: return null
+        }
+        return null
+    }
+
+    /**
+     * java.net.URI.resolve は RFC 2396 に従うので、`?token=new` のようなクエリだけの参照で
+     * 元のパスの最後の部分を落とす。RFC 3986 ではパスを保ってクエリだけを差し替える
+     */
+    private fun redirectTarget(
+        location: String,
+        from: String,
+    ): String? {
+        if (!location.startsWith("?")) return HttpUrl.sanitize(location, from)
+        return HttpUrl.sanitize(from.substringBefore('#').substringBefore('?') + location)
+    }
+
+    private fun HttpResponse.redirectLocation(): String? {
+        if (status.value !in REDIRECT_STATUS_RANGE) return null
+        return headers[HttpHeaders.Location]?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    /**
+     * 名前が複数のアドレスを持つ場合は 1 つでも内側なら弾く。引けない名前も弾く。
+     *
+     * 名前を引いてから繋ぐまでの間に引き直されると別のアドレスになりうるので、
+     * [defaultClient] は繋ぐときにも [PublicAddressDns] で確かめる
+     */
+    private suspend fun isInternalTarget(url: String): Boolean {
+        val host = runCatching { URI(url).host }.getOrNull()?.removeSurrounding("[", "]") ?: return true
+        val addresses = resolveHost(host) ?: return true
+        if (addresses.isEmpty()) return true
+
+        return addresses.any { it.isInternal() }
+    }
+
+    /**
+     * 名前を引く。引けなければ null。
+     *
+     * 名前を引く呼び出しは途中で止められず、[HttpTimeout] の対象にもならない。
+     * 同じ所で待つと応答しない名前 1 つで定期取得全体が止まるので、
+     * 切り離した所に投げて [resolveTimeout] だけ待つ。
+     * 待つのを IO の側で行うのは、待ち時間を実際の時計で計るため
+     */
+    private suspend fun resolveHost(host: String): List<InetAddress>? {
+        val resolving = resolveScope.async { runCatching { resolveAddresses(host) }.getOrNull() }
+
+        val resolved = withContext(Dispatchers.IO) {
+            withTimeoutOrNull(resolveTimeout) { resolving.await() }
+        }
+        if (resolved == null) resolving.cancel()
+
+        return resolved
     }
 
     /**
@@ -292,6 +390,7 @@ class FeedFetchService(
     }
 
     override fun close() {
+        resolveScope.cancel()
         client.close()
     }
 
@@ -332,6 +431,10 @@ class FeedFetchService(
         private val PERCENT_ENCODED = Regex("%[0-9A-Fa-f]{2}")
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val MAX_BODY_BYTES = 5 * 1024 * 1024
+        private const val MAX_HOPS = 6
+        private val DEFAULT_RESOLVE_TIMEOUT: Duration = 5.seconds
+        private const val BLOCKED_MESSAGE = "取得先に繋がなかった"
+        private val REDIRECT_STATUS_RANGE = 300..399
 
         /**
          * YouTube のページから読む上限。
@@ -342,8 +445,20 @@ class FeedFetchService(
          */
         private const val MAX_YOUTUBE_PAGE_BYTES = 50 * 1024 * 1024
 
+        /**
+         * リダイレクトを自分で辿るので、クライアントには追わせない
+         */
         fun defaultClient(): HttpClient =
-            HttpClient(CIO) {
+            HttpClient(OkHttp) {
+                engine {
+                    config {
+                        dns(PublicAddressDns)
+                        // プロキシを通すと、名前を引くのがプロキシの側になって PublicAddressDns を通らない
+                        proxy(Proxy.NO_PROXY)
+                        followRedirects(false)
+                        followSslRedirects(false)
+                    }
+                }
                 install(HttpTimeout) {
                     requestTimeoutMillis = 30_000
                     connectTimeoutMillis = 10_000
@@ -351,7 +466,51 @@ class FeedFetchService(
                 }
 
                 expectSuccess = false
+                followRedirects = false
             }
+
+        private fun InetAddress.isInternal(): Boolean =
+            isAnyLocalAddress ||
+                isLoopbackAddress ||
+                isLinkLocalAddress ||
+                isSiteLocalAddress ||
+                isMulticastAddress ||
+                isUniqueLocalAddress() ||
+                isSharedAddressSpace()
+
+        /**
+         * 事業者やクラスタの内側で使う `100.64.0.0/10`。
+         *
+         * RFC 1918 の範囲ではないので [InetAddress.isSiteLocalAddress] では拾えない
+         */
+        private fun InetAddress.isSharedAddressSpace(): Boolean {
+            if (this !is Inet4Address) return false
+            val bytes = address
+            return bytes[0].toInt() and 0xFF == 100 && (bytes[1].toInt() and 0xC0) == 0x40
+        }
+
+        /**
+         * IPv6 のユニークローカルアドレス（`fc00::/7`）。[InetAddress.isSiteLocalAddress] では拾えない
+         */
+        private fun InetAddress.isUniqueLocalAddress(): Boolean {
+            if (this !is Inet6Address) return false
+            return address.first().toInt() and 0xFE == 0xFC
+        }
+    }
+
+    /**
+     * 接続に使うアドレスをここで確かめる。
+     *
+     * [isInternalTarget] で確かめた後に引き直した結果が内側のアドレスに変わっていても
+     * （DNS rebinding）、OkHttp はここで返したアドレスにだけ接続するので内側には繋がらない。
+     * IP アドレスがそのまま書かれた URL はここを通らないので、[isInternalTarget] で確かめる
+     */
+    private object PublicAddressDns : Dns {
+        override fun lookup(hostname: String): List<InetAddress> {
+            val addresses = Dns.SYSTEM.lookup(hostname)
+            if (addresses.any { it.isInternal() }) throw UnknownHostException("内側のアドレスには接続しない")
+            return addresses
+        }
     }
 }
 

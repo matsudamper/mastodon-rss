@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss.admin
 
+import java.net.InetAddress
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -1488,7 +1489,10 @@ class AdminGraphQlTest {
                     headers = headersOf("Content-Type", "application/rss+xml"),
                 )
             }
-            return FeedFetchService(HttpClient(engine))
+            return FeedFetchService(
+                client = HttpClient(engine) { followRedirects = false },
+                resolveAddresses = { listOf(InetAddress.getByName("93.184.216.34")) },
+            )
         }
 
         const val FEED_FIELDS = "id url title siteUrl format createdAt lastFetchedAt"
