@@ -30,6 +30,15 @@ class AdminLoginThrottleTest {
     }
 
     @Test
+    fun `IPv6 は同じ 64 ビットのプレフィックスならまとめて数える`() {
+        val throttle = throttle()
+        (1..5).forEach { throttle.tryReserve(clientIp = "2001:db8:0:1::$it") }
+
+        assertFalse(throttle.tryReserve(clientIp = "2001:db8:0:1:ffff::1"))
+        assertTrue(throttle.tryReserve(clientIp = "2001:db8:0:2::1"))
+    }
+
+    @Test
     fun `成功すると失敗の記録が消える`() {
         val throttle = throttle()
         repeat(4) { throttle.tryReserve(clientIp = "192.0.2.1") }
