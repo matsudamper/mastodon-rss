@@ -87,6 +87,16 @@ class WebFingerRoutesTest {
         }
 
     @Test
+    fun `サーバー自身のアクターは返さないので404`() =
+        testApplication {
+            installModule()
+
+            val response = client.get("/.well-known/webfinger?resource=acct:example.com@example.com")
+
+            assertEquals(HttpStatusCode.NotFound, response.status)
+        }
+
+    @Test
     fun `resource が無ければ400`() =
         testApplication {
             installModule()
