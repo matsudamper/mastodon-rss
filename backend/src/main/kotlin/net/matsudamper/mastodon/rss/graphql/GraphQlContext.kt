@@ -1,6 +1,5 @@
 package net.matsudamper.mastodon.rss.graphql
 
-import java.util.concurrent.atomic.AtomicBoolean
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.plugins.origin
 import net.matsudamper.mastodon.rss.admin.AdminSessionCookieManager
@@ -24,13 +23,6 @@ class GraphQlContext(
             ?: call.request.origin.remoteAddress
 
     private val cookie = AdminSessionCookieManager(call = call, secure = cookieSecure)
-
-    private val loginAttempted = AtomicBoolean(false)
-
-    /**
-     * alias で login を並べてもハッシュ計算は 1 リクエスト 1 回までにする
-     */
-    fun claimLoginAttempt(): Boolean = loginAttempted.compareAndSet(false, true)
 
     fun isAdminLoggedIn(): Boolean = sessionStore.isValid(cookie.token())
 

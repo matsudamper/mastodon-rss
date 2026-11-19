@@ -61,7 +61,6 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         env: DataFetchingEnvironment,
     ): CompletionStage<DataFetcherResult<QlAdminLoginResult>> {
         val context = GraphQlEngine.graphQlContext(env)
-        if (context.claimLoginAttempt().not()) throw GraphqlExceptions.LoginAttemptLimit()
         val diContainer = GraphQlEngine.diContainer(env)
         val adminLoginService = diContainer.adminLoginService
         val adminLoginThrottle = diContainer.adminLoginThrottle

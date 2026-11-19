@@ -126,18 +126,26 @@ class GraphQlEngine private constructor(
                 .build()
                 .makeExecutableSchema()
 
-            val graphQlBuilder = GraphQL.newGraphQL(schema)
-            if (openTelemetry != null) {
-                val telemetry =
+            val telemetryInstrumentation =
+                openTelemetry?.let {
                     GraphQLTelemetry
-                        .builder(openTelemetry)
+                        .builder(it)
                         .setOperationNameInSpanNameEnabled(true)
                         .setDataFetcherInstrumentationEnabled(true)
                         .build()
-                graphQlBuilder.instrumentation(
-                    ChainedInstrumentation(telemetry.createInstrumentation()),
-                )
-            }
+                        .createInstrumentation()
+                }
+            val graphQlBuilder =
+                GraphQL
+                    .newGraphQL(schema)
+                    .instrumentation(
+                        ChainedInstrumentation(
+                            listOfNotNull(
+                                SingleExecutionPerRequestInstrumentation(),
+                                telemetryInstrumentation,
+                            ),
+                        ),
+                    )
 
             return GraphQlEngine(
                 graphQl = graphQlBuilder.build(),
