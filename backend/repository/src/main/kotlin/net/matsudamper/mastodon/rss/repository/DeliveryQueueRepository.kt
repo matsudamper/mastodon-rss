@@ -336,6 +336,11 @@ enum class DeliveryKind {
     ACCEPT_FOLLOW,
 
     /**
+     * 受け取った `Follow` への `Reject`
+     */
+    REJECT_FOLLOW,
+
+    /**
      * 受け取った `QuoteRequest` への `Accept`
      */
     ACCEPT_QUOTE,

@@ -11,6 +11,7 @@ internal fun DeliveryKind.toGraphqlResponse(): QlAdminDeliveryKind =
         DeliveryKind.CREATE_NOTE -> QlAdminDeliveryKind.CREATE_NOTE
         DeliveryKind.DELETE_NOTE -> QlAdminDeliveryKind.DELETE_NOTE
         DeliveryKind.ACCEPT_FOLLOW -> QlAdminDeliveryKind.ACCEPT_FOLLOW
+        DeliveryKind.REJECT_FOLLOW -> QlAdminDeliveryKind.REJECT_FOLLOW
         DeliveryKind.ACCEPT_QUOTE -> QlAdminDeliveryKind.ACCEPT_QUOTE
         DeliveryKind.UPDATE_ACTOR -> QlAdminDeliveryKind.UPDATE_ACTOR
         DeliveryKind.DELETE_ACTOR -> QlAdminDeliveryKind.DELETE_ACTOR

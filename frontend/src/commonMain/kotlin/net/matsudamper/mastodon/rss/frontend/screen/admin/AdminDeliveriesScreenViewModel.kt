@@ -178,6 +178,7 @@ class AdminDeliveriesScreenViewModel(
             AdminDeliveryKind.CREATE_NOTE -> "投稿"
             AdminDeliveryKind.DELETE_NOTE -> "投稿の削除"
             AdminDeliveryKind.ACCEPT_FOLLOW -> "フォローの承認"
+            AdminDeliveryKind.REJECT_FOLLOW -> "フォローの拒否"
             AdminDeliveryKind.ACCEPT_QUOTE -> "引用の承認"
             AdminDeliveryKind.UPDATE_ACTOR -> "アカウント情報の更新"
             AdminDeliveryKind.DELETE_ACTOR -> "アカウントの削除"
