@@ -1,6 +1,6 @@
 type AdminMutation {
     "通るとセッションの Cookie が返る"
-    login(password: String!): AdminLoginResult! @lazy
+    login(password: String!): AdminLoginResult! @lazy @singleExecutionPerRequest
 
     "サーバー側のセッションも消える"
     logout: AdminSession! @lazy

@@ -38,7 +38,7 @@ Gradle 自体も wrapper が入っているので個別のインストールは�
 # JVM で起動する（http://localhost:8080）
 # DOMAIN は必須。手元で試すだけなら適当な値でよいが、
 # Mastodon から実際に引かせるときは公開しているホスト名にすること
-DOMAIN=example.com ./gradlew :backend:run
+DOMAIN=example.com TRUST_CF_CONNECTING_IP=false ./gradlew :backend:run
 ```
 
 起動できたかは `GET /healthz` で見る。`{"status":"ok"}` が返れば動いている。
@@ -53,7 +53,7 @@ GraalVM は Gradle が用意するので、事前のインストールは要ら�
 ./gradlew :backend:nativeCompile
 
 # 生成されたバイナリを起動する
-DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
+DOMAIN=example.com TRUST_CF_CONNECTING_IP=false ./backend/build/native/nativeCompile/mastodon-rss
 ```
 
 ### frontend
@@ -89,6 +89,7 @@ DOMAIN=example.com ./backend/build/native/nativeCompile/mastodon-rss
 
 # DOMAIN は画面の配信には関係しないが、必須なので入れる
 DOMAIN=example.com \
+TRUST_CF_CONNECTING_IP=false \
 STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
   ./gradlew :backend:run
 ```
@@ -131,6 +132,7 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 
 ```sh
 DOMAIN=example.com \
+TRUST_CF_CONNECTING_IP=false \
 STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 ADMIN_PASSWORD_HASH='pbkdf2-sha256:...' \
 ADMIN_COOKIE_SECURE=false \
@@ -205,6 +207,7 @@ Noto Sans JP を `/fonts/*.ttf` として一緒に配信し、起動後に読み
 | `STATIC_SRC_DIR` | なし | 配信する静的ファイルのディレクトリ。未設定なら何も配信しない |
 | `ADMIN_PASSWORD_HASH` | なし | 管理画面のパスワードハッシュ。未設定でも起動するが、その間はログインできない |
 | `ADMIN_COOKIE_SECURE` | `true` | セッション Cookie に `Secure` を付けるか。手元で http で試すときだけ `false` にする |
+| `TRUST_CF_CONNECTING_IP` | **必須** | `true` か `false`。`CF-Connecting-IP` を送信元 IP として使うか。Cloudflare 経由でしか届かない構成のときだけ `true` にする。ログイン失敗の締め出しを IP ごとに数えるのに使う |
 
 `DOMAIN` は scheme と末尾の `/` を書いても落として扱う。未設定だと起動しない。
 アカウント名に使えるのは英数字と `_` `.` `-` で、先頭と末尾は英数字か `_`、

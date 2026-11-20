@@ -146,6 +146,34 @@ class AdminGraphQlTest {
         }
 
     @Test
+    fun `alias で login を並べても照合は 1 回だけ`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            val response =
+                graphQl(
+                    "mutation { admin { " +
+                        "a: login(password: \"ちがう1\") { failure } " +
+                        "b: login(password: \"$PASSWORD\") { failure } } }",
+                )
+
+            assertTrue(response.body().containsKey("errors"))
+            assertNull(response.sessionCookieValue())
+        }
+
+    @Test
+    fun `5 回続けて間違えると正しいパスワードでもログインできない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+            repeat(5) { mutateLogin("ちがうパスワード") }
+
+            val response = mutateLogin(PASSWORD)
+
+            assertEquals("WRONG_PASSWORD", response.loginResult().string("failure"))
+            assertNull(response.sessionCookieValue())
+        }
+
+    @Test
     fun `ログインで得た Cookie を付ければログイン済みになる`() =
         testApplication {
             applicationWith(passwordConfigured = true)

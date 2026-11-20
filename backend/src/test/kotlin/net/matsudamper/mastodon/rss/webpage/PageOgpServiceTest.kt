@@ -73,11 +73,15 @@ class PageOgpServiceTest {
         publicId = PublicNoteId(publicId),
         username = username,
         contentHtml = contentHtml,
+        summary = null,
         publishedAt = Instant.EPOCH,
+        updatedAt = null,
         attachments = listOf(),
         inReplyTo = null,
         quote = null,
         mentions = listOf(),
         emojis = listOf(),
+        sensitive = false,
+        poll = null,
     )
 }

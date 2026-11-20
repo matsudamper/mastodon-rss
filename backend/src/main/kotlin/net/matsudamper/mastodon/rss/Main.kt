@@ -11,6 +11,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
 import net.matsudamper.kotpub.actor.ActorPrivateKey
+import net.matsudamper.kotpub.actor.InstanceActorUrls
 import net.matsudamper.mastodon.rss.actor.actorHeaderRoutes
 import net.matsudamper.mastodon.rss.actor.actorIconRoutes
 import net.matsudamper.mastodon.rss.actor.actorRoutes
@@ -150,6 +151,7 @@ fun Application.module(deps: AppDependencies) {
         feedService = deps.feedService,
         linkPreviewService = deps.linkPreviewService,
         domainBlockService = deps.domainBlockService,
+        adminLoginThrottle = deps.adminLoginThrottle,
     )
 
     val graphQl = GraphQlEngine.create(
@@ -168,6 +170,7 @@ fun Application.module(deps: AppDependencies) {
                 call = call,
                 sessionStore = deps.adminSessionStore,
                 cookieSecure = env.adminCookieSecure,
+                trustCfConnectingIp = env.trustCfConnectingIp,
             )
         },
         diContainer = diContainer,
@@ -188,7 +191,7 @@ fun Application.module(deps: AppDependencies) {
         }
 
         // Mastodon はこの 2 つを WebFinger → Actor の順に引いてアカウントを見つける
-        webFingerRoutes(deps.directory)
+        webFingerRoutes(deps.directory, InstanceActorUrls(env.domain))
         actorRoutes(deps.directory, actorKey, deps.actorAppearances, deps.actorProfiles, deps.webPageUrls, staticFiles, deps.pageOgpService)
         actorIconRoutes(deps.directory, deps.actorIcons)
         actorHeaderRoutes(deps.directory, deps.actorHeaders)
