@@ -1,9 +1,12 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
+import java.net.URI
 import java.time.Instant
+import java.util.Locale
 import java.util.TreeMap
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
+import net.matsudamper.mastodon.rss.repository.RefusedFollow
 import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.StoredFollower
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
@@ -11,6 +14,7 @@ import net.matsudamper.mastodon.rss.repository.jooq.Tables.FOLLOWERS
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.REMOTE_ACTORS
 import net.matsudamper.mastodon.rss.repository.sqlite.db.DeliveryKindDbValue
 import org.jooq.Condition
+import org.jooq.DSLContext
 import org.jooq.impl.DSL
 
 internal class SqliteFollowerRepository(
@@ -25,14 +29,7 @@ internal class SqliteFollowerRepository(
         jooq.transaction { dsl ->
             // 引き当てから記録までの間にアカウントが消えることがある。消えた後に記録すると、
             // フォロワーと Accept が生えて、そのアカウントの名前が二度と空かない
-            val deleted = dsl.fetchExists(
-                DSL
-                    .selectOne()
-                    .from(ACCOUNTS)
-                    .where(ACCOUNTS.USERNAME.eq(follow.username))
-                    .and(ACCOUNTS.DELETED_AT.isNotNull),
-            )
-            if (deleted) return@transaction false
+            if (isDeletedAccount(dsl, follow.username)) return@transaction false
 
             val remoteActorId = RemoteActorRows.upsert(dsl, follow.follower, follow.receivedAt)
 
@@ -76,6 +73,82 @@ internal class SqliteFollowerRepository(
 
             true
         }
+
+    override fun reject(follow: RefusedFollow): Boolean = jooq.transaction { dsl ->
+        if (isDeletedAccount(dsl, follow.username)) return@transaction false
+
+        dsl
+            .deleteFrom(FOLLOWERS)
+            .where(FOLLOWERS.ID.`in`(FollowerRows.ids(username = follow.username, followerActorUri = follow.followerActorUri)))
+            .execute()
+        DeliveryQueueRows.deletePendingAccept(dsl = dsl, username = follow.username, followerActorUri = follow.followerActorUri)
+        DeliveryQueueRows.deletePendingReject(dsl = dsl, username = follow.username, followerActorUri = follow.followerActorUri)
+
+        DeliveryQueueRows.insertPending(
+            dsl = dsl,
+            kind = DeliveryKindDbValue.REJECT_FOLLOW,
+            username = follow.username,
+            inbox = follow.inbox,
+            body = follow.rejectBody,
+            enqueuedAt = follow.receivedAt,
+            notePublicId = null,
+            targetActorUri = follow.followerActorUri,
+        )
+
+        true
+    }
+
+    override fun hasFollow(
+        username: String,
+        followerActorUri: String,
+    ): Boolean = jooq.withConnection { dsl ->
+        dsl.fetchExists(FollowerRows.ids(username = username, followerActorUri = followerActorUri))
+    }
+
+    override fun countDeliveryTargetsOfSameHost(
+        username: String,
+        followerActorUri: String,
+    ): Int = jooq.withConnection { dsl ->
+        dsl
+            .select(DSL.countDistinct(DSL.coalesce(REMOTE_ACTORS.SHARED_INBOX, REMOTE_ACTORS.INBOX)))
+            .from(FOLLOWERS)
+            .join(REMOTE_ACTORS)
+            .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
+            .where(FOLLOWERS.USERNAME.eq(username))
+            .and(actorUriOnSameHost(followerActorUri))
+            .fetchOne(0, Int::class.java)
+            ?: 0
+    }
+
+    /**
+     * 先頭から `scheme://host` まで一致させる。途中に含むだけで拾うと、パスやクエリに
+     * 他人のホストを埋めたアクターで、そのホストの枠を食い潰せる
+     */
+    private fun actorUriOnSameHost(actorUri: String): Condition {
+        val host = runCatching { URI(actorUri).host }.getOrNull()
+            ?: return REMOTE_ACTORS.ACTOR_URI.eq(actorUri)
+        val escapedHost = host.lowercase(Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+        // LIKE は ASCII の大文字小文字を区別しないので、ホスト名の綴りの揺れはこれで吸収できる
+        return DSL.or(
+            listOf("http", "https").flatMap { scheme ->
+                listOf("/", ":").map { separator ->
+                    REMOTE_ACTORS.ACTOR_URI.like("$scheme://$escapedHost$separator%", '\\')
+                }
+            },
+        )
+    }
+
+    private fun isDeletedAccount(
+        dsl: DSLContext,
+        username: String,
+    ): Boolean = dsl.fetchExists(
+        DSL
+            .selectOne()
+            .from(ACCOUNTS)
+            .where(ACCOUNTS.USERNAME.eq(username))
+            .and(ACCOUNTS.DELETED_AT.isNotNull),
+    )
 
     override fun remove(
         username: String,

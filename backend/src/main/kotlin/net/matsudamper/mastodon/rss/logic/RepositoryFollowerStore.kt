@@ -6,6 +6,7 @@ import net.matsudamper.kotpub.actor.RemoteActorProfile
 import net.matsudamper.kotpub.follower.FollowerStore
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
+import net.matsudamper.mastodon.rss.repository.RefusedFollow
 
 /**
  * ActivityPub 側の [FollowerStore] を DB に繋ぐ。
@@ -33,12 +34,28 @@ class RepositoryFollowerStore(
         )
 
     /**
-     * 受信を止めたドメインからの Follow は inbox で捨てているので、ここまで届いたものは断らない
+     * 同じホストのアクターからのフォローで配る先が上限に達していれば、新しいフォローを断る。
+     *
+     * `sharedInbox` を持たず inbox を 1 人ずつ分けた偽アクターを並べると、投稿 1 件ごとの
+     * 配信がその人数分に増える。鍵付きのアクターはいくらでも作れるので、件数で止める。
+     * アクター文書を置くホストは相手が用意する必要があるので、ホストごとに数える。
+     *
+     * 記録済みの相手は断らない。`Accept` が届かず送り直された `Follow` まで断ると、
+     * 上限に達した後にフォローが消える。
+     *
+     * 受信を止めたドメインからの `Follow` は inbox で捨てているので、ここでは見ない。
      */
     override fun refuses(
         username: String,
         followerActorUri: String,
-    ): Boolean = false
+    ): Boolean {
+        if (followers.hasFollow(username = username, followerActorUri = followerActorUri)) return false
+
+        return followers.countDeliveryTargetsOfSameHost(
+            username = username,
+            followerActorUri = followerActorUri,
+        ) >= MAX_DELIVERY_TARGETS_PER_ACTOR_HOST
+    }
 
     override fun reject(
         username: String,
@@ -46,7 +63,15 @@ class RepositoryFollowerStore(
         followActivityUri: String,
         receivedAt: Instant,
         rejectBody: String,
-    ): Boolean = error("refuses が常に false なので Follow は断らない")
+    ): Boolean = followers.reject(
+        RefusedFollow(
+            username = username,
+            followerActorUri = follower.actorId,
+            inbox = follower.inbox,
+            receivedAt = receivedAt,
+            rejectBody = rejectBody,
+        ),
+    )
 
     override fun remove(
         username: String,
@@ -102,4 +127,12 @@ class RepositoryFollowerStore(
     override fun count(username: String): Long = followers.count(username)
 
     override fun deliveryTargets(username: String): List<String> = followers.deliveryTargets(username)
+
+    companion object {
+        /**
+         * Mastodon などの普通のインスタンスは `sharedInbox` で 1 か所にまとまるので、
+         * ここに届くのは `sharedInbox` を持たない実装だけ
+         */
+        const val MAX_DELIVERY_TARGETS_PER_ACTOR_HOST = 20
+    }
 }

@@ -111,8 +111,26 @@ internal object DeliveryQueueRows {
         .execute()
 
     /**
-     * まだ送り終えていない `Accept`。諦めた行は残す。送れなかった記録まで消す理由が無い
+     * その相手への、送り終えていない `Reject` を消す
+     *
+     * @return 消えた件数
      */
-    private fun unsentAccept(): Condition = DELIVERY_QUEUE.KIND.eq(DeliveryKindDbValue.ACCEPT_FOLLOW.dbValue)
+    fun deletePendingReject(
+        dsl: DSLContext,
+        username: String,
+        followerActorUri: String,
+    ): Int = dsl
+        .deleteFrom(DELIVERY_QUEUE)
+        .where(unsent(DeliveryKindDbValue.REJECT_FOLLOW))
+        .and(DELIVERY_QUEUE.USERNAME.eq(username))
+        .and(DELIVERY_QUEUE.TARGET_ACTOR_URI.eq(followerActorUri))
+        .execute()
+
+    private fun unsentAccept(): Condition = unsent(DeliveryKindDbValue.ACCEPT_FOLLOW)
+
+    /**
+     * まだ送り終えていないもの。諦めた行は残す。送れなかった記録まで消す理由が無い
+     */
+    private fun unsent(kind: DeliveryKindDbValue): Condition = DELIVERY_QUEUE.KIND.eq(kind.dbValue)
         .and(DELIVERY_QUEUE.STATE.`in`(DeliveryStateDbValue.PENDING.dbValue, DeliveryStateDbValue.DELIVERING.dbValue))
 }
