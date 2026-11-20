@@ -12,13 +12,37 @@ internal object RemoteActorRows {
     /**
      * 相手のアクターは毎回上書きする。inbox も鍵も相手の都合で変わるので、
      * 取り直したものが最新になる。
+     *
+     * `Follow` を受け付けるときだけ使う。inbox は投稿の配る先になるので、
+     * 配る先の上限を確かめた経路でしか置き換えない。
      */
-    fun upsert(
+    fun upsertFollower(
         dsl: DSLContext,
         actor: NewRemoteActor,
         now: Instant,
+    ): Long = upsert(dsl = dsl, actor = actor, now = now, replacesDeliveryTargets = true)
+
+    /**
+     * 記録済みの相手の inbox と `sharedInbox` は置き換えない。
+     *
+     * フォロワーの行と共有しているので、ここで置き換えると `Follow` での上限の確認を通らずに
+     * 投稿の配る先を増やせる。鍵とプロフィールは置き換える。
+     */
+    fun upsertKeepingDeliveryTargets(
+        dsl: DSLContext,
+        actor: NewRemoteActor,
+        now: Instant,
+    ): Long = upsert(dsl = dsl, actor = actor, now = now, replacesDeliveryTargets = false)
+
+    private fun upsert(
+        dsl: DSLContext,
+        actor: NewRemoteActor,
+        now: Instant,
+        replacesDeliveryTargets: Boolean,
     ): Long {
         val fetchedAt = StoredInstant.format(now)
+        val storedInbox = if (replacesDeliveryTargets) DSL.value(actor.inbox) else REMOTE_ACTORS.INBOX
+        val storedSharedInbox = if (replacesDeliveryTargets) DSL.value(actor.sharedInbox) else REMOTE_ACTORS.SHARED_INBOX
 
         dsl
             .insertInto(REMOTE_ACTORS)
@@ -33,8 +57,8 @@ internal object RemoteActorRows {
             .set(REMOTE_ACTORS.ICON_URL, actor.profile.iconUrl)
             .onConflict(REMOTE_ACTORS.ACTOR_URI)
             .doUpdate()
-            .set(REMOTE_ACTORS.INBOX, actor.inbox)
-            .set(REMOTE_ACTORS.SHARED_INBOX, actor.sharedInbox)
+            .set(REMOTE_ACTORS.INBOX, storedInbox)
+            .set(REMOTE_ACTORS.SHARED_INBOX, storedSharedInbox)
             .set(REMOTE_ACTORS.PUBLIC_KEY_PEM, actor.publicKeyPem)
             .set(REMOTE_ACTORS.FETCHED_AT, fetchedAt)
             .set(REMOTE_ACTORS.PREFERRED_USERNAME, actor.profile.preferredUsername)

@@ -29,7 +29,7 @@ internal class SqliteFollowerRepository(
             // フォロワーと Accept が生えて、そのアカウントの名前が二度と空かない
             if (isDeletedAccount(dsl, follow.username)) return@transaction false
 
-            val remoteActorId = RemoteActorRows.upsert(dsl, follow.follower, follow.receivedAt)
+            val remoteActorId = RemoteActorRows.upsertFollower(dsl, follow.follower, follow.receivedAt)
 
             dsl
                 .insertInto(FOLLOWERS)

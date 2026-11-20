@@ -23,7 +23,7 @@ internal class SqliteNoteStampRepository(
         )
         if (noteExists.not()) return@transaction false
 
-        val remoteActorId = RemoteActorRows.upsert(dsl = dsl, actor = stamp.actor, now = stamp.receivedAt)
+        val remoteActorId = RemoteActorRows.upsertKeepingDeliveryTargets(dsl = dsl, actor = stamp.actor, now = stamp.receivedAt)
         val createdAt = StoredInstant.format(stamp.receivedAt)
 
         dsl
