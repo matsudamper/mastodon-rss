@@ -66,14 +66,35 @@ class PageOgpServiceTest {
         assertNull(service.note(username = "other", publicId = "n1"))
     }
 
+    @Test
+    fun `閲覧注意の投稿は本文を出さない`() {
+        notes.add(note(publicId = "n1", contentHtml = "<p>本文</p>", summary = null, sensitive = true))
+
+        assertEquals("閲覧注意の投稿", service.note(username = username, publicId = "n1")?.description)
+    }
+
+    @Test
+    fun `注意書きのある投稿は本文の代わりに注意書きを出す`() {
+        notes.add(note(publicId = "n1", contentHtml = "<p>本文</p>", summary = "ネタバレ", sensitive = true))
+
+        assertEquals("ネタバレ", service.note(username = username, publicId = "n1")?.description)
+    }
+
     private fun note(
         publicId: String,
         contentHtml: String,
+    ): StoredNote = note(publicId = publicId, contentHtml = contentHtml, summary = null, sensitive = false)
+
+    private fun note(
+        publicId: String,
+        contentHtml: String,
+        summary: String?,
+        sensitive: Boolean,
     ): StoredNote = StoredNote(
         publicId = PublicNoteId(publicId),
         username = username,
         contentHtml = contentHtml,
-        summary = null,
+        summary = summary,
         publishedAt = Instant.EPOCH,
         updatedAt = null,
         attachments = listOf(),
@@ -81,7 +102,7 @@ class PageOgpServiceTest {
         quote = null,
         mentions = listOf(),
         emojis = listOf(),
-        sensitive = false,
+        sensitive = sensitive,
         poll = null,
     )
 }

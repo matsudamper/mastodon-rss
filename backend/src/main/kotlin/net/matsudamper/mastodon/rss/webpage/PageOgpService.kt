@@ -6,6 +6,7 @@ import net.matsudamper.kotpub.actor.StoredActorAppearances
 import net.matsudamper.kotpub.actor.StoredActorProfiles
 import net.matsudamper.kotpub.entity.PublicNoteId
 import net.matsudamper.kotpub.note.NoteStore
+import net.matsudamper.kotpub.note.StoredNote
 import net.matsudamper.mastodon.rss.shared.WebPagePath
 
 /**
@@ -48,10 +49,22 @@ class PageOgpService(
         return PageOgp(
             type = PageOgpType.Article,
             title = titleOf(actor = actor, displayName = profiles.find(actor.username).displayName),
-            description = HtmlText.description(note.contentHtml).ifEmpty { null },
+            description = noteDescriptionOf(note),
             url = "https://${actor.domain}${WebPagePath.accountNote(username = actor.username, noteId = publicId)}",
             imageUrl = iconUrlOf(actor),
         )
+    }
+
+    /**
+     * 閲覧注意の投稿と注意書きのある投稿は、本文を出さずに注意書きかその旨を出す
+     */
+    private fun noteDescriptionOf(note: StoredNote): String? {
+        val contentWarning = note.summary?.let { HtmlText.description(it) }?.ifEmpty { null }
+        return when {
+            contentWarning != null -> contentWarning
+            note.sensitive -> SENSITIVE_DESCRIPTION
+            else -> HtmlText.description(note.contentHtml).ifEmpty { null }
+        }
     }
 
     private fun iconUrlOf(actor: ActorUrls): String? = appearances.find(actor.username).iconVersion?.let { actor.icon(it) }
@@ -62,6 +75,10 @@ class PageOgpService(
     ): String {
         val name = displayName?.trim()?.ifEmpty { null } ?: actor.username
         return "$name (${actor.mention})"
+    }
+
+    private companion object {
+        const val SENSITIVE_DESCRIPTION = "閲覧注意の投稿"
     }
 }
 
