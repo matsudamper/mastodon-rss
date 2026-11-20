@@ -37,7 +37,7 @@ private const val INDEX_CACHE_CONTROL: String = "no-store"
 fun Route.staticRoutes(staticFiles: StaticFiles?) {
     listOf("", "/").forEach { trailing ->
         get("/${WebPagePath.ACCOUNT_PREFIX}{username}/followers$trailing") {
-            PublicPageResponse.html(call, staticFiles)
+            PublicPageResponse.html(call = call, staticFiles = staticFiles, ogp = null)
         }
     }
 

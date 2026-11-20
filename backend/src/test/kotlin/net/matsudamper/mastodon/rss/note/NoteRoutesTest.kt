@@ -54,7 +54,7 @@ class NoteRoutesTest {
     ) {
         application {
             routing {
-                noteRoutes(TestLocalActor.DOMAIN, notes, webPages, StaticFiles(staticRoot))
+                noteRoutes(TestLocalActor.DOMAIN, notes, webPages, StaticFiles(staticRoot), null)
                 outboxRoutes(TestLocalActor.directory, notes, webPages)
                 featuredRoutes(TestLocalActor.directory, webPages)
                 staticRoutes(StaticFiles(staticRoot))

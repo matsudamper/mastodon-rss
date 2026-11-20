@@ -33,6 +33,7 @@ class ActorRoutesTest {
                     profiles = TestLocalActor.profiles,
                     webPages = webPages,
                     staticFiles = null,
+                    pageOgp = null,
                 )
             }
         }
