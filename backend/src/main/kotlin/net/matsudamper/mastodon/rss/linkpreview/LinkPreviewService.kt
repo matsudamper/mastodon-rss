@@ -14,9 +14,14 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.toJavaDuration
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -48,6 +53,8 @@ class LinkPreviewService(
 ) : Closeable {
     private val cache = ConcurrentHashMap<String, CacheEntry>()
     private val fetchPermits = Semaphore(MAX_CONCURRENT_FETCHES)
+    private val loadingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val loadings = ConcurrentHashMap<String, Deferred<LinkPreview>>()
 
     /**
      * OGP を取りに行くリンク。[previews] はこの並びで返す
@@ -72,6 +79,19 @@ class LinkPreviewService(
         val cached = cache[url]
         if (cached != null && cached.expiresAt.isAfter(now)) return cached.preview
 
+        // 同じ URL を待つ要求が他にもあるので、待っている要求が切れても取得は止めない
+        val loading = loadings.computeIfAbsent(url) {
+            loadingScope.async(start = CoroutineStart.LAZY) { load(url = url, now = now) }
+                .also { started -> started.invokeOnCompletion { loadings.remove(url, started) } }
+        }
+        loading.start()
+        return loading.await()
+    }
+
+    private suspend fun load(
+        url: String,
+        now: Instant,
+    ): LinkPreview {
         val ogp = fetchPermits.withPermit { fetchOgp(url = url, remainingRedirects = MAX_REDIRECTS) }
         val preview = LinkPreview(
             url = url,
@@ -188,6 +208,7 @@ class LinkPreviewService(
     }
 
     override fun close() {
+        loadingScope.cancel()
         client.close()
     }
 
