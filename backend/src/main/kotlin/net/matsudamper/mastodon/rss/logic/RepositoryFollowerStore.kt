@@ -34,27 +34,36 @@ class RepositoryFollowerStore(
         )
 
     /**
-     * 同じホストのアクターからのフォローで配る先が上限に達していれば、新しいフォローを断る。
+     * 同じホストのアクターからのフォローで配る先が上限に達していて、この `Follow` で
+     * 配る先が増えるなら断る。
      *
      * `sharedInbox` を持たず inbox を 1 人ずつ分けた偽アクターを並べると、投稿 1 件ごとの
      * 配信がその人数分に増える。鍵付きのアクターはいくらでも作れるので、件数で止める。
      * アクター文書を置くホストは相手が用意する必要があるので、ホストごとに数える。
      *
-     * 記録済みの相手は断らない。`Accept` が届かず送り直された `Follow` まで断ると、
+     * 配る先が既にあるものなら断らない。`Accept` が届かず送り直された `Follow` まで断ると、
      * 上限に達した後にフォローが消える。
+     *
+     * 受け付けると、相手の inbox は他のアカウントへのフォローの分まで置き換わる。
+     * 記録済みの相手が送り直しで inbox を分けると、そちらで上限を越えるので、
+     * 相手がフォローしている全アカウントで確かめる。
      *
      * 受信を止めたドメインからの `Follow` は inbox で捨てているので、ここでは見ない。
      */
     override fun refuses(
         username: String,
-        followerActorUri: String,
+        follower: RemoteActor,
     ): Boolean {
-        if (followers.hasFollow(username = username, followerActorUri = followerActorUri)) return false
+        val deliveryTarget = follower.sharedInbox ?: follower.inbox
+        val affectedUsernames = followers.followeeUsernames(follower.actorId) + username
 
-        return followers.countDeliveryTargetsOfSameHost(
-            username = username,
-            followerActorUri = followerActorUri,
-        ) >= MAX_DELIVERY_TARGETS_PER_ACTOR_HOST
+        return affectedUsernames.any { affectedUsername ->
+            val deliveryTargets = followers.deliveryTargetsOfSameHost(
+                username = affectedUsername,
+                followerActorUri = follower.actorId,
+            )
+            deliveryTarget !in deliveryTargets && deliveryTargets.size >= MAX_DELIVERY_TARGETS_PER_ACTOR_HOST
+        }
     }
 
     override fun reject(

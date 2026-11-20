@@ -337,6 +337,8 @@ class FakeFollowerRepository(
         // 消えたアカウント宛には記録しない。本物はアカウントの行を同じトランザクションで見る
         if (isDeletedAccount(follow.username)) return false
 
+        // 本物と同じく、相手のアクターは他のアカウントへのフォローの分まで読み直したもので置き換える
+        stored.replaceAll { if (it.follower.actorUri == follow.follower.actorUri) it.copy(follower = follow.follower) else it }
         if (stored.none { it.username == follow.username && it.follower.actorUri == follow.follower.actorUri }) {
             stored += follow
         }
@@ -356,21 +358,19 @@ class FakeFollowerRepository(
         return true
     }
 
-    override fun hasFollow(
-        username: String,
-        followerActorUri: String,
-    ): Boolean = stored.any { it.username == username && it.follower.actorUri == followerActorUri }
+    override fun followeeUsernames(followerActorUri: String): List<String> = stored
+        .filter { it.follower.actorUri == followerActorUri }
+        .map { it.username }
 
-    override fun countDeliveryTargetsOfSameHost(
+    override fun deliveryTargetsOfSameHost(
         username: String,
         followerActorUri: String,
-    ): Int {
+    ): Set<String> {
         val host = URI(followerActorUri).host.lowercase()
         return stored
             .filter { it.username == username && URI(it.follower.actorUri).host.lowercase() == host }
             .map { it.follower.sharedInbox ?: it.follower.inbox }
-            .distinct()
-            .size
+            .toSet()
     }
 
     /**

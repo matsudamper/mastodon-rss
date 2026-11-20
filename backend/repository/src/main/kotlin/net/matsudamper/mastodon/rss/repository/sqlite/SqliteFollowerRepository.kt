@@ -98,26 +98,30 @@ internal class SqliteFollowerRepository(
         true
     }
 
-    override fun hasFollow(
-        username: String,
-        followerActorUri: String,
-    ): Boolean = jooq.withConnection { dsl ->
-        dsl.fetchExists(FollowerRows.ids(username = username, followerActorUri = followerActorUri))
+    override fun followeeUsernames(followerActorUri: String): List<String> = jooq.withConnection { dsl ->
+        dsl
+            .select(FOLLOWERS.USERNAME)
+            .from(FOLLOWERS)
+            .join(REMOTE_ACTORS)
+            .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
+            .where(REMOTE_ACTORS.ACTOR_URI.eq(followerActorUri))
+            .fetch(FOLLOWERS.USERNAME)
     }
 
-    override fun countDeliveryTargetsOfSameHost(
+    override fun deliveryTargetsOfSameHost(
         username: String,
         followerActorUri: String,
-    ): Int = jooq.withConnection { dsl ->
+    ): Set<String> = jooq.withConnection { dsl ->
+        val deliveryTarget = DSL.coalesce(REMOTE_ACTORS.SHARED_INBOX, REMOTE_ACTORS.INBOX)
         dsl
-            .select(DSL.countDistinct(DSL.coalesce(REMOTE_ACTORS.SHARED_INBOX, REMOTE_ACTORS.INBOX)))
+            .selectDistinct(deliveryTarget)
             .from(FOLLOWERS)
             .join(REMOTE_ACTORS)
             .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
             .where(FOLLOWERS.USERNAME.eq(username))
             .and(actorUriOnSameHost(followerActorUri))
-            .fetchOne(0, Int::class.java)
-            ?: 0
+            .fetch(deliveryTarget)
+            .toSet()
     }
 
     /**
