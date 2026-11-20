@@ -366,9 +366,9 @@ class FakeFollowerRepository(
         username: String,
         followerActorUri: String,
     ): Set<String> {
-        val host = URI(followerActorUri).host.lowercase()
+        val host = URI(followerActorUri).host?.lowercase()
         return stored
-            .filter { it.username == username && URI(it.follower.actorUri).host.lowercase() == host }
+            .filter { it.username == username && URI(it.follower.actorUri).host?.lowercase() == host }
             .map { it.follower.sharedInbox ?: it.follower.inbox }
             .toSet()
     }

@@ -294,6 +294,47 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `同じホストの配信先はパスの無い URL やホスト名の綴りが違っても数える`() {
+        withRepository { followers ->
+            followers.record(incomingFollow(actorUri = "https://spam.example/users/a"))
+            followers.record(
+                incomingFollow(actorUri = "https://SPAM.example?actor=b", followActivityUri = "https://remote.example/activities/2"),
+            )
+            followers.record(
+                incomingFollow(actorUri = "https://other.example/users/c", followActivityUri = "https://remote.example/activities/3"),
+            )
+
+            assertEquals(
+                setOf("https://spam.example/users/a/inbox", "https://SPAM.example?actor=b/inbox"),
+                followers.deliveryTargetsOfSameHost(username = "admin", followerActorUri = "https://spam.example/users/new"),
+            )
+        }
+    }
+
+    @Test
+    fun `断るとフォローの記録と未送信の Accept が消えて Reject だけが残る`() {
+        withRepositories { repositories ->
+            repositories.followers.record(incomingFollow())
+
+            assertTrue(repositories.followers.reject(refusedFollow()))
+
+            assertFalse(repositories.followers.hasAny())
+            assertEquals(
+                listOf(DeliveryKind.REJECT_FOLLOW),
+                repositories.deliveryQueue.claim(now = now, limit = 50).map { it.kind },
+            )
+        }
+    }
+
+    private fun refusedFollow(): RefusedFollow = RefusedFollow(
+        username = "admin",
+        followerActorUri = "https://remote.example/users/alice",
+        inbox = "https://remote.example/users/alice/inbox",
+        receivedAt = now,
+        rejectBody = """{"type":"Reject"}""",
+    )
+
+    @Test
     fun `URL 順に返り、cursor で続きから取れる`() {
         withRepositories { repositories ->
             val followers = repositories.followers

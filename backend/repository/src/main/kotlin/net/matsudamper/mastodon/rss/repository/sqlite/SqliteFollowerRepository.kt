@@ -1,8 +1,6 @@
 package net.matsudamper.mastodon.rss.repository.sqlite
 
-import java.net.URI
 import java.time.Instant
-import java.util.Locale
 import java.util.TreeMap
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
@@ -108,39 +106,26 @@ internal class SqliteFollowerRepository(
             .fetch(FOLLOWERS.USERNAME)
     }
 
+    /**
+     * ホストは SQL で切り出さずに URI として読んで比べる。文字列の前方一致だと、
+     * パスの無い URL やユーザー情報付きの URL で同じホストの相手を数え漏らす
+     */
     override fun deliveryTargetsOfSameHost(
         username: String,
         followerActorUri: String,
     ): Set<String> = jooq.withConnection { dsl ->
+        val host = InboxHost.of(followerActorUri)
         val deliveryTarget = DSL.coalesce(REMOTE_ACTORS.SHARED_INBOX, REMOTE_ACTORS.INBOX)
         dsl
-            .selectDistinct(deliveryTarget)
+            .select(REMOTE_ACTORS.ACTOR_URI, deliveryTarget)
             .from(FOLLOWERS)
             .join(REMOTE_ACTORS)
             .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
             .where(FOLLOWERS.USERNAME.eq(username))
-            .and(actorUriOnSameHost(followerActorUri))
-            .fetch(deliveryTarget)
+            .fetch()
+            .filter { InboxHost.of(it.value1()) == host }
+            .map { it.value2() }
             .toSet()
-    }
-
-    /**
-     * 先頭から `scheme://host` まで一致させる。途中に含むだけで拾うと、パスやクエリに
-     * 他人のホストを埋めたアクターで、そのホストの枠を食い潰せる
-     */
-    private fun actorUriOnSameHost(actorUri: String): Condition {
-        val host = runCatching { URI(actorUri).host }.getOrNull()
-            ?: return REMOTE_ACTORS.ACTOR_URI.eq(actorUri)
-        val escapedHost = host.lowercase(Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
-        // LIKE は ASCII の大文字小文字を区別しないので、ホスト名の綴りの揺れはこれで吸収できる
-        return DSL.or(
-            listOf("http", "https").flatMap { scheme ->
-                listOf("/", ":").map { separator ->
-                    REMOTE_ACTORS.ACTOR_URI.like("$scheme://$escapedHost$separator%", '\\')
-                }
-            },
-        )
     }
 
     private fun isDeletedAccount(
