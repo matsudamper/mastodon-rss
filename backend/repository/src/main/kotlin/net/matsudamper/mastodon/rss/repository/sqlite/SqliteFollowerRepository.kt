@@ -55,6 +55,12 @@ internal class SqliteFollowerRepository(
                 username = follow.username,
                 followerActorUri = follow.follower.actorUri,
             )
+            // 前に断ったときの `Reject` が残っていると、`Accept` の後に届いてフォローが食い違う
+            DeliveryQueueRows.deletePendingReject(
+                dsl = dsl,
+                username = follow.username,
+                followerActorUri = follow.follower.actorUri,
+            )
 
             DeliveryQueueRows.insertPending(
                 dsl = dsl,

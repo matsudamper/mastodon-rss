@@ -326,6 +326,20 @@ class FollowerRepositoryTest {
         }
     }
 
+    @Test
+    fun `断った後に受け付けると未送信の Reject を取り下げる`() {
+        withRepositories { repositories ->
+            repositories.followers.reject(refusedFollow())
+
+            repositories.followers.record(incomingFollow())
+
+            assertEquals(
+                listOf(DeliveryKind.ACCEPT_FOLLOW),
+                repositories.deliveryQueue.claim(now = now, limit = 50).map { it.kind },
+            )
+        }
+    }
+
     private fun refusedFollow(): RefusedFollow = RefusedFollow(
         username = "admin",
         followerActorUri = "https://remote.example/users/alice",
