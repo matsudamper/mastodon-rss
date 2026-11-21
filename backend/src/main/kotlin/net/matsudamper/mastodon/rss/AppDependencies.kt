@@ -46,7 +46,6 @@ import net.matsudamper.mastodon.rss.delivery.DeliveryWorker
 import net.matsudamper.mastodon.rss.feed.FeedFetchService
 import net.matsudamper.mastodon.rss.feed.FeedPoller
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
-import net.matsudamper.mastodon.rss.image.RemoteImageRelayPermits
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewImageService
 import net.matsudamper.mastodon.rss.linkpreview.LinkPreviewService
 import net.matsudamper.mastodon.rss.logic.AccountIconFiles
@@ -230,11 +229,6 @@ class AppDependencies(
      */
     val pageOgpService: PageOgpService? =
         webPageUrls?.let { PageOgpService(directory = directory, profiles = actorProfiles, appearances = actorAppearances, notes = noteStore) }
-
-    /**
-     * フォロワーのアイコンとリンク先の画像の中継で共有する同時取得数の枠
-     */
-    val imageRelayPermits: RemoteImageRelayPermits = RemoteImageRelayPermits(maxConcurrentRelays = MAX_CONCURRENT_IMAGE_RELAYS)
 
     /**
      * フォロワーのアイコンの中継。フィードのアイコンと同じ取得口を使う。
@@ -449,11 +443,6 @@ class AppDependencies(
     }
 
     companion object {
-        /**
-         * 画像は 1 枚最大 10MB で、送り終えるまで枠を手放さない。小さな VM でも使い切らない数にする
-         */
-        private const val MAX_CONCURRENT_IMAGE_RELAYS = 4
-
         /**
          * 同じホストからのフォローで配る先の上限。Mastodon などの普通のサーバーは
          * `sharedInbox` で 1 か所にまとまるので、効いてくるのは `sharedInbox` を持たない実装だけ
