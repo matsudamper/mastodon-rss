@@ -31,6 +31,10 @@ services:
       # ACTOR_PRIVATE_KEY_PEM: ${ACTOR_PRIVATE_KEY_PEM}
       HOST: 0.0.0.0
       PORT: 8080
+      # セッション Cookie に Secure を付けるか。http で試すときだけ false にする
+      ADMIN_COOKIE_SECURE: "true"
+      # OpenTelemetry で送るか
+      ENABLE_OTEL: "false"
       # サーバーを動かす uid, gid。
       # 起動時に /data の所有者もこれに合わせる。
       # id -u

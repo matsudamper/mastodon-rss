@@ -90,6 +90,8 @@ jobs:
             --publish 8080:8080 \
             --env DOMAIN=example.com \
             --env TRUST_CF_CONNECTING_IP=false \
+            --env ADMIN_COOKIE_SECURE=false \
+            --env ENABLE_OTEL=false \
             --volume "$DATA_DIR:/data" \
             "$IMAGE:$GITHUB_SHA"
           trap 'docker rm -f mastodon-rss-check > /dev/null 2>&1 || true' EXIT
