@@ -1201,16 +1201,15 @@ class AdminGraphQlTest {
         }
 
     @Test
-    fun `ログインしていなければ配信先の上限を読めず変えられない`() =
+    fun `ログインしていなければ配信先の上限を読めない`() =
         testApplication {
             applicationWith(passwordConfigured = true)
 
             assertTrue(queryDeliveryTargetLimit().body().containsKey("errors"))
-            assertTrue(mutateSaveMaxDeliveryTargetsPerHost(50).body().containsKey("errors"))
         }
 
     @Test
-    fun `配信先の上限は保存すると読み直しても変わり、ホストごとの配信先の数と一緒に返る`() =
+    fun `配信先の上限はホストごとの配信先の数と一緒に返る`() =
         testApplication {
             val repositories = FakeRepositories()
             applicationWith(passwordConfigured = true, repositories = repositories)
@@ -1233,31 +1232,11 @@ class AdminGraphQlTest {
                 )
             }
 
-            assertEquals(20, queryDeliveryTargetLimit(token).admin().int("maxDeliveryTargetsPerHost"))
-
-            val saved = mutateSaveMaxDeliveryTargetsPerHost(50, token).admin().obj("saveMaxDeliveryTargetsPerHost")
-            assertEquals(50, saved.int("maxDeliveryTargetsPerHost"))
-            assertEquals(JsonNull, saved.getValue("failure"))
-
             val limit = queryDeliveryTargetLimit(token).admin()
-            assertEquals(50, limit.int("maxDeliveryTargetsPerHost"))
+            assertEquals(20, limit.int("maxDeliveryTargetsPerHost"))
             val hosts = limit.getValue("deliveryTargetHosts").jsonArray.map { it.jsonObject }
             assertEquals(listOf("spam.example"), hosts.map { it.string("host") })
             assertEquals(listOf(2), hosts.map { it.int("deliveryTargetCount") })
-        }
-
-    @Test
-    fun `範囲の外の配信先の上限は保存せず範囲を返す`() =
-        testApplication {
-            applicationWith(passwordConfigured = true)
-            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
-
-            val saved = mutateSaveMaxDeliveryTargetsPerHost(0, token).admin().obj("saveMaxDeliveryTargetsPerHost")
-
-            assertEquals(JsonNull, saved.getValue("maxDeliveryTargetsPerHost"))
-            assertEquals(1, saved.failure().int("minValue"))
-            assertEquals(1000, saved.failure().int("maxValue"))
-            assertEquals(20, queryDeliveryTargetLimit(token).admin().int("maxDeliveryTargetsPerHost"))
         }
 
     private fun ApplicationTestBuilder.applicationWith(
@@ -1538,18 +1517,6 @@ class AdminGraphQlTest {
         graphQl(
             "query { admin { maxDeliveryTargetsPerHost deliveryTargetHosts(limit: 10) { host deliveryTargetCount } } }",
             token = token,
-        )
-
-    private suspend fun ApplicationTestBuilder.mutateSaveMaxDeliveryTargetsPerHost(
-        value: Int,
-        token: String? = null,
-    ): HttpResponse =
-        graphQl(
-            query =
-            "mutation Save(${'$'}value: Int!) { admin { saveMaxDeliveryTargetsPerHost(value: ${'$'}value) { " +
-                "maxDeliveryTargetsPerHost failure { minValue maxValue } } } }",
-            token = token,
-            variables = """{"value":$value}""",
         )
 
     private suspend fun ApplicationTestBuilder.graphQl(

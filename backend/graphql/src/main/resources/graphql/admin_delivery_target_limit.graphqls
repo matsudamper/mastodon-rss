@@ -7,18 +7,3 @@ type AdminDeliveryTargetHost {
     deliveryTargetCount: Int!
 }
 
-type AdminSaveMaxDeliveryTargetsPerHostResult {
-    "保存した上限"
-    maxDeliveryTargetsPerHost: Int
-
-    "保存できなかった場合だけ入る"
-    failure: AdminSaveMaxDeliveryTargetsPerHostFailure
-}
-
-type AdminSaveMaxDeliveryTargetsPerHostFailure {
-    "指定できる最小の値"
-    minValue: Int!
-
-    "指定できる最大の値"
-    maxValue: Int!
-}

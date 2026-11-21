@@ -131,7 +131,7 @@ class AdminQueryResolverImpl : AdminQueryResolver {
     ): CompletionStage<DataFetcherResult<Int>> {
         if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
 
-        val maxDeliveryTargetsPerHost = GraphQlEngine.diContainer(env).deliveryTargetLimitService.maxDeliveryTargetsPerHost()
+        val maxDeliveryTargetsPerHost = GraphQlEngine.diContainer(env).deliveryTargetLimitService.maxDeliveryTargetsPerHost
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(maxDeliveryTargetsPerHost).build())
     }

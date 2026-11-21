@@ -34,8 +34,6 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminPostNoteResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveDomainBlockFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveDomainBlockResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveFeedResult
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveMaxDeliveryTargetsPerHostFailure
-import net.matsudamper.mastodon.rss.graphql.model.QlAdminSaveMaxDeliveryTargetsPerHostResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminSession
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUpdateAccountProfileFailure
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminUpdateAccountProfileResult
@@ -48,7 +46,6 @@ import net.matsudamper.mastodon.rss.graphql.model.QlSaveFeedQuery
 import net.matsudamper.mastodon.rss.graphql.model.QlUpdateAccountProfileQuery
 import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
-import net.matsudamper.mastodon.rss.logic.DeliveryTargetLimitService
 import net.matsudamper.mastodon.rss.logic.DomainBlockService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteComposer
@@ -291,34 +288,6 @@ class AdminMutationResolverImpl : AdminMutationResolver {
         return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
             val deletedDomain = diContainer.domainBlockService.delete(domain)
             DataFetcherResult.Builder(QlAdminDeleteDomainBlockResult(deletedDomain = deletedDomain)).build()
-        }
-    }
-
-    override fun saveMaxDeliveryTargetsPerHost(
-        adminMutation: QlAdminMutation,
-        value: Int,
-        env: DataFetchingEnvironment,
-    ): CompletionStage<DataFetcherResult<QlAdminSaveMaxDeliveryTargetsPerHostResult>> {
-        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
-
-        val diContainer = GraphQlEngine.diContainer(env)
-
-        return CoroutineScope(Dispatchers.IO.withOpenTelemetryContext()).future {
-            val result = when (val saved = diContainer.deliveryTargetLimitService.save(value)) {
-                is DeliveryTargetLimitService.SaveResult.Success -> QlAdminSaveMaxDeliveryTargetsPerHostResult(
-                    maxDeliveryTargetsPerHost = saved.maxDeliveryTargetsPerHost,
-                    failure = null,
-                )
-
-                is DeliveryTargetLimitService.SaveResult.OutOfRange -> QlAdminSaveMaxDeliveryTargetsPerHostResult(
-                    maxDeliveryTargetsPerHost = null,
-                    failure = QlAdminSaveMaxDeliveryTargetsPerHostFailure(
-                        minValue = saved.minValue,
-                        maxValue = saved.maxValue,
-                    ),
-                )
-            }
-            DataFetcherResult.Builder(result).build()
         }
     }
 
