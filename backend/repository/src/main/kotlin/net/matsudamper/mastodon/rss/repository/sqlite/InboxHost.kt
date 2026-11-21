@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.Locale
 
 /**
- * inbox の URL から、同じ相手かどうかを見るための鍵を作る。
+ * inbox やアクターの URL から、同じ相手かどうかを見るための鍵を作る。
  */
 internal object InboxHost {
     /**

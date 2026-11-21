@@ -138,7 +138,10 @@ class AppDependencies(
     val webPageUrls: WebPageUrls? =
         webPageUrlsOverride ?: staticFiles?.takeIf { it.index() != null }?.let { DomainWebPageUrls(env.domain) }
 
-    val followerStore: FollowerStore = RepositoryFollowerStore(repositories.followers)
+    val followerStore: FollowerStore = RepositoryFollowerStore(
+        followers = repositories.followers,
+        maxDeliveryTargetsPerHost = { MAX_DELIVERY_TARGETS_PER_HOST },
+    )
 
     val noteStore: NoteStore = RepositoryNoteStore(repositories.notes)
 
@@ -440,6 +443,12 @@ class AppDependencies(
     }
 
     companion object {
+        /**
+         * 同じホストからのフォローで配る先の上限。Mastodon などの普通のサーバーは
+         * `sharedInbox` で 1 か所にまとまるので、効いてくるのは `sharedInbox` を持たない実装だけ
+         */
+        private const val MAX_DELIVERY_TARGETS_PER_HOST = 20
+
         /**
          * 本番の組み立て。
          *

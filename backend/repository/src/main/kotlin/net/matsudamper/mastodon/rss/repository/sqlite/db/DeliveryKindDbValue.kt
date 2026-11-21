@@ -10,6 +10,7 @@ internal enum class DeliveryKindDbValue(
     UPDATE_ACTOR("update_actor"),
     DELETE_ACTOR("delete_actor"),
     ACCEPT_FOLLOW("accept_follow"),
+    REJECT_FOLLOW("reject_follow"),
     ACCEPT_QUOTE("accept_quote"),
     ;
 
@@ -20,6 +21,7 @@ internal enum class DeliveryKindDbValue(
             UPDATE_ACTOR -> DeliveryKind.UPDATE_ACTOR
             DELETE_ACTOR -> DeliveryKind.DELETE_ACTOR
             ACCEPT_FOLLOW -> DeliveryKind.ACCEPT_FOLLOW
+            REJECT_FOLLOW -> DeliveryKind.REJECT_FOLLOW
             ACCEPT_QUOTE -> DeliveryKind.ACCEPT_QUOTE
         }
 
@@ -31,6 +33,7 @@ internal enum class DeliveryKindDbValue(
                 DeliveryKind.UPDATE_ACTOR -> UPDATE_ACTOR
                 DeliveryKind.DELETE_ACTOR -> DELETE_ACTOR
                 DeliveryKind.ACCEPT_FOLLOW -> ACCEPT_FOLLOW
+                DeliveryKind.REJECT_FOLLOW -> REJECT_FOLLOW
                 DeliveryKind.ACCEPT_QUOTE -> ACCEPT_QUOTE
             }
 

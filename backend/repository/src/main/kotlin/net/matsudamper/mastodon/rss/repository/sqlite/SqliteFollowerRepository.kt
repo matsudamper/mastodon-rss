@@ -4,6 +4,7 @@ import java.time.Instant
 import java.util.TreeMap
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
+import net.matsudamper.mastodon.rss.repository.RefusedFollow
 import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.StoredFollower
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.ACCOUNTS
@@ -11,6 +12,7 @@ import net.matsudamper.mastodon.rss.repository.jooq.Tables.FOLLOWERS
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.REMOTE_ACTORS
 import net.matsudamper.mastodon.rss.repository.sqlite.db.DeliveryKindDbValue
 import org.jooq.Condition
+import org.jooq.DSLContext
 import org.jooq.impl.DSL
 
 internal class SqliteFollowerRepository(
@@ -25,16 +27,9 @@ internal class SqliteFollowerRepository(
         jooq.transaction { dsl ->
             // 引き当てから記録までの間にアカウントが消えることがある。消えた後に記録すると、
             // フォロワーと Accept が生えて、そのアカウントの名前が二度と空かない
-            val deleted = dsl.fetchExists(
-                DSL
-                    .selectOne()
-                    .from(ACCOUNTS)
-                    .where(ACCOUNTS.USERNAME.eq(follow.username))
-                    .and(ACCOUNTS.DELETED_AT.isNotNull),
-            )
-            if (deleted) return@transaction false
+            if (isDeletedAccount(dsl, follow.username)) return@transaction false
 
-            val remoteActorId = RemoteActorRows.upsert(dsl, follow.follower, follow.receivedAt)
+            val remoteActorId = RemoteActorRows.upsertFollower(dsl, follow.follower, follow.receivedAt)
 
             dsl
                 .insertInto(FOLLOWERS)
@@ -60,6 +55,12 @@ internal class SqliteFollowerRepository(
                 username = follow.username,
                 followerActorUri = follow.follower.actorUri,
             )
+            // 前に断ったときの `Reject` が残っていると、`Accept` の後に届いてフォローが食い違う
+            DeliveryQueueRows.deletePendingReject(
+                dsl = dsl,
+                username = follow.username,
+                followerActorUri = follow.follower.actorUri,
+            )
 
             DeliveryQueueRows.insertPending(
                 dsl = dsl,
@@ -76,6 +77,60 @@ internal class SqliteFollowerRepository(
 
             true
         }
+
+    override fun reject(follow: RefusedFollow): Boolean = jooq.transaction { dsl ->
+        if (isDeletedAccount(dsl, follow.username)) return@transaction false
+
+        dsl
+            .deleteFrom(FOLLOWERS)
+            .where(FOLLOWERS.ID.`in`(FollowerRows.ids(username = follow.username, followerActorUri = follow.followerActorUri)))
+            .execute()
+        DeliveryQueueRows.deletePendingAccept(dsl = dsl, username = follow.username, followerActorUri = follow.followerActorUri)
+        DeliveryQueueRows.deletePendingReject(dsl = dsl, username = follow.username, followerActorUri = follow.followerActorUri)
+
+        DeliveryQueueRows.insertPending(
+            dsl = dsl,
+            kind = DeliveryKindDbValue.REJECT_FOLLOW,
+            username = follow.username,
+            inbox = follow.inbox,
+            body = follow.rejectBody,
+            enqueuedAt = follow.receivedAt,
+            notePublicId = null,
+            targetActorUri = follow.followerActorUri,
+        )
+
+        true
+    }
+
+    /**
+     * ホストは SQL で切り出さずに URI として読んで比べる。文字列の前方一致だと、
+     * パスの無い URL やユーザー情報付きの URL で同じホストの相手を数え漏らす
+     */
+    override fun deliveryTargetsOfOthersOnSameHost(followerActorUri: String): Set<String> = jooq.withConnection { dsl ->
+        val host = InboxHost.of(followerActorUri)
+        val deliveryTarget = DSL.coalesce(REMOTE_ACTORS.SHARED_INBOX, REMOTE_ACTORS.INBOX)
+        dsl
+            .selectDistinct(REMOTE_ACTORS.ACTOR_URI, deliveryTarget)
+            .from(FOLLOWERS)
+            .join(REMOTE_ACTORS)
+            .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
+            .where(REMOTE_ACTORS.ACTOR_URI.ne(followerActorUri))
+            .fetch()
+            .filter { InboxHost.of(it.value1()) == host }
+            .map { it.value2() }
+            .toSet()
+    }
+
+    private fun isDeletedAccount(
+        dsl: DSLContext,
+        username: String,
+    ): Boolean = dsl.fetchExists(
+        DSL
+            .selectOne()
+            .from(ACCOUNTS)
+            .where(ACCOUNTS.USERNAME.eq(username))
+            .and(ACCOUNTS.DELETED_AT.isNotNull),
+    )
 
     override fun remove(
         username: String,

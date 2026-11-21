@@ -21,7 +21,7 @@ internal class SqliteNoteBoostRepository(
         )
         if (noteExists.not()) return@transaction false
 
-        val remoteActorId = RemoteActorRows.upsert(dsl = dsl, actor = boost.actor, now = boost.receivedAt)
+        val remoteActorId = RemoteActorRows.upsertKeepingDeliveryTargets(dsl = dsl, actor = boost.actor, now = boost.receivedAt)
 
         val inserted = dsl
             .insertInto(NOTE_BOOSTS)

@@ -43,6 +43,32 @@ interface FollowerRepository {
     fun record(follow: IncomingFollow): Boolean
 
     /**
+     * 受けた `Follow` を断って、`Reject` を投函する。
+     *
+     * 同じ相手からのフォローの記録が残っていれば消し、まだ送れていない `Accept` も取り下げる。
+     * 残すと、断ったのに `Accept` が後から届いてフォローが成立する。
+     * 送れていない `Reject` が残っていれば置き換える。断るたびに積むと、
+     * `Follow` を送り続けるだけで配信キューを伸ばせる。
+     *
+     * 相手のアクターは記録しない。断った相手の行が残るだけになる。
+     *
+     * @return 投函したら true。宛先のアカウントが消えていれば false
+     */
+    fun reject(follow: RefusedFollow): Boolean
+
+    /**
+     * [followerActorUri] と同じホストの、他のアクターからのフォローで配る先の inbox。
+     * こちらのどのアカウントへのフォローかは問わない。
+     * [followerActorUri] 自身の分は含めない。受け付けると置き換わるので、置き換えた後の
+     * 配る先の数はここに新しい配る先を足したものになる。
+     *
+     * `sharedInbox` を持つ相手は 1 か所にまとまるので、同じインスタンスの利用者が
+     * 何人フォローしても増えない。`Accept` を返す前のものも含める。`Follow` を
+     * 一度に大量に送られると、返し終える前に上限を素通りする。
+     */
+    fun deliveryTargetsOfOthersOnSameHost(followerActorUri: String): Set<String>
+
+    /**
      * フォローを消す。`Undo{Follow}` で呼ぶ。
      *
      * @param followActivityUri 消す対象を元の `Follow` の id で絞る。`Undo` の `object` に
@@ -191,6 +217,21 @@ data class IncomingFollow(
     val followActivityUri: String,
     val receivedAt: Instant,
     val acceptBody: String,
+)
+
+/**
+ * 断る `Follow` について、`Reject` を返すのに要るもの。
+ *
+ * @param username フォローされたこちらのアカウントの名前
+ * @param inbox `Reject` を返す先。`sharedInbox` には送らない。相手 1 人への応答なので
+ * @param rejectBody 相手に返す `Reject` の JSON。署名対象になる
+ */
+data class RefusedFollow(
+    val username: String,
+    val followerActorUri: String,
+    val inbox: String,
+    val receivedAt: Instant,
+    val rejectBody: String,
 )
 
 /**
