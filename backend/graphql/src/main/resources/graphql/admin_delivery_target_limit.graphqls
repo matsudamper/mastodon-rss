@@ -6,4 +6,3 @@ type AdminDeliveryTargetHost {
     "配る先の数。sharedInbox を持つ相手はまとめて 1 つに数える。Accept を返す前のフォローも含む"
     deliveryTargetCount: Int!
 }
-
