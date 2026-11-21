@@ -37,7 +37,7 @@ class RepositoryFollowerStore(
      */
     override fun refuses(
         username: String,
-        followerActorUri: String,
+        follower: RemoteActor,
     ): Boolean = false
 
     override fun reject(
