@@ -73,6 +73,11 @@ internal class AdminScreenViewModel(
                         description = "相手のサーバーへの配信と、相手からの受信をドメインごとに止める。届かなくなったドメインも自動でここに入る。",
                         screen = Screen.AdminDomainBlocks,
                     ),
+                    navigationMenuItem(
+                        title = "ホストごとの配信先の上限",
+                        description = "同じサーバーからのフォローで配信する宛先の数と上限を見る。普通のサーバーが上限に当たったらここで上げる。",
+                        screen = Screen.AdminDeliveryTargets,
+                    ),
                     AdminScreenUiState.MenuItem(
                         title = "アカウント情報の配り直し",
                         description = "全アカウントの表示名・説明文・画像を、フォロワーのサーバーにもう一度配る。",

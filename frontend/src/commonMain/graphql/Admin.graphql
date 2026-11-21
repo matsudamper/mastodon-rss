@@ -378,3 +378,25 @@ mutation AdminDeleteDomainBlock($domain: String!) {
         }
     }
 }
+
+query AdminDeliveryTargetLimit($hostsLimit: Int!) {
+    admin {
+        maxDeliveryTargetsPerHost
+        deliveryTargetHosts(limit: $hostsLimit) {
+            host
+            deliveryTargetCount
+        }
+    }
+}
+
+mutation AdminSaveMaxDeliveryTargetsPerHost($value: Int!) {
+    admin {
+        saveMaxDeliveryTargetsPerHost(value: $value) {
+            maxDeliveryTargetsPerHost
+            failure {
+                minValue
+                maxValue
+            }
+        }
+    }
+}

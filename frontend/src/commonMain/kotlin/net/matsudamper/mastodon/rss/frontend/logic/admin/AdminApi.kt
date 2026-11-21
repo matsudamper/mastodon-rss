@@ -20,6 +20,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteDomainBlockMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemsMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteNoteMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeliveryTargetLimitQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDomainBlocksQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
@@ -29,6 +30,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminPostNoteMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminPreviewFeedQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveDomainBlockMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveFeedMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminSaveMaxDeliveryTargetsPerHostMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminSessionQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUnpublishedFeedItemsQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminUpdateAccountProfileMutation
@@ -271,6 +273,44 @@ class AdminApi(
         } else {
             AdminDeleteDomainBlockResult.Success
         }
+    }
+
+    /**
+     * @param hostsLimit 返してもらうホストの数。上限はサーバー側で決まる
+     */
+    suspend fun deliveryTargetLimit(hostsLimit: Int): AdminDeliveryTargetLimitResult {
+        // 保存した直後にも読み直すので、前に見た内容を返さない
+        val response = client.query(AdminDeliveryTargetLimitQuery(hostsLimit = hostsLimit))
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .execute()
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminDeliveryTargetLimitResult.Failure(response.failureMessage())
+        }
+
+        val admin = response.data?.admin ?: return AdminDeliveryTargetLimitResult.Failure(response.failureMessage())
+        return AdminDeliveryTargetLimitResult.Success(
+            maxDeliveryTargetsPerHost = admin.maxDeliveryTargetsPerHost,
+            hosts = admin.deliveryTargetHosts.map {
+                AdminDeliveryTargetHost(host = it.host, deliveryTargetCount = it.deliveryTargetCount)
+            },
+        )
+    }
+
+    suspend fun saveMaxDeliveryTargetsPerHost(value: Int): AdminSaveMaxDeliveryTargetsPerHostResult {
+        val response = client.mutation(AdminSaveMaxDeliveryTargetsPerHostMutation(value = value)).execute()
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminSaveMaxDeliveryTargetsPerHostResult.Failure(response.failureMessage())
+        }
+
+        val result = response.data?.admin?.saveMaxDeliveryTargetsPerHost
+            ?: return AdminSaveMaxDeliveryTargetsPerHostResult.Failure(response.failureMessage())
+        val failure = result.failure
+        if (failure != null) {
+            return AdminSaveMaxDeliveryTargetsPerHostResult.OutOfRange(minValue = failure.minValue, maxValue = failure.maxValue)
+        }
+        val saved = result.maxDeliveryTargetsPerHost
+            ?: return AdminSaveMaxDeliveryTargetsPerHostResult.Failure("保存できたが内容が返ってこない")
+        return AdminSaveMaxDeliveryTargetsPerHostResult.Success(saved)
     }
 
     private fun AdminDomainBlockFields.toAdminDomainBlock(): AdminDomainBlock = AdminDomainBlock(
