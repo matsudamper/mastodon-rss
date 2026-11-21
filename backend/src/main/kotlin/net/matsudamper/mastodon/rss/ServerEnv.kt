@@ -15,28 +15,28 @@ import net.matsudamper.mastodon.rss.crypto.PasswordHash
  * native-image では起動時に環境変数を読む方が設定ファイルより素直なので、
  * 設定の入口そのものは環境変数に寄せている。
  *
- * 空文字と空白だけの指定はどれも未設定と同じに扱う。docker compose の
- * `VAR` が空で展開されたときに、既定値へ落ちる方が扱いやすい。
+ * 既定値は持たせず、任意の変数を除いて未設定なら起動しない。既定値で起動できると
+ * 設定漏れに気付けない。空文字と空白だけの指定も未設定と同じに扱う。
  *
  * @param env 環境変数。テストから差し替えるためだけに引数にしている。
  *   JVM から自プロセスの環境変数は設定できないので、差し替えられないと読み取りのテストが書けない
  */
 class ServerEnv(
-    env: Map<String, String> = System.getenv(),
+    private val env: Map<String, String> = System.getenv(),
 ) {
     /**
      * バインドするアドレス
      */
-    val host: String =
-        run {
-            val raw = env["HOST"]?.trim()
-            if (raw.isNullOrEmpty()) "0.0.0.0" else raw
-        }
+    val host: String = required("HOST")
 
     /**
-     * 待ち受けポート。数値でなければ既定値に落とす
+     * 待ち受けポート
      */
-    val port: Int = env["PORT"]?.trim()?.toIntOrNull() ?: 8080
+    val port: Int =
+        run {
+            val raw = required("PORT")
+            requireNotNull(raw.toIntOrNull()) { "PORT は数値にすること: $raw" }
+        }
 
     /**
      * 外部に公開するドメイン。WebFinger の `acct:` と Actor の `id` に使う。
@@ -65,23 +65,15 @@ class ServerEnv(
     /**
      * SQLite の DB ファイル。親ディレクトリは接続時に作られる
      */
-    val dbPath: Path =
-        run {
-            val raw = env["DB_PATH"]?.trim()
-            Path.of(if (raw.isNullOrEmpty()) "./data/mastodon-rss.db" else raw)
-        }
+    val dbPath: Path = Path.of(required("DB_PATH"))
 
     /**
      * 取ってきたアイコンの置き場。無ければ書き込むときに作られる
      */
-    val iconCacheDir: Path =
-        run {
-            val raw = env["ICON_CACHE_DIR"]?.trim()
-            Path.of(if (raw.isNullOrEmpty()) "./data/image-cache" else raw)
-        }
+    val iconCacheDir: Path = Path.of(required("ICON_CACHE_DIR"))
 
     /**
-     * アクターの秘密鍵をどこから読むか
+     * アクターの秘密鍵をどこから読むか。ACTOR_PRIVATE_KEY_PEM と ACTOR_PRIVATE_KEY_PATH のどちらか一方が必須
      */
     val actorPrivateKey: ActorPrivateKeySource =
         run {
@@ -96,10 +88,10 @@ class ServerEnv(
                 "ACTOR_PRIVATE_KEY_PEM と ACTOR_PRIVATE_KEY_PATH は同時に指定できない。どちらか一方にすること"
             }
 
-            if (pem != null) {
-                ActorPrivateKeySource.Pem(pem)
-            } else {
-                ActorPrivateKeySource.File(Path.of(path ?: "./data/actor-private-key.pem"))
+            when {
+                pem != null -> ActorPrivateKeySource.Pem(pem)
+                path != null -> ActorPrivateKeySource.File(Path.of(path))
+                else -> throw IllegalArgumentException("ACTOR_PRIVATE_KEY_PEM か ACTOR_PRIVATE_KEY_PATH のどちらかを指定すること")
             }
         }
 
@@ -123,11 +115,7 @@ class ServerEnv(
      */
     val adminCookieSecure: Boolean =
         run {
-            val raw = env["ADMIN_COOKIE_SECURE"]?.trim()
-            if (raw.isNullOrEmpty()) {
-                return@run true
-            }
-
+            val raw = required("ADMIN_COOKIE_SECURE")
             raw.lowercase().toBooleanStrictOrNull()
                 ?: throw IllegalArgumentException("ADMIN_COOKIE_SECURE は true か false にすること: $raw")
         }
@@ -148,4 +136,10 @@ class ServerEnv(
             raw.lowercase().toBooleanStrictOrNull()
                 ?: throw IllegalArgumentException("TRUST_CF_CONNECTING_IP は true か false にすること: $raw")
         }
+
+    private fun required(name: String): String {
+        val raw = env[name]?.trim()
+        require(!raw.isNullOrEmpty()) { "$name が未設定。必ず指定すること" }
+        return raw
+    }
 }

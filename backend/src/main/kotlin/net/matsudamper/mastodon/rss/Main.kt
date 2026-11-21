@@ -44,7 +44,7 @@ import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
 import net.matsudamper.mastodon.rss.webfinger.webFingerRoutes
 
 fun main() {
-    // DOMAIN が無ければこの時点で落ちる。サーバーを立てる前に止めたいので順番を変えないこと
+    // 必須の環境変数が無ければこの時点で落ちる。サーバーを立てる前に止めたいので順番を変えないこと
     val serverEnv = ServerEnv()
 
     val telemetry = OpenTelemetryInitializer.start()

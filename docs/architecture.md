@@ -419,7 +419,7 @@ sequenceDiagram
     participant DB as SQLite
     participant K as Ktor CIO
 
-    Note over M: 環境変数を読む（DOMAIN が無ければここで落ちる）
+    Note over M: 環境変数を読む（必須の変数が無ければここで落ちる）
     M->>A: load
     A->>A: PEM を読む（ファイルが無ければ生成して書き出す）
     M->>R: createRepositories
