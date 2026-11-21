@@ -429,6 +429,54 @@ class DeliveryQueueRepositoryTest {
     }
 
     @Test
+    fun `同じ引用への Accept がまだ送られずに残っていれば投函しない`() {
+        withRepositories { repositories ->
+            repositories.deliveryQueue.enqueueQuoteAccept(quoteAcceptPost(id = "accept-1", instrument = "note-a"))
+            repositories.deliveryQueue.enqueueQuoteAccept(quoteAcceptPost(id = "accept-2", instrument = "note-a"))
+            repositories.deliveryQueue.enqueueQuoteAccept(quoteAcceptPost(id = "accept-3", instrument = "note-b"))
+            assertEquals(
+                listOf(quoteAcceptBody(id = "accept-1", instrument = "note-a"), quoteAcceptBody(id = "accept-3", instrument = "note-b")),
+                repositories.deliveryQueue.claim(now = now, limit = 10).map { it.body },
+            )
+
+            // 送っている最中でも、同じ引用への Accept は増やさない
+            repositories.deliveryQueue.enqueueQuoteAccept(quoteAcceptPost(id = "accept-4", instrument = "note-a"))
+            assertEquals(2, repositories.deliveryQueue.recoverDelivering())
+            assertEquals(2, repositories.deliveryQueue.claim(now = now, limit = 10).size)
+        }
+    }
+
+    @Test
+    fun `送り終えた引用への Accept は再び投函できる`() {
+        withRepositories { repositories ->
+            repositories.deliveryQueue.enqueueQuoteAccept(quoteAcceptPost(id = "accept-1", instrument = "note-a"))
+            repositories.deliveryQueue.markDelivered(repositories.deliveryQueue.claim(now = now, limit = 10).single().id, deliveredAt = now)
+
+            repositories.deliveryQueue.enqueueQuoteAccept(quoteAcceptPost(id = "accept-2", instrument = "note-a"))
+
+            assertEquals(
+                listOf(quoteAcceptBody(id = "accept-2", instrument = "note-a")),
+                repositories.deliveryQueue.claim(now = now, limit = 10).map { it.body },
+            )
+        }
+    }
+
+    private fun quoteAcceptPost(
+        id: String,
+        instrument: String,
+    ): QuoteAcceptPost = QuoteAcceptPost(
+        username = "alice",
+        inbox = INBOX_A,
+        body = quoteAcceptBody(id = id, instrument = instrument),
+        enqueuedAt = now,
+    )
+
+    private fun quoteAcceptBody(
+        id: String,
+        instrument: String,
+    ): String = """{"id":"$id","type":"Accept","object":{"id":"request","type":"QuoteRequest","instrument":"$instrument"}}"""
+
+    @Test
     fun `送るものが残っているかを見られる`() {
         withRepositories { repositories ->
             assertEquals(false, repositories.deliveryQueue.hasUnsent())

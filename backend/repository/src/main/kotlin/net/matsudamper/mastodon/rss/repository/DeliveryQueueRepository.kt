@@ -70,7 +70,10 @@ interface DeliveryQueueRepository {
     /**
      * 引用を承認する `Accept` を投函する。
      *
-     * 配信を止めているドメインの相手には投函しない。相手の引用は保留のまま残る
+     * 配信を止めているドメインの相手には投函しない。相手の引用は保留のまま残る。
+     *
+     * 同じ引用（`Accept` の `object.instrument`）への `Accept` が同じ inbox にまだ送られずに残っていれば投函しない。
+     * `QuoteRequest` は相手が何度でも送れるので、投函するたびにその相手への配信が増える
      */
     fun enqueueQuoteAccept(post: QuoteAcceptPost)
 

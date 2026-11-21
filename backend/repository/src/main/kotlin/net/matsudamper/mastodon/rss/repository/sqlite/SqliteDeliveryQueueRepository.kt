@@ -26,6 +26,7 @@ import net.matsudamper.mastodon.rss.repository.sqlite.db.FeedItemStateDbValue
 import net.matsudamper.mastodon.rss.shared.PublicNoteId
 import org.jooq.Condition
 import org.jooq.DSLContext
+import org.jooq.Field
 import org.jooq.Record
 import org.jooq.impl.DSL
 
@@ -149,6 +150,20 @@ internal class SqliteDeliveryQueueRepository(
 
     override fun enqueueQuoteAccept(post: QuoteAcceptPost) {
         jooq.transaction { dsl ->
+            val alreadyQueued = dsl.fetchExists(
+                DELIVERY_QUEUE,
+                DELIVERY_QUEUE.KIND.eq(DeliveryKindDbValue.ACCEPT_QUOTE.dbValue)
+                    .and(DELIVERY_QUEUE.USERNAME.eq(post.username))
+                    .and(DELIVERY_QUEUE.INBOX.eq(post.inbox))
+                    .and(
+                        DELIVERY_QUEUE.STATE.`in`(
+                            DeliveryStateDbValue.PENDING.dbValue,
+                            DeliveryStateDbValue.DELIVERING.dbValue,
+                        ),
+                    )
+                    .and(quotingNoteIdOf(DELIVERY_QUEUE.BODY).eq(quotingNoteIdOf(DSL.`val`(post.body)))),
+            )
+            if (alreadyQueued) return@transaction
             DeliveryQueueRows.insertPending(
                 dsl = dsl,
                 kind = DeliveryKindDbValue.ACCEPT_QUOTE,
@@ -161,6 +176,9 @@ internal class SqliteDeliveryQueueRepository(
             )
         }
     }
+
+    private fun quotingNoteIdOf(acceptBody: Field<*>): Field<String> =
+        DSL.field("json_extract({0}, '$.object.instrument')", String::class.java, acceptBody)
 
     /**
      * 記事を投稿済みにする。`pending` でなければ [FeedItemNotPending] でトランザクションごと巻き戻す
