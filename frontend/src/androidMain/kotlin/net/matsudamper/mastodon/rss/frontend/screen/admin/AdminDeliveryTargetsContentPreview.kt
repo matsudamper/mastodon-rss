@@ -36,6 +36,8 @@ private fun AdminDeliveryTargetsContentPreview() {
 }
 
 private object AndroidPreviewAdminDeliveryTargetsListener : AdminDeliveryTargetsScreenUiState.Listener {
+    override fun onStart() = Unit
+
     override fun onClickHome() = Unit
 
     override fun onClickAdmin() = Unit

@@ -47,6 +47,8 @@ data class AdminDeliveryTargetsScreenUiState(
 
     @Immutable
     interface Listener : AdminScaffoldListener {
+        fun onStart()
+
         fun onClickReload()
     }
 }

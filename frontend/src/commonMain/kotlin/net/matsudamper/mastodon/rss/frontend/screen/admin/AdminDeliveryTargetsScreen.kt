@@ -51,8 +51,8 @@ internal fun AdminDeliveryTargetsScreen(
         )
     }
 
-    LaunchedEffect(viewModel) {
-        viewModel.onStart()
+    LaunchedEffect(uiState.listener) {
+        uiState.listener.onStart()
     }
 
     AdminDeliveryTargetsContent(uiState = uiState)

@@ -28,6 +28,10 @@ class AdminDeliveryTargetsScreenViewModel(
             AdminDeliveryTargetsScreenUiState(
                 content = AdminDeliveryTargetsScreenUiState.Content.Loading,
                 listener = object : AdminDeliveryTargetsScreenUiState.Listener {
+                    override fun onStart() {
+                        reload()
+                    }
+
                     override fun onClickHome() {
                         navigate(Screen.Home)
                     }
@@ -50,10 +54,6 @@ class AdminDeliveryTargetsScreenViewModel(
                 }
             }
         }.asStateFlow()
-
-    fun onStart() {
-        reload()
-    }
 
     private fun navigate(screen: Screen) {
         viewModelScope.launch {
