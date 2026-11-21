@@ -151,6 +151,7 @@ fun Application.module(deps: AppDependencies) {
         feedService = deps.feedService,
         linkPreviewService = deps.linkPreviewService,
         domainBlockService = deps.domainBlockService,
+        deliveryTargetLimitService = deps.deliveryTargetLimitService,
         adminLoginThrottle = deps.adminLoginThrottle,
     )
 

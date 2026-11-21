@@ -37,6 +37,9 @@ type AdminMutation {
 
     "相手のドメインへの配信・受信の停止を削除する。理由は問わない"
     deleteDomainBlock(domain: String!): AdminDeleteDomainBlockResult! @lazy
+
+    "同じホストからのフォローで配る先の上限を変える。既に受け付けたフォローは上限を下げても消えない"
+    saveMaxDeliveryTargetsPerHost(value: Int!): AdminSaveMaxDeliveryTargetsPerHostResult! @lazy
 }
 
 input UpdateAccountProfileQuery {

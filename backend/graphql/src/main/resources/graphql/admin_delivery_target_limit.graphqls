@@ -1,0 +1,24 @@
+"相手のホスト 1 つと、そこからのフォローで配る先の数"
+type AdminDeliveryTargetHost {
+    "小文字に揃えたホスト名"
+    host: String!
+
+    "配る先の数。sharedInbox を持つ相手はまとめて 1 つに数える。Accept を返す前のフォローも含む"
+    deliveryTargetCount: Int!
+}
+
+type AdminSaveMaxDeliveryTargetsPerHostResult {
+    "保存した上限"
+    maxDeliveryTargetsPerHost: Int
+
+    "保存できなかった場合だけ入る"
+    failure: AdminSaveMaxDeliveryTargetsPerHostFailure
+}
+
+type AdminSaveMaxDeliveryTargetsPerHostFailure {
+    "指定できる最小の値"
+    minValue: Int!
+
+    "指定できる最大の値"
+    maxValue: Int!
+}

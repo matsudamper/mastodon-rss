@@ -21,6 +21,12 @@ type AdminQuery {
 
     "配信・受信を止めている相手のドメイン。ドメインの順"
     domainBlocks(cursor: String, limit: Int!): AdminDomainBlocksConnection! @lazy
+
+    "同じホストからのフォローで配る先の上限。超える Follow は断る"
+    maxDeliveryTargetsPerHost: Int! @lazy
+
+    "相手のホストごとの、フォローで配る先の数。多い順に limit 件。上限は 100 件"
+    deliveryTargetHosts(limit: Int!): [AdminDeliveryTargetHost!]! @lazy
 }
 
 type AdminAccountsConnection {
