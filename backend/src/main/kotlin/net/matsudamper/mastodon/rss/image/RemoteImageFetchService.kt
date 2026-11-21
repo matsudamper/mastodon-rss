@@ -240,7 +240,13 @@ class RemoteImageFetchService(
     companion object {
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val IDENTITY_ENCODING = "identity"
-        private const val MAX_BYTES = 50 * 1024 * 1024
+
+        /**
+         * 無認証の中継からも呼ばれ、取得した画像は返し終えるまでメモリに丸ごと載る。
+         * 並列に叩かれたときの上限を抑えるため、アイコンや OGP 画像として現実的な大きさに留める
+         */
+        private const val MAX_BYTES = 10 * 1024 * 1024
+
         private const val MAX_HOPS = 4
         private val REDIRECT_STATUS_RANGE = 300..399
         private val MAX_AGE = Regex("max-age\\s*=\\s*(\\d+)")

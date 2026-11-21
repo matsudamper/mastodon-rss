@@ -7,15 +7,20 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.response.header
-import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import net.matsudamper.mastodon.rss.image.RemoteImageRelayPermits
+import net.matsudamper.mastodon.rss.image.respondRelayBusy
+import net.matsudamper.mastodon.rss.image.respondRelayedImage
 
 /**
  * リンク先の OGP 画像。画面のリンクプレビューが引きに来る。
  */
-internal fun Route.linkPreviewImageRoutes(images: LinkPreviewImageService) {
+internal fun Route.linkPreviewImageRoutes(
+    images: LinkPreviewImageService,
+    relayPermits: RemoteImageRelayPermits,
+) {
     get(LinkPreviewImageUrls.PATH) {
         val parameters = call.request.queryParameters
         val notePublicId = parameters[LinkPreviewImageUrls.NOTE_PARAMETER]
@@ -37,18 +42,21 @@ internal fun Route.linkPreviewImageRoutes(images: LinkPreviewImageService) {
             return@get
         }
 
-        val image = images.find(notePublicId = notePublicId, linkIndex = linkIndex, version = version)
-        if (image == null) {
-            // 取得元が落ちているだけのこともあるので、短い間だけ持たせる。
-            // 持たせないと、出ない画像のぶんだけ開くたびに取りに行くことになる
-            call.response.header(HttpHeaders.CacheControl, "public, max-age=${NOT_FOUND_MAX_AGE.inWholeSeconds}")
-            call.respondText("画像が無い", status = HttpStatusCode.NotFound)
-            return@get
-        }
+        val relayed = relayPermits.tryRelay {
+            val image = images.find(notePublicId = notePublicId, linkIndex = linkIndex, version = version)
+            if (image == null) {
+                // 取得元が落ちているだけのこともあるので、短い間だけ持たせる。
+                // 持たせないと、出ない画像のぶんだけ開くたびに取りに行くことになる
+                call.response.header(HttpHeaders.CacheControl, "public, max-age=${NOT_FOUND_MAX_AGE.inWholeSeconds}")
+                call.respondText("画像が無い", status = HttpStatusCode.NotFound)
+                return@tryRelay
+            }
 
-        call.response.header(HttpHeaders.CacheControl, image.cacheControl())
-        call.response.header(CONTENT_TYPE_OPTIONS_HEADER, CONTENT_TYPE_OPTIONS)
-        call.respondBytes(bytes = image.bytes, contentType = image.contentType)
+            call.response.header(HttpHeaders.CacheControl, image.cacheControl())
+            call.response.header(CONTENT_TYPE_OPTIONS_HEADER, CONTENT_TYPE_OPTIONS)
+            call.respondRelayedImage(bytes = image.bytes, contentType = image.contentType)
+        }
+        if (!relayed) call.respondRelayBusy()
     }
 }
 
