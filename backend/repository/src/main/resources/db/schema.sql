@@ -249,13 +249,6 @@ CREATE TABLE remote_actors (
     icon_url TEXT
 );
 
-CREATE TABLE server_settings (
-    -- サーバー全体の設定。行は常に 1 件だけなので、CHECK で id を固定して UPSERT の対象を一意にする
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    -- 同じホストからのフォローで配る先の上限。NULL なら既定の値を使う
-    max_delivery_targets_per_host INTEGER CHECK (max_delivery_targets_per_host > 0)
-);
-
 CREATE INDEX delivery_queue_note_public_id ON delivery_queue (note_public_id);
 
 CREATE INDEX delivery_queue_state_next_attempt_at_id ON delivery_queue (state, next_attempt_at, id);

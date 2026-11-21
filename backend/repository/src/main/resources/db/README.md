@@ -76,7 +76,6 @@ jOOQ には SQL を直接読む `DDLDatabase` もあるが、そちらは jOOQ �
 | `domain_blocks` | 配信・受信を止める相手のドメイン。配信を諦めたときに自動で入るものと、管理画面から入れるものがある |
 | `feed_icons` | 取ってきたアイコンの置き場と期限。中身は `ICON_CACHE_DIR` のファイル |
 | `health_check` | 起動時の書き込み確認用。行は常に 1 件 |
-| `server_settings` | 管理画面から変えるサーバー全体の設定。行は常に 1 件で、入っていない値は既定を使う |
 
 `followers` と `notes` がこちらのアカウントを名前で持つのは、アクター ID が名前から
 決まるため。引き当ての正は `ActorDirectory` にある。

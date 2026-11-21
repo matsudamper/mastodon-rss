@@ -60,7 +60,6 @@ import net.matsudamper.mastodon.rss.repository.RefusedFollow
 import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
-import net.matsudamper.mastodon.rss.repository.ServerSettingRepository
 import net.matsudamper.mastodon.rss.repository.StoredFollower
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
@@ -164,8 +163,6 @@ class FakeRepositories : Repositories {
     )
 
     override val domainBlocks: FakeDomainBlockRepository = FakeDomainBlockRepository()
-
-    override val serverSettings: FakeServerSettingRepository = FakeServerSettingRepository()
 
     override fun verifyWritable() {
         verifyWritableCallCount++
@@ -1494,14 +1491,4 @@ class FakeDomainBlockRepository : DomainBlockRepository {
     }
 
     override fun delete(domain: String): Boolean = stored.remove(domain) != null
-}
-
-class FakeServerSettingRepository : ServerSettingRepository {
-    private var maxDeliveryTargetsPerHost: Int? = null
-
-    override fun maxDeliveryTargetsPerHost(): Int? = maxDeliveryTargetsPerHost
-
-    override fun saveMaxDeliveryTargetsPerHost(value: Int) {
-        maxDeliveryTargetsPerHost = value
-    }
 }
