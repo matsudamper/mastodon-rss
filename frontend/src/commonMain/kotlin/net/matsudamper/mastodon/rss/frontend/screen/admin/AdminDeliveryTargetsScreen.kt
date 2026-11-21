@@ -8,14 +8,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,7 +23,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.navigation.Navigator
@@ -103,7 +99,7 @@ internal fun AdminDeliveryTargetsContent(
                 }
 
                 is AdminDeliveryTargetsScreenUiState.Content.Loaded -> {
-                    LimitEditor(content = content, listener = uiState.listener)
+                    Limit(content = content)
                     Hosts(content = content)
                 }
             }
@@ -112,36 +108,14 @@ internal fun AdminDeliveryTargetsContent(
 }
 
 @Composable
-private fun LimitEditor(
-    content: AdminDeliveryTargetsScreenUiState.Content.Loaded,
-    listener: AdminDeliveryTargetsScreenUiState.Listener,
-) {
+private fun Limit(content: AdminDeliveryTargetsScreenUiState.Content.Loaded) {
     SectionCard("上限") {
         Text(
             "同じサーバーからのフォローで配信する宛先の数の上限。超えるフォローは断る。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(content.currentLimitText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedTextField(
-                value = content.limitInput,
-                onValueChange = listener::onLimitInputChanged,
-                enabled = content.limitInputEnabled,
-                modifier = Modifier.weight(1f),
-                label = { Text("新しい上限") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
-            Button(onClick = listener::onClickSave, enabled = content.saveButtonEnabled) {
-                Text(content.saveButtonText)
-            }
-        }
-        content.saveMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-        content.saveErrorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        Text(content.limitText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
     }
 }
 

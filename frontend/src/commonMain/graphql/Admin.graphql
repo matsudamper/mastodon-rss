@@ -388,15 +388,3 @@ query AdminDeliveryTargetLimit($hostsLimit: Int!) {
         }
     }
 }
-
-mutation AdminSaveMaxDeliveryTargetsPerHost($value: Int!) {
-    admin {
-        saveMaxDeliveryTargetsPerHost(value: $value) {
-            maxDeliveryTargetsPerHost
-            failure {
-                minValue
-                maxValue
-            }
-        }
-    }
-}

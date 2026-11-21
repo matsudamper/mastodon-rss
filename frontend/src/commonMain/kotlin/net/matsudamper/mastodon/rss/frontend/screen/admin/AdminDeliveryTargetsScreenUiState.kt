@@ -16,21 +16,12 @@ data class AdminDeliveryTargetsScreenUiState(
         data object RequireLogin : Content
 
         /**
-         * @param currentLimitText いま効いている上限
-         * @param limitInput 上限の入力欄の中身
-         * @param saveMessage 保存できたときの一行。保存前と入力を変えた後は null
-         * @param saveErrorMessage 保存できなかったときの一行
+         * @param limitText いま効いている上限
          * @param hostsDescription ホストの一覧が何を並べたものか
          * @param hostsEmptyText 1 件も無いことを伝える一行。1 件でもあれば null
          */
         data class Loaded(
-            val currentLimitText: String,
-            val limitInput: String,
-            val limitInputEnabled: Boolean,
-            val saveButtonText: String,
-            val saveButtonEnabled: Boolean,
-            val saveMessage: String?,
-            val saveErrorMessage: String?,
+            val limitText: String,
             val hostsDescription: String,
             val hosts: List<Host>,
             val hostsEmptyText: String?,
@@ -57,9 +48,5 @@ data class AdminDeliveryTargetsScreenUiState(
     @Immutable
     interface Listener : AdminScaffoldListener {
         fun onClickReload()
-
-        fun onLimitInputChanged(text: String)
-
-        fun onClickSave()
     }
 }

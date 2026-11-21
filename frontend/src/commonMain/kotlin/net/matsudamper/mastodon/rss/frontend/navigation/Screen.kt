@@ -93,8 +93,7 @@ sealed interface Screen : NavKey {
     }
 
     /**
-     * 同じホストからのフォローで配信する宛先の上限と、いまホストごとにいくつ宛先があるか。
-     * 上限の変更もここで行う
+     * 同じホストからのフォローで配信する宛先の上限と、いまホストごとにいくつ宛先があるか
      */
     data object AdminDeliveryTargets : Screen {
         override val path: String = "/$ADMIN_SEGMENT/$DELIVERY_TARGETS_SEGMENT"

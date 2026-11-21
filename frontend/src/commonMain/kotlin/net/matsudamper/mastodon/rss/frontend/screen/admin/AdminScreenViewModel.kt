@@ -75,7 +75,7 @@ internal class AdminScreenViewModel(
                     ),
                     navigationMenuItem(
                         title = "ホストごとの配信先の上限",
-                        description = "同じサーバーからのフォローで配信する宛先の数と上限を見る。普通のサーバーが上限に当たったらここで上げる。",
+                        description = "同じサーバーからのフォローで配信する宛先の数と上限を見る。",
                         screen = Screen.AdminDeliveryTargets,
                     ),
                     AdminScreenUiState.MenuItem(

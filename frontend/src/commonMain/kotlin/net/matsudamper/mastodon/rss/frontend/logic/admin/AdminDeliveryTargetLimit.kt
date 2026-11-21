@@ -22,21 +22,3 @@ sealed interface AdminDeliveryTargetLimitResult {
         val message: String,
     ) : AdminDeliveryTargetLimitResult
 }
-
-sealed interface AdminSaveMaxDeliveryTargetsPerHostResult {
-    data class Success(
-        val maxDeliveryTargetsPerHost: Int,
-    ) : AdminSaveMaxDeliveryTargetsPerHostResult
-
-    /**
-     * 指定できる範囲の外だった
-     */
-    data class OutOfRange(
-        val minValue: Int,
-        val maxValue: Int,
-    ) : AdminSaveMaxDeliveryTargetsPerHostResult
-
-    data class Failure(
-        val message: String,
-    ) : AdminSaveMaxDeliveryTargetsPerHostResult
-}

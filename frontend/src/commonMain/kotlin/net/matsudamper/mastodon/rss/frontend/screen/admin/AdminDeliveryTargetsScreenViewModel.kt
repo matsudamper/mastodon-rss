@@ -10,7 +10,6 @@ import kotlinx.coroutines.launch
 import net.matsudamper.mastodon.rss.frontend.event.EventSender
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminApi
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminDeliveryTargetLimitResult
-import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSaveMaxDeliveryTargetsPerHostResult
 import net.matsudamper.mastodon.rss.frontend.logic.admin.AdminSessionResult
 import net.matsudamper.mastodon.rss.frontend.navigation.Screen
 
@@ -39,17 +38,6 @@ class AdminDeliveryTargetsScreenViewModel(
 
                     override fun onClickReload() {
                         reload()
-                    }
-
-                    override fun onLimitInputChanged(text: String) {
-                        viewModelStateFlow.update { state ->
-                            if (state.saving) return@update state
-                            state.copy(limitInput = text, saveMessage = null, saveErrorMessage = null)
-                        }
-                    }
-
-                    override fun onClickSave() {
-                        save()
                     }
                 },
             ),
@@ -91,51 +79,11 @@ class AdminDeliveryTargetsScreenViewModel(
         }
     }
 
-    /**
-     * 入力欄は、取り直した上限で置き換える。保存した直後に、保存した値と入力が食い違って見えないようにする
-     */
     private fun fetchLimit() {
         limitJob?.cancel()
         limitJob = viewModelScope.launch {
             val limit = api.deliveryTargetLimit(hostsLimit = HOSTS_LIMIT)
-            viewModelStateFlow.update { state ->
-                state.copy(
-                    limit = limit,
-                    limitInput = if (limit is AdminDeliveryTargetLimitResult.Success) {
-                        limit.maxDeliveryTargetsPerHost.toString()
-                    } else {
-                        state.limitInput
-                    },
-                )
-            }
-        }
-    }
-
-    private fun save() {
-        val state = viewModelStateFlow.value
-        if (state.saving) return
-        val value = state.limitInput.trim().toIntOrNull() ?: return
-        viewModelStateFlow.update { it.copy(saving = true, saveMessage = null, saveErrorMessage = null) }
-
-        viewModelScope.launch {
-            when (val result = api.saveMaxDeliveryTargetsPerHost(value)) {
-                is AdminSaveMaxDeliveryTargetsPerHostResult.Success -> {
-                    viewModelStateFlow.update {
-                        it.copy(saving = false, saveMessage = "上限を ${result.maxDeliveryTargetsPerHost} にした。次に受けるフォローから効く。")
-                    }
-                    fetchLimit()
-                }
-
-                is AdminSaveMaxDeliveryTargetsPerHostResult.OutOfRange -> {
-                    viewModelStateFlow.update {
-                        it.copy(saving = false, saveErrorMessage = "${result.minValue} から ${result.maxValue} の間で指定する")
-                    }
-                }
-
-                is AdminSaveMaxDeliveryTargetsPerHostResult.Failure -> {
-                    viewModelStateFlow.update { it.copy(saving = false, saveErrorMessage = result.message) }
-                }
-            }
+            viewModelStateFlow.update { it.copy(limit = limit) }
         }
     }
 
@@ -159,15 +107,8 @@ class AdminDeliveryTargetsScreenViewModel(
 
             is AdminDeliveryTargetLimitResult.Success -> {
                 val max = limit.maxDeliveryTargetsPerHost
-                val inputValue = state.limitInput.trim().toIntOrNull()
                 AdminDeliveryTargetsScreenUiState.Content.Loaded(
-                    currentLimitText = "いまの上限: $max",
-                    limitInput = state.limitInput,
-                    limitInputEnabled = !state.saving,
-                    saveButtonText = if (state.saving) "保存中" else "保存",
-                    saveButtonEnabled = !state.saving && inputValue != null && inputValue != max,
-                    saveMessage = state.saveMessage,
-                    saveErrorMessage = state.saveErrorMessage,
+                    limitText = "上限: $max",
                     hostsDescription = "配信する宛先の多い順に $HOSTS_LIMIT 件まで。同じサーバーの利用者がまとめて受け取る宛先を持っていれば、何人いても 1 つに数える。",
                     hosts = limit.hosts.map { host ->
                         val limitReached = host.deliveryTargetCount >= max
@@ -188,16 +129,9 @@ class AdminDeliveryTargetsScreenViewModel(
         }
     }
 
-    /**
-     * @param limitInput 上限の入力欄。取ってきた上限で埋め、その後は手で書き換えたものを持つ
-     */
     private data class ViewModelState(
         val session: AdminSessionResult? = null,
         val limit: AdminDeliveryTargetLimitResult? = null,
-        val limitInput: String = "",
-        val saving: Boolean = false,
-        val saveMessage: String? = null,
-        val saveErrorMessage: String? = null,
     )
 
     interface Event {

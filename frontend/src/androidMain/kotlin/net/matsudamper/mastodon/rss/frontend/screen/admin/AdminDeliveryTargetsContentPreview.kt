@@ -11,13 +11,7 @@ private fun AdminDeliveryTargetsContentPreview() {
         AdminDeliveryTargetsContent(
             uiState = AdminDeliveryTargetsScreenUiState(
                 content = AdminDeliveryTargetsScreenUiState.Content.Loaded(
-                    currentLimitText = "いまの上限: 20",
-                    limitInput = "30",
-                    limitInputEnabled = true,
-                    saveButtonText = "保存",
-                    saveButtonEnabled = true,
-                    saveMessage = null,
-                    saveErrorMessage = null,
+                    limitText = "上限: 20",
                     hostsDescription = "配信する宛先の多い順に 100 件まで。",
                     hosts = listOf(
                         AdminDeliveryTargetsScreenUiState.Host(
@@ -47,8 +41,4 @@ private object AndroidPreviewAdminDeliveryTargetsListener : AdminDeliveryTargets
     override fun onClickAdmin() = Unit
 
     override fun onClickReload() = Unit
-
-    override fun onLimitInputChanged(text: String) = Unit
-
-    override fun onClickSave() = Unit
 }
