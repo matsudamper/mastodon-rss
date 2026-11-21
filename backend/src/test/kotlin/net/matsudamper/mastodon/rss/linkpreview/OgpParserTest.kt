@@ -58,4 +58,22 @@ class OgpParserTest {
             OgpParser.declaredCharset("""<meta http-equiv="Content-Type" content="text/html; charset=EUC-JP">"""),
         )
     }
+
+    @Test
+    fun 閉じないタグや引用符が並んでも解析が終わる() {
+        val unclosedQuotes = "<meta " + "a=\"".repeat(100_000) + "a='".repeat(100_000) + "a".repeat(200_000) + ">"
+        val html = """<meta property="og:title" content="タイトル">""" +
+            unclosedQuotes + "<meta ".repeat(200_000) + "<title>".repeat(200_000)
+
+        assertEquals("タイトル", OgpParser.parse(html = html, pageUrl = "https://example.com/").title)
+        assertEquals(null, OgpParser.declaredCharset(html))
+        assertEquals(emptyList(), OgpParser.links("<a ".repeat(200_000)))
+    }
+
+    @Test
+    fun title要素の閉じタグが無ければ次のtitle要素を使う() {
+        val html = """<title>閉じない<title> 次 </TITLE>"""
+
+        assertEquals("次", OgpParser.parse(html = html, pageUrl = "https://example.com/").title)
+    }
 }

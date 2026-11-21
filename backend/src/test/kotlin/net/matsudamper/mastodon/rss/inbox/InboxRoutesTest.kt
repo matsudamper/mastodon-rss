@@ -40,9 +40,9 @@ import net.matsudamper.kotpub.note.RemoteNoteLookup
 // 署名が通ったかどうかが、送り主を確かめる唯一の根拠になる。
 class InboxRoutesTest {
     /**
-     * テストクライアントが送る Host。署名対象に入るので、送信側と揃える必要がある。
+     * テストクライアントが送る Host。署名対象に入り、kotpub は自サーバーのドメインと一致するかも確かめる
      */
-    private val host = "localhost"
+    private val host = TestLocalActor.DOMAIN
 
     private val fixedActor = "https://${TestLocalActor.DOMAIN}/users/${TestLocalActor.USERNAME}"
 

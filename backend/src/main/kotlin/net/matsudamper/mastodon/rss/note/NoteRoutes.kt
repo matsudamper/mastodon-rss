@@ -22,6 +22,7 @@ import net.matsudamper.mastodon.rss.http.respondEndpoint
 import net.matsudamper.mastodon.rss.logic.IgnoredBoosts
 import net.matsudamper.mastodon.rss.shared.WebPagePath
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
+import net.matsudamper.mastodon.rss.webpage.PageOgpService
 import net.matsudamper.mastodon.rss.webpage.PublicPageResponse
 
 internal fun Route.noteRoutes(
@@ -29,6 +30,7 @@ internal fun Route.noteRoutes(
     notes: NoteStore,
     webPages: WebPageUrls?,
     staticFiles: StaticFiles?,
+    pageOgp: PageOgpService?,
 ) {
     val endpoint = NoteEndpoint(domain, notes, webPages)
     get("/notes/{publicId}") {
@@ -58,7 +60,7 @@ internal fun Route.noteRoutes(
                 if (PublicPageResponse.wantsJson(call.request.header(HttpHeaders.Accept))) {
                     call.respondEndpoint(endpoint.get(publicId, PublicPageResponse.JSON_ACCEPT))
                 } else {
-                    PublicPageResponse.html(call, staticFiles)
+                    PublicPageResponse.html(call = call, staticFiles = staticFiles, ogp = pageOgp?.note(username = note.username, publicId = publicId))
                 }
             }
         }

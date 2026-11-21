@@ -54,7 +54,7 @@ class NoteRoutesTest {
     ) {
         application {
             routing {
-                noteRoutes(TestLocalActor.DOMAIN, notes, webPages, StaticFiles(staticRoot))
+                noteRoutes(TestLocalActor.DOMAIN, notes, webPages, StaticFiles(staticRoot), null)
                 outboxRoutes(TestLocalActor.directory, notes, webPages)
                 featuredRoutes(TestLocalActor.directory, webPages)
                 staticRoutes(StaticFiles(staticRoot))
@@ -71,12 +71,16 @@ class NoteRoutesTest {
         publicId = PublicNoteId(publicId),
         username = username,
         contentHtml = contentHtml,
+        summary = null,
         publishedAt = publishedAt,
+        updatedAt = null,
         attachments = listOf(),
         inReplyTo = null,
         quote = null,
         mentions = listOf(),
         emojis = listOf(),
+        sensitive = false,
+        poll = null,
     )
 
     @Test

@@ -76,6 +76,7 @@ import net.matsudamper.mastodon.rss.repository.createRepositories
 import net.matsudamper.mastodon.rss.staticfiles.StaticFiles
 import net.matsudamper.mastodon.rss.telemetry.OpenTelemetryInitializer
 import net.matsudamper.mastodon.rss.webpage.DomainWebPageUrls
+import net.matsudamper.mastodon.rss.webpage.PageOgpService
 
 /**
  * アプリが使うものを作って配る場所。
@@ -219,6 +220,12 @@ class AppDependencies(
     )
 
     val actorProfiles: StoredActorProfiles = RepositoryActorProfiles(repositories.accounts)
+
+    /**
+     * 画面を配信しない構成では、カードを付ける HTML も無いので作らない
+     */
+    val pageOgpService: PageOgpService? =
+        webPageUrls?.let { PageOgpService(directory = directory, profiles = actorProfiles, appearances = actorAppearances, notes = noteStore) }
 
     /**
      * フォロワーのアイコンの中継。フィードのアイコンと同じ取得口を使う。

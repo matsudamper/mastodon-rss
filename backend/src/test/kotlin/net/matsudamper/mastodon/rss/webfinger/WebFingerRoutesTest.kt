@@ -11,6 +11,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.matsudamper.kotpub.TestLocalActor
+import net.matsudamper.kotpub.actor.InstanceActorUrls
 import net.matsudamper.kotpub.json.AppJson
 import net.matsudamper.kotpub.webfinger.WebFingerResponse
 
@@ -19,7 +20,7 @@ class WebFingerRoutesTest {
     private fun ApplicationTestBuilder.installModule() {
         application {
             routing {
-                webFingerRoutes(TestLocalActor.directory)
+                webFingerRoutes(TestLocalActor.directory, InstanceActorUrls(TestLocalActor.DOMAIN))
             }
         }
     }
@@ -81,6 +82,16 @@ class WebFingerRoutesTest {
             installModule()
 
             val response = client.get("/.well-known/webfinger?resource=acct:other@example.com")
+
+            assertEquals(HttpStatusCode.NotFound, response.status)
+        }
+
+    @Test
+    fun `サーバー自身のアクターは返さないので404`() =
+        testApplication {
+            installModule()
+
+            val response = client.get("/.well-known/webfinger?resource=acct:example.com@example.com")
 
             assertEquals(HttpStatusCode.NotFound, response.status)
         }

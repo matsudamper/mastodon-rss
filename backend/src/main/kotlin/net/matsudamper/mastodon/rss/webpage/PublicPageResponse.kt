@@ -1,9 +1,13 @@
 package net.matsudamper.mastodon.rss.webpage
 
+import kotlin.io.path.readText
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.parseHeaderValue
+import io.ktor.http.withCharset
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.http.content.LocalFileContent
 import io.ktor.server.request.path
@@ -32,13 +36,25 @@ internal object PublicPageResponse {
         call.response.header(HttpHeaders.Link, "<$url>; rel=\"alternate\"; type=\"application/activity+json\"")
     }
 
-    suspend fun html(call: ApplicationCall, staticFiles: StaticFiles?) {
+    /**
+     * @param ogp 他のサービスに貼ったときのカードの中身。出さないなら null
+     */
+    suspend fun html(
+        call: ApplicationCall,
+        staticFiles: StaticFiles?,
+        ogp: PageOgp?,
+    ) {
         val index = staticFiles?.index()
         if (index == null) {
             call.respondText("見つからない: ${call.request.path()}", status = HttpStatusCode.NotFound)
             return
         }
         call.response.header(HttpHeaders.CacheControl, "no-store")
-        call.respond(LocalFileContent(index.toFile(), ContentType.Text.Html))
+        if (ogp == null) {
+            call.respond(LocalFileContent(index.toFile(), ContentType.Text.Html))
+        } else {
+            val indexHtml = withContext(Dispatchers.IO) { index.readText() }
+            call.respondText(PageOgpHtml.inject(indexHtml = indexHtml, ogp = ogp), ContentType.Text.Html.withCharset(Charsets.UTF_8))
+        }
     }
 }
