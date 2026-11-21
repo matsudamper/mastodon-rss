@@ -11,7 +11,7 @@ import net.matsudamper.mastodon.rss.FakeFollowerRepository
 class RepositoryFollowerStoreTest {
     private val followers = FakeFollowerRepository()
 
-    private val store = RepositoryFollowerStore(followers)
+    private val store = RepositoryFollowerStore(followers = followers, maxDeliveryTargetsPerHost = { LIMIT })
 
     @Test
     fun `同じホストから inbox の異なるフォローが上限に達すると新しいフォローを断る`() {
@@ -22,7 +22,7 @@ class RepositoryFollowerStoreTest {
 
     @Test
     fun `sharedInbox にまとまる相手は何人いても断らない`() {
-        repeat(RepositoryFollowerStore.MAX_DELIVERY_TARGETS_PER_ACTOR_HOST * 2) { index ->
+        repeat(LIMIT * 2) { index ->
             record(USERNAME, socialActor("$index"))
         }
 
@@ -37,22 +37,6 @@ class RepositoryFollowerStoreTest {
     }
 
     @Test
-    fun `sharedInbox で記録した相手が inbox を分けて送り直すと上限で断る`() {
-        val limit = RepositoryFollowerStore.MAX_DELIVERY_TARGETS_PER_ACTOR_HOST
-        // 最後の 1 人が sharedInbox に残るので、sharedInbox の 1 か所は数え続ける
-        repeat(limit + 1) { index ->
-            record(USERNAME, spamActor("$index").copy(sharedInbox = "https://spam.example/inbox"))
-        }
-        // sharedInbox の 1 か所と合わせて上限に達するまでは受け付ける
-        repeat(limit - 1) { index ->
-            assertFalse(store.refuses(USERNAME, spamActor("$index")))
-            record(USERNAME, spamActor("$index"))
-        }
-
-        assertTrue(store.refuses(USERNAME, spamActor("${limit - 1}")))
-    }
-
-    @Test
     fun `上限に達していても自分だけの inbox を移す送り直しは断らない`() {
         recordSpamFollowersUpToLimit(USERNAME)
 
@@ -60,11 +44,25 @@ class RepositoryFollowerStoreTest {
     }
 
     @Test
-    fun `別のアカウントで上限に達していれば inbox を分ける送り直しは断る`() {
-        recordSpamFollowersUpToLimit(OTHER_USERNAME)
-        record(OTHER_USERNAME, spamActor("moved").copy(inbox = "https://spam.example/users/0/inbox"))
+    fun `sharedInbox で記録した相手が inbox を分けて送り直すと上限で断る`() {
+        // 最後の 1 人が sharedInbox に残るので、sharedInbox の 1 か所は数え続ける
+        repeat(LIMIT + 1) { index ->
+            record(USERNAME, spamActor("$index").copy(sharedInbox = "https://spam.example/inbox"))
+        }
+        // sharedInbox の 1 か所と合わせて上限に達するまでは受け付ける
+        repeat(LIMIT - 1) { index ->
+            assertFalse(store.refuses(USERNAME, spamActor("$index")))
+            record(USERNAME, spamActor("$index"))
+        }
 
-        assertTrue(store.refuses(USERNAME, spamActor("moved")))
+        assertTrue(store.refuses(USERNAME, spamActor("${LIMIT - 1}")))
+    }
+
+    @Test
+    fun `別のアカウントへのフォローも合わせて数える`() {
+        recordSpamFollowersUpToLimit(OTHER_USERNAME)
+
+        assertTrue(store.refuses(USERNAME, spamActor("new")))
     }
 
     @Test
@@ -74,8 +72,19 @@ class RepositoryFollowerStoreTest {
         assertFalse(store.refuses(USERNAME, spamActor("1").copy(actorId = "https://other.example/users/1")))
     }
 
+    @Test
+    fun `上限は判定のたびに読み直す`() {
+        var limit = LIMIT
+        val store = RepositoryFollowerStore(followers = followers, maxDeliveryTargetsPerHost = { limit })
+        recordSpamFollowersUpToLimit(USERNAME)
+
+        limit = LIMIT + 1
+
+        assertFalse(store.refuses(USERNAME, spamActor("new")))
+    }
+
     private fun recordSpamFollowersUpToLimit(username: String) {
-        repeat(RepositoryFollowerStore.MAX_DELIVERY_TARGETS_PER_ACTOR_HOST) { index ->
+        repeat(LIMIT) { index ->
             record(username, spamActor("$index"))
         }
     }
@@ -128,6 +137,8 @@ class RepositoryFollowerStoreTest {
         const val USERNAME = "feed1"
 
         const val OTHER_USERNAME = "feed2"
+
+        const val LIMIT = 3
 
         val NOW: Instant = Instant.parse("2026-09-01T00:00:00Z")
     }

@@ -102,33 +102,19 @@ internal class SqliteFollowerRepository(
         true
     }
 
-    override fun followeeUsernames(followerActorUri: String): List<String> = jooq.withConnection { dsl ->
-        dsl
-            .select(FOLLOWERS.USERNAME)
-            .from(FOLLOWERS)
-            .join(REMOTE_ACTORS)
-            .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
-            .where(REMOTE_ACTORS.ACTOR_URI.eq(followerActorUri))
-            .fetch(FOLLOWERS.USERNAME)
-    }
-
     /**
      * ホストは SQL で切り出さずに URI として読んで比べる。文字列の前方一致だと、
      * パスの無い URL やユーザー情報付きの URL で同じホストの相手を数え漏らす
      */
-    override fun deliveryTargetsOfOthersOnSameHost(
-        username: String,
-        followerActorUri: String,
-    ): Set<String> = jooq.withConnection { dsl ->
+    override fun deliveryTargetsOfOthersOnSameHost(followerActorUri: String): Set<String> = jooq.withConnection { dsl ->
         val host = InboxHost.of(followerActorUri)
         val deliveryTarget = DSL.coalesce(REMOTE_ACTORS.SHARED_INBOX, REMOTE_ACTORS.INBOX)
         dsl
-            .select(REMOTE_ACTORS.ACTOR_URI, deliveryTarget)
+            .selectDistinct(REMOTE_ACTORS.ACTOR_URI, deliveryTarget)
             .from(FOLLOWERS)
             .join(REMOTE_ACTORS)
             .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
-            .where(FOLLOWERS.USERNAME.eq(username))
-            .and(REMOTE_ACTORS.ACTOR_URI.ne(followerActorUri))
+            .where(REMOTE_ACTORS.ACTOR_URI.ne(followerActorUri))
             .fetch()
             .filter { InboxHost.of(it.value1()) == host }
             .map { it.value2() }

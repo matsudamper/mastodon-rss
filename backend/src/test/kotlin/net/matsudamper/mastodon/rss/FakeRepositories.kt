@@ -358,17 +358,10 @@ class FakeFollowerRepository(
         return true
     }
 
-    override fun followeeUsernames(followerActorUri: String): List<String> = stored
-        .filter { it.follower.actorUri == followerActorUri }
-        .map { it.username }
-
-    override fun deliveryTargetsOfOthersOnSameHost(
-        username: String,
-        followerActorUri: String,
-    ): Set<String> {
+    override fun deliveryTargetsOfOthersOnSameHost(followerActorUri: String): Set<String> {
         val host = URI(followerActorUri).host?.lowercase()
         return stored
-            .filter { it.username == username && it.follower.actorUri != followerActorUri }
+            .filter { it.follower.actorUri != followerActorUri }
             .filter { URI(it.follower.actorUri).host?.lowercase() == host }
             .map { it.follower.sharedInbox ?: it.follower.inbox }
             .toSet()

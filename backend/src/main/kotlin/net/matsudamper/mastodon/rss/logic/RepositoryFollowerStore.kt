@@ -15,6 +15,7 @@ import net.matsudamper.mastodon.rss.repository.RefusedFollow
  */
 class RepositoryFollowerStore(
     private val followers: FollowerRepository,
+    private val maxDeliveryTargetsPerHost: () -> Int,
 ) : FollowerStore {
     override fun record(
         username: String,
@@ -39,13 +40,11 @@ class RepositoryFollowerStore(
      * `sharedInbox` を持たず inbox を 1 人ずつ分けた偽アクターを並べると、投稿 1 件ごとの
      * 配信がその人数分に増える。鍵付きのアクターはいくらでも作れるので、件数で止める。
      * アクター文書を置くホストは相手が用意する必要があるので、ホストごとに数える。
+     * 配信を受け持つのはこのサーバーなので、こちらのアカウントは問わずにまとめて数える。
      *
      * 受け付けると相手の配る先は置き換わるので、置き換えた後の数で比べる。記録済みの相手が
      * 自分だけの inbox を移しただけなら数は増えない。ここで断ると、[reject] で記録済みの
      * フォローまで消える。
-     *
-     * inbox の置き換えは他のアカウントへのフォローにも効くので、相手がフォローしている
-     * 全アカウントで確かめる。
      *
      * 受信を止めたドメインからの `Follow` は inbox で捨てているので、ここでは見ない。
      */
@@ -54,15 +53,8 @@ class RepositoryFollowerStore(
         follower: RemoteActor,
     ): Boolean {
         val deliveryTarget = follower.sharedInbox ?: follower.inbox
-        val affectedUsernames = followers.followeeUsernames(follower.actorId) + username
-
-        return affectedUsernames.any { affectedUsername ->
-            val othersDeliveryTargets = followers.deliveryTargetsOfOthersOnSameHost(
-                username = affectedUsername,
-                followerActorUri = follower.actorId,
-            )
-            (othersDeliveryTargets + deliveryTarget).size > MAX_DELIVERY_TARGETS_PER_ACTOR_HOST
-        }
+        val othersDeliveryTargets = followers.deliveryTargetsOfOthersOnSameHost(follower.actorId)
+        return (othersDeliveryTargets + deliveryTarget).size > maxDeliveryTargetsPerHost()
     }
 
     override fun reject(
@@ -135,12 +127,4 @@ class RepositoryFollowerStore(
     override fun count(username: String): Long = followers.count(username)
 
     override fun deliveryTargets(username: String): List<String> = followers.deliveryTargets(username)
-
-    companion object {
-        /**
-         * Mastodon などの普通のインスタンスは `sharedInbox` で 1 か所にまとまるので、
-         * ここに届くのは `sharedInbox` を持たない実装だけ
-         */
-        const val MAX_DELIVERY_TARGETS_PER_ACTOR_HOST = 20
-    }
 }

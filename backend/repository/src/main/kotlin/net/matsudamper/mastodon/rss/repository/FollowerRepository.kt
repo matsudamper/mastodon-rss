@@ -57,12 +57,8 @@ interface FollowerRepository {
     fun reject(follow: RefusedFollow): Boolean
 
     /**
-     * [followerActorUri] がフォローしているこちらのアカウントの名前。`Accept` を返す前のものも含む
-     */
-    fun followeeUsernames(followerActorUri: String): List<String>
-
-    /**
      * [followerActorUri] と同じホストの、他のアクターからのフォローで配る先の inbox。
+     * こちらのどのアカウントへのフォローかは問わない。
      * [followerActorUri] 自身の分は含めない。受け付けると置き換わるので、置き換えた後の
      * 配る先の数はここに新しい配る先を足したものになる。
      *
@@ -70,10 +66,7 @@ interface FollowerRepository {
      * 何人フォローしても増えない。`Accept` を返す前のものも含める。`Follow` を
      * 一度に大量に送られると、返し終える前に上限を素通りする。
      */
-    fun deliveryTargetsOfOthersOnSameHost(
-        username: String,
-        followerActorUri: String,
-    ): Set<String>
+    fun deliveryTargetsOfOthersOnSameHost(followerActorUri: String): Set<String>
 
     /**
      * フォローを消す。`Undo{Follow}` で呼ぶ。

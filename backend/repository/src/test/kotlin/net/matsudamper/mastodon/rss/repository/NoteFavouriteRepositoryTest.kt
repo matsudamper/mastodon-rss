@@ -101,7 +101,7 @@ class NoteFavouriteRepositoryTest {
 
             assertEquals(
                 setOf("https://remote.example/inbox"),
-                repositories.followers.deliveryTargetsOfOthersOnSameHost(username = "admin", followerActorUri = otherActorUri),
+                repositories.followers.deliveryTargetsOfOthersOnSameHost(followerActorUri = otherActorUri),
             )
         }
     }

@@ -139,7 +139,10 @@ class AppDependencies(
     val webPageUrls: WebPageUrls? =
         webPageUrlsOverride ?: staticFiles?.takeIf { it.index() != null }?.let { DomainWebPageUrls(env.domain) }
 
-    val followerStore: FollowerStore = RepositoryFollowerStore(repositories.followers)
+    val followerStore: FollowerStore = RepositoryFollowerStore(
+        followers = repositories.followers,
+        maxDeliveryTargetsPerHost = { MAX_DELIVERY_TARGETS_PER_HOST },
+    )
 
     val noteStore: NoteStore = RepositoryNoteStore(repositories.notes)
 
@@ -450,6 +453,12 @@ class AppDependencies(
          * 画像は 1 枚最大 10MB で、送り終えるまで枠を手放さない。小さな VM でも使い切らない数にする
          */
         private const val MAX_CONCURRENT_IMAGE_RELAYS = 4
+
+        /**
+         * 同じホストからのフォローで配る先の上限。Mastodon などの普通のサーバーは
+         * `sharedInbox` で 1 か所にまとまるので、効いてくるのは `sharedInbox` を持たない実装だけ
+         */
+        private const val MAX_DELIVERY_TARGETS_PER_HOST = 20
 
         /**
          * 本番の組み立て。
