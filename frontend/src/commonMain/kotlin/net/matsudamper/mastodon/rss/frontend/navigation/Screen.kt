@@ -93,6 +93,14 @@ sealed interface Screen : NavKey {
     }
 
     /**
+     * 同じホストからのフォローで配信する宛先の上限と、いまホストごとにいくつ宛先があるか
+     */
+    data object AdminDeliveryTargets : Screen {
+        override val path: String = "/$ADMIN_SEGMENT/$DELIVERY_TARGETS_SEGMENT"
+        override val title: String = "ホストごとの配信先の上限 | $SITE_NAME"
+    }
+
+    /**
      * アカウントの追加
      */
     data object AdminAccountNew : Screen {
@@ -207,6 +215,8 @@ sealed interface Screen : NavKey {
 
         private const val DOMAIN_BLOCKS_SEGMENT: String = "domain-blocks"
 
+        private const val DELIVERY_TARGETS_SEGMENT: String = "delivery-targets"
+
         private const val NEW_SEGMENT: String = "new"
 
         private const val FEEDS_SEGMENT: String = "feeds"
@@ -272,6 +282,8 @@ sealed interface Screen : NavKey {
                     rest == listOf(DELIVERIES_SEGMENT) -> AdminDeliveries
 
                     rest == listOf(DOMAIN_BLOCKS_SEGMENT) -> AdminDomainBlocks
+
+                    rest == listOf(DELIVERY_TARGETS_SEGMENT) -> AdminDeliveryTargets
 
                     rest == listOf(ACCOUNTS_SEGMENT, NEW_SEGMENT) -> AdminAccountNew
 

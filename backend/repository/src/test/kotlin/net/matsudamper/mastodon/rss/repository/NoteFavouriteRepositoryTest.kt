@@ -85,6 +85,28 @@ class NoteFavouriteRepositoryTest {
     }
 
     @Test
+    fun `お気に入りで受け取り直したアクターではフォロワーの配信先を置き換えない`() {
+        withRepositories { repositories ->
+            repositories.followers.record(
+                IncomingFollow(
+                    username = "admin",
+                    follower = actor(actorUri).copy(sharedInbox = "https://remote.example/inbox"),
+                    followActivityUri = "https://remote.example/activities/1",
+                    receivedAt = now,
+                    acceptBody = "{}",
+                ),
+            )
+
+            repositories.noteFavourites.add(favourite(actorUri = actorUri))
+
+            assertEquals(
+                setOf("https://remote.example/inbox"),
+                repositories.followers.deliveryTargetsOfOthersOnSameHost(followerActorUri = otherActorUri),
+            )
+        }
+    }
+
+    @Test
     fun `同じ相手のお気に入りは増えない`() {
         withRepositories { repositories ->
             val favourites = repositories.noteFavourites

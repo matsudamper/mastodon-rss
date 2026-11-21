@@ -286,6 +286,7 @@ internal class SqliteDeliveryQueueRepository(
             DeliveryKindDbValue.UPDATE_ACTOR,
             DeliveryKindDbValue.DELETE_ACTOR,
             DeliveryKindDbValue.ACCEPT_QUOTE,
+            DeliveryKindDbValue.REJECT_FOLLOW,
             -> DeliveredOutcome.None
 
             DeliveryKindDbValue.ACCEPT_FOLLOW -> {

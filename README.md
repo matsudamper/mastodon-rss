@@ -134,6 +134,7 @@ STATIC_SRC_DIR=frontend/build/dist/wasmJs/productionExecutable \
 | `/admin/accounts` | アカウントの一覧 |
 | `/admin/accounts/new` | アカウントの追加 |
 | `/admin/domain-blocks` | 配信・受信を止めるドメインの一覧と編集 |
+| `/admin/delivery-targets` | 同じホストからのフォローで配信する宛先の上限と、ホストごとの宛先の数 |
 | それ以外 | 見つからない（HTTP は 200 のまま） |
 
 管理画面の操作は 1 画面に並べず、操作ごとにパスを分ける。

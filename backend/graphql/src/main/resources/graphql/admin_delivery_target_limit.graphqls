@@ -1,0 +1,8 @@
+"相手のホスト 1 つと、そこからのフォローで配る先の数"
+type AdminDeliveryTargetHost {
+    "小文字に揃えたホスト名"
+    host: String!
+
+    "配る先の数。sharedInbox を持つ相手はまとめて 1 つに数える。Accept を返す前のフォローも含む"
+    deliveryTargetCount: Int!
+}

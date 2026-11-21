@@ -22,7 +22,7 @@ internal class SqliteNoteFavouriteRepository(
         )
         if (noteExists.not()) return@transaction false
 
-        val remoteActorId = RemoteActorRows.upsert(dsl = dsl, actor = favourite.actor, now = favourite.receivedAt)
+        val remoteActorId = RemoteActorRows.upsertKeepingDeliveryTargets(dsl = dsl, actor = favourite.actor, now = favourite.receivedAt)
 
         val inserted = dsl
             .insertInto(NOTE_FAVOURITES)

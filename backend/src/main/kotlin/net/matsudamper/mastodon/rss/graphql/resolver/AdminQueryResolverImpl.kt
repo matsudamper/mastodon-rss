@@ -18,6 +18,7 @@ import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccount
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountRetryingDeliveriesConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountRetryingDelivery
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminAccountsConnection
+import net.matsudamper.mastodon.rss.graphql.model.QlAdminDeliveryTargetHost
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminDomainBlocksConnection
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminFeedPreviewResult
 import net.matsudamper.mastodon.rss.graphql.model.QlAdminNotesConnection
@@ -122,6 +123,31 @@ class AdminQueryResolverImpl : AdminQueryResolver {
         }
 
         return CompletableFuture.completedFuture(DataFetcherResult.Builder(connection).build())
+    }
+
+    override fun maxDeliveryTargetsPerHost(
+        adminQuery: QlAdminQuery,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<Int>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val maxDeliveryTargetsPerHost = GraphQlEngine.diContainer(env).deliveryTargetLimitService.maxDeliveryTargetsPerHost
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(maxDeliveryTargetsPerHost).build())
+    }
+
+    override fun deliveryTargetHosts(
+        adminQuery: QlAdminQuery,
+        limit: Int,
+        env: DataFetchingEnvironment,
+    ): CompletionStage<DataFetcherResult<List<QlAdminDeliveryTargetHost>>> {
+        if (GraphQlEngine.graphQlContext(env).isAdminLoggedIn().not()) throw GraphqlExceptions.Admin()
+
+        val hosts = GraphQlEngine.diContainer(env).deliveryTargetLimitService.hosts(limit = limit).map {
+            QlAdminDeliveryTargetHost(host = it.host, deliveryTargetCount = it.deliveryTargetCount)
+        }
+
+        return CompletableFuture.completedFuture(DataFetcherResult.Builder(hosts).build())
     }
 
     override fun adminAccount(

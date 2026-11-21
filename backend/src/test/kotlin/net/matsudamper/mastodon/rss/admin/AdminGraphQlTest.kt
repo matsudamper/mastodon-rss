@@ -1200,6 +1200,45 @@ class AdminGraphQlTest {
             assertEquals(setOf("message"), errors.single().jsonObject.keys)
         }
 
+    @Test
+    fun `ログインしていなければ配信先の上限を読めない`() =
+        testApplication {
+            applicationWith(passwordConfigured = true)
+
+            assertTrue(queryDeliveryTargetLimit().body().containsKey("errors"))
+        }
+
+    @Test
+    fun `配信先の上限はホストごとの配信先の数と一緒に返る`() =
+        testApplication {
+            val repositories = FakeRepositories()
+            applicationWith(passwordConfigured = true, repositories = repositories)
+            val token = assertNotNull(mutateLogin(PASSWORD).sessionCookieValue())
+            listOf("a", "b").forEachIndexed { index, name ->
+                repositories.followers.record(
+                    IncomingFollow(
+                        username = "feed1",
+                        follower = NewRemoteActor(
+                            actorUri = "https://spam.example/users/$name",
+                            inbox = "https://spam.example/users/$name/inbox",
+                            sharedInbox = null,
+                            publicKeyPem = "pem",
+                            profile = RemoteActorProfile(preferredUsername = null, displayName = null, profileUrl = null, iconUrl = null),
+                        ),
+                        followActivityUri = "https://spam.example/follows/$index",
+                        receivedAt = Instant.parse("2026-08-16T00:00:00Z"),
+                        acceptBody = """{"type":"Accept"}""",
+                    ),
+                )
+            }
+
+            val limit = queryDeliveryTargetLimit(token).admin()
+            assertEquals(20, limit.int("maxDeliveryTargetsPerHost"))
+            val hosts = limit.getValue("deliveryTargetHosts").jsonArray.map { it.jsonObject }
+            assertEquals(listOf("spam.example"), hosts.map { it.string("host") })
+            assertEquals(listOf(2), hosts.map { it.int("deliveryTargetCount") })
+        }
+
     private fun ApplicationTestBuilder.applicationWith(
         passwordConfigured: Boolean,
         cookieSecure: Boolean = true,
@@ -1472,6 +1511,12 @@ class AdminGraphQlTest {
             """{"accountId":${JsonPrimitive(accountId)},"feedItemIds":${
                 feedItemIds.joinToString(prefix = "[", postfix = "]") { JsonPrimitive(it).toString() }
             }}""",
+        )
+
+    private suspend fun ApplicationTestBuilder.queryDeliveryTargetLimit(token: String? = null): HttpResponse =
+        graphQl(
+            "query { admin { maxDeliveryTargetsPerHost deliveryTargetHosts(limit: 10) { host deliveryTargetCount } } }",
+            token = token,
         )
 
     private suspend fun ApplicationTestBuilder.graphQl(

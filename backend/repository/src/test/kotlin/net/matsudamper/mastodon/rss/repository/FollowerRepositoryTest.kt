@@ -294,6 +294,133 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `同じホストの配信先はパスの無い URL やホスト名の綴りが違っても数える`() {
+        withRepository { followers ->
+            followers.record(incomingFollow(actorUri = "https://spam.example/users/a"))
+            followers.record(
+                incomingFollow(actorUri = "https://SPAM.example?actor=b", followActivityUri = "https://remote.example/activities/2"),
+            )
+            followers.record(
+                incomingFollow(actorUri = "https://other.example/users/c", followActivityUri = "https://remote.example/activities/3"),
+            )
+
+            assertEquals(
+                setOf("https://spam.example/users/a/inbox", "https://SPAM.example?actor=b/inbox"),
+                followers.deliveryTargetsOfOthersOnSameHost(followerActorUri = "https://spam.example/users/new"),
+            )
+        }
+    }
+
+    @Test
+    fun `ホストごとの配信先の数はアカウントを問わず sharedInbox をまとめて多い順に返す`() {
+        withRepository { followers ->
+            followers.record(incomingFollow(actorUri = "https://spam.example/users/a"))
+            followers.record(
+                incomingFollow(actorUri = "https://SPAM.example/users/b", followActivityUri = "https://remote.example/activities/2"),
+            )
+            // 同じ相手が別のアカウントもフォローしていても 1 つに数える
+            followers.record(
+                incomingFollow(
+                    username = "feed1",
+                    actorUri = "https://spam.example/users/a",
+                    followActivityUri = "https://remote.example/activities/3",
+                ),
+            )
+            followers.record(
+                incomingFollow(
+                    actorUri = "https://mastodon.example/users/c",
+                    followActivityUri = "https://remote.example/activities/4",
+                    sharedInbox = "https://mastodon.example/inbox",
+                ),
+            )
+            followers.record(
+                incomingFollow(
+                    actorUri = "https://mastodon.example/users/d",
+                    followActivityUri = "https://remote.example/activities/5",
+                    sharedInbox = "https://mastodon.example/inbox",
+                ),
+            )
+            followers.record(
+                incomingFollow(actorUri = "https://alone.example/users/e", followActivityUri = "https://remote.example/activities/6"),
+            )
+
+            assertEquals(
+                listOf(
+                    HostDeliveryTargetCount(host = "spam.example", deliveryTargetCount = 2),
+                    HostDeliveryTargetCount(host = "alone.example", deliveryTargetCount = 1),
+                    HostDeliveryTargetCount(host = "mastodon.example", deliveryTargetCount = 1),
+                ),
+                followers.deliveryTargetCountsByHost(limit = 10),
+            )
+        }
+    }
+
+    @Test
+    fun `ホストごとの配信先の数は limit 件で切る`() {
+        withRepository { followers ->
+            followers.record(incomingFollow(actorUri = "https://a.example/users/a"))
+            followers.record(
+                incomingFollow(actorUri = "https://a.example/users/b", followActivityUri = "https://remote.example/activities/2"),
+            )
+            followers.record(
+                incomingFollow(actorUri = "https://b.example/users/c", followActivityUri = "https://remote.example/activities/3"),
+            )
+
+            assertEquals(
+                listOf(HostDeliveryTargetCount(host = "a.example", deliveryTargetCount = 2)),
+                followers.deliveryTargetCountsByHost(limit = 1),
+            )
+        }
+    }
+
+    @Test
+    fun `記録済みの相手の今の配る先を返し、記録が無ければ null`() {
+        withRepository { followers ->
+            followers.record(incomingFollow(sharedInbox = "https://remote.example/inbox"))
+
+            assertEquals("https://remote.example/inbox", followers.currentDeliveryTarget("https://remote.example/users/alice"))
+            assertNull(followers.currentDeliveryTarget("https://remote.example/users/nobody"))
+        }
+    }
+
+    @Test
+    fun `断るとフォローの記録と未送信の Accept が消えて Reject だけが残る`() {
+        withRepositories { repositories ->
+            repositories.followers.record(incomingFollow())
+
+            assertTrue(repositories.followers.reject(refusedFollow()))
+
+            assertFalse(repositories.followers.hasAny())
+            assertEquals(
+                listOf(DeliveryKind.REJECT_FOLLOW),
+                repositories.deliveryQueue.claim(now = now, limit = 50).map { it.kind },
+            )
+        }
+    }
+
+    @Test
+    fun `断った後に受け付けると未送信の Reject を取り下げる`() {
+        withRepositories { repositories ->
+            repositories.followers.reject(refusedFollow())
+
+            repositories.followers.record(incomingFollow())
+
+            assertEquals(
+                listOf(DeliveryKind.ACCEPT_FOLLOW),
+                repositories.deliveryQueue.claim(now = now, limit = 50).map { it.kind },
+            )
+        }
+    }
+
+    private fun refusedFollow(): RefusedFollow = RefusedFollow(
+        username = "admin",
+        followerActorUri = "https://remote.example/users/alice",
+        inbox = "https://remote.example/users/alice/inbox",
+        receivedAt = now,
+        rejectBody = """{"type":"Reject"}""",
+    )
+
+    @Test
     fun `URL 順に返り、cursor で続きから取れる`() {
         withRepositories { repositories ->
             val followers = repositories.followers

@@ -12,6 +12,7 @@ import net.matsudamper.mastodon.rss.logic.AccountService
 import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
 import net.matsudamper.mastodon.rss.logic.AdminLoginService
 import net.matsudamper.mastodon.rss.logic.DeliveryQueueService
+import net.matsudamper.mastodon.rss.logic.DeliveryTargetLimitService
 import net.matsudamper.mastodon.rss.logic.DomainBlockService
 import net.matsudamper.mastodon.rss.logic.FeedService
 import net.matsudamper.mastodon.rss.logic.NoteEnqueuer
@@ -44,6 +45,7 @@ class DiContainer(
     val feedService: FeedService,
     val linkPreviewService: LinkPreviewService,
     val domainBlockService: DomainBlockService,
+    val deliveryTargetLimitService: DeliveryTargetLimitService,
     val adminLoginThrottle: AdminLoginThrottle,
 ) {
     val adminLoginService: AdminLoginService = AdminLoginService(passwordHash)

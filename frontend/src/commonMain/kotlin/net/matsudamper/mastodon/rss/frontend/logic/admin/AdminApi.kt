@@ -20,6 +20,7 @@ import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteAccountMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteDomainBlockMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteFeedItemsMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeleteNoteMutation
+import net.matsudamper.mastodon.rss.frontend.graphql.AdminDeliveryTargetLimitQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminDomainBlocksQuery
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLoginMutation
 import net.matsudamper.mastodon.rss.frontend.graphql.AdminLogoutMutation
@@ -271,6 +272,26 @@ class AdminApi(
         } else {
             AdminDeleteDomainBlockResult.Success
         }
+    }
+
+    /**
+     * @param hostsLimit 返してもらうホストの数。上限はサーバー側で決まる
+     */
+    suspend fun deliveryTargetLimit(hostsLimit: Int): AdminDeliveryTargetLimitResult {
+        val response = client.query(AdminDeliveryTargetLimitQuery(hostsLimit = hostsLimit))
+            .fetchPolicy(FetchPolicy.NetworkOnly)
+            .execute()
+        if (response.exception != null || response.errors.orEmpty().isNotEmpty()) {
+            return AdminDeliveryTargetLimitResult.Failure(response.failureMessage())
+        }
+
+        val admin = response.data?.admin ?: return AdminDeliveryTargetLimitResult.Failure(response.failureMessage())
+        return AdminDeliveryTargetLimitResult.Success(
+            maxDeliveryTargetsPerHost = admin.maxDeliveryTargetsPerHost,
+            hosts = admin.deliveryTargetHosts.map {
+                AdminDeliveryTargetHost(host = it.host, deliveryTargetCount = it.deliveryTargetCount)
+            },
+        )
     }
 
     private fun AdminDomainBlockFields.toAdminDomainBlock(): AdminDomainBlock = AdminDomainBlock(

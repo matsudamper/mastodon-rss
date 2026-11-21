@@ -52,6 +52,7 @@ import net.matsudamper.mastodon.rss.logic.AccountIconFiles
 import net.matsudamper.mastodon.rss.logic.ActorEnqueuer
 import net.matsudamper.mastodon.rss.logic.ActorHeaderService
 import net.matsudamper.mastodon.rss.logic.ActorIconService
+import net.matsudamper.mastodon.rss.logic.DeliveryTargetLimitService
 import net.matsudamper.mastodon.rss.logic.DomainBlockService
 import net.matsudamper.mastodon.rss.logic.FeedHeaderService
 import net.matsudamper.mastodon.rss.logic.FeedHeaders
@@ -138,7 +139,15 @@ class AppDependencies(
     val webPageUrls: WebPageUrls? =
         webPageUrlsOverride ?: staticFiles?.takeIf { it.index() != null }?.let { DomainWebPageUrls(env.domain) }
 
-    val followerStore: FollowerStore = RepositoryFollowerStore(repositories.followers)
+    val deliveryTargetLimitService: DeliveryTargetLimitService = DeliveryTargetLimitService(
+        maxDeliveryTargetsPerHost = MAX_DELIVERY_TARGETS_PER_HOST,
+        followers = repositories.followers,
+    )
+
+    val followerStore: FollowerStore = RepositoryFollowerStore(
+        followers = repositories.followers,
+        maxDeliveryTargetsPerHost = { MAX_DELIVERY_TARGETS_PER_HOST },
+    )
 
     val noteStore: NoteStore = RepositoryNoteStore(repositories.notes)
 
@@ -440,6 +449,14 @@ class AppDependencies(
     }
 
     companion object {
+        /**
+         * 同じホストからのフォローで配る先の上限。
+         *
+         * Mastodon などの普通のサーバーは `sharedInbox` で 1 か所にまとまるので、
+         * 効いてくるのは `sharedInbox` を持たない実装だけ
+         */
+        private const val MAX_DELIVERY_TARGETS_PER_HOST: Int = 20
+
         /**
          * 本番の組み立て。
          *

@@ -1,5 +1,6 @@
 package net.matsudamper.mastodon.rss
 
+import java.net.URI
 import java.time.Instant
 import net.matsudamper.mastodon.rss.repository.Account
 import net.matsudamper.mastodon.rss.repository.AccountDeletion
@@ -32,6 +33,7 @@ import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.HostDeliveryTargetCount
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.LatestNoteAccount
 import net.matsudamper.mastodon.rss.repository.LatestNoteAccountPosition
@@ -54,6 +56,7 @@ import net.matsudamper.mastodon.rss.repository.NoteStampRepository.NewNoteStamp
 import net.matsudamper.mastodon.rss.repository.NoteStampRepository.StampCount
 import net.matsudamper.mastodon.rss.repository.QuoteAcceptPost
 import net.matsudamper.mastodon.rss.repository.RecordedNotePost
+import net.matsudamper.mastodon.rss.repository.RefusedFollow
 import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
@@ -335,6 +338,8 @@ class FakeFollowerRepository(
         // 消えたアカウント宛には記録しない。本物はアカウントの行を同じトランザクションで見る
         if (isDeletedAccount(follow.username)) return false
 
+        // 本物と同じく、相手のアクターは他のアカウントへのフォローの分まで読み直したもので置き換える
+        stored.replaceAll { if (it.follower.actorUri == follow.follower.actorUri) it.copy(follower = follow.follower) else it }
         if (stored.none { it.username == follow.username && it.follower.actorUri == follow.follower.actorUri }) {
             stored += follow
         }
@@ -342,6 +347,39 @@ class FakeFollowerRepository(
 
         return true
     }
+
+    val rejected = mutableListOf<RefusedFollow>()
+
+    override fun reject(follow: RefusedFollow): Boolean {
+        if (isDeletedAccount(follow.username)) return false
+
+        stored.removeAll { it.username == follow.username && it.follower.actorUri == follow.followerActorUri }
+        accepted.remove(follow.username to follow.followerActorUri)
+        rejected += follow
+        return true
+    }
+
+    override fun currentDeliveryTarget(followerActorUri: String): String? = stored
+        .firstOrNull { it.follower.actorUri == followerActorUri }
+        ?.follower
+        ?.let { it.sharedInbox ?: it.inbox }
+
+    override fun deliveryTargetsOfOthersOnSameHost(followerActorUri: String): Set<String> {
+        val host = URI(followerActorUri).host?.lowercase()
+        return stored
+            .filter { it.follower.actorUri != followerActorUri }
+            .filter { URI(it.follower.actorUri).host?.lowercase() == host }
+            .map { it.follower.sharedInbox ?: it.follower.inbox }
+            .toSet()
+    }
+
+    override fun deliveryTargetCountsByHost(limit: Int): List<HostDeliveryTargetCount> = stored
+        .groupBy(keySelector = { URI(it.follower.actorUri).host?.lowercase() ?: it.follower.actorUri }) {
+            it.follower.sharedInbox ?: it.follower.inbox
+        }
+        .map { (host, deliveryTargets) -> HostDeliveryTargetCount(host = host, deliveryTargetCount = deliveryTargets.toSet().size) }
+        .sortedWith(compareByDescending<HostDeliveryTargetCount> { it.deliveryTargetCount }.thenBy { it.host })
+        .take(limit.coerceAtLeast(0))
 
     /**
      * `Accept` が届いてフォローが成立した状況を作る。本物では配信キューがここを書く
