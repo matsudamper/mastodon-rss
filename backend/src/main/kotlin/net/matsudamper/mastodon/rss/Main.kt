@@ -198,9 +198,9 @@ fun Application.module(deps: AppDependencies) {
 
         // フォロワーのアイコン。画面から配信元を直に引くと、CORS を許していない
         // サーバーのぶんが出ない
-        remoteActorIconRoutes(deps.remoteActorIcons, deps.imageRelayPermits)
+        remoteActorIconRoutes(deps.remoteActorIcons)
 
-        linkPreviewImageRoutes(deps.linkPreviewImages, deps.imageRelayPermits)
+        linkPreviewImageRoutes(deps.linkPreviewImages)
 
         // 見つけた後、フォローなどのアクティビティはここに POST されてくる
         inboxRoutes(directory = deps.directory, service = deps.inboxService)
