@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.linkpreview
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import io.ktor.http.ContentType
+import io.ktor.utils.io.ByteWriteChannel
 import net.matsudamper.kotpub.entity.PublicNoteId
 import net.matsudamper.kotpub.note.NoteStore
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
@@ -25,15 +26,16 @@ class LinkPreviewImageService(
     /**
      * 投稿と、本文の何番目のリンクかと、画面が URL に付けている版で引く。
      * 投稿が無いか、リンクが無いか、画像を名乗っていないか、版が合わないか、
-     * 取ってこられなければ null。
+     * 取ってこられなければ [respond] を呼ばずに null。
      *
      * @param version [LinkPreviewImageUrls.version] の値
      */
-    suspend fun find(
+    suspend fun <T> relay(
         notePublicId: String,
         linkIndex: Int,
         version: String,
-    ): LinkPreviewImage? {
+        respond: suspend (LinkPreviewImage) -> T,
+    ): T? {
         // 記録にある投稿のリンクのものしか返さない。こうしておかないと、任意の URL の中身を
         // こちらのドメインから配る口になる
         val note = notes.find(PublicNoteId(notePublicId)) ?: return null
@@ -44,15 +46,7 @@ class LinkPreviewImageService(
         // 呼ぶだけで前段のキャッシュを外し、そのたびに取得元へ取りに行かせられる
         if (version != LinkPreviewImageUrls.version(sourceUrl)) return null
 
-        return when (val fetched = fetcher.fetch(sourceUrl, maxFreshFor = MAX_FRESH_FOR)) {
-            is RemoteImageFetchService.FetchResult.Success -> LinkPreviewImage(
-                bytes = fetched.bytes,
-                contentType = fetched.imageType.contentType,
-                freshFor = fetched.freshFor,
-            )
-
-            RemoteImageFetchService.FetchResult.Failure -> null
-        }
+        return fetcher.relay(sourceUrl, maxFreshFor = MAX_FRESH_FOR) { image -> respond(LinkPreviewImage(image)) }
     }
 
     private companion object {
@@ -65,12 +59,16 @@ class LinkPreviewImageService(
 }
 
 /**
- * 中継する画像 1 つ。
- *
- * @param freshFor 取得元が言う、取り直さなくてよい時間。言っていなければ null
+ * 中継する画像 1 つ。本文は相手から読みながら流す。
  */
 class LinkPreviewImage(
-    val bytes: ByteArray,
-    val contentType: ContentType,
-    val freshFor: Duration?,
-)
+    private val image: RemoteImageFetchService.RelayedImage,
+) {
+    val contentType: ContentType get() = image.imageType.contentType
+    val freshFor: Duration? get() = image.freshFor
+    val contentLength: Long? get() = image.contentLength
+
+    suspend fun copyTo(output: ByteWriteChannel) {
+        image.copyTo(output)
+    }
+}

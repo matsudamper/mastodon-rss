@@ -3,8 +3,11 @@ package net.matsudamper.mastodon.rss.image
 import java.net.InetAddress
 import java.net.UnknownHostException
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
@@ -13,12 +16,15 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.readByteArray
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import io.ktor.utils.io.ByteChannel
+import io.ktor.utils.io.readRemaining
 import net.matsudamper.mastodon.rss.TestImageBytes
 
 // 画像の取得元は配信元が書いた URL で、こちらでは選べない。
@@ -260,6 +266,38 @@ class RemoteImageFetchServiceTest {
             val result = serviceOf(engine).fetch("https://example.com/icon.png")
 
             assertEquals(Duration.ZERO, assertIs<RemoteImageFetchService.FetchResult.Success>(result).freshFor)
+        }
+
+    @Test
+    fun `中継では本文をそのまま流す`() =
+        runTest {
+            val relayed = serviceOf(pngEngine()).relay("https://example.com/icon.png") { image ->
+                val output = ByteChannel()
+                image.copyTo(output)
+                output.close()
+                image.imageType to output.readRemaining().readByteArray()
+            }
+
+            val (imageType, bytes) = assertNotNull(relayed)
+            assertEquals(RemoteImageType.PNG, imageType)
+            assertContentEquals(TestImageBytes.PNG, bytes)
+        }
+
+    @Test
+    fun `中継でも名乗った種類と中身が違う応答は流さない`() =
+        runTest {
+            val engine = MockEngine {
+                respond(
+                    content = "<html>".toByteArray(),
+                    headers = headersOf("Content-Type", ContentType.Image.PNG.toString()),
+                )
+            }
+            var relayCalled = false
+
+            val relayed = serviceOf(engine).relay("https://example.com/icon.png") { relayCalled = true }
+
+            assertNull(relayed)
+            assertFalse(relayCalled)
         }
 
     private fun pngEngine(): MockEngine = MockEngine {

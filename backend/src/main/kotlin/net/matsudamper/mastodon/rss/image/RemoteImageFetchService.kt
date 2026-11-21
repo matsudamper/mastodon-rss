@@ -1,6 +1,7 @@
 package net.matsudamper.mastodon.rss.image
 
 import java.io.Closeable
+import java.io.IOException
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
@@ -24,13 +25,19 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.request
 import io.ktor.http.HttpHeaders
+import io.ktor.http.contentLength
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.readAvailable
 import io.ktor.utils.io.readRemaining
+import io.ktor.utils.io.writeFully
 import net.matsudamper.mastodon.rss.feed.HttpUrl
 import okhttp3.Dns
 import org.slf4j.LoggerFactory
@@ -103,22 +110,99 @@ class RemoteImageFetchService(
         }
     }
 
-    private suspend fun HttpResponse.toResult(maxFreshFor: Duration): FetchResult {
-        val channel = bodyAsChannel()
-        if (!status.isSuccess()) {
-            channel.cancel(null)
-            return FetchResult.Failure
+    /**
+     * [fetch] と同じ確かめ方で取り、本文は丸ごと読まずに [relay] へ渡す。
+     * 取れなければ [relay] を呼ばずに null。
+     *
+     * 本文は [relay] の中でだけ読める。[relay] が投げたものはそのまま投げる。
+     * 応答を書き始めた後なので、取れなかったことにはできない
+     */
+    suspend fun <T> relay(
+        url: String,
+        maxFreshFor: Duration = DEFAULT_MAX_FRESH_FOR,
+        relay: suspend (RelayedImage) -> T,
+    ): T? {
+        var target = HttpUrl.sanitize(url) ?: return null
+        var relayed: Result<T>? = null
+
+        runCatching {
+            repeat(MAX_HOPS) {
+                if (isInternalTarget(target)) return null
+
+                val redirected = client.prepareGet(target) {
+                    header(HttpHeaders.UserAgent, USER_AGENT)
+                    header(HttpHeaders.AcceptEncoding, IDENTITY_ENCODING)
+                }.execute { response ->
+                    val redirected = response.redirectLocation()
+                    if (redirected == null) {
+                        val image = response.toRelayedImage(maxFreshFor)
+                        if (image != null) relayed = runCatching { relay(image) }
+                    }
+                    redirected
+                } ?: return@runCatching
+
+                target = HttpUrl.sanitize(redirected, target) ?: return null
+            }
+        }.onFailure { error ->
+            if (error is CancellationException) throw error
         }
+
+        return relayed?.getOrThrow()
+    }
+
+    private suspend fun HttpResponse.toRelayedImage(maxFreshFor: Duration): RelayedImage? {
+        val channel = bodyAsChannel()
+        val imageType = acceptedImageType() ?: return null
+
+        val contentLength = contentLength()
+        if (contentLength != null && contentLength > MAX_BYTES) {
+            logger.warn("画像が大きすぎる: host={}, 上限={} バイト", request.url.host, MAX_BYTES)
+            return null
+        }
+
+        val head = channel.readHead(SIGNATURE_BYTES)
+        if (!imageType.matches(head)) {
+            logger.warn("名乗った種類と中身が違う: host={}, 名乗り={}", request.url.host, imageType.contentType)
+            return null
+        }
+
+        return RelayedImage(
+            imageType = imageType,
+            freshFor = cacheControlMaxAge(maxFreshFor),
+            contentLength = contentLength,
+            head = head,
+            rest = channel,
+        )
+    }
+
+    private suspend fun ByteReadChannel.readHead(size: Int): ByteArray {
+        val head = ByteArray(size)
+        var filled = 0
+        while (filled < size) {
+            val read = readAvailable(head, filled, size - filled)
+            if (read < 0) break
+            filled += read
+        }
+        return head.copyOf(filled)
+    }
+
+    /**
+     * 応答の見出しから、受ける画像の種類を決める。受けないものなら null
+     */
+    private fun HttpResponse.acceptedImageType(): RemoteImageType? {
+        if (!status.isSuccess()) return null
 
         // 頼んでいないのに圧縮して返してくる配信元は受けない。中身をそのまま置くので、
         // 圧縮されていると画像として読めないものを配ることになる
         val encoding = headers[HttpHeaders.ContentEncoding]?.trim()?.lowercase()
-        if (encoding != null && encoding != IDENTITY_ENCODING) {
-            channel.cancel(null)
-            return FetchResult.Failure
-        }
+        if (encoding != null && encoding != IDENTITY_ENCODING) return null
 
-        val imageType = contentType()?.let { RemoteImageType.of(it) }
+        return contentType()?.let { RemoteImageType.of(it) }
+    }
+
+    private suspend fun HttpResponse.toResult(maxFreshFor: Duration): FetchResult {
+        val channel = bodyAsChannel()
+        val imageType = acceptedImageType()
         if (imageType == null) {
             channel.cancel(null)
             return FetchResult.Failure
@@ -224,6 +308,37 @@ class RemoteImageFetchService(
         client.close()
     }
 
+    /**
+     * 中継する画像。本文は相手から読みながら流す
+     *
+     * @param freshFor 配信元が言う、取り直さなくてよい時間。言っていなければ null
+     * @param contentLength 相手が名乗った大きさ。名乗っていなければ null
+     */
+    class RelayedImage(
+        val imageType: RemoteImageType,
+        val freshFor: Duration?,
+        val contentLength: Long?,
+        private val head: ByteArray,
+        private val rest: ByteReadChannel,
+    ) {
+        /**
+         * 上限を超えたら [IOException] で打ち切る。応答を書き始めた後なので、接続を切るしかない
+         */
+        suspend fun copyTo(output: ByteWriteChannel) {
+            output.writeFully(head)
+            var total = head.size.toLong()
+            val buffer = ByteArray(COPY_BUFFER_BYTES)
+            while (true) {
+                val read = rest.readAvailable(buffer, 0, buffer.size)
+                if (read < 0) break
+                total += read
+                if (total > MAX_BYTES) throw IOException("画像が上限 $MAX_BYTES バイトを超えた")
+                output.writeFully(buffer, startIndex = 0, endIndex = read)
+            }
+            output.flush()
+        }
+    }
+
     sealed interface FetchResult {
         /**
          * @param freshFor 配信元が言う、取り直さなくてよい時間。言っていなければ null
@@ -240,14 +355,14 @@ class RemoteImageFetchService(
     companion object {
         private const val USER_AGENT = "mastodon-rss/0.1"
         private const val IDENTITY_ENCODING = "identity"
+        private const val MAX_BYTES = 50 * 1024 * 1024
+        private const val MAX_HOPS = 4
 
         /**
-         * 無認証の中継からも呼ばれ、取得した画像は返し終えるまでメモリに丸ごと載る。
-         * 並列に叩かれたときの上限を抑えるため、アイコンや OGP 画像として現実的な大きさに留める
+         * [RemoteImageType.matches] が見る先頭のバイト数
          */
-        private const val MAX_BYTES = 10 * 1024 * 1024
-
-        private const val MAX_HOPS = 4
+        private const val SIGNATURE_BYTES = 12
+        private const val COPY_BUFFER_BYTES = 64 * 1024
         private val REDIRECT_STATUS_RANGE = 300..399
         private val MAX_AGE = Regex("max-age\\s*=\\s*(\\d+)")
 
