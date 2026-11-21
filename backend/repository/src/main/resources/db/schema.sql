@@ -82,6 +82,17 @@ CREATE TABLE early_undone_likes (
     PRIMARY KEY (actor_uri, activity_uri)
 );
 
+CREATE TABLE feed_icons (
+    -- フィードに 1 つ。フィードを消すと一緒に消える
+    feed_id INTEGER PRIMARY KEY REFERENCES feeds (id) ON DELETE CASCADE,
+    source_url TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    -- 中身の置き場を指す文字列。中身そのものを入れると、DB のファイルが画像のぶんだけ膨らむ
+    path TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+
 CREATE TABLE feed_headers (
     -- フィードに 1 つ。フィードを消すと一緒に消える
     feed_id INTEGER PRIMARY KEY REFERENCES feeds (id) ON DELETE CASCADE,
@@ -89,17 +100,6 @@ CREATE TABLE feed_headers (
     content_type TEXT NOT NULL,
     -- 中身から決まる版。同じ source_url のまま中身が変わったことが分かる
     revision TEXT NOT NULL,
-    -- 中身の置き場を指す文字列。中身そのものを入れると、DB のファイルが画像のぶんだけ膨らむ
-    path TEXT NOT NULL,
-    fetched_at TEXT NOT NULL,
-    expires_at TEXT NOT NULL
-);
-
-CREATE TABLE feed_icons (
-    -- フィードに 1 つ。フィードを消すと一緒に消える
-    feed_id INTEGER PRIMARY KEY REFERENCES feeds (id) ON DELETE CASCADE,
-    source_url TEXT NOT NULL,
-    content_type TEXT NOT NULL,
     -- 中身の置き場を指す文字列。中身そのものを入れると、DB のファイルが画像のぶんだけ膨らむ
     path TEXT NOT NULL,
     fetched_at TEXT NOT NULL,
@@ -171,6 +171,22 @@ CREATE TABLE health_check (
     checked_at TEXT NOT NULL
 );
 
+CREATE TABLE notes (
+    -- こちらから配信した投稿。相手がパーマリンクを引きに来るので、送ったものは残す
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- 投稿したこちらのアカウントの名前。followers と同じ理由で外部キーにしない
+    username TEXT COLLATE NOCASE NOT NULL,
+    -- URL のパスに入る識別子。AUTOINCREMENT の id をそのまま出すと
+    -- 投稿の総数が外から分かってしまう。UUID v7 は先頭 48 bit に生成時刻を
+    -- 埋める。published_at も ActivityPub で公開するので順序の新規露出はない。
+    -- INSERT 時の INDEX 局所性のため v7 を使う
+    public_id TEXT NOT NULL UNIQUE,
+    -- 配信した本文の HTML。サニタイズ済みのものを入れる
+    content_html TEXT NOT NULL,
+    -- 相手に見せる公開日時。並び順もこれで決まる
+    published_at TEXT NOT NULL
+);
+
 CREATE TABLE note_boosts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_public_id TEXT NOT NULL REFERENCES notes (public_id) ON DELETE CASCADE,
@@ -206,22 +222,6 @@ CREATE TABLE note_stamps (
     UNIQUE (note_public_id, remote_actor_id)
 );
 
-CREATE TABLE notes (
-    -- こちらから配信した投稿。相手がパーマリンクを引きに来るので、送ったものは残す
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- 投稿したこちらのアカウントの名前。followers と同じ理由で外部キーにしない
-    username TEXT COLLATE NOCASE NOT NULL,
-    -- URL のパスに入る識別子。AUTOINCREMENT の id をそのまま出すと
-    -- 投稿の総数が外から分かってしまう。UUID v7 は先頭 48 bit に生成時刻を
-    -- 埋める。published_at も ActivityPub で公開するので順序の新規露出はない。
-    -- INSERT 時の INDEX 局所性のため v7 を使う
-    public_id TEXT NOT NULL UNIQUE,
-    -- 配信した本文の HTML。サニタイズ済みのものを入れる
-    content_html TEXT NOT NULL,
-    -- 相手に見せる公開日時。並び順もこれで決まる
-    published_at TEXT NOT NULL
-);
-
 CREATE TABLE remote_actors (
     -- 相手のサーバーのアクター。フォロワーの inbox と公開鍵の置き場
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -251,17 +251,19 @@ CREATE TABLE remote_actors (
 
 CREATE INDEX delivery_queue_note_public_id ON delivery_queue (note_public_id);
 
-CREATE INDEX delivery_queue_state_next_attempt_at_id ON delivery_queue (state, next_attempt_at, id);
-
 CREATE INDEX delivery_queue_target_actor_uri ON delivery_queue (target_actor_uri);
 
-CREATE INDEX delivery_queue_username_state_next_attempt_at_id ON delivery_queue (username, state, next_attempt_at, id);
+CREATE INDEX delivery_queue_state_next_attempt_at_id ON delivery_queue (state, next_attempt_at, id);
 
-CREATE INDEX early_undone_likes_expires_at ON early_undone_likes (expires_at);
+CREATE INDEX delivery_queue_username_state_next_attempt_at_id ON delivery_queue (username, state, next_attempt_at, id);
 
 CREATE INDEX feed_items_feed_id_state_published_at_id ON feed_items (feed_id, state, published_at, id);
 
 CREATE INDEX feed_items_note_id ON feed_items (note_id);
+
+CREATE INDEX notes_published_at_public_id ON notes (published_at, public_id);
+
+CREATE INDEX notes_username_published_at ON notes (username, published_at);
 
 CREATE INDEX note_boosts_remote_actor_id ON note_boosts (remote_actor_id);
 
@@ -269,6 +271,4 @@ CREATE INDEX note_favourites_remote_actor_id ON note_favourites (remote_actor_id
 
 CREATE INDEX note_stamps_remote_actor_id ON note_stamps (remote_actor_id);
 
-CREATE INDEX notes_published_at_public_id ON notes (published_at, public_id);
-
-CREATE INDEX notes_username_published_at ON notes (username, published_at);
+CREATE INDEX early_undone_likes_expires_at ON early_undone_likes (expires_at);
