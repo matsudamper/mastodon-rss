@@ -116,7 +116,7 @@ internal class SqliteFollowerRepository(
      * ホストは SQL で切り出さずに URI として読んで比べる。文字列の前方一致だと、
      * パスの無い URL やユーザー情報付きの URL で同じホストの相手を数え漏らす
      */
-    override fun deliveryTargetsOfSameHost(
+    override fun deliveryTargetsOfOthersOnSameHost(
         username: String,
         followerActorUri: String,
     ): Set<String> = jooq.withConnection { dsl ->
@@ -128,6 +128,7 @@ internal class SqliteFollowerRepository(
             .join(REMOTE_ACTORS)
             .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
             .where(FOLLOWERS.USERNAME.eq(username))
+            .and(REMOTE_ACTORS.ACTOR_URI.ne(followerActorUri))
             .fetch()
             .filter { InboxHost.of(it.value1()) == host }
             .map { it.value2() }

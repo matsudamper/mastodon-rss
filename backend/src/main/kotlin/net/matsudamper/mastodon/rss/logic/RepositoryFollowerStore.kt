@@ -34,19 +34,18 @@ class RepositoryFollowerStore(
         )
 
     /**
-     * 同じホストのアクターからのフォローで配る先が上限に達していて、この `Follow` で
-     * 配る先が増えるなら断る。
+     * この `Follow` を受け付けると同じホストからのフォローの配る先が上限を超えるなら断る。
      *
      * `sharedInbox` を持たず inbox を 1 人ずつ分けた偽アクターを並べると、投稿 1 件ごとの
      * 配信がその人数分に増える。鍵付きのアクターはいくらでも作れるので、件数で止める。
      * アクター文書を置くホストは相手が用意する必要があるので、ホストごとに数える。
      *
-     * 配る先が既にあるものなら断らない。`Accept` が届かず送り直された `Follow` まで断ると、
-     * 上限に達した後にフォローが消える。
+     * 受け付けると相手の配る先は置き換わるので、置き換えた後の数で比べる。記録済みの相手が
+     * 自分だけの inbox を移しただけなら数は増えない。ここで断ると、[reject] で記録済みの
+     * フォローまで消える。
      *
-     * 受け付けると、相手の inbox は他のアカウントへのフォローの分まで置き換わる。
-     * 記録済みの相手が送り直しで inbox を分けると、そちらで上限を越えるので、
-     * 相手がフォローしている全アカウントで確かめる。
+     * inbox の置き換えは他のアカウントへのフォローにも効くので、相手がフォローしている
+     * 全アカウントで確かめる。
      *
      * 受信を止めたドメインからの `Follow` は inbox で捨てているので、ここでは見ない。
      */
@@ -58,11 +57,11 @@ class RepositoryFollowerStore(
         val affectedUsernames = followers.followeeUsernames(follower.actorId) + username
 
         return affectedUsernames.any { affectedUsername ->
-            val deliveryTargets = followers.deliveryTargetsOfSameHost(
+            val othersDeliveryTargets = followers.deliveryTargetsOfOthersOnSameHost(
                 username = affectedUsername,
                 followerActorUri = follower.actorId,
             )
-            deliveryTarget !in deliveryTargets && deliveryTargets.size >= MAX_DELIVERY_TARGETS_PER_ACTOR_HOST
+            (othersDeliveryTargets + deliveryTarget).size > MAX_DELIVERY_TARGETS_PER_ACTOR_HOST
         }
     }
 

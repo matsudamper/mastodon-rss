@@ -39,7 +39,8 @@ class RepositoryFollowerStoreTest {
     @Test
     fun `sharedInbox で記録した相手が inbox を分けて送り直すと上限で断る`() {
         val limit = RepositoryFollowerStore.MAX_DELIVERY_TARGETS_PER_ACTOR_HOST
-        repeat(limit) { index ->
+        // 最後の 1 人が sharedInbox に残るので、sharedInbox の 1 か所は数え続ける
+        repeat(limit + 1) { index ->
             record(USERNAME, spamActor("$index").copy(sharedInbox = "https://spam.example/inbox"))
         }
         // sharedInbox の 1 か所と合わせて上限に達するまでは受け付ける
@@ -49,6 +50,13 @@ class RepositoryFollowerStoreTest {
         }
 
         assertTrue(store.refuses(USERNAME, spamActor("${limit - 1}")))
+    }
+
+    @Test
+    fun `上限に達していても自分だけの inbox を移す送り直しは断らない`() {
+        recordSpamFollowersUpToLimit(USERNAME)
+
+        assertFalse(store.refuses(USERNAME, spamActor("0").copy(inbox = "https://spam.example/users/0/moved-inbox")))
     }
 
     @Test

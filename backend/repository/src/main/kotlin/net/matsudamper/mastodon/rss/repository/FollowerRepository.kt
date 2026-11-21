@@ -62,14 +62,15 @@ interface FollowerRepository {
     fun followeeUsernames(followerActorUri: String): List<String>
 
     /**
-     * [followerActorUri] と同じホストのアクターからのフォローで、配る先の inbox。
-     * [followerActorUri] 自身も含む。
+     * [followerActorUri] と同じホストの、他のアクターからのフォローで配る先の inbox。
+     * [followerActorUri] 自身の分は含めない。受け付けると置き換わるので、置き換えた後の
+     * 配る先の数はここに新しい配る先を足したものになる。
      *
      * `sharedInbox` を持つ相手は 1 か所にまとまるので、同じインスタンスの利用者が
      * 何人フォローしても増えない。`Accept` を返す前のものも含める。`Follow` を
      * 一度に大量に送られると、返し終える前に上限を素通りする。
      */
-    fun deliveryTargetsOfSameHost(
+    fun deliveryTargetsOfOthersOnSameHost(
         username: String,
         followerActorUri: String,
     ): Set<String>

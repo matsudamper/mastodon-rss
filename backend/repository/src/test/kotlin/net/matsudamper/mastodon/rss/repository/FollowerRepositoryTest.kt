@@ -306,7 +306,7 @@ class FollowerRepositoryTest {
 
             assertEquals(
                 setOf("https://spam.example/users/a/inbox", "https://SPAM.example?actor=b/inbox"),
-                followers.deliveryTargetsOfSameHost(username = "admin", followerActorUri = "https://spam.example/users/new"),
+                followers.deliveryTargetsOfOthersOnSameHost(username = "admin", followerActorUri = "https://spam.example/users/new"),
             )
         }
     }
