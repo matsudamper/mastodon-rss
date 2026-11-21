@@ -8,7 +8,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.response.header
-import io.ktor.server.response.respondBytes
+import io.ktor.server.response.respondBytesWriter
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -33,18 +33,19 @@ internal fun Route.remoteActorIconRoutes(icons: RemoteActorIconService) {
             return@get
         }
 
-        val icon = icons.find(actorUri = actorUri, version = version)
-        if (icon == null) {
+        val relayed = icons.relay(actorUri = actorUri, version = version) { icon ->
+            call.response.header(HttpHeaders.CacheControl, icon.cacheControl())
+            call.response.header(CONTENT_TYPE_OPTIONS_HEADER, CONTENT_TYPE_OPTIONS)
+            call.respondBytesWriter(contentType = icon.contentType, contentLength = icon.contentLength) {
+                icon.copyTo(this)
+            }
+        }
+        if (relayed == null) {
             // 配信元が落ちているだけのこともあるので、短い間だけ持たせる。
             // 持たせないと、出ない相手のぶんだけ開くたびに取りに行くことになる
             call.response.header(HttpHeaders.CacheControl, "public, max-age=${NOT_FOUND_MAX_AGE.inWholeSeconds}")
             call.respondText("アイコンが無い: $actorUri", status = HttpStatusCode.NotFound)
-            return@get
         }
-
-        call.response.header(HttpHeaders.CacheControl, icon.cacheControl())
-        call.response.header(CONTENT_TYPE_OPTIONS_HEADER, CONTENT_TYPE_OPTIONS)
-        call.respondBytes(bytes = icon.bytes, contentType = icon.contentType)
     }
 }
 

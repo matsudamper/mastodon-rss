@@ -2,6 +2,7 @@ package net.matsudamper.mastodon.rss.remoteactor
 
 import kotlin.time.Duration
 import io.ktor.http.ContentType
+import io.ktor.utils.io.ByteWriteChannel
 import net.matsudamper.mastodon.rss.image.RemoteImageFetchService
 import net.matsudamper.mastodon.rss.logic.ActorIconVersion
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
@@ -24,15 +25,16 @@ class RemoteActorIconService(
     /**
      * アクター文書の URL と、画面が URL に付けている版で引く。
      * フォロワーとして記録が無いか、アイコンを名乗っていないか、版が合わないか、
-     * 取ってこられなければ null。
+     * 取ってこられなければ [respond] を呼ばずに null。
      *
      * @param version [ActorIconVersion.of] の値。相手がいま名乗っている
      *   取得元から決まる値と一致するものだけを受ける
      */
-    suspend fun find(
+    suspend fun <T> relay(
         actorUri: String,
         version: String,
-    ): RemoteActorIcon? {
+        respond: suspend (RemoteActorIcon) -> T,
+    ): T? {
         // 記録にある相手のものしか返さない。こうしておかないと、任意の URL の中身を
         // こちらのドメインから配る口になる
         val sourceUrl = followers.findIconUrl(actorUri) ?: return null
@@ -42,25 +44,21 @@ class RemoteActorIconService(
         // 合う版は 1 つしか無いので、前段に載る URL も 1 つに絞れる
         if (version != ActorIconVersion.of(sourceUrl)) return null
 
-        return when (val fetched = fetcher.fetch(sourceUrl)) {
-            is RemoteImageFetchService.FetchResult.Success -> RemoteActorIcon(
-                bytes = fetched.bytes,
-                contentType = fetched.imageType.contentType,
-                freshFor = fetched.freshFor,
-            )
-
-            RemoteImageFetchService.FetchResult.Failure -> null
-        }
+        return fetcher.relay(sourceUrl) { image -> respond(RemoteActorIcon(image)) }
     }
 }
 
 /**
- * 中継するアイコン 1 つ。
- *
- * @param freshFor 配信元が言う、取り直さなくてよい時間。言っていなければ null
+ * 中継するアイコン 1 つ。本文は相手から読みながら流す。
  */
 class RemoteActorIcon(
-    val bytes: ByteArray,
-    val contentType: ContentType,
-    val freshFor: Duration?,
-)
+    private val image: RemoteImageFetchService.RelayedImage,
+) {
+    val contentType: ContentType get() = image.imageType.contentType
+    val freshFor: Duration? get() = image.freshFor
+    val contentLength: Long? get() = image.contentLength
+
+    suspend fun copyTo(output: ByteWriteChannel) {
+        image.copyTo(output)
+    }
+}

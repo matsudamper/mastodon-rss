@@ -7,7 +7,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.response.header
-import io.ktor.server.response.respondBytes
+import io.ktor.server.response.respondBytesWriter
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -37,18 +37,19 @@ internal fun Route.linkPreviewImageRoutes(images: LinkPreviewImageService) {
             return@get
         }
 
-        val image = images.find(notePublicId = notePublicId, linkIndex = linkIndex, version = version)
-        if (image == null) {
+        val relayed = images.relay(notePublicId = notePublicId, linkIndex = linkIndex, version = version) { image ->
+            call.response.header(HttpHeaders.CacheControl, image.cacheControl())
+            call.response.header(CONTENT_TYPE_OPTIONS_HEADER, CONTENT_TYPE_OPTIONS)
+            call.respondBytesWriter(contentType = image.contentType, contentLength = image.contentLength) {
+                image.copyTo(this)
+            }
+        }
+        if (relayed == null) {
             // 取得元が落ちているだけのこともあるので、短い間だけ持たせる。
             // 持たせないと、出ない画像のぶんだけ開くたびに取りに行くことになる
             call.response.header(HttpHeaders.CacheControl, "public, max-age=${NOT_FOUND_MAX_AGE.inWholeSeconds}")
             call.respondText("画像が無い", status = HttpStatusCode.NotFound)
-            return@get
         }
-
-        call.response.header(HttpHeaders.CacheControl, image.cacheControl())
-        call.response.header(CONTENT_TYPE_OPTIONS_HEADER, CONTENT_TYPE_OPTIONS)
-        call.respondBytes(bytes = image.bytes, contentType = image.contentType)
     }
 }
 
