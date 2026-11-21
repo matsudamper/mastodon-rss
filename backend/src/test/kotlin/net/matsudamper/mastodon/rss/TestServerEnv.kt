@@ -3,7 +3,7 @@ package net.matsudamper.mastodon.rss
 /**
  * テストで使う `ServerEnv`。
  *
- * `DOMAIN` と `TRUST_CF_CONNECTING_IP` が無いと作れないので、テストからは常にこれを通す。
+ * 必須の環境変数が無いと作れないので、テストからは常にこれを通す。
  * 変えたい変数だけ [of] に渡す。
  */
 object TestServerEnv {
@@ -14,10 +14,17 @@ object TestServerEnv {
      */
     const val USERNAME: String = "admin"
 
-    /**
-     * 既定値の無い変数
-     */
-    val REQUIRED: Map<String, String> = mapOf("DOMAIN" to DOMAIN, "TRUST_CF_CONNECTING_IP" to "false")
+    val REQUIRED: Map<String, String> =
+        mapOf(
+            "HOST" to "0.0.0.0",
+            "PORT" to "8080",
+            "DOMAIN" to DOMAIN,
+            "DB_PATH" to "./data/mastodon-rss.db",
+            "ICON_CACHE_DIR" to "./data/image-cache",
+            "ACTOR_PRIVATE_KEY_PATH" to "./data/actor-private-key.pem",
+            "ADMIN_COOKIE_SECURE" to "true",
+            "TRUST_CF_CONNECTING_IP" to "false",
+        )
 
     val value: ServerEnv = of()
 

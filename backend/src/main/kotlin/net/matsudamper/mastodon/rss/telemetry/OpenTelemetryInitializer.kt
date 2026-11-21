@@ -8,7 +8,12 @@ import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
 object OpenTelemetryInitializer {
 
     fun start(env: Map<String, String> = System.getenv()): Handler? {
-        if (env["ENABLE_OTEL"]?.toBooleanStrictOrNull() != true) return null
+        val rawEnableOtel = env["ENABLE_OTEL"]?.trim()
+        require(!rawEnableOtel.isNullOrEmpty()) { "ENABLE_OTEL が未設定。true か false を指定すること" }
+        val enableOtel =
+            rawEnableOtel.lowercase().toBooleanStrictOrNull()
+                ?: throw IllegalArgumentException("ENABLE_OTEL は true か false にすること: $rawEnableOtel")
+        if (!enableOtel) return null
 
         val builder =
             AutoConfiguredOpenTelemetrySdk.builder()

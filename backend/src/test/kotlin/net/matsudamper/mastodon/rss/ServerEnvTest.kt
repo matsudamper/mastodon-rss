@@ -12,29 +12,20 @@ import net.matsudamper.kotpub.actor.ActorPrivateKeySource
 import net.matsudamper.mastodon.rss.crypto.PasswordHash
 
 // 環境変数の読み取りを確認する。読むのはここ 1 か所だけなので、
-// 変数と既定値の一覧としてもこのテストを見れば分かるようにしておく。
+// 変数の一覧としてもこのテストを見れば分かるようにしておく。
 class ServerEnvTest {
-    private fun env(vararg values: Pair<String, String>): ServerEnv =
-        ServerEnv(TestServerEnv.REQUIRED + values.toMap())
+    private fun env(vararg values: Pair<String, String>): ServerEnv = TestServerEnv.of(*values)
+
+    private fun envWithout(name: String): ServerEnv = ServerEnv(TestServerEnv.REQUIRED - name)
 
     @Test
-    fun `必須の変数以外は未設定なら既定値になる`() {
-        val env = env()
-
-        assertEquals("0.0.0.0", env.host)
-        assertEquals(8080, env.port)
-        assertEquals(Path.of("./data/mastodon-rss.db"), env.dbPath)
-        assertEquals(ActorPrivateKeySource.File(Path.of("./data/actor-private-key.pem")), env.actorPrivateKey)
-        assertNull(env.staticSrcDir)
-    }
-
-    @Test
-    fun `環境変数で上書きできる`() {
+    fun `環境変数の値を使う`() {
         val env =
             env(
                 "HOST" to "127.0.0.1",
                 "PORT" to "9000",
                 "DB_PATH" to "/data/rss.db",
+                "ICON_CACHE_DIR" to "/data/icons",
                 "ACTOR_PRIVATE_KEY_PATH" to "/data/actor.pem",
                 "STATIC_SRC_DIR" to "/srv/static",
             )
@@ -42,34 +33,33 @@ class ServerEnvTest {
         assertEquals("127.0.0.1", env.host)
         assertEquals(9000, env.port)
         assertEquals(Path.of("/data/rss.db"), env.dbPath)
+        assertEquals(Path.of("/data/icons"), env.iconCacheDir)
         assertEquals(ActorPrivateKeySource.File(Path.of("/data/actor.pem")), env.actorPrivateKey)
         assertEquals(Path.of("/srv/static"), env.staticSrcDir)
     }
 
     @Test
-    fun `数値でない PORT は既定値に落ちる`() {
-        assertEquals(8080, env("PORT" to "ポート").port)
+    fun `必須の変数が無ければ落ちる`() {
+        listOf("HOST", "PORT", "DB_PATH", "ICON_CACHE_DIR", "ADMIN_COOKIE_SECURE").forEach { name ->
+            assertFailsWith<IllegalArgumentException>(name) { envWithout(name) }
+            assertFailsWith<IllegalArgumentException>(name) { env(name to "  ") }
+        }
     }
 
     @Test
-    fun `空文字と空白だけの指定は未設定として扱う`() {
-        val env =
-            env(
-                "HOST" to "",
-                "PORT" to "",
-                "DB_PATH" to " ",
-                "STATIC_SRC_DIR" to "  ",
-            )
+    fun `数値でない PORT は落ちる`() {
+        assertFailsWith<IllegalArgumentException> { env("PORT" to "ポート") }
+    }
 
-        assertEquals("0.0.0.0", env.host)
-        assertEquals(8080, env.port)
-        assertEquals(Path.of("./data/mastodon-rss.db"), env.dbPath)
-        assertNull(env.staticSrcDir)
+    @Test
+    fun `STATIC_SRC_DIR は未設定でも起動する`() {
+        assertNull(env().staticSrcDir)
+        assertNull(env("STATIC_SRC_DIR" to "  ").staticSrcDir)
     }
 
     @Test
     fun `DOMAIN の scheme と末尾のスラッシュを落とす`() {
-        fun domain(raw: String): String = ServerEnv(TestServerEnv.REQUIRED + ("DOMAIN" to raw)).domain
+        fun domain(raw: String): String = env("DOMAIN" to raw).domain
 
         assertEquals("example.com", domain("https://example.com"))
         assertEquals("example.com", domain("http://example.com/"))
@@ -80,9 +70,9 @@ class ServerEnvTest {
     // Mastodon 側にキャッシュされて後から直せない
     @Test
     fun `DOMAIN が未設定なら落ちる`() {
-        assertFailsWith<IllegalArgumentException> { ServerEnv(TestServerEnv.REQUIRED - "DOMAIN") }
-        assertFailsWith<IllegalArgumentException> { ServerEnv(TestServerEnv.REQUIRED + ("DOMAIN" to "   ")) }
-        assertFailsWith<IllegalArgumentException> { ServerEnv(TestServerEnv.REQUIRED + ("DOMAIN" to "https://")) }
+        assertFailsWith<IllegalArgumentException> { envWithout("DOMAIN") }
+        assertFailsWith<IllegalArgumentException> { env("DOMAIN" to "   ") }
+        assertFailsWith<IllegalArgumentException> { env("DOMAIN" to "https://") }
     }
 
     @Test
@@ -94,16 +84,15 @@ class ServerEnvTest {
 
     @Test
     fun `鍵の PEM を直接指定できる`() {
-        val env = env("ACTOR_PRIVATE_KEY_PEM" to "-----BEGIN PRIVATE KEY-----")
+        val env = ServerEnv(TestServerEnv.REQUIRED - "ACTOR_PRIVATE_KEY_PATH" + ("ACTOR_PRIVATE_KEY_PEM" to "-----BEGIN PRIVATE KEY-----"))
 
         assertEquals(ActorPrivateKeySource.Pem("-----BEGIN PRIVATE KEY-----"), env.actorPrivateKey)
     }
 
     @Test
-    fun `鍵の指定が空白だけなら未設定として扱う`() {
-        val env = env("ACTOR_PRIVATE_KEY_PEM" to "   ", "ACTOR_PRIVATE_KEY_PATH" to "")
-
-        assertEquals(ActorPrivateKeySource.File(Path.of("./data/actor-private-key.pem")), env.actorPrivateKey)
+    fun `鍵の PEM もパスも無ければ落ちる`() {
+        assertFailsWith<IllegalArgumentException> { envWithout("ACTOR_PRIVATE_KEY_PATH") }
+        assertFailsWith<IllegalArgumentException> { env("ACTOR_PRIVATE_KEY_PEM" to "   ", "ACTOR_PRIVATE_KEY_PATH" to "") }
     }
 
     // 片方を黙って無視すると、意図していない鍵で起動したことに気付けない
@@ -138,9 +127,7 @@ class ServerEnvTest {
     }
 
     @Test
-    fun `Cookie の Secure は既定で付ける`() {
-        assertTrue(env().adminCookieSecure)
-        assertTrue(env("ADMIN_COOKIE_SECURE" to " ").adminCookieSecure)
+    fun `Cookie の Secure を付けられる`() {
         assertTrue(env("ADMIN_COOKIE_SECURE" to "TRUE").adminCookieSecure)
     }
 
