@@ -17,6 +17,7 @@ import net.matsudamper.mastodon.rss.repository.NoteFavouriteRepository
 import net.matsudamper.mastodon.rss.repository.NoteRepository
 import net.matsudamper.mastodon.rss.repository.NoteStampRepository
 import net.matsudamper.mastodon.rss.repository.Repositories
+import net.matsudamper.mastodon.rss.repository.ServerSettingRepository
 import net.matsudamper.mastodon.rss.repository.jooq.Tables.HEALTH_CHECK
 
 internal class SqliteRepositories(
@@ -53,6 +54,8 @@ internal class SqliteRepositories(
     override val feedHeaders: FeedHeaderRepository = SqliteFeedHeaderRepository(jooq)
 
     override val domainBlocks: DomainBlockRepository = SqliteDomainBlockRepository(jooq)
+
+    override val serverSettings: ServerSettingRepository = SqliteServerSettingRepository(jooq)
 
     override fun verifyWritable() {
         val writtenAt = Instant.now().toString()

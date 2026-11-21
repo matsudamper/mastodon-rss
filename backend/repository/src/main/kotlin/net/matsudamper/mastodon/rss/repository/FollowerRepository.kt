@@ -69,6 +69,15 @@ interface FollowerRepository {
     fun deliveryTargetsOfOthersOnSameHost(followerActorUri: String): Set<String>
 
     /**
+     * 相手のホストごとの、フォローで配る先の数。多い順に [limit] 件。数が同じならホストの順。
+     *
+     * 数え方は [deliveryTargetsOfOthersOnSameHost] と揃える。ホストはアクターの URI から決め、
+     * こちらのどのアカウントへのフォローかは問わず、`Accept` を返す前のものも含める。
+     * 揃えないと、画面で上限に届いていないように見えるホストからの `Follow` が断られる。
+     */
+    fun deliveryTargetCountsByHost(limit: Int): List<HostDeliveryTargetCount>
+
+    /**
      * フォローを消す。`Undo{Follow}` で呼ぶ。
      *
      * @param followActivityUri 消す対象を元の `Follow` の id で絞る。`Undo` の `object` に
@@ -198,6 +207,16 @@ interface FollowerRepository {
      */
     fun hasAny(): Boolean
 }
+
+/**
+ * 相手のホスト 1 つと、そこからのフォローで配る先の数。
+ *
+ * @param host 小文字に揃えたホスト名。読めない URI は URI 全体
+ */
+data class HostDeliveryTargetCount(
+    val host: String,
+    val deliveryTargetCount: Int,
+)
 
 /**
  * 受け取った `Follow` を記録するのに要るもの。

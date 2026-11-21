@@ -3,6 +3,7 @@ package net.matsudamper.mastodon.rss.repository.sqlite
 import java.time.Instant
 import java.util.TreeMap
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.HostDeliveryTargetCount
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.RefusedFollow
 import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
@@ -119,6 +120,22 @@ internal class SqliteFollowerRepository(
             .filter { InboxHost.of(it.value1()) == host }
             .map { it.value2() }
             .toSet()
+    }
+
+    override fun deliveryTargetCountsByHost(limit: Int): List<HostDeliveryTargetCount> = jooq.withConnection { dsl ->
+        val deliveryTarget = DSL.coalesce(REMOTE_ACTORS.SHARED_INBOX, REMOTE_ACTORS.INBOX)
+        dsl
+            .selectDistinct(REMOTE_ACTORS.ACTOR_URI, deliveryTarget)
+            .from(FOLLOWERS)
+            .join(REMOTE_ACTORS)
+            .on(REMOTE_ACTORS.ID.eq(FOLLOWERS.REMOTE_ACTOR_ID))
+            .fetch()
+            .groupBy(keySelector = { InboxHost.of(it.value1()) }, valueTransform = { it.value2() })
+            .map { (host, deliveryTargets) ->
+                HostDeliveryTargetCount(host = host, deliveryTargetCount = deliveryTargets.toSet().size)
+            }
+            .sortedWith(compareByDescending<HostDeliveryTargetCount> { it.deliveryTargetCount }.thenBy { it.host })
+            .take(limit.coerceAtLeast(0))
     }
 
     private fun isDeletedAccount(

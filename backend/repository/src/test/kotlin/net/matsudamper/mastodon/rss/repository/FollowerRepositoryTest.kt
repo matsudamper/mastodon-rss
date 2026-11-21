@@ -312,6 +312,68 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `ホストごとの配信先の数はアカウントを問わず sharedInbox をまとめて多い順に返す`() {
+        withRepository { followers ->
+            followers.record(incomingFollow(actorUri = "https://spam.example/users/a"))
+            followers.record(
+                incomingFollow(actorUri = "https://SPAM.example/users/b", followActivityUri = "https://remote.example/activities/2"),
+            )
+            // 同じ相手が別のアカウントもフォローしていても 1 つに数える
+            followers.record(
+                incomingFollow(
+                    username = "feed1",
+                    actorUri = "https://spam.example/users/a",
+                    followActivityUri = "https://remote.example/activities/3",
+                ),
+            )
+            followers.record(
+                incomingFollow(
+                    actorUri = "https://mastodon.example/users/c",
+                    followActivityUri = "https://remote.example/activities/4",
+                    sharedInbox = "https://mastodon.example/inbox",
+                ),
+            )
+            followers.record(
+                incomingFollow(
+                    actorUri = "https://mastodon.example/users/d",
+                    followActivityUri = "https://remote.example/activities/5",
+                    sharedInbox = "https://mastodon.example/inbox",
+                ),
+            )
+            followers.record(
+                incomingFollow(actorUri = "https://alone.example/users/e", followActivityUri = "https://remote.example/activities/6"),
+            )
+
+            assertEquals(
+                listOf(
+                    HostDeliveryTargetCount(host = "spam.example", deliveryTargetCount = 2),
+                    HostDeliveryTargetCount(host = "alone.example", deliveryTargetCount = 1),
+                    HostDeliveryTargetCount(host = "mastodon.example", deliveryTargetCount = 1),
+                ),
+                followers.deliveryTargetCountsByHost(limit = 10),
+            )
+        }
+    }
+
+    @Test
+    fun `ホストごとの配信先の数は limit 件で切る`() {
+        withRepository { followers ->
+            followers.record(incomingFollow(actorUri = "https://a.example/users/a"))
+            followers.record(
+                incomingFollow(actorUri = "https://a.example/users/b", followActivityUri = "https://remote.example/activities/2"),
+            )
+            followers.record(
+                incomingFollow(actorUri = "https://b.example/users/c", followActivityUri = "https://remote.example/activities/3"),
+            )
+
+            assertEquals(
+                listOf(HostDeliveryTargetCount(host = "a.example", deliveryTargetCount = 2)),
+                followers.deliveryTargetCountsByHost(limit = 1),
+            )
+        }
+    }
+
+    @Test
     fun `断るとフォローの記録と未送信の Accept が消えて Reject だけが残る`() {
         withRepositories { repositories ->
             repositories.followers.record(incomingFollow())

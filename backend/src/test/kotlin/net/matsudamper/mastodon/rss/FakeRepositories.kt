@@ -33,6 +33,7 @@ import net.matsudamper.mastodon.rss.repository.FeedItemRepository
 import net.matsudamper.mastodon.rss.repository.FeedItemState
 import net.matsudamper.mastodon.rss.repository.FeedRepository
 import net.matsudamper.mastodon.rss.repository.FollowerRepository
+import net.matsudamper.mastodon.rss.repository.HostDeliveryTargetCount
 import net.matsudamper.mastodon.rss.repository.IncomingFollow
 import net.matsudamper.mastodon.rss.repository.LatestNoteAccount
 import net.matsudamper.mastodon.rss.repository.LatestNoteAccountPosition
@@ -59,6 +60,7 @@ import net.matsudamper.mastodon.rss.repository.RefusedFollow
 import net.matsudamper.mastodon.rss.repository.RemoteActorProfile
 import net.matsudamper.mastodon.rss.repository.Repositories
 import net.matsudamper.mastodon.rss.repository.RetryingDelivery
+import net.matsudamper.mastodon.rss.repository.ServerSettingRepository
 import net.matsudamper.mastodon.rss.repository.StoredFollower
 import net.matsudamper.mastodon.rss.repository.entity.DeliveryId
 import net.matsudamper.mastodon.rss.repository.entity.FeedId
@@ -162,6 +164,8 @@ class FakeRepositories : Repositories {
     )
 
     override val domainBlocks: FakeDomainBlockRepository = FakeDomainBlockRepository()
+
+    override val serverSettings: FakeServerSettingRepository = FakeServerSettingRepository()
 
     override fun verifyWritable() {
         verifyWritableCallCount++
@@ -366,6 +370,14 @@ class FakeFollowerRepository(
             .map { it.follower.sharedInbox ?: it.follower.inbox }
             .toSet()
     }
+
+    override fun deliveryTargetCountsByHost(limit: Int): List<HostDeliveryTargetCount> = stored
+        .groupBy(keySelector = { URI(it.follower.actorUri).host?.lowercase() ?: it.follower.actorUri }) {
+            it.follower.sharedInbox ?: it.follower.inbox
+        }
+        .map { (host, deliveryTargets) -> HostDeliveryTargetCount(host = host, deliveryTargetCount = deliveryTargets.toSet().size) }
+        .sortedWith(compareByDescending<HostDeliveryTargetCount> { it.deliveryTargetCount }.thenBy { it.host })
+        .take(limit.coerceAtLeast(0))
 
     /**
      * `Accept` が届いてフォローが成立した状況を作る。本物では配信キューがここを書く
@@ -1477,4 +1489,14 @@ class FakeDomainBlockRepository : DomainBlockRepository {
     }
 
     override fun delete(domain: String): Boolean = stored.remove(domain) != null
+}
+
+class FakeServerSettingRepository : ServerSettingRepository {
+    private var maxDeliveryTargetsPerHost: Int? = null
+
+    override fun maxDeliveryTargetsPerHost(): Int? = maxDeliveryTargetsPerHost
+
+    override fun saveMaxDeliveryTargetsPerHost(value: Int) {
+        maxDeliveryTargetsPerHost = value
+    }
 }
