@@ -59,6 +59,16 @@ class RepositoryFollowerStoreTest {
     }
 
     @Test
+    fun `上限を下げて超えていても記録済みの相手の配る先が増えない送り直しは断らない`() {
+        repeat(LIMIT + 2) { index ->
+            record(USERNAME, spamActor("$index"))
+        }
+
+        assertFalse(store.refuses(USERNAME, spamActor("0")))
+        assertTrue(store.refuses(USERNAME, spamActor("new")))
+    }
+
+    @Test
     fun `別のアカウントへのフォローも合わせて数える`() {
         recordSpamFollowersUpToLimit(OTHER_USERNAME)
 

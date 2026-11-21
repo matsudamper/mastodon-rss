@@ -374,6 +374,16 @@ class FollowerRepositoryTest {
     }
 
     @Test
+    fun `記録済みの相手の今の配る先を返し、記録が無ければ null`() {
+        withRepository { followers ->
+            followers.record(incomingFollow(sharedInbox = "https://remote.example/inbox"))
+
+            assertEquals("https://remote.example/inbox", followers.currentDeliveryTarget("https://remote.example/users/alice"))
+            assertNull(followers.currentDeliveryTarget("https://remote.example/users/nobody"))
+        }
+    }
+
+    @Test
     fun `断るとフォローの記録と未送信の Accept が消えて Reject だけが残る`() {
         withRepositories { repositories ->
             repositories.followers.record(incomingFollow())

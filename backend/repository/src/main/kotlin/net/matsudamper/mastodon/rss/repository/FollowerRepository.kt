@@ -69,6 +69,12 @@ interface FollowerRepository {
     fun deliveryTargetsOfOthersOnSameHost(followerActorUri: String): Set<String>
 
     /**
+     * [followerActorUri] からのフォローで今配っている先。`sharedInbox` があればそちら。
+     * どのアカウントへのフォローも記録が無ければ null
+     */
+    fun currentDeliveryTarget(followerActorUri: String): String?
+
+    /**
      * 相手のホストごとの、フォローで配る先の数。多い順に [limit] 件。数が同じならホストの順。
      *
      * 数え方は [deliveryTargetsOfOthersOnSameHost] と揃える。ホストはアクターの URI から決め、

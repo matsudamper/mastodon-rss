@@ -362,6 +362,11 @@ class FakeFollowerRepository(
         return true
     }
 
+    override fun currentDeliveryTarget(followerActorUri: String): String? = stored
+        .firstOrNull { it.follower.actorUri == followerActorUri }
+        ?.follower
+        ?.let { it.sharedInbox ?: it.inbox }
+
     override fun deliveryTargetsOfOthersOnSameHost(followerActorUri: String): Set<String> {
         val host = URI(followerActorUri).host?.lowercase()
         return stored
